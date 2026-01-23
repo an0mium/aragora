@@ -235,7 +235,7 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
 
             # Sync RankingAdapter state
             try:
-                from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+                from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter  # noqa: F401
 
                 ranking_adapter = getattr(manager, "_ranking_adapter", None)
                 if ranking_adapter is not None:
@@ -249,7 +249,7 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
 
             # Sync RlmAdapter state
             try:
-                from aragora.knowledge.mound.adapters.rlm_adapter import RlmAdapter
+                from aragora.knowledge.mound.adapters.rlm_adapter import RlmAdapter  # noqa: F401
 
                 rlm_adapter = getattr(manager, "_rlm_adapter", None)
                 if rlm_adapter is not None:

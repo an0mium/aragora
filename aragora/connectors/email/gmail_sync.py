@@ -501,8 +501,7 @@ class GmailSyncService:
                     self._on_batch_complete(synced_messages)
 
                 logger.info(
-                    f"[GmailSync] Initial sync complete: "
-                    f"{len(synced_messages)} messages synced"
+                    f"[GmailSync] Initial sync complete: " f"{len(synced_messages)} messages synced"
                 )
 
                 self._status = SyncStatus.WATCHING if self._watch_task else SyncStatus.IDLE
@@ -681,7 +680,7 @@ class GmailSyncService:
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"https://gmail.googleapis.com/gmail/v1/users/me/watch",
+                    "https://gmail.googleapis.com/gmail/v1/users/me/watch",
                     headers={"Authorization": f"Bearer {token}"},
                     json={
                         "topicName": topic,
@@ -723,7 +722,7 @@ class GmailSyncService:
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"https://gmail.googleapis.com/gmail/v1/users/me/stop",
+                    "https://gmail.googleapis.com/gmail/v1/users/me/stop",
                     headers={"Authorization": f"Bearer {token}"},
                     timeout=30,
                 )
@@ -837,14 +836,18 @@ class GmailSyncService:
             "status": self._status.value,
             "email_address": self._state.email_address if self._state else None,
             "history_id": self._state.history_id if self._state else None,
-            "last_sync": self._state.last_sync.isoformat() if self._state and self._state.last_sync else None,
+            "last_sync": self._state.last_sync.isoformat()
+            if self._state and self._state.last_sync
+            else None,
             "initial_sync_complete": self._state.initial_sync_complete if self._state else False,
             "watch_active": bool(self._state and self._state.watch_resource_id),
             "watch_expiration": self._state.watch_expiration.isoformat()
             if self._state and self._state.watch_expiration
             else None,
             "total_messages_synced": self._state.total_messages_synced if self._state else 0,
-            "total_messages_prioritized": self._state.total_messages_prioritized if self._state else 0,
+            "total_messages_prioritized": self._state.total_messages_prioritized
+            if self._state
+            else 0,
             "sync_errors": self._state.sync_errors if self._state else 0,
             "last_error": self._state.last_error if self._state else None,
         }

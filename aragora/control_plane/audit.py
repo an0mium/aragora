@@ -69,6 +69,14 @@ class AuditAction(Enum):
     POLICY_EVALUATED = "policy.evaluated"
     POLICY_VIOLATION = "policy.violation"
     POLICY_UPDATED = "policy.updated"
+    POLICY_DECISION_ALLOW = "policy.decision_allow"
+    POLICY_DECISION_DENY = "policy.decision_deny"
+    POLICY_DECISION_WARN = "policy.decision_warn"
+
+    # Deliberation SLA actions
+    DELIBERATION_SLA_WARNING = "deliberation.sla_warning"
+    DELIBERATION_SLA_CRITICAL = "deliberation.sla_critical"
+    DELIBERATION_SLA_VIOLATED = "deliberation.sla_violated"
 
     # Authentication actions
     AUTH_LOGIN = "auth.login"
@@ -341,11 +349,31 @@ class AuditLog:
             )
 
         except ImportError:
+            try:
+                from aragora.storage.production_guards import require_distributed_store, StorageMode
+            except ImportError:
+                pass
+            else:
+                require_distributed_store(
+                    "control_plane_audit_log",
+                    StorageMode.MEMORY,
+                    "Redis not available for audit log",
+                )
             logger.warning(
                 "Redis not available, using in-memory audit log (not suitable for production)"
             )
             self._redis = None
         except Exception as e:
+            try:
+                from aragora.storage.production_guards import require_distributed_store, StorageMode
+            except ImportError:
+                pass
+            else:
+                require_distributed_store(
+                    "control_plane_audit_log",
+                    StorageMode.MEMORY,
+                    f"Failed to connect to Redis for audit log: {e}",
+                )
             logger.error(f"Failed to connect to Redis for audit log: {e}")
             self._redis = None
 
@@ -892,6 +920,213 @@ def create_user_actor(
 
 
 # =============================================================================
+# Convenience Logging Functions
+# =============================================================================
+
+# Global audit log instance for convenience functions
+_audit_log: Optional[AuditLog] = None
+
+
+def get_audit_log() -> Optional[AuditLog]:
+    """Get the global audit log instance."""
+    return _audit_log
+
+
+def set_audit_log(audit_log: AuditLog) -> None:
+    """Set the global audit log instance."""
+    global _audit_log
+    _audit_log = audit_log
+
+
+async def log_policy_decision(
+    policy_id: str,
+    decision: str,  # "allow", "deny", "warn"
+    task_type: str,
+    reason: str,
+    workspace_id: Optional[str] = None,
+    task_id: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    violations: Optional[List[str]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> Optional[AuditEntry]:
+    """
+    Log a policy decision to the audit trail.
+
+    Args:
+        policy_id: ID of the policy that made the decision
+        decision: Decision outcome ("allow", "deny", "warn")
+        task_type: Type of task being evaluated
+        reason: Human-readable reason for the decision
+        workspace_id: Optional workspace context
+        task_id: Optional task ID being evaluated
+        agent_id: Optional agent involved
+        violations: List of policy violations if any
+        metadata: Additional metadata
+
+    Returns:
+        AuditEntry if logged, None if audit log not configured
+    """
+    if not _audit_log:
+        logger.debug("Audit log not configured, skipping policy decision log")
+        return None
+
+    action_map = {
+        "allow": AuditAction.POLICY_DECISION_ALLOW,
+        "deny": AuditAction.POLICY_DECISION_DENY,
+        "warn": AuditAction.POLICY_DECISION_WARN,
+    }
+    action = action_map.get(decision.lower(), AuditAction.POLICY_EVALUATED)
+
+    details = {
+        "task_type": task_type,
+        "reason": reason,
+        "violations": violations or [],
+        **(metadata or {}),
+    }
+
+    if agent_id:
+        details["agent_id"] = agent_id
+
+    return await _audit_log.log(
+        action=action,
+        actor=create_system_actor(),
+        resource_type="policy",
+        resource_id=policy_id,
+        workspace_id=workspace_id,
+        details=details,
+        outcome="success" if decision.lower() in ("allow", "warn") else "failure",
+    )
+
+
+async def log_deliberation_event(
+    task_id: str,
+    event_type: str,
+    details: Dict[str, Any],
+    workspace_id: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    outcome: str = "success",
+    error_message: Optional[str] = None,
+) -> Optional[AuditEntry]:
+    """
+    Log a deliberation event to the audit trail.
+
+    Args:
+        task_id: Deliberation task ID
+        event_type: Type of deliberation event
+        details: Event details
+        workspace_id: Optional workspace context
+        agent_id: Optional agent involved
+        outcome: Event outcome ("success", "failure", "partial")
+        error_message: Error message if failed
+
+    Returns:
+        AuditEntry if logged, None if audit log not configured
+    """
+    if not _audit_log:
+        logger.debug("Audit log not configured, skipping deliberation event log")
+        return None
+
+    # Map event types to AuditAction
+    event_action_map = {
+        "started": AuditAction.DELIBERATION_STARTED,
+        "round_completed": AuditAction.DELIBERATION_ROUND_COMPLETED,
+        "consensus": AuditAction.DELIBERATION_CONSENSUS,
+        "failed": AuditAction.DELIBERATION_FAILED,
+        "timeout": AuditAction.DELIBERATION_TIMEOUT,
+        "sla_warning": AuditAction.DELIBERATION_SLA_WARNING,
+        "sla_critical": AuditAction.DELIBERATION_SLA_CRITICAL,
+        "sla_violated": AuditAction.DELIBERATION_SLA_VIOLATED,
+    }
+
+    action = event_action_map.get(event_type, AuditAction.DELIBERATION_STARTED)
+
+    if agent_id:
+        actor = create_agent_actor(agent_id)
+    else:
+        actor = create_system_actor()
+
+    return await _audit_log.log(
+        action=action,
+        actor=actor,
+        resource_type="deliberation",
+        resource_id=task_id,
+        workspace_id=workspace_id,
+        details=details,
+        outcome=outcome,
+        error_message=error_message,
+    )
+
+
+async def log_deliberation_started(
+    task_id: str,
+    question: str,
+    agents: List[str],
+    sla_timeout_seconds: float,
+    workspace_id: Optional[str] = None,
+) -> Optional[AuditEntry]:
+    """Log deliberation start event."""
+    return await log_deliberation_event(
+        task_id=task_id,
+        event_type="started",
+        details={
+            "question_preview": question[:200] if question else "",
+            "agents": agents,
+            "sla_timeout_seconds": sla_timeout_seconds,
+        },
+        workspace_id=workspace_id,
+    )
+
+
+async def log_deliberation_completed(
+    task_id: str,
+    success: bool,
+    consensus_reached: bool,
+    confidence: float,
+    duration_seconds: float,
+    sla_compliant: bool,
+    workspace_id: Optional[str] = None,
+    winner: Optional[str] = None,
+) -> Optional[AuditEntry]:
+    """Log deliberation completion event."""
+    return await log_deliberation_event(
+        task_id=task_id,
+        event_type="consensus" if consensus_reached else "failed",
+        details={
+            "success": success,
+            "consensus_reached": consensus_reached,
+            "confidence": confidence,
+            "duration_seconds": duration_seconds,
+            "sla_compliant": sla_compliant,
+            "winner": winner,
+        },
+        workspace_id=workspace_id,
+        outcome="success" if success else "failure",
+    )
+
+
+async def log_deliberation_sla_event(
+    task_id: str,
+    level: str,  # "warning", "critical", "violated"
+    elapsed_seconds: float,
+    timeout_seconds: float,
+    workspace_id: Optional[str] = None,
+) -> Optional[AuditEntry]:
+    """Log deliberation SLA event."""
+    return await log_deliberation_event(
+        task_id=task_id,
+        event_type=f"sla_{level}",
+        details={
+            "elapsed_seconds": elapsed_seconds,
+            "timeout_seconds": timeout_seconds,
+            "remaining_seconds": timeout_seconds - elapsed_seconds,
+            "pct_used": (elapsed_seconds / timeout_seconds * 100) if timeout_seconds > 0 else 100,
+        },
+        workspace_id=workspace_id,
+        outcome="partial" if level in ("warning", "critical") else "failure",
+    )
+
+
+# =============================================================================
 # Exports
 # =============================================================================
 
@@ -909,4 +1144,13 @@ __all__ = [
     "create_system_actor",
     "create_agent_actor",
     "create_user_actor",
+    # Global audit log
+    "get_audit_log",
+    "set_audit_log",
+    # Convenience functions
+    "log_policy_decision",
+    "log_deliberation_event",
+    "log_deliberation_started",
+    "log_deliberation_completed",
+    "log_deliberation_sla_event",
 ]

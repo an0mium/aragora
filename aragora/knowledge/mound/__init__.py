@@ -245,13 +245,16 @@ def get_knowledge_mound(
 
     if _knowledge_mound_instance is None:
         import logging
+
         logger = logging.getLogger(__name__)
 
         # Use provided config, global config, or default
         if config is None:
             config = _knowledge_mound_config or MoundConfig(backend=MoundBackend.SQLITE)
 
-        logger.info(f"[knowledge_mound] Creating singleton instance (workspace={workspace_id}, backend={config.backend.value})")
+        logger.info(
+            f"[knowledge_mound] Creating singleton instance (workspace={workspace_id}, backend={config.backend.value})"
+        )
         _knowledge_mound_instance = KnowledgeMound(
             config=config,
             workspace_id=workspace_id,
@@ -259,6 +262,7 @@ def get_knowledge_mound(
 
         if auto_initialize:
             import asyncio
+
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
@@ -375,4 +379,18 @@ __all__ = [
     "RestoreResult",
     "get_km_checkpoint_store",
     "reset_km_checkpoint_store",
+    # Persistence resilience
+    "CacheInvalidationBus",
+    "CacheInvalidationEvent",
+    "ConnectionHealthMonitor",
+    "IntegrityCheckResult",
+    "IntegrityVerifier",
+    "ResilientPostgresStore",
+    "RetryConfig",
+    "RetryStrategy",
+    "TransactionConfig",
+    "TransactionIsolation",
+    "TransactionManager",
+    "get_invalidation_bus",
+    "with_retry",
 ]

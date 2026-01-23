@@ -89,7 +89,7 @@ def _init_metrics() -> bool:
         return False
 
     try:
-        from prometheus_client import Counter, Gauge, Histogram, Summary
+        from prometheus_client import Counter, Gauge, Histogram
 
         # Compression metrics
         RLM_COMPRESSIONS = Counter(

@@ -35,6 +35,15 @@ export type ControlPlaneEventType =
   | 'health_update'
   | 'metrics_update'
   | 'scheduler_stats'
+  // Deliberation events
+  | 'deliberation_started'
+  | 'deliberation_progress'
+  | 'deliberation_round'
+  | 'deliberation_vote'
+  | 'deliberation_consensus'
+  | 'deliberation_completed'
+  | 'deliberation_failed'
+  | 'deliberation_sla_warning'
   | 'error';
 
 // Agent state matching backend schema
@@ -104,6 +113,26 @@ export interface SchedulerStats {
   agents_busy: number;
 }
 
+// Deliberation state for tracking active debates
+export interface DeliberationState {
+  id: string;
+  question: string;
+  status: 'started' | 'in_progress' | 'consensus' | 'completed' | 'failed';
+  agents: string[];
+  current_round: number;
+  total_rounds: number;
+  progress_pct: number;
+  consensus_reached?: boolean;
+  confidence?: number;
+  winner?: string;
+  sla_warning?: boolean;
+  sla_level?: 'warning' | 'critical' | 'violated';
+  started_at?: number;
+  completed_at?: number;
+  duration_seconds?: number;
+  votes?: Record<string, string>;
+}
+
 // Event payload from the backend WebSocket
 export interface ControlPlaneEvent {
   type: ControlPlaneEventType;
@@ -136,6 +165,16 @@ export interface UseControlPlaneWebSocketOptions {
   onHealthUpdate?: (health: SystemHealth) => void;
   /** Callback when scheduler stats update */
   onSchedulerStats?: (stats: SchedulerStats) => void;
+  /** Callback when deliberation starts */
+  onDeliberationStarted?: (taskId: string, data: Record<string, unknown>) => void;
+  /** Callback when deliberation progresses */
+  onDeliberationProgress?: (taskId: string, data: Record<string, unknown>) => void;
+  /** Callback when deliberation reaches consensus */
+  onDeliberationConsensus?: (taskId: string, reached: boolean, confidence: number) => void;
+  /** Callback when deliberation completes */
+  onDeliberationCompleted?: (taskId: string, success: boolean, data: Record<string, unknown>) => void;
+  /** Callback when deliberation SLA warning */
+  onDeliberationSlaWarning?: (taskId: string, level: string, data: Record<string, unknown>) => void;
   /** Callback for any event */
   onEvent?: (event: ControlPlaneEvent) => void;
 }
@@ -157,6 +196,8 @@ export interface UseControlPlaneWebSocketReturn {
   health: SystemHealth | null;
   /** Current scheduler stats */
   schedulerStats: SchedulerStats | null;
+  /** Active deliberations (by ID) */
+  deliberations: Map<string, DeliberationState>;
   /** Recent events (last 100) */
   recentEvents: ControlPlaneEvent[];
   /** Manually reconnect */
@@ -210,15 +251,21 @@ export function useControlPlaneWebSocket({
   onTaskFailed,
   onHealthUpdate,
   onSchedulerStats,
+  onDeliberationStarted,
+  onDeliberationProgress,
+  onDeliberationConsensus,
+  onDeliberationCompleted,
+  onDeliberationSlaWarning,
   onEvent,
 }: UseControlPlaneWebSocketOptions = {}): UseControlPlaneWebSocketReturn {
   const { config: backendConfig } = useBackend();
 
-  // State for agents, tasks, health, and events
+  // State for agents, tasks, health, deliberations, and events
   const [agents, setAgents] = useState<Map<string, AgentState>>(new Map());
   const [tasks, setTasks] = useState<Map<string, TaskState>>(new Map());
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [schedulerStats, setSchedulerStats] = useState<SchedulerStats | null>(null);
+  const [deliberations, setDeliberations] = useState<Map<string, DeliberationState>>(new Map());
   const [recentEvents, setRecentEvents] = useState<ControlPlaneEvent[]>([]);
 
   // Build WebSocket URL - use custom URL, backend config, or default
@@ -400,6 +447,139 @@ export function useControlPlaneWebSocket({
           break;
         }
 
+        // Deliberation events
+        case 'deliberation_started': {
+          const taskId = data.task_id as string;
+          const newDelib: DeliberationState = {
+            id: taskId,
+            question: (data.question_preview as string) || '',
+            status: 'started',
+            agents: (data.agents as string[]) || [],
+            current_round: 0,
+            total_rounds: (data.total_rounds as number) || 0,
+            progress_pct: 0,
+            started_at: event.timestamp,
+          };
+          setDeliberations((prev) => new Map(prev).set(taskId, newDelib));
+          onDeliberationStarted?.(taskId, data);
+          break;
+        }
+
+        case 'deliberation_round': {
+          const taskId = data.task_id as string;
+          setDeliberations((prev) => {
+            const existing = prev.get(taskId);
+            if (existing) {
+              return new Map(prev).set(taskId, {
+                ...existing,
+                status: 'in_progress',
+                current_round: (data.round as number) || existing.current_round,
+                total_rounds: (data.total_rounds as number) || existing.total_rounds,
+                progress_pct: (data.progress_pct as number) || 0,
+              });
+            }
+            return prev;
+          });
+          onDeliberationProgress?.(taskId, data);
+          break;
+        }
+
+        case 'deliberation_progress': {
+          const taskId = data.task_id as string;
+          onDeliberationProgress?.(taskId, data);
+          break;
+        }
+
+        case 'deliberation_consensus': {
+          const taskId = data.task_id as string;
+          const reached = data.reached as boolean;
+          const confidence = (data.confidence as number) || 0;
+          setDeliberations((prev) => {
+            const existing = prev.get(taskId);
+            if (existing) {
+              return new Map(prev).set(taskId, {
+                ...existing,
+                status: reached ? 'consensus' : 'in_progress',
+                consensus_reached: reached,
+                confidence,
+              });
+            }
+            return prev;
+          });
+          onDeliberationConsensus?.(taskId, reached, confidence);
+          break;
+        }
+
+        case 'deliberation_completed': {
+          const taskId = data.task_id as string;
+          setDeliberations((prev) => {
+            const existing = prev.get(taskId);
+            if (existing) {
+              return new Map(prev).set(taskId, {
+                ...existing,
+                status: (data.success as boolean) ? 'completed' : 'failed',
+                consensus_reached: data.consensus_reached as boolean,
+                confidence: data.confidence as number,
+                winner: data.winner as string | undefined,
+                duration_seconds: data.duration_seconds as number,
+                completed_at: event.timestamp,
+              });
+            }
+            return prev;
+          });
+          onDeliberationCompleted?.(taskId, data.success as boolean, data);
+          break;
+        }
+
+        case 'deliberation_failed': {
+          const taskId = data.task_id as string;
+          setDeliberations((prev) => {
+            const existing = prev.get(taskId);
+            if (existing) {
+              return new Map(prev).set(taskId, {
+                ...existing,
+                status: 'failed',
+                completed_at: event.timestamp,
+              });
+            }
+            return prev;
+          });
+          onDeliberationCompleted?.(taskId, false, data);
+          break;
+        }
+
+        case 'deliberation_sla_warning': {
+          const taskId = data.task_id as string;
+          const level = (data.level as string) || 'warning';
+          setDeliberations((prev) => {
+            const existing = prev.get(taskId);
+            if (existing) {
+              return new Map(prev).set(taskId, {
+                ...existing,
+                sla_warning: true,
+                sla_level: level as 'warning' | 'critical' | 'violated',
+              });
+            }
+            return prev;
+          });
+          onDeliberationSlaWarning?.(taskId, level, data);
+          break;
+        }
+
+        case 'deliberation_vote': {
+          const taskId = data.task_id as string;
+          setDeliberations((prev) => {
+            const existing = prev.get(taskId);
+            if (existing) {
+              const votes = { ...(existing.votes || {}) };
+              votes[data.agent as string] = data.choice as string;
+              return new Map(prev).set(taskId, { ...existing, votes });
+            }
+            return prev;
+          });
+          break;
+        }
+
         case 'error':
           // Log errors but don't disrupt state
           console.error('[ControlPlane] Error event:', data.error, data.context);
@@ -450,6 +630,7 @@ export function useControlPlaneWebSocket({
     tasks,
     health,
     schedulerStats: schedulerStats || DEFAULT_SCHEDULER_STATS,
+    deliberations,
     recentEvents,
     reconnect,
     disconnect,

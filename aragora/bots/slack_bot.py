@@ -46,7 +46,7 @@ API_BASE = os.environ.get("ARAGORA_API_BASE", "http://localhost:8080")
 def _check_slack_available() -> tuple[bool, Optional[str]]:
     """Check if slack_bolt is available."""
     try:
-        from slack_bolt.async_app import AsyncApp
+        from slack_bolt.async_app import AsyncApp  # noqa: F401
 
         return True, None
     except ImportError:

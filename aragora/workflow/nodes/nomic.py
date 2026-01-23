@@ -87,7 +87,7 @@ class NomicLoopStep(BaseStep):
         )
 
         try:
-            from aragora.nomic import (
+            from aragora.nomic import (  # noqa: F401
                 NomicStateMachine,
                 NomicState,
                 create_nomic_state_machine,

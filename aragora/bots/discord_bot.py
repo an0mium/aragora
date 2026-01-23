@@ -44,7 +44,7 @@ API_BASE = os.environ.get("ARAGORA_API_BASE", "http://localhost:8080")
 def _check_discord_available() -> tuple[bool, Optional[str]]:
     """Check if discord.py is available."""
     try:
-        import discord
+        import discord  # noqa: F401
 
         return True, None
     except ImportError:

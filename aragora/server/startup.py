@@ -1158,6 +1158,7 @@ async def init_notification_worker() -> bool:
         from aragora.control_plane.notifications import (
             create_notification_dispatcher,
             NotificationDispatcherConfig,
+            set_default_notification_dispatcher,
         )
         from aragora.control_plane.channels import NotificationManager
 
@@ -1183,6 +1184,7 @@ async def init_notification_worker() -> bool:
 
         # Start the worker
         await dispatcher.start_worker()
+        set_default_notification_dispatcher(dispatcher)
 
         logger.info(
             f"Notification worker started "

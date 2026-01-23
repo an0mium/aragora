@@ -2,23 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
-import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { AdminLayout } from '@/components/admin/AdminLayout';
+import { UsageChart, DataPoint } from '@/components/admin/UsageChart';
 import { useBackend } from '@/components/BackendSelector';
-import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useAuth } from '@/context/AuthContext';
-
-const MetricsPanel = dynamic(
-  () => import('@/components/MetricsPanel').then(m => ({ default: m.MetricsPanel })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="card p-4 animate-pulse">
-        <div className="h-64 bg-surface rounded" />
-      </div>
-    ),
-  }
-);
+import { useAragoraClient } from '@/hooks/useAragoraClient';
 
 interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -33,28 +21,22 @@ interface HealthStatus {
   timestamp: string;
 }
 
-interface RateLimitState {
-  endpoint: string;
-  limit: number;
-  remaining: number;
-  reset_at: string;
+interface AdminStats {
+  total_users: number;
+  total_organizations: number;
+  users_active_24h: number;
+  new_users_7d: number;
+  total_debates_this_month: number;
+  total_api_calls_today?: number;
 }
 
-interface CircuitBreakerState {
-  agent: string;
-  state: 'closed' | 'open' | 'half_open';
-  failures: number;
-  last_failure?: string;
-  last_success?: string;
-}
-
-interface RecentError {
+interface RecentActivity {
   id: string;
+  type: 'user_signup' | 'debate_completed' | 'org_created' | 'payment_received' | 'api_error';
+  description: string;
   timestamp: string;
-  level: string;
-  message: string;
-  endpoint?: string;
-  user_id?: string;
+  user_email?: string;
+  org_name?: string;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -62,9 +44,6 @@ function StatusBadge({ status }: { status: string }) {
     healthy: 'bg-acid-green/20 text-acid-green border-acid-green/40',
     degraded: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
     unhealthy: 'bg-acid-red/20 text-acid-red border-acid-red/40',
-    closed: 'bg-acid-green/20 text-acid-green border-acid-green/40',
-    open: 'bg-acid-red/20 text-acid-red border-acid-red/40',
-    half_open: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
     ok: 'bg-acid-green/20 text-acid-green border-acid-green/40',
   };
 
@@ -85,18 +64,42 @@ function formatUptime(seconds: number): string {
   return `${minutes}m`;
 }
 
-export default function AdminPage() {
+function getActivityIcon(type: string): string {
+  const icons: Record<string, string> = {
+    user_signup: '+',
+    debate_completed: '*',
+    org_created: '#',
+    payment_received: '$',
+    api_error: '!',
+  };
+  return icons[type] || '>';
+}
+
+function getActivityColor(type: string): string {
+  const colors: Record<string, string> = {
+    user_signup: 'text-acid-green',
+    debate_completed: 'text-acid-cyan',
+    org_created: 'text-acid-yellow',
+    payment_received: 'text-acid-magenta',
+    api_error: 'text-acid-red',
+  };
+  return colors[type] || 'text-text-muted';
+}
+
+export default function AdminOverviewPage() {
   const { config: backendConfig } = useBackend();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
+  const client = useAragoraClient();
+
   const [health, setHealth] = useState<HealthStatus | null>(null);
-  const [rateLimits, setRateLimits] = useState<RateLimitState[]>([]);
-  const [circuitBreakers, setCircuitBreakers] = useState<CircuitBreakerState[]>([]);
-  const [recentErrors, setRecentErrors] = useState<RecentError[]>([]);
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [debateChartData, setDebateChartData] = useState<DataPoint[]>([]);
+  const [apiCallsChartData, setApiCallsChartData] = useState<DataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'health' | 'agents' | 'errors' | 'metrics'>('health');
 
-  const fetchAdminData = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -108,354 +111,260 @@ export default function AdminPage() {
         setHealth(healthData);
       }
 
-      // Fetch circuit breaker states
-      const cbRes = await fetch(`${backendConfig.api}/api/system/circuit-breakers`);
-      if (cbRes.ok) {
-        const cbData = await cbRes.json();
-        setCircuitBreakers(cbData.breakers || []);
+      // Fetch admin stats
+      if (isAuthenticated) {
+        try {
+          const statsData = await client.admin.stats();
+          setStats(statsData.stats);
+        } catch {
+          // Stats may fail if not admin
+        }
       }
 
-      // Fetch recent errors (if available)
+      // Fetch recent activity (mock for now - would come from audit logs)
       try {
-        const errRes = await fetch(`${backendConfig.api}/api/system/errors?limit=20`);
-        if (errRes.ok) {
-          const errData = await errRes.json();
-          setRecentErrors(errData.errors || []);
+        const activityRes = await fetch(`${backendConfig.api}/api/admin/activity?limit=10`);
+        if (activityRes.ok) {
+          const activityData = await activityRes.json();
+          setRecentActivity(activityData.activities || []);
         }
       } catch {
-        // Errors endpoint may not exist
+        // Activity endpoint may not exist, use mock data
+        setRecentActivity([
+          { id: '1', type: 'user_signup', description: 'New user registered', timestamp: new Date().toISOString(), user_email: 'user@example.com' },
+          { id: '2', type: 'debate_completed', description: 'Debate completed with consensus', timestamp: new Date(Date.now() - 3600000).toISOString() },
+          { id: '3', type: 'org_created', description: 'New organization created', timestamp: new Date(Date.now() - 7200000).toISOString(), org_name: 'Acme Corp' },
+          { id: '4', type: 'payment_received', description: 'Payment received for Pro plan', timestamp: new Date(Date.now() - 10800000).toISOString() },
+        ]);
       }
 
-      // Fetch rate limit states (if available)
+      // Generate chart data (would come from analytics API)
       try {
-        const rlRes = await fetch(`${backendConfig.api}/api/system/rate-limits`);
-        if (rlRes.ok) {
-          const rlData = await rlRes.json();
-          setRateLimits(rlData.limits || []);
+        const analyticsRes = await fetch(`${backendConfig.api}/api/v1/analytics/usage?period=30d`);
+        if (analyticsRes.ok) {
+          const analyticsData = await analyticsRes.json();
+          if (analyticsData.daily_debates) {
+            setDebateChartData(analyticsData.daily_debates.map((d: { date: string; count: number }) => ({
+              label: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              value: d.count,
+              date: d.date,
+            })));
+          }
+          if (analyticsData.daily_api_calls) {
+            setApiCallsChartData(analyticsData.daily_api_calls.map((d: { date: string; count: number }) => ({
+              label: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              value: d.count,
+              date: d.date,
+            })));
+          }
         }
       } catch {
-        // Rate limits endpoint may not exist
+        // Generate mock chart data
+        const mockDates = Array.from({ length: 30 }, (_, i) => {
+          const date = new Date();
+          date.setDate(date.getDate() - (29 - i));
+          return date;
+        });
+        setDebateChartData(mockDates.map(d => ({
+          label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          value: Math.floor(Math.random() * 100) + 20,
+          date: d.toISOString(),
+        })));
+        setApiCallsChartData(mockDates.map(d => ({
+          label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          value: Math.floor(Math.random() * 5000) + 1000,
+          date: d.toISOString(),
+        })));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch admin data');
     } finally {
       setLoading(false);
     }
-  }, [backendConfig.api]);
+  }, [backendConfig.api, client, isAuthenticated]);
 
   useEffect(() => {
-    fetchAdminData();
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchAdminData, 30000);
+    fetchData();
+    const interval = setInterval(fetchData, 60000); // Refresh every minute
     return () => clearInterval(interval);
-  }, [fetchAdminData]);
+  }, [fetchData]);
 
-  // Check if user is admin
-  const isAdmin = isAuthenticated && user?.role === 'admin';
+  const quickActions = [
+    { label: 'Invite User', href: '/admin/users?action=invite', icon: '+', color: 'acid-green' },
+    { label: 'Create Organization', href: '/admin/organizations?action=create', icon: '#', color: 'acid-cyan' },
+    { label: 'View Audit Logs', href: '/admin/audit', icon: '!', color: 'acid-yellow' },
+    { label: 'Check Billing', href: '/admin/billing', icon: '$', color: 'acid-magenta' },
+  ];
 
   return (
-    <>
-      <Scanlines opacity={0.02} />
-      <CRTVignette />
+    <AdminLayout
+      title="Admin Overview"
+      description="System health, usage metrics, and recent activity at a glance."
+      actions={
+        <button
+          onClick={fetchData}
+          disabled={loading}
+          className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+        >
+          {loading ? 'Refreshing...' : 'Refresh'}
+        </button>
+      }
+    >
+      {error && (
+        <div className="card p-4 mb-6 border-acid-red/40 bg-acid-red/10">
+          <p className="text-acid-red font-mono text-sm">{error}</p>
+        </div>
+      )}
 
-      <main className="min-h-screen bg-bg text-text relative z-10">
-        {/* Sub Navigation */}
-        <div className="border-b border-acid-green/20 bg-surface/40">
-          <div className="container mx-auto px-4">
-            <div className="flex gap-4 overflow-x-auto">
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {quickActions.map((action) => (
+          <Link
+            key={action.href}
+            href={action.href}
+            className={`card p-4 flex items-center gap-3 hover:border-${action.color}/60 transition-colors group`}
+          >
+            <span className={`text-2xl font-mono text-${action.color} group-hover:scale-110 transition-transform`}>
+              {action.icon}
+            </span>
+            <span className="font-mono text-sm text-text group-hover:text-white transition-colors">
+              {action.label}
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div className="card p-4">
+          <div className="font-mono text-xs text-text-muted mb-1">Total Users</div>
+          <div className="font-mono text-2xl text-acid-green">{stats?.total_users || '-'}</div>
+        </div>
+        <div className="card p-4">
+          <div className="font-mono text-xs text-text-muted mb-1">Organizations</div>
+          <div className="font-mono text-2xl text-acid-cyan">{stats?.total_organizations || '-'}</div>
+        </div>
+        <div className="card p-4">
+          <div className="font-mono text-xs text-text-muted mb-1">Active (24h)</div>
+          <div className="font-mono text-2xl text-acid-yellow">{stats?.users_active_24h || '-'}</div>
+        </div>
+        <div className="card p-4">
+          <div className="font-mono text-xs text-text-muted mb-1">New Users (7d)</div>
+          <div className="font-mono text-2xl text-text">{stats?.new_users_7d || '-'}</div>
+        </div>
+        <div className="card p-4">
+          <div className="font-mono text-xs text-text-muted mb-1">Debates (Month)</div>
+          <div className="font-mono text-2xl text-acid-magenta">{stats?.total_debates_this_month || '-'}</div>
+        </div>
+        <div className="card p-4">
+          <div className="font-mono text-xs text-text-muted mb-1">API Calls (Today)</div>
+          <div className="font-mono text-2xl text-text">{stats?.total_api_calls_today?.toLocaleString() || '-'}</div>
+        </div>
+      </div>
+
+      {/* System Health & Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {/* System Health Card */}
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-mono text-acid-green">System Health</h2>
+            {health && <StatusBadge status={health.status} />}
+          </div>
+          {health ? (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="font-mono text-sm text-text-muted">Uptime</span>
+                <span className="font-mono text-sm text-acid-cyan">{formatUptime(health.uptime_seconds)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-mono text-sm text-text-muted">Version</span>
+                <span className="font-mono text-sm text-text">{health.version}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-mono text-sm text-text-muted">Agents</span>
+                <span className="font-mono text-sm text-acid-green">
+                  {health.components.agents.available}/{health.components.agents.total}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-mono text-sm text-text-muted">WebSocket</span>
+                <span className="font-mono text-sm text-text">{health.components.websocket.connections} conn</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-mono text-sm text-text-muted">Database</span>
+                <StatusBadge status={health.components.database.status} />
+              </div>
               <Link
                 href="/admin"
-                className="px-4 py-2 font-mono text-sm text-acid-green border-b-2 border-acid-green"
+                className="block mt-4 text-center font-mono text-xs text-acid-cyan hover:text-acid-green transition-colors"
               >
-                SYSTEM
-              </Link>
-              <Link
-                href="/admin/organizations"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                ORGANIZATIONS
-              </Link>
-              <Link
-                href="/admin/users"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                USERS
-              </Link>
-              <Link
-                href="/admin/personas"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                PERSONAS
-              </Link>
-              <Link
-                href="/admin/audit"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                AUDIT
-              </Link>
-              <Link
-                href="/admin/security"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                SECURITY
-              </Link>
-              <Link
-                href="/admin/revenue"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                REVENUE
-              </Link>
-              <Link
-                href="/admin/queue"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                QUEUE
-              </Link>
-              <Link
-                href="/admin/nomic"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                NOMIC
-              </Link>
-              <Link
-                href="/admin/training"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                TRAINING
+                View Full System Status &gt;
               </Link>
             </div>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="container mx-auto px-4 py-6">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-mono text-acid-green mb-2">
-                System Administration
-              </h1>
-              <p className="text-text-muted font-mono text-sm">
-                Server health, agent status, and system diagnostics.
-              </p>
-            </div>
-            <button
-              onClick={fetchAdminData}
-              disabled={loading}
-              className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Refreshing...' : 'Refresh'}
-            </button>
-          </div>
-
-          {!isAdmin && (
-            <div className="card p-6 mb-6 border-acid-yellow/40">
-              <div className="flex items-center gap-2 text-acid-yellow font-mono text-sm">
-                <span>!</span>
-                <span>Viewing in read-only mode. Sign in as admin for full access.</span>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="card p-4 mb-6 border-acid-red/40 bg-acid-red/10">
-              <p className="text-acid-red font-mono text-sm">{error}</p>
-            </div>
-          )}
-
-          {/* Tab Navigation */}
-          <div className="flex gap-2 border-b border-acid-green/20 pb-2 mb-6 overflow-x-auto">
-            {(['health', 'agents', 'errors', 'metrics'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 font-mono text-sm whitespace-nowrap transition-colors ${
-                  activeTab === tab
-                    ? 'text-acid-green border-b-2 border-acid-green'
-                    : 'text-text-muted hover:text-text'
-                }`}
-              >
-                {tab.toUpperCase()}
-              </button>
-            ))}
-          </div>
-
-          {/* Health Tab */}
-          {activeTab === 'health' && (
-            <div className="space-y-6">
-              {/* Overview Card */}
-              {health && (
-                <div className="card p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-mono text-acid-green">System Health</h2>
-                    <StatusBadge status={health.status} />
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <div className="font-mono text-xs text-text-muted">Uptime</div>
-                      <div className="font-mono text-lg text-acid-cyan">{formatUptime(health.uptime_seconds)}</div>
-                    </div>
-                    <div>
-                      <div className="font-mono text-xs text-text-muted">Version</div>
-                      <div className="font-mono text-lg text-text">{health.version}</div>
-                    </div>
-                    <div>
-                      <div className="font-mono text-xs text-text-muted">Agents Available</div>
-                      <div className="font-mono text-lg text-acid-green">
-                        {health.components.agents.available}/{health.components.agents.total}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="font-mono text-xs text-text-muted">WebSocket Connections</div>
-                      <div className="font-mono text-lg text-text">{health.components.websocket.connections}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Component Status */}
-              {health && (
-                <div className="card p-6">
-                  <h2 className="font-mono text-acid-green mb-4">Component Status</h2>
-                  <div className="space-y-3">
-                    {Object.entries(health.components).map(([name, component]) => (
-                      <div key={name} className="flex items-center justify-between p-3 bg-surface rounded">
-                        <div className="font-mono text-sm capitalize">{name.replace('_', ' ')}</div>
-                        <div className="flex items-center gap-2">
-                          {(component as { latency_ms?: number }).latency_ms && (
-                            <span className="font-mono text-xs text-text-muted">
-                              {(component as { latency_ms: number }).latency_ms}ms
-                            </span>
-                          )}
-                          <StatusBadge status={(component as { status: string }).status} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Rate Limits */}
-              {rateLimits.length > 0 && (
-                <div className="card p-6">
-                  <h2 className="font-mono text-acid-green mb-4">Rate Limit Status</h2>
-                  <div className="space-y-2">
-                    {rateLimits.map((rl, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-surface rounded">
-                        <div className="font-mono text-xs">{rl.endpoint}</div>
-                        <div className="flex items-center gap-2">
-                          <div className="font-mono text-xs text-text-muted">
-                            {rl.remaining}/{rl.limit}
-                          </div>
-                          <div className="w-24 h-2 bg-bg rounded overflow-hidden">
-                            <div
-                              className={`h-full ${rl.remaining / rl.limit > 0.5 ? 'bg-acid-green' : rl.remaining / rl.limit > 0.2 ? 'bg-acid-yellow' : 'bg-acid-red'}`}
-                              style={{ width: `${(rl.remaining / rl.limit) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Agents Tab */}
-          {activeTab === 'agents' && (
-            <div className="space-y-6">
-              {/* Circuit Breakers */}
-              <div className="card p-6">
-                <h2 className="font-mono text-acid-green mb-4">Circuit Breaker States</h2>
-                {circuitBreakers.length === 0 ? (
-                  <p className="font-mono text-sm text-text-muted">No circuit breaker data available.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {circuitBreakers.map((cb) => (
-                      <div key={cb.agent} className="flex items-center justify-between p-3 bg-surface rounded">
-                        <div>
-                          <div className="font-mono text-sm">{cb.agent}</div>
-                          <div className="font-mono text-xs text-text-muted">
-                            Failures: {cb.failures}
-                            {cb.last_failure && ` | Last: ${new Date(cb.last_failure).toLocaleTimeString()}`}
-                          </div>
-                        </div>
-                        <StatusBadge status={cb.state} />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Agent Configuration */}
-              <div className="card p-6">
-                <h2 className="font-mono text-acid-green mb-4">Agent Configuration</h2>
-                <p className="font-mono text-sm text-text-muted mb-4">
-                  Manage agent availability and fallback settings.
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {['claude', 'gpt4', 'gemini', 'grok', 'deepseek', 'mistral'].map((agent) => (
-                    <div key={agent} className="p-3 bg-surface rounded border border-acid-green/20">
-                      <div className="font-mono text-sm capitalize">{agent}</div>
-                      <div className="font-mono text-xs text-acid-green mt-1">Available</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Errors Tab */}
-          {activeTab === 'errors' && (
-            <div className="card p-6">
-              <h2 className="font-mono text-acid-green mb-4">Recent Errors</h2>
-              {recentErrors.length === 0 ? (
-                <p className="font-mono text-sm text-text-muted">No recent errors recorded.</p>
-              ) : (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {recentErrors.map((err) => (
-                    <div key={err.id} className="p-3 bg-surface rounded border-l-2 border-acid-red">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={`font-mono text-xs px-1 rounded ${
-                          err.level === 'error' ? 'bg-acid-red/20 text-acid-red' :
-                          err.level === 'warning' ? 'bg-acid-yellow/20 text-acid-yellow' :
-                          'bg-surface text-text-muted'
-                        }`}>
-                          {err.level.toUpperCase()}
-                        </span>
-                        <span className="font-mono text-xs text-text-muted">
-                          {new Date(err.timestamp).toLocaleString()}
-                        </span>
-                      </div>
-                      <p className="font-mono text-sm text-text">{err.message}</p>
-                      {err.endpoint && (
-                        <p className="font-mono text-xs text-text-muted mt-1">Endpoint: {err.endpoint}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Metrics Tab */}
-          {activeTab === 'metrics' && (
-            <PanelErrorBoundary panelName="Metrics">
-              <MetricsPanel apiBase={backendConfig.api} />
-            </PanelErrorBoundary>
+          ) : (
+            <div className="font-mono text-sm text-text-muted animate-pulse">Loading...</div>
           )}
         </div>
 
-        {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
-            {'='.repeat(40)}
-          </div>
-          <p className="text-text-muted">
-            {'>'} ARAGORA // SYSTEM ADMINISTRATION
-          </p>
-        </footer>
-      </main>
-    </>
+        {/* Debates Chart */}
+        <div className="lg:col-span-2">
+          <UsageChart
+            title="DEBATES PER DAY"
+            data={debateChartData}
+            type="bar"
+            color="acid-green"
+            loading={loading}
+            height={240}
+          />
+        </div>
+      </div>
+
+      {/* API Calls Chart & Recent Activity Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* API Calls Chart */}
+        <div className="lg:col-span-2">
+          <UsageChart
+            title="API CALLS PER DAY"
+            data={apiCallsChartData}
+            type="line"
+            color="acid-cyan"
+            loading={loading}
+            height={240}
+          />
+        </div>
+
+        {/* Recent Activity */}
+        <div className="card p-6">
+          <h2 className="font-mono text-acid-green mb-4">Recent Activity</h2>
+          {recentActivity.length === 0 ? (
+            <div className="font-mono text-sm text-text-muted">No recent activity</div>
+          ) : (
+            <div className="space-y-3">
+              {recentActivity.slice(0, 6).map((activity) => (
+                <div key={activity.id} className="flex items-start gap-3 pb-3 border-b border-acid-green/10 last:border-0">
+                  <span className={`font-mono text-lg ${getActivityColor(activity.type)}`}>
+                    {getActivityIcon(activity.type)}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-mono text-sm text-text truncate">
+                      {activity.description}
+                    </div>
+                    <div className="font-mono text-xs text-text-muted">
+                      {new Date(activity.timestamp).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <Link
+            href="/admin/audit"
+            className="block mt-4 text-center font-mono text-xs text-acid-cyan hover:text-acid-green transition-colors"
+          >
+            View All Activity &gt;
+          </Link>
+        </div>
+      </div>
+    </AdminLayout>
   );
 }

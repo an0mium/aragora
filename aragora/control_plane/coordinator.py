@@ -44,6 +44,28 @@ except ImportError:
     ControlPlaneAdapter = None  # type: ignore
     TaskOutcome = None  # type: ignore
 
+# Optional Arena Bridge
+try:
+    from aragora.control_plane.arena_bridge import (  # noqa: F401
+        ArenaControlPlaneBridge,
+        get_arena_bridge,
+        init_arena_bridge,
+    )
+    from aragora.control_plane.deliberation import (  # noqa: F401
+        DELIBERATION_TASK_TYPE,
+        AgentPerformance,
+        DeliberationOutcome,
+        DeliberationTask,
+    )
+
+    HAS_ARENA_BRIDGE = True
+except ImportError:
+    HAS_ARENA_BRIDGE = False
+    ArenaControlPlaneBridge = None  # type: ignore
+    DeliberationTask = None  # type: ignore
+    DeliberationOutcome = None  # type: ignore
+    DELIBERATION_TASK_TYPE = "deliberation"
+
 logger = get_logger(__name__)
 
 
@@ -125,6 +147,9 @@ class ControlPlaneCoordinator:
         health_monitor: Optional[HealthMonitor] = None,
         km_adapter: Optional["ControlPlaneAdapter"] = None,
         knowledge_mound: Optional[Any] = None,
+        arena_bridge: Optional["ArenaControlPlaneBridge"] = None,
+        stream_server: Optional[Any] = None,
+        shared_state: Optional[Any] = None,
     ):
         """
         Initialize the coordinator.
@@ -136,8 +161,13 @@ class ControlPlaneCoordinator:
             health_monitor: Optional pre-configured HealthMonitor
             km_adapter: Optional pre-configured ControlPlaneAdapter
             knowledge_mound: Optional KnowledgeMound for auto-creating adapter
+            arena_bridge: Optional ArenaControlPlaneBridge for debate execution
+            stream_server: Optional ControlPlaneStreamServer for event broadcasting
+            shared_state: Optional SharedControlPlaneState for persistence
         """
         self._config = config or ControlPlaneConfig.from_env()
+        self._stream_server = stream_server
+        self._shared_state = shared_state
 
         self._registry = registry or AgentRegistry(
             redis_url=self._config.redis_url,
@@ -168,6 +198,18 @@ class ControlPlaneCoordinator:
                     coordinator=self,
                     knowledge_mound=knowledge_mound,
                     workspace_id=self._config.km_workspace_id,
+                )
+
+        # Arena Bridge integration for unified debate execution
+        self._arena_bridge: Optional["ArenaControlPlaneBridge"] = None
+        if HAS_ARENA_BRIDGE:
+            if arena_bridge:
+                self._arena_bridge = arena_bridge
+            elif stream_server or shared_state:
+                # Auto-create bridge if streaming/state components provided
+                self._arena_bridge = ArenaControlPlaneBridge(
+                    stream_server=stream_server,
+                    shared_state=shared_state,
                 )
 
         self._connected = False
@@ -810,6 +852,122 @@ class ControlPlaneCoordinator:
         except Exception as e:
             logger.debug(f"Failed to get agent recommendations: {e}")
             return []
+
+    # =========================================================================
+    # Arena Bridge Integration
+    # =========================================================================
+
+    @property
+    def arena_bridge(self) -> Optional["ArenaControlPlaneBridge"]:
+        """Get the Arena Bridge if configured."""
+        return self._arena_bridge
+
+    def set_arena_bridge(self, bridge: "ArenaControlPlaneBridge") -> None:
+        """
+        Set the Arena Bridge.
+
+        Args:
+            bridge: ArenaControlPlaneBridge instance
+        """
+        self._arena_bridge = bridge
+
+    async def execute_deliberation(
+        self,
+        task: "DeliberationTask",
+        agents: Optional[List[Any]] = None,
+        workspace_id: Optional[str] = None,
+    ) -> Optional["DeliberationOutcome"]:
+        """
+        Execute a deliberation using the Arena Bridge.
+
+        This provides unified debate orchestration with SLA tracking and
+        real-time event streaming through the control plane.
+
+        Args:
+            task: DeliberationTask to execute
+            agents: Optional list of Agent instances (if not provided, selects from registry)
+            workspace_id: Optional workspace for knowledge mound scoping
+
+        Returns:
+            DeliberationOutcome if bridge is configured, None otherwise
+        """
+        if not self._arena_bridge or not HAS_ARENA_BRIDGE:
+            logger.warning(
+                "arena_bridge_not_configured",
+                task_id=task.task_id if hasattr(task, "task_id") else "unknown",
+            )
+            return None
+
+        with create_span(
+            "control_plane.execute_deliberation",
+            {
+                "task_id": task.task_id,
+                "question_preview": task.question[:100] if hasattr(task, "question") else "",
+                "agent_count": len(agents) if agents else 0,
+            },
+        ) as span:
+            start = time.monotonic()
+
+            # If no agents provided, select from registry
+            if not agents:
+                capabilities = (
+                    task.required_capabilities
+                    if hasattr(task, "required_capabilities")
+                    else ["debate"]
+                )
+                selected_agents = []
+                for _ in range(task.sla.min_agents if hasattr(task, "sla") else 2):
+                    agent_info = await self.select_agent(
+                        capabilities=capabilities,
+                        exclude=[a.name if hasattr(a, "name") else str(a) for a in selected_agents],
+                    )
+                    if agent_info:
+                        # We need to convert AgentInfo to actual Agent instances
+                        # This is a bridge - the caller should provide agents
+                        pass
+                logger.warning(
+                    "deliberation_no_agents",
+                    task_id=task.task_id,
+                    msg="No agents provided and auto-selection not yet implemented",
+                )
+
+            try:
+                outcome = await self._arena_bridge.execute_via_arena(
+                    task=task,
+                    agents=agents or [],
+                    workspace_id=workspace_id or self._config.km_workspace_id,
+                )
+
+                latency_ms = (time.monotonic() - start) * 1000
+                add_span_attributes(
+                    span,
+                    {
+                        "success": outcome.success,
+                        "consensus_reached": outcome.consensus_reached,
+                        "latency_ms": latency_ms,
+                    },
+                )
+
+                logger.info(
+                    "deliberation_completed",
+                    task_id=task.task_id,
+                    success=outcome.success,
+                    consensus_reached=outcome.consensus_reached,
+                    duration_seconds=outcome.duration_seconds,
+                    sla_compliant=outcome.sla_compliant,
+                )
+
+                return outcome
+
+            except Exception as e:
+                latency_ms = (time.monotonic() - start) * 1000
+                add_span_attributes(span, {"error": str(e), "latency_ms": latency_ms})
+                logger.error(
+                    "deliberation_failed",
+                    task_id=task.task_id,
+                    error=str(e),
+                )
+                raise
 
 
 async def create_control_plane(

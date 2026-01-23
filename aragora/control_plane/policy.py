@@ -41,6 +41,15 @@ from aragora.observability import get_logger
 
 logger = get_logger(__name__)
 
+# Audit logging (optional)
+try:
+    from aragora.control_plane.audit import log_policy_decision
+
+    HAS_AUDIT = True
+except ImportError:
+    HAS_AUDIT = False
+    log_policy_decision = None  # type: ignore
+
 
 class PolicyScope(Enum):
     """Scope of a control plane policy."""
@@ -533,6 +542,17 @@ class ControlPlanePolicyManager:
                     region=region,
                     workspace_id=workspace,
                 )
+                # Log to audit trail
+                self._fire_audit_log(
+                    policy_id=policy.id,
+                    decision="deny",
+                    task_type=task_type,
+                    reason=result.reason,
+                    workspace_id=workspace,
+                    task_id=task_id,
+                    agent_id=agent_id,
+                    violations=[f"agent:{agent_id}"],
+                )
                 return result
 
             # Check region restriction
@@ -554,11 +574,22 @@ class ControlPlanePolicyManager:
                     region=region,
                     workspace_id=workspace,
                 )
+                # Log to audit trail
+                self._fire_audit_log(
+                    policy_id=policy.id,
+                    decision="deny",
+                    task_type=task_type,
+                    reason=result.reason,
+                    workspace_id=workspace,
+                    task_id=task_id,
+                    agent_id=agent_id,
+                    violations=[f"region:{region}"],
+                )
                 return result
 
         # All policies passed
         self._metrics["allowed"] += 1
-        return PolicyEvaluationResult(
+        result = PolicyEvaluationResult(
             decision=PolicyDecision.ALLOW,
             allowed=True,
             policy_id="",
@@ -569,6 +600,19 @@ class ControlPlanePolicyManager:
             agent_id=agent_id,
             region=region,
         )
+
+        # Log to audit trail (fire and forget)
+        self._fire_audit_log(
+            policy_id="all",
+            decision="allow",
+            task_type=task_type,
+            reason="All policies passed",
+            workspace_id=workspace,
+            task_id=task_id,
+            agent_id=agent_id,
+        )
+
+        return result
 
     def evaluate_sla_compliance(
         self,
@@ -746,6 +790,47 @@ class ControlPlanePolicyManager:
         )
 
         return violation
+
+    def _fire_audit_log(
+        self,
+        policy_id: str,
+        decision: str,
+        task_type: str,
+        reason: str,
+        workspace_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        violations: Optional[List[str]] = None,
+    ) -> None:
+        """Fire audit log entry asynchronously (fire and forget)."""
+        if not HAS_AUDIT or log_policy_decision is None:
+            return
+
+        import asyncio
+
+        try:
+            # Try to get running loop
+            asyncio.get_running_loop()  # Check if loop exists
+            asyncio.ensure_future(
+                log_policy_decision(
+                    policy_id=policy_id,
+                    decision=decision,
+                    task_type=task_type,
+                    reason=reason,
+                    workspace_id=workspace_id,
+                    task_id=task_id,
+                    agent_id=agent_id,
+                    violations=violations,
+                )
+            )
+        except RuntimeError:
+            # No running loop - log synchronously in debug mode
+            logger.debug(
+                "audit_log_skipped",
+                policy_id=policy_id,
+                decision=decision,
+                reason="No event loop running",
+            )
 
     def get_violations(
         self,

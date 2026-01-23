@@ -23,7 +23,16 @@ from .models import (
 )
 from .cve_client import CVEClient
 from .scanner import DependencyScanner
-from .secrets_scanner import SecretsScanner, scan_repository_for_secrets
+from .secrets_scanner import (
+    SecretsScanner,
+    scan_repository_for_secrets,
+    scan_file_for_secrets,
+    scan_directory_for_secrets,
+    calculate_entropy,
+    is_high_entropy,
+    SECRET_PATTERNS,
+    SecretPattern,
+)
 from .metrics import (
     CodeMetricsAnalyzer,
     MetricsReport,
@@ -75,6 +84,12 @@ __all__ = [
     "DependencyScanner",
     "SecretsScanner",
     "scan_repository_for_secrets",
+    "scan_file_for_secrets",
+    "scan_directory_for_secrets",
+    "calculate_entropy",
+    "is_high_entropy",
+    "SECRET_PATTERNS",
+    "SecretPattern",
     # Metrics
     "CodeMetricsAnalyzer",
     "MetricsReport",

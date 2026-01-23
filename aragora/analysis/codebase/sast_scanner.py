@@ -1056,12 +1056,17 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
         repo_path: str,
         scan_id: str,
     ) -> None:
-        """Emit security events for critical findings."""
+        """Emit security events for critical findings.
+
+        Uses the enhanced SecurityEvent system to trigger multi-agent debates
+        for critical security findings.
+        """
         if not self.config.emit_security_events or not self._security_emitter:
             return
 
         # Count critical severity findings
         critical_findings = [f for f in result.findings if f.severity == SASTSeverity.CRITICAL]
+        high_findings = [f for f in result.findings if f.severity == SASTSeverity.ERROR]
 
         # Emit event if threshold is met
         if len(critical_findings) >= self.config.critical_finding_threshold:
@@ -1090,22 +1095,37 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
                                 "cwe_ids": f.cwe_ids,
                                 "owasp_category": f.owasp_category.value,
                                 "snippet": f.snippet[:200] if f.snippet else "",
-                                "source": f.source,
+                                "rule_source": f.source,
+                                "vulnerability_class": f.vulnerability_class,
+                                "confidence": f.confidence,
                             },
                         )
                     )
 
+                # Use SAST_CRITICAL event type for SAST-originated findings
+                event_type = SecurityEventType.SAST_CRITICAL
+
                 event = SecurityEvent(
-                    event_type=SecurityEventType.CRITICAL_VULNERABILITY,
+                    event_type=event_type,
                     severity=SecuritySeverity.CRITICAL,
+                    source="sast",  # Indicates origin is SAST scanner
                     repository=os.path.basename(repo_path),
                     scan_id=scan_id,
                     findings=security_findings,
+                    metadata={
+                        "total_findings": len(result.findings),
+                        "critical_count": len(critical_findings),
+                        "high_count": len(high_findings),
+                        "scanned_files": result.scanned_files,
+                        "languages_detected": result.languages_detected,
+                        "rules_used": result.rules_used[:10],  # Limit for size
+                    },
                 )
 
                 await self._security_emitter.emit(event)
                 logger.info(
-                    f"Emitted security event for {len(critical_findings)} critical findings"
+                    f"Emitted SAST_CRITICAL security event for {len(critical_findings)} "
+                    f"critical findings (scan_id={scan_id})"
                 )
 
             except ImportError:

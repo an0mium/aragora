@@ -58,6 +58,16 @@ class ControlPlaneEventType(Enum):
     METRICS_UPDATE = "metrics_update"
     SCHEDULER_STATS = "scheduler_stats"
 
+    # Deliberation events
+    DELIBERATION_STARTED = "deliberation_started"
+    DELIBERATION_PROGRESS = "deliberation_progress"
+    DELIBERATION_ROUND = "deliberation_round"
+    DELIBERATION_VOTE = "deliberation_vote"
+    DELIBERATION_CONSENSUS = "deliberation_consensus"
+    DELIBERATION_COMPLETED = "deliberation_completed"
+    DELIBERATION_FAILED = "deliberation_failed"
+    DELIBERATION_SLA_WARNING = "deliberation_sla_warning"
+
     # Error events
     ERROR = "error"
 
@@ -377,3 +387,169 @@ class ControlPlaneStreamServer:
     def client_count(self) -> int:
         """Return the number of connected clients."""
         return len(self._clients)
+
+    # =========================================================================
+    # Deliberation event emission methods
+    # =========================================================================
+
+    async def emit_deliberation_started(
+        self,
+        task_id: str,
+        question: str,
+        agents: list,
+        total_rounds: int,
+    ):
+        """Emit deliberation started event."""
+        await self.broadcast(
+            ControlPlaneEvent(
+                event_type=ControlPlaneEventType.DELIBERATION_STARTED,
+                data={
+                    "task_id": task_id,
+                    "question_preview": question[:200] if question else "",
+                    "agents": agents,
+                    "total_rounds": total_rounds,
+                },
+            )
+        )
+
+    async def emit_deliberation_round(
+        self,
+        task_id: str,
+        round_num: int,
+        total_rounds: int,
+        phase: str = "active",
+    ):
+        """Emit deliberation round progress event."""
+        await self.broadcast(
+            ControlPlaneEvent(
+                event_type=ControlPlaneEventType.DELIBERATION_ROUND,
+                data={
+                    "task_id": task_id,
+                    "round": round_num,
+                    "total_rounds": total_rounds,
+                    "phase": phase,
+                    "progress_pct": (round_num / total_rounds * 100) if total_rounds > 0 else 0,
+                },
+            )
+        )
+
+    async def emit_deliberation_progress(
+        self,
+        task_id: str,
+        event_type: str,
+        data: Dict[str, Any],
+    ):
+        """Emit general deliberation progress event."""
+        await self.broadcast(
+            ControlPlaneEvent(
+                event_type=ControlPlaneEventType.DELIBERATION_PROGRESS,
+                data={
+                    "task_id": task_id,
+                    "deliberation_event": event_type,
+                    **data,
+                },
+            )
+        )
+
+    async def emit_deliberation_vote(
+        self,
+        task_id: str,
+        agent: str,
+        choice: str,
+        confidence: float,
+    ):
+        """Emit deliberation vote event."""
+        await self.broadcast(
+            ControlPlaneEvent(
+                event_type=ControlPlaneEventType.DELIBERATION_VOTE,
+                data={
+                    "task_id": task_id,
+                    "agent": agent,
+                    "choice": choice,
+                    "confidence": confidence,
+                },
+            )
+        )
+
+    async def emit_deliberation_consensus(
+        self,
+        task_id: str,
+        reached: bool,
+        confidence: float,
+        vote_distribution: Dict[str, int],
+    ):
+        """Emit deliberation consensus event."""
+        await self.broadcast(
+            ControlPlaneEvent(
+                event_type=ControlPlaneEventType.DELIBERATION_CONSENSUS,
+                data={
+                    "task_id": task_id,
+                    "reached": reached,
+                    "confidence": confidence,
+                    "vote_distribution": vote_distribution,
+                },
+            )
+        )
+
+    async def emit_deliberation_completed(
+        self,
+        task_id: str,
+        success: bool,
+        consensus_reached: bool,
+        confidence: float,
+        duration_seconds: float,
+        winner: str = None,
+    ):
+        """Emit deliberation completed event."""
+        await self.broadcast(
+            ControlPlaneEvent(
+                event_type=ControlPlaneEventType.DELIBERATION_COMPLETED,
+                data={
+                    "task_id": task_id,
+                    "success": success,
+                    "consensus_reached": consensus_reached,
+                    "confidence": confidence,
+                    "duration_seconds": duration_seconds,
+                    "winner": winner,
+                },
+            )
+        )
+
+    async def emit_deliberation_failed(
+        self,
+        task_id: str,
+        error: str,
+        duration_seconds: float,
+    ):
+        """Emit deliberation failed event."""
+        await self.broadcast(
+            ControlPlaneEvent(
+                event_type=ControlPlaneEventType.DELIBERATION_FAILED,
+                data={
+                    "task_id": task_id,
+                    "error": error,
+                    "duration_seconds": duration_seconds,
+                },
+            )
+        )
+
+    async def emit_deliberation_sla_warning(
+        self,
+        task_id: str,
+        elapsed_seconds: float,
+        timeout_seconds: float,
+        level: str = "warning",
+    ):
+        """Emit deliberation SLA warning event."""
+        await self.broadcast(
+            ControlPlaneEvent(
+                event_type=ControlPlaneEventType.DELIBERATION_SLA_WARNING,
+                data={
+                    "task_id": task_id,
+                    "elapsed_seconds": elapsed_seconds,
+                    "timeout_seconds": timeout_seconds,
+                    "remaining_seconds": timeout_seconds - elapsed_seconds,
+                    "level": level,
+                },
+            )
+        )

@@ -49,6 +49,9 @@ logger = logging.getLogger(__name__)
 _email_store = None
 _email_store_lock = threading.Lock()
 
+_rules_store = None
+_rules_store_lock = threading.Lock()
+
 
 def _get_email_store():
     """Get or create the email store (lazy init, thread-safe)."""
@@ -65,6 +68,23 @@ def _get_email_store():
             except Exception as e:
                 logger.warning(f"[SharedInbox] Failed to init email store: {e}")
         return _email_store
+
+
+def _get_rules_store():
+    """Get or create the rules store (lazy init, thread-safe)."""
+    global _rules_store
+    if _rules_store is not None:
+        return _rules_store
+    with _rules_store_lock:
+        if _rules_store is None:
+            try:
+                from aragora.services.rules_store import get_rules_store
+
+                _rules_store = get_rules_store()
+                logger.info("[SharedInbox] Initialized persistent rules store")
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to init rules store: {e}")
+        return _rules_store
 
 
 # Storage configuration
@@ -850,6 +870,7 @@ async def handle_create_routing_rule(
     enabled: bool = True,
     description: Optional[str] = None,
     created_by: Optional[str] = None,
+    inbox_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Create a routing rule.
@@ -873,6 +894,53 @@ async def handle_create_routing_rule(
         rule_id = f"rule_{uuid.uuid4().hex[:12]}"
         now = datetime.now(timezone.utc)
 
+        # Prepare rule data for persistent storage
+        rule_data = {
+            "id": rule_id,
+            "name": name,
+            "workspace_id": workspace_id,
+            "inbox_id": inbox_id,
+            "conditions": conditions,
+            "condition_logic": condition_logic,
+            "actions": actions,
+            "priority": priority,
+            "enabled": enabled,
+            "description": description,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+            "created_by": created_by,
+            "stats": {"total_matches": 0, "matched": 0, "applied": 0},
+        }
+
+        # Use RulesStore for persistent storage (primary)
+        rules_store = _get_rules_store()
+        if rules_store:
+            try:
+                rules_store.create_rule(rule_data)
+                logger.info(f"[SharedInbox] Created routing rule {rule_id}: {name} (persistent)")
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to persist rule to RulesStore: {e}")
+                # Fall through to in-memory storage
+
+        # Also persist to email store for backward compatibility
+        email_store = _get_store()
+        if email_store:
+            try:
+                email_store.create_routing_rule(
+                    rule_id=rule_id,
+                    workspace_id=workspace_id,
+                    name=name,
+                    conditions=conditions,
+                    actions=actions,
+                    priority=priority,
+                    enabled=enabled,
+                    description=description,
+                    inbox_id=inbox_id,
+                )
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to persist rule to email store: {e}")
+
+        # Build in-memory RoutingRule object for cache
         rule = RoutingRule(
             id=rule_id,
             workspace_id=workspace_id,
@@ -889,30 +957,9 @@ async def handle_create_routing_rule(
             stats={"total_matches": 0},
         )
 
-        # Use persistent storage if enabled
-        store = _get_store()
-        if store:
-            try:
-                store.create_routing_rule(
-                    rule_id=rule_id,
-                    workspace_id=workspace_id,
-                    name=name,
-                    conditions=conditions,
-                    condition_logic=condition_logic,
-                    actions=actions,
-                    priority=priority,
-                    enabled=enabled,
-                    description=description,
-                    created_by=created_by,
-                )
-            except Exception as e:
-                logger.warning(f"[SharedInbox] Failed to persist rule to store: {e}")
-
-        # Always keep in-memory cache
+        # Keep in-memory cache for fast reads
         with _storage_lock:
             _routing_rules[rule_id] = rule
-
-        logger.info(f"[SharedInbox] Created routing rule {rule_id}: {name}")
 
         return {
             "success": True,
@@ -932,6 +979,7 @@ async def handle_list_routing_rules(
     enabled_only: bool = False,
     limit: int = 100,
     offset: int = 0,
+    inbox_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     List routing rules for a workspace.
@@ -939,26 +987,53 @@ async def handle_list_routing_rules(
     GET /api/v1/inbox/routing/rules?workspace_id=ws_123
     """
     try:
-        # Try persistent store first
-        store = _get_store()
-        if store:
+        # Try RulesStore first (primary persistent storage)
+        rules_store = _get_rules_store()
+        if rules_store:
             try:
-                rules = store.list_routing_rules(
+                rules = rules_store.list_rules(
                     workspace_id=workspace_id,
+                    inbox_id=inbox_id,
                     enabled_only=enabled_only,
                     limit=limit,
                     offset=offset,
                 )
+                total = rules_store.count_rules(
+                    workspace_id=workspace_id,
+                    inbox_id=inbox_id,
+                    enabled_only=enabled_only,
+                )
+                return {
+                    "success": True,
+                    "rules": rules,
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to load rules from RulesStore: {e}")
+
+        # Try email store as fallback
+        email_store = _get_store()
+        if email_store:
+            try:
+                rules = email_store.list_routing_rules(
+                    workspace_id=workspace_id,
+                    inbox_id=inbox_id,
+                    enabled_only=enabled_only,
+                )
                 if rules is not None:
+                    total = len(rules)
+                    rules = rules[offset : offset + limit]
                     return {
                         "success": True,
                         "rules": rules,
-                        "total": len(rules),  # TODO: get actual total from store
+                        "total": total,
                         "limit": limit,
                         "offset": offset,
                     }
             except Exception as e:
-                logger.warning(f"[SharedInbox] Failed to load rules from store: {e}")
+                logger.warning(f"[SharedInbox] Failed to load rules from email store: {e}")
 
         # Fallback to in-memory
         with _storage_lock:
@@ -967,6 +1042,12 @@ async def handle_list_routing_rules(
                 for rule in sorted(_routing_rules.values(), key=lambda r: r.priority)
                 if rule.workspace_id == workspace_id
             ]
+            if inbox_id:
+                all_rules = [
+                    r
+                    for r in all_rules
+                    if r.get("inbox_id") == inbox_id or r.get("inbox_id") is None
+                ]
             if enabled_only:
                 all_rules = [r for r in all_rules if r.get("enabled", True)]
             total = len(all_rules)
@@ -1002,7 +1083,27 @@ async def handle_update_routing_rule(
     }
     """
     try:
-        # Update in-memory first
+        updated_rule_data = None
+
+        # Update in RulesStore first (primary persistent storage)
+        rules_store = _get_rules_store()
+        if rules_store:
+            try:
+                updated_rule_data = rules_store.update_rule(rule_id, updates)
+                if updated_rule_data:
+                    logger.info(f"[SharedInbox] Updated routing rule {rule_id} in RulesStore")
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to update rule in RulesStore: {e}")
+
+        # Also update in email store for backward compatibility
+        email_store = _get_store()
+        if email_store:
+            try:
+                email_store.update_routing_rule(rule_id, **updates)
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to update rule in email store: {e}")
+
+        # Update in-memory cache
         with _storage_lock:
             rule = _routing_rules.get(rule_id)
             if rule:
@@ -1024,27 +1125,33 @@ async def handle_update_routing_rule(
 
                 rule.updated_at = datetime.now(timezone.utc)
 
-        # Persist to store if available
-        store = _get_store()
-        if store:
-            try:
-                updated_rule = store.update_routing_rule(rule_id, updates)
-                if updated_rule:
-                    logger.info(f"[SharedInbox] Updated routing rule {rule_id}")
-                    return {
-                        "success": True,
-                        "rule": updated_rule,
-                    }
-            except Exception as e:
-                logger.warning(f"[SharedInbox] Failed to persist rule update: {e}")
-
-        # Return from cache if store failed or not available
-        if rule:
-            logger.info(f"[SharedInbox] Updated routing rule {rule_id}")
+        # Return data from persistent storage if available
+        if updated_rule_data:
             return {
                 "success": True,
-                "rule": rule.to_dict(),
+                "rule": updated_rule_data,
             }
+
+        # Fallback: try to get from RulesStore
+        if rules_store:
+            try:
+                rule_data = rules_store.get_rule(rule_id)
+                if rule_data:
+                    return {
+                        "success": True,
+                        "rule": rule_data,
+                    }
+            except Exception:
+                pass
+
+        # Return from in-memory cache if available
+        with _storage_lock:
+            rule = _routing_rules.get(rule_id)
+            if rule:
+                return {
+                    "success": True,
+                    "rule": rule.to_dict(),
+                }
 
         return {"success": False, "error": "Rule not found"}
 
@@ -1065,25 +1172,42 @@ async def handle_delete_routing_rule(
     DELETE /api/v1/inbox/routing/rules/:id
     """
     try:
+        deleted = False
+
+        # Delete from RulesStore (primary persistent storage)
+        rules_store = _get_rules_store()
+        if rules_store:
+            try:
+                deleted = rules_store.delete_rule(rule_id)
+                if deleted:
+                    logger.info(f"[SharedInbox] Deleted routing rule {rule_id} from RulesStore")
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to delete rule from RulesStore: {e}")
+
+        # Also delete from email store for backward compatibility
+        email_store = _get_store()
+        if email_store:
+            try:
+                email_store.delete_routing_rule(rule_id)
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to delete rule from email store: {e}")
+
         # Delete from in-memory cache
         with _storage_lock:
             if rule_id in _routing_rules:
                 del _routing_rules[rule_id]
+                deleted = True
 
-        # Delete from persistent store
-        store = _get_store()
-        if store:
-            try:
-                store.delete_routing_rule(rule_id)
-            except Exception as e:
-                logger.warning(f"[SharedInbox] Failed to delete rule from store: {e}")
-
-        logger.info(f"[SharedInbox] Deleted routing rule {rule_id}")
-
-        return {
-            "success": True,
-            "deleted": rule_id,
-        }
+        if deleted:
+            return {
+                "success": True,
+                "deleted": rule_id,
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Rule not found",
+            }
 
     except Exception as e:
         logger.exception(f"Failed to delete routing rule: {e}")
@@ -1107,16 +1231,28 @@ async def handle_test_routing_rule(
     """
     try:
         rule = None
+        rule_data = None
 
-        # Try persistent store first
-        store = _get_store()
-        if store:
+        # Try RulesStore first (primary persistent storage)
+        rules_store = _get_rules_store()
+        if rules_store:
             try:
-                rule_data = store.get_routing_rule(rule_id)
+                rule_data = rules_store.get_rule(rule_id)
                 if rule_data:
                     rule = RoutingRule.from_dict(rule_data)
             except Exception as e:
-                logger.warning(f"[SharedInbox] Failed to load rule from store: {e}")
+                logger.warning(f"[SharedInbox] Failed to load rule from RulesStore: {e}")
+
+        # Try email store as fallback
+        if not rule:
+            email_store = _get_store()
+            if email_store:
+                try:
+                    rule_data = email_store.get_routing_rule(rule_id)
+                    if rule_data:
+                        rule = RoutingRule.from_dict(rule_data)
+                except Exception as e:
+                    logger.warning(f"[SharedInbox] Failed to load rule from email store: {e}")
 
         # Fallback to in-memory
         if not rule:
@@ -1194,6 +1330,158 @@ def _evaluate_rule(rule: RoutingRule, message: SharedInboxMessage) -> bool:
         return all(results) if results else False
     else:  # OR
         return any(results) if results else False
+
+
+async def get_matching_rules_for_email(
+    inbox_id: str,
+    email_data: Dict[str, Any],
+    workspace_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Get all matching routing rules for an email message.
+
+    This function queries the RulesStore to find enabled rules that match
+    the given email data, sorted by priority.
+
+    Args:
+        inbox_id: The inbox ID to get rules for
+        email_data: Email data dictionary with keys:
+            - from_address: Sender email address
+            - to_addresses: List of recipient addresses
+            - subject: Email subject line
+            - snippet: Email body preview
+            - priority: Email priority level (optional)
+        workspace_id: Optional workspace filter
+
+    Returns:
+        List of matching rule dictionaries sorted by priority (ascending)
+    """
+    matching_rules = []
+
+    # Try RulesStore first (primary persistent storage)
+    rules_store = _get_rules_store()
+    if rules_store:
+        try:
+            matching_rules = rules_store.get_matching_rules(
+                inbox_id=inbox_id,
+                email_data=email_data,
+                workspace_id=workspace_id,
+            )
+            return matching_rules
+        except Exception as e:
+            logger.warning(f"[SharedInbox] Failed to get matching rules from RulesStore: {e}")
+
+    # Fallback to in-memory evaluation
+    with _storage_lock:
+        # Get all enabled rules for this workspace/inbox
+        rules = [
+            rule
+            for rule in _routing_rules.values()
+            if rule.enabled and (workspace_id is None or rule.workspace_id == workspace_id)
+        ]
+        # Sort by priority
+        rules.sort(key=lambda r: r.priority)
+
+        # Create a message-like object for evaluation
+        class _EmailMessage:
+            def __init__(self, data: Dict[str, Any]):
+                self.from_address = data.get("from_address", "")
+                self.to_addresses = data.get("to_addresses", [])
+                self.subject = data.get("subject", "")
+                self.snippet = data.get("snippet", "")
+                self.priority = data.get("priority")
+
+        msg = _EmailMessage(email_data)
+
+        for rule in rules:
+            if _evaluate_rule(rule, msg):
+                matching_rules.append(rule.to_dict())
+
+    return matching_rules
+
+
+async def apply_routing_rules_to_message(
+    inbox_id: str,
+    message: SharedInboxMessage,
+    workspace_id: str,
+) -> Dict[str, Any]:
+    """
+    Apply matching routing rules to a message.
+
+    Args:
+        inbox_id: The inbox containing the message
+        message: The message to apply rules to
+        workspace_id: The workspace ID
+
+    Returns:
+        Dictionary with applied actions and any changes made
+    """
+    # Build email data from message
+    email_data = {
+        "from_address": message.from_address,
+        "to_addresses": message.to_addresses,
+        "subject": message.subject,
+        "snippet": message.snippet,
+        "priority": message.priority,
+    }
+
+    # Get matching rules
+    matching_rules = await get_matching_rules_for_email(
+        inbox_id=inbox_id,
+        email_data=email_data,
+        workspace_id=workspace_id,
+    )
+
+    if not matching_rules:
+        return {"applied": False, "rules_matched": 0, "actions": []}
+
+    applied_actions = []
+    changes_made = {}
+
+    for rule in matching_rules:
+        actions = rule.get("actions", [])
+        for action in actions:
+            action_type = action.get("type")
+            target = action.get("target")
+            _ = action.get("params", {})  # Reserved for future action params
+
+            if action_type == "assign" and target:
+                message.assigned_to = target
+                message.assigned_at = datetime.now(timezone.utc)
+                if message.status == MessageStatus.OPEN:
+                    message.status = MessageStatus.ASSIGNED
+                changes_made["assigned_to"] = target
+                applied_actions.append({"type": "assign", "target": target})
+
+            elif action_type == "label" and target:
+                if target not in message.tags:
+                    message.tags.append(target)
+                applied_actions.append({"type": "label", "target": target})
+
+            elif action_type == "escalate":
+                message.priority = "high"
+                changes_made["priority"] = "high"
+                applied_actions.append({"type": "escalate"})
+
+            elif action_type == "archive":
+                message.status = MessageStatus.CLOSED
+                changes_made["status"] = "closed"
+                applied_actions.append({"type": "archive"})
+
+        # Update rule stats
+        rules_store = _get_rules_store()
+        if rules_store:
+            try:
+                rules_store.increment_rule_stats(rule["id"], matched=0, applied=1)
+            except Exception:
+                pass
+
+    return {
+        "applied": bool(applied_actions),
+        "rules_matched": len(matching_rules),
+        "actions": applied_actions,
+        "changes": changes_made,
+    }
 
 
 # =============================================================================
@@ -1384,6 +1672,7 @@ class SharedInboxHandler(BaseHandler):
             enabled=data.get("enabled", True),
             description=data.get("description"),
             created_by=self._get_user_id(),
+            inbox_id=data.get("inbox_id"),
         )
 
         if result.get("success"):
@@ -1397,7 +1686,13 @@ class SharedInboxHandler(BaseHandler):
         if not workspace_id:
             return error_response("workspace_id required", 400)
 
-        result = await handle_list_routing_rules(workspace_id)
+        result = await handle_list_routing_rules(
+            workspace_id=workspace_id,
+            enabled_only=params.get("enabled_only", "false").lower() == "true",
+            limit=int(params.get("limit", 100)),
+            offset=int(params.get("offset", 0)),
+            inbox_id=params.get("inbox_id"),
+        )
 
         if result.get("success"):
             return success_response(result)

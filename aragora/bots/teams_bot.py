@@ -45,8 +45,8 @@ API_BASE = os.environ.get("ARAGORA_API_BASE", "http://localhost:8080")
 def _check_botframework_available() -> tuple[bool, Optional[str]]:
     """Check if Bot Framework SDK is available."""
     try:
-        from botbuilder.core import TurnContext
-        from botbuilder.schema import Activity
+        from botbuilder.core import TurnContext  # noqa: F401
+        from botbuilder.schema import Activity  # noqa: F401
 
         return True, None
     except ImportError:

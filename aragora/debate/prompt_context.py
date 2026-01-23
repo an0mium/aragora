@@ -134,7 +134,6 @@ class PromptContextBuilder:
             from aragora.agents.vertical_personas import (
                 Vertical,
                 VerticalPersonaManager,
-                VERTICAL_CONFIGS,
             )
 
             # Get or create manager

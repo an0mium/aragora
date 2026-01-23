@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Check for qdrant library
 try:
-    from qdrant_client import QdrantClient, AsyncQdrantClient
+    from qdrant_client import QdrantClient, AsyncQdrantClient  # noqa: F401
     from qdrant_client.http import models as qdrant_models
     from qdrant_client.http.models import (
         Distance,

@@ -159,7 +159,7 @@ class ExpenseRecord:
             str(self.amount),
             self.date.strftime("%Y-%m-%d"),
         ]
-        return hashlib.md5("|".join(key_parts).encode()).hexdigest()
+        return hashlib.md5("|".join(key_parts).encode(), usedforsecurity=False).hexdigest()
 
     def to_dict(self) -> Dict[str, Any]:
         return {

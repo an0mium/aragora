@@ -93,6 +93,17 @@ from .security_events import (  # noqa: F401
     create_secret_event,
     create_scan_completed_event,
 )
+from .security_dispatcher import (  # noqa: F401
+    # Main class
+    SecurityDispatcher,
+    DispatcherConfig,
+    DispatcherStats,
+    # Global instance functions
+    get_security_dispatcher,
+    set_security_dispatcher,
+    start_security_dispatcher,
+    stop_security_dispatcher,
+)
 
 __all__ = [
     # Event types (shared layer)
@@ -152,4 +163,12 @@ __all__ = [
     "create_vulnerability_event",
     "create_secret_event",
     "create_scan_completed_event",
+    # Security dispatcher
+    "SecurityDispatcher",
+    "DispatcherConfig",
+    "DispatcherStats",
+    "get_security_dispatcher",
+    "set_security_dispatcher",
+    "start_security_dispatcher",
+    "stop_security_dispatcher",
 ]

@@ -180,7 +180,7 @@ def export_to_prometheus(
         >>> start_http_server(8000)  # Metrics at :8000/metrics
     """
     try:
-        from prometheus_client import Counter, Gauge
+        from prometheus_client import Counter
         from prometheus_client import REGISTRY as DEFAULT_REGISTRY
     except ImportError:
         logger.warning(

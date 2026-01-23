@@ -714,6 +714,133 @@ class RulesStore:
             "resolved_by": row["resolved_by"],
         }
 
+    # =========================================================================
+    # Rule Matching
+    # =========================================================================
+
+    def get_matching_rules(
+        self,
+        inbox_id: str,
+        email_data: Dict[str, Any],
+        workspace_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Find all enabled rules that match the given email data.
+
+        Args:
+            inbox_id: The inbox to get rules for
+            email_data: Email data with keys like:
+                - from_address: Sender email address
+                - to_addresses: List of recipient addresses
+                - subject: Email subject line
+                - snippet/body: Email body preview
+                - priority: Email priority level
+            workspace_id: Optional workspace filter
+
+        Returns:
+            List of matching rules sorted by priority (ascending)
+        """
+        # Get all enabled rules for this inbox/workspace
+        rules = self.list_rules(
+            workspace_id=workspace_id,
+            inbox_id=inbox_id,
+            enabled_only=True,
+            limit=1000,
+        )
+
+        matching_rules = []
+        for rule in rules:
+            if self._evaluate_rule(rule, email_data):
+                matching_rules.append(rule)
+                # Increment stats
+                self.increment_rule_stats(rule["id"], matched=1)
+
+        return matching_rules
+
+    def _evaluate_rule(self, rule: Dict[str, Any], email_data: Dict[str, Any]) -> bool:
+        """
+        Evaluate if a routing rule matches the given email data.
+
+        Args:
+            rule: Rule dictionary with conditions
+            email_data: Email data to evaluate against
+
+        Returns:
+            True if the rule matches
+        """
+        import re
+
+        conditions = rule.get("conditions", [])
+        if not conditions:
+            return False
+
+        condition_logic = rule.get("condition_logic", "AND")
+        results = []
+
+        for condition in conditions:
+            field = condition.get("field", "")
+            operator = condition.get("operator", "")
+            condition_value = condition.get("value", "").lower()
+
+            # Extract the value to match against based on field
+            value = ""
+            if field == "from":
+                value = (email_data.get("from_address") or "").lower()
+            elif field == "to":
+                to_addrs = email_data.get("to_addresses", [])
+                if isinstance(to_addrs, list):
+                    value = " ".join(to_addrs).lower()
+                else:
+                    value = str(to_addrs).lower()
+            elif field == "subject":
+                value = (email_data.get("subject") or "").lower()
+            elif field == "body":
+                value = (email_data.get("snippet") or email_data.get("body") or "").lower()
+            elif field == "sender_domain":
+                from_addr = email_data.get("from_address") or ""
+                value = from_addr.split("@")[-1].lower() if "@" in from_addr else ""
+            elif field == "priority":
+                value = (email_data.get("priority") or "").lower()
+            elif field == "labels":
+                labels = email_data.get("labels", [])
+                value = (
+                    " ".join(labels).lower() if isinstance(labels, list) else str(labels).lower()
+                )
+
+            # Evaluate the condition
+            matched = False
+            if operator == "contains":
+                matched = condition_value in value
+            elif operator == "equals":
+                matched = value == condition_value
+            elif operator == "starts_with":
+                matched = value.startswith(condition_value)
+            elif operator == "ends_with":
+                matched = value.endswith(condition_value)
+            elif operator == "matches":
+                try:
+                    matched = bool(re.search(condition_value, value, re.IGNORECASE))
+                except re.error:
+                    matched = False
+            elif operator == "greater_than":
+                try:
+                    matched = float(value) > float(condition_value)
+                except (ValueError, TypeError):
+                    matched = False
+            elif operator == "less_than":
+                try:
+                    matched = float(value) < float(condition_value)
+                except (ValueError, TypeError):
+                    matched = False
+
+            results.append(matched)
+
+        # Apply condition logic
+        if condition_logic == "AND":
+            return all(results) if results else False
+        else:  # OR
+            return any(results) if results else False
+
     def close(self) -> None:
         """Close the database connection."""
         if hasattr(self._local, "connection") and self._local.connection:

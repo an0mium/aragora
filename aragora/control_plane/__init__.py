@@ -152,7 +152,20 @@ from aragora.control_plane.notifications import (
     QueuedNotification,
     RetryConfig,
     create_notification_dispatcher,
+    get_default_notification_dispatcher,
     on_notification_event,
+    set_default_notification_dispatcher,
+)
+from aragora.control_plane.deliberation_events import (
+    DeliberationEventType,
+)
+from aragora.control_plane.arena_bridge import (
+    AgentMetrics,
+    ArenaControlPlaneBridge,
+    ArenaEventAdapter,
+    get_arena_bridge,
+    init_arena_bridge,
+    set_arena_bridge,
 )
 from aragora.control_plane.policy import (
     ControlPlanePolicy,
@@ -263,7 +276,9 @@ __all__ = [
     "QueuedNotification",
     "RetryConfig",
     "create_notification_dispatcher",
+    "get_default_notification_dispatcher",
     "on_notification_event",
+    "set_default_notification_dispatcher",
     # Policy
     "ControlPlanePolicy",
     "ControlPlanePolicyManager",
@@ -278,4 +293,13 @@ __all__ = [
     "create_production_policy",
     "create_sensitive_data_policy",
     "create_sla_policy",
+    # Deliberation Events
+    "DeliberationEventType",
+    # Arena Bridge
+    "AgentMetrics",
+    "ArenaControlPlaneBridge",
+    "ArenaEventAdapter",
+    "get_arena_bridge",
+    "init_arena_bridge",
+    "set_arena_bridge",
 ]

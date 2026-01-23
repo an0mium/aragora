@@ -42,6 +42,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_default_dispatcher: Optional["NotificationDispatcher"] = None
+
 
 # =============================================================================
 # Configuration
@@ -793,6 +795,9 @@ def create_notification_dispatcher(
     Returns:
         Configured NotificationDispatcher instance
     """
+    if manager is None and redis is None and config is None and _default_dispatcher is not None:
+        return _default_dispatcher
+
     if manager is None:
         manager = NotificationManager()
 
@@ -801,6 +806,17 @@ def create_notification_dispatcher(
         redis=redis,
         config=config,
     )
+
+
+def get_default_notification_dispatcher() -> Optional["NotificationDispatcher"]:
+    """Get the default notification dispatcher, if configured."""
+    return _default_dispatcher
+
+
+def set_default_notification_dispatcher(dispatcher: "NotificationDispatcher") -> None:
+    """Set the default notification dispatcher."""
+    global _default_dispatcher
+    _default_dispatcher = dispatcher
 
 
 # =============================================================================
@@ -842,6 +858,8 @@ __all__ = [
     # Dispatcher
     "NotificationDispatcher",
     "create_notification_dispatcher",
+    "get_default_notification_dispatcher",
+    "set_default_notification_dispatcher",
     # Decorators
     "on_notification_event",
 ]

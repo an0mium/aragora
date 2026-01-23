@@ -759,6 +759,163 @@ class SecretsScanner:
         redacted = SecretFinding.redact_secret(secret)
         return line[:start] + redacted + line[end:]
 
+    # =========================================================================
+    # Additional Public API Methods
+    # =========================================================================
+
+    async def scan_file(self, file_path: str) -> List[SecretFinding]:
+        """
+        Scan a single file for secrets.
+
+        Args:
+            file_path: Absolute path to the file to scan
+
+        Returns:
+            List of SecretFinding objects found in the file
+
+        Example:
+            scanner = SecretsScanner()
+            findings = await scanner.scan_file("/path/to/config.py")
+            for finding in findings:
+                print(f"Found {finding.secret_type} at line {finding.line_number}")
+        """
+        file_path = os.path.abspath(file_path)
+
+        if not os.path.isfile(file_path):
+            return []
+
+        # Check file extension
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext in self.skip_extensions:
+            return []
+
+        # Check file size
+        try:
+            if os.path.getsize(file_path) > self.max_file_size_bytes:
+                return []
+        except OSError:
+            return []
+
+        # Use the directory containing the file as the base path
+        base_path = os.path.dirname(file_path)
+
+        return await asyncio.to_thread(self._scan_file_sync, file_path, base_path)
+
+    async def scan_directory(
+        self,
+        dir_path: str,
+        exclude_patterns: Optional[List[str]] = None,
+    ) -> SecretsScanResult:
+        """
+        Scan a directory for secrets with custom exclusion patterns.
+
+        Args:
+            dir_path: Path to the directory to scan
+            exclude_patterns: List of glob patterns to exclude (e.g., ["*.log", "test/**"])
+
+        Returns:
+            SecretsScanResult containing all findings
+
+        Example:
+            scanner = SecretsScanner()
+            result = await scanner.scan_directory(
+                "/path/to/project",
+                exclude_patterns=["*.test.py", "docs/**", "*.md"]
+            )
+            print(f"Found {len(result.secrets)} secrets")
+        """
+        import fnmatch
+
+        dir_path = os.path.abspath(dir_path)
+        scan_id = str(uuid.uuid4())
+        dir_name = os.path.basename(dir_path)
+
+        result = SecretsScanResult(
+            scan_id=scan_id,
+            repository=dir_name,
+            started_at=datetime.now(),
+        )
+
+        if not os.path.isdir(dir_path):
+            result.status = "failed"
+            result.error = f"Directory not found: {dir_path}"
+            result.completed_at = datetime.now()
+            return result
+
+        try:
+            # Merge exclude patterns with default skip patterns
+            custom_skip_dirs = set(self.skip_dirs)
+            custom_skip_files: Set[str] = set(self.skip_files)
+            custom_glob_patterns: List[str] = []
+
+            if exclude_patterns:
+                for pattern in exclude_patterns:
+                    # Check if it's a directory pattern (ends with / or /**)
+                    if pattern.endswith("/") or pattern.endswith("/**"):
+                        dir_name_pattern = pattern.rstrip("/").rstrip("*").rstrip("/")
+                        if dir_name_pattern:
+                            custom_skip_dirs.add(dir_name_pattern)
+                    else:
+                        custom_glob_patterns.append(pattern)
+
+            # Collect files with custom patterns
+            files_to_scan: List[str] = []
+
+            for root, dirs, files in os.walk(dir_path):
+                # Filter directories
+                dirs[:] = [d for d in dirs if d not in custom_skip_dirs]
+
+                for filename in files:
+                    if filename in custom_skip_files:
+                        continue
+
+                    ext = os.path.splitext(filename)[1].lower()
+                    if ext in self.skip_extensions:
+                        continue
+
+                    file_path_full = os.path.join(root, filename)
+                    rel_path = os.path.relpath(file_path_full, dir_path)
+
+                    # Check against glob patterns
+                    should_skip = False
+                    for pattern in custom_glob_patterns:
+                        if fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(filename, pattern):
+                            should_skip = True
+                            break
+
+                    if should_skip:
+                        continue
+
+                    try:
+                        if os.path.getsize(file_path_full) > self.max_file_size_bytes:
+                            continue
+                    except OSError:
+                        continue
+
+                    files_to_scan.append(file_path_full)
+
+            result.files_scanned = len(files_to_scan)
+
+            self._semaphore = asyncio.Semaphore(self.max_concurrency)
+
+            tasks = [self._scan_file(fp, dir_path) for fp in files_to_scan]
+            findings_lists = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for findings in findings_lists:
+                if isinstance(findings, BaseException):
+                    continue
+                result.secrets.extend(findings)
+
+            result.status = "completed"
+            result.completed_at = datetime.now()
+
+        except Exception as e:
+            result.status = "failed"
+            result.error = str(e)
+            result.completed_at = datetime.now()
+
+        return result
+
 
 async def scan_repository_for_secrets(
     repo_path: str,
@@ -791,3 +948,49 @@ async def scan_repository_for_secrets(
         result.history_depth = history_depth
 
     return result
+
+
+# Convenience function for single file scanning
+async def scan_file_for_secrets(file_path: str) -> List[SecretFinding]:
+    """
+    Convenience function to scan a single file for secrets.
+
+    Args:
+        file_path: Path to the file to scan
+
+    Returns:
+        List of SecretFinding objects
+
+    Example:
+        findings = await scan_file_for_secrets("/path/to/config.py")
+        for f in findings:
+            print(f"{f.secret_type}: {f.file_path}:{f.line_number}")
+    """
+    scanner = SecretsScanner()
+    return await scanner.scan_file(file_path)
+
+
+# Convenience function for directory scanning
+async def scan_directory_for_secrets(
+    dir_path: str,
+    exclude_patterns: Optional[List[str]] = None,
+) -> SecretsScanResult:
+    """
+    Convenience function to scan a directory for secrets.
+
+    Args:
+        dir_path: Path to the directory to scan
+        exclude_patterns: Optional list of glob patterns to exclude
+
+    Returns:
+        SecretsScanResult with all findings
+
+    Example:
+        result = await scan_directory_for_secrets(
+            "/path/to/project",
+            exclude_patterns=["*.test.py", "docs/**"]
+        )
+        print(f"Found {len(result.secrets)} secrets in {result.files_scanned} files")
+    """
+    scanner = SecretsScanner()
+    return await scanner.scan_directory(dir_path, exclude_patterns)

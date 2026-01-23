@@ -106,7 +106,7 @@ class SimilarityFactory:
 
         # Register FAISS backend if available
         try:
-            from aragora.debate.similarity.ann import FAISSIndex
+            from aragora.debate.similarity.ann import FAISSIndex  # noqa: F401
 
             cls.register(
                 "faiss",

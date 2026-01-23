@@ -149,7 +149,7 @@ class InvoiceData:
             self.invoice_number.strip(),
             str(self.total_amount),
         ]
-        return hashlib.md5("|".join(key_parts).encode()).hexdigest()
+        return hashlib.md5("|".join(key_parts).encode(), usedforsecurity=False).hexdigest()
 
     @property
     def days_until_due(self) -> Optional[int]:

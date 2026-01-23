@@ -36,10 +36,19 @@ class SecurityEventType(str, Enum):
     CRITICAL_VULNERABILITY = "critical_vulnerability"
     VULNERABILITY_RESOLVED = "vulnerability_resolved"
 
+    # CVE-specific events
+    CRITICAL_CVE = "critical_cve"  # CVE with CVSS >= 9.0
+
     # Secrets events
     SECRET_DETECTED = "secret_detected"
     CRITICAL_SECRET = "critical_secret"
     SECRET_ROTATED = "secret_rotated"
+
+    # SAST events
+    SAST_CRITICAL = "sast_critical"  # SAST scanner found critical vulnerability
+
+    # Threat intelligence events
+    THREAT_DETECTED = "threat_detected"  # Threat intel match detected
 
     # Scan events
     SCAN_STARTED = "scan_started"
@@ -106,7 +115,8 @@ class SecurityEvent:
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     severity: SecuritySeverity = SecuritySeverity.MEDIUM
 
-    # Source information
+    # Source information - categorizes the origin of the event
+    source: str = "sast"  # "sast", "secrets", "dependency", "threat_intel"
     repository: Optional[str] = None
     scan_id: Optional[str] = None
     workspace_id: Optional[str] = None
@@ -122,6 +132,9 @@ class SecurityEvent:
     # Correlation
     correlation_id: Optional[str] = None
 
+    # Metadata for additional context
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
@@ -129,6 +142,7 @@ class SecurityEvent:
             "event_type": self.event_type.value,
             "timestamp": self.timestamp.isoformat(),
             "severity": self.severity.value,
+            "source": self.source,
             "repository": self.repository,
             "scan_id": self.scan_id,
             "workspace_id": self.workspace_id,
@@ -137,6 +151,7 @@ class SecurityEvent:
             "debate_id": self.debate_id,
             "debate_question": self.debate_question,
             "correlation_id": self.correlation_id,
+            "metadata": self.metadata,
         }
 
     @property

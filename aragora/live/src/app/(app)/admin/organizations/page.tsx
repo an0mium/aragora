@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
-import { Scanlines, CRTVignette } from '@/components/MatrixRain';
-import { AsciiBannerCompact } from '@/components/AsciiBanner';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { BackendSelector, useBackend } from '@/components/BackendSelector';
+import { useSearchParams } from 'next/navigation';
+import { AdminLayout } from '@/components/admin/AdminLayout';
+import { MemberTable, Member } from '@/components/admin/MemberTable';
+import { useBackend } from '@/components/BackendSelector';
 import { useAuth } from '@/context/AuthContext';
 
 interface Organization {
@@ -14,7 +13,10 @@ interface Organization {
   slug: string;
   tier: string;
   debates_used_this_month: number;
+  debates_limit: number;
   owner_id: string;
+  owner_email?: string;
+  member_count: number;
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
   billing_cycle_start: string;
@@ -27,6 +29,19 @@ interface OrganizationsResponse {
   total: number;
   limit: number;
   offset: number;
+}
+
+interface OrgMember extends Member {
+  org_role: string;
+}
+
+interface APIKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  created_at: string;
+  last_used_at?: string;
+  is_active: boolean;
 }
 
 function TierBadge({ tier }: { tier: string }) {
@@ -45,16 +60,261 @@ function TierBadge({ tier }: { tier: string }) {
   );
 }
 
+function UsageBar({ used, limit }: { used: number; limit: number }) {
+  const percent = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+  const color = percent >= 90 ? 'bg-acid-red' : percent >= 70 ? 'bg-acid-yellow' : 'bg-acid-green';
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-2 bg-bg rounded overflow-hidden">
+        <div className={`h-full ${color} transition-all`} style={{ width: `${percent}%` }} />
+      </div>
+      <span className="font-mono text-xs text-text-muted whitespace-nowrap">
+        {used}/{limit}
+      </span>
+    </div>
+  );
+}
+
+// Organization Detail Modal
+function OrgDetailModal({
+  isOpen,
+  onClose,
+  organization,
+  onLoadMembers,
+  onLoadAPIKeys,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  organization: Organization | null;
+  onLoadMembers: (orgId: string) => Promise<OrgMember[]>;
+  onLoadAPIKeys: (orgId: string) => Promise<APIKey[]>;
+}) {
+  const [activeTab, setActiveTab] = useState<'details' | 'members' | 'api-keys'>('details');
+  const [members, setMembers] = useState<OrgMember[]>([]);
+  const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && organization) {
+      setActiveTab('details');
+      setMembers([]);
+      setApiKeys([]);
+    }
+  }, [isOpen, organization]);
+
+  const loadMembers = async () => {
+    if (!organization) return;
+    setLoading(true);
+    try {
+      const data = await onLoadMembers(organization.id);
+      setMembers(data);
+    } catch {
+      // Error handled silently
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAPIKeys = async () => {
+    if (!organization) return;
+    setLoading(true);
+    try {
+      const data = await onLoadAPIKeys(organization.id);
+      setApiKeys(data);
+    } catch {
+      // Error handled silently
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'members' && members.length === 0) {
+      loadMembers();
+    } else if (activeTab === 'api-keys' && apiKeys.length === 0) {
+      loadAPIKeys();
+    }
+  }, [activeTab]);
+
+  if (!isOpen || !organization) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-surface border border-acid-green/40 rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] overflow-hidden z-10">
+        {/* Header */}
+        <div className="p-4 border-b border-acid-green/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-mono text-lg text-acid-green">{organization.name}</h2>
+              <p className="font-mono text-xs text-text-muted">/{organization.slug}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <TierBadge tier={organization.tier} />
+              <button
+                onClick={onClose}
+                className="p-1 text-text-muted hover:text-text transition-colors"
+              >
+                x
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-acid-green/20">
+          {(['details', 'members', 'api-keys'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 font-mono text-sm transition-colors ${
+                activeTab === tab
+                  ? 'text-acid-green border-b-2 border-acid-green'
+                  : 'text-text-muted hover:text-text'
+              }`}
+            >
+              {tab.replace('-', ' ').toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="p-4 overflow-y-auto max-h-[calc(80vh-150px)]">
+          {activeTab === 'details' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="card p-4">
+                  <div className="font-mono text-xs text-text-muted">Organization ID</div>
+                  <div className="font-mono text-sm text-acid-cyan break-all">{organization.id}</div>
+                </div>
+                <div className="card p-4">
+                  <div className="font-mono text-xs text-text-muted">Created</div>
+                  <div className="font-mono text-sm text-text">
+                    {new Date(organization.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+
+              <div className="card p-4">
+                <div className="font-mono text-xs text-text-muted mb-2">Debates Usage (This Month)</div>
+                <UsageBar used={organization.debates_used_this_month} limit={organization.debates_limit} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="card p-4">
+                  <div className="font-mono text-xs text-text-muted">Members</div>
+                  <div className="font-mono text-2xl text-acid-green">{organization.member_count}</div>
+                </div>
+                <div className="card p-4">
+                  <div className="font-mono text-xs text-text-muted">Billing</div>
+                  <div className="font-mono text-sm">
+                    {organization.stripe_customer_id ? (
+                      <span className="text-acid-green">Connected</span>
+                    ) : (
+                      <span className="text-text-muted">Not set up</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {organization.owner_email && (
+                <div className="card p-4">
+                  <div className="font-mono text-xs text-text-muted">Owner</div>
+                  <div className="font-mono text-sm text-acid-cyan">{organization.owner_email}</div>
+                </div>
+              )}
+
+              <div className="card p-4">
+                <div className="font-mono text-xs text-text-muted">Billing Cycle</div>
+                <div className="font-mono text-sm text-text">
+                  Started: {new Date(organization.billing_cycle_start).toLocaleDateString()}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'members' && (
+            <div>
+              {loading ? (
+                <div className="text-center py-8 font-mono text-text-muted animate-pulse">
+                  Loading members...
+                </div>
+              ) : members.length === 0 ? (
+                <div className="text-center py-8 font-mono text-text-muted">
+                  No members found
+                </div>
+              ) : (
+                <MemberTable
+                  data={members}
+                  loading={loading}
+                  pageSize={10}
+                  actions={[]}
+                />
+              )}
+            </div>
+          )}
+
+          {activeTab === 'api-keys' && (
+            <div>
+              {loading ? (
+                <div className="text-center py-8 font-mono text-text-muted animate-pulse">
+                  Loading API keys...
+                </div>
+              ) : apiKeys.length === 0 ? (
+                <div className="text-center py-8 font-mono text-text-muted">
+                  No API keys found
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {apiKeys.map((key) => (
+                    <div key={key.id} className="card p-3 flex items-center justify-between">
+                      <div>
+                        <div className="font-mono text-sm text-text">{key.name}</div>
+                        <div className="font-mono text-xs text-acid-cyan">{key.key_prefix}...</div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="font-mono text-xs text-text-muted">
+                          {key.last_used_at
+                            ? `Last used: ${new Date(key.last_used_at).toLocaleDateString()}`
+                            : 'Never used'}
+                        </div>
+                        <span className={`px-2 py-0.5 text-xs font-mono rounded border ${
+                          key.is_active
+                            ? 'bg-acid-green/20 text-acid-green border-acid-green/40'
+                            : 'bg-acid-red/20 text-acid-red border-acid-red/40'
+                        }`}>
+                          {key.is_active ? 'ACTIVE' : 'REVOKED'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OrganizationsAdminPage() {
   const { config: backendConfig } = useBackend();
   const { user, isAuthenticated, tokens } = useAuth();
+  const searchParams = useSearchParams();
   const token = tokens?.access_token;
+
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(1);
   const [tierFilter, setTierFilter] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+
   const limit = 20;
 
   const fetchOrganizations = useCallback(async () => {
@@ -66,11 +326,10 @@ export default function OrganizationsAdminPage() {
 
       const params = new URLSearchParams({
         limit: String(limit),
-        offset: String(page * limit),
+        offset: String((page - 1) * limit),
       });
-      if (tierFilter) {
-        params.set('tier', tierFilter);
-      }
+      if (tierFilter) params.set('tier', tierFilter);
+      if (searchQuery) params.set('search', searchQuery);
 
       const res = await fetch(
         `${backendConfig.api}/api/admin/organizations?${params}`,
@@ -82,9 +341,7 @@ export default function OrganizationsAdminPage() {
       );
 
       if (!res.ok) {
-        if (res.status === 403) {
-          throw new Error('Admin access required');
-        }
+        if (res.status === 403) throw new Error('Admin access required');
         throw new Error(`Failed to fetch organizations: ${res.status}`);
       }
 
@@ -96,7 +353,7 @@ export default function OrganizationsAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [backendConfig.api, token, page, tierFilter]);
+  }, [backendConfig.api, token, page, tierFilter, searchQuery]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -104,247 +361,266 @@ export default function OrganizationsAdminPage() {
     }
   }, [fetchOrganizations, isAuthenticated]);
 
+  // Check for action param
+  useEffect(() => {
+    if (searchParams.get('action') === 'create') {
+      // Could open create modal here
+    }
+  }, [searchParams]);
+
+  const loadOrgMembers = async (orgId: string): Promise<OrgMember[]> => {
+    if (!token) return [];
+
+    const res = await fetch(
+      `${backendConfig.api}/api/admin/organizations/${orgId}/members`,
+      {
+        headers: { 'Authorization': `Bearer ${token}` },
+      }
+    );
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    return (data.members || []).map((m: {
+      id: string;
+      email: string;
+      name?: string;
+      role: string;
+      org_role: string;
+      is_active: boolean;
+      joined_at: string;
+      last_active?: string;
+    }) => ({
+      id: m.id,
+      name: m.name || m.email.split('@')[0],
+      email: m.email,
+      role: m.role,
+      org_role: m.org_role,
+      status: m.is_active ? 'active' : 'inactive',
+      joinedAt: m.joined_at,
+      lastActive: m.last_active,
+    }));
+  };
+
+  const loadOrgAPIKeys = async (orgId: string): Promise<APIKey[]> => {
+    if (!token) return [];
+
+    const res = await fetch(
+      `${backendConfig.api}/api/admin/organizations/${orgId}/api-keys`,
+      {
+        headers: { 'Authorization': `Bearer ${token}` },
+      }
+    );
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    return data.api_keys || [];
+  };
+
+  const handleOrgClick = (org: Organization) => {
+    setSelectedOrg(org);
+    setShowDetailModal(true);
+  };
+
   const isAdmin = isAuthenticated && (user?.role === 'admin' || user?.role === 'owner');
-  const totalPages = Math.ceil(total / limit);
+
+  // Calculate tier stats
+  const tierStats = organizations.reduce((acc, org) => {
+    acc[org.tier] = (acc[org.tier] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
   return (
-    <>
-      <Scanlines opacity={0.02} />
-      <CRTVignette />
+    <AdminLayout
+      title="Organization Management"
+      description="Manage organizations, subscriptions, and team settings."
+      actions={
+        <button
+          onClick={fetchOrganizations}
+          disabled={loading}
+          className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+        >
+          {loading ? 'Loading...' : 'Refresh'}
+        </button>
+      }
+    >
+      {error && (
+        <div className="card p-4 mb-6 border-acid-red/40 bg-acid-red/10">
+          <p className="text-acid-red font-mono text-sm">{error}</p>
+        </div>
+      )}
 
-      <main className="min-h-screen bg-bg text-text relative z-10">
-        {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-            <Link href="/">
-              <AsciiBannerCompact connected={true} />
-            </Link>
-            <div className="flex items-center gap-4">
-              <Link
-                href="/admin"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
-              >
-                [ADMIN]
-              </Link>
-              <BackendSelector compact />
-              <ThemeToggle />
-            </div>
-          </div>
-        </header>
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-4 mb-6">
+        <div className="flex-1 min-w-[200px]">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Search by name or slug..."
+            className="w-full bg-surface border border-acid-green/40 text-text font-mono text-sm rounded px-3 py-2 focus:outline-none focus:border-acid-green"
+          />
+        </div>
+        <select
+          value={tierFilter}
+          onChange={(e) => {
+            setTierFilter(e.target.value);
+            setPage(1);
+          }}
+          aria-label="Filter by tier"
+          className="bg-surface border border-acid-green/40 text-text font-mono text-sm rounded px-3 py-2"
+        >
+          <option value="">All Tiers</option>
+          <option value="free">Free</option>
+          <option value="starter">Starter</option>
+          <option value="professional">Professional</option>
+          <option value="enterprise">Enterprise</option>
+          <option value="enterprise_plus">Enterprise+</option>
+        </select>
+      </div>
 
-        {/* Sub Navigation */}
-        <div className="border-b border-acid-green/20 bg-surface/40">
-          <div className="container mx-auto px-4">
-            <div className="flex gap-4 overflow-x-auto">
-              <Link
-                href="/admin"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                SYSTEM
-              </Link>
-              <Link
-                href="/admin/organizations"
-                className="px-4 py-2 font-mono text-sm text-acid-green border-b-2 border-acid-green"
-              >
-                ORGANIZATIONS
-              </Link>
-              <Link
-                href="/admin/users"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                USERS
-              </Link>
-              <Link
-                href="/admin/personas"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                PERSONAS
-              </Link>
-              <Link
-                href="/admin/audit"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                AUDIT
-              </Link>
-              <Link
-                href="/admin/revenue"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                REVENUE
-              </Link>
-              <Link
-                href="/admin/training"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
-              >
-                TRAINING
-              </Link>
-            </div>
-          </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+        <div className="card p-4">
+          <div className="font-mono text-xs text-text-muted">Total</div>
+          <div className="font-mono text-2xl text-acid-green">{total}</div>
+        </div>
+        <div className="card p-4">
+          <div className="font-mono text-xs text-text-muted">Free</div>
+          <div className="font-mono text-2xl text-text-muted">{tierStats.free || 0}</div>
+        </div>
+        <div className="card p-4">
+          <div className="font-mono text-xs text-text-muted">Starter</div>
+          <div className="font-mono text-2xl text-acid-cyan">{tierStats.starter || 0}</div>
+        </div>
+        <div className="card p-4">
+          <div className="font-mono text-xs text-text-muted">Pro</div>
+          <div className="font-mono text-2xl text-acid-green">{tierStats.professional || 0}</div>
+        </div>
+        <div className="card p-4">
+          <div className="font-mono text-xs text-text-muted">Enterprise</div>
+          <div className="font-mono text-2xl text-acid-yellow">{tierStats.enterprise || 0}</div>
+        </div>
+        <div className="card p-4">
+          <div className="font-mono text-xs text-text-muted">Enterprise+</div>
+          <div className="font-mono text-2xl text-acid-magenta">{tierStats.enterprise_plus || 0}</div>
+        </div>
+      </div>
+
+      {/* Organizations Table */}
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-surface border-b border-acid-green/20">
+              <tr>
+                <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">ORGANIZATION</th>
+                <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">TIER</th>
+                <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">MEMBERS</th>
+                <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">USAGE</th>
+                <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">BILLING</th>
+                <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">CREATED</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center">
+                    <div className="font-mono text-text-muted animate-pulse">Loading...</div>
+                  </td>
+                </tr>
+              )}
+              {!loading && organizations.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center">
+                    <div className="font-mono text-text-muted">No organizations found</div>
+                  </td>
+                </tr>
+              )}
+              {!loading && organizations.map((org) => (
+                <tr
+                  key={org.id}
+                  className="border-b border-acid-green/10 hover:bg-surface/50 cursor-pointer"
+                  onClick={() => handleOrgClick(org)}
+                >
+                  <td className="px-4 py-3">
+                    <div className="font-mono text-sm text-text">{org.name}</div>
+                    <div className="font-mono text-xs text-acid-cyan">/{org.slug}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <TierBadge tier={org.tier} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-mono text-sm text-text">{org.member_count}</div>
+                  </td>
+                  <td className="px-4 py-3 min-w-[150px]">
+                    <UsageBar used={org.debates_used_this_month} limit={org.debates_limit} />
+                  </td>
+                  <td className="px-4 py-3">
+                    {org.stripe_customer_id ? (
+                      <span className="px-2 py-0.5 text-xs font-mono rounded border bg-acid-green/20 text-acid-green border-acid-green/40">
+                        CONNECTED
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 text-xs font-mono rounded border bg-text-muted/20 text-text-muted border-text-muted/40">
+                        NOT SET
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-mono text-xs text-text-muted">
+                      {new Date(org.created_at).toLocaleDateString()}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        {/* Content */}
-        <div className="container mx-auto px-4 py-6">
-          <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h1 className="text-2xl font-mono text-acid-green mb-2">
-                Organizations
-              </h1>
-              <p className="text-text-muted font-mono text-sm">
-                Manage all organizations and their subscriptions.
-              </p>
+        {/* Pagination */}
+        {Math.ceil(total / limit) > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-acid-green/20">
+            <div className="font-mono text-xs text-text-muted">
+              Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total}
             </div>
-            <div className="flex items-center gap-4">
-              <select
-                value={tierFilter}
-                onChange={(e) => {
-                  setTierFilter(e.target.value);
-                  setPage(0);
-                }}
-                className="bg-surface border border-acid-green/40 text-text font-mono text-sm rounded px-3 py-2"
-              >
-                <option value="">All Tiers</option>
-                <option value="free">Free</option>
-                <option value="starter">Starter</option>
-                <option value="professional">Professional</option>
-                <option value="enterprise">Enterprise</option>
-                <option value="enterprise_plus">Enterprise+</option>
-              </select>
+            <div className="flex items-center gap-2">
               <button
-                onClick={fetchOrganizations}
-                disabled={loading}
-                className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="px-3 py-1 font-mono text-sm text-acid-cyan hover:text-acid-green disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
               >
-                {loading ? 'Loading...' : 'Refresh'}
+                &lt; PREV
+              </button>
+              <span className="font-mono text-sm text-text-muted">
+                Page {page} of {Math.ceil(total / limit)}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
+                disabled={page >= Math.ceil(total / limit)}
+                className="px-3 py-1 font-mono text-sm text-acid-cyan hover:text-acid-green disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+              >
+                NEXT &gt;
               </button>
             </div>
           </div>
+        )}
+      </div>
 
-          {!isAdmin && (
-            <div className="card p-6 mb-6 border-acid-yellow/40">
-              <div className="flex items-center gap-2 text-acid-yellow font-mono text-sm">
-                <span>!</span>
-                <span>Admin access required. Please sign in with an admin account.</span>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="card p-4 mb-6 border-acid-red/40 bg-acid-red/10">
-              <p className="text-acid-red font-mono text-sm">{error}</p>
-            </div>
-          )}
-
-          {/* Stats Summary */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="card p-4">
-              <div className="font-mono text-xs text-text-muted">Total Organizations</div>
-              <div className="font-mono text-2xl text-acid-green">{total}</div>
-            </div>
-            <div className="card p-4">
-              <div className="font-mono text-xs text-text-muted">On This Page</div>
-              <div className="font-mono text-2xl text-text">{organizations.length}</div>
-            </div>
-            <div className="card p-4">
-              <div className="font-mono text-xs text-text-muted">Current Page</div>
-              <div className="font-mono text-2xl text-acid-cyan">{page + 1} / {totalPages || 1}</div>
-            </div>
-            <div className="card p-4">
-              <div className="font-mono text-xs text-text-muted">Filter</div>
-              <div className="font-mono text-lg text-text">{tierFilter || 'All'}</div>
-            </div>
-          </div>
-
-          {/* Organizations Table */}
-          <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-surface border-b border-acid-green/20">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">NAME</th>
-                    <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">SLUG</th>
-                    <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">TIER</th>
-                    <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">DEBATES</th>
-                    <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">BILLING</th>
-                    <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">CREATED</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading && (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center">
-                        <div className="font-mono text-text-muted animate-pulse">Loading...</div>
-                      </td>
-                    </tr>
-                  )}
-                  {!loading && organizations.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center">
-                        <div className="font-mono text-text-muted">No organizations found</div>
-                      </td>
-                    </tr>
-                  )}
-                  {!loading && organizations.map((org) => (
-                    <tr key={org.id} className="border-b border-acid-green/10 hover:bg-surface/50">
-                      <td className="px-4 py-3">
-                        <div className="font-mono text-sm text-text">{org.name}</div>
-                        <div className="font-mono text-xs text-text-muted">{org.id.slice(0, 8)}...</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="font-mono text-sm text-acid-cyan">{org.slug}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <TierBadge tier={org.tier} />
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="font-mono text-sm text-text">{org.debates_used_this_month}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {org.stripe_customer_id ? (
-                          <span className="px-2 py-0.5 text-xs font-mono rounded border bg-acid-green/20 text-acid-green border-acid-green/40">
-                            CONNECTED
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 text-xs font-mono rounded border bg-text-muted/20 text-text-muted border-text-muted/40">
-                            NOT SET
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="font-mono text-xs text-text-muted">
-                          {new Date(org.created_at).toLocaleDateString()}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-acid-green/20">
-                <button
-                  onClick={() => setPage(p => Math.max(0, p - 1))}
-                  disabled={page === 0}
-                  className="px-3 py-1 font-mono text-sm text-acid-cyan hover:text-acid-green disabled:text-text-muted disabled:cursor-not-allowed"
-                >
-                  &lt; PREV
-                </button>
-                <span className="font-mono text-sm text-text-muted">
-                  Page {page + 1} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                  disabled={page >= totalPages - 1}
-                  className="px-3 py-1 font-mono text-sm text-acid-cyan hover:text-acid-green disabled:text-text-muted disabled:cursor-not-allowed"
-                >
-                  NEXT &gt;
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </main>
-    </>
+      {/* Organization Detail Modal */}
+      <OrgDetailModal
+        isOpen={showDetailModal}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedOrg(null);
+        }}
+        organization={selectedOrg}
+        onLoadMembers={loadOrgMembers}
+        onLoadAPIKeys={loadOrgAPIKeys}
+      />
+    </AdminLayout>
   );
 }
