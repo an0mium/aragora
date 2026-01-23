@@ -69,18 +69,23 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
 
   useEffect(() => {
     const fetchProviders = async () => {
+      console.log('[SocialLoginButtons] Fetching providers from:', `${API_BASE_URL}/api/auth/oauth/providers`);
       try {
         // Use explicit API URL from config (handles production vs dev)
         const response = await fetch(`${API_BASE_URL}/api/auth/oauth/providers`);
+        console.log('[SocialLoginButtons] Response status:', response.status);
         if (response.ok) {
           const data = await response.json();
+          console.log('[SocialLoginButtons] Providers received:', data.providers?.length || 0);
           setProviders(data.providers || []);
         } else {
           // No OAuth providers configured - this is OK
+          console.log('[SocialLoginButtons] Non-OK response, hiding buttons');
           setProviders([]);
         }
-      } catch {
+      } catch (err) {
         // API not available - hide social buttons
+        console.error('[SocialLoginButtons] Fetch error:', err);
         setProviders([]);
       } finally {
         setLoading(false);
