@@ -786,7 +786,7 @@ class InvoiceHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
-    async def handle_post(
+    async def handle_post(  # type: ignore[override]
         self,
         path: str,
         data: Optional[Dict[str, Any]] = None,

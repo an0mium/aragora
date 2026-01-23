@@ -1333,7 +1333,7 @@ def get_slack_handler(server_context: Optional[Dict] = None) -> "SlackHandler":
     if _slack_handler is None:
         if server_context is None:
             server_context = {}  # Default empty context for standalone usage
-        _slack_handler = SlackHandler(server_context)
+        _slack_handler = SlackHandler(server_context)  # type: ignore[arg-type]
     return _slack_handler
 
 

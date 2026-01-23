@@ -1192,7 +1192,7 @@ def get_telegram_handler(server_context: Optional[Dict] = None) -> "TelegramHand
     if _telegram_handler is None:
         if server_context is None:
             server_context = {}
-        _telegram_handler = TelegramHandler(server_context)
+        _telegram_handler = TelegramHandler(server_context)  # type: ignore[arg-type]
     return _telegram_handler
 
 

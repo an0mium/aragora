@@ -38,7 +38,7 @@ class MemoryAnalyticsHandler(BaseHandler):
 
     def __init__(self, ctx: dict = None):
         """Initialize with context."""
-        super().__init__(ctx)
+        super().__init__(ctx or {})  # type: ignore[arg-type]
         self._tracker = None
 
     @property

@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 
 def _get_store() -> PersistentWorkflowStore:
     """Get the persistent workflow store."""
-    return get_workflow_store()
+    return get_workflow_store()  # type: ignore[return-value]
 
 
 _engine = WorkflowEngine()

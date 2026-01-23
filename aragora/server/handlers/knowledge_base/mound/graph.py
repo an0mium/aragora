@@ -154,7 +154,7 @@ class GraphOperationsMixin:
             result = _run_async(
                 mound.query_graph(  # type: ignore[call-arg]
                     start_id=node_id,
-                    relationship_types=rel_types,
+                    relationship_types=rel_types,  # type: ignore[arg-type]
                     depth=1,
                     max_nodes=limit,
                 )

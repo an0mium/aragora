@@ -252,7 +252,7 @@ class CurationOperationsMixin:
             # Run curation if method exists
             if hasattr(mound, "run_curation"):
                 curation_result = _run_async(
-                    mound.run_curation(
+                    mound.run_curation(  # type: ignore[call-arg]
                         workspace_id=workspace_id,
                         dry_run=dry_run,
                         limit=limit,

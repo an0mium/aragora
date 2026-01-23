@@ -248,8 +248,8 @@ class FormalVerificationHandler(BaseHandler):
         "/api/v1/verify/history",
     ]
 
-    def __init__(self, server_context: dict = None):
-        super().__init__(server_context or {})
+    def __init__(self, server_context: dict = None):  # type: ignore[assignment]
+        super().__init__(server_context or {})  # type: ignore[arg-type]
         self._manager = None
 
     def _get_manager(self):

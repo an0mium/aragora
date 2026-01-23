@@ -1418,7 +1418,7 @@ async def get_matching_rules_for_email(
         msg = _EmailMessage(email_data)
 
         for rule in rules:
-            if _evaluate_rule(rule, msg):
+            if _evaluate_rule(rule, msg):  # type: ignore[arg-type]
                 matching_rules.append(rule.to_dict())
 
     return matching_rules

@@ -424,7 +424,7 @@ class IntegrationsHandler(SecureHandler):
             elif integration_type == "matrix":
                 from aragora.integrations.matrix import MatrixConfig, MatrixIntegration
 
-                integration = MatrixIntegration(  # type: ignore[arg-type]
+                integration = MatrixIntegration(  # type: ignore[arg-type, assignment]
                     MatrixConfig(  # type: ignore[call-arg]
                         homeserver_url=settings.get("homeserver_url", ""),
                         access_token=settings.get("access_token", ""),

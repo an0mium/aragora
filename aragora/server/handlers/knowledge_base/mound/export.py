@@ -97,7 +97,7 @@ class ExportOperationsMixin:
 
         return HandlerResult(
             status_code=200,
-            body=graphml_content,
+            body=graphml_content.encode("utf-8"),
             content_type="application/xml",
         )
 

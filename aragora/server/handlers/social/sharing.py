@@ -225,7 +225,7 @@ class SharingHandler(BaseHandler):
     ]
 
     def __init__(self, server_context: dict = None):
-        super().__init__(server_context or {})
+        super().__init__(server_context or {})  # type: ignore[arg-type]
         self._store = get_share_store()
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:

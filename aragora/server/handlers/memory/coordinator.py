@@ -75,7 +75,10 @@ class CoordinatorHandler(BaseHandler):
 
     def _get_coordinator(self) -> Optional["MemoryCoordinator"]:
         """Get coordinator from context."""
-        return self.ctx.get("memory_coordinator")
+        coordinator = self.ctx.get("memory_coordinator")
+        if coordinator is None:
+            return None
+        return coordinator  # type: ignore[return-value]
 
     @handle_errors("coordinator metrics")
     def _get_metrics(self) -> HandlerResult:

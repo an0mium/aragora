@@ -671,7 +671,7 @@ class MemoryHandler(BaseHandler):
         offset = get_clamped_int_param(params, "offset", 0, min_val=0, max_val=10000)
 
         try:
-            store = CritiqueStore(nomic_dir)
+            store = CritiqueStore(str(nomic_dir))
 
             # Get recent critiques - CritiqueStore only supports get_recent()
             # Fetch extra to account for filtering and offset

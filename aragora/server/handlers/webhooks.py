@@ -213,8 +213,8 @@ class WebhookHandler(SecureHandler):
                 f"RBAC denied: user={rbac_ctx.user_id} permission={permission_key} "
                 f"reason={decision.reason}"
             )
-            return error_response(  # type: ignore[arg-type]
-                {"error": "Permission denied", "reason": decision.reason},
+            return error_response(
+                f"Permission denied: {decision.reason}",
                 403,
             )
 

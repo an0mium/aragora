@@ -265,7 +265,7 @@ class OrganizationsHandler(SecureHandler):
                 f"reason={decision.reason}"
             )
             return error_response(
-                {"error": "Permission denied", "reason": decision.reason},
+                f"Permission denied: {decision.reason}",
                 403,
             )
 

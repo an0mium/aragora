@@ -260,10 +260,10 @@ def execute_debate_thread(
             except ImportError:
                 pass
 
-        arena = Arena(  # type: ignore[redundant-cast]
+        arena = Arena(
             env,
             agents,
-            cast("DebateProtocolClass", protocol),
+            protocol,
             event_hooks=hooks,
             event_emitter=emitter,  # type: ignore[arg-type]
             loop_id=debate_id,

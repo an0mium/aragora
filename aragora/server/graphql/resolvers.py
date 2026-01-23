@@ -20,9 +20,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import ServerContext
@@ -51,11 +51,10 @@ class ResolverContext:
     user_id: Optional[str] = None
     org_id: Optional[str] = None
     trace_id: Optional[str] = None
-    variables: Dict[str, Any] = None  # type: ignore
+    variables: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if self.variables is None:
-            self.variables = {}
+        pass  # variables now has proper default factory
 
 
 @dataclass
@@ -68,11 +67,10 @@ class ResolverResult:
     """
 
     data: Any = None
-    errors: List[str] = None  # type: ignore
+    errors: List[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        if self.errors is None:
-            self.errors = []
+        pass  # errors now has proper default factory
 
     @property
     def success(self) -> bool:
@@ -263,9 +261,14 @@ class QueryResolvers:
             debates = debates[offset : offset + limit]
 
             # Transform debates
-            transformed = [
-                _transform_debate(d.__dict__ if hasattr(d, "__dict__") else d) for d in debates
-            ]
+            transformed: List[Dict[str, Any]] = []
+            for d in debates:
+                debate_dict = (
+                    d
+                    if isinstance(d, dict)
+                    else (d.__dict__ if hasattr(d, "__dict__") else {"id": str(d)})
+                )
+                transformed.append(_transform_debate(debate_dict))
 
             return ResolverResult(
                 data={
@@ -302,24 +305,30 @@ class QueryResolvers:
                 return ResolverResult(errors=["Storage not available"])
 
             # Use storage search if available
+            debates: List[Any]
             if hasattr(storage, "search"):
-                debates = storage.search(query=query, limit=limit, org_id=ctx.org_id)
+                debates = list(storage.search(query=query, limit=limit, org_id=ctx.org_id))
             else:
                 # Fallback: get recent and filter
-                debates = storage.list_recent(limit=limit * 2, org_id=ctx.org_id)
+                all_debates = storage.list_recent(limit=limit * 2, org_id=ctx.org_id)
                 query_lower = query.lower()
                 debates = [
                     d
-                    for d in debates
+                    for d in all_debates
                     if query_lower
                     in str(
                         d.get("task", "") if isinstance(d, dict) else getattr(d, "task", "")
                     ).lower()
                 ][:limit]
 
-            transformed = [
-                _transform_debate(d.__dict__ if hasattr(d, "__dict__") else d) for d in debates
-            ]
+            transformed: List[Dict[str, Any]] = []
+            for d in debates:
+                debate_dict = (
+                    d
+                    if isinstance(d, dict)
+                    else (d.__dict__ if hasattr(d, "__dict__") else {"id": str(d)})
+                )
+                transformed.append(_transform_debate(debate_dict))
 
             return ResolverResult(
                 data={
@@ -461,7 +470,7 @@ class QueryResolvers:
             ResolverResult with task data
         """
         try:
-            coordinator = ctx.server_context.get("control_plane_coordinator")
+            coordinator: Any = ctx.server_context.get("control_plane_coordinator")
             if not coordinator:
                 return ResolverResult(errors=["Control plane not available"])
 
@@ -495,14 +504,14 @@ class QueryResolvers:
             ResolverResult with TaskConnection data
         """
         try:
-            coordinator = ctx.server_context.get("control_plane_coordinator")
+            coordinator: Any = ctx.server_context.get("control_plane_coordinator")
             if not coordinator:
                 return ResolverResult(errors=["Control plane not available"])
 
             # Get tasks based on status filter
             from aragora.control_plane.scheduler import TaskStatus as CPTaskStatus
 
-            tasks = []
+            tasks: List[Any] = []
             if status:
                 try:
                     cp_status = CPTaskStatus(status.lower())
@@ -610,7 +619,8 @@ class QueryResolvers:
                     }
                 )
 
-            start_time = ctx.server_context.get("_start_time", time.time())
+            start_time_val = ctx.server_context.get("_start_time", time.time())
+            start_time = cast(float, start_time_val) if start_time_val is not None else time.time()
             uptime = int(time.time() - start_time)
 
             return ResolverResult(
@@ -637,9 +647,9 @@ class QueryResolvers:
             ResolverResult with SystemStats data
         """
         try:
-            coordinator = ctx.server_context.get("control_plane_coordinator")
+            coordinator: Any = ctx.server_context.get("control_plane_coordinator")
 
-            stats = {
+            stats: Dict[str, Any] = {
                 "activeJobs": 0,
                 "queuedJobs": 0,
                 "completedJobsToday": 0,
@@ -705,18 +715,19 @@ class MutationResolvers:
             request = DecisionRequest(
                 content=question,
                 decision_type=DecisionType.DEBATE,
-                source=InputSource.GRAPHQL,
+                source=InputSource.HTTP_API,  # GraphQL is served over HTTP
             )
 
-            # Set optional fields
+            # Set optional fields on config (DecisionConfig has these)
             if input.get("agents"):
-                request.context.agents = input["agents"]
+                request.config.agents = input["agents"]
             if input.get("rounds"):
-                request.context.rounds = input["rounds"]
+                request.config.rounds = input["rounds"]
             if input.get("consensus"):
-                request.context.consensus_method = input["consensus"]
-            if input.get("autoSelect"):
-                request.context.auto_select = input["autoSelect"]
+                request.config.consensus = input["consensus"]
+            # autoSelect is not directly supported, skip
+
+            # Set context fields (RequestContext has tags)
             if input.get("tags"):
                 request.context.tags = input["tags"]
 
@@ -901,7 +912,7 @@ class MutationResolvers:
             if not task_type:
                 return ResolverResult(errors=["Task type is required"])
 
-            coordinator = ctx.server_context.get("control_plane_coordinator")
+            coordinator: Any = ctx.server_context.get("control_plane_coordinator")
             if not coordinator:
                 return ResolverResult(errors=["Control plane not available"])
 
@@ -961,7 +972,7 @@ class MutationResolvers:
             ResolverResult with cancelled task data
         """
         try:
-            coordinator = ctx.server_context.get("control_plane_coordinator")
+            coordinator: Any = ctx.server_context.get("control_plane_coordinator")
             if not coordinator:
                 return ResolverResult(errors=["Control plane not available"])
 
@@ -1004,7 +1015,7 @@ class MutationResolvers:
             if not agent_id:
                 return ResolverResult(errors=["Agent ID is required"])
 
-            coordinator = ctx.server_context.get("control_plane_coordinator")
+            coordinator: Any = ctx.server_context.get("control_plane_coordinator")
             if not coordinator:
                 return ResolverResult(errors=["Control plane not available"])
 
@@ -1059,7 +1070,7 @@ class MutationResolvers:
             ResolverResult with boolean success
         """
         try:
-            coordinator = ctx.server_context.get("control_plane_coordinator")
+            coordinator: Any = ctx.server_context.get("control_plane_coordinator")
             if not coordinator:
                 return ResolverResult(errors=["Control plane not available"])
 

@@ -83,7 +83,7 @@ class SSOHandler(SecureHandler):
 
     def __init__(self, server_context: Optional[dict] = None):
         """Initialize SSO handler."""
-        super().__init__(server_context or {})
+        super().__init__(server_context or {})  # type: ignore[arg-type]
         self._provider = None
         self._initialized = False
 

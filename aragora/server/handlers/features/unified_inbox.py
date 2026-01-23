@@ -21,6 +21,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
@@ -34,6 +35,7 @@ from ..base import (
     error_response,
     success_response,
 )
+from aragora.storage.unified_inbox_store import get_unified_inbox_store
 
 logger = logging.getLogger(__name__)
 
@@ -281,17 +283,6 @@ class InboxStats:
 
 
 # =============================================================================
-# In-Memory Storage (replace with database in production)
-# =============================================================================
-
-_connected_accounts: Dict[
-    str, Dict[str, ConnectedAccount]
-] = {}  # tenant_id -> account_id -> account
-_messages_cache: Dict[str, List[UnifiedMessage]] = {}  # tenant_id -> messages
-_triage_results: Dict[str, TriageResult] = {}  # message_id -> result
-
-
-# =============================================================================
 # Handler Class
 # =============================================================================
 
@@ -314,6 +305,7 @@ class UnifiedInboxHandler(BaseHandler):
     def __init__(self, server_context: Optional[Dict[str, Any]] = None):
         """Initialize handler with optional server context."""
         super().__init__(server_context or {})  # type: ignore[arg-type]
+        self._store = get_unified_inbox_store()
 
     async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
         """Route requests to appropriate handler methods."""
@@ -401,10 +393,6 @@ class UnifiedInboxHandler(BaseHandler):
                 connected_at=datetime.now(timezone.utc),
             )
 
-            # Initialize tenant storage
-            if tenant_id not in _connected_accounts:
-                _connected_accounts[tenant_id] = {}
-
             # Exchange auth code for tokens based on provider
             if provider == EmailProvider.GMAIL:
                 result = await self._connect_gmail(account, auth_code, redirect_uri, tenant_id)
@@ -412,7 +400,7 @@ class UnifiedInboxHandler(BaseHandler):
                 result = await self._connect_outlook(account, auth_code, redirect_uri, tenant_id)
 
             if result.get("success"):
-                _connected_accounts[tenant_id][account_id] = account
+                await self._store.save_account(tenant_id, self._account_to_record(account))
                 logger.info(
                     f"Connected {provider.value} account for tenant {tenant_id}: {account.email_address}"
                 )
@@ -474,12 +462,7 @@ class UnifiedInboxHandler(BaseHandler):
                     unified = _convert_synced_message_to_unified(
                         synced_msg, account.id, EmailProvider.GMAIL
                     )
-                    if tenant_id not in _messages_cache:
-                        _messages_cache[tenant_id] = []
-                    _messages_cache[tenant_id].append(unified)
-                    account.total_messages += 1
-                    if not unified.is_read:
-                        account.unread_count += 1
+                    self._schedule_message_persist(tenant_id, unified)
                 except Exception as e:
                     logger.warning(f"[UnifiedInbox] Error converting message: {e}")
 
@@ -575,12 +558,7 @@ class UnifiedInboxHandler(BaseHandler):
                     unified = _convert_synced_message_to_unified(
                         synced_msg, account.id, EmailProvider.OUTLOOK
                     )
-                    if tenant_id not in _messages_cache:
-                        _messages_cache[tenant_id] = []
-                    _messages_cache[tenant_id].append(unified)
-                    account.total_messages += 1
-                    if not unified.is_read:
-                        account.unread_count += 1
+                    self._schedule_message_persist(tenant_id, unified)
                 except Exception as e:
                     logger.warning(f"[UnifiedInbox] Error converting message: {e}")
 
@@ -648,10 +626,11 @@ class UnifiedInboxHandler(BaseHandler):
 
     async def _handle_list_accounts(self, request: Any, tenant_id: str) -> HandlerResult:
         """List all connected accounts."""
-        accounts = _connected_accounts.get(tenant_id, {})
+        records = await self._store.list_accounts(tenant_id)
+        accounts = [self._record_to_account(record) for record in records]
         return success_response(
             {
-                "accounts": [acc.to_dict() for acc in accounts.values()],
+                "accounts": [acc.to_dict() for acc in accounts],
                 "total": len(accounts),
             }
         )
@@ -660,13 +639,11 @@ class UnifiedInboxHandler(BaseHandler):
         self, request: Any, tenant_id: str, account_id: str
     ) -> HandlerResult:
         """Disconnect an account."""
-        accounts = _connected_accounts.get(tenant_id, {})
-
-        if account_id not in accounts:
+        record = await self._store.get_account(tenant_id, account_id)
+        if not record:
             return error_response("Account not found", 404)
 
-        account = accounts.pop(account_id)
-        account.status = AccountStatus.DISCONNECTED
+        account = self._record_to_account(record)
 
         # Stop and remove sync service if running
         if tenant_id in _sync_services and account_id in _sync_services[tenant_id]:
@@ -678,11 +655,7 @@ class UnifiedInboxHandler(BaseHandler):
             except Exception as e:
                 logger.warning(f"[UnifiedInbox] Error stopping sync service: {e}")
 
-        # Remove messages for this account from cache
-        if tenant_id in _messages_cache:
-            _messages_cache[tenant_id] = [
-                m for m in _messages_cache[tenant_id] if m.account_id != account_id
-            ]
+        await self._store.delete_account(tenant_id, account_id)
 
         logger.info(
             f"Disconnected {account.provider.value} account for tenant {tenant_id}: {account.email_address}"
@@ -719,35 +692,16 @@ class UnifiedInboxHandler(BaseHandler):
             unread_only = params.get("unread_only", "false").lower() == "true"
             search_query = params.get("search")
 
-            # Get messages from all accounts
-            messages = await self._fetch_all_messages(tenant_id)
-
-            # Apply filters
-            if priority_filter:
-                messages = [m for m in messages if m.priority_tier == priority_filter]
-
-            if account_filter:
-                messages = [m for m in messages if m.account_id == account_filter]
-
-            if unread_only:
-                messages = [m for m in messages if not m.is_read]
-
-            if search_query:
-                query_lower = search_query.lower()
-                messages = [
-                    m
-                    for m in messages
-                    if query_lower in m.subject.lower()
-                    or query_lower in m.sender_email.lower()
-                    or query_lower in m.snippet.lower()
-                ]
-
-            # Sort by priority (higher score = more important)
-            messages.sort(key=lambda m: (-m.priority_score, m.received_at), reverse=True)
-
-            # Paginate
-            total = len(messages)
-            messages = messages[offset : offset + limit]
+            records, total = await self._store.list_messages(
+                tenant_id=tenant_id,
+                limit=limit,
+                offset=offset,
+                priority_tier=priority_filter,
+                account_id=account_filter,
+                unread_only=unread_only,
+                search=search_query,
+            )
+            messages = [self._record_to_message(record) for record in records]
 
             return success_response(
                 {
@@ -765,23 +719,26 @@ class UnifiedInboxHandler(BaseHandler):
 
     async def _fetch_all_messages(self, tenant_id: str) -> List[UnifiedMessage]:
         """Fetch messages from all connected accounts."""
-        # Check cache first
-        if tenant_id in _messages_cache:
-            return _messages_cache[tenant_id]
+        records, total = await self._store.list_messages(tenant_id=tenant_id, limit=None)
+        if total > 0:
+            return [self._record_to_message(record) for record in records]
 
         messages: List[UnifiedMessage] = []
-        accounts = _connected_accounts.get(tenant_id, {})
+        account_records = await self._store.list_accounts(tenant_id)
 
-        for account in accounts.values():
+        for record in account_records:
+            account = self._record_to_account(record)
             if account.status != AccountStatus.CONNECTED:
                 continue
 
             try:
                 if account.provider == EmailProvider.GMAIL:
-                    account_messages = await self._fetch_gmail_messages(account)
+                    account_messages = await self._fetch_gmail_messages(account, tenant_id)
                 else:
-                    account_messages = await self._fetch_outlook_messages(account)
+                    account_messages = await self._fetch_outlook_messages(account, tenant_id)
 
+                for message in account_messages:
+                    await self._store.save_message(tenant_id, self._message_to_record(message))
                 messages.extend(account_messages)
 
             except Exception as e:
@@ -789,20 +746,19 @@ class UnifiedInboxHandler(BaseHandler):
                     f"Error fetching messages for {account.provider.value} "
                     f"account {account.id}: {e}"
                 )
-                account.sync_errors += 1
+                await self._store.increment_account_counts(
+                    tenant_id, account.id, sync_error_delta=1
+                )
 
         # Apply priority scoring
         messages = await self._score_messages(messages, tenant_id)
 
-        # Cache results
-        _messages_cache[tenant_id] = messages
-
         return messages
 
-    async def _fetch_gmail_messages(self, account: ConnectedAccount) -> List[UnifiedMessage]:
+    async def _fetch_gmail_messages(
+        self, account: ConnectedAccount, tenant_id: str
+    ) -> List[UnifiedMessage]:
         """Fetch messages from Gmail account."""
-        tenant_id = self._get_tenant_from_account(account)
-
         # Check if sync service is running and has synced messages
         if tenant_id and tenant_id in _sync_services:
             sync_service = _sync_services[tenant_id].get(account.id)
@@ -820,10 +776,10 @@ class UnifiedInboxHandler(BaseHandler):
         # Fall back to sample data if sync not active
         return self._generate_sample_messages(account, 5)
 
-    async def _fetch_outlook_messages(self, account: ConnectedAccount) -> List[UnifiedMessage]:
+    async def _fetch_outlook_messages(
+        self, account: ConnectedAccount, tenant_id: str
+    ) -> List[UnifiedMessage]:
         """Fetch messages from Outlook account."""
-        tenant_id = self._get_tenant_from_account(account)
-
         # Check if sync service is running and has synced messages
         if tenant_id and tenant_id in _sync_services:
             sync_service = _sync_services[tenant_id].get(account.id)
@@ -840,13 +796,6 @@ class UnifiedInboxHandler(BaseHandler):
 
         # Fall back to sample data if sync not active
         return self._generate_sample_messages(account, 5)
-
-    def _get_tenant_from_account(self, account: ConnectedAccount) -> Optional[str]:
-        """Find tenant ID for an account by searching connected accounts."""
-        for tenant_id, accounts in _connected_accounts.items():
-            if account.id in accounts:
-                return tenant_id
-        return None
 
     def _generate_sample_messages(
         self, account: ConnectedAccount, count: int
@@ -914,19 +863,20 @@ class UnifiedInboxHandler(BaseHandler):
         self, request: Any, tenant_id: str, message_id: str
     ) -> HandlerResult:
         """Get single message details."""
-        messages = await self._fetch_all_messages(tenant_id)
+        record = await self._store.get_message(tenant_id, message_id)
+        if not record:
+            return error_response("Message not found", 404)
 
-        for message in messages:
-            if message.id == message_id:
-                triage_result = _triage_results.get(message_id)
-                return success_response(
-                    {
-                        "message": message.to_dict(),
-                        "triage": triage_result.to_dict() if triage_result else None,
-                    }
-                )
+        message = self._record_to_message(record)
+        triage_record = await self._store.get_triage_result(tenant_id, message_id)
+        triage = self._record_to_triage(triage_record) if triage_record else None
 
-        return error_response("Message not found", 404)
+        return success_response(
+            {
+                "message": message.to_dict(),
+                "triage": triage.to_dict() if triage else None,
+            }
+        )
 
     # =========================================================================
     # Triage
@@ -952,9 +902,11 @@ class UnifiedInboxHandler(BaseHandler):
             if not message_ids:
                 return error_response("No message IDs provided", 400)
 
-            # Get messages
-            all_messages = await self._fetch_all_messages(tenant_id)
-            messages_to_triage = [m for m in all_messages if m.id in message_ids]
+            messages_to_triage: List[UnifiedMessage] = []
+            for message_id in message_ids:
+                record = await self._store.get_message(tenant_id, message_id)
+                if record:
+                    messages_to_triage.append(self._record_to_message(record))
 
             if not messages_to_triage:
                 return error_response("No matching messages found", 404)
@@ -991,8 +943,13 @@ class UnifiedInboxHandler(BaseHandler):
                 message.triage_action = result.recommended_action
                 message.triage_rationale = result.rationale
 
-                # Cache result
-                _triage_results[message.id] = result
+                await self._store.save_triage_result(tenant_id, self._triage_to_record(result))
+                await self._store.update_message_triage(
+                    tenant_id,
+                    message.id,
+                    result.recommended_action.value,
+                    result.rationale,
+                )
 
             except Exception as e:
                 logger.warning(f"Triage failed for message {message.id}: {e}")
@@ -1113,24 +1070,34 @@ class UnifiedInboxHandler(BaseHandler):
             success_count = 0
             errors = []
 
-            all_messages = await self._fetch_all_messages(tenant_id)
-            message_map = {m.id: m for m in all_messages}
-
             for msg_id in message_ids:
-                if msg_id not in message_map:
-                    errors.append({"id": msg_id, "error": "Message not found"})
-                    continue
-
                 try:
-                    message = message_map[msg_id]
-
                     if action == "mark_read":
-                        message.is_read = True
+                        updated = await self._store.update_message_flags(
+                            tenant_id, msg_id, is_read=True
+                        )
+                        if not updated:
+                            errors.append({"id": msg_id, "error": "Message not found"})
+                            continue
                     elif action == "mark_unread":
-                        message.is_read = False
+                        updated = await self._store.update_message_flags(
+                            tenant_id, msg_id, is_read=False
+                        )
+                        if not updated:
+                            errors.append({"id": msg_id, "error": "Message not found"})
+                            continue
                     elif action == "star":
-                        message.is_starred = True
-                    # archive and delete would remove from cache in production
+                        updated = await self._store.update_message_flags(
+                            tenant_id, msg_id, is_starred=True
+                        )
+                        if not updated:
+                            errors.append({"id": msg_id, "error": "Message not found"})
+                            continue
+                    elif action in ("archive", "delete"):
+                        deleted = await self._store.delete_message(tenant_id, msg_id)
+                        if not deleted:
+                            errors.append({"id": msg_id, "error": "Message not found"})
+                            continue
 
                     success_count += 1
 
@@ -1156,7 +1123,8 @@ class UnifiedInboxHandler(BaseHandler):
 
     async def _handle_stats(self, request: Any, tenant_id: str) -> HandlerResult:
         """Get inbox health statistics."""
-        accounts = _connected_accounts.get(tenant_id, {})
+        account_records = await self._store.list_accounts(tenant_id)
+        accounts = [self._record_to_account(record) for record in account_records]
         messages = await self._fetch_all_messages(tenant_id)
 
         # Calculate stats
@@ -1186,11 +1154,9 @@ class UnifiedInboxHandler(BaseHandler):
 
         # Sync health
         sync_health = {
-            "accounts_healthy": sum(
-                1 for a in accounts.values() if a.status == AccountStatus.CONNECTED
-            ),
-            "accounts_error": sum(1 for a in accounts.values() if a.status == AccountStatus.ERROR),
-            "total_sync_errors": sum(a.sync_errors for a in accounts.values()),
+            "accounts_healthy": sum(1 for a in accounts if a.status == AccountStatus.CONNECTED),
+            "accounts_error": sum(1 for a in accounts if a.status == AccountStatus.ERROR),
+            "total_sync_errors": sum(a.sync_errors for a in accounts),
         }
 
         stats = InboxStats(
@@ -1235,6 +1201,151 @@ class UnifiedInboxHandler(BaseHandler):
         }
 
         return success_response({"trends": trends})
+
+    # =========================================================================
+    # Persistence Helpers
+    # =========================================================================
+
+    def _schedule_message_persist(self, tenant_id: str, message: UnifiedMessage) -> None:
+        async def _persist() -> None:
+            try:
+                await self._store.save_message(tenant_id, self._message_to_record(message))
+                await self._store.update_account_fields(
+                    tenant_id,
+                    message.account_id,
+                    {"last_sync": datetime.now(timezone.utc)},
+                )
+            except Exception as e:
+                logger.warning(f"[UnifiedInbox] Failed to persist message: {e}")
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(_persist())
+            return
+        loop.create_task(_persist())
+
+    def _account_to_record(self, account: ConnectedAccount) -> Dict[str, Any]:
+        return {
+            "id": account.id,
+            "provider": account.provider.value,
+            "email_address": account.email_address,
+            "display_name": account.display_name,
+            "status": account.status.value,
+            "connected_at": account.connected_at,
+            "last_sync": account.last_sync,
+            "total_messages": account.total_messages,
+            "unread_count": account.unread_count,
+            "sync_errors": account.sync_errors,
+            "metadata": account.metadata,
+        }
+
+    def _record_to_account(self, record: Dict[str, Any]) -> ConnectedAccount:
+        return ConnectedAccount(
+            id=record["id"],
+            provider=EmailProvider(record["provider"]),
+            email_address=record.get("email_address", ""),
+            display_name=record.get("display_name", ""),
+            status=AccountStatus(record.get("status", "pending")),
+            connected_at=self._ensure_datetime(record.get("connected_at"))
+            or datetime.now(timezone.utc),
+            last_sync=self._ensure_datetime(record.get("last_sync")),
+            total_messages=int(record.get("total_messages", 0)),
+            unread_count=int(record.get("unread_count", 0)),
+            sync_errors=int(record.get("sync_errors", 0)),
+            metadata=record.get("metadata") or {},
+        )
+
+    def _message_to_record(self, message: UnifiedMessage) -> Dict[str, Any]:
+        return {
+            "id": message.id,
+            "account_id": message.account_id,
+            "provider": message.provider.value,
+            "external_id": message.external_id,
+            "subject": message.subject,
+            "sender_email": message.sender_email,
+            "sender_name": message.sender_name,
+            "recipients": message.recipients,
+            "cc": message.cc,
+            "received_at": message.received_at,
+            "snippet": message.snippet,
+            "body_preview": message.body_preview,
+            "is_read": message.is_read,
+            "is_starred": message.is_starred,
+            "has_attachments": message.has_attachments,
+            "labels": message.labels,
+            "thread_id": message.thread_id,
+            "priority_score": message.priority_score,
+            "priority_tier": message.priority_tier,
+            "priority_reasons": message.priority_reasons,
+            "triage_action": message.triage_action.value if message.triage_action else None,
+            "triage_rationale": message.triage_rationale,
+        }
+
+    def _record_to_message(self, record: Dict[str, Any]) -> UnifiedMessage:
+        triage_action = record.get("triage_action")
+        return UnifiedMessage(
+            id=record["id"],
+            account_id=record["account_id"],
+            provider=EmailProvider(record["provider"]),
+            external_id=record.get("external_id", ""),
+            subject=record.get("subject", ""),
+            sender_email=record.get("sender_email", ""),
+            sender_name=record.get("sender_name", ""),
+            recipients=record.get("recipients") or [],
+            cc=record.get("cc") or [],
+            received_at=self._ensure_datetime(record.get("received_at"))
+            or datetime.now(timezone.utc),
+            snippet=record.get("snippet", ""),
+            body_preview=record.get("body_preview", ""),
+            is_read=bool(record.get("is_read")),
+            is_starred=bool(record.get("is_starred")),
+            has_attachments=bool(record.get("has_attachments")),
+            labels=record.get("labels") or [],
+            thread_id=record.get("thread_id"),
+            priority_score=float(record.get("priority_score", 0.0)),
+            priority_tier=record.get("priority_tier", "medium"),
+            priority_reasons=record.get("priority_reasons") or [],
+            triage_action=TriageAction(triage_action) if triage_action else None,
+            triage_rationale=record.get("triage_rationale"),
+        )
+
+    def _triage_to_record(self, triage: TriageResult) -> Dict[str, Any]:
+        return {
+            "message_id": triage.message_id,
+            "recommended_action": triage.recommended_action.value,
+            "confidence": triage.confidence,
+            "rationale": triage.rationale,
+            "suggested_response": triage.suggested_response,
+            "delegate_to": triage.delegate_to,
+            "schedule_for": triage.schedule_for,
+            "agents_involved": triage.agents_involved,
+            "debate_summary": triage.debate_summary,
+            "created_at": datetime.now(timezone.utc),
+        }
+
+    def _record_to_triage(self, record: Dict[str, Any]) -> TriageResult:
+        return TriageResult(
+            message_id=record["message_id"],
+            recommended_action=TriageAction(record["recommended_action"]),
+            confidence=float(record.get("confidence", 0.0)),
+            rationale=record.get("rationale", ""),
+            suggested_response=record.get("suggested_response"),
+            delegate_to=record.get("delegate_to"),
+            schedule_for=self._ensure_datetime(record.get("schedule_for")),
+            agents_involved=record.get("agents_involved") or [],
+            debate_summary=record.get("debate_summary"),
+        )
+
+    def _ensure_datetime(self, value: Any) -> Optional[datetime]:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value
+        try:
+            return datetime.fromisoformat(str(value))
+        except Exception:
+            return None
 
     # =========================================================================
     # Utility Methods

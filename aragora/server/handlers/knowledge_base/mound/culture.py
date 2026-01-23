@@ -104,7 +104,7 @@ class CultureOperationsMixin:
             )
 
             node = KnowledgeNode(  # type: ignore[call-arg]
-                node_type="culture",
+                node_type="culture",  # type: ignore[arg-type]
                 content=content,
                 confidence=1.0,
                 provenance=provenance,

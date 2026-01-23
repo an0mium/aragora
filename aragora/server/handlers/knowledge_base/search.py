@@ -56,7 +56,7 @@ class SearchOperationsMixin:
         engine = self._get_query_engine()
 
         try:
-            results = _run_async(engine.search(query, workspace_id, limit))
+            results = _run_async(engine.search(query, workspace_id, limit))  # type: ignore[union-attr]
         except Exception as e:
             logger.error(f"Search failed: {e}")
             return error_response(f"Search failed: {e}", 500)
