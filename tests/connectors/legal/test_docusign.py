@@ -312,6 +312,7 @@ class TestDocuSignConnectorEnvelopeOperations:
         )
         return connector
 
+    @SKIP_ASYNC_MOCK_FIX
     @pytest.mark.asyncio
     async def test_create_envelope(self, authenticated_connector):
         """Test envelope creation."""
