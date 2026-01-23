@@ -83,14 +83,13 @@ def create_chunk():
 # ============================================================================
 
 
-@pytest.mark.skip(reason="LegalAuditor API changed - findings attribute removed")
 class TestLegalAuditor:
     """Tests for legal document analysis."""
 
     def test_auditor_creation(self, legal_auditor):
         """Test creating a legal auditor."""
         assert legal_auditor is not None
-        assert legal_auditor.findings == []
+        # findings are returned from analyze_chunk, not stored as attribute
         assert legal_auditor.obligations == []
 
     def test_detect_indemnification(self, legal_auditor):

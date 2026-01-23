@@ -217,14 +217,19 @@ class TestConfigOperations:
     @pytest.mark.asyncio
     async def test_get_config_default(self):
         """Should return default config for new users."""
+        import uuid
+
+        # Use a unique user_id to ensure clean state (not affected by persistent store)
+        unique_user = f"test_user_default_{uuid.uuid4().hex[:8]}"
+
         # Clear any existing config
         with _user_configs_lock:
-            _user_configs.pop("test_user", None)
+            _user_configs.pop(unique_user, None)
 
-        result = await handle_get_config("test_user")
+        result = await handle_get_config(unique_user)
 
         assert "config" in result
-        # Default config should have empty lists
+        # Default config should have empty lists for new users
         assert result["config"].get("vip_domains", []) == []
 
     @pytest.mark.asyncio

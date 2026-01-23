@@ -130,7 +130,6 @@ class TestArenaBuilderMemory:
 class TestArenaBuilderEvents:
     """Test event-related builder methods."""
 
-    @pytest.mark.skip(reason="Event hooks dict comparison differs - new debate events added")
     def test_builder_with_event_hooks(self) -> None:
         """Builder correctly sets event hooks."""
         env = Environment(task="Test task")
@@ -139,7 +138,9 @@ class TestArenaBuilderEvents:
 
         arena = ArenaBuilder(env, agents).with_event_hooks(hooks).build()
 
-        assert arena.hooks == hooks
+        # Check that provided hooks are present (arena may add default hooks)
+        assert "on_proposal" in arena.hooks
+        assert arena.hooks["on_proposal"] == hooks["on_proposal"]
 
     def test_builder_with_spectator(self) -> None:
         """Builder correctly sets spectator stream."""
@@ -195,7 +196,7 @@ class TestArenaBuilderTracking:
 
         assert arena.agent_weights == weights
 
-    @pytest.mark.skip(reason="Mock comparison issue with ELO system")
+    @pytest.mark.skip(reason="Requires proper ELO mock with get_rating method - complex setup")
     def test_builder_with_full_tracking(self) -> None:
         """with_full_tracking sets all tracking components."""
         env = Environment(task="Test task")
@@ -214,9 +215,10 @@ class TestArenaBuilderTracking:
             .build()
         )
 
-        assert arena.elo_system == elo
-        assert arena.persona_manager == persona
-        assert arena.calibration_tracker == calibration
+        # Use 'is' for identity comparison with mocks
+        assert arena.elo_system is elo
+        assert arena.persona_manager is persona
+        assert arena.calibration_tracker is calibration
 
 
 class TestArenaBuilderPosition:
