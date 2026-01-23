@@ -1,0 +1,330 @@
+id: template_accounting_invoice_processing
+name: Invoice Processing Pipeline
+description: Automated invoice extraction, validation, anomaly detection, and approval workflow with QBO sync
+version: "1.0.0"
+category: accounting
+tags:
+  - accounting
+  - invoice
+  - ap-automation
+  - qbo
+  - payment
+icon: receipt
+is_template: true
+
+inputs:
+  document_bytes: Invoice document (PDF or image)
+  vendor_hint: Optional vendor name hint
+  auto_approve_threshold: Amount below which auto-approval is allowed
+  executive_threshold: Amount requiring executive approval
+  qbo_tenant_id: QuickBooks tenant ID for sync
+
+outputs:
+  invoice_data: Extracted invoice data
+  po_match: Purchase order match result
+  anomalies: Detected anomalies
+  approval_status: Final approval status
+  payment_schedule: Scheduled payment details
+  qbo_sync_result: QBO synchronization result
+
+steps:
+  - id: extract_invoice
+    name: Extract Invoice Data
+    step_type: task
+    description: OCR extraction of invoice data from document
+    config:
+      task_type: custom
+      handler: invoice_processor.extract_invoice_data
+      params:
+        document_bytes: "{document_bytes}"
+        vendor_hint: "{vendor_hint}"
+    visual:
+      position: {x: 100, y: 100}
+      category: task
+      color: "#4299e1"
+    next_steps:
+      - match_purchase_order
+
+  - id: match_purchase_order
+    name: Match to Purchase Order
+    step_type: task
+    description: 3-way match invoice to PO and receipt
+    config:
+      task_type: custom
+      handler: invoice_processor.match_to_po
+      params:
+        invoice: "{step.extract_invoice}"
+    visual:
+      position: {x: 100, y: 250}
+      category: task
+      color: "#4299e1"
+    next_steps:
+      - detect_anomalies
+
+  - id: detect_anomalies
+    name: Detect Anomalies
+    step_type: task
+    description: Flag potential issues with the invoice
+    config:
+      task_type: custom
+      handler: invoice_processor.detect_anomalies
+      params:
+        invoice: "{step.extract_invoice}"
+    visual:
+      position: {x: 100, y: 400}
+      category: task
+      color: "#ed8936"
+    next_steps:
+      - check_anomaly_severity
+
+  - id: check_anomaly_severity
+    name: Check Anomaly Severity
+    step_type: decision
+    description: Route based on anomaly severity
+    config:
+      conditions:
+        - name: has_high_severity
+          expression: "any(a.get('severity') == 'high' for a in step.detect_anomalies)"
+          next_step: anomaly_review_debate
+        - name: has_medium_severity
+          expression: "any(a.get('severity') == 'medium' for a in step.detect_anomalies)"
+          next_step: manager_anomaly_review
+      default_branch: determine_approval_level
+    visual:
+      position: {x: 100, y: 550}
+      category: control
+      color: "#ed8936"
+
+  - id: anomaly_review_debate
+    name: High-Value Anomaly Review
+    step_type: debate
+    description: Multi-agent debate for high-severity anomalies
+    config:
+      topic: "Review invoice anomalies and determine if legitimate"
+      agents:
+        - accounting
+        - fraud_specialist
+        - compliance_analyst
+      rounds: 2
+      context:
+        - "Invoice: {step.extract_invoice}"
+        - "Anomalies: {step.detect_anomalies}"
+        - "PO Match: {step.match_purchase_order}"
+    visual:
+      position: {x: 300, y: 700}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - executive_anomaly_review
+
+  - id: executive_anomaly_review
+    name: Executive Anomaly Review
+    step_type: human_checkpoint
+    description: Executive review of high-severity anomalies
+    config:
+      title: High-Severity Anomaly - Executive Review Required
+      description: "Invoice {step.extract_invoice.invoice_number} has high-severity anomalies requiring executive approval"
+      checklist:
+        - label: Reviewed all anomalies
+          required: true
+        - label: Verified vendor legitimacy
+          required: true
+        - label: Confirmed business purpose
+          required: true
+        - label: Decision recorded
+          required: true
+      timeout_seconds: 86400  # 24 hours
+      priority: high
+    visual:
+      position: {x: 300, y: 850}
+      category: human
+      color: "#f56565"
+    next_steps:
+      - schedule_payment
+
+  - id: manager_anomaly_review
+    name: Manager Anomaly Review
+    step_type: human_checkpoint
+    description: Manager review of medium-severity anomalies
+    config:
+      title: Medium-Severity Anomaly - Manager Review
+      description: "Invoice {step.extract_invoice.invoice_number} has anomalies requiring manager review"
+      checklist:
+        - label: Reviewed anomalies
+          required: true
+        - label: Verified invoice details
+          required: true
+      timeout_seconds: 43200  # 12 hours
+    visual:
+      position: {x: 100, y: 700}
+      category: human
+      color: "#f6ad55"
+    next_steps:
+      - determine_approval_level
+
+  - id: determine_approval_level
+    name: Determine Approval Level
+    step_type: decision
+    description: Route based on invoice amount
+    config:
+      conditions:
+        - name: auto_approve
+          expression: "step.extract_invoice.get('total_amount', 0) <= inputs.get('auto_approve_threshold', 500)"
+          next_step: auto_approve_invoice
+        - name: executive_approval
+          expression: "step.extract_invoice.get('total_amount', 0) >= inputs.get('executive_threshold', 25000)"
+          next_step: executive_approval
+        - name: director_approval
+          expression: "step.extract_invoice.get('total_amount', 0) >= 5000"
+          next_step: director_approval
+      default_branch: manager_approval
+    visual:
+      position: {x: 100, y: 850}
+      category: control
+      color: "#ed8936"
+
+  - id: auto_approve_invoice
+    name: Auto-Approve Invoice
+    step_type: task
+    description: Automatically approve low-value invoices
+    config:
+      task_type: custom
+      handler: invoice_processor.approve_invoice
+      params:
+        invoice_id: "{step.extract_invoice.id}"
+        approved_by: "system_auto_approve"
+        notes: "Auto-approved: amount below threshold"
+    visual:
+      position: {x: -100, y: 1000}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - schedule_payment
+
+  - id: manager_approval
+    name: Manager Approval
+    step_type: human_checkpoint
+    description: Manager approval for standard invoices
+    config:
+      title: Invoice Approval - Manager Level
+      description: "Invoice {step.extract_invoice.invoice_number} for ${step.extract_invoice.total_amount} requires manager approval"
+      checklist:
+        - label: Verified invoice accuracy
+          required: true
+        - label: Confirmed budget availability
+          required: true
+        - label: Approved for payment
+          required: true
+      timeout_seconds: 43200  # 12 hours
+    visual:
+      position: {x: 100, y: 1000}
+      category: human
+      color: "#f6ad55"
+    next_steps:
+      - schedule_payment
+
+  - id: director_approval
+    name: Director Approval
+    step_type: human_checkpoint
+    description: Director approval for higher-value invoices
+    config:
+      title: Invoice Approval - Director Level
+      description: "Invoice {step.extract_invoice.invoice_number} for ${step.extract_invoice.total_amount} requires director approval"
+      checklist:
+        - label: Verified invoice accuracy
+          required: true
+        - label: Confirmed budget availability
+          required: true
+        - label: Verified business justification
+          required: true
+        - label: Approved for payment
+          required: true
+      timeout_seconds: 86400  # 24 hours
+      priority: medium
+    visual:
+      position: {x: 200, y: 1000}
+      category: human
+      color: "#f6ad55"
+    next_steps:
+      - schedule_payment
+
+  - id: executive_approval
+    name: Executive Approval
+    step_type: human_checkpoint
+    description: Executive approval for high-value invoices
+    config:
+      title: Invoice Approval - Executive Level
+      description: "Invoice {step.extract_invoice.invoice_number} for ${step.extract_invoice.total_amount} requires executive approval"
+      checklist:
+        - label: Verified invoice accuracy
+          required: true
+        - label: Confirmed budget availability
+          required: true
+        - label: Verified business justification
+          required: true
+        - label: Reviewed vendor relationship
+          required: true
+        - label: Approved for payment
+          required: true
+      timeout_seconds: 172800  # 48 hours
+      priority: high
+    visual:
+      position: {x: 300, y: 1000}
+      category: human
+      color: "#f56565"
+    next_steps:
+      - schedule_payment
+
+  - id: schedule_payment
+    name: Schedule Payment
+    step_type: task
+    description: Schedule invoice for payment
+    config:
+      task_type: custom
+      handler: invoice_processor.schedule_payment
+      params:
+        invoice: "{step.extract_invoice}"
+    visual:
+      position: {x: 100, y: 1150}
+      category: task
+      color: "#4299e1"
+    next_steps:
+      - sync_to_qbo
+
+  - id: sync_to_qbo
+    name: Sync to QuickBooks
+    step_type: task
+    description: Create bill in QuickBooks Online
+    config:
+      task_type: custom
+      handler: qbo_connector.create_bill
+      params:
+        tenant_id: "{qbo_tenant_id}"
+        invoice_data: "{step.extract_invoice}"
+        payment_schedule: "{step.schedule_payment}"
+    visual:
+      position: {x: 100, y: 1300}
+      category: integration
+      color: "#9f7aea"
+    next_steps:
+      - archive_invoice
+
+  - id: archive_invoice
+    name: Archive Invoice
+    step_type: memory_write
+    description: Archive processed invoice to memory
+    config:
+      content: |
+        {
+          "invoice": step.extract_invoice,
+          "po_match": step.match_purchase_order,
+          "anomalies": step.detect_anomalies,
+          "payment_schedule": step.schedule_payment,
+          "qbo_sync": step.sync_to_qbo
+        }
+      source_type: INVOICE
+      domain: accounting/invoices
+    visual:
+      position: {x: 100, y: 1450}
+      category: memory
+      color: "#9f7aea"
