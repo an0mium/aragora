@@ -104,6 +104,10 @@ class ControlPlaneConfig:
     enable_km_integration: bool = True
     km_workspace_id: str = "default"
 
+    # Policy sync from compliance store
+    enable_policy_sync: bool = True
+    policy_sync_workspace: Optional[str] = None
+
     @classmethod
     def from_env(cls) -> "ControlPlaneConfig":
         """Create config from environment variables."""
@@ -119,6 +123,8 @@ class ControlPlaneConfig:
             cleanup_interval=float(os.environ.get("CLEANUP_INTERVAL", "60")),
             enable_km_integration=os.environ.get("CP_ENABLE_KM", "true").lower() == "true",
             km_workspace_id=os.environ.get("CP_KM_WORKSPACE", "default"),
+            enable_policy_sync=os.environ.get("CP_ENABLE_POLICY_SYNC", "true").lower() == "true",
+            policy_sync_workspace=os.environ.get("CP_POLICY_SYNC_WORKSPACE") or None,
         )
 
 
@@ -194,6 +200,22 @@ class ControlPlaneCoordinator:
             self._policy_manager = ControlPlanePolicyManager(
                 violation_callback=self._handle_policy_violation
             )
+
+        # Auto-sync policies from compliance store
+        if self._policy_manager and self._config.enable_policy_sync:
+            try:
+                synced = self._policy_manager.sync_from_compliance_store(
+                    workspace_id=self._config.policy_sync_workspace,
+                    enabled_only=True,
+                )
+                if synced > 0:
+                    logger.info(
+                        "control_plane_policy_sync",
+                        synced_policies=synced,
+                        workspace=self._config.policy_sync_workspace,
+                    )
+            except Exception as e:
+                logger.debug(f"Policy sync skipped: {e}")
 
         self._registry = registry or AgentRegistry(
             redis_url=self._config.redis_url,
