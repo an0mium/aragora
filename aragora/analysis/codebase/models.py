@@ -327,3 +327,143 @@ class HotspotFinding:
             "contributors": self.contributors,
             "risk_score": self.risk_score,
         }
+
+
+class SecretType(str, Enum):
+    """Type of detected secret."""
+
+    AWS_ACCESS_KEY = "aws_access_key"
+    AWS_SECRET_KEY = "aws_secret_key"
+    GITHUB_TOKEN = "github_token"
+    GITHUB_PAT = "github_pat"
+    GITLAB_TOKEN = "gitlab_token"
+    SLACK_TOKEN = "slack_token"
+    SLACK_WEBHOOK = "slack_webhook"
+    DISCORD_TOKEN = "discord_token"
+    DISCORD_WEBHOOK = "discord_webhook"
+    STRIPE_KEY = "stripe_key"
+    TWILIO_KEY = "twilio_key"
+    SENDGRID_KEY = "sendgrid_key"
+    MAILGUN_KEY = "mailgun_key"
+    JWT_TOKEN = "jwt_token"
+    PRIVATE_KEY = "private_key"
+    GOOGLE_API_KEY = "google_api_key"
+    AZURE_KEY = "azure_key"
+    OPENAI_KEY = "openai_key"
+    ANTHROPIC_KEY = "anthropic_key"
+    DATABASE_URL = "database_url"
+    GENERIC_API_KEY = "generic_api_key"
+    GENERIC_SECRET = "generic_secret"
+    HIGH_ENTROPY = "high_entropy"
+
+
+@dataclass
+class SecretFinding:
+    """A detected secret or credential in the codebase."""
+
+    id: str
+    secret_type: SecretType
+    file_path: str
+    line_number: int
+    column_start: int
+    column_end: int
+    matched_text: str  # Redacted version (first/last 4 chars visible)
+    context_line: str  # The full line with secret redacted
+    severity: VulnerabilitySeverity
+    confidence: float  # 0.0 to 1.0
+    entropy: Optional[float] = None  # Shannon entropy if calculated
+    commit_sha: Optional[str] = None  # If found in git history
+    commit_author: Optional[str] = None
+    commit_date: Optional[datetime] = None
+    is_in_history: bool = False  # True if found in git history (not current)
+    verified: bool = False  # True if verified as active credential
+    remediation: Optional[str] = None
+
+    @staticmethod
+    def redact_secret(secret: str) -> str:
+        """Redact a secret, showing only first and last 4 chars."""
+        if len(secret) <= 8:
+            return "*" * len(secret)
+        return f"{secret[:4]}{'*' * (len(secret) - 8)}{secret[-4:]}"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dictionary."""
+        return {
+            "id": self.id,
+            "secret_type": self.secret_type.value,
+            "file_path": self.file_path,
+            "line_number": self.line_number,
+            "column_start": self.column_start,
+            "column_end": self.column_end,
+            "matched_text": self.matched_text,
+            "context_line": self.context_line,
+            "severity": self.severity.value,
+            "confidence": self.confidence,
+            "entropy": self.entropy,
+            "commit_sha": self.commit_sha,
+            "commit_author": self.commit_author,
+            "commit_date": self.commit_date.isoformat() if self.commit_date else None,
+            "is_in_history": self.is_in_history,
+            "verified": self.verified,
+            "remediation": self.remediation,
+        }
+
+
+@dataclass
+class SecretsScanResult:
+    """Result of a secrets scan."""
+
+    scan_id: str
+    repository: str
+    branch: Optional[str] = None
+    commit_sha: Optional[str] = None
+    started_at: datetime = field(default_factory=datetime.now)
+    completed_at: Optional[datetime] = None
+    status: str = "running"
+    error: Optional[str] = None
+    files_scanned: int = 0
+    secrets: List[SecretFinding] = field(default_factory=list)
+    scanned_history: bool = False
+    history_depth: int = 0
+
+    @property
+    def critical_count(self) -> int:
+        return sum(1 for s in self.secrets if s.severity == VulnerabilitySeverity.CRITICAL)
+
+    @property
+    def high_count(self) -> int:
+        return sum(1 for s in self.secrets if s.severity == VulnerabilitySeverity.HIGH)
+
+    @property
+    def medium_count(self) -> int:
+        return sum(1 for s in self.secrets if s.severity == VulnerabilitySeverity.MEDIUM)
+
+    @property
+    def low_count(self) -> int:
+        return sum(1 for s in self.secrets if s.severity == VulnerabilitySeverity.LOW)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dictionary."""
+        return {
+            "scan_id": self.scan_id,
+            "repository": self.repository,
+            "branch": self.branch,
+            "commit_sha": self.commit_sha,
+            "started_at": self.started_at.isoformat(),
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "status": self.status,
+            "error": self.error,
+            "files_scanned": self.files_scanned,
+            "secrets": [s.to_dict() for s in self.secrets],
+            "scanned_history": self.scanned_history,
+            "history_depth": self.history_depth,
+            "summary": {
+                "total_secrets": len(self.secrets),
+                "critical_count": self.critical_count,
+                "high_count": self.high_count,
+                "medium_count": self.medium_count,
+                "low_count": self.low_count,
+                "current_files": sum(1 for s in self.secrets if not s.is_in_history),
+                "in_history": sum(1 for s in self.secrets if s.is_in_history),
+            },
+        }
