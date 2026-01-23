@@ -4191,6 +4191,599 @@
           "response": []
         },
         {
+          "name": "Analyze dependencies",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/analyze-dependencies",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                "analyze-dependencies"
+              ]
+            },
+            "description": "Analyze dependency graph and inventory.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Scan vulnerabilities",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/scan-vulnerabilities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                "scan-vulnerabilities"
+              ]
+            },
+            "description": "Scan a repository for CVEs.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check licenses",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/check-licenses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                "check-licenses"
+              ]
+            },
+            "description": "Check license compatibility.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Generate SBOM",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/sbom",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                "sbom"
+              ]
+            },
+            "description": "Generate SBOM for a repository.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Clear dependency cache",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/clear-cache",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                "clear-cache"
+              ]
+            },
+            "description": "Clear cached dependency analysis results."
+          },
+          "response": []
+        },
+        {
+          "name": "Trigger secrets scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/scan/secrets",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "scan",
+                "secrets"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Trigger secrets scan for a repository.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get latest secrets scan",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/scan/secrets/latest",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "scan",
+                "secrets",
+                "latest"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Fetch the latest secrets scan."
+          },
+          "response": []
+        },
+        {
+          "name": "Get secrets scan by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/scan/secrets/:scan_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "scan",
+                "secrets",
+                ":scan_id"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                },
+                {
+                  "key": "scan_id",
+                  "value": "",
+                  "description": "Path parameter: scan_id"
+                }
+              ]
+            },
+            "description": "Fetch a secrets scan result by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "List secrets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/secrets",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "secrets"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "List secrets from the latest scan."
+          },
+          "response": []
+        },
+        {
+          "name": "List secrets scans",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/scans/secrets",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "scans",
+                "secrets"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "List secrets scan history."
+          },
+          "response": []
+        },
+        {
+          "name": "Trigger SAST scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/scan/sast",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "scan",
+                "sast"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Trigger a SAST scan for a repository.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get SAST scan status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/scan/sast/:scan_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "scan",
+                "sast",
+                ":scan_id"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                },
+                {
+                  "key": "scan_id",
+                  "value": "",
+                  "description": "Path parameter: scan_id"
+                }
+              ]
+            },
+            "description": "Fetch SAST scan status by scan ID."
+          },
+          "response": []
+        },
+        {
+          "name": "List SAST findings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/sast/findings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "sast",
+                "findings"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ],
+              "query": [
+                {
+                  "key": "severity",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "owasp_category",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List SAST findings for the latest scan."
+          },
+          "response": []
+        },
+        {
+          "name": "OWASP summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/sast/owasp-summary",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "sast",
+                "owasp-summary"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Summarize SAST findings by OWASP category."
+          },
+          "response": []
+        },
+        {
           "name": "Run metrics analysis",
           "request": {
             "method": "POST",
@@ -4521,6 +5114,794 @@
             "description": "Get metrics for a specific file (URL-encoded path)."
           },
           "response": []
+        },
+        {
+          "name": "Analyze codebase",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/analyze",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "analyze"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Analyze codebase structure and symbols.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List symbols",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/symbols",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "symbols"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "List symbols in a codebase."
+          },
+          "response": []
+        },
+        {
+          "name": "Call graph",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/callgraph",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "callgraph"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Get call graph for the codebase."
+          },
+          "response": []
+        },
+        {
+          "name": "Dead code",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/deadcode",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "deadcode"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Find dead or unreachable code."
+          },
+          "response": []
+        },
+        {
+          "name": "Impact analysis",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/impact",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "impact"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Analyze impact of changes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Understand code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/understand",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "understand"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Answer questions about the codebase.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Run audit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/audit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "audit"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Run comprehensive code audit.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Audit status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/audit/:audit_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "audit",
+                ":audit_id"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                },
+                {
+                  "key": "audit_id",
+                  "value": "",
+                  "description": "Path parameter: audit_id"
+                }
+              ]
+            },
+            "description": "Get status/result of a code audit."
+          },
+          "response": []
+        },
+        {
+          "name": "Analyze codebase (alias)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/codebase/:repo/analyze",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "codebase",
+                ":repo",
+                "analyze"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Alias for codebase analysis.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List symbols (alias)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/codebase/:repo/symbols",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "codebase",
+                ":repo",
+                "symbols"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Alias for codebase symbols."
+          },
+          "response": []
+        },
+        {
+          "name": "Call graph (alias)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/codebase/:repo/callgraph",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "codebase",
+                ":repo",
+                "callgraph"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Alias for call graph."
+          },
+          "response": []
+        },
+        {
+          "name": "Dead code (alias)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/codebase/:repo/deadcode",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "codebase",
+                ":repo",
+                "deadcode"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Alias for dead code."
+          },
+          "response": []
+        },
+        {
+          "name": "Impact analysis (alias)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/codebase/:repo/impact",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "codebase",
+                ":repo",
+                "impact"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Alias for impact analysis.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Understand code (alias)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/codebase/:repo/understand",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "codebase",
+                ":repo",
+                "understand"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Alias for code understanding.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Run audit (alias)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/codebase/:repo/audit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "codebase",
+                ":repo",
+                "audit"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Alias for code audit.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Audit status (alias)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/codebase/:repo/audit/:audit_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "codebase",
+                ":repo",
+                "audit",
+                ":audit_id"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                },
+                {
+                  "key": "audit_id",
+                  "value": "",
+                  "description": "Path parameter: audit_id"
+                }
+              ]
+            },
+            "description": "Alias for audit status."
+          },
+          "response": []
+        },
+        {
+          "name": "Quick scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/codebase/quick-scan",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "codebase",
+                "quick-scan"
+              ]
+            },
+            "description": "Run a quick security scan.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Quick scan result",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/codebase/quick-scan/:scan_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "codebase",
+                "quick-scan",
+                ":scan_id"
+              ],
+              "variable": [
+                {
+                  "key": "scan_id",
+                  "value": "",
+                  "description": "Path parameter: scan_id"
+                }
+              ]
+            },
+            "description": "Get a quick scan result."
+          },
+          "response": []
+        },
+        {
+          "name": "List quick scans",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/codebase/quick-scans",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "codebase",
+                "quick-scans"
+              ]
+            },
+            "description": "List recent quick scans."
+          },
+          "response": []
         }
       ]
     },
@@ -4736,6 +6117,2936 @@
               ]
             },
             "description": "Submit a review verdict back to GitHub.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create issues from findings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/github/audit/issues",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "github",
+                "audit",
+                "issues"
+              ]
+            },
+            "description": "Create GitHub issues from audit findings.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk create issues",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/github/audit/issues/bulk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "github",
+                "audit",
+                "issues",
+                "bulk"
+              ]
+            },
+            "description": "Bulk create GitHub issues from findings.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create PR with fixes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/github/audit/pr",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "github",
+                "audit",
+                "pr"
+              ]
+            },
+            "description": "Create a remediation PR from audit findings.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get sync status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/github/audit/sync/:session_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "github",
+                "audit",
+                "sync",
+                ":session_id"
+              ],
+              "variable": [
+                {
+                  "key": "session_id",
+                  "value": "",
+                  "description": "Path parameter: session_id"
+                }
+              ]
+            },
+            "description": "Get status of a GitHub audit sync."
+          },
+          "response": []
+        },
+        {
+          "name": "Sync findings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/github/audit/sync/:session_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "github",
+                "audit",
+                "sync",
+                ":session_id"
+              ],
+              "variable": [
+                {
+                  "key": "session_id",
+                  "value": "",
+                  "description": "Path parameter: session_id"
+                }
+              ]
+            },
+            "description": "Sync an audit session to GitHub."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Inbox",
+      "description": "Shared inbox and routing rules",
+      "item": [
+        {
+          "name": "Create shared inbox",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inbox/shared",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inbox",
+                "shared"
+              ]
+            },
+            "description": "Create a shared inbox for collaborative triage.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List shared inboxes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inbox/shared",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inbox",
+                "shared"
+              ],
+              "query": [
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "user_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List shared inboxes for a workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "Get shared inbox",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inbox/shared/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inbox",
+                "shared",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Fetch shared inbox details."
+          },
+          "response": []
+        },
+        {
+          "name": "List inbox messages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inbox/shared/:id/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inbox",
+                "shared",
+                ":id",
+                "messages"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "assigned_to",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "tag",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List messages for a shared inbox."
+          },
+          "response": []
+        },
+        {
+          "name": "Assign message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inbox/shared/:id/messages/:msg_id/assign",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inbox",
+                "shared",
+                ":id",
+                "messages",
+                ":msg_id",
+                "assign"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                },
+                {
+                  "key": "msg_id",
+                  "value": "",
+                  "description": "Path parameter: msg_id"
+                }
+              ]
+            },
+            "description": "Assign a shared inbox message to a team member.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update message status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inbox/shared/:id/messages/:msg_id/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inbox",
+                "shared",
+                ":id",
+                "messages",
+                ":msg_id",
+                "status"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                },
+                {
+                  "key": "msg_id",
+                  "value": "",
+                  "description": "Path parameter: msg_id"
+                }
+              ]
+            },
+            "description": "Update shared inbox message status.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add message tag",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inbox/shared/:id/messages/:msg_id/tag",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inbox",
+                "shared",
+                ":id",
+                "messages",
+                ":msg_id",
+                "tag"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                },
+                {
+                  "key": "msg_id",
+                  "value": "",
+                  "description": "Path parameter: msg_id"
+                }
+              ]
+            },
+            "description": "Add a tag to a shared inbox message.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create routing rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inbox/routing/rules",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inbox",
+                "routing",
+                "rules"
+              ]
+            },
+            "description": "Create a routing rule for inbox automation.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List routing rules",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inbox/routing/rules",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inbox",
+                "routing",
+                "rules"
+              ],
+              "query": [
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "enabled_only",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List routing rules for a workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "Update routing rule",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inbox/routing/rules/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inbox",
+                "routing",
+                "rules",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Update an inbox routing rule.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete routing rule",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inbox/routing/rules/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inbox",
+                "routing",
+                "rules",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Delete an inbox routing rule."
+          },
+          "response": []
+        },
+        {
+          "name": "Test routing rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inbox/routing/rules/:id/test",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inbox",
+                "routing",
+                "rules",
+                ":id",
+                "test"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Test a routing rule against existing messages.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Email",
+      "description": "Email ingestion and operations",
+      "item": [
+        {
+          "name": "List Gmail labels",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/labels",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "labels"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List Gmail labels for a connected account."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Gmail label",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/labels",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "labels"
+              ]
+            },
+            "description": "Create a Gmail label.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Gmail label",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/labels/:label_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "labels",
+                ":label_id"
+              ],
+              "variable": [
+                {
+                  "key": "label_id",
+                  "value": "",
+                  "description": "Path parameter: label_id"
+                }
+              ]
+            },
+            "description": "Update a Gmail label.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Gmail label",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/labels/:label_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "labels",
+                ":label_id"
+              ],
+              "variable": [
+                {
+                  "key": "label_id",
+                  "value": "",
+                  "description": "Path parameter: label_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Delete a Gmail label."
+          },
+          "response": []
+        },
+        {
+          "name": "List Gmail filters",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/filters",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "filters"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List Gmail filters."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Gmail filter",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/filters",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "filters"
+              ]
+            },
+            "description": "Create a Gmail filter.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Gmail filter",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/filters/:filter_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "filters",
+                ":filter_id"
+              ],
+              "variable": [
+                {
+                  "key": "filter_id",
+                  "value": "",
+                  "description": "Path parameter: filter_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Delete a Gmail filter."
+          },
+          "response": []
+        },
+        {
+          "name": "Modify message labels",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/messages/:message_id/labels",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "messages",
+                ":message_id",
+                "labels"
+              ],
+              "variable": [
+                {
+                  "key": "message_id",
+                  "value": "",
+                  "description": "Path parameter: message_id"
+                }
+              ]
+            },
+            "description": "Add or remove labels for a message.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark message read/unread",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/messages/:message_id/read",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "messages",
+                ":message_id",
+                "read"
+              ],
+              "variable": [
+                {
+                  "key": "message_id",
+                  "value": "",
+                  "description": "Path parameter: message_id"
+                }
+              ]
+            },
+            "description": "Toggle read state for a message.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Star or unstar message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/messages/:message_id/star",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "messages",
+                ":message_id",
+                "star"
+              ],
+              "variable": [
+                {
+                  "key": "message_id",
+                  "value": "",
+                  "description": "Path parameter: message_id"
+                }
+              ]
+            },
+            "description": "Toggle star state for a message.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Archive message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/messages/:message_id/archive",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "messages",
+                ":message_id",
+                "archive"
+              ],
+              "variable": [
+                {
+                  "key": "message_id",
+                  "value": "",
+                  "description": "Path parameter: message_id"
+                }
+              ]
+            },
+            "description": "Archive a message."
+          },
+          "response": []
+        },
+        {
+          "name": "Trash message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/messages/:message_id/trash",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "messages",
+                ":message_id",
+                "trash"
+              ],
+              "variable": [
+                {
+                  "key": "message_id",
+                  "value": "",
+                  "description": "Path parameter: message_id"
+                }
+              ]
+            },
+            "description": "Trash or untrash a message.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get attachment",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/messages/:message_id/attachments/:attachment_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "messages",
+                ":message_id",
+                "attachments",
+                ":attachment_id"
+              ],
+              "variable": [
+                {
+                  "key": "message_id",
+                  "value": "",
+                  "description": "Path parameter: message_id"
+                },
+                {
+                  "key": "attachment_id",
+                  "value": "",
+                  "description": "Path parameter: attachment_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Fetch a message attachment."
+          },
+          "response": []
+        },
+        {
+          "name": "List Gmail threads",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/threads",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "threads"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "label_ids",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "page_token",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List Gmail threads."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Gmail thread",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/threads/:thread_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "threads",
+                ":thread_id"
+              ],
+              "variable": [
+                {
+                  "key": "thread_id",
+                  "value": "",
+                  "description": "Path parameter: thread_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Fetch a thread with messages."
+          },
+          "response": []
+        },
+        {
+          "name": "Archive thread",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/threads/:thread_id/archive",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "threads",
+                ":thread_id",
+                "archive"
+              ],
+              "variable": [
+                {
+                  "key": "thread_id",
+                  "value": "",
+                  "description": "Path parameter: thread_id"
+                }
+              ]
+            },
+            "description": "Archive a Gmail thread."
+          },
+          "response": []
+        },
+        {
+          "name": "Trash thread",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/threads/:thread_id/trash",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "threads",
+                ":thread_id",
+                "trash"
+              ],
+              "variable": [
+                {
+                  "key": "thread_id",
+                  "value": "",
+                  "description": "Path parameter: thread_id"
+                }
+              ]
+            },
+            "description": "Trash or untrash a thread.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Modify thread labels",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/threads/:thread_id/labels",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "threads",
+                ":thread_id",
+                "labels"
+              ],
+              "variable": [
+                {
+                  "key": "thread_id",
+                  "value": "",
+                  "description": "Path parameter: thread_id"
+                }
+              ]
+            },
+            "description": "Add or remove labels on a thread.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List drafts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/drafts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "drafts"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "page_token",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List Gmail drafts."
+          },
+          "response": []
+        },
+        {
+          "name": "Create draft",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/drafts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "drafts"
+              ]
+            },
+            "description": "Create a Gmail draft.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get draft",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/drafts/:draft_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "drafts",
+                ":draft_id"
+              ],
+              "variable": [
+                {
+                  "key": "draft_id",
+                  "value": "",
+                  "description": "Path parameter: draft_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get a Gmail draft by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Update draft",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/drafts/:draft_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "drafts",
+                ":draft_id"
+              ],
+              "variable": [
+                {
+                  "key": "draft_id",
+                  "value": "",
+                  "description": "Path parameter: draft_id"
+                }
+              ]
+            },
+            "description": "Update a Gmail draft.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete draft",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/drafts/:draft_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "drafts",
+                ":draft_id"
+              ],
+              "variable": [
+                {
+                  "key": "draft_id",
+                  "value": "",
+                  "description": "Path parameter: draft_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Delete a Gmail draft."
+          },
+          "response": []
+        },
+        {
+          "name": "Send draft",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gmail/drafts/:draft_id/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "drafts",
+                ":draft_id",
+                "send"
+              ],
+              "variable": [
+                {
+                  "key": "draft_id",
+                  "value": "",
+                  "description": "Path parameter: draft_id"
+                }
+              ]
+            },
+            "description": "Send a Gmail draft."
+          },
+          "response": []
+        },
+        {
+          "name": "Get OAuth URL",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/outlook/oauth/url",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outlook",
+                "oauth",
+                "url"
+              ],
+              "query": [
+                {
+                  "key": "redirect_uri",
+                  "value": "",
+                  "description": "",
+                  "disabled": false
+                },
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Generate Outlook OAuth authorization URL."
+          },
+          "response": []
+        },
+        {
+          "name": "OAuth callback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/outlook/oauth/callback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outlook",
+                "oauth",
+                "callback"
+              ]
+            },
+            "description": "Handle Outlook OAuth callback.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List folders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/outlook/folders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outlook",
+                "folders"
+              ],
+              "query": [
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List Outlook mail folders."
+          },
+          "response": []
+        },
+        {
+          "name": "List messages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/outlook/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outlook",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "folder_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "max_results",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "page_token",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "filter",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List Outlook messages."
+          },
+          "response": []
+        },
+        {
+          "name": "Get message",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/outlook/messages/:message_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outlook",
+                "messages",
+                ":message_id"
+              ],
+              "variable": [
+                {
+                  "key": "message_id",
+                  "value": "",
+                  "description": "Path parameter: message_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Fetch Outlook message details."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete message",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/outlook/messages/:message_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outlook",
+                "messages",
+                ":message_id"
+              ],
+              "variable": [
+                {
+                  "key": "message_id",
+                  "value": "",
+                  "description": "Path parameter: message_id"
+                }
+              ]
+            },
+            "description": "Delete an Outlook message."
+          },
+          "response": []
+        },
+        {
+          "name": "Get conversation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/outlook/conversations/:conversation_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outlook",
+                "conversations",
+                ":conversation_id"
+              ],
+              "variable": [
+                {
+                  "key": "conversation_id",
+                  "value": "",
+                  "description": "Path parameter: conversation_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Fetch Outlook conversation thread."
+          },
+          "response": []
+        },
+        {
+          "name": "Send message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/outlook/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outlook",
+                "send"
+              ]
+            },
+            "description": "Send a new Outlook message.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reply to message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/outlook/reply",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outlook",
+                "reply"
+              ]
+            },
+            "description": "Reply to an Outlook message.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search messages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/outlook/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outlook",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Search Outlook messages with OData filters."
+          },
+          "response": []
+        },
+        {
+          "name": "Mark read/unread",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/outlook/messages/:message_id/read",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outlook",
+                "messages",
+                ":message_id",
+                "read"
+              ],
+              "variable": [
+                {
+                  "key": "message_id",
+                  "value": "",
+                  "description": "Path parameter: message_id"
+                }
+              ]
+            },
+            "description": "Toggle read state for an Outlook message.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Move message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/outlook/messages/:message_id/move",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outlook",
+                "messages",
+                ":message_id",
+                "move"
+              ],
+              "variable": [
+                {
+                  "key": "message_id",
+                  "value": "",
+                  "description": "Path parameter: message_id"
+                }
+              ]
+            },
+            "description": "Move a message to a folder.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Connection status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/outlook/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outlook",
+                "status"
+              ],
+              "query": [
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get Outlook integration status."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Costs",
+      "description": "Cost visibility and budgeting",
+      "item": [
+        {
+          "name": "Get cost summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/costs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "costs"
+              ],
+              "query": [
+                {
+                  "key": "range",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Fetch cost dashboard summary data."
+          },
+          "response": []
+        },
+        {
+          "name": "Get cost breakdown",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/costs/breakdown",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "costs",
+                "breakdown"
+              ],
+              "query": [
+                {
+                  "key": "range",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "group_by",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Fetch cost breakdown by provider or feature."
+          },
+          "response": []
+        },
+        {
+          "name": "Get cost timeline",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/costs/timeline",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "costs",
+                "timeline"
+              ],
+              "query": [
+                {
+                  "key": "range",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Fetch cost timeline data."
+          },
+          "response": []
+        },
+        {
+          "name": "Get budget alerts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/costs/alerts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "costs",
+                "alerts"
+              ],
+              "query": [
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Fetch active budget alerts."
+          },
+          "response": []
+        },
+        {
+          "name": "Set budget limits",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/costs/budget",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "costs",
+                "budget"
+              ]
+            },
+            "description": "Set workspace budget limit.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Dismiss alert",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/costs/alerts/:alert_id/dismiss",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "costs",
+                "alerts",
+                ":alert_id",
+                "dismiss"
+              ],
+              "variable": [
+                {
+                  "key": "alert_id",
+                  "value": "",
+                  "description": "Path parameter: alert_id"
+                }
+              ]
+            },
+            "description": "Dismiss a budget alert."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Accounting",
+      "description": "Accounting and ERP integrations",
+      "item": [
+        {
+          "name": "Get accounting status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "status"
+              ]
+            },
+            "description": "Fetch QuickBooks connection status and dashboard data."
+          },
+          "response": []
+        },
+        {
+          "name": "Start OAuth",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/connect",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "connect"
+              ]
+            },
+            "description": "Start QuickBooks OAuth flow."
+          },
+          "response": []
+        },
+        {
+          "name": "OAuth callback",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/callback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "callback"
+              ]
+            },
+            "description": "Handle QuickBooks OAuth callback."
+          },
+          "response": []
+        },
+        {
+          "name": "Disconnect",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/disconnect",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "disconnect"
+              ]
+            },
+            "description": "Disconnect QuickBooks integration."
+          },
+          "response": []
+        },
+        {
+          "name": "List customers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/customers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "customers"
+              ]
+            },
+            "description": "List QuickBooks customers."
+          },
+          "response": []
+        },
+        {
+          "name": "List transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/transactions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "transactions"
+              ]
+            },
+            "description": "List QuickBooks transactions."
+          },
+          "response": []
+        },
+        {
+          "name": "Generate report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/report",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "report"
+              ]
+            },
+            "description": "Generate an accounting report.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -8044,6 +12355,508 @@
             "description": "Verify the cryptographic integrity of audit log entries to detect tampering."
           },
           "response": []
+        },
+        {
+          "name": "List audit sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/audit/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "sessions"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List audit sessions with optional filters."
+          },
+          "response": []
+        },
+        {
+          "name": "Create audit session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/audit/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "sessions"
+              ]
+            },
+            "description": "Create a new audit session.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get audit session",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/audit/sessions/:session_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "sessions",
+                ":session_id"
+              ],
+              "variable": [
+                {
+                  "key": "session_id",
+                  "value": "",
+                  "description": "Path parameter: session_id"
+                }
+              ]
+            },
+            "description": "Get audit session details."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete audit session",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/audit/sessions/:session_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "sessions",
+                ":session_id"
+              ],
+              "variable": [
+                {
+                  "key": "session_id",
+                  "value": "",
+                  "description": "Path parameter: session_id"
+                }
+              ]
+            },
+            "description": "Delete an audit session."
+          },
+          "response": []
+        },
+        {
+          "name": "Start audit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/audit/sessions/:session_id/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "sessions",
+                ":session_id",
+                "start"
+              ],
+              "variable": [
+                {
+                  "key": "session_id",
+                  "value": "",
+                  "description": "Path parameter: session_id"
+                }
+              ]
+            },
+            "description": "Start an audit session."
+          },
+          "response": []
+        },
+        {
+          "name": "Pause audit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/audit/sessions/:session_id/pause",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "sessions",
+                ":session_id",
+                "pause"
+              ],
+              "variable": [
+                {
+                  "key": "session_id",
+                  "value": "",
+                  "description": "Path parameter: session_id"
+                }
+              ]
+            },
+            "description": "Pause an audit session."
+          },
+          "response": []
+        },
+        {
+          "name": "Resume audit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/audit/sessions/:session_id/resume",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "sessions",
+                ":session_id",
+                "resume"
+              ],
+              "variable": [
+                {
+                  "key": "session_id",
+                  "value": "",
+                  "description": "Path parameter: session_id"
+                }
+              ]
+            },
+            "description": "Resume an audit session."
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel audit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/audit/sessions/:session_id/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "sessions",
+                ":session_id",
+                "cancel"
+              ],
+              "variable": [
+                {
+                  "key": "session_id",
+                  "value": "",
+                  "description": "Path parameter: session_id"
+                }
+              ]
+            },
+            "description": "Cancel an audit session."
+          },
+          "response": []
+        },
+        {
+          "name": "List findings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/audit/sessions/:session_id/findings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "sessions",
+                ":session_id",
+                "findings"
+              ],
+              "variable": [
+                {
+                  "key": "session_id",
+                  "value": "",
+                  "description": "Path parameter: session_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "audit_type",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List audit findings for a session."
+          },
+          "response": []
+        },
+        {
+          "name": "Stream audit events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/audit/sessions/:session_id/events",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "sessions",
+                ":session_id",
+                "events"
+              ],
+              "variable": [
+                {
+                  "key": "session_id",
+                  "value": "",
+                  "description": "Path parameter: session_id"
+                }
+              ]
+            },
+            "description": "Stream audit events via SSE."
+          },
+          "response": []
+        },
+        {
+          "name": "Intervene in audit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/audit/sessions/:session_id/intervene",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "sessions",
+                ":session_id",
+                "intervene"
+              ],
+              "variable": [
+                {
+                  "key": "session_id",
+                  "value": "",
+                  "description": "Path parameter: session_id"
+                }
+              ]
+            },
+            "description": "Submit a human intervention.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Export audit report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/audit/sessions/:session_id/report",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "sessions",
+                ":session_id",
+                "report"
+              ],
+              "variable": [
+                {
+                  "key": "session_id",
+                  "value": "",
+                  "description": "Path parameter: session_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Export audit report for a session."
+          },
+          "response": []
         }
       ]
     },
@@ -10009,6 +14822,807 @@
               ]
             },
             "description": "Download checkpoint file for backup or transfer."
+          },
+          "response": []
+        },
+        {
+          "name": "Search knowledge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/chat/knowledge/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chat",
+                "knowledge",
+                "search"
+              ]
+            },
+            "description": "Search knowledge from chat context.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Inject knowledge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/chat/knowledge/inject",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chat",
+                "knowledge",
+                "inject"
+              ]
+            },
+            "description": "Retrieve knowledge context for a conversation.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Store chat knowledge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/chat/knowledge/store",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chat",
+                "knowledge",
+                "store"
+              ]
+            },
+            "description": "Persist chat conversation as knowledge.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Channel summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/chat/knowledge/channel/:channel_id/summary",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chat",
+                "knowledge",
+                "channel",
+                ":channel_id",
+                "summary"
+              ],
+              "variable": [
+                {
+                  "key": "channel_id",
+                  "value": "",
+                  "description": "Path parameter: channel_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get channel knowledge summary."
+          },
+          "response": []
+        },
+        {
+          "name": "Create role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/mound/governance/roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                "mound",
+                "governance",
+                "roles"
+              ]
+            },
+            "description": "Create a Knowledge Mound governance role.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/mound/governance/roles/assign",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                "mound",
+                "governance",
+                "roles",
+                "assign"
+              ]
+            },
+            "description": "Assign a governance role to a user.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/mound/governance/roles/revoke",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                "mound",
+                "governance",
+                "roles",
+                "revoke"
+              ]
+            },
+            "description": "Revoke a governance role from a user.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get permissions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/mound/governance/permissions/:user_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                "mound",
+                "governance",
+                "permissions",
+                ":user_id"
+              ],
+              "variable": [
+                {
+                  "key": "user_id",
+                  "value": "",
+                  "description": "Path parameter: user_id"
+                }
+              ]
+            },
+            "description": "Get governance permissions for a user."
+          },
+          "response": []
+        },
+        {
+          "name": "Check permissions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/mound/governance/permissions/check",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                "mound",
+                "governance",
+                "permissions",
+                "check"
+              ]
+            },
+            "description": "Check a permission against governance rules.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Audit trail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/mound/governance/audit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                "mound",
+                "governance",
+                "audit"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Query governance audit trail."
+          },
+          "response": []
+        },
+        {
+          "name": "User audit trail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/mound/governance/audit/user/:user_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                "mound",
+                "governance",
+                "audit",
+                "user",
+                ":user_id"
+              ],
+              "variable": [
+                {
+                  "key": "user_id",
+                  "value": "",
+                  "description": "Path parameter: user_id"
+                }
+              ]
+            },
+            "description": "Get governance activity for a user."
+          },
+          "response": []
+        },
+        {
+          "name": "Governance stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/mound/governance/stats",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                "mound",
+                "governance",
+                "stats"
+              ]
+            },
+            "description": "Get governance stats."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Threat Intel",
+      "description": "Threat intelligence lookups",
+      "item": [
+        {
+          "name": "Scan URL",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/threat/url",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "threat",
+                "url"
+              ]
+            },
+            "description": "Check a URL against threat intel feeds.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Batch scan URLs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/threat/urls",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "threat",
+                "urls"
+              ]
+            },
+            "description": "Check multiple URLs for threats.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "IP reputation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/threat/ip/:ip_address",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "threat",
+                "ip",
+                ":ip_address"
+              ],
+              "variable": [
+                {
+                  "key": "ip_address",
+                  "value": "",
+                  "description": "Path parameter: ip_address"
+                }
+              ]
+            },
+            "description": "Check IP reputation."
+          },
+          "response": []
+        },
+        {
+          "name": "Batch IP reputation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/threat/ips",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "threat",
+                "ips"
+              ]
+            },
+            "description": "Check multiple IPs for reputation.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "File hash lookup",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/threat/hash/:hash_value",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "threat",
+                "hash",
+                ":hash_value"
+              ],
+              "variable": [
+                {
+                  "key": "hash_value",
+                  "value": "",
+                  "description": "Path parameter: hash_value"
+                }
+              ]
+            },
+            "description": "Check a file hash for malware."
+          },
+          "response": []
+        },
+        {
+          "name": "Batch hash lookup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/threat/hashes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "threat",
+                "hashes"
+              ]
+            },
+            "description": "Check multiple hashes for malware.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Scan email content",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/threat/email",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "threat",
+                "email"
+              ]
+            },
+            "description": "Scan email body for threats.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Service status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/threat/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "threat",
+                "status"
+              ]
+            },
+            "description": "Get threat intel service status."
           },
           "response": []
         }
