@@ -127,6 +127,31 @@ CONNECTOR_TYPES = {
         "category": "documents",
         "coming_soon": True,
     },
+    "docusign": {
+        "name": "DocuSign",
+        "description": "E-signature integration for contracts and documents",
+        "category": "legal",
+    },
+    "pagerduty": {
+        "name": "PagerDuty",
+        "description": "Incident management and on-call scheduling",
+        "category": "devops",
+    },
+    "plaid": {
+        "name": "Plaid",
+        "description": "Bank account connectivity and transaction sync",
+        "category": "accounting",
+    },
+    "qbo": {
+        "name": "QuickBooks Online",
+        "description": "Accounting integration for invoices, bills, and journal entries",
+        "category": "accounting",
+    },
+    "gusto": {
+        "name": "Gusto",
+        "description": "Payroll integration for employee pay data",
+        "category": "accounting",
+    },
 }
 
 

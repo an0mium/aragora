@@ -88,6 +88,38 @@ from aragora.connectors.repository_crawler import (
     crawl_repository,
 )
 
+# Legal connectors
+from aragora.connectors.legal import (
+    DocuSignConnector,
+    DocuSignCredentials,
+    DocuSignEnvironment,
+    Envelope,
+    EnvelopeCreateRequest,
+    EnvelopeStatus,
+    Recipient,
+    RecipientType,
+    Document,
+    SignatureTab,
+)
+
+# DevOps connectors
+from aragora.connectors.devops import (
+    PagerDutyConnector,
+    PagerDutyCredentials,
+    PagerDutyError,
+    Incident,
+    IncidentCreateRequest,
+    IncidentNote,
+    IncidentPriority,
+    IncidentStatus,
+    IncidentUrgency,
+    OnCallSchedule,
+    Service,
+    ServiceStatus,
+    User,
+    WebhookPayload,
+)
+
 __all__ = [
     # Base classes
     "BaseConnector",
@@ -156,4 +188,30 @@ __all__ = [
     "FileDependency",
     "FileType",
     "crawl_repository",
+    # Legal Connectors
+    "DocuSignConnector",
+    "DocuSignCredentials",
+    "DocuSignEnvironment",
+    "Envelope",
+    "EnvelopeCreateRequest",
+    "EnvelopeStatus",
+    "Recipient",
+    "RecipientType",
+    "Document",
+    "SignatureTab",
+    # DevOps Connectors
+    "PagerDutyConnector",
+    "PagerDutyCredentials",
+    "PagerDutyError",
+    "Incident",
+    "IncidentCreateRequest",
+    "IncidentNote",
+    "IncidentPriority",
+    "IncidentStatus",
+    "IncidentUrgency",
+    "OnCallSchedule",
+    "Service",
+    "ServiceStatus",
+    "User",
+    "WebhookPayload",
 ]
