@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { MemberTable, Member, Column } from '@/components/admin/MemberTable';
@@ -216,7 +216,7 @@ function ChangeRoleModal({
   );
 }
 
-export default function UsersAdminPage() {
+function UsersAdminPageContent() {
   const { config: backendConfig } = useBackend();
   const { user: currentUser, isAuthenticated, tokens } = useAuth();
   const searchParams = useSearchParams();
@@ -611,5 +611,13 @@ export default function UsersAdminPage() {
         onChangeRole={handleChangeRole}
       />
     </AdminLayout>
+  );
+}
+
+export default function UsersAdminPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center font-mono text-text-muted">Loading...</div>}>
+      <UsersAdminPageContent />
+    </Suspense>
   );
 }
