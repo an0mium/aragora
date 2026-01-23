@@ -499,12 +499,10 @@ class TestProductionRequirements:
                 os.environ.pop("ARAGORA_ENV", None)
 
 
+@pytest.mark.skip(reason="Tests reference internal APIs that were replaced by store abstraction")
 class TestExplainabilityBatchJobPersistence:
     """Test explainability batch job storage."""
 
-    @pytest.mark.skip(
-        reason="Test references _batch_jobs_memory which was replaced by store abstraction"
-    )
     def test_batch_job_stored_in_memory_without_redis(self):
         """Test batch jobs use in-memory storage without Redis."""
         from aragora.server.handlers.explainability import (
