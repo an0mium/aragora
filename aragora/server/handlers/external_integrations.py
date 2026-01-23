@@ -296,10 +296,12 @@ class ExternalIntegrationsHandler(SecureHandler):
             return self._handle_register_n8n_webhook(body, handler)
 
         # Test endpoints
+        # Path: /api/v1/integrations/{platform}/test
+        # Split (with leading empty): ["", "api", "v1", "integrations", "{platform}", "test"]
         if path.endswith("/test"):
             parts = path.split("/")
-            if len(parts) >= 4:
-                platform = parts[3]
+            if len(parts) >= 6:
+                platform = parts[4]
                 return self._handle_test_integration(platform, handler)
 
         return None
@@ -315,46 +317,58 @@ class ExternalIntegrationsHandler(SecureHandler):
 
         # Zapier app deletion
         if path.startswith("/api/v1/integrations/zapier/apps/"):
-            app_id, err = self.extract_path_param(path, 4, "app_id", SAFE_ID_PATTERN)
+            # Path: /api/v1/integrations/zapier/apps/{app_id}
+            # Segments after strip/split: ["api", "v1", "integrations", "zapier", "apps", "{app_id}"]
+            app_id, err = self.extract_path_param(path, 5, "app_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_delete_zapier_app(app_id, handler)
 
         # Zapier trigger unsubscribe
         if path.startswith("/api/v1/integrations/zapier/triggers/"):
+            # Path: /api/v1/integrations/zapier/triggers/{trigger_id}
+            # Split (with leading empty): ["", "api", "v1", "integrations", "zapier", "triggers", "{trigger_id}"]
             parts = path.split("/")
-            if len(parts) >= 5:
-                trigger_id = parts[4]
+            if len(parts) >= 7:
+                trigger_id = parts[6]
                 app_id = query_params.get("app_id", [""])[0]
                 return self._handle_unsubscribe_zapier_trigger(app_id, trigger_id, handler)
 
         # Make connection deletion
         if path.startswith("/api/v1/integrations/make/connections/"):
-            conn_id, err = self.extract_path_param(path, 4, "conn_id", SAFE_ID_PATTERN)
+            # Path: /api/v1/integrations/make/connections/{conn_id}
+            # Segments after strip/split: ["api", "v1", "integrations", "make", "connections", "{conn_id}"]
+            conn_id, err = self.extract_path_param(path, 5, "conn_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_delete_make_connection(conn_id, handler)
 
         # Make webhook unregister
         if path.startswith("/api/v1/integrations/make/webhooks/"):
+            # Path: /api/v1/integrations/make/webhooks/{webhook_id}
+            # Split (with leading empty): ["", "api", "v1", "integrations", "make", "webhooks", "{webhook_id}"]
             parts = path.split("/")
-            if len(parts) >= 5:
-                webhook_id = parts[4]
+            if len(parts) >= 7:
+                webhook_id = parts[6]
                 conn_id = query_params.get("connection_id", [""])[0]
                 return self._handle_unregister_make_webhook(conn_id, webhook_id, handler)
 
         # n8n credential deletion
         if path.startswith("/api/v1/integrations/n8n/credentials/"):
-            cred_id, err = self.extract_path_param(path, 4, "cred_id", SAFE_ID_PATTERN)
+            # Path: /api/v1/integrations/n8n/credentials/{cred_id}
+            # Segments after strip/split: ["api", "v1", "integrations", "n8n", "credentials", "{cred_id}"]
+            cred_id, err = self.extract_path_param(path, 5, "cred_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_delete_n8n_credential(cred_id, handler)
 
         # n8n webhook unregister
         if path.startswith("/api/v1/integrations/n8n/webhooks/"):
+            # Path: /api/v1/integrations/n8n/webhooks/{webhook_id}
+            # Split (with leading empty): ["", "api", "v1", "integrations", "n8n", "webhooks", "{webhook_id}"]
             parts = path.split("/")
-            if len(parts) >= 5:
-                webhook_id = parts[4]
+            if len(parts) >= 7:
+                webhook_id = parts[6]
                 cred_id = query_params.get("credential_id", [""])[0]
                 return self._handle_unregister_n8n_webhook(cred_id, webhook_id, handler)
 
