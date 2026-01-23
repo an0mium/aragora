@@ -383,7 +383,8 @@ class QuotaManager:
                 period_end = self._get_period_end(limit_config.period)
                 retry_after = None
                 if period_end:
-                    retry_after = int((period_end - datetime.now()).total_seconds())
+                    # Ensure retry_after is at least 1 second to avoid rounding to 0
+                    retry_after = max(1, int((period_end - datetime.now()).total_seconds()))
 
                 raise QuotaExceeded(
                     f"Quota exceeded for {resource}: {current + amount} > {limit_config.limit}",
