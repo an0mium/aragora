@@ -431,6 +431,37 @@ class ExpenseTracker:
             },
         }
 
+    async def _emit_usage_event(
+        self,
+        operation: str,
+        tokens: int = 0,
+        cost_usd: float = 0.0,
+        provider: str = "",
+        model: str = "",
+        tenant_id: Optional[str] = None,
+    ) -> None:
+        """Emit usage event for cost tracking."""
+        try:
+            from decimal import Decimal
+
+            from aragora.server.stream.usage_stream import (
+                UsageEventType,
+                emit_usage_event,
+            )
+
+            await emit_usage_event(
+                tenant_id=tenant_id or "default",
+                event_type=UsageEventType.COST_UPDATE,
+                tokens_out=tokens,
+                cost_usd=Decimal(str(cost_usd)),
+                provider=provider,
+                model=model,
+                operation=f"expense_tracker.{operation}",
+                metadata={"service": "expense_tracker"},
+            )
+        except Exception as e:
+            logger.debug(f"Failed to emit usage event: {e}")
+
     async def process_receipt(
         self,
         image_data: bytes,
@@ -477,6 +508,14 @@ class ExpenseTracker:
         # Store in memory and persist
         self._store_expense(expense)
         await self._persist_expense(expense)
+
+        # Emit usage event for OCR processing
+        await self._emit_usage_event(
+            operation="process_receipt",
+            cost_usd=0.001,  # Approximate OCR cost
+            provider="ocr",
+            model="pdfplumber" if image_data[:4] == b"%PDF" else "pytesseract",
+        )
 
         logger.info(
             f"Processed receipt -> expense {expense_id}: {expense.vendor_name} ${expense.amount}"
@@ -809,6 +848,15 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                         if resp.status == 200:
                             data = await resp.json()
                             category_text = data["content"][0]["text"].strip().lower()
+                            # Emit usage event for LLM call
+                            usage = data.get("usage", {})
+                            await self._emit_usage_event(
+                                operation="categorize_expense",
+                                tokens=usage.get("input_tokens", 0) + usage.get("output_tokens", 0),
+                                cost_usd=0.00025,  # ~$0.25/M tokens for Haiku
+                                provider="anthropic",
+                                model="claude-3-haiku-20240307",
+                            )
                             try:
                                 return ExpenseCategory(category_text)
                             except ValueError:
@@ -835,6 +883,15 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                         if resp.status == 200:
                             data = await resp.json()
                             category_text = data["choices"][0]["message"]["content"].strip().lower()
+                            # Emit usage event for LLM call
+                            usage = data.get("usage", {})
+                            await self._emit_usage_event(
+                                operation="categorize_expense",
+                                tokens=usage.get("total_tokens", 0),
+                                cost_usd=0.00015,  # ~$0.15/M tokens for GPT-4o-mini
+                                provider="openai",
+                                model="gpt-4o-mini",
+                            )
                             try:
                                 return ExpenseCategory(category_text)
                             except ValueError:

@@ -402,6 +402,37 @@ class InvoiceProcessor:
             },
         }
 
+    async def _emit_usage_event(
+        self,
+        operation: str,
+        tokens: int = 0,
+        cost_usd: float = 0.0,
+        provider: str = "",
+        model: str = "",
+        tenant_id: Optional[str] = None,
+    ) -> None:
+        """Emit usage event for cost tracking."""
+        try:
+            from decimal import Decimal
+
+            from aragora.server.stream.usage_stream import (
+                UsageEventType,
+                emit_usage_event,
+            )
+
+            await emit_usage_event(
+                tenant_id=tenant_id or "default",
+                event_type=UsageEventType.COST_UPDATE,
+                tokens_out=tokens,
+                cost_usd=Decimal(str(cost_usd)),
+                provider=provider,
+                model=model,
+                operation=f"invoice_processor.{operation}",
+                metadata={"service": "invoice_processor"},
+            )
+        except Exception as e:
+            logger.debug(f"Failed to emit usage event: {e}")
+
     async def extract_invoice_data(
         self,
         document_bytes: bytes,
@@ -449,6 +480,15 @@ class InvoiceProcessor:
 
         # Store
         self._store_invoice(invoice)
+
+        # Emit usage event for OCR processing
+        if self.enable_ocr:
+            await self._emit_usage_event(
+                operation="extract_invoice_data",
+                cost_usd=0.001,  # Approximate OCR cost
+                provider="ocr",
+                model="pdfplumber" if document_bytes[:4] == b"%PDF" else "pytesseract",
+            )
 
         logger.info(
             f"Extracted invoice {invoice_id}: {invoice.vendor_name} ${invoice.total_amount}"
