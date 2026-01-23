@@ -32,3 +32,15 @@ export {
   type SyncStatusWidgetProps,
   type SyncHistoryItem,
 } from './SyncStatusWidget';
+
+export {
+  ConnectorHealthGrid,
+  type ConnectorHealthGridProps,
+  type ConnectorHealthData,
+  connectorToHealthData,
+} from './ConnectorHealthGrid';
+
+export {
+  SyncTimeline,
+  type SyncTimelineProps,
+} from './SyncTimeline';

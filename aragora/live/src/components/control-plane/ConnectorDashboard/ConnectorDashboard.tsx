@@ -7,10 +7,12 @@ import { useBackend } from '@/components/BackendSelector';
 import { ConnectorCard, type ConnectorInfo, type ConnectorType, type ConnectorStatus } from './ConnectorCard';
 import { ConnectorConfigModal } from './ConnectorConfigModal';
 import { SyncStatusWidget, type SyncHistoryItem } from './SyncStatusWidget';
+import { ConnectorHealthGrid, connectorToHealthData } from './ConnectorHealthGrid';
+import { SyncTimeline } from './SyncTimeline';
 import { logger } from '@/utils/logger';
 
 export type ConnectorFilter = 'all' | 'connected' | 'disconnected' | 'error';
-export type DashboardTab = 'connectors' | 'sync-status' | 'scheduled';
+export type DashboardTab = 'connectors' | 'health' | 'sync-status' | 'scheduled';
 
 export interface ConnectorDashboardProps {
   /** Callback when a connector is selected */
@@ -345,6 +347,7 @@ export function ConnectorDashboard({
 
   const tabs = [
     { id: 'connectors' as DashboardTab, label: 'Connectors' },
+    { id: 'health' as DashboardTab, label: 'Health' },
     { id: 'sync-status' as DashboardTab, label: 'Sync Status' },
     { id: 'scheduled' as DashboardTab, label: 'Scheduled Jobs' },
   ];
@@ -427,6 +430,39 @@ export function ConnectorDashboard({
             </div>
           )}
         </>
+      )}
+
+      {/* Health Tab */}
+      {activeTab === 'health' && (
+        <div className="space-y-6">
+          <ConnectorHealthGrid
+            connectors={mergedConnectors
+              .filter((c) => c.status !== 'disconnected' || c.items_synced)
+              .map(connectorToHealthData)}
+            loading={loading}
+            onConnectorClick={(connectorId) => {
+              const connector = mergedConnectors.find((c) => c.id === connectorId);
+              if (connector) {
+                handleSelectConnector(connector);
+                setActiveTab('connectors');
+              }
+            }}
+          />
+          <SyncTimeline
+            history={syncHistory}
+            loading={loading}
+            hoursToShow={24}
+            onSyncClick={(syncId) => {
+              const sync = syncHistory.find((s) => s.id === syncId);
+              if (sync) {
+                const connector = mergedConnectors.find((c) => c.id === sync.connector_id);
+                if (connector) {
+                  handleSelectConnector(connector);
+                }
+              }
+            }}
+          />
+        </div>
       )}
 
       {/* Sync Status Tab */}
