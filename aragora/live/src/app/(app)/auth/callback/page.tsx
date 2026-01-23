@@ -17,6 +17,11 @@ function OAuthCallbackContent() {
 
   useEffect(() => {
     const processCallback = async () => {
+      // Debug: Log the full URL to help diagnose OAuth callback issues
+      console.log('[OAuth Callback] Full URL:', window.location.href);
+      console.log('[OAuth Callback] Hash:', window.location.hash);
+      console.log('[OAuth Callback] Search:', window.location.search);
+
       // Check for account linking success
       const linked = searchParams.get('linked');
       if (linked) {
@@ -26,11 +31,24 @@ function OAuthCallbackContent() {
         return;
       }
 
-      // Parse tokens from URL fragment (hash)
-      const hash = window.location.hash.substring(1);
+      // Parse tokens from URL fragment (hash) or query params (fallback)
+      let hash = window.location.hash.substring(1);
+      console.log('[OAuth Callback] Parsed hash:', hash ? `${hash.substring(0, 50)}...` : '(empty)');
+
+      // Fallback: Check query params if hash is empty (some OAuth flows use query params)
+      if (!hash) {
+        const queryAccessToken = searchParams.get('access_token');
+        const queryRefreshToken = searchParams.get('refresh_token');
+        if (queryAccessToken && queryRefreshToken) {
+          console.log('[OAuth Callback] Found tokens in query params instead of hash');
+          hash = `access_token=${queryAccessToken}&refresh_token=${queryRefreshToken}&token_type=Bearer`;
+        }
+      }
+
       if (!hash) {
         setStatus('error');
         setMessage('No authentication data received');
+        console.error('[OAuth Callback] No hash or query params with tokens found');
         return;
       }
 

@@ -108,9 +108,9 @@ See [CROSS_POLLINATION.md](./CROSS_POLLINATION.md) for architecture details.
 The following files contain `SELECT *` queries that should be optimized to select only required columns:
 
 ### High Priority (Hot Paths)
-1. `aragora/server/handlers/billing.py:524` - Usage events query
+1. `aragora/server/handlers/admin/billing.py:524` - Usage events query
 2. `aragora/server/handlers/replays.py:231` - Meta patterns query
-3. `aragora/server/handlers/evolution_ab_testing.py:208,218` - A/B test queries
+3. `aragora/server/handlers/evolution/ab_testing.py:208,218` - A/B test queries
 
 ### Medium Priority (Repositories)
 1. `aragora/persistence/repositories/base.py:400,478` - Generic repository methods

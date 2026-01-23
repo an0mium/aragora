@@ -28,7 +28,7 @@ const CHANNELS = [
 /**
  * ControlPlaneVisualization - Visual diagram showing the control plane architecture.
  *
- * Displays the data flow: Sources → Control Plane → Deliberation → Channels
+ * Displays the data flow: Sources → Control Plane → Robust Decisionmaking → Channels
  * to reinforce the orchestration and governance positioning.
  */
 export function ControlPlaneVisualization() {
@@ -37,7 +37,7 @@ export function ControlPlaneVisualization() {
       <div className="container mx-auto px-4">
         <SectionHeader title="CONTROL PLANE ARCHITECTURE" />
         <p className="text-text-muted font-mono text-xs text-center mb-8 max-w-xl mx-auto">
-          Orchestrating AI deliberation across your organization&apos;s knowledge and communication channels.
+          Orchestrating AI robust decisionmaking across your organization&apos;s knowledge and communication channels.
         </p>
 
         {/* Main Flow Visualization */}
@@ -111,11 +111,11 @@ export function ControlPlaneVisualization() {
               <div className="text-acid-green font-mono text-xl animate-pulse">→</div>
             </div>
 
-            {/* Deliberation Engine */}
+            {/* Robust Decisionmaking Engine */}
             <div className="flex-1 max-w-[180px]">
               <div className="border border-acid-yellow/40 rounded-lg p-4 bg-surface/30 h-full">
                 <div className="text-acid-yellow font-mono text-xs font-bold mb-3 text-center">
-                  [DELIBERATION]
+                  [ROBUST DECISIONMAKING]
                 </div>
                 <div className="space-y-1 mb-3">
                   {MODELS.map((model) => (

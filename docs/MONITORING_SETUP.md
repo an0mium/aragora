@@ -51,11 +51,12 @@ LOG_FORMAT=json
 ### Enabling Metrics
 
 ```python
-# In aragora/server/unified_server.py
-from aragora.metrics import setup_metrics
+# Metrics are exposed by the MetricsHandler at /metrics.
+from aragora.server.metrics import track_request
 
-if os.environ.get("METRICS_ENABLED", "false").lower() == "true":
-    setup_metrics(port=int(os.environ.get("METRICS_PORT", "9090")))
+with track_request("/api/debates", "POST"):
+    # handle request
+    pass
 ```
 
 ### Available Metrics
@@ -174,17 +175,12 @@ groups:
 ### Setup
 
 ```python
-# aragora/telemetry.py
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+# aragora/observability/tracing.py
+from aragora.observability.tracing import trace_handler
 
-def setup_tracing():
-    provider = TracerProvider()
-    processor = BatchSpanProcessor(OTLPSpanExporter())
-    provider.add_span_processor(processor)
-    trace.set_tracer_provider(provider)
+@trace_handler("debates.create")
+def handle_create_debate(self, handler):
+    ...
 ```
 
 ### Instrumented Components

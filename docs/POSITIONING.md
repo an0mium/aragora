@@ -308,7 +308,7 @@ Before pursuing a prospect, confirm:
 ## Contact
 
 For pilot discussions:
-- GitHub: [aragora-ai/aragora](https://github.com/an0mium/aragora)
+- GitHub: [an0mium/aragora](https://github.com/an0mium/aragora)
 - Technical documentation: `/docs/`
 
 ---

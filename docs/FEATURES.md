@@ -105,12 +105,12 @@ graph = cartographer.get_graph()
 ```
 
 ### WebhookDispatcher
-**File:** `aragora/webhooks/dispatcher.py`
+**File:** `aragora/integrations/webhooks.py`
 
 Sends notifications to external systems on debate events.
 
 ```python
-from aragora.webhooks.dispatcher import WebhookDispatcher
+from aragora.integrations.webhooks import WebhookDispatcher
 
 dispatcher = WebhookDispatcher()
 dispatcher.register("https://example.com/webhook", events=["debate_start", "consensus_reached"])
@@ -304,12 +304,12 @@ manager.record_success("claude-visionary", domain="caching")
 ```
 
 ### PromptEvolver
-**File:** `aragora/evolution/prompts.py`
+**File:** `aragora/evolution/evolver.py`
 
 Evolves agent system prompts based on successful patterns.
 
 ```python
-from aragora.evolution.prompts import PromptEvolver
+from aragora.evolution.evolver import PromptEvolver
 
 evolver = PromptEvolver(db_path="prompts.db")
 evolver.record_success(agent_name, prompt_version, score=0.95)
@@ -420,12 +420,12 @@ kernel.add_claim(claim)
 ```
 
 ### ProvenanceManager
-**File:** `aragora/provenance/manager.py`
+**File:** `aragora/reasoning/provenance.py`
 
 Cryptographic evidence chain integrity.
 
 ```python
-from aragora.provenance.manager import ProvenanceManager
+from aragora.reasoning.provenance import ProvenanceManager
 
 provenance = ProvenanceManager(db_path="provenance.db")
 chain = provenance.create_chain(evidence_id, source="github.com/...")
@@ -447,12 +447,12 @@ posterior = network.query("system_secure")
 ```
 
 ### ProofExecutor
-**File:** `aragora/verification/executor.py`
+**File:** `aragora/verification/proofs.py`
 
 Executes code to verify claims programmatically.
 
 ```python
-from aragora.verification.executor import ProofExecutor
+from aragora.verification.proofs import ProofExecutor
 
 executor = ProofExecutor()
 result = await executor.verify_claim(
@@ -462,12 +462,12 @@ result = await executor.verify_claim(
 ```
 
 ### ScenarioMatrix
-**File:** `aragora/testing/scenarios.py`
+**File:** `aragora/debate/scenarios.py`
 
 Robustness testing across multiple scenarios.
 
 ```python
-from aragora.testing.scenarios import ScenarioMatrix
+from aragora.debate.scenarios import ScenarioMatrix
 
 matrix = ScenarioMatrix()
 matrix.add_scenario("high_load", {"requests_per_sec": 10000})
@@ -480,12 +480,12 @@ results = await matrix.run_all(system_under_test)
 ## Phase 7: Reliability & Audit
 
 ### EnhancedProvenanceManager
-**File:** `aragora/provenance/enhanced.py`
+**File:** `aragora/reasoning/provenance_enhanced.py`
 
 Extends ProvenanceManager with staleness detection for living documents.
 
 ```python
-from aragora.provenance.enhanced import EnhancedProvenanceManager
+from aragora.reasoning.provenance_enhanced import EnhancedProvenanceManager
 
 provenance = EnhancedProvenanceManager(db_path="provenance.db")
 provenance.set_staleness_threshold(hours=24)
@@ -493,12 +493,12 @@ stale = provenance.get_stale_evidence()
 ```
 
 ### CheckpointManager
-**File:** `aragora/checkpoint/manager.py`
+**File:** `aragora/debate/checkpoint.py`
 
 Pause/resume and crash recovery for long-running debates.
 
 ```python
-from aragora.checkpoint.manager import CheckpointManager
+from aragora.debate.checkpoint import CheckpointManager
 
 checkpoint = CheckpointManager(db_path="checkpoints.db")
 checkpoint.save(debate_id, state)
@@ -506,12 +506,12 @@ restored = checkpoint.restore(debate_id)
 ```
 
 ### BreakpointManager
-**File:** `aragora/checkpoint/breakpoints.py`
+**File:** `aragora/debate/breakpoints.py`
 
 Human intervention points in automated processes.
 
 ```python
-from aragora.checkpoint.breakpoints import BreakpointManager, BreakpointConfig
+from aragora.debate.breakpoints import BreakpointManager, BreakpointConfig
 
 breakpoints = BreakpointManager(
     config=BreakpointConfig(min_confidence=0.5, max_deadlock_rounds=3)
@@ -989,19 +989,19 @@ Comprehensive tests in `tests/test_audience_participation.py`:
 The modes system allows switching between different operational configurations for agents and debates.
 
 ### OperationalModes
-**File:** `aragora/modes/operational.py`
+**File:** `aragora/modes/base.py`, `aragora/modes/custom.py`
 
-Switches between different agent tool configurations:
+Switches between built-in and custom operational modes:
 
 ```python
-from aragora.modes.operational import OperationalMode, set_mode
+from aragora.modes import ModeRegistry, register_all_builtins
 
-# Available modes:
-# - default: Standard debate tools
-# - research: Web search + document retrieval enabled
-# - implementation: Code editing + git operations enabled
+# Ensure built-ins are registered.
+register_all_builtins()
 
-set_mode(OperationalMode.IMPLEMENTATION)
+mode = ModeRegistry.get("reviewer")
+if mode:
+    print(mode.describe())
 ```
 
 ### CapabilityProber
@@ -1922,7 +1922,7 @@ config = ArenaConfig(
 ```
 
 ### Graph Debates API
-**File:** `aragora/server/handlers/graph_debates.py`
+**File:** `aragora/server/handlers/debates/graph_debates.py`
 
 Graph-structured debates with automatic branching.
 
@@ -1956,7 +1956,7 @@ curl -X POST https://api.aragora.ai/api/debates/graph \
 ```
 
 ### Matrix Debates API
-**File:** `aragora/server/handlers/matrix_debates.py`
+**File:** `aragora/server/handlers/debates/matrix_debates.py`
 
 Parallel scenario exploration with comparative analysis.
 

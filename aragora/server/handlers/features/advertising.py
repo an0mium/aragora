@@ -353,7 +353,7 @@ class AdvertisingHandler(SecureHandler):
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for platform, result in zip(_platform_credentials.keys(), results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(f"Error fetching campaigns from {platform}: {result}")
                 continue
             all_campaigns.extend(result)
@@ -603,16 +603,17 @@ class AdvertisingHandler(SecureHandler):
         }
 
         for platform, result in zip(_platform_credentials.keys(), results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(f"Error fetching performance from {platform}: {result}")
                 continue
 
-            platform_metrics.append(result)
-            totals["impressions"] += result.get("impressions", 0)
-            totals["clicks"] += result.get("clicks", 0)
-            totals["cost"] += result.get("cost", 0)
-            totals["conversions"] += result.get("conversions", 0)
-            totals["conversion_value"] += result.get("conversion_value", 0)
+            perf_result: dict[str, Any] = result
+            platform_metrics.append(perf_result)
+            totals["impressions"] += perf_result.get("impressions", 0)
+            totals["clicks"] += perf_result.get("clicks", 0)
+            totals["cost"] += perf_result.get("cost", 0)
+            totals["conversions"] += perf_result.get("conversions", 0)
+            totals["conversion_value"] += perf_result.get("conversion_value", 0)
 
         # Calculate totals
         totals["ctr"] = (
@@ -797,6 +798,7 @@ class AdvertisingHandler(SecureHandler):
             return None
 
         creds = _platform_credentials[platform]["credentials"]
+        connector: Any = None
 
         try:
             if platform == "google_ads":
@@ -1015,7 +1017,7 @@ class AdvertisingHandler(SecureHandler):
         total_spend = sum(p.get("cost", 0) for p in performance_data.values())
         total_conversions = sum(p.get("conversions", 0) for p in performance_data.values())
 
-        best_roas_platform = max(
+        best_roas_platform: tuple[str | None, dict[str, Any]] = max(
             performance_data.items(), key=lambda x: x[1].get("roas", 0), default=(None, {})
         )
 

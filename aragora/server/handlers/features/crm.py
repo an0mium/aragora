@@ -1160,17 +1160,13 @@ class CRMHandler(SecureHandler):
         body = await request.json()
         return body if isinstance(body, dict) else {}
 
-    def _json_response(self, status: int, data: Any) -> dict[str, Any]:
+    def _json_response(self, status: int, data: Any) -> HandlerResult:
         """Create a JSON response."""
-        return {
-            "status_code": status,
-            "headers": {"Content-Type": "application/json"},
-            "body": data,
-        }
+        return json_response(data, status=status)
 
-    def _error_response(self, status: int, message: str) -> dict[str, Any]:
+    def _error_response(self, status: int, message: str) -> HandlerResult:
         """Create an error response."""
-        return self._json_response(status, {"error": message})
+        return error_response(message, status=status)
 
 
 __all__ = ["CRMHandler"]

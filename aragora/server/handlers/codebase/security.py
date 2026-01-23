@@ -138,7 +138,7 @@ async def handle_scan_repository(
     commit_sha: Optional[str] = None,
     workspace_id: Optional[str] = None,
     user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Trigger a security scan for a repository.
 
@@ -157,11 +157,7 @@ async def handle_scan_repository(
         if repo_id in _running_scans:
             task = _running_scans[repo_id]
             if not task.done():
-                return {
-                    "success": False,
-                    "error": "Scan already in progress",
-                    "scan_id": None,
-                }
+                return error_response("Scan already in progress", 409)
 
         # Create initial scan result
         scan_result = ScanResult(
@@ -215,25 +211,21 @@ async def handle_scan_repository(
 
         logger.info(f"[Security] Started scan {scan_id} for {repo_id}")
 
-        return {
-            "success": True,
+        return success_response({
             "scan_id": scan_id,
             "status": "running",
             "repository": repo_id,
-        }
+        })
 
     except Exception as e:
         logger.exception(f"Failed to start scan: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)
 
 
 async def handle_get_scan_status(
     repo_id: str,
     scan_id: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get scan status/result.
 
@@ -247,29 +239,20 @@ async def handle_get_scan_status(
             # Get specific scan
             scan = repo_scans.get(scan_id)
             if not scan:
-                return {"success": False, "error": "Scan not found"}
-            return {
-                "success": True,
-                "scan_result": scan.to_dict(),
-            }
+                return error_response("Scan not found", 404)
+            return success_response({"scan_result": scan.to_dict()})
         else:
             # Get latest scan
             if not repo_scans:
-                return {"success": False, "error": "No scans found for repository"}
+                return error_response("No scans found for repository", 404)
 
             # Sort by start time and get latest
             latest = max(repo_scans.values(), key=lambda s: s.started_at)
-            return {
-                "success": True,
-                "scan_result": latest.to_dict(),
-            }
+            return success_response({"scan_result": latest.to_dict()})
 
     except Exception as e:
         logger.exception(f"Failed to get scan status: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)
 
 
 async def handle_get_vulnerabilities(
@@ -279,7 +262,7 @@ async def handle_get_vulnerabilities(
     ecosystem: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get vulnerabilities from latest scan.
 
@@ -290,12 +273,12 @@ async def handle_get_vulnerabilities(
         repo_scans = _get_or_create_repo_scans(repo_id)
 
         if not repo_scans:
-            return {"success": False, "error": "No scans found for repository"}
+            return error_response("No scans found for repository", 404)
 
         # Get latest completed scan
         completed_scans = [s for s in repo_scans.values() if s.status == "completed"]
         if not completed_scans:
-            return {"success": False, "error": "No completed scans found"}
+            return error_response("No completed scans found", 404)
 
         latest = max(completed_scans, key=lambda s: s.started_at)
 
@@ -327,26 +310,22 @@ async def handle_get_vulnerabilities(
         total = len(vulnerabilities)
         vulnerabilities = vulnerabilities[offset : offset + limit]
 
-        return {
-            "success": True,
+        return success_response({
             "vulnerabilities": vulnerabilities,
             "total": total,
             "limit": limit,
             "offset": offset,
             "scan_id": latest.scan_id,
-        }
+        })
 
     except Exception as e:
         logger.exception(f"Failed to get vulnerabilities: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)
 
 
 async def handle_get_cve_details(
     cve_id: str,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get CVE details from vulnerability databases.
 
@@ -357,26 +336,20 @@ async def handle_get_cve_details(
         vuln = await client.get_cve(cve_id)
 
         if not vuln:
-            return {"success": False, "error": f"CVE {cve_id} not found"}
+            return error_response(f"CVE {cve_id} not found", 404)
 
-        return {
-            "success": True,
-            "vulnerability": vuln.to_dict(),
-        }
+        return success_response({"vulnerability": vuln.to_dict()})
 
     except Exception as e:
         logger.exception(f"Failed to get CVE details: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)
 
 
 async def handle_query_package_vulnerabilities(
     package_name: str,
     ecosystem: str,
     version: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Query vulnerabilities for a specific package.
 
@@ -390,21 +363,17 @@ async def handle_query_package_vulnerabilities(
             version=version,
         )
 
-        return {
-            "success": True,
+        return success_response({
             "package": package_name,
             "ecosystem": ecosystem,
             "version": version,
             "vulnerabilities": [v.to_dict() for v in vulnerabilities],
             "total": len(vulnerabilities),
-        }
+        })
 
     except Exception as e:
         logger.exception(f"Failed to query package vulnerabilities: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)
 
 
 async def handle_list_scans(
@@ -412,7 +381,7 @@ async def handle_list_scans(
     status: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     List scan history for a repository.
 
@@ -434,8 +403,7 @@ async def handle_list_scans(
         total = len(scans)
         scans = scans[offset : offset + limit]
 
-        return {
-            "success": True,
+        return success_response({
             "scans": [
                 {
                     "scan_id": s.scan_id,
@@ -458,14 +426,11 @@ async def handle_list_scans(
             "total": total,
             "limit": limit,
             "offset": offset,
-        }
+        })
 
     except Exception as e:
         logger.exception(f"Failed to list scans: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)
 
 
 # =============================================================================
@@ -678,7 +643,7 @@ async def handle_scan_secrets(
     history_depth: int = 100,
     workspace_id: Optional[str] = None,
     user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Trigger a secrets scan for a repository.
 
@@ -698,11 +663,7 @@ async def handle_scan_secrets(
         if repo_id in _running_secrets_scans:
             task = _running_secrets_scans[repo_id]
             if not task.done():
-                return {
-                    "success": False,
-                    "error": "Secrets scan already in progress",
-                    "scan_id": None,
-                }
+                return error_response("Secrets scan already in progress", 409)
 
         # Create initial scan result
         scan_result = SecretsScanResult(
@@ -767,26 +728,22 @@ async def handle_scan_secrets(
 
         logger.info(f"[Security] Started secrets scan {scan_id} for {repo_id}")
 
-        return {
-            "success": True,
+        return success_response({
             "scan_id": scan_id,
             "status": "running",
             "repository": repo_id,
             "include_history": include_history,
-        }
+        })
 
     except Exception as e:
         logger.exception(f"Failed to start secrets scan: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)
 
 
 async def handle_get_secrets_scan_status(
     repo_id: str,
     scan_id: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get secrets scan status/result.
 
@@ -800,29 +757,20 @@ async def handle_get_secrets_scan_status(
             # Get specific scan
             scan = repo_scans.get(scan_id)
             if not scan:
-                return {"success": False, "error": "Secrets scan not found"}
-            return {
-                "success": True,
-                "scan_result": scan.to_dict(),
-            }
+                return error_response("Secrets scan not found", 404)
+            return success_response({"scan_result": scan.to_dict()})
         else:
             # Get latest scan
             if not repo_scans:
-                return {"success": False, "error": "No secrets scans found for repository"}
+                return error_response("No secrets scans found for repository", 404)
 
             # Sort by start time and get latest
             latest = max(repo_scans.values(), key=lambda s: s.started_at)
-            return {
-                "success": True,
-                "scan_result": latest.to_dict(),
-            }
+            return success_response({"scan_result": latest.to_dict()})
 
     except Exception as e:
         logger.exception(f"Failed to get secrets scan status: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)
 
 
 async def handle_get_secrets(
@@ -832,7 +780,7 @@ async def handle_get_secrets(
     include_history: bool = True,
     limit: int = 100,
     offset: int = 0,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get secrets from latest scan.
 
@@ -843,12 +791,12 @@ async def handle_get_secrets(
         repo_scans = _get_or_create_secrets_scans(repo_id)
 
         if not repo_scans:
-            return {"success": False, "error": "No secrets scans found for repository"}
+            return error_response("No secrets scans found for repository", 404)
 
         # Get latest completed scan
         completed_scans = [s for s in repo_scans.values() if s.status == "completed"]
         if not completed_scans:
-            return {"success": False, "error": "No completed secrets scans found"}
+            return error_response("No completed secrets scans found", 404)
 
         latest = max(completed_scans, key=lambda s: s.started_at)
 
@@ -871,21 +819,17 @@ async def handle_get_secrets(
         total = len(secrets)
         secrets = secrets[offset : offset + limit]
 
-        return {
-            "success": True,
+        return success_response({
             "secrets": secrets,
             "total": total,
             "limit": limit,
             "offset": offset,
             "scan_id": latest.scan_id,
-        }
+        })
 
     except Exception as e:
         logger.exception(f"Failed to get secrets: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)
 
 
 async def handle_list_secrets_scans(
@@ -893,7 +837,7 @@ async def handle_list_secrets_scans(
     status: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     List secrets scan history for a repository.
 
@@ -915,8 +859,7 @@ async def handle_list_secrets_scans(
         total = len(scans)
         scans = scans[offset : offset + limit]
 
-        return {
-            "success": True,
+        return success_response({
             "scans": [
                 {
                     "scan_id": s.scan_id,
@@ -941,14 +884,11 @@ async def handle_list_secrets_scans(
             "total": total,
             "limit": limit,
             "offset": offset,
-        }
+        })
 
     except Exception as e:
         logger.exception(f"Failed to list secrets scans: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)
 
 
 # =============================================================================
@@ -1005,7 +945,7 @@ class SecurityHandler(BaseHandler):
         if not repo_path:
             return error_response("repo_path required", 400)
 
-        result = await handle_scan_repository(
+        return await handle_scan_repository(
             repo_path=repo_path,
             repo_id=repo_id,
             branch=data.get("branch"),
@@ -1014,36 +954,21 @@ class SecurityHandler(BaseHandler):
             user_id=self._get_user_id(),
         )
 
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 400)
-
     async def handle_get_scan_latest(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/latest"""
-        result = await handle_get_scan_status(repo_id=repo_id)
-
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 404)
+        return await handle_get_scan_status(repo_id=repo_id)
 
     async def handle_get_scan(
         self, params: Dict[str, Any], repo_id: str, scan_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/{scan_id}"""
-        result = await handle_get_scan_status(repo_id=repo_id, scan_id=scan_id)
-
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 404)
+        return await handle_get_scan_status(repo_id=repo_id, scan_id=scan_id)
 
     async def handle_get_vulnerabilities(
         self, params: Dict[str, Any], repo_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/vulnerabilities"""
-        result = await handle_get_vulnerabilities(
+        return await handle_get_vulnerabilities(
             repo_id=repo_id,
             severity=params.get("severity"),
             package=params.get("package"),
@@ -1052,33 +977,18 @@ class SecurityHandler(BaseHandler):
             offset=int(params.get("offset", 0)),
         )
 
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 400)
-
     async def handle_get_cve(self, params: Dict[str, Any], cve_id: str) -> HandlerResult:
         """GET /api/v1/cve/{cve_id}"""
-        result = await handle_get_cve_details(cve_id=cve_id)
-
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 404)
+        return await handle_get_cve_details(cve_id=cve_id)
 
     async def handle_list_scans(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scans"""
-        result = await handle_list_scans(
+        return await handle_list_scans(
             repo_id=repo_id,
             status=params.get("status"),
             limit=int(params.get("limit", 20)),
             offset=int(params.get("offset", 0)),
         )
-
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 400)
 
     # =========================================================================
     # Secrets Scan Endpoints
@@ -1090,7 +1000,7 @@ class SecurityHandler(BaseHandler):
         if not repo_path:
             return error_response("repo_path required", 400)
 
-        result = await handle_scan_secrets(
+        return await handle_scan_secrets(
             repo_path=repo_path,
             repo_id=repo_id,
             branch=data.get("branch"),
@@ -1100,36 +1010,21 @@ class SecurityHandler(BaseHandler):
             user_id=self._get_user_id(),
         )
 
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 400)
-
     async def handle_get_secrets_scan_latest(
         self, params: Dict[str, Any], repo_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/secrets/latest"""
-        result = await handle_get_secrets_scan_status(repo_id=repo_id)
-
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 404)
+        return await handle_get_secrets_scan_status(repo_id=repo_id)
 
     async def handle_get_secrets_scan(
         self, params: Dict[str, Any], repo_id: str, scan_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/secrets/{scan_id}"""
-        result = await handle_get_secrets_scan_status(repo_id=repo_id, scan_id=scan_id)
-
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 404)
+        return await handle_get_secrets_scan_status(repo_id=repo_id, scan_id=scan_id)
 
     async def handle_get_secrets(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/secrets"""
-        result = await handle_get_secrets(
+        return await handle_get_secrets(
             repo_id=repo_id,
             severity=params.get("severity"),
             secret_type=params.get("secret_type"),
@@ -1138,26 +1033,16 @@ class SecurityHandler(BaseHandler):
             offset=int(params.get("offset", 0)),
         )
 
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 400)
-
     async def handle_list_secrets_scans(
         self, params: Dict[str, Any], repo_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scans/secrets"""
-        result = await handle_list_secrets_scans(
+        return await handle_list_secrets_scans(
             repo_id=repo_id,
             status=params.get("status"),
             limit=int(params.get("limit", 20)),
             offset=int(params.get("offset", 0)),
         )
-
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 400)
 
     def _get_user_id(self) -> str:
         """Get user ID from auth context."""
@@ -1168,32 +1053,22 @@ class SecurityHandler(BaseHandler):
 
     async def handle_scan_sast(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/scan/sast"""
-        result = await handle_scan_sast(
+        return await handle_scan_sast(
             repo_path=params.get("repo_path", ""),
             repo_id=repo_id,
             rule_sets=params.get("rule_sets"),
             workspace_id=params.get("workspace_id"),
         )
 
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 400)
-
     async def handle_get_sast_scan_status(
         self, params: Dict[str, Any], repo_id: str, scan_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/sast/{scan_id}"""
-        result = await handle_get_sast_scan_status(repo_id=repo_id, scan_id=scan_id)
-
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 404)
+        return await handle_get_sast_scan_status(repo_id=repo_id, scan_id=scan_id)
 
     async def handle_get_sast_findings(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sast/findings"""
-        result = await handle_get_sast_findings(
+        return await handle_get_sast_findings(
             repo_id=repo_id,
             severity=params.get("severity"),
             owasp_category=params.get("owasp_category"),
@@ -1201,19 +1076,9 @@ class SecurityHandler(BaseHandler):
             offset=int(params.get("offset", 0)),
         )
 
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 400)
-
     async def handle_get_owasp_summary(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sast/owasp-summary"""
-        result = await handle_get_owasp_summary(repo_id=repo_id)
-
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 400)
+        return await handle_get_owasp_summary(repo_id=repo_id)
 
     # =========================================================================
     # SBOM Handler Methods
@@ -1225,58 +1090,32 @@ class SecurityHandler(BaseHandler):
         if not repo_path:
             return error_response("repo_path required", 400)
 
-        result = await handle_generate_sbom(
+        return await handle_generate_sbom(
             repo_path=repo_path,
             repo_id=repo_id,
             format=data.get("format", "cyclonedx-json"),
             workspace_id=data.get("workspace_id"),
         )
 
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 400)
-
     async def handle_get_sbom_latest(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sbom/latest"""
-        result = await handle_get_sbom(repo_id=repo_id)
-
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 404)
+        return await handle_get_sbom(repo_id=repo_id)
 
     async def handle_get_sbom_by_id(
         self, params: Dict[str, Any], repo_id: str, sbom_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sbom/{sbom_id}"""
-        result = await handle_get_sbom(repo_id=repo_id, sbom_id=sbom_id)
-
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 404)
+        return await handle_get_sbom(repo_id=repo_id, sbom_id=sbom_id)
 
     async def handle_list_sbom(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sbom/list"""
-        result = await handle_list_sboms(repo_id=repo_id)
-
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 400)
+        return await handle_list_sboms(repo_id=repo_id)
 
     async def handle_download_sbom_content(
         self, params: Dict[str, Any], repo_id: str, sbom_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sbom/{sbom_id}/download"""
-        result = await handle_download_sbom(repo_id=repo_id, sbom_id=sbom_id)
-
-        if result.get("success"):
-            # Return raw content with content type info
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 404)
+        return await handle_download_sbom(repo_id=repo_id, sbom_id=sbom_id)
 
     async def handle_compare_sbom(
         self, data: Dict[str, Any], repo_id: str
@@ -1288,16 +1127,11 @@ class SecurityHandler(BaseHandler):
         if not sbom_id_a or not sbom_id_b:
             return error_response("sbom_id_a and sbom_id_b required", 400)
 
-        result = await handle_compare_sboms(
+        return await handle_compare_sboms(
             repo_id=repo_id,
             sbom_id_a=sbom_id_a,
             sbom_id_b=sbom_id_b,
         )
-
-        if result.get("success"):
-            return success_response(result)
-        else:
-            return error_response(result.get("error", "Unknown error"), 400)
 
 
 # =============================================================================
@@ -1310,7 +1144,7 @@ async def handle_scan_sast(
     repo_id: Optional[str] = None,
     rule_sets: Optional[list] = None,
     workspace_id: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Trigger a SAST scan for a repository.
 
@@ -1328,11 +1162,7 @@ async def handle_scan_sast(
         if repo_id in _running_sast_scans:
             task = _running_sast_scans[repo_id]
             if not task.done():
-                return {
-                    "success": False,
-                    "error": "SAST scan already in progress",
-                    "scan_id": None,
-                }
+                return error_response("SAST scan already in progress", 409)
 
         # Get or create storage
         with _sast_scan_lock:
@@ -1376,51 +1206,48 @@ async def handle_scan_sast(
         task = asyncio.create_task(run_sast_scan())
         _running_sast_scans[repo_id] = task
 
-        return {
-            "success": True,
+        return success_response({
             "message": "SAST scan started",
             "scan_id": scan_id,
             "repo_id": repo_id,
-        }
+        })
 
     except Exception as e:
         logger.exception(f"[SAST] Failed to start scan: {e}")
-        return {"success": False, "error": str(e)}
+        return error_response(str(e), 500)
 
 
 async def handle_get_sast_scan_status(
     repo_id: str,
     scan_id: str,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """Get status and results of a SAST scan."""
     try:
         with _sast_scan_lock:
             if repo_id not in _sast_scan_results:
-                return {"success": False, "error": "Repository not found"}
+                return error_response("Repository not found", 404)
 
             repo_scans = _sast_scan_results[repo_id]
             if scan_id not in repo_scans:
                 # Check if still running
                 if repo_id in _running_sast_scans:
-                    return {
-                        "success": True,
+                    return success_response({
                         "scan_id": scan_id,
                         "status": "running",
                         "findings_count": 0,
-                    }
-                return {"success": False, "error": "Scan not found"}
+                    })
+                return error_response("Scan not found", 404)
 
             result = repo_scans[scan_id]
-            return {
-                "success": True,
+            return success_response({
                 "scan_id": scan_id,
                 "status": "completed",
                 **result.to_dict(),
-            }
+            })
 
     except Exception as e:
         logger.exception(f"[SAST] Failed to get scan status: {e}")
-        return {"success": False, "error": str(e)}
+        return error_response(str(e), 500)
 
 
 async def handle_get_sast_findings(
@@ -1429,20 +1256,19 @@ async def handle_get_sast_findings(
     owasp_category: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """Get SAST findings for a repository."""
     try:
         with _sast_scan_lock:
             if repo_id not in _sast_scan_results:
-                return {"success": False, "error": "Repository not found"}
+                return error_response("Repository not found", 404)
 
             repo_scans = _sast_scan_results[repo_id]
             if not repo_scans:
-                return {
-                    "success": True,
+                return success_response({
                     "findings": [],
                     "total": 0,
-                }
+                })
 
             # Get latest scan
             latest_scan = max(repo_scans.values(), key=lambda s: s.scanned_at)
@@ -1459,34 +1285,32 @@ async def handle_get_sast_findings(
             total = len(findings)
             findings = findings[offset : offset + limit]
 
-            return {
-                "success": True,
+            return success_response({
                 "findings": [f.to_dict() for f in findings],
                 "total": total,
                 "limit": limit,
                 "offset": offset,
                 "scan_id": latest_scan.scan_id,
-            }
+            })
 
     except Exception as e:
         logger.exception(f"[SAST] Failed to get findings: {e}")
-        return {"success": False, "error": str(e)}
+        return error_response(str(e), 500)
 
 
-async def handle_get_owasp_summary(repo_id: str) -> Dict[str, Any]:
+async def handle_get_owasp_summary(repo_id: str) -> HandlerResult:
     """Get OWASP Top 10 summary for a repository."""
     try:
         with _sast_scan_lock:
             if repo_id not in _sast_scan_results:
-                return {"success": False, "error": "Repository not found"}
+                return error_response("Repository not found", 404)
 
             repo_scans = _sast_scan_results[repo_id]
             if not repo_scans:
-                return {
-                    "success": True,
+                return success_response({
                     "owasp_summary": {},
                     "total_findings": 0,
-                }
+                })
 
             # Get latest scan
             latest_scan = max(repo_scans.values(), key=lambda s: s.scanned_at)
@@ -1495,15 +1319,14 @@ async def handle_get_owasp_summary(repo_id: str) -> Dict[str, Any]:
             scanner = _get_sast_scanner()
             summary = await scanner.get_owasp_summary(latest_scan.findings)
 
-            return {
-                "success": True,
+            return success_response({
                 "scan_id": latest_scan.scan_id,
                 **summary,
-            }
+            })
 
     except Exception as e:
         logger.exception(f"[SAST] Failed to get OWASP summary: {e}")
-        return {"success": False, "error": str(e)}
+        return error_response(str(e), 500)
 
 
 async def _emit_sast_events(
@@ -1597,7 +1420,7 @@ async def handle_generate_sbom(
     include_vulnerabilities: bool = True,
     branch: Optional[str] = None,
     commit_sha: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Generate SBOM for a repository.
 
@@ -1622,21 +1445,17 @@ async def handle_generate_sbom(
         if repo_id in _running_sbom_generations:
             task = _running_sbom_generations[repo_id]
             if not task.done():
-                return {
-                    "success": False,
-                    "error": "SBOM generation already in progress",
-                    "sbom_id": None,
-                }
+                return error_response("SBOM generation already in progress", 409)
 
         # Parse format
         try:
             sbom_format = SBOMFormat(format)
         except ValueError:
-            return {
-                "success": False,
-                "error": f"Invalid format: {format}. Valid formats: "
+            return error_response(
+                f"Invalid format: {format}. Valid formats: "
                 "cyclonedx-json, cyclonedx-xml, spdx-json, spdx-tv",
-            }
+                400,
+            )
 
         # Run generation
         generator = _get_sbom_generator()
@@ -1662,8 +1481,7 @@ async def handle_generate_sbom(
             f"{result.component_count} components, {result.vulnerability_count} vulnerabilities"
         )
 
-        return {
-            "success": True,
+        return success_response({
             "sbom_id": sbom_id,
             "repository": repo_id,
             "format": result.format.value,
@@ -1674,20 +1492,17 @@ async def handle_generate_sbom(
             "generated_at": result.generated_at.isoformat(),
             "content": result.content,
             "errors": result.errors,
-        }
+        })
 
     except Exception as e:
         logger.exception(f"Failed to generate SBOM: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)
 
 
 async def handle_get_sbom(
     repo_id: str,
     sbom_id: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get SBOM content.
 
@@ -1701,21 +1516,14 @@ async def handle_get_sbom(
             # Get specific SBOM
             result = repo_results.get(sbom_id)
             if not result:
-                return {
-                    "success": False,
-                    "error": f"SBOM not found: {sbom_id}",
-                }
+                return error_response(f"SBOM not found: {sbom_id}", 404)
         else:
             # Get latest SBOM
             if not repo_results:
-                return {
-                    "success": False,
-                    "error": "No SBOMs generated for this repository",
-                }
+                return error_response("No SBOMs generated for this repository", 404)
             result = max(repo_results.values(), key=lambda r: r.generated_at)
 
-        return {
-            "success": True,
+        return success_response({
             "sbom_id": sbom_id or "sbom_latest",
             "repository": repo_id,
             "format": result.format.value,
@@ -1726,20 +1534,17 @@ async def handle_get_sbom(
             "generated_at": result.generated_at.isoformat(),
             "content": result.content,
             "errors": result.errors,
-        }
+        })
 
     except Exception as e:
         logger.exception(f"Failed to get SBOM: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)
 
 
 async def handle_list_sboms(
     repo_id: str,
     limit: int = 10,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     List SBOMs for a repository.
 
@@ -1768,25 +1573,21 @@ async def handle_list_sboms(
             for sbom_id, result in sorted_results
         ]
 
-        return {
-            "success": True,
+        return success_response({
             "repository": repo_id,
             "count": len(sboms),
             "sboms": sboms,
-        }
+        })
 
     except Exception as e:
         logger.exception(f"Failed to list SBOMs: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)
 
 
 async def handle_download_sbom(
     repo_id: str,
     sbom_id: str,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Download SBOM content (raw).
 
@@ -1799,10 +1600,7 @@ async def handle_download_sbom(
         result = repo_results.get(sbom_id)
 
         if not result:
-            return {
-                "success": False,
-                "error": f"SBOM not found: {sbom_id}",
-            }
+            return error_response(f"SBOM not found: {sbom_id}", 404)
 
         # Determine content type
         content_types = {
@@ -1813,26 +1611,22 @@ async def handle_download_sbom(
         }
         content_type = content_types.get(result.format, "application/octet-stream")
 
-        return {
-            "success": True,
+        return success_response({
             "content": result.content,
             "filename": result.filename,
             "content_type": content_type,
-        }
+        })
 
     except Exception as e:
         logger.exception(f"Failed to download SBOM: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)
 
 
 async def handle_compare_sboms(
     repo_id: str,
     sbom_id_a: str,
     sbom_id_b: str,
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Compare two SBOMs to find differences.
 
@@ -1849,9 +1643,9 @@ async def handle_compare_sboms(
         result_b = repo_results.get(sbom_id_b)
 
         if not result_a:
-            return {"success": False, "error": f"SBOM not found: {sbom_id_a}"}
+            return error_response(f"SBOM not found: {sbom_id_a}", 404)
         if not result_b:
-            return {"success": False, "error": f"SBOM not found: {sbom_id_b}"}
+            return error_response(f"SBOM not found: {sbom_id_b}", 404)
 
         # Parse components from both (simplified - works for JSON formats)
         import json
@@ -1898,8 +1692,7 @@ async def handle_compare_sboms(
             else:
                 unchanged.append({"name": name, "version": v_a})
 
-        return {
-            "success": True,
+        return success_response({
             "sbom_a": {
                 "sbom_id": sbom_id_a,
                 "generated_at": result_a.generated_at.isoformat(),
@@ -1922,11 +1715,8 @@ async def handle_compare_sboms(
                 "total_updated": len(updated),
                 "total_unchanged": len(unchanged),
             },
-        }
+        })
 
     except Exception as e:
         logger.exception(f"Failed to compare SBOMs: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return error_response(str(e), 500)

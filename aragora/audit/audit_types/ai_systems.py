@@ -379,9 +379,7 @@ class AISystemsAuditor(BaseAuditor):
     @property
     def capabilities(self) -> AuditorCapabilities:
         return AuditorCapabilities(
-            file_types=["py", "js", "ts", "yaml", "json", "md", "txt"],
-            languages=["en"],
-            specialized_domains=["ai", "ml", "llm", "nlp"],
+            supported_document_types=["py", "js", "ts", "yaml", "json", "md", "txt"],
             requires_llm=False,  # Pattern-based, no LLM needed
             max_chunk_size=50000,
         )
@@ -408,7 +406,7 @@ class AISystemsAuditor(BaseAuditor):
         self,
         chunk: ChunkData,
         context: AuditContext,
-    ) -> Sequence[AuditFinding]:
+    ) -> list[AuditFinding]:
         """
         Analyze a single code chunk for AI-specific vulnerabilities.
 
@@ -437,7 +435,7 @@ class AISystemsAuditor(BaseAuditor):
                 # Create finding
                 finding = context.create_finding(
                     document_id=chunk.document_id,
-                    chunk_id=chunk.chunk_id,
+                    chunk_id=chunk.id,
                     title=f"AI Security: {pattern.name}",
                     description=pattern.description,
                     severity=pattern.severity,
@@ -468,7 +466,7 @@ class AISystemsAuditor(BaseAuditor):
 
                 finding = context.create_finding(
                     document_id=chunk.document_id,
-                    chunk_id=chunk.chunk_id,
+                    chunk_id=chunk.id,
                     title=f"AI API Key Exposed: {secret.provider}",
                     description=f"Potential {secret.description} found in code",
                     severity=secret.severity,
@@ -488,7 +486,7 @@ class AISystemsAuditor(BaseAuditor):
         self,
         chunks: Sequence[ChunkData],
         context: AuditContext,
-    ) -> Sequence[AuditFinding]:
+    ) -> list[AuditFinding]:
         """
         Analyze patterns across multiple documents.
 
@@ -577,48 +575,51 @@ class AISystemsAuditor(BaseAuditor):
         Returns:
             Dictionary with risk categories and counts
         """
-        summary = {
-            "total_findings": len(findings),
-            "by_severity": {
-                "critical": 0,
-                "high": 0,
-                "medium": 0,
-                "low": 0,
-            },
-            "by_category": {},
-            "top_risks": [],
-            "recommendations": [],
+        by_severity: dict[str, int] = {
+            "critical": 0,
+            "high": 0,
+            "medium": 0,
+            "low": 0,
         }
+        by_category: dict[str, int] = {}
+        top_risks: list[dict[str, Any]] = []
+        recommendations: list[str] = []
 
         for finding in findings:
             # Count by severity
             severity_key = finding.severity.value.lower()
-            if severity_key in summary["by_severity"]:
-                summary["by_severity"][severity_key] += 1
+            if severity_key in by_severity:
+                by_severity[severity_key] += 1
 
             # Count by category
             cat = finding.category
-            if cat not in summary["by_category"]:
-                summary["by_category"][cat] = 0
-            summary["by_category"][cat] += 1
+            if cat not in by_category:
+                by_category[cat] = 0
+            by_category[cat] += 1
 
         # Top risks
         critical_high = [
             f for f in findings if f.severity in [FindingSeverity.CRITICAL, FindingSeverity.HIGH]
         ]
-        summary["top_risks"] = [
+        top_risks = [
             {"title": f.title, "severity": f.severity.value, "location": f.evidence_location}
             for f in critical_high[:5]
         ]
 
         # Unique recommendations
-        seen_recs = set()
+        seen_recs: set[str] = set()
         for finding in findings:
             if finding.recommendation and finding.recommendation not in seen_recs:
-                summary["recommendations"].append(finding.recommendation)
+                recommendations.append(finding.recommendation)
                 seen_recs.add(finding.recommendation)
 
-        return summary
+        return {
+            "total_findings": len(findings),
+            "by_severity": by_severity,
+            "by_category": by_category,
+            "top_risks": top_risks,
+            "recommendations": recommendations,
+        }
 
 
 # Convenience function for quick audit
@@ -638,12 +639,12 @@ async def audit_ai_code(
     """
     from ..document_auditor import AuditSession
 
-    session = AuditSession(workspace_id="quick_audit")
+    session = AuditSession(workspace_id="quick_audit")  # type: ignore[call-arg]
     context = AuditContext(session=session)
 
     chunk = ChunkData(
+        id="0",
         document_id=file_path,
-        chunk_id="0",
         content=code,
         metadata={"file_path": file_path},
     )

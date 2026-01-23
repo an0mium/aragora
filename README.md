@@ -1,4 +1,4 @@
-# Aragora: Control Plane for Multi-Agent Deliberation
+# Aragora: Control Plane for Multi-Agent Robust Decisionmaking
 
 [![Tests](https://github.com/an0mium/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/an0mium/aragora/branch/main/graph/badge.svg)](https://codecov.io/gh/an0mium/aragora)
@@ -11,7 +11,7 @@ It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qw
 
 **Omnivorous by design**: Aragora ingests common document formats (PDF, Office, Markdown, HTML, JSON, CSV), code, images, audio, and video via a broad connector library. Results route automatically to the originating channel—ask questions wherever you are, get answers backed by multi-agent consensus.
 
-**Unlike chatbots**, Aragora builds institutional memory with full audit trails. Deliberation is the engine. The product is a defensible decision record.
+**Unlike chatbots**, Aragora builds institutional memory with full audit trails. Robust decisionmaking is the engine. The product is a defensible decision record.
 
 **Domain**: [aragora.ai](https://aragora.ai) (available)
 

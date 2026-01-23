@@ -768,7 +768,7 @@ class ConnectorsHandler(SecureHandler):
         }
         """
         store = await _get_store()
-        connectors_health = []
+        connectors_health: List[Dict[str, Any]] = []
 
         if store:
             connector_configs = await store.list_connectors()
@@ -785,7 +785,8 @@ class ConnectorsHandler(SecureHandler):
 
                 # Calculate latency score (lower is better, normalized to 0-1)
                 avg_duration = stats.get("avg_duration_seconds", 0) or 0
-                expected_duration = CONNECTOR_TYPES.get(config.connector_type, {}).get(
+                connector_type_info: Dict[str, Any] = CONNECTOR_TYPES.get(config.connector_type, {})  # type: ignore[assignment]
+                expected_duration = connector_type_info.get(
                     "expected_sync_duration", 60
                 )
                 if avg_duration <= expected_duration:
@@ -821,10 +822,10 @@ class ConnectorsHandler(SecureHandler):
                     issues.append("No syncs recorded")
 
                 # Get last sync time
-                last_sync = None
+                last_sync: Optional[str] = None
                 if history:
-                    last_sync = history[0].completed_at or history[0].started_at
-                    last_sync = last_sync.isoformat() if last_sync else None
+                    last_sync_dt = history[0].completed_at or history[0].started_at
+                    last_sync = last_sync_dt.isoformat() if last_sync_dt else None
 
                 # Syncs in last 24 hours
                 from datetime import timedelta
@@ -859,7 +860,7 @@ class ConnectorsHandler(SecureHandler):
 
         else:
             # Fallback to in-memory
-            for connector_id, config in _connectors.items():
+            for connector_id, connector_config in _connectors.items():
                 connector_history = [
                     h for h in _sync_history if h.get("connector_id") == connector_id
                 ]
@@ -877,14 +878,14 @@ class ConnectorsHandler(SecureHandler):
                 connectors_health.append(
                     {
                         "connector_id": connector_id,
-                        "connector_type": config.get("type", "unknown"),
-                        "name": config.get("name", connector_id),
+                        "connector_type": connector_config.get("type", "unknown"),
+                        "name": connector_config.get("name", connector_id),
                         "health_score": round(health_score, 3),
                         "status": status,
                         "metrics": {
                             "success_rate": round(success_rate, 3),
                             "total_syncs": total_syncs,
-                            "items_synced": config.get("items_synced", 0),
+                            "items_synced": connector_config.get("items_synced", 0),
                         },
                         "issues": [],
                     }
@@ -895,12 +896,12 @@ class ConnectorsHandler(SecureHandler):
         healthy = sum(1 for c in connectors_health if c["status"] == "healthy")
         degraded = sum(1 for c in connectors_health if c["status"] == "degraded")
         unhealthy = sum(1 for c in connectors_health if c["status"] == "unhealthy")
-        overall_score = (
-            sum(c["health_score"] for c in connectors_health) / total if total > 0 else 1.0
+        overall_score: float = (
+            sum(float(c["health_score"]) for c in connectors_health) / total if total > 0 else 1.0
         )
 
         # Sort by health score (worst first for quick visibility)
-        connectors_health.sort(key=lambda c: c["health_score"])
+        connectors_health.sort(key=lambda c: float(c["health_score"]))
 
         return self._json_response(
             200,
@@ -918,13 +919,11 @@ class ConnectorsHandler(SecureHandler):
 
     async def _list_types(self, request: Any) -> Dict[str, Any]:
         """List all available connector types."""
-        types = [
-            {
-                "type": type_id,
-                **type_meta,  # type: ignore[misc]
-            }
-            for type_id, type_meta in CONNECTOR_TYPES.items()
-        ]
+        types: List[Dict[str, Any]] = []
+        for type_id, type_meta in CONNECTOR_TYPES.items():
+            type_entry: Dict[str, Any] = {"type": type_id}
+            type_entry.update(type_meta)  # type: ignore[call-overload]
+            types.append(type_entry)
 
         return self._json_response(200, {"types": types})
 

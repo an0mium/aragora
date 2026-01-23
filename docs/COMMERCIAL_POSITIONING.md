@@ -178,7 +178,7 @@ Aragora is the control plane for multi-agent robust decisionmaking—orchestrati
 ```yaml
 # GitHub Actions example
 - name: Aragora Gauntlet
-  uses: aragora/gauntlet-action@v1
+  uses: an0mium/aragora@main
   with:
     file: architecture.md
     profile: security

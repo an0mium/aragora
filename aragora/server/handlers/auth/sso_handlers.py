@@ -26,6 +26,7 @@ import time
 from typing import Any, Dict
 
 from aragora.server.handlers.base import (
+    HandlerResult,
     error_response,
     success_response,
 )
@@ -143,7 +144,7 @@ def _cleanup_expired_sessions():
 async def handle_sso_login(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Initiate SSO login flow.
 
@@ -198,7 +199,7 @@ async def handle_sso_login(
 async def handle_sso_callback(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Handle SSO callback from IdP.
 
@@ -277,7 +278,7 @@ async def handle_sso_callback(
 async def handle_sso_refresh(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Refresh SSO access token.
 
@@ -328,7 +329,7 @@ async def handle_sso_refresh(
 async def handle_sso_logout(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Logout from SSO.
 
@@ -375,7 +376,7 @@ async def handle_sso_logout(
 async def handle_list_providers(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     List available SSO providers.
 
@@ -433,7 +434,7 @@ async def handle_list_providers(
 async def handle_get_sso_config(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get SSO configuration for a provider.
 

@@ -79,6 +79,52 @@ from .analytics_platforms import AnalyticsPlatformsHandler
 from .crm import CRMHandler
 from .support import SupportHandler
 from .ecommerce import EcommerceHandler
+from .unified_inbox import (
+    UnifiedInboxHandler,
+    handle_unified_inbox,
+    get_unified_inbox_handler,
+    EmailProvider,
+    AccountStatus,
+    TriageAction,
+)
+from .email_webhooks import (
+    EmailWebhooksHandler,
+    handle_email_webhooks,
+    get_email_webhooks_handler,
+    WebhookProvider,
+    WebhookStatus,
+    NotificationType,
+)
+from .reconciliation import (
+    ReconciliationHandler,
+    handle_reconciliation,
+    get_reconciliation_handler,
+)
+from .codebase_audit import (
+    CodebaseAuditHandler,
+    handle_codebase_audit,
+    get_codebase_audit_handler,
+    ScanType,
+    ScanStatus,
+    FindingSeverity,
+    FindingStatus,
+    Finding,
+    ScanResult,
+)
+from .cross_platform_analytics import (
+    CrossPlatformAnalyticsHandler,
+    handle_cross_platform_analytics,
+    get_cross_platform_analytics_handler,
+    Platform,
+    MetricType,
+    AlertSeverity as AnalyticsAlertSeverity,
+    AlertStatus as AnalyticsAlertStatus,
+    MetricValue,
+    AggregatedMetric,
+    Anomaly,
+    AlertRule,
+    Alert as AnalyticsAlert,
+)
 
 __all__ = [
     "AudioHandler",
@@ -155,4 +201,45 @@ __all__ = [
     "CRMHandler",
     "SupportHandler",
     "EcommerceHandler",
+    # Unified Inbox
+    "UnifiedInboxHandler",
+    "handle_unified_inbox",
+    "get_unified_inbox_handler",
+    "EmailProvider",
+    "AccountStatus",
+    "TriageAction",
+    # Email Webhooks
+    "EmailWebhooksHandler",
+    "handle_email_webhooks",
+    "get_email_webhooks_handler",
+    "WebhookProvider",
+    "WebhookStatus",
+    "NotificationType",
+    # Reconciliation
+    "ReconciliationHandler",
+    "handle_reconciliation",
+    "get_reconciliation_handler",
+    # Codebase Audit
+    "CodebaseAuditHandler",
+    "handle_codebase_audit",
+    "get_codebase_audit_handler",
+    "ScanType",
+    "ScanStatus",
+    "FindingSeverity",
+    "FindingStatus",
+    "Finding",
+    "ScanResult",
+    # Cross-Platform Analytics
+    "CrossPlatformAnalyticsHandler",
+    "handle_cross_platform_analytics",
+    "get_cross_platform_analytics_handler",
+    "Platform",
+    "MetricType",
+    "AnalyticsAlertSeverity",
+    "AnalyticsAlertStatus",
+    "MetricValue",
+    "AggregatedMetric",
+    "Anomaly",
+    "AlertRule",
+    "AnalyticsAlert",
 ]

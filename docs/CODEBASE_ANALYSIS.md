@@ -94,11 +94,11 @@ Key components:
 Example:
 
 ```http
-POST /api/v1/codebase/aragora/scan
+POST /api/v1/codebase/{repo}/scan
 Content-Type: application/json
 
 {
-  "repo_path": "/Users/armand/Development/aragora",
+  "repo_path": "/path/to/repo",
   "branch": "main",
   "commit_sha": "abc123"
 }
@@ -111,7 +111,7 @@ POST /api/codebase/quick-scan
 Content-Type: application/json
 
 {
-  "repo_path": "/Users/armand/Development/aragora",
+  "repo_path": "/path/to/repo",
   "severity_threshold": "medium",
   "include_secrets": true
 }
@@ -120,11 +120,11 @@ Content-Type: application/json
 ### Secrets Scan Example
 
 ```http
-POST /api/v1/codebase/aragora/scan/secrets
+POST /api/v1/codebase/{repo}/scan/secrets
 Content-Type: application/json
 
 {
-  "repo_path": "/Users/armand/Development/aragora",
+  "repo_path": "/path/to/repo",
   "branch": "main"
 }
 ```
@@ -144,11 +144,11 @@ Content-Type: application/json
 Example:
 
 ```http
-POST /api/v1/codebase/aragora/metrics/analyze
+POST /api/v1/codebase/{repo}/metrics/analyze
 Content-Type: application/json
 
 {
-  "repo_path": "/Users/armand/Development/aragora",
+  "repo_path": "/path/to/repo",
   "include_patterns": ["aragora/**/*.py"],
   "exclude_patterns": ["**/tests/**"],
   "complexity_warning": 10,
@@ -175,7 +175,7 @@ POST /api/v1/codebase/analyze-dependencies
 Content-Type: application/json
 
 {
-  "repo_path": "/Users/armand/Development/aragora",
+  "repo_path": "/path/to/repo",
   "include_dev": true
 }
 ```

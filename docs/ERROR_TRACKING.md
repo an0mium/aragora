@@ -25,40 +25,21 @@ Add to your environment:
 ```bash
 export SENTRY_DSN=https://xxx@sentry.io/xxx
 export SENTRY_ENVIRONMENT=production  # or staging, development
-export SENTRY_RELEASE=$(git rev-parse HEAD)
+export SENTRY_TRACES_SAMPLE_RATE=0.1
+export SENTRY_PROFILES_SAMPLE_RATE=0.1
+export SENTRY_SERVER_NAME=aragora-api
 ```
 
 ### Integration
 
-The error tracking is already integrated in `aragora/observability/sentry.py`:
+The error tracking is already integrated in `aragora/server/error_monitoring.py`:
 
 ```python
-import sentry_sdk
-from sentry_sdk.integrations.aiohttp import AioHttpIntegration
-from sentry_sdk.integrations.logging import LoggingIntegration
+from aragora.server.error_monitoring import init_monitoring
 
 def init_sentry():
     """Initialize Sentry error tracking."""
-    dsn = os.getenv("SENTRY_DSN")
-    if not dsn:
-        return
-    
-    sentry_sdk.init(
-        dsn=dsn,
-        environment=os.getenv("SENTRY_ENVIRONMENT", "development"),
-        release=os.getenv("SENTRY_RELEASE"),
-        traces_sample_rate=0.1,  # 10% of transactions
-        profiles_sample_rate=0.1,  # 10% of profiled transactions
-        integrations=[
-            AioHttpIntegration(),
-            LoggingIntegration(
-                level=logging.INFO,
-                event_level=logging.ERROR,
-            ),
-        ],
-        # Filter sensitive data
-        before_send=filter_sensitive_data,
-    )
+    init_monitoring()
 ```
 
 ## Frontend Setup
@@ -113,7 +94,7 @@ module.exports = withSentryConfig(
 
 ## Sensitive Data Filtering
 
-The backend filters sensitive data before sending to Sentry:
+The backend filters sensitive data before sending to Sentry (see `_before_send` in `aragora/server/error_monitoring.py`):
 
 ```python
 def filter_sensitive_data(event, hint):

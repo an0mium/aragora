@@ -32,7 +32,7 @@ confidence scoring.
 ### 4. Decision Receipts
 **Audit-ready documentation for every decision.**
 
-Each deliberation produces a tamper-evident receipt with evidence trails,
+Each robust decisionmaking session produces a tamper-evident receipt with evidence trails,
 dissent tracking, and provenance metadata.
 
 ---
@@ -53,7 +53,7 @@ Subject any decision artifact to systematic stress-testing:
 ---
 
 ### 7. Real-Time Streaming
-**Watch deliberations unfold live** with WebSocket updates and dashboards.
+**Watch robust decisionmaking sessions unfold live** with WebSocket updates and dashboards.
 
 ---
 
@@ -70,7 +70,7 @@ aragora gauntlet spec.md --persona gdpr
 from aragora.control_plane import ControlPlaneCoordinator
 
 coordinator = ControlPlaneCoordinator()
-# submit tasks or deliberations via API
+# submit tasks or robust decisionmaking sessions via API
 ```
 
 ### Webhooks

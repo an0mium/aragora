@@ -188,14 +188,15 @@ asyncio.run(decision_router_example())
 async def codebase_security_scan():
     """Trigger a dependency vulnerability scan and fetch results."""
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
-        scan = await client.post("/api/v1/codebase/aragora/scan", json={
-            "repo_path": "/Users/armand/Development/aragora",
+        repo_id = "example-repo"
+        scan = await client.post(f"/api/v1/codebase/{repo_id}/scan", json={
+            "repo_path": "/path/to/repo",
             "branch": "main",
         })
         scan_data = scan.json()
         scan_id = scan_data["scan_id"]
 
-        result = await client.get(f"/api/v1/codebase/aragora/scan/{scan_id}")
+        result = await client.get(f"/api/v1/codebase/{repo_id}/scan/{scan_id}")
         print(result.json())
 
 asyncio.run(codebase_security_scan())
@@ -207,14 +208,15 @@ asyncio.run(codebase_security_scan())
 async def codebase_metrics():
     """Run code metrics analysis and fetch hotspots."""
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
-        analysis = await client.post("/api/v1/codebase/aragora/metrics/analyze", json={
-            "repo_path": "/Users/armand/Development/aragora",
+        repo_id = "example-repo"
+        analysis = await client.post(f"/api/v1/codebase/{repo_id}/metrics/analyze", json={
+            "repo_path": "/path/to/repo",
             "complexity_warning": 10,
             "complexity_error": 20,
         })
         analysis_id = analysis.json()["analysis_id"]
 
-        hotspots = await client.get("/api/v1/codebase/aragora/hotspots")
+        hotspots = await client.get(f"/api/v1/codebase/{repo_id}/hotspots")
         print(hotspots.json())
 
 asyncio.run(codebase_metrics())

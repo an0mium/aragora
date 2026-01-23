@@ -300,8 +300,8 @@ pip install aragora>=2.0.0
 # Node.js
 npm install @aragora/sdk@^2.0.0
 
-# Go
-go get github.com/aragora/go-sdk/v2
+# Go (planned)
+# Contact support for early access builds.
 ```
 
 ### Getting Help
@@ -326,7 +326,7 @@ response = client.get("/debates", api_version="v2")
 
 ### TypeScript Client
 ```typescript
-import { AragoraClient } from 'aragora';
+import { AragoraClient } from '@aragora/sdk';
 
 // Specify version
 const client = new AragoraClient({ apiVersion: 'v2' });

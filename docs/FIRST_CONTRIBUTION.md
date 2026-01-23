@@ -46,7 +46,7 @@ aragora/
 ### Easy (Good First Issue)
 
 1. **Add docstrings to public methods**
-   - Files: `aragora/debate/orchestrator.py`, `aragora/core.py`
+   - Files: `aragora/debate/orchestrator.py`, `aragora/core_types.py`
    - Task: Add missing docstrings with Args, Returns, Examples
    - Skills: Python, reading code
 
@@ -123,7 +123,7 @@ git checkout -b fix/issue-description
 pytest tests/path/to/test_file.py -v
 
 # Run type checking (optional)
-python -m mypy aragora/your_file.py
+python -m mypy path/to/your_module.py
 
 # For frontend changes
 cd aragora/live
@@ -246,7 +246,7 @@ Is it agent-related?
 
 **Do not modify without approval:**
 - `CLAUDE.md`
-- `core.py`
+- `core_types.py`
 - `aragora/__init__.py`
 - `scripts/nomic_loop.py`
 

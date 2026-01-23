@@ -6,7 +6,7 @@ Formats receipts using Teams' Adaptive Cards for rich message display.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
 
 from .formatter import ReceiptFormatter, register_formatter
 
@@ -34,10 +34,13 @@ class TeamsReceiptFormatter(ReceiptFormatter):
             compact: bool - Use compact format (default: False)
             include_agents: bool - Include agent details (default: True)
         """
+        # Cast receipt to Any to allow flexible attribute access since DecisionReceipt
+        # may have different attributes depending on context/version
+        r: Any = receipt
         options = options or {}
         compact = options.get("compact", False)
 
-        confidence = receipt.confidence_score or 0
+        confidence = getattr(r, "confidence_score", None) or getattr(r, "confidence", 0)
         confidence_color = self._get_confidence_color(confidence)
 
         body: List[Dict[str, Any]] = []
@@ -56,7 +59,7 @@ class TeamsReceiptFormatter(ReceiptFormatter):
         body.append(
             {
                 "type": "TextBlock",
-                "text": receipt.topic or receipt.question or "N/A",
+                "text": getattr(r, "topic", None) or getattr(r, "question", None) or getattr(r, "input_summary", "N/A"),
                 "wrap": True,
                 "weight": "Bolder",
             }
@@ -113,14 +116,17 @@ class TeamsReceiptFormatter(ReceiptFormatter):
         body.append(
             {
                 "type": "TextBlock",
-                "text": receipt.decision or "No decision reached",
+                "text": getattr(r, "decision", None) or getattr(r, "verdict", "No decision reached"),
                 "wrap": True,
             }
         )
 
+        key_arguments = getattr(r, "key_arguments", None) or []
+        risks = getattr(r, "risks", None) or []
+
         if not compact:
             # Key Arguments
-            if receipt.key_arguments:
+            if key_arguments:
                 body.append(
                     {
                         "type": "TextBlock",
@@ -129,7 +135,7 @@ class TeamsReceiptFormatter(ReceiptFormatter):
                         "spacing": "Medium",
                     }
                 )
-                for arg in receipt.key_arguments[:5]:
+                for arg in key_arguments[:5]:
                     body.append(
                         {
                             "type": "TextBlock",
@@ -140,7 +146,7 @@ class TeamsReceiptFormatter(ReceiptFormatter):
                     )
 
             # Risks
-            if receipt.risks:
+            if risks:
                 body.append(
                     {
                         "type": "TextBlock",
@@ -150,7 +156,7 @@ class TeamsReceiptFormatter(ReceiptFormatter):
                         "color": "Warning",
                     }
                 )
-                for risk in receipt.risks[:3]:
+                for risk in risks[:3]:
                     body.append(
                         {
                             "type": "TextBlock",
@@ -162,18 +168,19 @@ class TeamsReceiptFormatter(ReceiptFormatter):
                     )
 
         # Agents
-        if receipt.agents:
+        agents = getattr(r, "agents", None) or getattr(r, "agents_involved", [])
+        if agents:
             body.append(
                 {
                     "type": "FactSet",
                     "facts": [
                         {
                             "title": "Agents",
-                            "value": ", ".join(receipt.agents[:5]),
+                            "value": ", ".join(agents[:5]),
                         },
                         {
                             "title": "Rounds",
-                            "value": str(receipt.rounds or "N/A"),
+                            "value": str(getattr(r, "rounds", None) or getattr(r, "rounds_completed", "N/A")),
                         },
                     ],
                     "spacing": "Medium",
@@ -181,10 +188,11 @@ class TeamsReceiptFormatter(ReceiptFormatter):
             )
 
         # Footer
+        receipt_id = getattr(r, "receipt_id", "unknown")
         body.append(
             {
                 "type": "TextBlock",
-                "text": f"Receipt ID: {receipt.receipt_id}",
+                "text": f"Receipt ID: {receipt_id}",
                 "size": "Small",
                 "color": "Dark",
                 "spacing": "Medium",
@@ -200,7 +208,7 @@ class TeamsReceiptFormatter(ReceiptFormatter):
                 {
                     "type": "Action.OpenUrl",
                     "title": "View Full Receipt",
-                    "url": f"https://aragora.ai/receipts/{receipt.receipt_id}",
+                    "url": f"https://aragora.ai/receipts/{receipt_id}",
                 },
             ],
         }

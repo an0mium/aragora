@@ -26,6 +26,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from aragora.server.handlers.base import (
+    HandlerResult,
     error_response,
     success_response,
 )
@@ -69,7 +70,7 @@ def _set_cached_data(user_id: str, key: str, data: Dict[str, Any]) -> None:
 async def handle_get_dashboard(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get dashboard overview.
 
@@ -184,7 +185,7 @@ async def handle_get_dashboard(
 async def handle_get_stats(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get detailed statistics.
 
@@ -283,7 +284,7 @@ async def handle_get_stats(
 async def handle_get_activity(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get recent activity.
 
@@ -405,7 +406,7 @@ async def handle_get_activity(
 async def handle_get_inbox_summary(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get inbox summary for dashboard.
 
@@ -501,7 +502,7 @@ async def handle_get_inbox_summary(
 async def handle_get_quick_actions(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get available quick actions.
 
@@ -573,7 +574,7 @@ async def handle_execute_quick_action(
     data: Dict[str, Any],
     action_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Execute a quick action.
 

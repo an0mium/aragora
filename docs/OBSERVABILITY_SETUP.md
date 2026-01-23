@@ -213,33 +213,12 @@ scrape_configs:
 ### OpenTelemetry Setup
 
 ```python
-# aragora/telemetry/setup.py
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.jaeger.thrift import JaegerExporter
-from opentelemetry.instrumentation.aiohttp import AioHttpClientInstrumentor
-from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+# aragora/observability/tracing.py
+from aragora.observability.tracing import trace_handler
 
-def setup_tracing():
-    # Configure tracer provider
-    provider = TracerProvider()
-
-    # Configure Jaeger exporter
-    jaeger_exporter = JaegerExporter(
-        agent_host_name=os.getenv("JAEGER_AGENT_HOST", "localhost"),
-        agent_port=int(os.getenv("JAEGER_AGENT_PORT", 6831)),
-    )
-
-    # Add batch processor
-    provider.add_span_processor(BatchSpanProcessor(jaeger_exporter))
-    trace.set_tracer_provider(provider)
-
-    # Auto-instrument libraries
-    AioHttpClientInstrumentor().instrument()
-    SQLAlchemyInstrumentor().instrument()
-
-    return trace.get_tracer("aragora")
+@trace_handler("debates.create")
+def handle_create_debate(self, handler):
+    ...
 ```
 
 ### Trace Sampling Strategy

@@ -1,6 +1,6 @@
 # Memory Systems Overview
 
-Aragora’s control plane uses layered memory to keep deliberation grounded,
+Aragora’s control plane uses layered memory to keep robust decisionmaking grounded,
 persistent, and improvable across debates, workflows, and channels.
 
 ## Core Components
