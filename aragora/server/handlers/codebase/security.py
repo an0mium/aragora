@@ -28,6 +28,8 @@ from aragora.analysis.codebase import (
     CVEClient,
     DependencyScanner,
     ScanResult,
+    SecretsScanner,
+    SecretsScanResult,
 )
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -46,6 +48,11 @@ logger = logging.getLogger(__name__)
 _scan_results: Dict[str, Dict[str, ScanResult]] = {}  # repo_id -> {scan_id -> result}
 _scan_lock = threading.Lock()
 _running_scans: Dict[str, asyncio.Task] = {}
+
+# Secrets scan storage
+_secrets_scan_results: Dict[str, Dict[str, SecretsScanResult]] = {}
+_secrets_scan_lock = threading.Lock()
+_running_secrets_scans: Dict[str, asyncio.Task] = {}
 
 
 def _get_or_create_repo_scans(repo_id: str) -> Dict[str, ScanResult]:
@@ -396,6 +403,302 @@ async def handle_list_scans(
 
 
 # =============================================================================
+# Secrets Scan Helpers
+# =============================================================================
+
+
+def _get_or_create_secrets_scans(repo_id: str) -> Dict[str, SecretsScanResult]:
+    """Get or create secrets scan storage for a repository."""
+    with _secrets_scan_lock:
+        if repo_id not in _secrets_scan_results:
+            _secrets_scan_results[repo_id] = {}
+        return _secrets_scan_results[repo_id]
+
+
+# =============================================================================
+# Secrets Scan Handlers
+# =============================================================================
+
+
+async def handle_scan_secrets(
+    repo_path: str,
+    repo_id: Optional[str] = None,
+    branch: Optional[str] = None,
+    include_history: bool = False,
+    history_depth: int = 100,
+    workspace_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Trigger a secrets scan for a repository.
+
+    POST /api/v1/codebase/{repo}/scan/secrets
+    {
+        "repo_path": "/path/to/repo",
+        "branch": "main",
+        "include_history": true,
+        "history_depth": 100
+    }
+    """
+    try:
+        repo_id = repo_id or f"repo_{uuid.uuid4().hex[:12]}"
+        scan_id = f"secrets_{uuid.uuid4().hex[:12]}"
+
+        # Check if scan already running
+        if repo_id in _running_secrets_scans:
+            task = _running_secrets_scans[repo_id]
+            if not task.done():
+                return {
+                    "success": False,
+                    "error": "Secrets scan already in progress",
+                    "scan_id": None,
+                }
+
+        # Create initial scan result
+        scan_result = SecretsScanResult(
+            scan_id=scan_id,
+            repository=repo_id,
+            branch=branch,
+            status="running",
+        )
+
+        repo_scans = _get_or_create_secrets_scans(repo_id)
+        repo_scans[scan_id] = scan_result
+
+        # Start async scan
+        async def run_secrets_scan():
+            try:
+                scanner = SecretsScanner()
+
+                # Scan current files
+                result = await scanner.scan_repository(
+                    repo_path=repo_path,
+                    branch=branch,
+                )
+
+                # Optionally scan git history
+                if include_history:
+                    history_result = await scanner.scan_git_history(
+                        repo_path=repo_path,
+                        depth=history_depth,
+                        branch=branch,
+                    )
+                    result.secrets.extend(history_result.secrets)
+                    result.scanned_history = True
+                    result.history_depth = history_depth
+
+                # Update stored result
+                with _secrets_scan_lock:
+                    result.scan_id = scan_id
+                    repo_scans[scan_id] = result
+
+                logger.info(
+                    f"[Security] Completed secrets scan {scan_id} for {repo_id}: "
+                    f"{len(result.secrets)} secrets found"
+                )
+
+            except Exception as e:
+                logger.exception(f"Secrets scan {scan_id} failed: {e}")
+                with _secrets_scan_lock:
+                    scan_result.status = "failed"
+                    scan_result.error = str(e)
+                    scan_result.completed_at = datetime.now(timezone.utc)
+
+            finally:
+                if repo_id in _running_secrets_scans:
+                    del _running_secrets_scans[repo_id]
+
+        # Create and store task
+        task = asyncio.create_task(run_secrets_scan())
+        _running_secrets_scans[repo_id] = task
+
+        logger.info(f"[Security] Started secrets scan {scan_id} for {repo_id}")
+
+        return {
+            "success": True,
+            "scan_id": scan_id,
+            "status": "running",
+            "repository": repo_id,
+            "include_history": include_history,
+        }
+
+    except Exception as e:
+        logger.exception(f"Failed to start secrets scan: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+async def handle_get_secrets_scan_status(
+    repo_id: str,
+    scan_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Get secrets scan status/result.
+
+    GET /api/v1/codebase/{repo}/scan/secrets/latest
+    GET /api/v1/codebase/{repo}/scan/secrets/{scan_id}
+    """
+    try:
+        repo_scans = _get_or_create_secrets_scans(repo_id)
+
+        if scan_id:
+            # Get specific scan
+            scan = repo_scans.get(scan_id)
+            if not scan:
+                return {"success": False, "error": "Secrets scan not found"}
+            return {
+                "success": True,
+                "scan_result": scan.to_dict(),
+            }
+        else:
+            # Get latest scan
+            if not repo_scans:
+                return {"success": False, "error": "No secrets scans found for repository"}
+
+            # Sort by start time and get latest
+            latest = max(repo_scans.values(), key=lambda s: s.started_at)
+            return {
+                "success": True,
+                "scan_result": latest.to_dict(),
+            }
+
+    except Exception as e:
+        logger.exception(f"Failed to get secrets scan status: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+async def handle_get_secrets(
+    repo_id: str,
+    severity: Optional[str] = None,
+    secret_type: Optional[str] = None,
+    include_history: bool = True,
+    limit: int = 100,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """
+    Get secrets from latest scan.
+
+    GET /api/v1/codebase/{repo}/secrets
+    Query params: severity, secret_type, include_history, limit, offset
+    """
+    try:
+        repo_scans = _get_or_create_secrets_scans(repo_id)
+
+        if not repo_scans:
+            return {"success": False, "error": "No secrets scans found for repository"}
+
+        # Get latest completed scan
+        completed_scans = [s for s in repo_scans.values() if s.status == "completed"]
+        if not completed_scans:
+            return {"success": False, "error": "No completed secrets scans found"}
+
+        latest = max(completed_scans, key=lambda s: s.started_at)
+
+        # Get secrets
+        secrets = [s.to_dict() for s in latest.secrets]
+
+        # Filter
+        if severity:
+            secrets = [s for s in secrets if s["severity"] == severity]
+        if secret_type:
+            secrets = [s for s in secrets if s["secret_type"] == secret_type]
+        if not include_history:
+            secrets = [s for s in secrets if not s["is_in_history"]]
+
+        # Sort by severity
+        severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "unknown": 4}
+        secrets.sort(key=lambda s: severity_order.get(s["severity"], 5))
+
+        # Paginate
+        total = len(secrets)
+        secrets = secrets[offset : offset + limit]
+
+        return {
+            "success": True,
+            "secrets": secrets,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "scan_id": latest.scan_id,
+        }
+
+    except Exception as e:
+        logger.exception(f"Failed to get secrets: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+async def handle_list_secrets_scans(
+    repo_id: str,
+    status: Optional[str] = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """
+    List secrets scan history for a repository.
+
+    GET /api/v1/codebase/{repo}/scans/secrets
+    """
+    try:
+        repo_scans = _get_or_create_secrets_scans(repo_id)
+
+        scans = list(repo_scans.values())
+
+        # Filter by status
+        if status:
+            scans = [s for s in scans if s.status == status]
+
+        # Sort by start time descending
+        scans.sort(key=lambda s: s.started_at, reverse=True)
+
+        # Paginate
+        total = len(scans)
+        scans = scans[offset : offset + limit]
+
+        return {
+            "success": True,
+            "scans": [
+                {
+                    "scan_id": s.scan_id,
+                    "status": s.status,
+                    "started_at": s.started_at.isoformat(),
+                    "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+                    "files_scanned": s.files_scanned,
+                    "scanned_history": s.scanned_history,
+                    "history_depth": s.history_depth,
+                    "summary": {
+                        "total_secrets": len(s.secrets),
+                        "critical_count": s.critical_count,
+                        "high_count": s.high_count,
+                        "medium_count": s.medium_count,
+                        "low_count": s.low_count,
+                    }
+                    if s.status == "completed"
+                    else None,
+                }
+                for s in scans
+            ],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+
+    except Exception as e:
+        logger.exception(f"Failed to list secrets scans: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+# =============================================================================
 # Handler Class
 # =============================================================================
 
@@ -427,7 +730,12 @@ class SecurityHandler(BaseHandler):
         for prefix in self.ROUTE_PREFIXES:
             if path.startswith(prefix):
                 # Check for security-related paths
-                if "/scan" in path or "/vulnerabilities" in path or "/cve/" in path:
+                if (
+                    "/scan" in path
+                    or "/vulnerabilities" in path
+                    or "/cve/" in path
+                    or "/secrets" in path
+                ):
                     return True
         return False
 
@@ -507,6 +815,85 @@ class SecurityHandler(BaseHandler):
     async def handle_list_scans(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scans"""
         result = await handle_list_scans(
+            repo_id=repo_id,
+            status=params.get("status"),
+            limit=int(params.get("limit", 20)),
+            offset=int(params.get("offset", 0)),
+        )
+
+        if result.get("success"):
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 400)
+
+    # =========================================================================
+    # Secrets Scan Endpoints
+    # =========================================================================
+
+    async def handle_post_secrets_scan(self, data: Dict[str, Any], repo_id: str) -> HandlerResult:
+        """POST /api/v1/codebase/{repo}/scan/secrets"""
+        repo_path = data.get("repo_path")
+        if not repo_path:
+            return error_response("repo_path required", 400)
+
+        result = await handle_scan_secrets(
+            repo_path=repo_path,
+            repo_id=repo_id,
+            branch=data.get("branch"),
+            include_history=data.get("include_history", False),
+            history_depth=int(data.get("history_depth", 100)),
+            workspace_id=data.get("workspace_id"),
+            user_id=self._get_user_id(),
+        )
+
+        if result.get("success"):
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 400)
+
+    async def handle_get_secrets_scan_latest(
+        self, params: Dict[str, Any], repo_id: str
+    ) -> HandlerResult:
+        """GET /api/v1/codebase/{repo}/scan/secrets/latest"""
+        result = await handle_get_secrets_scan_status(repo_id=repo_id)
+
+        if result.get("success"):
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 404)
+
+    async def handle_get_secrets_scan(
+        self, params: Dict[str, Any], repo_id: str, scan_id: str
+    ) -> HandlerResult:
+        """GET /api/v1/codebase/{repo}/scan/secrets/{scan_id}"""
+        result = await handle_get_secrets_scan_status(repo_id=repo_id, scan_id=scan_id)
+
+        if result.get("success"):
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 404)
+
+    async def handle_get_secrets(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+        """GET /api/v1/codebase/{repo}/secrets"""
+        result = await handle_get_secrets(
+            repo_id=repo_id,
+            severity=params.get("severity"),
+            secret_type=params.get("secret_type"),
+            include_history=params.get("include_history", "true").lower() == "true",
+            limit=int(params.get("limit", 100)),
+            offset=int(params.get("offset", 0)),
+        )
+
+        if result.get("success"):
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 400)
+
+    async def handle_list_secrets_scans(
+        self, params: Dict[str, Any], repo_id: str
+    ) -> HandlerResult:
+        """GET /api/v1/codebase/{repo}/scans/secrets"""
+        result = await handle_list_secrets_scans(
             repo_id=repo_id,
             status=params.get("status"),
             limit=int(params.get("limit", 20)),
