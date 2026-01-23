@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '@/config';
 import { useAuth } from '@/context/AuthContext';
 
@@ -54,12 +54,21 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
     }
   }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
 
+  // Use ref to store latest fetch function to avoid stale closures in interval
+  const fetchRef = useRef(fetchBreakpoints);
+  fetchRef.current = fetchBreakpoints;
+
   useEffect(() => {
+    // Don't start polling until auth is ready
+    if (authLoading) return;
+
     fetchBreakpoints();
-    // Poll for updates every 10 seconds
-    const interval = setInterval(fetchBreakpoints, 10000);
+    // Poll for updates every 10 seconds, using ref to get latest function
+    const interval = setInterval(() => {
+      fetchRef.current();
+    }, 10000);
     return () => clearInterval(interval);
-  }, [fetchBreakpoints]);
+  }, [fetchBreakpoints, authLoading]);
 
   const resolveBreakpoint = async (id: string, action: string) => {
     if (!tokens?.access_token) return;

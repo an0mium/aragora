@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { CostBreakdownChart } from './CostBreakdownChart';
 import { BudgetAlerts } from './BudgetAlerts';
 import { UsageTimeline } from './UsageTimeline';
+import { useAuth } from '@/context/AuthContext';
 
 type TimeRange = '24h' | '7d' | '30d' | '90d';
 
@@ -65,14 +66,26 @@ const MOCK_COST_DATA: CostData = {
 };
 
 export function CostDashboard() {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [costData, setCostData] = useState<CostData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchCostData = useCallback(async () => {
+    // Skip if not authenticated - use mock data instead
+    if (!isAuthenticated || authLoading) {
+      setCostData(MOCK_COST_DATA);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await fetch(`/api/costs?range=${timeRange}`);
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+      const response = await fetch(`/api/costs?range=${timeRange}`, { headers });
       if (response.ok) {
         const data = await response.json();
         setCostData(data);
@@ -86,7 +99,7 @@ export function CostDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [timeRange]);
+  }, [timeRange, isAuthenticated, authLoading, tokens?.access_token]);
 
   useEffect(() => {
     fetchCostData();

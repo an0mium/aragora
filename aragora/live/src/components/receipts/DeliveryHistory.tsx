@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import type { ChannelType } from './ChannelSelector';
+import { useAuth } from '@/context/AuthContext';
 
 export interface DeliveryRecord {
   id: string;
@@ -77,11 +78,23 @@ export function DeliveryHistory({
   limit = 10,
   compact = false,
 }: DeliveryHistoryProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [history, setHistory] = useState<DeliveryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchHistory = useCallback(async () => {
+    // Skip if not authenticated - use demo data
+    if (!isAuthenticated || authLoading) {
+      setHistory(
+        receiptId
+          ? DEMO_HISTORY.filter((h) => h.receiptId === receiptId)
+          : DEMO_HISTORY
+      );
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -92,7 +105,11 @@ export function DeliveryHistory({
         params.append('receipt_id', receiptId);
       }
 
-      const response = await fetch(`${apiUrl}/api/v1/receipts/deliveries?${params}`);
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+      const response = await fetch(`${apiUrl}/api/v1/receipts/deliveries?${params}`, { headers });
 
       if (!response.ok) {
         // Use demo data on error
@@ -116,7 +133,7 @@ export function DeliveryHistory({
     } finally {
       setLoading(false);
     }
-  }, [apiUrl, receiptId, limit]);
+  }, [apiUrl, receiptId, limit, isAuthenticated, authLoading, tokens?.access_token]);
 
   useEffect(() => {
     fetchHistory();

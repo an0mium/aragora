@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 
 // Lazy load the graph component
 const BeliefNetworkGraph = dynamic(() => import('./BeliefNetworkGraph'), {
@@ -58,6 +59,7 @@ interface CruxPanelProps {
 const DEFAULT_API_BASE = API_BASE_URL;
 
 export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BASE }: CruxPanelProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [debateId, setDebateId] = useState(initialDebateId || '');
   const [cruxes, setCruxes] = useState<Crux[]>([]);
   const [loadBearingClaims, setLoadBearingClaims] = useState<LoadBearingClaim[]>([]);
@@ -74,14 +76,25 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
       return;
     }
 
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) {
+      setError('Please log in to analyze debates');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (tokens?.access_token) {
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
+    }
+
     try {
       const [cruxesRes, lbRes, statsRes] = await Promise.all([
-        fetch(`${apiBase}/api/belief-network/${id}/cruxes?top_k=10`),
-        fetch(`${apiBase}/api/belief-network/${id}/load-bearing-claims?limit=10`),
-        fetch(`${apiBase}/api/debate/${id}/graph-stats`),
+        fetch(`${apiBase}/api/belief-network/${id}/cruxes?top_k=10`, { headers }),
+        fetch(`${apiBase}/api/belief-network/${id}/load-bearing-claims?limit=10`, { headers }),
+        fetch(`${apiBase}/api/debate/${id}/graph-stats`, { headers }),
       ]);
 
       if (!cruxesRes.ok) {
@@ -121,14 +134,18 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
 
   const handleExport = useCallback(async (format: 'json' | 'graphml' | 'csv') => {
-    if (!debateId.trim()) return;
+    if (!debateId.trim() || !tokens?.access_token) return;
 
     setExporting(true);
     try {
-      const response = await fetch(`${apiBase}/api/belief-network/${debateId}/export?format=${format}`);
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tokens.access_token}`,
+      };
+      const response = await fetch(`${apiBase}/api/belief-network/${debateId}/export?format=${format}`, { headers });
       if (!response.ok) throw new Error(`Export failed: ${response.status}`);
 
       const data = await response.json();
@@ -177,7 +194,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
     } finally {
       setExporting(false);
     }
-  }, [apiBase, debateId]);
+  }, [apiBase, debateId, tokens?.access_token]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

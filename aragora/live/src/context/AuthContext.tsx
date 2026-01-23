@@ -451,6 +451,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Set tokens from OAuth callback - fetches user profile from API
   const setTokens = useCallback(async (accessToken: string, refreshTokenValue: string) => {
+    console.log('[AuthContext] setTokens called');
+
     // Calculate expiry (default 1 hour from now if not provided)
     const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
 
@@ -460,15 +462,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       expires_at: expiresAt,
     };
 
-    // Store tokens first
-    localStorage.setItem(TOKENS_KEY, JSON.stringify(tokens));
-
-    // Fetch user profile using the access token
+    // Fetch user profile using the access token FIRST to validate
     try {
+      console.log('[AuthContext] Fetching user profile to validate tokens...');
       const response = await fetch(`${API_BASE}/api/v1/auth/me`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
+      });
+
+      console.log('[AuthContext] /me response:', {
+        status: response.status,
+        ok: response.ok,
+        contentType: response.headers.get('content-type'),
       });
 
       if (response.ok) {
@@ -477,7 +483,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const organization = data.organization || null;
         const organizations = data.organizations || [];
 
-        // Store user and orgs
+        console.log('[AuthContext] User profile fetched successfully:', user?.email);
+
+        // Store tokens, user and orgs - only AFTER validation succeeds
+        localStorage.setItem(TOKENS_KEY, JSON.stringify(tokens));
         localStorage.setItem(USER_KEY, JSON.stringify(user));
         storeActiveOrg(organization);
         storeUserOrgs(organizations);
@@ -492,20 +501,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isAuthenticated: true,
           isLoadingOrganizations: false,
         });
-      } else {
-        // Token might be invalid - clear and throw
+      } else if (response.status === 401) {
+        // 401 means tokens are invalid - DO NOT authenticate
+        console.error('[AuthContext] Token validation failed: 401 Unauthorized');
+        const contentType = response.headers.get('content-type') || '';
+        let errorDetail = '';
+        if (contentType.includes('application/json')) {
+          try {
+            const errData = await response.json();
+            errorDetail = errData.error || errData.message || '';
+          } catch { /* ignore */ }
+        }
+        console.error('[AuthContext] Error detail:', errorDetail || '(no detail)');
+
+        // Clear any partial auth data
         clearAuth();
-        throw new Error('Failed to fetch user profile');
+        throw new Error('Authentication failed: Invalid tokens');
+      } else {
+        // Other error (500, 404, etc.) - log but don't store invalid tokens
+        console.error('[AuthContext] Unexpected /me response:', response.status);
+        clearAuth();
+        throw new Error(`Authentication failed: ${response.status}`);
       }
-    } catch {
-      // If user fetch fails, still store tokens but mark as loading
-      // The user might be created but profile endpoint doesn't exist
-      setState(prev => ({
-        ...prev,
-        tokens,
-        isLoading: false,
-        isAuthenticated: true,
-      }));
+    } catch (err) {
+      console.error('[AuthContext] setTokens error:', err);
+      // Re-throw so callback page can handle it
+      throw err;
     }
   }, []);
 

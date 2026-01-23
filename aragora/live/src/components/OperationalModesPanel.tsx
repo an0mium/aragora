@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 
 interface OperationalMode {
   name: string;
@@ -35,6 +36,7 @@ export function OperationalModesPanel({
   apiBase = DEFAULT_API_BASE,
   onModeSelect,
 }: OperationalModesPanelProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
   const [modes, setModes] = useState<OperationalMode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,11 +45,21 @@ export function OperationalModesPanel({
   const [expandedMode, setExpandedMode] = useState<string | null>(null);
 
   const fetchModes = useCallback(async () => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${apiBase}/api/modes`);
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+      const response = await fetch(`${apiBase}/api/modes`, { headers });
       if (!response.ok) {
         throw new Error(`Failed to fetch modes: ${response.statusText}`);
       }
@@ -59,7 +71,7 @@ export function OperationalModesPanel({
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
 
   useEffect(() => {
     fetchModes();

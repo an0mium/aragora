@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { StreamEvent } from '@/types/events';
 import { logger } from '@/utils/logger';
 import { API_BASE_URL } from '@/config';
@@ -47,12 +47,21 @@ export function PhaseProgress({ events, currentPhase, apiBase = DEFAULT_API_BASE
     }
   }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
 
+  // Use ref to store latest fetch function to avoid stale closures in interval
+  const fetchRef = useRef(fetchNomicState);
+  fetchRef.current = fetchNomicState;
+
   useEffect(() => {
+    // Don't start polling until auth is ready
+    if (authLoading) return;
+
     fetchNomicState();
-    // Poll every 10 seconds for updates
-    const interval = setInterval(fetchNomicState, 10000);
+    // Poll every 10 seconds for updates, using ref to get latest function
+    const interval = setInterval(() => {
+      fetchRef.current();
+    }, 10000);
     return () => clearInterval(interval);
-  }, [fetchNomicState]);
+  }, [fetchNomicState, authLoading]);
   type PhaseStatusType = 'pending' | 'active' | 'complete' | 'failed';
 
   // Get phase statuses from events

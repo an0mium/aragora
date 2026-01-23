@@ -56,9 +56,11 @@ function OAuthCallbackContent() {
 
       if (accessToken && refreshToken) {
         try {
+          console.log('[OAuth Callback] Calling setTokens with access_token:', accessToken.substring(0, 20) + '...');
           // Store tokens and wait for user profile to be fetched
           // This is async - we must await it before redirecting
           await setTokens(accessToken, refreshToken);
+          console.log('[OAuth Callback] setTokens completed successfully');
           setStatus('success');
           setMessage('Authentication successful');
           // Clear the hash from URL for security
@@ -68,11 +70,23 @@ function OAuthCallbackContent() {
         } catch (err) {
           console.error('[OAuth Callback] Failed to set tokens:', err);
           setStatus('error');
-          setMessage('Failed to complete authentication');
+          // Provide more descriptive error messages
+          if (err instanceof Error) {
+            if (err.message.includes('Invalid tokens')) {
+              setMessage('OAuth tokens were rejected by the server. The backend may not be configured to accept these tokens.');
+            } else if (err.message.includes('401')) {
+              setMessage('Authentication failed. Please try logging in again.');
+            } else {
+              setMessage(err.message || 'Failed to complete authentication');
+            }
+          } else {
+            setMessage('Failed to complete authentication');
+          }
         }
       } else {
         setStatus('error');
         setMessage('Missing authentication tokens');
+        console.error('[OAuth Callback] Tokens missing from URL params. access_token:', !!accessToken, 'refresh_token:', !!refreshToken);
       }
     };
 
