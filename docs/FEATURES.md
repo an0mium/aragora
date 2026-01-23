@@ -2170,6 +2170,27 @@ recommender = SnoozeRecommender()
 Collaborative inbox management with message assignment, status tracking, and
 routing rules.
 
+### Gmail Labels, Threads, and Drafts
+**File:** `aragora/server/handlers/features/gmail_labels.py`, `aragora/server/handlers/features/gmail_threads.py`
+
+Advanced Gmail operations for labels, threads, filters, drafts, and message
+actions.
+
+### Outlook/M365 Email Integration
+**File:** `aragora/server/handlers/features/outlook.py`
+
+OAuth-based Outlook integration with folder, message, and search APIs.
+
+### Knowledge Chat Bridge
+**File:** `aragora/services/knowledge_chat_bridge.py`
+
+Chat-to-knowledge context search and knowledge injection across channels.
+
+### Audit-to-GitHub Bridge
+**File:** `aragora/server/handlers/github/audit_bridge.py`
+
+Sync audit findings into GitHub issues and PRs for remediation workflows.
+
 ### Cost Visibility Dashboard
 **File:** `aragora/server/handlers/costs.py`
 

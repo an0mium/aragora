@@ -167,6 +167,27 @@ coalesce_result = await learner.coalesce_duplicates()
 
 ---
 
+## Chat Knowledge Bridge
+
+The Knowledge + Chat bridge connects chat platforms to the Knowledge Mound for
+context-aware search and knowledge injection.
+
+**Modules:**
+- `aragora/services/knowledge_chat_bridge.py`
+- `aragora/server/handlers/knowledge_chat.py`
+
+```python
+from aragora.services.knowledge_chat_bridge import get_knowledge_chat_bridge
+
+bridge = get_knowledge_chat_bridge()
+context = await bridge.search_knowledge(
+    query="What is the remote work policy?",
+    workspace_id="default",
+    channel_id="C123456",
+)
+print(context.result_count)
+```
+
 ## Configuration
 
 ### MoundConfig Options

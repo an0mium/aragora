@@ -90,6 +90,18 @@ routes in the unified server.
 | GET | `/api/v1/github/pr/{pr_number}/reviews` | List reviews for a PR |
 | POST | `/api/v1/github/pr/{pr_number}/review` | Submit review to GitHub |
 
+## GitHub Audit Bridge API
+
+Audit-to-GitHub endpoints live under `/api/v1/github/audit`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/github/audit/issues` | Create issues from findings |
+| POST | `/api/v1/github/audit/issues/bulk` | Bulk create issues |
+| POST | `/api/v1/github/audit/pr` | Create PR with fixes |
+| GET | `/api/v1/github/audit/sync/{session_id}` | Get sync status |
+| POST | `/api/v1/github/audit/sync/{session_id}` | Sync session to GitHub |
+
 ## Shared Inbox API
 
 Shared inbox endpoints live under `/api/v1/inbox`. For workflow details, see
@@ -143,6 +155,54 @@ Follow-up tracking, snooze, and category APIs live under `/api/v1/email`.
 | GET | `/api/v1/email/categories` | List categories |
 | POST | `/api/v1/email/categories/learn` | Category feedback |
 
+## Gmail Operations API
+
+Gmail labels, threads, drafts, and message operations.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/gmail/labels` | Create label |
+| GET | `/api/v1/gmail/labels` | List labels |
+| PATCH | `/api/v1/gmail/labels/{id}` | Update label |
+| DELETE | `/api/v1/gmail/labels/{id}` | Delete label |
+| POST | `/api/v1/gmail/messages/{id}/labels` | Modify message labels |
+| POST | `/api/v1/gmail/messages/{id}/read` | Mark read/unread |
+| POST | `/api/v1/gmail/messages/{id}/star` | Star/unstar |
+| POST | `/api/v1/gmail/messages/{id}/archive` | Archive message |
+| POST | `/api/v1/gmail/messages/{id}/trash` | Trash/untrash |
+| POST | `/api/v1/gmail/filters` | Create filter |
+| GET | `/api/v1/gmail/filters` | List filters |
+| DELETE | `/api/v1/gmail/filters/{id}` | Delete filter |
+| GET | `/api/v1/gmail/threads` | List threads |
+| GET | `/api/v1/gmail/threads/{id}` | Get thread |
+| POST | `/api/v1/gmail/threads/{id}/archive` | Archive thread |
+| POST | `/api/v1/gmail/threads/{id}/trash` | Trash thread |
+| POST | `/api/v1/gmail/threads/{id}/labels` | Modify thread labels |
+| POST | `/api/v1/gmail/drafts` | Create draft |
+| GET | `/api/v1/gmail/drafts` | List drafts |
+| GET | `/api/v1/gmail/drafts/{id}` | Get draft |
+| PUT | `/api/v1/gmail/drafts/{id}` | Update draft |
+| DELETE | `/api/v1/gmail/drafts/{id}` | Delete draft |
+| POST | `/api/v1/gmail/drafts/{id}/send` | Send draft |
+| GET | `/api/v1/gmail/messages/{id}/attachments/{attachment_id}` | Get attachment |
+
+## Outlook/M365 API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/outlook/oauth/url` | OAuth authorization URL |
+| POST | `/api/v1/outlook/oauth/callback` | OAuth callback |
+| GET | `/api/v1/outlook/folders` | List mail folders |
+| GET | `/api/v1/outlook/messages` | List messages |
+| GET | `/api/v1/outlook/messages/{id}` | Get message details |
+| GET | `/api/v1/outlook/conversations/{id}` | Get conversation |
+| POST | `/api/v1/outlook/send` | Send message |
+| POST | `/api/v1/outlook/reply` | Reply to message |
+| GET | `/api/v1/outlook/search` | Search messages |
+| POST | `/api/v1/outlook/messages/{id}/read` | Mark read/unread |
+| POST | `/api/v1/outlook/messages/{id}/move` | Move message |
+| DELETE | `/api/v1/outlook/messages/{id}` | Delete message |
+
 ## Cost Visibility API
 
 Cost endpoints live under `/api/costs`. See `docs/COST_VISIBILITY.md` for
@@ -156,6 +216,17 @@ dashboard context.
 | GET | `/api/costs/alerts` | Budget alerts |
 | POST | `/api/costs/budget` | Set budget limits |
 | POST | `/api/costs/alerts/{alert_id}/dismiss` | Dismiss alert |
+
+## Chat Knowledge Bridge API
+
+Endpoints for chat + knowledge integration:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/chat/knowledge/search` | Search knowledge from chat |
+| POST | `/api/v1/chat/knowledge/inject` | Inject knowledge into conversation |
+| POST | `/api/v1/chat/knowledge/store` | Store chat as knowledge |
+| GET | `/api/v1/chat/knowledge/channel/{id}/summary` | Channel knowledge summary |
 
 ### New Endpoints (2026-01-22)
 

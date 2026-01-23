@@ -25,6 +25,7 @@ integration map and points to the detailed setup docs.
 | WhatsApp | `aragora/integrations/whatsapp.py` | WhatsApp Business API |
 | Zoom | `aragora/integrations/zoom.py` | Meeting summaries + alerts |
 | Email | `aragora/integrations/email.py` | Outbound notifications |
+| Outlook/M365 | `aragora/server/handlers/features/outlook.py` | Outlook email integration |
 | Receipt webhooks | `aragora/integrations/receipt_webhooks.py` | Decision receipt delivery |
 | Generic webhooks | `aragora/integrations/webhooks.py` | Event-driven webhooks |
 | Zapier | `aragora/integrations/zapier.py` | Workflow automation |

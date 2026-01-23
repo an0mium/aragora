@@ -210,6 +210,56 @@ POST /api/v1/email/gmail/oauth/callback
 }
 ```
 
+## Gmail Operations API
+
+Advanced Gmail endpoints for labels, threads, drafts, and message actions:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/gmail/labels` | Create label |
+| GET | `/api/v1/gmail/labels` | List labels |
+| PATCH | `/api/v1/gmail/labels/{id}` | Update label |
+| DELETE | `/api/v1/gmail/labels/{id}` | Delete label |
+| POST | `/api/v1/gmail/messages/{id}/labels` | Modify message labels |
+| POST | `/api/v1/gmail/messages/{id}/read` | Mark read/unread |
+| POST | `/api/v1/gmail/messages/{id}/star` | Star/unstar |
+| POST | `/api/v1/gmail/messages/{id}/archive` | Archive message |
+| POST | `/api/v1/gmail/messages/{id}/trash` | Trash/untrash |
+| POST | `/api/v1/gmail/filters` | Create filter |
+| GET | `/api/v1/gmail/filters` | List filters |
+| DELETE | `/api/v1/gmail/filters/{id}` | Delete filter |
+| GET | `/api/v1/gmail/threads` | List threads |
+| GET | `/api/v1/gmail/threads/{id}` | Get thread |
+| POST | `/api/v1/gmail/threads/{id}/archive` | Archive thread |
+| POST | `/api/v1/gmail/threads/{id}/trash` | Trash thread |
+| POST | `/api/v1/gmail/threads/{id}/labels` | Modify thread labels |
+| POST | `/api/v1/gmail/drafts` | Create draft |
+| GET | `/api/v1/gmail/drafts` | List drafts |
+| GET | `/api/v1/gmail/drafts/{id}` | Get draft |
+| PUT | `/api/v1/gmail/drafts/{id}` | Update draft |
+| DELETE | `/api/v1/gmail/drafts/{id}` | Delete draft |
+| POST | `/api/v1/gmail/drafts/{id}/send` | Send draft |
+| GET | `/api/v1/gmail/messages/{id}/attachments/{attachment_id}` | Get attachment |
+
+## Outlook Integration
+
+Outlook/Microsoft 365 email integration is available under `/api/v1/outlook`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/outlook/oauth/url` | OAuth authorization URL |
+| POST | `/api/v1/outlook/oauth/callback` | OAuth callback |
+| GET | `/api/v1/outlook/folders` | List mail folders |
+| GET | `/api/v1/outlook/messages` | List messages |
+| GET | `/api/v1/outlook/messages/{id}` | Get message details |
+| GET | `/api/v1/outlook/conversations/{id}` | Get conversation thread |
+| POST | `/api/v1/outlook/send` | Send new message |
+| POST | `/api/v1/outlook/reply` | Reply to message |
+| GET | `/api/v1/outlook/search` | Search messages |
+| POST | `/api/v1/outlook/messages/{id}/read` | Mark read/unread |
+| POST | `/api/v1/outlook/messages/{id}/move` | Move message |
+| DELETE | `/api/v1/outlook/messages/{id}` | Delete message |
+
 ## Inbox UI Surfaces
 
 The control plane UI includes inbox components for daily summary, bulk actions,
@@ -218,10 +268,24 @@ and sender-level insights:
 - `DailyDigestWidget` (`aragora/live/src/components/inbox/DailyDigestWidget.tsx`)
   renders a daily digest panel and calls `/api/email/daily-digest` with a local
   mock fallback.
+- `CommandCenter` (`aragora/live/src/components/inbox/CommandCenter.tsx`)
+  powers the inbox command center experience and bulk operations.
+- `PriorityInboxList` (`aragora/live/src/components/inbox/PriorityInboxList.tsx`)
+  renders prioritized inbox items and scoring metadata.
 - `QuickActionsBar` (`aragora/live/src/components/inbox/QuickActionsBar.tsx`)
   provides single-email and bulk actions (archive, snooze, reprioritize).
 - `SenderInsightsPanel` (`aragora/live/src/components/inbox/SenderInsightsPanel.tsx`)
   surfaces sender profile statistics, AI analysis, and quick actions.
+- `FollowUpPanel` (`aragora/live/src/components/inbox/FollowUpPanel.tsx`)
+  highlights pending follow-ups and overdue threads.
+- `SnoozePanel` (`aragora/live/src/components/inbox/SnoozePanel.tsx`)
+  shows smart snooze suggestions.
+- `TriageRulesPanel` (`aragora/live/src/components/inbox/TriageRulesPanel.tsx`)
+  manages inbox triage rules and automations.
+- `InboxStatsCards` (`aragora/live/src/components/inbox/InboxStatsCards.tsx`)
+  summarizes inbox KPIs.
+- `SharedInboxWidget` (`aragora/live/src/components/inbox/SharedInboxWidget.tsx`)
+  links shared inbox metrics into the inbox UI.
 
 ## Shared Inbox & Routing Rules
 

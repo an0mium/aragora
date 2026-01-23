@@ -277,6 +277,23 @@ async def shared_inbox_example():
 asyncio.run(shared_inbox_example())
 ```
 
+### Knowledge Chat Bridge
+
+```python
+async def knowledge_chat_search():
+    """Search knowledge from a chat context."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        response = await client.post("/api/v1/chat/knowledge/search", json={
+            "query": "What is our remote work policy?",
+            "workspace_id": "default",
+            "channel_id": "C123456",
+            "scope": "workspace",
+        })
+        print(response.json())
+
+asyncio.run(knowledge_chat_search())
+```
+
 ### Gauntlet Compliance Audit
 
 ```python
