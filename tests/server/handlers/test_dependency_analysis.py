@@ -11,6 +11,7 @@ Tests cover:
 
 from __future__ import annotations
 
+import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -23,6 +24,18 @@ from aragora.server.handlers.dependency_analysis import (
     get_dependency_analyzer,
     DependencyAnalysisHandler,
 )
+from aragora.server.handlers.utils.responses import HandlerResult
+
+
+def parse_result(result: HandlerResult) -> dict:
+    """Parse HandlerResult body to dict for assertions."""
+    data = json.loads(result.body.decode("utf-8"))
+    # Add status from the HandlerResult for convenience
+    data["status"] = result.status_code
+    # Normalize success field - if "error" exists, it's a failure
+    if "success" not in data:
+        data["success"] = "error" not in data
+    return data
 
 
 class TestDependencyAnalysisRoutes:
@@ -58,7 +71,7 @@ class TestAnalyzeDependencies:
     @pytest.mark.asyncio
     async def test_missing_repo_path(self):
         """Returns error when repo_path is missing."""
-        result = await handle_analyze_dependencies({})
+        result = parse_result(await handle_analyze_dependencies({}))
 
         assert result["success"] is False
         assert result["status"] == 400
@@ -67,8 +80,10 @@ class TestAnalyzeDependencies:
     @pytest.mark.asyncio
     async def test_nonexistent_path(self):
         """Returns error for nonexistent path."""
-        result = await handle_analyze_dependencies(
-            {"repo_path": "/nonexistent/path/that/does/not/exist"}
+        result = parse_result(
+            await handle_analyze_dependencies(
+                {"repo_path": "/nonexistent/path/that/does/not/exist"}
+            )
         )
 
         assert result["success"] is False
@@ -93,11 +108,13 @@ class TestAnalyzeDependencies:
             mock_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
             mock_get.return_value = mock_analyzer
 
-            result = await handle_analyze_dependencies(
-                {
-                    "repo_path": str(tmp_path),
-                    "use_cache": True,
-                }
+            result = parse_result(
+                await handle_analyze_dependencies(
+                    {
+                        "repo_path": str(tmp_path),
+                        "use_cache": True,
+                    }
+                )
             )
 
             assert result["success"] is True
@@ -110,7 +127,7 @@ class TestGenerateSBOM:
     @pytest.mark.asyncio
     async def test_missing_repo_path(self):
         """Returns error when repo_path is missing."""
-        result = await handle_generate_sbom({})
+        result = parse_result(await handle_generate_sbom({}))
 
         assert result["success"] is False
         assert result["status"] == 400
@@ -121,11 +138,13 @@ class TestGenerateSBOM:
         """Returns error for invalid SBOM format."""
         (tmp_path / "requirements.txt").write_text("requests==2.31.0\n")
 
-        result = await handle_generate_sbom(
-            {
-                "repo_path": str(tmp_path),
-                "format": "invalid_format",
-            }
+        result = parse_result(
+            await handle_generate_sbom(
+                {
+                    "repo_path": str(tmp_path),
+                    "format": "invalid_format",
+                }
+            )
         )
 
         assert result["success"] is False
@@ -149,11 +168,13 @@ class TestGenerateSBOM:
             mock_analyzer.generate_sbom = MagicMock(return_value='{"bomFormat": "CycloneDX"}')
             mock_get.return_value = mock_analyzer
 
-            result = await handle_generate_sbom(
-                {
-                    "repo_path": str(tmp_path),
-                    "format": "cyclonedx",
-                }
+            result = parse_result(
+                await handle_generate_sbom(
+                    {
+                        "repo_path": str(tmp_path),
+                        "format": "cyclonedx",
+                    }
+                )
             )
 
             assert result["success"] is True
@@ -166,7 +187,7 @@ class TestScanVulnerabilities:
     @pytest.mark.asyncio
     async def test_missing_repo_path(self):
         """Returns error when repo_path is missing."""
-        result = await handle_scan_vulnerabilities({})
+        result = parse_result(await handle_scan_vulnerabilities({}))
 
         assert result["success"] is False
         assert result["status"] == 400
@@ -189,16 +210,21 @@ class TestScanVulnerabilities:
             mock_vuln = MagicMock()
             mock_vuln.cve_id = "CVE-2023-1234"
             mock_vuln.package = "requests"
-            mock_vuln.severity = "HIGH"
+            # severity is an enum with .value attribute
+            mock_severity = MagicMock()
+            mock_severity.value = "HIGH"
+            mock_vuln.severity = mock_severity
             mock_vuln.description = "Test vulnerability"
             mock_vuln.fix_version = "2.32.0"
             mock_analyzer.check_vulnerabilities = AsyncMock(return_value=[mock_vuln])
             mock_get.return_value = mock_analyzer
 
-            result = await handle_scan_vulnerabilities(
-                {
-                    "repo_path": str(tmp_path),
-                }
+            result = parse_result(
+                await handle_scan_vulnerabilities(
+                    {
+                        "repo_path": str(tmp_path),
+                    }
+                )
             )
 
             assert result["success"] is True
@@ -212,7 +238,7 @@ class TestCheckLicenses:
     @pytest.mark.asyncio
     async def test_missing_repo_path(self):
         """Returns error when repo_path is missing."""
-        result = await handle_check_licenses({})
+        result = parse_result(await handle_check_licenses({}))
 
         assert result["success"] is False
         assert result["status"] == 400
@@ -241,11 +267,13 @@ class TestCheckLicenses:
             mock_analyzer.check_license_compatibility = AsyncMock(return_value=[mock_conflict])
             mock_get.return_value = mock_analyzer
 
-            result = await handle_check_licenses(
-                {
-                    "repo_path": str(tmp_path),
-                    "project_license": "MIT",
-                }
+            result = parse_result(
+                await handle_check_licenses(
+                    {
+                        "repo_path": str(tmp_path),
+                        "project_license": "MIT",
+                    }
+                )
             )
 
             assert result["success"] is True
@@ -268,7 +296,7 @@ class TestClearCache:
         with _analysis_cache_lock:
             _analysis_cache["test_key"] = {"test": "data"}
 
-        result = await handle_clear_cache()
+        result = parse_result(await handle_clear_cache())
 
         assert result["success"] is True
         assert result["data"]["cleared"] is True
@@ -305,7 +333,9 @@ class TestHandlerIntegration:
             "aragora.server.handlers.dependency_analysis.handle_analyze_dependencies",
             new_callable=AsyncMock,
         ) as mock:
-            mock.return_value = {"success": True, "data": {}}
+            from aragora.server.handlers.utils.responses import success_response
+
+            mock.return_value = success_response({"test": "data"})
             result = await handler.handle_post(
                 "/api/v1/codebase/analyze-dependencies",
                 {"repo_path": "/test"},
@@ -318,5 +348,6 @@ class TestHandlerIntegration:
         handler = DependencyAnalysisHandler({})
         result = await handler.handle_post("/api/v1/unknown", {})
 
-        assert result["success"] is False
-        assert result["status"] == 404
+        parsed = parse_result(result)
+        assert parsed["success"] is False
+        assert parsed["status"] == 404
