@@ -27,6 +27,12 @@ class SnoozeStore(SQLiteStore):
     SCHEMA_NAME = "snooze_store"
     SCHEMA_VERSION = 1
 
+    # Explicit column list for SELECT queries (avoids SELECT *)
+    _COLUMNS = (
+        "id, email_id, user_id, thread_id, subject, sender, "
+        "snooze_until, label, reason, snoozed_at, woken_at, status, created_at"
+    )
+
     INITIAL_SCHEMA = """
         CREATE TABLE IF NOT EXISTS snoozes (
             id TEXT PRIMARY KEY,
@@ -80,7 +86,7 @@ class SnoozeStore(SQLiteStore):
     def get_snooze(self, email_id: str) -> dict[str, Any] | None:
         """Get snooze by email ID."""
         row = self.fetch_one(
-            "SELECT * FROM snoozes WHERE email_id = ? AND status = 'active'",
+            f"SELECT {self._COLUMNS} FROM snoozes WHERE email_id = ? AND status = 'active'",
             (email_id,),
         )
         return dict(row) if row else None
@@ -92,8 +98,8 @@ class SnoozeStore(SQLiteStore):
     ) -> list[dict[str, Any]]:
         """Get all active snoozes for a user."""
         rows = self.fetch_all(
-            """
-            SELECT * FROM snoozes
+            f"""
+            SELECT {self._COLUMNS} FROM snoozes
             WHERE user_id = ? AND status = 'active'
             ORDER BY snooze_until ASC
             LIMIT ?
@@ -107,8 +113,8 @@ class SnoozeStore(SQLiteStore):
         now = datetime.now().isoformat()
         if user_id:
             rows = self.fetch_all(
-                """
-                SELECT * FROM snoozes
+                f"""
+                SELECT {self._COLUMNS} FROM snoozes
                 WHERE user_id = ? AND status = 'active' AND snooze_until <= ?
                 ORDER BY snooze_until ASC
                 """,
@@ -116,8 +122,8 @@ class SnoozeStore(SQLiteStore):
             )
         else:
             rows = self.fetch_all(
-                """
-                SELECT * FROM snoozes
+                f"""
+                SELECT {self._COLUMNS} FROM snoozes
                 WHERE status = 'active' AND snooze_until <= ?
                 ORDER BY snooze_until ASC
                 """,
