@@ -439,7 +439,7 @@ class SecretsScanner:
             findings_lists = await asyncio.gather(*tasks, return_exceptions=True)
 
             for findings in findings_lists:
-                if isinstance(findings, Exception):
+                if isinstance(findings, BaseException):
                     continue
                 result.secrets.extend(findings)
 

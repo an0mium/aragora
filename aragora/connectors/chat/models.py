@@ -405,9 +405,8 @@ class ChannelContext:
             "metadata": self.metadata,
         }
 
-    @classmethod
+    @staticmethod
     def from_message(
-        cls,
         message: ChatMessage,
         query: Optional[str] = None,
         relevance_score: float = 1.0,
@@ -419,7 +418,7 @@ class ChannelContext:
             f"{message.platform}:{message.channel.id}:{message.id}".encode()
         ).hexdigest()[:16]
 
-        return cls(
+        return ChatEvidence(
             id=evidence_id,
             source_id=message.id,
             platform=message.platform,

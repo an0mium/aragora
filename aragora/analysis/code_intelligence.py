@@ -805,9 +805,9 @@ class CodeIntelligence:
                 prev = prev.prev_sibling
 
             # Analyze methods and properties
-            methods = []
-            properties = []
-            class_variables = []
+            methods: list[FunctionInfo] = []
+            properties: list[str] = []
+            class_variables: list[str] = []
 
             if body_node:
                 for child in body_node.children:

@@ -484,7 +484,10 @@ class RoutingRulesEngine:
     def _execute_actions(self, actions: list[Action], context: dict[str, Any]) -> None:
         """Execute a list of actions."""
         for action in actions:
-            handler = self._action_handlers.get(action.type)
+            action_type = (
+                action.type if isinstance(action.type, ActionType) else ActionType(action.type)
+            )
+            handler = self._action_handlers.get(action_type)
             if handler:
                 handler(action, context)
 
