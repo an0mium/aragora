@@ -568,9 +568,9 @@ class ConsensusAdapter:
                 logger.debug(f"Semantic search failed, falling back: {e}")
 
             # Fallback to keyword search
-            results = self.search_similar(query, limit=limit, min_confidence=min_similarity)  # type: ignore[attr-defined,call-arg]
-            success = True  # type: ignore[assignment,possibly-undefined]
-            return results
+            results = self.search_similar(query, limit=limit, min_confidence=min_similarity)  # type: ignore[attr-defined,call-arg,assignment]
+            success = True  # type: ignore[possibly-undefined]
+            return results  # type: ignore[return-value]
 
         finally:
             self._record_metric("semantic_search", success, time.time() - start)

@@ -258,8 +258,8 @@ class CronParser:
                 return list(range(start, max_val + 1, step))
 
         if "-" in field_str:
-            start, end = field_str.split("-")
-            return list(range(int(start), int(end) + 1))  # type: ignore[return-value]
+            range_start, range_end = field_str.split("-")
+            return list(range(int(range_start), int(range_end) + 1))
 
         if "," in field_str:
             return [int(v) for v in field_str.split(",")]
@@ -581,7 +581,7 @@ class FederationScheduler:
         try:
             from aragora.knowledge.mound import get_knowledge_mound
 
-            mound = await get_knowledge_mound(config.workspace_id)  # type: ignore[arg-type]
+            mound = get_knowledge_mound(config.workspace_id)  # type: ignore[arg-type]
 
             if config.sync_mode in (SyncMode.PUSH, SyncMode.BIDIRECTIONAL):
                 # Push to remote

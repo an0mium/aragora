@@ -19,7 +19,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.core import KnowledgeMound  # type: ignore[attr-defined]
@@ -789,7 +789,7 @@ class ControlPlaneAdapter:
             )
 
         # Sort by combined score
-        recommendations.sort(key=lambda r: r["combined_score"], reverse=True)
+        recommendations.sort(key=lambda r: cast(float, r["combined_score"]), reverse=True)
 
         return recommendations[:top_n]
 
