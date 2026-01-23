@@ -2,9 +2,9 @@
 Decision Router HTTP Handler.
 
 Provides REST API endpoints for unified decision-making capabilities:
-- POST /api/decisions - Create a new decision request (debate, workflow, gauntlet)
-- GET  /api/decisions/:id - Get decision result by ID
-- GET  /api/decisions/:id/status - Get decision status for polling
+- POST /api/v1/decisions - Create a new decision request (debate, workflow, gauntlet)
+- GET  /api/v1/decisions/:id - Get decision result by ID
+- GET  /api/v1/decisions/:id/status - Get decision status for polling
 
 Usage:
     # In unified_server.py
