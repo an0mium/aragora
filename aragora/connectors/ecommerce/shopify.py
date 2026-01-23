@@ -432,7 +432,8 @@ class ShopifyConnector(EnterpriseConnector):
         endpoint: str,
         params: Optional[Dict[str, Any]] = None,
         json_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        return_headers: bool = False,
+    ) -> Any:
         """Make an API request to Shopify.
 
         Args:
@@ -440,9 +441,10 @@ class ShopifyConnector(EnterpriseConnector):
             endpoint: API endpoint (e.g., /orders.json)
             params: Query parameters
             json_data: JSON body data
+            return_headers: If True, returns (data, headers) tuple
 
         Returns:
-            Response JSON data
+            Response JSON data, or (data, headers) if return_headers=True
         """
         if not self._session:
             await self.connect()
@@ -452,7 +454,40 @@ class ShopifyConnector(EnterpriseConnector):
             if resp.status >= 400:
                 error_text = await resp.text()
                 raise Exception(f"Shopify API error {resp.status}: {error_text}")
-            return await resp.json()
+            data = await resp.json()
+            if return_headers:
+                return data, dict(resp.headers)
+            return data
+
+    def _parse_link_header(self, link_header: Optional[str]) -> Optional[str]:
+        """Parse the Link header to extract next page_info.
+
+        Shopify uses cursor-based pagination with Link headers:
+        <url>; rel="next", <url>; rel="previous"
+
+        Args:
+            link_header: The Link header value
+
+        Returns:
+            The page_info parameter for the next page, or None if no next page
+        """
+        if not link_header:
+            return None
+
+        import re
+
+        # Find the "next" link
+        for part in link_header.split(","):
+            if 'rel="next"' in part:
+                # Extract URL from <url>
+                match = re.search(r"<([^>]+)>", part)
+                if match:
+                    url = match.group(1)
+                    # Extract page_info from URL
+                    page_info_match = re.search(r"page_info=([^&]+)", url)
+                    if page_info_match:
+                        return page_info_match.group(1)
+        return None
 
     # =========================================================================
     # Orders
@@ -484,19 +519,25 @@ class ShopifyConnector(EnterpriseConnector):
         page_info = None
         while True:
             if page_info:
+                # When using page_info, only include it and limit (other params are encoded in cursor)
                 params = {"page_info": page_info, "limit": limit}
 
-            data = await self._request("GET", "/orders.json", params=params)
+            data, headers = await self._request(
+                "GET", "/orders.json", params=params, return_headers=True
+            )
 
-            for order_data in data.get("orders", []):
+            orders = data.get("orders", [])
+            for order_data in orders:
                 yield self._parse_order(order_data)
 
-            # Handle pagination via Link header
-            # In real implementation, parse the Link header for page_info
-            if len(data.get("orders", [])) < limit:
+            # Check if we got fewer items than limit (last page)
+            if len(orders) < limit:
                 break
-            page_info = None  # Would be extracted from response headers
-            break  # Simplified: single page for now
+
+            # Parse Link header for next page cursor
+            page_info = self._parse_link_header(headers.get("Link") or headers.get("link"))
+            if not page_info:
+                break
 
     def _parse_order(self, data: Dict[str, Any]) -> ShopifyOrder:
         """Parse order data from API response."""

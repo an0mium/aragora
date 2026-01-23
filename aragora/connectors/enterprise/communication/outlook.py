@@ -129,6 +129,21 @@ class OutlookConnector(EnterpriseConnector):
     def name(self) -> str:
         return "Outlook"
 
+    @property
+    def access_token(self) -> Optional[str]:
+        """Expose current access token (if available)."""
+        return self._access_token
+
+    @property
+    def refresh_token(self) -> Optional[str]:
+        """Expose current refresh token (if available)."""
+        return self._refresh_token
+
+    @property
+    def token_expiry(self) -> Optional[datetime]:
+        """Expose access token expiry (if available)."""
+        return self._token_expiry
+
     def is_configured(self) -> bool:
         """Check if connector has required configuration."""
         import os

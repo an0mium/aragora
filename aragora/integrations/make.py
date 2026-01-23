@@ -98,7 +98,7 @@ class MakeIntegration(BaseIntegration):
     """
 
     # Module types (triggers and actions)
-    MODULE_TYPES = {
+    MODULE_TYPES: Dict[str, Dict[str, Any]] = {
         # Instant triggers (webhook-based)
         "watch_debates": {
             "type": "trigger",

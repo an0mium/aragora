@@ -381,7 +381,7 @@ class ZapierIntegration(BaseIntegration):
         self,
         trigger: ZapierTrigger,
         event_data: Dict[str, Any],
-    ) -> Dict[str, Any]:
+    ) -> List[Dict[str, Any]]:
         """Format event data for Zapier trigger payload.
 
         Zapier expects a list of objects, even for single events.

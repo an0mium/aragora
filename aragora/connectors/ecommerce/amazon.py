@@ -316,27 +316,79 @@ class AmazonConnector(EnterpriseConnector):
         self,
         credentials: AmazonCredentials,
         sandbox: bool = False,
+        use_mock: bool = True,
     ):
         """Initialize Amazon SP-API connector.
 
         Args:
             credentials: Amazon SP-API credentials
             sandbox: Use sandbox environment
+            use_mock: Use mock data instead of real API (default: True)
+                      Set to False when python-amazon-sp-api is installed
+                      and valid credentials are provided.
         """
         super().__init__(connector_id="amazon", name="amazon", source_type=SourceType.EXTERNAL_API)
         self.amazon_credentials = credentials
         self.sandbox = sandbox
+        self.use_mock = use_mock
         self._client = None
+        self._sp_api_available = False
+
+        # Check if SP-API library is available
+        try:
+            from sp_api.api import Orders, FbaInventory  # noqa: F401
+
+            self._sp_api_available = True
+            if use_mock:
+                logger.info("python-amazon-sp-api is available but use_mock=True, using mock data")
+        except ImportError:
+            if not use_mock:
+                logger.warning(
+                    "python-amazon-sp-api not installed, falling back to mock data. "
+                    "Install with: pip install python-amazon-sp-api"
+                )
+                self.use_mock = True
 
     async def connect(self) -> bool:
         """Establish connection to Amazon SP-API."""
         try:
-            # Note: In production, use python-amazon-sp-api library
-            # This is a simplified implementation
-            logger.info(
-                f"Connecting to Amazon SP-API (marketplace: {self.amazon_credentials.marketplace_id})"
-            )
-            return True
+            if self.use_mock:
+                logger.info(
+                    f"Amazon SP-API connector initialized in mock mode "
+                    f"(marketplace: {self.amazon_credentials.marketplace_id})"
+                )
+                return True
+
+            if self._sp_api_available:
+                # Initialize real SP-API client
+                from sp_api.base import Marketplaces
+
+                marketplace_map = {
+                    AmazonMarketplace.US.value: Marketplaces.US,
+                    AmazonMarketplace.UK.value: Marketplaces.UK,
+                    AmazonMarketplace.DE.value: Marketplaces.DE,
+                    AmazonMarketplace.CA.value: Marketplaces.CA,
+                }
+                marketplace = marketplace_map.get(
+                    self.amazon_credentials.marketplace_id, Marketplaces.US
+                )
+
+                self._sp_credentials = {
+                    "refresh_token": self.amazon_credentials.refresh_token,
+                    "lwa_app_id": self.amazon_credentials.client_id,
+                    "lwa_client_secret": self.amazon_credentials.client_secret,
+                    "aws_access_key": self.amazon_credentials.aws_access_key,
+                    "aws_secret_key": self.amazon_credentials.aws_secret_key,
+                    "role_arn": self.amazon_credentials.role_arn,
+                }
+                self._marketplace = marketplace
+
+                logger.info(
+                    f"Connecting to Amazon SP-API (marketplace: {self.amazon_credentials.marketplace_id})"
+                )
+                return True
+
+            return False
         except Exception as e:
             logger.error(f"Failed to connect to Amazon SP-API: {e}")
             return False
@@ -365,23 +417,92 @@ class AmazonConnector(EnterpriseConnector):
         Yields:
             AmazonOrder objects
         """
-        # Mock implementation - would use SP-API Orders API
         logger.info(f"Syncing Amazon orders since {since}")
 
-        # In real implementation:
-        # 1. Call Orders.getOrders() with filters
-        # 2. For each order, call Orders.getOrderItems()
-        # 3. Paginate using NextToken
+        if self.use_mock:
+            # Return mock data for testing
+            for order in get_mock_orders():
+                if since and order.last_update_date < since:
+                    continue
+                if status and order.order_status not in status:
+                    continue
+                if fulfillment_channels and order.fulfillment_channel not in fulfillment_channels:
+                    continue
+                yield order
+            return
 
-        # Return mock data for testing
-        for order in get_mock_orders():
-            if since and order.last_update_date < since:
-                continue
-            if status and order.order_status not in status:
-                continue
-            if fulfillment_channels and order.fulfillment_channel not in fulfillment_channels:
-                continue
-            yield order
+        # Real SP-API implementation
+        if self._sp_api_available:
+            from sp_api.api import Orders
+
+            orders_api = Orders(credentials=self._sp_credentials, marketplace=self._marketplace)
+
+            # Build filter params
+            params: Dict[str, Any] = {}
+            if since:
+                params["LastUpdatedAfter"] = since.isoformat()
+            if status:
+                params["OrderStatuses"] = [s.value for s in status]
+            if fulfillment_channels:
+                params["FulfillmentChannels"] = [fc.value for fc in fulfillment_channels]
+
+            # Paginate through orders
+            next_token = None
+            while True:
+                if next_token:
+                    response = orders_api.get_orders(NextToken=next_token)
+                else:
+                    response = orders_api.get_orders(**params)
+
+                orders_data = response.payload.get("Orders", [])
+                for order_data in orders_data:
+                    yield self._parse_sp_api_order(order_data)
+
+                next_token = response.payload.get("NextToken")
+                if not next_token:
+                    break
+
+    def _parse_sp_api_order(self, data: Dict[str, Any]) -> AmazonOrder:
+        """Parse SP-API order response into AmazonOrder dataclass."""
+        # Parse shipping address
+        shipping = data.get("ShippingAddress", {})
+        shipping_address = (
+            AmazonAddress(
+                name=shipping.get("Name"),
+                address_line1=shipping.get("AddressLine1"),
+                address_line2=shipping.get("AddressLine2"),
+                address_line3=shipping.get("AddressLine3"),
+                city=shipping.get("City"),
+                state_or_region=shipping.get("StateOrRegion"),
+                postal_code=shipping.get("PostalCode"),
+                country_code=shipping.get("CountryCode"),
+                phone=shipping.get("Phone"),
+            )
+            if shipping
+            else None
+        )
+
+        return AmazonOrder(
+            amazon_order_id=data["AmazonOrderId"],
+            seller_order_id=data.get("SellerOrderId"),
+            purchase_date=datetime.fromisoformat(data["PurchaseDate"].replace("Z", "+00:00")),
+            last_update_date=datetime.fromisoformat(data["LastUpdateDate"].replace("Z", "+00:00")),
+            order_status=AmazonOrderStatus(data["OrderStatus"]),
+            fulfillment_channel=FulfillmentChannel(data.get("FulfillmentChannel", "MFN")),
+            sales_channel=data.get("SalesChannel", "Amazon.com"),
+            order_total=Decimal(str(data["OrderTotal"]["Amount"]))
+            if data.get("OrderTotal")
+            else Decimal("0.00"),
+            currency_code=data.get("OrderTotal", {}).get("CurrencyCode", "USD"),
+            number_of_items_shipped=data.get("NumberOfItemsShipped", 0),
+            number_of_items_unshipped=data.get("NumberOfItemsUnshipped", 0),
+            buyer_email=data.get("BuyerEmail"),
+            buyer_name=data.get("BuyerName"),
+            shipping_address=shipping_address,
+            is_business_order=data.get("IsBusinessOrder", False),
+            is_prime=data.get("IsPrime", False),
+            order_items=[],  # Items fetched separately via get_order_items
+        )
 
     async def get_order(self, order_id: str) -> Optional[AmazonOrder]:
         """Get a single order by ID.
