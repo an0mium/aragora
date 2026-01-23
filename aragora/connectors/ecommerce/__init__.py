@@ -58,6 +58,23 @@ from aragora.connectors.ecommerce.woocommerce import (
     get_mock_woo_orders,
     get_mock_woo_products,
 )
+from aragora.connectors.ecommerce.shipstation import (
+    ShipStationConnector,
+    ShipStationCredentials,
+    ShipStationAddress,
+    ShipStationOrder,
+    OrderItem as ShipStationOrderItem,
+    Shipment,
+    ShipmentStatus,
+    Carrier,
+    CarrierService,
+    RateQuote,
+    Warehouse,
+    ShipStationError,
+    OrderStatus as ShipStationOrderStatus,
+    get_mock_order as get_mock_shipstation_order,
+    get_mock_shipment,
+)
 
 __all__ = [
     # Shopify
@@ -105,4 +122,20 @@ __all__ = [
     "WooStockStatus",
     "get_mock_woo_orders",
     "get_mock_woo_products",
+    # ShipStation
+    "ShipStationConnector",
+    "ShipStationCredentials",
+    "ShipStationAddress",
+    "ShipStationOrder",
+    "ShipStationOrderItem",
+    "Shipment",
+    "ShipmentStatus",
+    "Carrier",
+    "CarrierService",
+    "RateQuote",
+    "Warehouse",
+    "ShipStationError",
+    "ShipStationOrderStatus",
+    "get_mock_shipstation_order",
+    "get_mock_shipment",
 ]
