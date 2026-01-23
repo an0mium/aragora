@@ -31,6 +31,15 @@ from .metrics import (
     FunctionMetrics,
     DuplicateBlock,
 )
+from .sast_scanner import (
+    SASTScanner,
+    SASTScanResult,
+    SASTFinding,
+    SASTSeverity,
+    SASTConfig,
+    OWASPCategory,
+    scan_for_vulnerabilities,
+)
 
 __all__ = [
     # Models
@@ -56,4 +65,12 @@ __all__ = [
     "FileMetrics",
     "FunctionMetrics",
     "DuplicateBlock",
+    # SAST Scanner
+    "SASTScanner",
+    "SASTScanResult",
+    "SASTFinding",
+    "SASTSeverity",
+    "SASTConfig",
+    "OWASPCategory",
+    "scan_for_vulnerabilities",
 ]

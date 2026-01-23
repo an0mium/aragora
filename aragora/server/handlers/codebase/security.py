@@ -30,6 +30,8 @@ from aragora.analysis.codebase import (
     ScanResult,
     SecretsScanner,
     SecretsScanResult,
+    SASTScanner,
+    SASTScanResult,
 )
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -84,6 +86,16 @@ def _get_secrets_scanner() -> SecretsScanner:
     return registry.resolve(SecretsScanner)
 
 
+def _get_sast_scanner() -> SASTScanner:
+    """Get or create SASTScanner from service registry."""
+    registry = ServiceRegistry.get()
+    if not registry.has(SASTScanner):
+        scanner = SASTScanner()
+        registry.register(SASTScanner, scanner)
+        logger.info("Registered SASTScanner with service registry")
+    return registry.resolve(SASTScanner)
+
+
 # =============================================================================
 # In-Memory Storage (replace with database in production)
 # =============================================================================
@@ -96,6 +108,11 @@ _running_scans: Dict[str, asyncio.Task] = {}
 _secrets_scan_results: Dict[str, Dict[str, SecretsScanResult]] = {}
 _secrets_scan_lock = threading.Lock()
 _running_secrets_scans: Dict[str, asyncio.Task] = {}
+
+# SAST scan storage
+_sast_scan_results: Dict[str, Dict[str, SASTScanResult]] = {}
+_sast_scan_lock = threading.Lock()
+_running_sast_scans: Dict[str, asyncio.Task] = {}
 
 
 def _get_or_create_repo_scans(repo_id: str) -> Dict[str, ScanResult]:
@@ -1144,3 +1161,311 @@ class SecurityHandler(BaseHandler):
         if auth_ctx and hasattr(auth_ctx, "user_id"):
             return auth_ctx.user_id
         return "default"
+
+    async def handle_scan_sast(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+        """POST /api/v1/codebase/{repo}/scan/sast"""
+        result = await handle_scan_sast(
+            repo_path=params.get("repo_path", ""),
+            repo_id=repo_id,
+            rule_sets=params.get("rule_sets"),
+            workspace_id=params.get("workspace_id"),
+        )
+
+        if result.get("success"):
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 400)
+
+    async def handle_get_sast_scan_status(
+        self, params: Dict[str, Any], repo_id: str, scan_id: str
+    ) -> HandlerResult:
+        """GET /api/v1/codebase/{repo}/scan/sast/{scan_id}"""
+        result = await handle_get_sast_scan_status(repo_id=repo_id, scan_id=scan_id)
+
+        if result.get("success"):
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 404)
+
+    async def handle_get_sast_findings(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+        """GET /api/v1/codebase/{repo}/sast/findings"""
+        result = await handle_get_sast_findings(
+            repo_id=repo_id,
+            severity=params.get("severity"),
+            owasp_category=params.get("owasp_category"),
+            limit=int(params.get("limit", 100)),
+            offset=int(params.get("offset", 0)),
+        )
+
+        if result.get("success"):
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 400)
+
+    async def handle_get_owasp_summary(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+        """GET /api/v1/codebase/{repo}/sast/owasp-summary"""
+        result = await handle_get_owasp_summary(repo_id=repo_id)
+
+        if result.get("success"):
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 400)
+
+
+# =============================================================================
+# SAST Scan Handlers
+# =============================================================================
+
+
+async def handle_scan_sast(
+    repo_path: str,
+    repo_id: Optional[str] = None,
+    rule_sets: Optional[list] = None,
+    workspace_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Trigger a SAST scan for a repository.
+
+    POST /api/v1/codebase/{repo}/scan/sast
+    {
+        "repo_path": "/path/to/repo",
+        "rule_sets": ["p/owasp-top-ten", "p/security-audit"]
+    }
+    """
+    try:
+        repo_id = repo_id or f"repo_{uuid.uuid4().hex[:12]}"
+        scan_id = f"sast_{uuid.uuid4().hex[:12]}"
+
+        # Check if scan already running
+        if repo_id in _running_sast_scans:
+            task = _running_sast_scans[repo_id]
+            if not task.done():
+                return {
+                    "success": False,
+                    "error": "SAST scan already in progress",
+                    "scan_id": None,
+                }
+
+        # Get or create storage
+        with _sast_scan_lock:
+            if repo_id not in _sast_scan_results:
+                _sast_scan_results[repo_id] = {}
+
+        # Start async scan
+        async def run_sast_scan():
+            try:
+                scanner = _get_sast_scanner()
+                await scanner.initialize()
+
+                result = await scanner.scan_repository(
+                    repo_path=repo_path,
+                    rule_sets=rule_sets,
+                    scan_id=scan_id,
+                )
+
+                # Store result
+                with _sast_scan_lock:
+                    _sast_scan_results[repo_id][scan_id] = result
+
+                logger.info(
+                    f"[SAST] Completed scan {scan_id} for {repo_id}: "
+                    f"{len(result.findings)} findings"
+                )
+
+                # Emit security events for critical/high findings
+                critical_findings = [
+                    f for f in result.findings if f.severity.value in ("critical", "error")
+                ]
+                if critical_findings:
+                    await _emit_sast_events(result, repo_id, scan_id, workspace_id)
+
+            except Exception as e:
+                logger.exception(f"[SAST] Scan failed for {repo_id}: {e}")
+            finally:
+                if repo_id in _running_sast_scans:
+                    del _running_sast_scans[repo_id]
+
+        task = asyncio.create_task(run_sast_scan())
+        _running_sast_scans[repo_id] = task
+
+        return {
+            "success": True,
+            "message": "SAST scan started",
+            "scan_id": scan_id,
+            "repo_id": repo_id,
+        }
+
+    except Exception as e:
+        logger.exception(f"[SAST] Failed to start scan: {e}")
+        return {"success": False, "error": str(e)}
+
+
+async def handle_get_sast_scan_status(
+    repo_id: str,
+    scan_id: str,
+) -> Dict[str, Any]:
+    """Get status and results of a SAST scan."""
+    try:
+        with _sast_scan_lock:
+            if repo_id not in _sast_scan_results:
+                return {"success": False, "error": "Repository not found"}
+
+            repo_scans = _sast_scan_results[repo_id]
+            if scan_id not in repo_scans:
+                # Check if still running
+                if repo_id in _running_sast_scans:
+                    return {
+                        "success": True,
+                        "scan_id": scan_id,
+                        "status": "running",
+                        "findings_count": 0,
+                    }
+                return {"success": False, "error": "Scan not found"}
+
+            result = repo_scans[scan_id]
+            return {
+                "success": True,
+                "scan_id": scan_id,
+                "status": "completed",
+                **result.to_dict(),
+            }
+
+    except Exception as e:
+        logger.exception(f"[SAST] Failed to get scan status: {e}")
+        return {"success": False, "error": str(e)}
+
+
+async def handle_get_sast_findings(
+    repo_id: str,
+    severity: Optional[str] = None,
+    owasp_category: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """Get SAST findings for a repository."""
+    try:
+        with _sast_scan_lock:
+            if repo_id not in _sast_scan_results:
+                return {"success": False, "error": "Repository not found"}
+
+            repo_scans = _sast_scan_results[repo_id]
+            if not repo_scans:
+                return {
+                    "success": True,
+                    "findings": [],
+                    "total": 0,
+                }
+
+            # Get latest scan
+            latest_scan = max(repo_scans.values(), key=lambda s: s.scanned_at)
+            findings = latest_scan.findings
+
+            # Filter by severity
+            if severity:
+                findings = [f for f in findings if f.severity.value == severity]
+
+            # Filter by OWASP category
+            if owasp_category:
+                findings = [f for f in findings if owasp_category in f.owasp_category.value]
+
+            total = len(findings)
+            findings = findings[offset : offset + limit]
+
+            return {
+                "success": True,
+                "findings": [f.to_dict() for f in findings],
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "scan_id": latest_scan.scan_id,
+            }
+
+    except Exception as e:
+        logger.exception(f"[SAST] Failed to get findings: {e}")
+        return {"success": False, "error": str(e)}
+
+
+async def handle_get_owasp_summary(repo_id: str) -> Dict[str, Any]:
+    """Get OWASP Top 10 summary for a repository."""
+    try:
+        with _sast_scan_lock:
+            if repo_id not in _sast_scan_results:
+                return {"success": False, "error": "Repository not found"}
+
+            repo_scans = _sast_scan_results[repo_id]
+            if not repo_scans:
+                return {
+                    "success": True,
+                    "owasp_summary": {},
+                    "total_findings": 0,
+                }
+
+            # Get latest scan
+            latest_scan = max(repo_scans.values(), key=lambda s: s.scanned_at)
+
+            # Get OWASP summary
+            scanner = _get_sast_scanner()
+            summary = await scanner.get_owasp_summary(latest_scan.findings)
+
+            return {
+                "success": True,
+                "scan_id": latest_scan.scan_id,
+                **summary,
+            }
+
+    except Exception as e:
+        logger.exception(f"[SAST] Failed to get OWASP summary: {e}")
+        return {"success": False, "error": str(e)}
+
+
+async def _emit_sast_events(
+    result: SASTScanResult,
+    repo_id: str,
+    scan_id: str,
+    workspace_id: Optional[str] = None,
+) -> None:
+    """Emit security events for SAST findings."""
+    try:
+        emitter = get_security_emitter()
+
+        for finding in result.findings:
+            if finding.severity.value not in ("critical", "error"):
+                continue
+
+            severity = (
+                SecuritySeverity.CRITICAL
+                if finding.severity.value == "critical"
+                else SecuritySeverity.HIGH
+            )
+
+            sec_finding = SecurityFinding(
+                finding_id=f"{scan_id}:{finding.rule_id}:{finding.line_start}",
+                title=finding.message[:100],
+                description=finding.message,
+                severity=severity,
+                category=finding.owasp_category.value,
+                source="sast_scanner",
+                location=f"{finding.file_path}:{finding.line_start}",
+                cwe_id=finding.cwe_ids[0] if finding.cwe_ids else None,
+                remediation=finding.remediation or "Review and fix the security issue",
+                confidence=finding.confidence,
+            )
+
+            event = SecurityEvent(
+                event_type=SecurityEventType.SAST_FINDING,
+                severity=severity,
+                source="sast_scanner",
+                findings=[sec_finding],
+                scan_id=scan_id,
+                repository_id=repo_id,
+                metadata={
+                    "rule_id": finding.rule_id,
+                    "language": finding.language,
+                    "owasp_category": finding.owasp_category.value,
+                },
+            )
+
+            await emitter.emit(event)
+
+    except Exception as e:
+        logger.warning(f"Failed to emit SAST events: {e}")
