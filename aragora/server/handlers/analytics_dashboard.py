@@ -1046,3 +1046,381 @@ class AnalyticsDashboardHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Error getting flip trends: {e}")
             return error_response(safe_error_message(e, "flip trends"), 500)
+
+    # ========== Deliberation Analytics ==========
+
+    @require_user_auth
+    @handle_errors("get deliberation summary")
+    def _get_deliberation_summary(self, query_params: dict, user=None) -> HandlerResult:
+        """
+        Get deliberation analytics summary.
+
+        Query params:
+        - org_id: Organization ID (required)
+        - days: Number of days to look back (default: 30)
+
+        Response:
+        {
+            "org_id": "...",
+            "period": {"start": "...", "end": "...", "days": 30},
+            "total_deliberations": 150,
+            "completed": 145,
+            "in_progress": 3,
+            "failed": 2,
+            "consensus_reached": 120,
+            "consensus_rate": "82.8%",
+            "avg_rounds": 3.5,
+            "avg_duration_seconds": 45.2,
+            "by_template": {"code_review": 45, "security_audit": 30, ...},
+            "by_priority": {"high": 50, "normal": 80, "low": 20}
+        }
+        """
+        org_id = query_params.get("org_id")
+        if not org_id:
+            return error_response("org_id is required", 400)
+
+        try:
+            days = int(query_params.get("days", "30"))
+        except ValueError:
+            days = 30
+
+        try:
+            from datetime import datetime, timedelta, timezone
+
+            period_end = datetime.now(timezone.utc)
+            period_start = period_end - timedelta(days=days)
+
+            # Query deliberation metrics from database
+            from aragora.memory.debate_store import get_debate_store
+
+            store = get_debate_store()
+
+            # Get deliberation statistics
+            stats = store.get_deliberation_stats(
+                org_id=org_id,
+                start_time=period_start,
+                end_time=period_end,
+            )
+
+            total = stats.get("total", 0)
+            completed = stats.get("completed", 0)
+            consensus_reached = stats.get("consensus_reached", 0)
+            consensus_rate = (
+                f"{(consensus_reached / completed * 100):.1f}%" if completed > 0 else "0%"
+            )
+
+            return json_response(
+                {
+                    "org_id": org_id,
+                    "period": {
+                        "start": period_start.isoformat(),
+                        "end": period_end.isoformat(),
+                        "days": days,
+                    },
+                    "total_deliberations": total,
+                    "completed": completed,
+                    "in_progress": stats.get("in_progress", 0),
+                    "failed": stats.get("failed", 0),
+                    "consensus_reached": consensus_reached,
+                    "consensus_rate": consensus_rate,
+                    "avg_rounds": round(stats.get("avg_rounds", 0), 1),
+                    "avg_duration_seconds": round(stats.get("avg_duration_seconds", 0), 1),
+                    "by_template": stats.get("by_template", {}),
+                    "by_priority": stats.get("by_priority", {}),
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Error getting deliberation summary: {e}")
+            return error_response(safe_error_message(e, "deliberation summary"), 500)
+
+    @require_user_auth
+    @handle_errors("get deliberation by channel")
+    def _get_deliberation_by_channel(self, query_params: dict, user=None) -> HandlerResult:
+        """
+        Get deliberation breakdown by channel/platform.
+
+        Query params:
+        - org_id: Organization ID (required)
+        - days: Number of days to look back (default: 30)
+
+        Response:
+        {
+            "org_id": "...",
+            "period": {...},
+            "channels": [
+                {
+                    "platform": "slack",
+                    "channel_id": "C123456",
+                    "channel_name": "#engineering",
+                    "total_deliberations": 45,
+                    "consensus_rate": "85%",
+                    "avg_duration_seconds": 42.5,
+                    "top_templates": ["code_review", "architecture_decision"]
+                },
+                ...
+            ],
+            "by_platform": {
+                "slack": {"count": 80, "consensus_rate": "83%"},
+                "teams": {"count": 40, "consensus_rate": "78%"},
+                "api": {"count": 30, "consensus_rate": "90%"}
+            }
+        }
+        """
+        org_id = query_params.get("org_id")
+        if not org_id:
+            return error_response("org_id is required", 400)
+
+        try:
+            days = int(query_params.get("days", "30"))
+        except ValueError:
+            days = 30
+
+        try:
+            from datetime import datetime, timedelta, timezone
+
+            period_end = datetime.now(timezone.utc)
+            period_start = period_end - timedelta(days=days)
+
+            from aragora.memory.debate_store import get_debate_store
+
+            store = get_debate_store()
+
+            # Get channel-level statistics
+            channel_stats = store.get_deliberation_stats_by_channel(
+                org_id=org_id,
+                start_time=period_start,
+                end_time=period_end,
+            )
+
+            # Aggregate by platform
+            by_platform: dict = {}
+            for ch in channel_stats:
+                platform = ch.get("platform", "api")
+                if platform not in by_platform:
+                    by_platform[platform] = {
+                        "count": 0,
+                        "consensus_count": 0,
+                        "total_duration": 0,
+                    }
+                by_platform[platform]["count"] += ch.get("total_deliberations", 0)
+                by_platform[platform]["consensus_count"] += ch.get("consensus_reached", 0)
+                by_platform[platform]["total_duration"] += ch.get("total_duration", 0)
+
+            # Calculate platform-level rates
+            platform_summary = {}
+            for platform, data in by_platform.items():
+                count = data["count"]
+                consensus_rate = (
+                    f"{(data['consensus_count'] / count * 100):.0f}%" if count > 0 else "0%"
+                )
+                platform_summary[platform] = {
+                    "count": count,
+                    "consensus_rate": consensus_rate,
+                }
+
+            return json_response(
+                {
+                    "org_id": org_id,
+                    "period": {
+                        "start": period_start.isoformat(),
+                        "end": period_end.isoformat(),
+                        "days": days,
+                    },
+                    "channels": channel_stats,
+                    "by_platform": platform_summary,
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Error getting deliberation by channel: {e}")
+            return error_response(safe_error_message(e, "deliberation channels"), 500)
+
+    @require_user_auth
+    @handle_errors("get consensus rates")
+    def _get_consensus_rates(self, query_params: dict, user=None) -> HandlerResult:
+        """
+        Get consensus rates by agent team composition.
+
+        Query params:
+        - org_id: Organization ID (required)
+        - days: Number of days to look back (default: 30)
+
+        Response:
+        {
+            "org_id": "...",
+            "period": {...},
+            "overall_consensus_rate": "82%",
+            "by_team_size": {
+                "2": {"count": 30, "consensus_rate": "90%"},
+                "3": {"count": 80, "consensus_rate": "85%"},
+                "5": {"count": 40, "consensus_rate": "75%"}
+            },
+            "by_agent": [
+                {
+                    "agent_id": "anthropic-api",
+                    "agent_name": "Claude",
+                    "participations": 120,
+                    "consensus_contributions": 100,
+                    "consensus_rate": "83%",
+                    "avg_agreement_score": 0.87
+                },
+                ...
+            ],
+            "top_teams": [
+                {
+                    "team": ["anthropic-api", "openai-api", "gemini"],
+                    "deliberations": 25,
+                    "consensus_rate": "92%"
+                },
+                ...
+            ]
+        }
+        """
+        org_id = query_params.get("org_id")
+        if not org_id:
+            return error_response("org_id is required", 400)
+
+        try:
+            days = int(query_params.get("days", "30"))
+        except ValueError:
+            days = 30
+
+        try:
+            from datetime import datetime, timedelta, timezone
+
+            period_end = datetime.now(timezone.utc)
+            period_start = period_end - timedelta(days=days)
+
+            from aragora.memory.debate_store import get_debate_store
+
+            store = get_debate_store()
+
+            # Get consensus statistics
+            consensus_stats = store.get_consensus_stats(
+                org_id=org_id,
+                start_time=period_start,
+                end_time=period_end,
+            )
+
+            return json_response(
+                {
+                    "org_id": org_id,
+                    "period": {
+                        "start": period_start.isoformat(),
+                        "end": period_end.isoformat(),
+                        "days": days,
+                    },
+                    "overall_consensus_rate": consensus_stats.get("overall_consensus_rate", "0%"),
+                    "by_team_size": consensus_stats.get("by_team_size", {}),
+                    "by_agent": consensus_stats.get("by_agent", []),
+                    "top_teams": consensus_stats.get("top_teams", []),
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Error getting consensus rates: {e}")
+            return error_response(safe_error_message(e, "consensus rates"), 500)
+
+    @require_user_auth
+    @handle_errors("get deliberation performance")
+    def _get_deliberation_performance(self, query_params: dict, user=None) -> HandlerResult:
+        """
+        Get deliberation performance metrics (latency, cost, efficiency).
+
+        Query params:
+        - org_id: Organization ID (required)
+        - days: Number of days to look back (default: 30)
+        - granularity: 'day' or 'week' (default: 'day')
+
+        Response:
+        {
+            "org_id": "...",
+            "period": {...},
+            "summary": {
+                "total_deliberations": 150,
+                "total_cost_usd": "125.50",
+                "avg_cost_per_deliberation": "0.84",
+                "total_tokens": 5000000,
+                "avg_tokens_per_deliberation": 33333,
+                "avg_duration_seconds": 45.2,
+                "p50_duration_seconds": 38.0,
+                "p95_duration_seconds": 120.0,
+                "avg_rounds": 3.5
+            },
+            "by_template": [
+                {
+                    "template": "code_review",
+                    "count": 45,
+                    "avg_cost": "0.75",
+                    "avg_duration_seconds": 35.0,
+                    "avg_rounds": 3.0
+                },
+                ...
+            ],
+            "trends": [
+                {
+                    "date": "2026-01-15",
+                    "count": 5,
+                    "avg_duration_seconds": 42.0,
+                    "total_cost": "4.20"
+                },
+                ...
+            ],
+            "cost_by_agent": {
+                "anthropic-api": "60.00",
+                "openai-api": "45.50",
+                "gemini": "20.00"
+            }
+        }
+        """
+        org_id = query_params.get("org_id")
+        if not org_id:
+            return error_response("org_id is required", 400)
+
+        try:
+            days = int(query_params.get("days", "30"))
+        except ValueError:
+            days = 30
+
+        granularity = query_params.get("granularity", "day")
+        if granularity not in ("day", "week"):
+            granularity = "day"
+
+        try:
+            from datetime import datetime, timedelta, timezone
+
+            period_end = datetime.now(timezone.utc)
+            period_start = period_end - timedelta(days=days)
+
+            from aragora.memory.debate_store import get_debate_store
+
+            store = get_debate_store()
+
+            # Get performance statistics
+            perf_stats = store.get_deliberation_performance(
+                org_id=org_id,
+                start_time=period_start,
+                end_time=period_end,
+                granularity=granularity,
+            )
+
+            return json_response(
+                {
+                    "org_id": org_id,
+                    "period": {
+                        "start": period_start.isoformat(),
+                        "end": period_end.isoformat(),
+                        "days": days,
+                    },
+                    "granularity": granularity,
+                    "summary": perf_stats.get("summary", {}),
+                    "by_template": perf_stats.get("by_template", []),
+                    "trends": perf_stats.get("trends", []),
+                    "cost_by_agent": perf_stats.get("cost_by_agent", {}),
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Error getting deliberation performance: {e}")
+            return error_response(safe_error_message(e, "deliberation performance"), 500)

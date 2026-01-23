@@ -233,21 +233,33 @@ class TestTemplateRegistry:
     def test_categories(self):
         """Test getting category counts."""
         registry = TemplateRegistry()
+
+        # Get baseline counts (includes any built-in templates)
+        initial_counts = registry.categories()
+        initial_code = initial_counts.get("code", 0)
+        initial_legal = initial_counts.get("legal", 0)
+
+        # Register new templates
         registry.register(
-            DeliberationTemplate(name="code1", description="Code", category=TemplateCategory.CODE)
-        )
-        registry.register(
-            DeliberationTemplate(name="code2", description="Code", category=TemplateCategory.CODE)
+            DeliberationTemplate(
+                name="code1_test", description="Code", category=TemplateCategory.CODE
+            )
         )
         registry.register(
             DeliberationTemplate(
-                name="legal1", description="Legal", category=TemplateCategory.LEGAL
+                name="code2_test", description="Code", category=TemplateCategory.CODE
+            )
+        )
+        registry.register(
+            DeliberationTemplate(
+                name="legal1_test", description="Legal", category=TemplateCategory.LEGAL
             )
         )
 
         counts = registry.categories()
-        assert counts.get("code", 0) == 2
-        assert counts.get("legal", 0) == 1
+        # Verify new templates were added
+        assert counts.get("code", 0) == initial_code + 2
+        assert counts.get("legal", 0) == initial_legal + 1
 
 
 class TestBuiltinTemplates:
