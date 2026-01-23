@@ -173,17 +173,16 @@ class TestOnCallSchedule:
 
     def test_schedule_creation(self):
         """Test schedule initialization."""
+        user = User(id="user_456", name="Jane Doe", email="jane@example.com")
         schedule = OnCallSchedule(
+            user=user,
             schedule_id="sched_123",
             schedule_name="Primary On-Call",
-            user_id="user_456",
-            user_name="Jane Doe",
-            user_email="jane@example.com",
             start=datetime(2024, 1, 15, 0, 0, tzinfo=timezone.utc),
             end=datetime(2024, 1, 22, 0, 0, tzinfo=timezone.utc),
         )
         assert schedule.schedule_id == "sched_123"
-        assert schedule.user_name == "Jane Doe"
+        assert schedule.user.name == "Jane Doe"
 
     def test_schedule_from_api(self):
         """Test schedule creation from API response."""
@@ -191,7 +190,7 @@ class TestOnCallSchedule:
             "schedule": {"id": "PSCHED1", "summary": "Weekly Rotation"},
             "user": {
                 "id": "PUSER1",
-                "summary": "John Doe",
+                "name": "John Doe",
                 "email": "john@example.com",
             },
             "start": "2024-01-15T00:00:00Z",
@@ -199,8 +198,8 @@ class TestOnCallSchedule:
         }
         schedule = OnCallSchedule.from_api(api_data)
         assert schedule.schedule_id == "PSCHED1"
-        assert schedule.user_id == "PUSER1"
-        assert schedule.user_name == "John Doe"
+        assert schedule.user.id == "PUSER1"
+        assert schedule.user.name == "John Doe"
 
 
 class TestIncidentNote:
