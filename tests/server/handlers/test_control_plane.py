@@ -23,6 +23,14 @@ from aragora.server.handlers.base import HandlerResult
 # ===========================================================================
 
 
+@pytest.fixture(autouse=True)
+def reset_class_coordinator():
+    """Reset class-level coordinator before each test for isolation."""
+    ControlPlaneHandler.coordinator = None
+    yield
+    ControlPlaneHandler.coordinator = None
+
+
 @pytest.fixture
 def handler():
     """Create a ControlPlaneHandler instance."""

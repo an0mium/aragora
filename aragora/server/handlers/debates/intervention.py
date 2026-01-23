@@ -16,7 +16,7 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
-from aragora.server.handlers.base import json_response
+from aragora.server.handlers.base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ def log_intervention(
     logger.info(f"Intervention logged: {intervention_type} for debate {debate_id}")
 
 
-async def handle_pause_debate(debate_id: str) -> tuple[str, int, dict[str, str]]:
+async def handle_pause_debate(debate_id: str) -> HandlerResult:
     """Pause an active debate.
 
     Pausing a debate stops agent responses but preserves state.
@@ -90,7 +90,7 @@ async def handle_pause_debate(debate_id: str) -> tuple[str, int, dict[str, str]]
     )
 
 
-async def handle_resume_debate(debate_id: str) -> tuple[str, int, dict[str, str]]:
+async def handle_resume_debate(debate_id: str) -> HandlerResult:
     """Resume a paused debate.
 
     Resumes agent responses from where they left off.
@@ -141,7 +141,7 @@ async def handle_inject_argument(
     injection_type: str = "argument",
     source: str = "user",
     user_id: Optional[str] = None,
-) -> tuple[str, int, dict[str, str]]:
+) -> HandlerResult:
     """Inject a user argument into the debate.
 
     The argument will be included in the next round's context

@@ -22,6 +22,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+# Check if tree-sitter is available (required for some code intelligence features)
+try:
+    import tree_sitter_python
+
+    TREE_SITTER_AVAILABLE = True
+except ImportError:
+    TREE_SITTER_AVAILABLE = False
+
+requires_tree_sitter = pytest.mark.skipif(
+    not TREE_SITTER_AVAILABLE, reason="tree-sitter not available"
+)
+
 
 def parse_result(result):
     """Parse a HandlerResult into status and data/error."""
@@ -238,6 +250,7 @@ def main():
 ''')
         return tmp_path
 
+    @requires_tree_sitter
     @pytest.mark.asyncio
     async def test_get_callgraph_success(self, sample_codebase: Path):
         """Test successful call graph generation."""
@@ -289,6 +302,7 @@ def main():
 ''')
         return tmp_path
 
+    @requires_tree_sitter
     @pytest.mark.asyncio
     async def test_find_deadcode_success(self, codebase_with_deadcode: Path):
         """Test finding dead code."""
@@ -335,6 +349,7 @@ def main():
 ''')
         return tmp_path
 
+    @requires_tree_sitter
     @pytest.mark.asyncio
     async def test_analyze_impact_success(self, sample_codebase: Path):
         """Test successful impact analysis."""
