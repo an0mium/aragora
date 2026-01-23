@@ -759,7 +759,9 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
 
     def get_sync(self, user_id: str) -> Optional[GmailUserState]:
         """Get Gmail state for a user (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_async(user_id))
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.get_async(user_id))
 
     async def get_async(self, user_id: str) -> Optional[GmailUserState]:
         """Get Gmail state for a user asynchronously."""
@@ -799,7 +801,9 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
 
     def save_sync(self, state: GmailUserState) -> None:
         """Save Gmail state for a user (sync wrapper for async)."""
-        asyncio.get_event_loop().run_until_complete(self.save_async(state))
+        from aragora.utils.async_utils import run_async
+
+        run_async(self.save_async(state))
 
     async def save_async(self, state: GmailUserState) -> None:
         """Save Gmail state for a user asynchronously."""
@@ -843,7 +847,9 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
 
     def delete_sync(self, user_id: str) -> bool:
         """Delete Gmail state for a user (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.delete_async(user_id))
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.delete_async(user_id))
 
     async def delete_async(self, user_id: str) -> bool:
         """Delete Gmail state for a user asynchronously."""
@@ -860,7 +866,9 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
 
     def list_all_sync(self) -> List[GmailUserState]:
         """List all Gmail states (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_all_async())
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.list_all_async())
 
     async def list_all_async(self) -> List[GmailUserState]:
         """List all Gmail states asynchronously."""
@@ -879,7 +887,9 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
 
     def get_sync_job_sync(self, user_id: str) -> Optional[SyncJobState]:
         """Get sync job state for a user (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_sync_job_async(user_id))
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.get_sync_job_async(user_id))
 
     async def get_sync_job_async(self, user_id: str) -> Optional[SyncJobState]:
         """Get sync job state for a user asynchronously."""
@@ -909,7 +919,9 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
 
     def save_sync_job_sync(self, job: SyncJobState) -> None:
         """Save sync job state (sync wrapper for async)."""
-        asyncio.get_event_loop().run_until_complete(self.save_sync_job_async(job))
+        from aragora.utils.async_utils import run_async
+
+        run_async(self.save_sync_job_async(job))
 
     async def save_sync_job_async(self, job: SyncJobState) -> None:
         """Save sync job state asynchronously."""
@@ -943,7 +955,9 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
 
     def delete_sync_job_sync(self, user_id: str) -> bool:
         """Delete sync job for a user (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.delete_sync_job_async(user_id))
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.delete_sync_job_async(user_id))
 
     async def delete_sync_job_async(self, user_id: str) -> bool:
         """Delete sync job for a user asynchronously."""
@@ -969,11 +983,12 @@ def get_gmail_token_store() -> GmailTokenStoreBackend:
     Get or create the Gmail token store.
 
     Uses environment variables to configure:
-    - ARAGORA_DB_BACKEND: "sqlite" or "postgres" (selects database backend)
-    - ARAGORA_GMAIL_STORE_BACKEND: "memory", "sqlite", "postgres", or "redis"
+    - ARAGORA_DB_BACKEND: "sqlite", "postgres", or "supabase"
+    - ARAGORA_GMAIL_STORE_BACKEND: "memory", "sqlite", "postgres", "supabase", or "redis"
     - ARAGORA_DATA_DIR: Directory for SQLite database
     - ARAGORA_REDIS_URL: Redis connection URL (for redis backend)
-    - ARAGORA_POSTGRES_DSN or DATABASE_URL: PostgreSQL connection string
+    - SUPABASE_URL + SUPABASE_DB_PASSWORD or SUPABASE_POSTGRES_DSN
+    - ARAGORA_POSTGRES_DSN or DATABASE_URL
 
     Returns:
         Configured GmailTokenStoreBackend instance
@@ -993,43 +1008,36 @@ def get_gmail_token_store() -> GmailTokenStoreBackend:
         # Check store-specific backend first, then global database backend
         backend_type = os.environ.get("ARAGORA_GMAIL_STORE_BACKEND")
         if not backend_type:
-            # Fall back to global database backend setting
-            backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+            backend_type = os.environ.get("ARAGORA_DB_BACKEND", "auto")
         backend_type = backend_type.lower()
 
-        # Get data directory for SQLite
+        # Preserve legacy data directory when configured
+        data_dir = None
         try:
             from aragora.config.legacy import DATA_DIR
 
             data_dir = DATA_DIR
         except ImportError:
+            data_dir = None
+
+        if backend_type == "redis":
             env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-            data_dir = Path(env_dir or ".nomic")
-
-        db_path = data_dir / "gmail_tokens.db"
-
-        if backend_type == "memory":
-            logger.info("Using in-memory Gmail token store (not persistent)")
-            _gmail_token_store = InMemoryGmailTokenStore()
-        elif backend_type == "postgres" or backend_type == "postgresql":
-            logger.info("Using PostgreSQL Gmail token store")
-            try:
-                from aragora.storage.postgres_store import get_postgres_pool
-
-                # Initialize PostgreSQL store with connection pool
-                pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
-                store = PostgresGmailTokenStore(pool)
-                asyncio.get_event_loop().run_until_complete(store.initialize())
-                _gmail_token_store = store
-            except Exception as e:
-                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-                _gmail_token_store = SQLiteGmailTokenStore(db_path)
-        elif backend_type == "redis":
+            base_dir = Path(data_dir or env_dir or ".nomic")
+            db_path = base_dir / "gmail_tokens.db"
             logger.info("Using Redis Gmail token store with SQLite fallback")
             _gmail_token_store = RedisGmailTokenStore(db_path)
-        else:  # Default: sqlite
-            logger.info(f"Using SQLite Gmail token store: {db_path}")
-            _gmail_token_store = SQLiteGmailTokenStore(db_path)
+            return _gmail_token_store
+
+        from aragora.storage.connection_factory import create_persistent_store
+
+        _gmail_token_store = create_persistent_store(
+            store_name="gmail",
+            sqlite_class=SQLiteGmailTokenStore,
+            postgres_class=PostgresGmailTokenStore,
+            db_filename="gmail_tokens.db",
+            memory_class=InMemoryGmailTokenStore,
+            data_dir=data_dir,
+        )
 
         return _gmail_token_store
 

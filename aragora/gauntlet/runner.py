@@ -221,6 +221,16 @@ class GauntletRunner:
             logger.warning("[gauntlet] No agents available for red team")
             return summary
 
+        # Create proposer agent for defense if we have a 4th agent available
+        proposer_agent = None
+        if self.agent_factory and len(self.config.agents) > 3:
+            try:
+                # Use 4th agent as proposer/defender
+                proposer_agent = self.agent_factory(self.config.agents[3])
+                logger.info(f"[gauntlet] Using {self.config.agents[3]} as defender")
+            except Exception as e:
+                logger.debug(f"[gauntlet] Could not create proposer agent: {e}")
+
         # Run red team
         try:
             redteam_result = await mode.run_redteam(
@@ -229,6 +239,7 @@ class GauntletRunner:
                 red_team_agents=agents,
                 run_agent_fn=self.run_agent_fn or self._default_run_agent,
                 max_rounds=self.config.attack_rounds,
+                proposer_agent=proposer_agent,
             )
 
             # Convert attacks to vulnerabilities

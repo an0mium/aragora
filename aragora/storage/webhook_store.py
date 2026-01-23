@@ -11,7 +11,6 @@ Backends:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import sqlite3
@@ -309,7 +308,9 @@ class PostgresWebhookStore(WebhookStoreBackend):
 
     def is_processed(self, event_id: str) -> bool:
         """Check if event was already processed (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.is_processed_async(event_id))
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.is_processed_async(event_id))
 
     async def is_processed_async(self, event_id: str) -> bool:
         """Check if event was already processed asynchronously."""
@@ -325,7 +326,9 @@ class PostgresWebhookStore(WebhookStoreBackend):
 
     def mark_processed(self, event_id: str, result: str = "success") -> None:
         """Mark event as processed (sync wrapper)."""
-        asyncio.get_event_loop().run_until_complete(self.mark_processed_async(event_id, result))
+        from aragora.utils.async_utils import run_async
+
+        run_async(self.mark_processed_async(event_id, result))
 
     async def mark_processed_async(self, event_id: str, result: str = "success") -> None:
         """Mark event as processed asynchronously."""
@@ -342,7 +345,9 @@ class PostgresWebhookStore(WebhookStoreBackend):
 
     def cleanup_expired(self) -> int:
         """Remove expired entries (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.cleanup_expired_async())
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.cleanup_expired_async())
 
     async def cleanup_expired_async(self) -> int:
         """Remove expired entries asynchronously."""
@@ -366,13 +371,17 @@ class PostgresWebhookStore(WebhookStoreBackend):
         if now - self._last_cleanup > self._cleanup_interval:
             # Run cleanup in background to not block the caller
             try:
-                asyncio.get_event_loop().run_until_complete(self.cleanup_expired_async())
+                from aragora.utils.async_utils import run_async
+
+                run_async(self.cleanup_expired_async())
             except Exception as e:
                 logger.debug(f"Background cleanup failed: {e}")
 
     def size(self) -> int:
         """Get current store size (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.size_async())
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.size_async())
 
     async def size_async(self) -> int:
         """Get current store size asynchronously."""
@@ -398,10 +407,11 @@ def get_webhook_store() -> WebhookStoreBackend:
     Get or create the webhook idempotency store.
 
     Uses environment variables to configure:
-    - ARAGORA_DB_BACKEND: "sqlite" or "postgres" (selects database backend)
-    - ARAGORA_WEBHOOK_STORE_BACKEND: "memory", "sqlite", or "postgres" (overrides)
+    - ARAGORA_DB_BACKEND: "sqlite", "postgres", or "supabase"
+    - ARAGORA_WEBHOOK_STORE_BACKEND: "memory", "sqlite", "postgres", or "supabase" (overrides)
     - ARAGORA_DATA_DIR: Directory for SQLite database
-    - ARAGORA_POSTGRES_DSN or DATABASE_URL: PostgreSQL connection string
+    - SUPABASE_URL + SUPABASE_DB_PASSWORD or SUPABASE_POSTGRES_DSN
+    - ARAGORA_POSTGRES_DSN or DATABASE_URL
 
     Returns:
         Configured WebhookStoreBackend instance
@@ -413,8 +423,7 @@ def get_webhook_store() -> WebhookStoreBackend:
     # Check store-specific backend first, then global database backend
     backend_type = os.environ.get("ARAGORA_WEBHOOK_STORE_BACKEND")
     if not backend_type:
-        # Fall back to global database backend setting
-        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "auto")
     backend_type = backend_type.lower()
 
     # Import DATA_DIR from config (handles environment variable)
@@ -440,48 +449,27 @@ def get_webhook_store() -> WebhookStoreBackend:
             "webhook_store",
             StorageMode.MEMORY,
             "Webhook idempotency must use distributed storage in production. "
-            "Configure ARAGORA_DB_BACKEND=postgres.",
+            "Configure Supabase or PostgreSQL.",
         )
-    elif backend_type in ("postgres", "postgresql"):
-        logger.info("Using PostgreSQL webhook store")
-        try:
-            from aragora.storage.postgres_store import get_postgres_pool
+    else:
+        from aragora.storage.connection_factory import create_persistent_store
+        from aragora.storage.production_guards import require_distributed_store, StorageMode
 
-            pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
-            store = PostgresWebhookStore(pool)
-            asyncio.get_event_loop().run_until_complete(store.initialize())
-            _webhook_store = store
-        except Exception as e:
-            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-
-            # Enforce distributed storage in production
-            from aragora.storage.production_guards import (
-                require_distributed_store,
-                StorageMode,
-            )
-
+        _webhook_store = create_persistent_store(
+            store_name="webhook",
+            sqlite_class=SQLiteWebhookStore,
+            postgres_class=PostgresWebhookStore,
+            db_filename="webhook_events.db",
+            memory_class=InMemoryWebhookStore,
+            data_dir=data_dir,
+        )
+        if isinstance(_webhook_store, SQLiteWebhookStore):
             require_distributed_store(
                 "webhook_store",
                 StorageMode.SQLITE,
-                f"PostgreSQL unavailable: {e}",
+                "Webhook idempotency must use distributed storage in production. "
+                "Configure Supabase or PostgreSQL.",
             )
-            _webhook_store = SQLiteWebhookStore(data_dir / "webhook_events.db")
-    else:  # Default: sqlite
-        logger.info(f"Using SQLite webhook store: {data_dir / 'webhook_events.db'}")
-
-        # Enforce distributed storage in production
-        from aragora.storage.production_guards import (
-            require_distributed_store,
-            StorageMode,
-        )
-
-        require_distributed_store(
-            "webhook_store",
-            StorageMode.SQLITE,
-            "Webhook idempotency must use distributed storage in production. "
-            "Configure ARAGORA_DB_BACKEND=postgres.",
-        )
-        _webhook_store = SQLiteWebhookStore(data_dir / "webhook_events.db")
 
     return _webhook_store
 

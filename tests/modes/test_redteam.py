@@ -487,3 +487,268 @@ class TestRedTeamModeRunRedteam:
         # Should have steelman round
         phases = [r.phase for r in result.rounds]
         assert "steelman" in phases
+
+
+class TestRedTeamModeParseDefenses:
+    """Tests for RedTeamMode._parse_defenses method."""
+
+    def test_parse_defenses_refute(self):
+        """_parse_defenses detects refute defense type."""
+        mode = RedTeamMode()
+
+        attacks = [
+            Attack(
+                attack_id="a1",
+                attack_type=AttackType.SECURITY,
+                attacker="Attacker",
+                target_agent="Target",
+                target_claim="Claim",
+                attack_description="SQL injection",
+                severity=0.8,
+                exploitability=0.7,
+            )
+        ]
+
+        response = (
+            "I refute this attack. The claim is invalid because we use parameterized queries."
+        )
+        defenses = mode._parse_defenses(response, "Defender", attacks)
+
+        assert len(defenses) == 1
+        assert defenses[0].defense_type == "refute"
+        assert defenses[0].success is True
+        assert defenses[0].residual_risk == 0.0
+
+    def test_parse_defenses_mitigate(self):
+        """_parse_defenses detects mitigate defense type."""
+        mode = RedTeamMode()
+
+        attacks = [
+            Attack(
+                attack_id="a1",
+                attack_type=AttackType.EDGE_CASE,
+                attacker="Attacker",
+                target_agent="Target",
+                target_claim="Claim",
+                attack_description="Edge case issue",
+                severity=0.5,
+                exploitability=0.6,
+            )
+        ]
+
+        response = "We can mitigate this issue by adding input validation. We will fix this."
+        defenses = mode._parse_defenses(response, "Defender", attacks)
+
+        assert len(defenses) == 1
+        assert defenses[0].defense_type == "mitigate"
+        assert defenses[0].success is True
+        assert defenses[0].residual_risk > 0.0
+
+    def test_parse_defenses_accept_risk(self):
+        """_parse_defenses detects accept defense type."""
+        mode = RedTeamMode()
+
+        attacks = [
+            Attack(
+                attack_id="a1",
+                attack_type=AttackType.SCALABILITY,
+                attacker="Attacker",
+                target_agent="Target",
+                target_claim="Claim",
+                attack_description="Scalability issue",
+                severity=0.6,
+                exploitability=0.4,
+            )
+        ]
+
+        response = "We accept the risk as it's within acceptable bounds for our use case."
+        defenses = mode._parse_defenses(response, "Defender", attacks)
+
+        assert len(defenses) == 1
+        assert defenses[0].defense_type == "accept"
+        assert defenses[0].success is False
+        assert defenses[0].residual_risk > 0.0
+
+    def test_parse_defenses_default_acknowledge(self):
+        """_parse_defenses defaults to acknowledge when no keywords match."""
+        mode = RedTeamMode()
+
+        attacks = [
+            Attack(
+                attack_id="a1",
+                attack_type=AttackType.LOGICAL_FALLACY,
+                attacker="Attacker",
+                target_agent="Target",
+                target_claim="Claim",
+                attack_description="Fallacy detected",
+                severity=0.5,
+                exploitability=0.5,
+            )
+        ]
+
+        response = "We understand the concern and will review."
+        defenses = mode._parse_defenses(response, "Defender", attacks)
+
+        assert len(defenses) == 1
+        assert defenses[0].defense_type == "acknowledge"
+        assert defenses[0].success is True
+
+    def test_parse_defenses_multiple_attacks(self):
+        """_parse_defenses handles multiple attacks."""
+        mode = RedTeamMode()
+
+        attacks = [
+            Attack(
+                attack_id="a1",
+                attack_type=AttackType.SECURITY,
+                attacker="Attacker",
+                target_agent="Target",
+                target_claim="Claim 1",
+                attack_description="Issue 1",
+                severity=0.8,
+                exploitability=0.7,
+            ),
+            Attack(
+                attack_id="a2",
+                attack_type=AttackType.EDGE_CASE,
+                attacker="Attacker",
+                target_agent="Target",
+                target_claim="Claim 2",
+                attack_description="Issue 2",
+                severity=0.5,
+                exploitability=0.6,
+            ),
+        ]
+
+        response = "We refute the security concern and will mitigate the edge case."
+        defenses = mode._parse_defenses(response, "Defender", attacks)
+
+        assert len(defenses) == 2
+        assert defenses[0].attack_id == "a1"
+        assert defenses[1].attack_id == "a2"
+
+    def test_parse_defenses_assigns_unique_ids(self):
+        """_parse_defenses assigns unique defense IDs."""
+        mode = RedTeamMode()
+
+        attacks = [
+            Attack(
+                attack_id="a1",
+                attack_type=AttackType.SECURITY,
+                attacker="Attacker",
+                target_agent="Target",
+                target_claim="Claim",
+                attack_description="Issue",
+                severity=0.5,
+                exploitability=0.5,
+            ),
+            Attack(
+                attack_id="a2",
+                attack_type=AttackType.EDGE_CASE,
+                attacker="Attacker",
+                target_agent="Target",
+                target_claim="Claim 2",
+                attack_description="Issue 2",
+                severity=0.5,
+                exploitability=0.5,
+            ),
+        ]
+
+        response = "We will address both issues."
+        defenses = mode._parse_defenses(response, "Defender", attacks)
+
+        ids = [d.defense_id for d in defenses]
+        assert len(ids) == len(set(ids))  # All unique
+        assert all(id_.startswith("defense-") for id_ in ids)
+
+    def test_parse_defenses_increments_counter(self):
+        """_parse_defenses increments defense counter."""
+        mode = RedTeamMode()
+        assert mode._defense_counter == 0
+
+        attacks = [
+            Attack(
+                attack_id="a1",
+                attack_type=AttackType.SECURITY,
+                attacker="Attacker",
+                target_agent="Target",
+                target_claim="Claim",
+                attack_description="Issue",
+                severity=0.5,
+                exploitability=0.5,
+            )
+        ]
+
+        mode._parse_defenses("response", "Defender", attacks)
+        assert mode._defense_counter == 1
+
+        mode._parse_defenses("response", "Defender", attacks)
+        assert mode._defense_counter == 2
+
+
+class TestRedTeamModeDefenseExecution:
+    """Tests for defense execution in run_redteam."""
+
+    @pytest.mark.asyncio
+    async def test_run_redteam_with_proposer_agent(self):
+        """run_redteam executes defense when proposer_agent provided."""
+        protocol = RedTeamProtocol(include_steelman=False, include_strawman=False)
+        mode = RedTeamMode(protocol=protocol)
+
+        attacker = MagicMock(name="Attacker")
+        attacker.name = "Attacker"
+
+        proposer = MagicMock(name="Proposer")
+        proposer.name = "Proposer"
+
+        call_count = {"attack": 0, "defend": 0}
+
+        async def mock_run_agent(agent, prompt):
+            if agent.name == "Attacker":
+                call_count["attack"] += 1
+                return "Found critical vulnerability issue in the system."
+            else:
+                call_count["defend"] += 1
+                return "We refute this claim. The system is secure."
+
+        result = await mode.run_redteam(
+            target_proposal="Test proposal",
+            proposer="Developer",
+            red_team_agents=[attacker],
+            run_agent_fn=mock_run_agent,
+            max_rounds=1,
+            proposer_agent=proposer,
+        )
+
+        # Both attack and defense should have been called
+        assert call_count["attack"] > 0
+        assert call_count["defend"] > 0
+
+        # Should have defend phase
+        phases = [r.phase for r in result.rounds]
+        assert "defend" in phases
+
+    @pytest.mark.asyncio
+    async def test_run_redteam_without_proposer_agent(self):
+        """run_redteam marks as attack_only when no proposer_agent."""
+        protocol = RedTeamProtocol(include_steelman=False, include_strawman=False)
+        mode = RedTeamMode(protocol=protocol)
+
+        attacker = MagicMock(name="Attacker")
+        attacker.name = "Attacker"
+
+        async def mock_run_agent(agent, prompt):
+            return "Found vulnerability issue in the system."
+
+        result = await mode.run_redteam(
+            target_proposal="Test proposal",
+            proposer="Developer",
+            red_team_agents=[attacker],
+            run_agent_fn=mock_run_agent,
+            max_rounds=1,
+            proposer_agent=None,
+        )
+
+        # Should have attack_only phase when no proposer
+        phases = [r.phase for r in result.rounds]
+        assert "attack_only" in phases or "attack" in phases

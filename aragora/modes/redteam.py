@@ -317,9 +317,33 @@ class RedTeamMode:
                 round_result.phase = "attack_only"
 
             # Steelman round (if enabled and first round)
-            if self.protocol.include_steelman and round_num == 1:
+            # Red team demonstrates understanding by presenting strongest version
+            if self.protocol.include_steelman and round_num == 1 and red_team_agents:
                 steelman_round = RedTeamRound(round_num=round_num, phase="steelman")
+                steelman_agent = red_team_agents[0]  # First attacker steelmans
+                steelman_prompt = self.protocol.generate_steelman_prompt(current_proposal, proposer)
+                steelman_response = await run_agent_fn(steelman_agent, steelman_prompt)
+                # Store steelman as a "constructive" item in escalations for now
+                # (could add steelman_content field to RedTeamRound in future)
+                steelman_round.escalations.append(
+                    f"Steelman by {steelman_agent.name}:\n{steelman_response}"
+                )
                 rounds.append(steelman_round)
+
+            # Strawman check (if enabled and after attacks)
+            # Verify attacks address real claims, not distortions
+            if self.protocol.include_strawman and round_result.attacks and red_team_agents:
+                strawman_round = RedTeamRound(round_num=round_num, phase="strawman")
+                # Use different agent than steelman if available
+                strawman_agent = (
+                    red_team_agents[-1] if len(red_team_agents) > 1 else red_team_agents[0]
+                )
+                strawman_prompt = self.protocol.generate_strawman_prompt(current_proposal, proposer)
+                strawman_response = await run_agent_fn(strawman_agent, strawman_prompt)
+                strawman_round.escalations.append(
+                    f"Strawman analysis by {strawman_agent.name}:\n{strawman_response}"
+                )
+                rounds.append(strawman_round)
 
             rounds.append(round_result)
 

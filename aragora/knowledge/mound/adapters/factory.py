@@ -69,97 +69,115 @@ def _init_specs() -> None:
     from .cost_adapter import CostAdapter
 
     # Core memory adapters
-    register_adapter_spec(AdapterSpec(
-        name="continuum",
-        adapter_class=ContinuumAdapter,
-        required_deps=["continuum_memory"],
-        forward_method="store",
-        reverse_method="sync_validations_to_continuum",
-        priority=100,  # High priority - core memory
-        config_key="km_continuum_adapter",
-    ))
+    register_adapter_spec(
+        AdapterSpec(
+            name="continuum",
+            adapter_class=ContinuumAdapter,
+            required_deps=["continuum_memory"],
+            forward_method="store",
+            reverse_method="sync_validations_to_continuum",
+            priority=100,  # High priority - core memory
+            config_key="km_continuum_adapter",
+        )
+    )
 
-    register_adapter_spec(AdapterSpec(
-        name="consensus",
-        adapter_class=ConsensusAdapter,
-        required_deps=["consensus_memory"],
-        forward_method="get",  # Consensus is query-only
-        reverse_method=None,  # Forward-only for now
-        priority=90,
-        config_key="km_consensus_adapter",
-    ))
+    register_adapter_spec(
+        AdapterSpec(
+            name="consensus",
+            adapter_class=ConsensusAdapter,
+            required_deps=["consensus_memory"],
+            forward_method="get",  # Consensus is query-only
+            reverse_method="sync_validations_from_km",  # KM validations update consensus metadata
+            priority=90,
+            config_key="km_consensus_adapter",
+        )
+    )
 
-    register_adapter_spec(AdapterSpec(
-        name="critique",
-        adapter_class=CritiqueAdapter,
-        required_deps=["memory"],  # CritiqueStore is called "memory" in Arena
-        forward_method="store",
-        reverse_method="sync_validations_from_km",
-        priority=80,
-        config_key="km_critique_adapter",
-    ))
+    register_adapter_spec(
+        AdapterSpec(
+            name="critique",
+            adapter_class=CritiqueAdapter,
+            required_deps=["memory"],  # CritiqueStore is called "memory" in Arena
+            forward_method="store",
+            reverse_method="sync_validations_from_km",
+            priority=80,
+            config_key="km_critique_adapter",
+        )
+    )
 
     # Bidirectional integration adapters
-    register_adapter_spec(AdapterSpec(
-        name="evidence",
-        adapter_class=EvidenceAdapter,
-        required_deps=["evidence_store"],
-        forward_method="store",
-        reverse_method="update_reliability_from_km",
-        priority=70,
-        config_key="km_evidence_adapter",
-    ))
+    register_adapter_spec(
+        AdapterSpec(
+            name="evidence",
+            adapter_class=EvidenceAdapter,
+            required_deps=["evidence_store"],
+            forward_method="store",
+            reverse_method="update_reliability_from_km",
+            priority=70,
+            config_key="km_evidence_adapter",
+        )
+    )
 
-    register_adapter_spec(AdapterSpec(
-        name="belief",
-        adapter_class=BeliefAdapter,
-        required_deps=[],  # No external dep required, uses internal storage
-        forward_method="store_converged_belief",
-        reverse_method="sync_validations_from_km",
-        priority=60,
-        config_key="km_belief_adapter",
-    ))
+    register_adapter_spec(
+        AdapterSpec(
+            name="belief",
+            adapter_class=BeliefAdapter,
+            required_deps=[],  # No external dep required, uses internal storage
+            forward_method="store_converged_belief",
+            reverse_method="sync_validations_from_km",
+            priority=60,
+            config_key="km_belief_adapter",
+        )
+    )
 
-    register_adapter_spec(AdapterSpec(
-        name="insights",
-        adapter_class=InsightsAdapter,
-        required_deps=["insight_store"],
-        forward_method="store_insight",
-        reverse_method="sync_validations_from_km",
-        priority=50,
-        config_key="km_insights_adapter",
-    ))
+    register_adapter_spec(
+        AdapterSpec(
+            name="insights",
+            adapter_class=InsightsAdapter,
+            required_deps=["insight_store"],
+            forward_method="store_insight",
+            reverse_method="sync_validations_from_km",
+            priority=50,
+            config_key="km_insights_adapter",
+        )
+    )
 
-    register_adapter_spec(AdapterSpec(
-        name="elo",
-        adapter_class=EloAdapter,
-        required_deps=["elo_system"],
-        forward_method="store_match",
-        reverse_method="sync_km_to_elo",
-        priority=40,
-        config_key="km_elo_bridge",
-    ))
+    register_adapter_spec(
+        AdapterSpec(
+            name="elo",
+            adapter_class=EloAdapter,
+            required_deps=["elo_system"],
+            forward_method="store_match",
+            reverse_method="sync_km_to_elo",
+            priority=40,
+            config_key="km_elo_bridge",
+        )
+    )
 
-    register_adapter_spec(AdapterSpec(
-        name="pulse",
-        adapter_class=PulseAdapter,
-        required_deps=["pulse_manager"],
-        forward_method="store_trending_topic",
-        reverse_method="sync_validations_from_km",
-        priority=30,
-        config_key="km_pulse_adapter",
-    ))
+    register_adapter_spec(
+        AdapterSpec(
+            name="pulse",
+            adapter_class=PulseAdapter,
+            required_deps=["pulse_manager"],
+            forward_method="store_trending_topic",
+            reverse_method="sync_validations_from_km",
+            priority=30,
+            config_key="km_pulse_adapter",
+        )
+    )
 
-    register_adapter_spec(AdapterSpec(
-        name="cost",
-        adapter_class=CostAdapter,
-        required_deps=["cost_tracker"],
-        forward_method="store_anomaly",
-        reverse_method="sync_validations_from_km",
-        priority=10,  # Low priority - operational
-        enabled_by_default=False,  # Opt-in
-        config_key="km_cost_adapter",
-    ))
+    register_adapter_spec(
+        AdapterSpec(
+            name="cost",
+            adapter_class=CostAdapter,
+            required_deps=["cost_tracker"],
+            forward_method="store_anomaly",
+            reverse_method="sync_validations_from_km",
+            priority=10,  # Low priority - operational
+            enabled_by_default=False,  # Opt-in
+            config_key="km_cost_adapter",
+        )
+    )
 
 
 # Initialize specs on import
@@ -288,15 +306,22 @@ class AdapterFactory:
 
         # Collect dependencies from config and subsystems
         deps = {
-            "continuum_memory": getattr(config, "continuum_memory", None) or subsystems.get("continuum_memory"),
-            "consensus_memory": getattr(config, "consensus_memory", None) or subsystems.get("consensus_memory"),
+            "continuum_memory": getattr(config, "continuum_memory", None)
+            or subsystems.get("continuum_memory"),
+            "consensus_memory": getattr(config, "consensus_memory", None)
+            or subsystems.get("consensus_memory"),
             "memory": getattr(config, "memory", None) or subsystems.get("memory"),
-            "evidence_store": subsystems.get("evidence_store") or subsystems.get("evidence_collector"),
-            "insight_store": getattr(config, "insight_store", None) or subsystems.get("insight_store"),
+            "evidence_store": subsystems.get("evidence_store")
+            or subsystems.get("evidence_collector"),
+            "insight_store": getattr(config, "insight_store", None)
+            or subsystems.get("insight_store"),
             "elo_system": getattr(config, "elo_system", None) or subsystems.get("elo_system"),
-            "pulse_manager": getattr(config, "pulse_manager", None) or subsystems.get("pulse_manager"),
-            "cost_tracker": getattr(config, "usage_tracker", None) or subsystems.get("cost_tracker"),
-            "flip_detector": getattr(config, "flip_detector", None) or subsystems.get("flip_detector"),
+            "pulse_manager": getattr(config, "pulse_manager", None)
+            or subsystems.get("pulse_manager"),
+            "cost_tracker": getattr(config, "usage_tracker", None)
+            or subsystems.get("cost_tracker"),
+            "flip_detector": getattr(config, "flip_detector", None)
+            or subsystems.get("flip_detector"),
         }
 
         # Check for explicitly configured adapters
@@ -346,9 +371,7 @@ class AdapterFactory:
             # (Empty required_deps means the adapter can work standalone)
             missing_deps = [d for d in spec.required_deps if d not in deps]
             if missing_deps:
-                logger.debug(
-                    f"Skipping adapter '{spec_name}': missing deps {missing_deps}"
-                )
+                logger.debug(f"Skipping adapter '{spec_name}': missing deps {missing_deps}")
                 continue
 
             try:
@@ -451,7 +474,9 @@ class AdapterFactory:
                 elif spec.name == "belief":
                     return adapter_class()
                 elif spec.name == "insights":
-                    return adapter_class(store=deps.get("insight_store"), flip_detector=deps.get("flip_detector"))
+                    return adapter_class(
+                        store=deps.get("insight_store"), flip_detector=deps.get("flip_detector")
+                    )
                 elif spec.name == "elo":
                     return adapter_class(elo_system=deps.get("elo_system"))
                 elif spec.name == "pulse":

@@ -611,3 +611,88 @@ class ConsensusAdapter:
                 "strength": record.strength.value,
             },
         )
+
+    async def sync_validations_from_km(
+        self,
+        km_items: List[Dict[str, Any]],
+        min_confidence: float = 0.7,
+    ) -> Dict[str, Any]:
+        """
+        Sync KM validations back to ConsensusMemory (reverse flow).
+
+        When KM validates or cross-references consensus records, this method
+        updates the source records with validation metadata.
+
+        Args:
+            km_items: KM items with validation data
+            min_confidence: Minimum confidence for applying changes
+
+        Returns:
+            Dict with sync statistics
+        """
+        from datetime import datetime
+
+        result = {
+            "records_analyzed": 0,
+            "records_updated": 0,
+            "errors": [],
+        }
+
+        for item in km_items:
+            meta = item.get("metadata", {})
+            source_id = meta.get("source_id") or meta.get("consensus_id")
+
+            if not source_id:
+                continue
+
+            result["records_analyzed"] += 1
+
+            try:
+                # Get the consensus record
+                record = self.get(source_id)
+                if record is None:
+                    continue
+
+                # Extract KM validation data
+                km_confidence = item.get("confidence", 0.0)
+                if isinstance(km_confidence, str):
+                    # Handle confidence level strings
+                    km_confidence = {"low": 0.3, "medium": 0.6, "high": 0.9}.get(
+                        km_confidence.lower(), 0.5
+                    )
+
+                if km_confidence < min_confidence:
+                    continue
+
+                # Update metadata with KM validation info
+                record.metadata["km_validated"] = True
+                record.metadata["km_validation_confidence"] = km_confidence
+                record.metadata["km_validation_timestamp"] = datetime.now().isoformat()
+
+                if cross_refs := meta.get("cross_references"):
+                    record.metadata["km_cross_references"] = cross_refs
+
+                result["records_updated"] += 1
+
+                # Emit event for reverse sync
+                self._emit_event(
+                    "km_adapter_reverse_sync",
+                    {
+                        "source": "consensus",
+                        "consensus_id": source_id,
+                        "km_confidence": km_confidence,
+                        "action": "validated",
+                    },
+                )
+
+            except Exception as e:
+                result["errors"].append(f"Failed to update {source_id}: {str(e)}")
+                logger.warning(f"Reverse sync failed for consensus {source_id}: {e}")
+
+        logger.info(
+            f"Consensus reverse sync complete: "
+            f"analyzed={result['records_analyzed']}, "
+            f"updated={result['records_updated']}"
+        )
+
+        return result

@@ -47,6 +47,7 @@ aragora/
 │   ├── prompt_builder.py   # Prompt construction
 │   ├── consensus.py        # Consensus detection and proofs
 │   └── convergence.py      # Semantic similarity detection
+│   # Configurable concurrency: MAX_CONCURRENT_PROPOSALS, MAX_CONCURRENT_CRITIQUES, MAX_CONCURRENT_REVISIONS
 ├── agents/           # Agent implementations
 │   ├── cli_agents.py       # CLI agents (claude, codex, gemini, grok)
 │   ├── api_agents/         # API agents directory
@@ -232,6 +233,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Decision Explainability - natural language explanations, factor decomposition, counterfactuals
 - Workflow Templates - 15+ pre-built templates across 6 categories, pattern factories
 - Gauntlet Receipts - cryptographic audit trails with SHA-256 hashing
+- Gauntlet Defense - proposer_agent param enables attack/defend cycles
 - KM Resilience - ResilientPostgresStore with retry, health monitoring, cache invalidation
 
 **Enterprise (production-ready):**
@@ -251,7 +253,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 
 **Integrated:**
 - Knowledge Mound - STABLE Phase A2 (100% integrated, 950+ tests passing)
-  - 9 bidirectional adapters (Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost)
+  - 14 adapters (Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost, Receipt, ControlPlane, RLM, Culture, Ranking)
   - Visibility, sharing, federation, global knowledge
   - Semantic search, validation feedback, cross-debate learning
   - SLO alerting with Prometheus metrics

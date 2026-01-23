@@ -43,6 +43,7 @@ handlers/
 | `admin/dashboard.py` | `/api/dashboard/*` | Consolidated debate metrics |
 | `admin/health.py` | `/health`, `/ready` | Health & readiness probes |
 | `admin/system.py` | `/api/system/*` | System config & maintenance |
+| `usage_metering.py` | `/api/v1/billing/usage/*`, `/api/v1/quotas` | Usage metering and quota status |
 
 ### Key Endpoints
 
@@ -52,6 +53,14 @@ GET  /ready               - Readiness check
 GET  /api/admin/users     - List users (admin only)
 GET  /api/admin/stats     - System statistics
 GET  /api/dashboard       - Aggregated metrics
+
+# Usage Metering (Enterprise)
+GET  /api/v1/billing/usage         - Current billing period usage summary
+GET  /api/v1/billing/usage/summary - Alias for usage summary
+GET  /api/v1/billing/usage/breakdown - Detailed usage by model, provider, day
+GET  /api/v1/billing/limits        - Current tier limits and utilization
+GET  /api/v1/billing/usage/export  - Export usage as CSV or JSON
+GET  /api/v1/quotas                - Quota status for all resources
 ```
 
 ---

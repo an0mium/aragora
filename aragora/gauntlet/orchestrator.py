@@ -399,12 +399,21 @@ class GauntletOrchestrator:
             if REDTEAM_AVAILABLE and self._redteam_mode and self.agents:
                 logger.info("Running red-team attacks...")
                 try:
+                    # Use extra agent as proposer for defense if we have enough agents
+                    red_team_agents = self.agents[: config.max_agents]
+                    proposer_agent = None
+                    if len(self.agents) > config.max_agents:
+                        # Use agent beyond max_agents as proposer/defender
+                        proposer_agent = self.agents[config.max_agents]
+                        logger.info(f"Using {getattr(proposer_agent, 'name', 'agent')} as defender")
+
                     redteam_result = await self._redteam_mode.run_redteam(
                         target_proposal=input_text,
                         proposer="input_author",
-                        red_team_agents=self.agents[: config.max_agents],
+                        red_team_agents=red_team_agents,
                         run_agent_fn=self.run_agent_fn,
                         max_rounds=3,
+                        proposer_agent=proposer_agent,
                     )
 
                     # Convert RedTeam findings

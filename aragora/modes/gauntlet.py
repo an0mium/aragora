@@ -750,12 +750,20 @@ class GauntletOrchestrator:
             return None
 
         try:
+            # Use extra agent as proposer for defense if available
+            red_team_agents = self.agents[: config.parallel_attacks]
+            proposer_agent = None
+            if len(self.agents) > config.parallel_attacks:
+                proposer_agent = self.agents[config.parallel_attacks]
+                logger.info(f"Using {getattr(proposer_agent, 'name', 'agent')} as defender")
+
             result = await self.redteam_mode.run_redteam(
                 target_proposal=config.input_content,
                 proposer="input_author",
-                red_team_agents=self.agents[: config.parallel_attacks],
+                red_team_agents=red_team_agents,
                 run_agent_fn=self.run_agent_fn,
                 max_rounds=3,
+                proposer_agent=proposer_agent,
             )
             logger.info(
                 f"Red-team: {result.total_attacks} attacks, robustness={result.robustness_score:.0%}"
