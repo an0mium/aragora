@@ -126,6 +126,7 @@ GmailQueryHandler: HandlerType = None
 GoogleChatHandler: HandlerType = None
 ExplainabilityHandler: HandlerType = None
 A2AHandler: HandlerType = None
+CodeIntelligenceHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
 # Import handlers with graceful fallback
@@ -376,6 +377,9 @@ try:
     from aragora.server.handlers import (
         A2AHandler as _A2AHandler,
     )
+    from aragora.server.handlers.codebase import (
+        IntelligenceHandler as _CodeIntelligenceHandler,
+    )
 
     # Assign imported classes to module-level variables
     SystemHandler = _SystemHandler
@@ -459,6 +463,7 @@ try:
     GoogleChatHandler = _GoogleChatHandler
     ExplainabilityHandler = _ExplainabilityHandler
     A2AHandler = _A2AHandler
+    CodeIntelligenceHandler = _CodeIntelligenceHandler
     HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
@@ -555,6 +560,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_google_chat_handler", GoogleChatHandler),
     ("_explainability_handler", ExplainabilityHandler),
     ("_a2a_handler", A2AHandler),
+    ("_code_intelligence_handler", CodeIntelligenceHandler),
 ]
 
 
@@ -673,6 +679,10 @@ class RouteIndex:
             "_a2a_handler": [
                 "/api/a2a/",
                 "/.well-known/agent.json",
+            ],
+            "_code_intelligence_handler": [
+                "/api/codebase/",
+                "/api/v1/codebase/",
             ],
         }
 

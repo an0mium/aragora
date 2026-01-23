@@ -673,11 +673,9 @@ Format your response as:
             )
 
         # Create and run the arena
-        # Note: Arena will use agents from the agent registry
-        async with Arena(
-            env=env,
-            protocol=protocol,
-        ) as arena:
+        # Use positional args as Arena expects (environment, agents, protocol)
+        # Pass empty agents list to let Arena use defaults
+        async with Arena(env, [], protocol) as arena:
             result = await arena.run()
 
         # Parse the debate result

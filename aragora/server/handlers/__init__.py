@@ -173,6 +173,7 @@ from .template_marketplace import TemplateMarketplaceHandler
 from .email import EmailHandler  # Email prioritization API
 from .email_services import EmailServicesHandler  # Email services (follow-up, snooze, categories)
 from .dependency_analysis import DependencyAnalysisHandler  # Dependency analysis API
+from .codebase import IntelligenceHandler  # Code intelligence (AST, call graphs, dead code)
 from .social import CollaborationHandlers, get_collaboration_handlers  # Moved to social/
 from .bots import (
     DiscordHandler,
@@ -306,6 +307,7 @@ ALL_HANDLERS = [
     EmailHandler,  # Email prioritization API
     EmailServicesHandler,  # Email services (follow-up, snooze, categories)
     DependencyAnalysisHandler,  # Codebase dependency analysis API
+    IntelligenceHandler,  # Code intelligence (AST, call graphs, dead code)
     # Bot platform handlers
     DiscordHandler,  # Discord Interactions API
     GoogleChatHandler,  # Google Chat Cards API
@@ -601,6 +603,7 @@ __all__ = [
     "EmailHandler",
     "EmailServicesHandler",
     "DependencyAnalysisHandler",
+    "IntelligenceHandler",
     # Collaboration handlers
     "CollaborationHandlers",
     "get_collaboration_handlers",

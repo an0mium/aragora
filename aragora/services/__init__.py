@@ -116,6 +116,22 @@ __all__ = [
     "CrossAccountSenderProfile",
     "AccountType",
     "create_multi_inbox_manager",
+    # Threat Intelligence
+    "ThreatIntelligenceService",
+    "ThreatIntelConfig",
+    "ThreatResult",
+    "ThreatType",
+    "ThreatSeverity",
+    "ThreatSource",
+    "IPReputationResult",
+    "FileHashResult",
+    "check_threat",
+    # Spam Classification
+    "SpamClassifier",
+    "SpamClassifierConfig",
+    "SpamClassificationResult",
+    "SpamCategory",
+    "classify_email_spam",
 ]
 
 # Email Prioritization Service
@@ -160,4 +176,26 @@ from .multi_inbox_manager import (
     CrossAccountSenderProfile,
     AccountType,
     create_multi_inbox_manager,
+)
+
+# Threat Intelligence Service
+from .threat_intelligence import (
+    ThreatIntelligenceService,
+    ThreatIntelConfig,
+    ThreatResult,
+    ThreatType,
+    ThreatSeverity,
+    ThreatSource,
+    IPReputationResult,
+    FileHashResult,
+    check_threat,
+)
+
+# Spam Classification Service
+from .spam_classifier import (
+    SpamClassifier,
+    SpamClassifierConfig,
+    SpamClassificationResult,
+    SpamCategory,
+    classify_email_spam,
 )

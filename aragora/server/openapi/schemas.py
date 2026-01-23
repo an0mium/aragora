@@ -101,6 +101,16 @@ COMMON_SCHEMAS: dict[str, Any] = {
             "has_more": {"type": "boolean", "description": "More items available"},
         },
     },
+    "StandardSuccessResponse": {
+        "type": "object",
+        "description": "Generic success response wrapper",
+        "properties": {
+            "success": {"type": "boolean"},
+            "data": {"type": "object", "additionalProperties": True},
+            "message": {"type": "string", "nullable": True},
+        },
+        "required": ["success"],
+    },
     "Agent": {
         "type": "object",
         "properties": {
