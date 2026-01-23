@@ -1,0 +1,16 @@
+# Build output
+out/
+*.vsix
+
+# Dependencies
+node_modules/
+
+# Webview build
+webview-ui/dist/
+webview-ui/node_modules/
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE
+.vscode-test/

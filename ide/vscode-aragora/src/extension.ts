@@ -1,11 +1,23 @@
 /**
  * Aragora VS Code Extension
  *
- * Control plane for multi-agent deliberation.
- * Provides integration with the Aragora multi-agent debate API.
+ * Control plane for multi-agent deliberation with rich code analysis.
+ * Provides integration with the Aragora multi-agent debate API,
+ * security diagnostics, code actions, and real-time streaming.
  */
 
 import * as vscode from 'vscode';
+import { AragoraDiagnosticsProvider } from './providers/DiagnosticsProvider';
+import { AragoraCodeActionsProvider, registerCodeActionsCommands } from './providers/CodeActionsProvider';
+import { SecurityTreeProvider, registerSecurityTreeCommands } from './providers/SecurityTreeProvider';
+import { StreamManager } from './services/StreamManager';
+import { DebatePanel, registerDebatePanelCommands } from './panels/DebatePanel';
+import { ReviewPanel, registerReviewPanelCommands } from './panels/ReviewPanel';
+import type { SecurityFinding } from './types/messages';
+
+// ============================================
+// Type Definitions
+// ============================================
 
 interface FleetStatus {
   agents_idle: number;
@@ -14,7 +26,7 @@ interface FleetStatus {
   agents_error: number;
   running_tasks: number;
   pending_tasks: number;
-  health: number; // 0-100
+  health: number;
 }
 
 interface DebateResult {
@@ -70,6 +82,10 @@ interface ResourceUtilization {
   active_connections: number;
   requests_per_minute: number;
 }
+
+// ============================================
+// Aragora API Client
+// ============================================
 
 class AragoraClient {
   private apiUrl: string;
@@ -159,7 +175,6 @@ class AragoraClient {
         health,
       };
     } catch {
-      // Return mock data when API unavailable
       return {
         agents_idle: 3,
         agents_busy: 1,
@@ -172,7 +187,6 @@ class AragoraClient {
     }
   }
 
-  // Control Plane API methods
   async getControlPlaneStatus(): Promise<ControlPlaneStatus> {
     try {
       return await this.fetch<ControlPlaneStatus>('/api/v1/control-plane/status');
@@ -242,11 +256,71 @@ class AragoraClient {
       return { tasks: [] };
     }
   }
+
+  // Code analysis methods for providers
+  async analyzeSelection(content: string, languageId: string): Promise<{ explanation: string }> {
+    try {
+      return await this.fetch<{ explanation: string }>('/api/v1/codebase/explain', {
+        method: 'POST',
+        body: JSON.stringify({ content, language: languageId }),
+      });
+    } catch {
+      return { explanation: `This code appears to be ${languageId}. Analysis unavailable in offline mode.` };
+    }
+  }
+
+  async generateTests(content: string, languageId: string): Promise<{ tests: string }> {
+    try {
+      return await this.fetch<{ tests: string }>('/api/v1/codebase/generate-tests', {
+        method: 'POST',
+        body: JSON.stringify({ content, language: languageId }),
+      });
+    } catch {
+      return { tests: `// Test generation unavailable in offline mode\n// Mock tests for ${languageId} code` };
+    }
+  }
+
+  async suggestFix(finding: SecurityFinding, content: string): Promise<{ fix: string }> {
+    try {
+      return await this.fetch<{ fix: string }>('/api/v1/codebase/suggest-fix', {
+        method: 'POST',
+        body: JSON.stringify({ finding, content }),
+      });
+    } catch {
+      return { fix: content }; // Return unchanged in offline mode
+    }
+  }
+
+  async reviewCode(content: string, languageId: string, fileName: string): Promise<{
+    id: string;
+    file: string;
+    status: 'completed';
+    comments: [];
+    summary: string;
+    agents: [];
+  }> {
+    try {
+      return await this.fetch('/api/v1/codebase/review', {
+        method: 'POST',
+        body: JSON.stringify({ content, language: languageId, file_name: fileName }),
+      });
+    } catch {
+      return {
+        id: `review-${Date.now()}`,
+        file: fileName,
+        status: 'completed',
+        comments: [],
+        summary: 'Review unavailable in offline mode',
+        agents: [],
+      };
+    }
+  }
 }
 
-/**
- * Control Plane Tree Provider - shows system status and metrics
- */
+// ============================================
+// Tree Providers
+// ============================================
+
 class ControlPlaneTreeProvider implements vscode.TreeDataProvider<ControlPlaneItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<ControlPlaneItem | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -334,9 +408,6 @@ class ControlPlaneItem extends vscode.TreeItem {
   }
 }
 
-/**
- * Tasks Tree Provider - shows task queue
- */
 class TasksTreeProvider implements vscode.TreeDataProvider<TaskItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<TaskItem | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -413,7 +484,7 @@ class DebatesTreeProvider implements vscode.TreeDataProvider<DebateItem> {
       const result = await this.client.listDebates(20);
       this.debates = result.debates || [];
       this.refresh();
-    } catch (error) {
+    } catch {
       this.debates = [];
       this.refresh();
     }
@@ -444,10 +515,8 @@ class DebateItem extends vscode.TreeItem {
     public readonly answer?: string
   ) {
     super(label, vscode.TreeItemCollapsibleState.None);
-
     this.tooltip = answer || 'No consensus reached';
     this.description = status;
-
     const icon = status === 'completed' ? 'check' : status === 'running' ? 'sync~spin' : 'circle-outline';
     this.iconPath = new vscode.ThemeIcon(icon);
   }
@@ -473,7 +542,7 @@ class AgentsTreeProvider implements vscode.TreeDataProvider<AgentItem> {
       const result = await this.client.listAgents();
       this.agents = result.agents || [];
       this.refresh();
-    } catch (error) {
+    } catch {
       this.agents = [];
       this.refresh();
     }
@@ -495,7 +564,6 @@ class AgentItem extends vscode.TreeItem {
     public readonly status: string
   ) {
     super(label, vscode.TreeItemCollapsibleState.None);
-
     this.description = provider;
     this.tooltip = `${label} (${provider}) - ${status}`;
     this.contextValue = 'agent';
@@ -513,9 +581,10 @@ class AgentItem extends vscode.TreeItem {
   }
 }
 
-/**
- * Manages fleet status updates and status bar display.
- */
+// ============================================
+// Fleet Status Manager
+// ============================================
+
 class FleetStatusManager {
   private statusBar: vscode.StatusBarItem;
   private client: AragoraClient;
@@ -531,11 +600,7 @@ class FleetStatusManager {
   async start(): Promise<void> {
     await this.update();
     this.statusBar.show();
-
-    // Update every 30 seconds
-    this.updateInterval = setInterval(() => {
-      this.update();
-    }, 30000);
+    this.updateInterval = setInterval(() => this.update(), 30000);
   }
 
   stop(): void {
@@ -551,7 +616,6 @@ class FleetStatusManager {
       this.lastStatus = await this.client.getFleetStatus();
       this.render();
     } catch {
-      // Keep showing last known status or default
       this.render();
     }
   }
@@ -565,14 +629,12 @@ class FleetStatusManager {
       return;
     }
 
-    // Health indicator icon
     const healthIcon = status.health >= 80 ? '$(circle-filled)' :
                        status.health >= 50 ? '$(warning)' : '$(error)';
     const healthColor = status.health >= 80 ? undefined :
                         status.health >= 50 ? new vscode.ThemeColor('statusBarItem.warningBackground') :
                         new vscode.ThemeColor('statusBarItem.errorBackground');
 
-    // Format: $(icon) Agents: idle/total | Tasks: running
     const totalAgents = status.agents_idle + status.agents_busy + status.agents_offline + status.agents_error;
     const agentText = `${status.agents_idle}/${totalAgents}`;
     const taskText = status.running_tasks > 0 ? `${status.running_tasks} running` : 'idle';
@@ -582,8 +644,7 @@ class FleetStatusManager {
     this.statusBar.tooltip = new vscode.MarkdownString(
       `## Aragora Fleet Status\n\n` +
       `**Health:** ${status.health}%\n\n` +
-      `| Status | Count |\n` +
-      `|--------|-------|\n` +
+      `| Status | Count |\n|--------|-------|\n` +
       `| Idle | ${status.agents_idle} |\n` +
       `| Busy | ${status.agents_busy} |\n` +
       `| Offline | ${status.agents_offline} |\n` +
@@ -598,10 +659,23 @@ class FleetStatusManager {
   }
 }
 
+// ============================================
+// Extension Activation
+// ============================================
+
 export function activate(context: vscode.ExtensionContext) {
   const client = new AragoraClient();
 
-  // Register tree views
+  // Initialize new providers
+  const diagnosticsProvider = new AragoraDiagnosticsProvider();
+  const codeActionsProvider = new AragoraCodeActionsProvider({
+    diagnosticsProvider,
+    client,
+  });
+  const securityTreeProvider = new SecurityTreeProvider(diagnosticsProvider);
+  const streamManager = new StreamManager();
+
+  // Register existing tree views
   const debatesProvider = new DebatesTreeProvider(client);
   const agentsProvider = new AgentsTreeProvider(client);
   const controlPlaneProvider = new ControlPlaneTreeProvider(client);
@@ -612,6 +686,37 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.window.registerTreeDataProvider('aragora.controlPlane', controlPlaneProvider);
   vscode.window.registerTreeDataProvider('aragora.tasks', tasksProvider);
   vscode.window.registerTreeDataProvider('aragora.activeDeliberations', debatesProvider);
+  vscode.window.registerTreeDataProvider('aragora.security', securityTreeProvider);
+
+  // Register Code Actions Provider
+  context.subscriptions.push(
+    vscode.languages.registerCodeActionsProvider(
+      [
+        { language: 'javascript' },
+        { language: 'typescript' },
+        { language: 'javascriptreact' },
+        { language: 'typescriptreact' },
+        { language: 'python' },
+        { language: 'java' },
+        { language: 'go' },
+        { language: 'rust' },
+      ],
+      codeActionsProvider,
+      {
+        providedCodeActionKinds: AragoraCodeActionsProvider.providedCodeActionKinds,
+      }
+    )
+  );
+
+  // Register commands from new providers
+  registerCodeActionsCommands(context, client);
+  registerSecurityTreeCommands(context, securityTreeProvider);
+  registerDebatePanelCommands(context, streamManager);
+  registerReviewPanelCommands(context, client);
+
+  // Add new providers to subscriptions
+  context.subscriptions.push(diagnosticsProvider);
+  context.subscriptions.push(streamManager);
 
   // Load initial data
   debatesProvider.loadDebates();
@@ -619,9 +724,16 @@ export function activate(context: vscode.ExtensionContext) {
   controlPlaneProvider.load();
   tasksProvider.load();
 
+  // Auto-connect to stream if enabled
+  const config = vscode.workspace.getConfiguration('aragora');
+  if (config.get('autoConnect', true)) {
+    streamManager.connect();
+  }
+
+  // ========== Existing Commands ==========
+
   // Run Debate command
   const runDebateCmd = vscode.commands.registerCommand('aragora.runDebate', async () => {
-    const config = vscode.workspace.getConfiguration('aragora');
     const defaultAgents = config.get<string>('defaultAgents') || 'claude,gpt-4';
     const defaultRounds = config.get<number>('defaultRounds') || 3;
 
@@ -630,9 +742,7 @@ export function activate(context: vscode.ExtensionContext) {
       placeHolder: 'What is the best approach for handling errors in TypeScript?',
     });
 
-    if (!question) {
-      return;
-    }
+    if (!question) return;
 
     const agentsInput = await vscode.window.showInputBox({
       prompt: 'Enter agents (comma-separated)',
@@ -640,11 +750,13 @@ export function activate(context: vscode.ExtensionContext) {
       placeHolder: 'claude,gpt-4,gemini',
     });
 
-    if (!agentsInput) {
-      return;
-    }
+    if (!agentsInput) return;
 
     const agents = agentsInput.split(',').map((a) => a.trim());
+
+    // Show debate panel
+    const panel = DebatePanel.createOrShow(context.extensionUri, streamManager);
+    panel.startDebate(question, agents, defaultRounds);
 
     await vscode.window.withProgress(
       {
@@ -658,31 +770,11 @@ export function activate(context: vscode.ExtensionContext) {
         try {
           const result = await client.runDebate(question, agents, defaultRounds);
 
-          // Poll for completion
           let debate = result;
           while (debate.status === 'running' || debate.status === 'pending') {
             await new Promise((resolve) => setTimeout(resolve, 2000));
             debate = await client.getDebate(result.debate_id);
             progress.report({ message: `Round ${debate.rounds_completed}/${defaultRounds}` });
-          }
-
-          // Show result
-          const answer = debate.consensus?.final_answer || 'No consensus reached';
-          const action = await vscode.window.showInformationMessage(
-            `Debate Complete!\n\n${answer.substring(0, 200)}...`,
-            'View Full Result',
-            'Copy Answer'
-          );
-
-          if (action === 'Copy Answer') {
-            await vscode.env.clipboard.writeText(answer);
-            vscode.window.showInformationMessage('Answer copied to clipboard');
-          } else if (action === 'View Full Result') {
-            const doc = await vscode.workspace.openTextDocument({
-              content: JSON.stringify(debate, null, 2),
-              language: 'json',
-            });
-            await vscode.window.showTextDocument(doc);
           }
 
           debatesProvider.loadDebates();
@@ -718,9 +810,7 @@ export function activate(context: vscode.ExtensionContext) {
       async () => {
         try {
           const result = await client.runGauntlet(content, 'code');
-          vscode.window.showInformationMessage(
-            `Gauntlet started! Session ID: ${result.session_id}`
-          );
+          vscode.window.showInformationMessage(`Gauntlet started! Session ID: ${result.session_id}`);
         } catch (error) {
           vscode.window.showErrorMessage(`Gauntlet failed: ${error}`);
         }
@@ -762,48 +852,49 @@ export function activate(context: vscode.ExtensionContext) {
         { label: 'Set API Key', description: 'Configure your API key' },
         { label: 'Set Default Agents', description: 'Configure default agents for debates' },
         { label: 'Set Default Rounds', description: 'Configure default number of rounds' },
+        { label: 'Toggle Auto-Analyze', description: 'Toggle analysis on save' },
       ],
       { placeHolder: 'What would you like to configure?' }
     );
 
     if (!action) return;
 
-    const config = vscode.workspace.getConfiguration('aragora');
+    const currentConfig = vscode.workspace.getConfiguration('aragora');
 
     if (action.label === 'Set API URL') {
       const value = await vscode.window.showInputBox({
         prompt: 'Enter API URL',
-        value: config.get('apiUrl'),
+        value: currentConfig.get('apiUrl'),
       });
-      if (value) await config.update('apiUrl', value, true);
+      if (value) await currentConfig.update('apiUrl', value, true);
     } else if (action.label === 'Set API Key') {
       const value = await vscode.window.showInputBox({
         prompt: 'Enter API Key',
         password: true,
       });
-      if (value) await config.update('apiKey', value, true);
+      if (value) await currentConfig.update('apiKey', value, true);
     } else if (action.label === 'Set Default Agents') {
       const value = await vscode.window.showInputBox({
         prompt: 'Enter default agents (comma-separated)',
-        value: config.get('defaultAgents'),
+        value: currentConfig.get('defaultAgents'),
       });
-      if (value) await config.update('defaultAgents', value, true);
+      if (value) await currentConfig.update('defaultAgents', value, true);
     } else if (action.label === 'Set Default Rounds') {
       const value = await vscode.window.showInputBox({
         prompt: 'Enter default number of rounds',
-        value: String(config.get('defaultRounds')),
+        value: String(currentConfig.get('defaultRounds')),
       });
-      if (value) await config.update('defaultRounds', parseInt(value, 10), true);
+      if (value) await currentConfig.update('defaultRounds', parseInt(value, 10), true);
+    } else if (action.label === 'Toggle Auto-Analyze') {
+      const current = currentConfig.get('analyzeOnSave', true);
+      await currentConfig.update('analyzeOnSave', !current, true);
+      vscode.window.showInformationMessage(`Auto-analyze on save: ${!current ? 'enabled' : 'disabled'}`);
     }
   });
 
   // Show Control Plane command
   const showControlPlaneCmd = vscode.commands.registerCommand('aragora.showControlPlane', async () => {
-    // Open the control plane in the default browser or webview
-    const config = vscode.workspace.getConfiguration('aragora');
     const apiUrl = config.get<string>('apiUrl') || 'https://api.aragora.ai';
-
-    // Try to construct the UI URL from the API URL
     const uiUrl = apiUrl.replace('/api', '').replace('api.', '');
     const controlPlaneUrl = `${uiUrl}/control-plane`;
 
@@ -862,9 +953,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     let finalTaskType = taskType.label;
     if (taskType.label === 'custom') {
-      const custom = await vscode.window.showInputBox({
-        prompt: 'Enter custom task type',
-      });
+      const custom = await vscode.window.showInputBox({ prompt: 'Enter custom task type' });
       if (!custom) return;
       finalTaskType = custom;
     }
@@ -995,6 +1084,25 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
+  // Analyze Workspace command
+  const analyzeWorkspaceCmd = vscode.commands.registerCommand('aragora.analyzeWorkspace', async () => {
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: 'Analyzing Workspace Security',
+        cancellable: false,
+      },
+      async (progress) => {
+        const findings = await diagnosticsProvider.analyzeWorkspace(progress);
+        securityTreeProvider.setFindings(findings);
+
+        const total = Array.from(findings.values()).reduce((sum, f) => sum + f.length, 0);
+        vscode.window.showInformationMessage(`Found ${total} security issues in ${findings.size} files`);
+      }
+    );
+  });
+
+  // Register all commands
   context.subscriptions.push(
     runDebateCmd,
     runGauntletCmd,
@@ -1007,10 +1115,11 @@ export function activate(context: vscode.ExtensionContext) {
     submitTaskCmd,
     viewAgentHealthCmd,
     cancelTaskCmd,
-    registerAgentCmd
+    registerAgentCmd,
+    analyzeWorkspaceCmd
   );
 
-  // Fleet Status Manager with enhanced status bar
+  // Fleet Status Manager
   const fleetManager = new FleetStatusManager(client);
   fleetManager.start();
 
@@ -1018,7 +1127,7 @@ export function activate(context: vscode.ExtensionContext) {
     dispose: () => fleetManager.stop(),
   });
 
-  vscode.window.showInformationMessage('Aragora Control Plane activated!');
+  vscode.window.showInformationMessage('Aragora Control Plane activated with code analysis!');
 }
 
 export function deactivate() {}

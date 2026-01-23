@@ -115,15 +115,16 @@ export class ControlPlaneStreamClient {
     try {
       // Use global WebSocket in Node.js 18+ or ws package
       const WebSocketImpl = typeof WebSocket !== 'undefined' ? WebSocket : require('ws');
-      this.ws = new WebSocketImpl(this.options.wsUrl);
+      const ws: WebSocket = new WebSocketImpl(this.options.wsUrl);
+      this.ws = ws;
 
-      this.ws.onopen = () => {
+      ws.onopen = () => {
         this.isConnecting = false;
         this.reconnectAttempts = 0;
         this.events.onConnected?.();
       };
 
-      this.ws.onmessage = (event: MessageEvent) => {
+      ws.onmessage = (event: MessageEvent) => {
         try {
           const data = JSON.parse(event.data as string) as ControlPlaneEvent;
           this.handleEvent(data);
@@ -132,7 +133,7 @@ export class ControlPlaneStreamClient {
         }
       };
 
-      this.ws.onclose = (event: CloseEvent) => {
+      ws.onclose = (event: CloseEvent) => {
         this.ws = null;
         this.isConnecting = false;
         this.events.onDisconnected?.(event.reason || 'Connection closed');
@@ -142,7 +143,7 @@ export class ControlPlaneStreamClient {
         }
       };
 
-      this.ws.onerror = (event: Event) => {
+      ws.onerror = (event: Event) => {
         this.events.onError?.(`WebSocket error: ${event}`);
       };
     } catch (e) {

@@ -1,15 +1,16 @@
 {
   "name": "aragora",
   "displayName": "Aragora",
-  "description": "Control plane for multi-agent deliberation - VS Code integration",
-  "version": "0.1.0",
+  "description": "Control plane for multi-agent deliberation - VS Code integration with rich code analysis",
+  "version": "0.2.0",
   "publisher": "aragora",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
     "Other",
-    "Machine Learning"
+    "Machine Learning",
+    "Linters"
   ],
   "keywords": [
     "ai",
@@ -17,9 +18,15 @@
     "multi-agent",
     "llm",
     "claude",
-    "gpt"
+    "gpt",
+    "code-review",
+    "security"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:python"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -86,6 +93,94 @@
         "command": "aragora.cancelTask",
         "title": "Aragora: Cancel Task",
         "category": "Aragora"
+      },
+      {
+        "command": "aragora.explainCode",
+        "title": "Aragora: Explain Code",
+        "category": "Aragora",
+        "icon": "$(lightbulb)"
+      },
+      {
+        "command": "aragora.reviewSelection",
+        "title": "Aragora: Review Selection",
+        "category": "Aragora",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "aragora.generateTests",
+        "title": "Aragora: Generate Tests",
+        "category": "Aragora",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "aragora.fixIssue",
+        "title": "Aragora: Fix Issue",
+        "category": "Aragora",
+        "icon": "$(wrench)"
+      },
+      {
+        "command": "aragora.addToDebate",
+        "title": "Aragora: Add to Debate Context",
+        "category": "Aragora",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "aragora.showDebatePanel",
+        "title": "Aragora: Show Debate Panel",
+        "category": "Aragora",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "aragora.showReviewPanel",
+        "title": "Aragora: Show Review Panel",
+        "category": "Aragora",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "aragora.quickReview",
+        "title": "Aragora: Quick Review",
+        "category": "Aragora",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "aragora.analyzeWorkspace",
+        "title": "Aragora: Analyze Workspace Security",
+        "category": "Aragora",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "aragora.refreshSecurityTree",
+        "title": "Aragora: Refresh Security Findings",
+        "category": "Aragora",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "aragora.exportFindings",
+        "title": "Aragora: Export Security Findings",
+        "category": "Aragora",
+        "icon": "$(export)"
+      },
+      {
+        "command": "aragora.improveCode",
+        "title": "Aragora: Improve Code",
+        "category": "Aragora",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "aragora.toggleStream",
+        "title": "Aragora: Toggle Live Stream",
+        "category": "Aragora",
+        "icon": "$(broadcast)"
+      },
+      {
+        "command": "aragora.clearDebateContext",
+        "title": "Aragora: Clear Debate Context",
+        "category": "Aragora"
+      },
+      {
+        "command": "aragora.viewDebateContext",
+        "title": "Aragora: View Debate Context",
+        "category": "Aragora"
       }
     ],
     "configuration": {
@@ -110,6 +205,36 @@
           "type": "number",
           "default": 3,
           "description": "Default number of debate rounds"
+        },
+        "aragora.analyzeOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run security analysis when files are saved"
+        },
+        "aragora.analyzeOnOpen": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run security analysis when files are opened"
+        },
+        "aragora.analyzeOnChange": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run security analysis while typing (debounced)"
+        },
+        "aragora.showInlineHints": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline hints for code actions"
+        },
+        "aragora.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically connect to WebSocket stream on startup"
+        },
+        "aragora.ignoredFindings": {
+          "type": "array",
+          "default": [],
+          "description": "List of finding IDs to ignore"
         }
       }
     },
@@ -127,6 +252,10 @@
         {
           "id": "aragora.controlPlane",
           "name": "Control Plane"
+        },
+        {
+          "id": "aragora.security",
+          "name": "Security Findings"
         },
         {
           "id": "aragora.activeDeliberations",
@@ -154,6 +283,10 @@
       {
         "view": "aragora.activeDeliberations",
         "contents": "No active deliberations.\n[Start New Debate](command:aragora.runDebate)"
+      },
+      {
+        "view": "aragora.security",
+        "contents": "No security findings.\n[Analyze Workspace](command:aragora.analyzeWorkspace)"
       }
     ],
     "menus": {
@@ -161,7 +294,27 @@
         {
           "command": "aragora.runGauntlet",
           "when": "editorHasSelection",
-          "group": "aragora"
+          "group": "aragora@1"
+        },
+        {
+          "command": "aragora.explainCode",
+          "when": "editorTextFocus",
+          "group": "aragora@2"
+        },
+        {
+          "command": "aragora.reviewSelection",
+          "when": "editorHasSelection",
+          "group": "aragora@3"
+        },
+        {
+          "command": "aragora.generateTests",
+          "when": "editorHasSelection",
+          "group": "aragora@4"
+        },
+        {
+          "command": "aragora.addToDebate",
+          "when": "editorHasSelection",
+          "group": "aragora@5"
         }
       ],
       "view/title": [
@@ -179,6 +332,21 @@
           "command": "aragora.runDebate",
           "when": "view == aragora.debates || view == aragora.activeDeliberations",
           "group": "navigation"
+        },
+        {
+          "command": "aragora.refreshSecurityTree",
+          "when": "view == aragora.security",
+          "group": "navigation@1"
+        },
+        {
+          "command": "aragora.analyzeWorkspace",
+          "when": "view == aragora.security",
+          "group": "navigation@2"
+        },
+        {
+          "command": "aragora.exportFindings",
+          "when": "view == aragora.security",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -191,17 +359,56 @@
           "command": "aragora.cancelTask",
           "when": "viewItem == task",
           "group": "inline"
+        },
+        {
+          "command": "aragora.fixIssue",
+          "when": "viewItem == finding",
+          "group": "inline@1"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "aragora.explainCode",
+        "key": "cmd+shift+a",
+        "mac": "cmd+shift+a",
+        "win": "ctrl+shift+a",
+        "linux": "ctrl+shift+a",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "aragora.reviewSelection",
+        "key": "cmd+shift+r",
+        "mac": "cmd+shift+r",
+        "win": "ctrl+shift+r",
+        "linux": "ctrl+shift+r",
+        "when": "editorHasSelection"
+      },
+      {
+        "command": "aragora.generateTests",
+        "key": "cmd+shift+t",
+        "mac": "cmd+shift+t",
+        "win": "ctrl+shift+t",
+        "linux": "ctrl+shift+t",
+        "when": "editorHasSelection"
+      },
+      {
+        "command": "aragora.showDebatePanel",
+        "key": "cmd+shift+d",
+        "mac": "cmd+shift+d",
+        "win": "ctrl+shift+d",
+        "linux": "ctrl+shift+d"
+      }
+    ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run compile && npm run build:webview",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
     "lint": "eslint src --ext ts",
-    "package": "vsce package"
+    "package": "vsce package",
+    "build:webview": "cd webview-ui && npm install && npm run build"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",
