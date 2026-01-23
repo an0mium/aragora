@@ -85,7 +85,9 @@ class TestAuthExemptPrefixes:
 
     def test_oauth_flow_prefix_exempt(self, exempt_prefixes):
         """OAuth flow paths should be exempt."""
-        assert any("/api/auth/oauth/" in p for p in exempt_prefixes)
+        # Check that OAuth paths would be covered by prefix matching
+        oauth_path = "/api/auth/oauth/google"
+        assert any(oauth_path.startswith(p) for p in exempt_prefixes)
 
     def test_agent_profiles_prefix_exempt(self, exempt_prefixes):
         """Agent profile paths should be exempt."""
