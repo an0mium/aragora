@@ -39,10 +39,11 @@ interface TriageRule {
 }
 
 interface TriageRulesPanelProps {
-  apiBase: string;
-  workspaceId: string;
+  apiBase?: string;
+  workspaceId?: string;
   authToken?: string;
   onRuleApplied?: (ruleId: string, emailCount: number) => void;
+  onRuleChange?: () => void;
 }
 
 const FIELD_OPTIONS: { value: ConditionField; label: string }[] = [

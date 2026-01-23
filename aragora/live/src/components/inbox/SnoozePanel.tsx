@@ -25,6 +25,9 @@ interface SnoozeRecommendation {
 }
 
 interface SnoozePanelProps {
+  apiBase?: string;
+  userId?: string;
+  authToken?: string;
   emailId?: string;
   emailSubject?: string;
   emailSender?: string;

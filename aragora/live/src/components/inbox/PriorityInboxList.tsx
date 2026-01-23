@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { EmailDetailModal } from './EmailDetailModal';
 
 // Priority levels from the email prioritization service
-type EmailPriority = 'critical' | 'high' | 'medium' | 'low' | 'defer';
+export type EmailPriority = 'critical' | 'high' | 'medium' | 'low' | 'defer' | 'spam';
 
-interface PrioritizedEmail {
+export interface PrioritizedEmail {
   id: string;
   subject: string;
   from_address: string;
@@ -14,6 +14,9 @@ interface PrioritizedEmail {
   date: string;
   thread_id?: string;
   labels?: string[];
+  read?: boolean;
+  category?: string;
+  reasoning?: string;
   // Prioritization results
   priority: EmailPriority;
   confidence: number;
@@ -49,10 +52,17 @@ interface LegacyEmail {
   priority_score: number;
 }
 
-interface PriorityInboxListProps {
-  apiBase: string;
-  userId: string;
+export interface PriorityInboxListProps {
+  // API configuration (for self-fetching mode)
+  apiBase?: string;
+  userId?: string;
   authToken?: string;
+  // Controlled mode props
+  emails?: PrioritizedEmail[];
+  loading?: boolean;
+  selectedId?: string;
+  onSelect?: (email: PrioritizedEmail) => void;
+  onRefresh?: () => void;
 }
 
 const PRIORITY_CONFIG: Record<EmailPriority, { color: string; icon: string; label: string }> = {
@@ -61,15 +71,29 @@ const PRIORITY_CONFIG: Record<EmailPriority, { color: string; icon: string; labe
   medium: { color: 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10', icon: '🟡', label: 'MEDIUM' },
   low: { color: 'text-blue-400 border-blue-500/40 bg-blue-500/10', icon: '🔵', label: 'LOW' },
   defer: { color: 'text-gray-400 border-gray-500/40 bg-gray-500/10', icon: '⚪', label: 'DEFER' },
+  spam: { color: 'text-red-600 border-red-600/40 bg-red-600/10', icon: '🚫', label: 'SPAM' },
 };
 
 export function PriorityInboxList({
   apiBase,
   userId,
   authToken,
+  emails: controlledEmails,
+  loading: controlledLoading,
+  selectedId,
+  onSelect,
+  onRefresh,
 }: PriorityInboxListProps) {
-  const [emails, setEmails] = useState<PrioritizedEmail[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Use controlled mode if emails are provided
+  const isControlled = controlledEmails !== undefined;
+  const [internalEmails, setInternalEmails] = useState<PrioritizedEmail[]>([]);
+  const [internalLoading, setInternalLoading] = useState(true);
+
+  // Use controlled or internal state
+  const emails = isControlled ? controlledEmails : internalEmails;
+  const setEmails = isControlled ? () => {} : setInternalEmails;
+  const isLoading = isControlled ? (controlledLoading ?? false) : internalLoading;
+  const setIsLoading = isControlled ? () => {} : setInternalLoading;
   const [error, setError] = useState<string | null>(null);
   const [processingTime, setProcessingTime] = useState<number | null>(null);
   const [tiersSummary, setTiersSummary] = useState<RankedInboxResponse['tiers_summary'] | null>(null);
@@ -376,8 +400,8 @@ export function PriorityInboxList({
       {modalEmailId && (
         <EmailDetailModal
           emailId={modalEmailId}
-          apiBase={apiBase}
-          userId={userId}
+          apiBase={apiBase || ''}
+          userId={userId || 'default'}
           authToken={authToken}
           onClose={() => setModalEmailId(null)}
           onFeedback={handleFeedback}

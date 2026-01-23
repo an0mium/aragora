@@ -62,6 +62,9 @@ interface DependencyAnalysis {
 }
 
 interface DependencySecurityPanelProps {
+  apiBase?: string;
+  userId?: string;
+  authToken?: string;
   repoPath?: string;
   className?: string;
 }

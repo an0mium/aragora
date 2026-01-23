@@ -17,7 +17,9 @@ interface FollowUpItem {
 }
 
 interface FollowUpPanelProps {
+  apiBase?: string;
   userId?: string;
+  authToken?: string;
   onEmailSelect?: (emailId: string) => void;
   onRefresh?: () => void;
   className?: string;

@@ -66,7 +66,7 @@ export function SenderInsightsPanel({
             )}
           </div>
           <h3 className="font-mono text-sm text-[var(--text)] truncate">
-            {email.from}
+            {email.from_address}
           </h3>
           <p className="text-xs text-[var(--text-muted)] truncate">
             {email.subject}

@@ -80,7 +80,7 @@ export function CommandCenter() {
 
     // Fetch sender profile
     try {
-      const response = await fetch(`/api/email/sender-profile?email=${encodeURIComponent(email.from)}`);
+      const response = await fetch(`/api/email/sender-profile?email=${encodeURIComponent(email.from_address)}`);
       if (response.ok) {
         const profile = await response.json();
         setSenderProfile(profile);

@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_AGENTS, DEFAULT_ROUNDS } from '@/config';
+import { VerticalSelector } from './VerticalSelector';
 
 interface DebateInputProps {
   apiBase: string;
@@ -87,6 +88,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
   const [apiStatus, setApiStatus] = useState<ApiStatus>('checking');
   const [recommendations, setRecommendations] = useState<AgentRecommendation[]>([]);
   const [detectedDomain, setDetectedDomain] = useState<string>('general');
+  const [selectedVertical, setSelectedVertical] = useState<string>('general');
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Combined question pool: AI philosophy + Multi-agent debate + Technical architecture
@@ -309,6 +311,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
           agents: agents.split(',').map(a => a.trim()).filter(Boolean),
           rounds,
           debate_format: debateFormat,
+          vertical: selectedVertical !== 'general' ? selectedVertical : undefined,
           // Graph/Matrix specific options
           ...(debateMode === 'graph' && { branch_on_disagreement: true }),
           ...(debateMode === 'matrix' && { scenarios: 3 }),
@@ -452,17 +455,31 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
 
         {/* Options Toggle + Submit */}
         <div className="flex items-center justify-between gap-2 mt-1">
-          {/* Options toggle */}
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            aria-expanded={showAdvanced}
-            aria-controls="advanced-options"
-            aria-label={showAdvanced ? 'Hide advanced options' : 'Show advanced options'}
-            className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
-          >
-            {showAdvanced ? '[-] Hide options' : '[+] Show options'}
-          </button>
+          {/* Options toggle and vertical indicator */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              aria-expanded={showAdvanced}
+              aria-controls="advanced-options"
+              aria-label={showAdvanced ? 'Hide advanced options' : 'Show advanced options'}
+              className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+            >
+              {showAdvanced ? '[-] Hide options' : '[+] Show options'}
+            </button>
+
+            {/* Compact vertical indicator */}
+            {!showAdvanced && (
+              <VerticalSelector
+                apiBase={apiBase}
+                selectedVertical={selectedVertical}
+                onVerticalChange={setSelectedVertical}
+                onAgentsChange={setAgents}
+                questionText={question}
+                compact
+              />
+            )}
+          </div>
 
           <button
             type="submit"
@@ -590,6 +607,15 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
                 {DEBATE_FORMATS[debateFormat].description}
               </p>
             </div>
+
+            {/* Vertical Selector */}
+            <VerticalSelector
+              apiBase={apiBase}
+              selectedVertical={selectedVertical}
+              onVerticalChange={setSelectedVertical}
+              onAgentsChange={setAgents}
+              questionText={question}
+            />
 
             <div className="grid grid-cols-2 gap-4">
               {/* Agents */}

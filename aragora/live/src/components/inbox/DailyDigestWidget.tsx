@@ -12,10 +12,18 @@ interface DigestStats {
 }
 
 interface DailyDigestWidgetProps {
+  apiBase?: string;
+  userId?: string;
+  authToken?: string;
   compact?: boolean;
 }
 
-export function DailyDigestWidget({ compact = false }: DailyDigestWidgetProps) {
+export function DailyDigestWidget({
+  apiBase,
+  userId = 'default',
+  authToken,
+  compact = false,
+}: DailyDigestWidgetProps) {
   const [expanded, setExpanded] = useState(false);
   const [stats, setStats] = useState<DigestStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,7 +31,13 @@ export function DailyDigestWidget({ compact = false }: DailyDigestWidgetProps) {
   useEffect(() => {
     const fetchDigest = async () => {
       try {
-        const response = await fetch('/api/email/daily-digest');
+        const baseUrl = apiBase || '';
+        const response = await fetch(
+          `${baseUrl}/api/email/daily-digest?user_id=${userId}`,
+          {
+            headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+          }
+        );
         if (response.ok) {
           const data = await response.json();
           setStats(data);
@@ -72,7 +86,7 @@ export function DailyDigestWidget({ compact = false }: DailyDigestWidgetProps) {
     };
 
     fetchDigest();
-  }, []);
+  }, [apiBase, userId, authToken]);
 
   if (compact) {
     return (
