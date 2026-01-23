@@ -1,10 +1,10 @@
 """Tests for graph debates handler.
 
 Tests the graph debates API endpoints including:
-- POST /api/debates/graph - Run a graph-structured debate with branching
-- GET /api/debates/graph/{id} - Get graph debate by ID
-- GET /api/debates/graph/{id}/branches - Get all branches for a debate
-- GET /api/debates/graph/{id}/nodes - Get all nodes in debate graph
+- POST /api/v1/debates/graph - Run a graph-structured debate with branching
+- GET /api/v1/debates/graph/{id} - Get graph debate by ID
+- GET /api/v1/debates/graph/{id}/branches - Get all branches for a debate
+- GET /api/v1/debates/graph/{id}/nodes - Get all nodes in debate graph
 """
 
 import json
@@ -77,17 +77,17 @@ class TestGraphDebatesHandlerInit:
 
     def test_can_handle_graph_path(self, graph_handler):
         """Test can_handle recognizes graph paths."""
-        assert graph_handler.can_handle("/api/debates/graph")
-        assert graph_handler.can_handle("/api/debates/graph/")
-        assert graph_handler.can_handle("/api/debates/graph/abc123")
-        assert graph_handler.can_handle("/api/debates/graph/abc123/branches")
-        assert graph_handler.can_handle("/api/debates/graph/abc123/nodes")
+        assert graph_handler.can_handle("/api/v1/debates/graph")
+        assert graph_handler.can_handle("/api/v1/debates/graph/")
+        assert graph_handler.can_handle("/api/v1/debates/graph/abc123")
+        assert graph_handler.can_handle("/api/v1/debates/graph/abc123/branches")
+        assert graph_handler.can_handle("/api/v1/debates/graph/abc123/nodes")
 
     def test_cannot_handle_other_paths(self, graph_handler):
         """Test can_handle rejects non-graph paths."""
         assert not graph_handler.can_handle("/api/debates")
-        assert not graph_handler.can_handle("/api/debates/abc123")
-        assert not graph_handler.can_handle("/api/debates/matrix")
+        assert not graph_handler.can_handle("/api/v1/debates/abc123")
+        assert not graph_handler.can_handle("/api/v1/debates/matrix")
         assert not graph_handler.can_handle("/api/users")
 
 
@@ -102,14 +102,14 @@ class TestGraphDebatePostValidation:
     @pytest.mark.asyncio
     async def test_returns_404_for_wrong_path(self, graph_handler, mock_http_handler):
         """Returns 404 for non-graph POST paths."""
-        result = await graph_handler.handle_post(mock_http_handler, "/api/debates/other", {})
+        result = await graph_handler.handle_post(mock_http_handler, "/api/v1/debates/other", {})
         assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_returns_400_without_task(self, graph_handler, mock_http_handler):
         """Returns 400 when task is missing."""
         result = await graph_handler.handle_post(
-            mock_http_handler, "/api/debates/graph", {"agents": ["claude", "gpt4"]}
+            mock_http_handler, "/api/v1/debates/graph", {"agents": ["claude", "gpt4"]}
         )
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -120,7 +120,7 @@ class TestGraphDebatePostValidation:
         """Returns 400 when task is not a string."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {"task": 12345, "agents": ["claude", "gpt4"]},
         )
         assert result.status_code == 400
@@ -132,7 +132,7 @@ class TestGraphDebatePostValidation:
         """Returns 400 when task is too short."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {"task": "Short", "agents": ["claude", "gpt4"]},
         )
         assert result.status_code == 400
@@ -144,7 +144,7 @@ class TestGraphDebatePostValidation:
         """Returns 400 when task is too long."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {"task": "A" * 5001, "agents": ["claude", "gpt4"]},
         )
         assert result.status_code == 400
@@ -156,7 +156,7 @@ class TestGraphDebatePostValidation:
         """Returns 400 when task contains script tag."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {"task": "What about <script>alert('xss')</script>?", "agents": ["claude", "gpt4"]},
         )
         assert result.status_code == 400
@@ -168,7 +168,7 @@ class TestGraphDebatePostValidation:
         """Returns 400 when task contains template injection."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {"task": "Evaluate this: {{config.secret}}", "agents": ["claude", "gpt4"]},
         )
         assert result.status_code == 400
@@ -189,7 +189,7 @@ class TestGraphDebateAgentValidation:
         """Returns 400 when agents is not an array."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {"task": "What is the meaning of life and existence?", "agents": "claude"},
         )
         assert result.status_code == 400
@@ -201,7 +201,7 @@ class TestGraphDebateAgentValidation:
         """Returns 400 when less than 2 agents provided."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {"task": "What is the meaning of life and existence?", "agents": ["claude"]},
         )
         assert result.status_code == 400
@@ -214,7 +214,7 @@ class TestGraphDebateAgentValidation:
         agents = [f"agent{i}" for i in range(11)]
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {"task": "What is the meaning of life and existence?", "agents": agents},
         )
         assert result.status_code == 400
@@ -226,7 +226,7 @@ class TestGraphDebateAgentValidation:
         """Returns 400 when agent name is not a string."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {"task": "What is the meaning of life and existence?", "agents": ["claude", 123]},
         )
         assert result.status_code == 400
@@ -238,7 +238,7 @@ class TestGraphDebateAgentValidation:
         """Returns 400 when agent name exceeds 50 chars."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
                 "agents": ["claude", "a" * 51],
@@ -253,7 +253,7 @@ class TestGraphDebateAgentValidation:
         """Returns 400 when agent name contains invalid characters."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
                 "agents": ["claude", "agent<script>"],
@@ -277,7 +277,7 @@ class TestGraphDebateRoundsValidation:
         """Returns 400 when max_rounds is not a number."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
                 "agents": ["claude", "gpt4"],
@@ -293,7 +293,7 @@ class TestGraphDebateRoundsValidation:
         """Returns 400 when max_rounds is less than 1."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
                 "agents": ["claude", "gpt4"],
@@ -309,7 +309,7 @@ class TestGraphDebateRoundsValidation:
         """Returns 400 when max_rounds exceeds 20."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
                 "agents": ["claude", "gpt4"],
@@ -334,7 +334,7 @@ class TestGraphDebateBranchPolicyValidation:
         """Returns 400 when branch_policy is not an object."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
                 "agents": ["claude", "gpt4"],
@@ -350,7 +350,7 @@ class TestGraphDebateBranchPolicyValidation:
         """Returns 400 when min_disagreement is out of range."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
                 "agents": ["claude", "gpt4"],
@@ -366,7 +366,7 @@ class TestGraphDebateBranchPolicyValidation:
         """Returns 400 when max_branches is out of range."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
                 "agents": ["claude", "gpt4"],
@@ -382,7 +382,7 @@ class TestGraphDebateBranchPolicyValidation:
         """Returns 400 when merge_strategy is invalid."""
         result = await graph_handler.handle_post(
             mock_http_handler,
-            "/api/debates/graph",
+            "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
                 "agents": ["claude", "gpt4"],
@@ -405,7 +405,7 @@ class TestGraphDebateGetEndpoints:
     @pytest.mark.asyncio
     async def test_get_returns_404_for_base_path(self, graph_handler, mock_http_handler):
         """Returns 404 for GET on base graph path."""
-        result = await graph_handler.handle_get(mock_http_handler, "/api/debates/graph", {})
+        result = await graph_handler.handle_get(mock_http_handler, "/api/v1/debates/graph", {})
         assert result.status_code == 404
 
     @pytest.mark.asyncio
@@ -413,7 +413,7 @@ class TestGraphDebateGetEndpoints:
         """Returns 503 when storage is not configured."""
         mock_http_handler.storage = None
         result = await graph_handler.handle_get(
-            mock_http_handler, "/api/debates/graph/test-123", {}
+            mock_http_handler, "/api/v1/debates/graph/test-123", {}
         )
         assert result.status_code == 503
         data = json.loads(result.body)
@@ -427,7 +427,7 @@ class TestGraphDebateGetEndpoints:
         mock_http_handler.storage = mock_storage
 
         result = await graph_handler.handle_get(
-            mock_http_handler, "/api/debates/graph/nonexistent", {}
+            mock_http_handler, "/api/v1/debates/graph/nonexistent", {}
         )
         assert result.status_code == 404
 
@@ -440,7 +440,7 @@ class TestGraphDebateGetEndpoints:
         mock_http_handler.storage = mock_storage
 
         result = await graph_handler.handle_get(
-            mock_http_handler, "/api/debates/graph/test-123", {}
+            mock_http_handler, "/api/v1/debates/graph/test-123", {}
         )
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -451,7 +451,7 @@ class TestGraphDebateGetEndpoints:
         """Returns 503 when storage is not configured for branches."""
         mock_http_handler.storage = None
         result = await graph_handler.handle_get(
-            mock_http_handler, "/api/debates/graph/test-123/branches", {}
+            mock_http_handler, "/api/v1/debates/graph/test-123/branches", {}
         )
         assert result.status_code == 503
 
@@ -464,7 +464,7 @@ class TestGraphDebateGetEndpoints:
         mock_http_handler.storage = mock_storage
 
         result = await graph_handler.handle_get(
-            mock_http_handler, "/api/debates/graph/test-123/branches", {}
+            mock_http_handler, "/api/v1/debates/graph/test-123/branches", {}
         )
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -476,7 +476,7 @@ class TestGraphDebateGetEndpoints:
         """Returns 503 when storage is not configured for nodes."""
         mock_http_handler.storage = None
         result = await graph_handler.handle_get(
-            mock_http_handler, "/api/debates/graph/test-123/nodes", {}
+            mock_http_handler, "/api/v1/debates/graph/test-123/nodes", {}
         )
         assert result.status_code == 503
 
@@ -489,7 +489,7 @@ class TestGraphDebateGetEndpoints:
         mock_http_handler.storage = mock_storage
 
         result = await graph_handler.handle_get(
-            mock_http_handler, "/api/debates/graph/test-123/nodes", {}
+            mock_http_handler, "/api/v1/debates/graph/test-123/nodes", {}
         )
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -516,7 +516,7 @@ class TestGraphDebateRateLimiting:
 
             result = await graph_handler.handle_post(
                 mock_handler,
-                "/api/debates/graph",
+                "/api/v1/debates/graph",
                 {
                     "task": f"What is the meaning of life and existence? Request {i}",
                     "agents": ["claude", "gpt4"],
@@ -549,7 +549,7 @@ class TestGraphDebateErrorHandling:
             with patch.dict("sys.modules", {"aragora.debate.graph": None}):
                 result = await graph_handler.handle_post(
                     mock_http_handler,
-                    "/api/debates/graph",
+                    "/api/v1/debates/graph",
                     {
                         "task": "What is the meaning of life and existence?",
                         "agents": ["claude", "gpt4"],
@@ -564,7 +564,7 @@ class TestGraphDebateErrorHandling:
         with patch.object(graph_handler, "_load_agents", new_callable=AsyncMock, return_value=[]):
             result = await graph_handler.handle_post(
                 mock_http_handler,
-                "/api/debates/graph",
+                "/api/v1/debates/graph",
                 {
                     "task": "What is the meaning of life and existence?",
                     "agents": ["invalid_agent_1", "invalid_agent_2"],
@@ -582,7 +582,7 @@ class TestGraphDebateErrorHandling:
         mock_http_handler.storage = mock_storage
 
         result = await graph_handler.handle_get(
-            mock_http_handler, "/api/debates/graph/test-123", {}
+            mock_http_handler, "/api/v1/debates/graph/test-123", {}
         )
         assert result.status_code == 500
 
@@ -594,7 +594,7 @@ class TestGraphDebateErrorHandling:
         mock_http_handler.storage = mock_storage
 
         result = await graph_handler.handle_get(
-            mock_http_handler, "/api/debates/graph/test-123/branches", {}
+            mock_http_handler, "/api/v1/debates/graph/test-123/branches", {}
         )
         assert result.status_code == 500
 
@@ -606,6 +606,6 @@ class TestGraphDebateErrorHandling:
         mock_http_handler.storage = mock_storage
 
         result = await graph_handler.handle_get(
-            mock_http_handler, "/api/debates/graph/test-123/nodes", {}
+            mock_http_handler, "/api/v1/debates/graph/test-123/nodes", {}
         )
         assert result.status_code == 500
