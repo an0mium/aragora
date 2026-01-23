@@ -326,8 +326,9 @@ def check_multi_instance_readiness() -> dict[str, bool]:
         from aragora.audit.log import get_audit_log
 
         audit_log = get_audit_log()
-        # Currently SQLite-only, so always False
-        # TODO: Add PostgresAuditLog backend
+        # Note: AuditLog currently uses SQLite backend for simplicity.
+        # For distributed deployments, implement PostgresAuditLog backend
+        # when horizontal scaling of audit data is required.
         stores["audit_log"] = getattr(audit_log, "_uses_distributed", False)
     except Exception as e:
         logger.debug(f"Could not check audit_log: {e}")

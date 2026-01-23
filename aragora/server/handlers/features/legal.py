@@ -534,8 +534,16 @@ class LegalHandler(BaseHandler):
                 f"[Legal] DocuSign webhook: envelope={envelope_id} status={status} time={event_time}"
             )
 
-            # TODO: Emit event for downstream processing
-            # Could trigger workflows, update local cache, send notifications
+            # Emit event for downstream processing
+            await self._emit_connector_event(
+                event_type="docusign_envelope_status",
+                tenant_id=tenant_id,
+                data={
+                    "envelope_id": envelope_id,
+                    "status": status,
+                    "event_time": event_time,
+                },
+            )
 
             return success_response(
                 {
@@ -572,6 +580,42 @@ class LegalHandler(BaseHandler):
                 return await request.json()
             return request.json
         return {}
+
+    async def _emit_connector_event(
+        self,
+        event_type: str,
+        tenant_id: str,
+        data: Dict[str, Any],
+    ) -> None:
+        """Emit a connector event for downstream processing.
+
+        Events can trigger workflows, update caches, or send notifications.
+        """
+        try:
+            from aragora.events.types import StreamEventType
+
+            event_data = {
+                "connector": "docusign",
+                "event_type": event_type,
+                "tenant_id": tenant_id,
+                **data,
+            }
+
+            # Log structured event for processing pipelines
+            logger.info(
+                f"[Legal] Connector event: {event_type}",
+                extra={"event_data": event_data},
+            )
+
+            # If we have a server context with an emitter, emit the event
+            if self.server_context and "emitter" in self.server_context:
+                emitter = self.server_context["emitter"]
+                emitter.emit(
+                    StreamEventType.CONNECTOR_DOCUSIGN_ENVELOPE_STATUS.value,
+                    event_data,
+                )
+        except Exception as e:
+            logger.debug(f"[Legal] Event emission skipped: {e}")
 
 
 # =============================================================================

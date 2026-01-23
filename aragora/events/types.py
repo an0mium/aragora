@@ -303,6 +303,21 @@ class StreamEventType(Enum):
     KM_CACHE_INVALIDATED = "km_cache_invalidated"  # Cache was invalidated
     KM_INTEGRITY_ERROR = "km_integrity_error"  # Integrity error detected
 
+    # Connector Webhook Events (external service notifications)
+    CONNECTOR_WEBHOOK_RECEIVED = "connector_webhook_received"  # Webhook received from connector
+    CONNECTOR_DOCUSIGN_ENVELOPE_STATUS = (
+        "connector_docusign_envelope_status"  # DocuSign envelope status changed
+    )
+    CONNECTOR_DOCUSIGN_ENVELOPE_COMPLETED = (
+        "connector_docusign_envelope_completed"  # Envelope fully signed
+    )
+    CONNECTOR_PAGERDUTY_INCIDENT = "connector_pagerduty_incident"  # PagerDuty incident event
+    CONNECTOR_PAGERDUTY_INCIDENT_RESOLVED = (
+        "connector_pagerduty_incident_resolved"  # Incident resolved
+    )
+    CONNECTOR_PLAID_TRANSACTION_SYNC = "connector_plaid_transaction_sync"  # New transactions synced
+    CONNECTOR_QBO_WEBHOOK = "connector_qbo_webhook"  # QuickBooks webhook received
+
 
 @dataclass
 class StreamEvent:

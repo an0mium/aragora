@@ -788,8 +788,16 @@ class DevOpsHandler(BaseHandler):
 
             logger.info(f"[DevOps] PagerDuty webhook: event_type={event_type}")
 
-            # TODO: Emit event for downstream processing
-            # Could trigger workflows, update dashboards, send notifications
+            # Emit event for downstream processing
+            await self._emit_connector_event(
+                event_type=event_type or "unknown",
+                tenant_id=tenant_id,
+                data={
+                    "payload": payload.to_dict()
+                    if payload and hasattr(payload, "to_dict")
+                    else body,
+                },
+            )
 
             return success_response(
                 {
@@ -839,6 +847,42 @@ class DevOpsHandler(BaseHandler):
         if hasattr(request, "headers"):
             return request.headers.get(name)
         return None
+
+    async def _emit_connector_event(
+        self,
+        event_type: str,
+        tenant_id: str,
+        data: Dict[str, Any],
+    ) -> None:
+        """Emit a connector event for downstream processing.
+
+        Events can trigger workflows, update dashboards, or send notifications.
+        """
+        try:
+            from aragora.events.types import StreamEventType
+
+            event_data = {
+                "connector": "pagerduty",
+                "event_type": event_type,
+                "tenant_id": tenant_id,
+                **data,
+            }
+
+            # Log structured event for processing pipelines
+            logger.info(
+                f"[DevOps] Connector event: {event_type}",
+                extra={"event_data": event_data},
+            )
+
+            # If we have a server context with an emitter, emit the event
+            if self.server_context and "emitter" in self.server_context:
+                emitter = self.server_context["emitter"]
+                emitter.emit(
+                    StreamEventType.CONNECTOR_PAGERDUTY_INCIDENT.value,
+                    event_data,
+                )
+        except Exception as e:
+            logger.debug(f"[DevOps] Event emission skipped: {e}")
 
 
 # =============================================================================
