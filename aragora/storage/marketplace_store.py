@@ -1542,12 +1542,17 @@ def get_marketplace_store() -> Union[MarketplaceStore, PostgresMarketplaceStore]
         logger.info("Using PostgreSQL marketplace store")
         try:
             from aragora.storage.postgres_store import get_postgres_pool
+            from aragora.utils.async_utils import run_async
 
-            # Initialize PostgreSQL store with connection pool
-            pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
-            store = PostgresMarketplaceStore(pool)
-            asyncio.get_event_loop().run_until_complete(store.initialize())
-            _marketplace_store = store
+            # Initialize PostgreSQL store with connection pool using run_async
+            # to safely handle both sync and async contexts
+            async def init_postgres_store():
+                pool = await get_postgres_pool()
+                store = PostgresMarketplaceStore(pool)
+                await store.initialize()
+                return store
+
+            _marketplace_store = run_async(init_postgres_store())
         except Exception as e:
             # Fail in multi-instance mode - SQLite won't work
             if is_multi_instance:

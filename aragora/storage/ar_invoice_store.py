@@ -18,7 +18,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -1382,11 +1381,17 @@ def get_ar_invoice_store() -> ARInvoiceStoreBackend:
             logger.info("Using PostgreSQL AR invoice store")
             try:
                 from aragora.storage.postgres_store import get_postgres_pool
+                from aragora.utils.async_utils import run_async
 
-                pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
-                store = PostgresARInvoiceStore(pool)
-                asyncio.get_event_loop().run_until_complete(store.initialize())
-                _ar_invoice_store = store
+                # Initialize PostgreSQL store with connection pool using run_async
+                # to safely handle both sync and async contexts
+                async def init_postgres_store():
+                    pool = await get_postgres_pool()
+                    store = PostgresARInvoiceStore(pool)
+                    await store.initialize()
+                    return store
+
+                _ar_invoice_store = run_async(init_postgres_store())
             except Exception as e:
                 logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
                 _ar_invoice_store = SQLiteARInvoiceStore()
