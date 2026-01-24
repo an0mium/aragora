@@ -58,10 +58,11 @@ def mock_tracker(mock_expense):
     tracker.get_expense = AsyncMock(return_value=mock_expense)
     tracker.update_expense = AsyncMock(return_value=mock_expense)
     tracker.delete_expense = AsyncMock(return_value=True)
-    tracker.list_expenses = AsyncMock(return_value=[mock_expense])
+    tracker.list_expenses = AsyncMock(return_value=([mock_expense], 1))
     tracker.approve_expense = AsyncMock(return_value=mock_expense)
     tracker.reject_expense = AsyncMock(return_value=mock_expense)
     tracker.categorize_expenses = AsyncMock(return_value={"exp-123": "Office Supplies"})
+    tracker.bulk_categorize = AsyncMock(return_value={"exp-123": "Office Supplies"})
     tracker.sync_to_qbo = AsyncMock(return_value={"synced": 1, "failed": 0})
     tracker.get_stats = AsyncMock(
         return_value={
@@ -71,6 +72,7 @@ def mock_tracker(mock_expense):
         }
     )
     tracker.get_pending_approvals = AsyncMock(return_value=[mock_expense])
+    tracker.get_pending_approval = AsyncMock(return_value=[mock_expense])
     tracker.detect_duplicates = AsyncMock(return_value=[])
     tracker.export_expenses = AsyncMock(
         return_value=b"expense_id,vendor,amount\nexp-123,Test,99.99"
@@ -88,6 +90,11 @@ def handler():
 def parse_body(result):
     """Parse JSON body from HandlerResult."""
     return json.loads(result.body.decode())
+
+
+def get_data(body: dict) -> dict:
+    """Extract data from wrapped response or return body if not wrapped."""
+    return body.get("data", body)
 
 
 class TestExpenseHandler:
@@ -254,7 +261,7 @@ class TestUploadReceipt:
             result = await handle_upload_receipt(data)
             assert result.status_code == 200
             body = parse_body(result)
-            assert "expense" in body
+            assert "expense" in get_data(body)
 
     @pytest.mark.asyncio
     async def test_upload_missing_receipt_data(self):
@@ -292,7 +299,7 @@ class TestCreateExpense:
             result = await handle_create_expense(data)
             assert result.status_code == 200
             body = parse_body(result)
-            assert "expense" in body
+            assert "expense" in get_data(body)
 
     @pytest.mark.asyncio
     async def test_create_missing_vendor(self, mock_tracker):
@@ -336,7 +343,7 @@ class TestListExpenses:
             result = await handle_list_expenses({})
             assert result.status_code == 200
             body = parse_body(result)
-            assert "expenses" in body
+            assert "expenses" in get_data(body)
 
     @pytest.mark.asyncio
     async def test_list_with_filters(self, mock_tracker, mock_expense):
@@ -368,7 +375,7 @@ class TestGetExpense:
             result = await handle_get_expense("exp-123")
             assert result.status_code == 200
             body = parse_body(result)
-            assert "expense" in body
+            assert "expense" in get_data(body)
 
     @pytest.mark.asyncio
     async def test_get_not_found(self, mock_tracker):
@@ -494,7 +501,7 @@ class TestCategorizeExpenses:
             result = await handle_categorize_expenses(data)
             assert result.status_code == 200
             body = parse_body(result)
-            assert "categorized" in body
+            assert "categorized" in get_data(body)
 
 
 class TestSyncToQBO:
@@ -526,7 +533,7 @@ class TestGetExpenseStats:
             result = await handle_get_expense_stats({})
             assert result.status_code == 200
             body = parse_body(result)
-            assert "total_expenses" in body
+            assert "stats" in get_data(body)
 
 
 class TestGetPendingApprovals:
@@ -542,7 +549,7 @@ class TestGetPendingApprovals:
             result = await handle_get_pending_approvals()
             assert result.status_code == 200
             body = parse_body(result)
-            assert "expenses" in body
+            assert "expenses" in get_data(body)
 
 
 class TestExportExpenses:

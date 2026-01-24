@@ -290,8 +290,8 @@ class BackupScheduler:
         """Record Prometheus metrics."""
         try:
             # Metric function may not exist in all deployments
-            from aragora.observability.metrics import (
-                record_backup_operation,  # type: ignore[attr-defined]
+            from aragora.observability.metrics import (  # type: ignore[attr-defined]
+                record_backup_operation,
             )
 
             record_backup_operation(operation, success, duration_seconds)

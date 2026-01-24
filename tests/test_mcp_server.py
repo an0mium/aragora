@@ -19,7 +19,17 @@ from typing import Any, Dict
 
 # Check if MCP is available
 try:
-    from mcp.types import Tool, TextContent, Resource, ResourceTemplate
+    from mcp.types import (
+        Tool,
+        TextContent,
+        Resource,
+        ResourceTemplate,
+        ListToolsRequest,
+        CallToolRequest,
+        ListResourcesRequest,
+        ListResourceTemplatesRequest,
+        ReadResourceRequest,
+    )
 
     MCP_AVAILABLE = True
 except ImportError:
@@ -28,9 +38,62 @@ except ImportError:
     TextContent = None
     Resource = None
     ResourceTemplate = None
+    ListToolsRequest = None
+    CallToolRequest = None
+    ListResourcesRequest = None
+    ListResourceTemplatesRequest = None
+    ReadResourceRequest = None
 
 
 pytestmark = pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP package not installed")
+
+
+async def _get_tools(server):
+    """Helper to get tools using the correct MCP API."""
+    handler = server.server.request_handlers[ListToolsRequest]
+    result = await handler(ListToolsRequest())
+    # Handle both ServerResult wrapper and direct result
+    if hasattr(result, "root"):
+        return result.root.tools
+    return result.tools
+
+
+async def _get_resources(server):
+    """Helper to get resources using the correct MCP API."""
+    handler = server.server.request_handlers[ListResourcesRequest]
+    result = await handler(ListResourcesRequest())
+    if hasattr(result, "root"):
+        return result.root.resources
+    return result.resources
+
+
+async def _get_resource_templates(server):
+    """Helper to get resource templates using the correct MCP API."""
+    handler = server.server.request_handlers[ListResourceTemplatesRequest]
+    result = await handler(ListResourceTemplatesRequest())
+    if hasattr(result, "root"):
+        return result.root.resourceTemplates
+    return result.resourceTemplates
+
+
+async def _read_resource(server, uri: str):
+    """Helper to read a resource using the correct MCP API."""
+    handler = server.server.request_handlers[ReadResourceRequest]
+    result = await handler(ReadResourceRequest(uri=uri))
+    if hasattr(result, "root"):
+        contents = result.root.contents
+    else:
+        contents = result.contents
+    return contents[0].text if contents else ""
+
+
+async def _call_tool(server, name: str, arguments: dict):
+    """Helper to call a tool using the correct MCP API."""
+    handler = server.server.request_handlers[CallToolRequest]
+    result = await handler(CallToolRequest(name=name, arguments=arguments))
+    if hasattr(result, "root"):
+        return result.root.content
+    return result.content
 
 
 class TestAragoraMCPServerInitialization:
@@ -86,20 +149,21 @@ class TestMCPToolListing:
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
-    async def test_list_tools_returns_four_tools(self, server):
-        """Test that list_tools returns expected tools."""
-        # Access the registered handler
-        tools = await server.server._tool_handlers["list_tools"]()
+    async def test_list_tools_returns_expected_tools(self, server):
+        """Test that list_tools returns expected core tools."""
+        tools = await _get_tools(server)
 
-        assert len(tools) == 4
+        # Server exposes many tools; verify core ones exist
         tool_names = {t.name for t in tools}
-        assert tool_names == {"run_debate", "run_gauntlet", "list_agents", "get_debate"}
+        core_tools = {"run_debate", "run_gauntlet", "list_agents", "get_debate"}
+        assert core_tools.issubset(tool_names), f"Missing tools: {core_tools - tool_names}"
+        assert len(tools) >= 4  # At least the core tools
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_run_debate_tool_schema(self, server):
         """Test run_debate tool has correct schema."""
-        tools = await server.server._tool_handlers["list_tools"]()
+        tools = await _get_tools(server)
 
         run_debate = next(t for t in tools if t.name == "run_debate")
 
@@ -114,7 +178,7 @@ class TestMCPToolListing:
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_run_gauntlet_tool_schema(self, server):
         """Test run_gauntlet tool has correct schema."""
-        tools = await server.server._tool_handlers["list_tools"]()
+        tools = await _get_tools(server)
 
         run_gauntlet = next(t for t in tools if t.name == "run_gauntlet")
 
@@ -128,7 +192,7 @@ class TestMCPToolListing:
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_list_agents_tool_schema(self, server):
         """Test list_agents tool has minimal schema."""
-        tools = await server.server._tool_handlers["list_tools"]()
+        tools = await _get_tools(server)
 
         list_agents = next(t for t in tools if t.name == "list_agents")
 
@@ -139,7 +203,7 @@ class TestMCPToolListing:
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_get_debate_tool_schema(self, server):
         """Test get_debate tool has correct schema."""
-        tools = await server.server._tool_handlers["list_tools"]()
+        tools = await _get_tools(server)
 
         get_debate = next(t for t in tools if t.name == "get_debate")
 
@@ -161,7 +225,7 @@ class TestMCPResourceListing:
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_list_resources_empty_initially(self, server):
         """Test that resources list is empty initially."""
-        resources = await server.server._tool_handlers["list_resources"]()
+        resources = await _get_resources(server)
 
         assert resources == []
 
@@ -176,7 +240,7 @@ class TestMCPResourceListing:
             "timestamp": "2026-01-11 12:00:00",
         }
 
-        resources = await server.server._tool_handlers["list_resources"]()
+        resources = await _get_resources(server)
 
         assert len(resources) == 1
         assert resources[0].uri == "debate://test_123"
@@ -186,7 +250,7 @@ class TestMCPResourceListing:
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_list_resource_templates(self, server):
         """Test resource templates are listed."""
-        templates = await server.server._tool_handlers["list_resource_templates"]()
+        templates = await _get_resource_templates(server)
 
         assert len(templates) == 1
         assert templates[0].uriTemplate == "debate://{debate_id}"
@@ -214,7 +278,7 @@ class TestMCPResourceReading:
         }
         server._debates_cache["test_456"] = debate_data
 
-        result = await server.server._tool_handlers["read_resource"]("debate://test_456")
+        result = await _read_resource(server, "debate://test_456")
 
         parsed = json.loads(result)
         assert parsed["debate_id"] == "test_456"
@@ -224,7 +288,7 @@ class TestMCPResourceReading:
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_read_missing_debate(self, server):
         """Test reading a non-existent debate resource."""
-        result = await server.server._tool_handlers["read_resource"]("debate://missing")
+        result = await _read_resource(server, "debate://missing")
 
         parsed = json.loads(result)
         assert "error" in parsed
@@ -234,7 +298,7 @@ class TestMCPResourceReading:
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_read_unknown_resource_type(self, server):
         """Test reading an unknown resource type."""
-        result = await server.server._tool_handlers["read_resource"]("unknown://something")
+        result = await _read_resource(server, "unknown://something")
 
         parsed = json.loads(result)
         assert "error" in parsed
@@ -361,9 +425,7 @@ class TestMCPToolCallHandler:
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_call_tool_unknown_tool(self, server):
         """Test calling unknown tool returns error."""
-        handler = server.server._tool_handlers["call_tool"]
-
-        result = await handler("unknown_tool", {})
+        result = await _call_tool(server, "unknown_tool", {})
 
         assert len(result) == 1
         parsed = json.loads(result[0].text)
@@ -374,14 +436,12 @@ class TestMCPToolCallHandler:
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_call_tool_handles_exceptions(self, server):
         """Test tool call handler catches exceptions."""
-        handler = server.server._tool_handlers["call_tool"]
-
         # Mock _list_agents to raise an exception
         original_method = server._list_agents
         server._list_agents = AsyncMock(side_effect=RuntimeError("Test error"))
 
         try:
-            result = await handler("list_agents", {})
+            result = await _call_tool(server, "list_agents", {})
 
             assert len(result) == 1
             parsed = json.loads(result[0].text)
@@ -394,12 +454,10 @@ class TestMCPToolCallHandler:
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_call_tool_returns_text_content(self, server):
         """Test tool calls return TextContent objects."""
-        handler = server.server._tool_handlers["call_tool"]
-
         with patch("aragora.agents.registry.list_available_agents") as mock_list:
             mock_list.return_value = ["test-agent"]
 
-            result = await handler("list_agents", {})
+            result = await _call_tool(server, "list_agents", {})
 
             assert len(result) == 1
             assert result[0].type == "text"
@@ -457,7 +515,6 @@ class TestMCPDebateCaching:
             patch("aragora.debate.orchestrator.Arena") as mock_arena,
             patch("aragora.core.Environment"),
         ):
-
             mock_create.return_value = mock_agent
             mock_arena_instance = MagicMock()
             mock_arena_instance.run = AsyncMock(return_value=mock_result)
@@ -499,7 +556,6 @@ class TestMCPDebateCaching:
             patch("aragora.debate.orchestrator.Arena") as mock_arena,
             patch("aragora.core.Environment"),
         ):
-
             mock_create.return_value = mock_agent
             mock_arena_instance = MagicMock()
             mock_arena_instance.run = AsyncMock(return_value=mock_result)
@@ -540,7 +596,6 @@ class TestMCPRoundsValidation:
             patch("aragora.debate.orchestrator.DebateProtocol") as mock_protocol,
             patch("aragora.core.Environment") as mock_env,
         ):
-
             mock_create.return_value = mock_agent
             mock_arena_instance = MagicMock()
             mock_arena_instance.run = AsyncMock(return_value=mock_result)
@@ -572,7 +627,6 @@ class TestMCPRoundsValidation:
             patch("aragora.debate.orchestrator.DebateProtocol") as mock_protocol,
             patch("aragora.core.Environment") as mock_env,
         ):
-
             mock_create.return_value = mock_agent
             mock_arena_instance = MagicMock()
             mock_arena_instance.run = AsyncMock(return_value=mock_result)

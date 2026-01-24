@@ -23,6 +23,7 @@ import pytest
 
 from aragora.resilience import (
     CircuitBreaker,
+    CircuitBreakerConfig,
     CircuitOpenError,
     get_circuit_breaker,
     reset_all_circuit_breakers,
@@ -254,7 +255,9 @@ class TestGlobalRegistry:
 
     def test_reset_all_clears_state(self):
         """E2E: reset_all should clear all circuit breaker state."""
-        cb = get_circuit_breaker("reset-test")
+        # Use threshold=3 so 3 failures will open the circuit
+        config = CircuitBreakerConfig(failure_threshold=3)
+        cb = get_circuit_breaker("reset-test", config=config)
         cb.record_failure()
         cb.record_failure()
         cb.record_failure()

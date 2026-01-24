@@ -409,7 +409,7 @@ class ConfidenceDecayManager:
         try:
             if hasattr(mound, "update_confidence"):
                 # KnowledgeMound inherits update_confidence from CRUDMixin
-                await mound.update_confidence(item_id, new_confidence)  # type: ignore[arg-type]
+                await mound.update_confidence(item_id, new_confidence)  # type: ignore[arg-type, misc]
         except Exception as e:
             logger.warning(f"Failed to update confidence for {item_id}: {e}")
 

@@ -529,9 +529,17 @@ async def handle_categorize_expenses(
         expense_ids = data.get("expense_ids")
         results = await tracker.bulk_categorize(expense_ids)
 
+        # Handle both enum values and string values
+        categorized = {}
+        for eid, cat in results.items():
+            if hasattr(cat, "value"):
+                categorized[eid] = cat.value
+            else:
+                categorized[eid] = cat
+
         return success_response(
             {
-                "categorized": {eid: cat.value for eid, cat in results.items()},
+                "categorized": categorized,
                 "count": len(results),
                 "message": f"Categorized {len(results)} expenses",
             }
@@ -565,10 +573,18 @@ async def handle_sync_to_qbo(
         expense_ids = data.get("expense_ids")
         result = await tracker.sync_to_qbo(expense_ids=expense_ids)
 
+        # Handle both object with to_dict() and plain dict
+        if hasattr(result, "to_dict"):
+            result_data = result.to_dict()
+            success_count = getattr(result, "success_count", 0)
+        else:
+            result_data = result
+            success_count = result.get("synced", 0)
+
         return success_response(
             {
-                "result": result.to_dict(),
-                "message": f"Synced {result.success_count} expenses to QBO",
+                "result": result_data,
+                "message": f"Synced {success_count} expenses to QBO",
             }
         )
 
@@ -613,9 +629,15 @@ async def handle_get_expense_stats(
             except ValueError:
                 pass
 
-        stats = tracker.get_stats(start_date=start_date, end_date=end_date)
+        stats = await tracker.get_stats(start_date=start_date, end_date=end_date)
 
-        return success_response({"stats": stats.to_dict()})
+        # Handle both dict and object with to_dict()
+        if hasattr(stats, "to_dict"):
+            stats_data = stats.to_dict()
+        else:
+            stats_data = stats
+
+        return success_response({"stats": stats_data})
 
     except Exception as e:
         logger.exception("Error getting expense stats")

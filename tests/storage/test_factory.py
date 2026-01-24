@@ -30,6 +30,16 @@ from aragora.storage.factory import (
 )
 
 
+# Helper to patch DSN functions to return None (simulating no secrets configured)
+def _patch_no_dsn():
+    """Context manager to patch DSN functions to return None."""
+    return patch.multiple(
+        "aragora.storage.factory",
+        get_supabase_postgres_dsn=lambda: None,
+        get_selfhosted_postgres_dsn=lambda: None,
+    )
+
+
 # ===========================================================================
 # Test StorageBackend Enum
 # ===========================================================================
@@ -64,7 +74,7 @@ class TestGetStorageBackend:
     """Tests for get_storage_backend function."""
 
     def test_default_is_sqlite(self):
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {}, clear=True), _patch_no_dsn():
             # Remove any existing ARAGORA_DB_BACKEND
             os.environ.pop("ARAGORA_DB_BACKEND", None)
             backend = get_storage_backend()
@@ -96,7 +106,7 @@ class TestGetStorageBackend:
             assert backend == StorageBackend.SUPABASE
 
     def test_unknown_backend_defaults_to_sqlite(self):
-        with patch.dict(os.environ, {"ARAGORA_DB_BACKEND": "mysql"}):
+        with patch.dict(os.environ, {"ARAGORA_DB_BACKEND": "mysql"}), _patch_no_dsn():
             backend = get_storage_backend()
             assert backend == StorageBackend.SQLITE
 
@@ -114,13 +124,19 @@ class TestIsPostgresConfigured:
             assert is_postgres_configured() is False
 
     def test_not_configured_when_postgres_no_dsn(self):
-        with patch.dict(os.environ, {"ARAGORA_DB_BACKEND": "postgres"}, clear=True):
+        with (
+            patch.dict(os.environ, {"ARAGORA_DB_BACKEND": "postgres"}, clear=True),
+            _patch_no_dsn(),
+        ):
             os.environ.pop("ARAGORA_POSTGRES_DSN", None)
             os.environ.pop("DATABASE_URL", None)
             assert is_postgres_configured() is False
 
     def test_not_configured_when_supabase_no_dsn(self):
-        with patch.dict(os.environ, {"ARAGORA_DB_BACKEND": "supabase"}, clear=True):
+        with (
+            patch.dict(os.environ, {"ARAGORA_DB_BACKEND": "supabase"}, clear=True),
+            _patch_no_dsn(),
+        ):
             os.environ.pop("SUPABASE_URL", None)
             os.environ.pop("SUPABASE_DB_PASSWORD", None)
             os.environ.pop("SUPABASE_POSTGRES_DSN", None)
@@ -299,7 +315,10 @@ class TestStorageInfo:
             assert str(tmp_path / "db") == info["default_db_dir"]
 
     def test_postgres_info_no_dsn(self):
-        with patch.dict(os.environ, {"ARAGORA_DB_BACKEND": "postgres"}, clear=True):
+        with (
+            patch.dict(os.environ, {"ARAGORA_DB_BACKEND": "postgres"}, clear=True),
+            _patch_no_dsn(),
+        ):
             os.environ.pop("ARAGORA_POSTGRES_DSN", None)
             os.environ.pop("DATABASE_URL", None)
             info = storage_info()
