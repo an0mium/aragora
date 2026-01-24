@@ -206,8 +206,10 @@ class AragoraMCPServer:
             ]
 
         @self.server.read_resource()
-        async def read_resource(uri: str) -> str:
+        async def read_resource(uri) -> str:
             """Read a resource by URI."""
+            # Convert AnyUrl to string if needed (MCP 1.x compatibility)
+            uri = str(uri)
             if uri.startswith("debate://"):
                 debate_id = uri.replace("debate://", "")
                 debate_data = self._debates_cache.get(debate_id)
