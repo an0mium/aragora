@@ -155,6 +155,16 @@ from .metrics import MetricsHandler
 from .moments import MomentsHandler
 from .nomic import NomicHandler
 from .oauth import OAuthHandler
+from .onboarding import (
+    handle_get_flow,
+    handle_init_flow,
+    handle_update_step,
+    handle_get_templates,
+    handle_first_debate,
+    handle_quick_start,
+    handle_analytics,
+    get_onboarding_handlers,
+)
 from .organizations import OrganizationsHandler
 from .persona import PersonaHandler
 from .policy import PolicyHandler
@@ -192,6 +202,7 @@ from .workflow_templates import (
     WorkflowCategoriesHandler,
     WorkflowPatternsHandler,
     WorkflowPatternTemplatesHandler,
+    TemplateRecommendationsHandler,
 )
 from .template_marketplace import TemplateMarketplaceHandler
 from .email import EmailHandler  # Email prioritization API
@@ -350,6 +361,7 @@ ALL_HANDLERS = [
     WorkflowCategoriesHandler,  # Workflow template categories
     WorkflowPatternsHandler,  # Workflow patterns listing
     WorkflowPatternTemplatesHandler,  # Pattern-based workflow templates
+    TemplateRecommendationsHandler,  # Template recommendations for onboarding
     TemplateMarketplaceHandler,  # Community template marketplace
     MarketplaceHandler,  # Marketplace API
     TrainingHandler,  # RLM training data collection API
@@ -502,6 +514,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "WorkflowCategoriesHandler": Stability.STABLE,  # Workflow template categories - new
     "WorkflowPatternsHandler": Stability.STABLE,  # Workflow patterns listing - new
     "WorkflowPatternTemplatesHandler": Stability.STABLE,  # Pattern-based workflow templates - new
+    "TemplateRecommendationsHandler": Stability.STABLE,  # Template recommendations for onboarding - new
     "TemplateMarketplaceHandler": Stability.EXPERIMENTAL,  # Community template marketplace - new
     "MarketplaceHandler": Stability.EXPERIMENTAL,  # Marketplace API - new
     "QueueHandler": Stability.EXPERIMENTAL,  # Job queue management API - Phase A1
@@ -668,6 +681,15 @@ __all__ = [
     "AuthHandler",
     "BillingHandler",
     "OrganizationsHandler",
+    # Onboarding handlers
+    "handle_get_flow",
+    "handle_init_flow",
+    "handle_update_step",
+    "handle_get_templates",
+    "handle_first_debate",
+    "handle_quick_start",
+    "handle_analytics",
+    "get_onboarding_handlers",
     "OAuthHandler",
     "GraphDebatesHandler",
     "MatrixDebatesHandler",
@@ -703,6 +725,7 @@ __all__ = [
     "WorkflowCategoriesHandler",
     "WorkflowPatternsHandler",
     "WorkflowPatternTemplatesHandler",
+    "TemplateRecommendationsHandler",
     "TemplateMarketplaceHandler",
     "MarketplaceHandler",
     "TrainingHandler",
