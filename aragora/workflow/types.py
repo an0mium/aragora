@@ -293,8 +293,8 @@ class StepDefinition:
     # Visual metadata for workflow builder
     visual: VisualNodeData = field(default_factory=VisualNodeData)
     description: str = ""  # Human-readable description
-    inputs: Dict[str, str] = field(default_factory=dict)  # Input parameter specs
-    outputs: Dict[str, str] = field(default_factory=dict)  # Output parameter specs
+    inputs: Dict[str, Any] = field(default_factory=dict)  # Input parameter specs
+    outputs: Dict[str, Any] = field(default_factory=dict)  # Output parameter specs
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -406,8 +406,8 @@ class WorkflowDefinition:
     steps: List[StepDefinition] = field(default_factory=list)
     transitions: List[TransitionRule] = field(default_factory=list)
     entry_step: Optional[str] = None  # First step to execute
-    inputs: Dict[str, str] = field(default_factory=dict)  # Input parameter definitions
-    outputs: Dict[str, str] = field(default_factory=dict)  # Output parameter definitions
+    inputs: Dict[str, Any] = field(default_factory=dict)  # Input parameter definitions
+    outputs: Dict[str, Any] = field(default_factory=dict)  # Output parameter definitions
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     # Visual workflow builder metadata

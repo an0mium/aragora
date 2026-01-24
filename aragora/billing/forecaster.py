@@ -304,8 +304,8 @@ class CostForecaster:
         # Calculate aggregates
         if report.daily_forecasts:
             total = sum(f.predicted_cost for f in report.daily_forecasts)
-            report.predicted_monthly_cost = total
-            report.predicted_daily_average = total / len(report.daily_forecasts)
+            report.predicted_monthly_cost = Decimal(str(total))
+            report.predicted_daily_average = Decimal(str(total)) / len(report.daily_forecasts)
 
         # Check budget
         if self._cost_tracker:
@@ -600,7 +600,7 @@ class CostForecaster:
         daily_costs: List[Tuple[datetime, Decimal]],
     ) -> List[ForecastAlert]:
         """Detect cost anomalies (spikes)."""
-        alerts = []
+        alerts: List[ForecastAlert] = []
 
         if len(daily_costs) < 7:
             return alerts
