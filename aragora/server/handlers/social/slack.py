@@ -57,10 +57,46 @@ from ..base import (
 )
 from ..utils.rate_limit import rate_limit
 
-# Environment variables for Slack integration
+# Environment variables for Slack integration (fallback for single-workspace mode)
 SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")
 SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "")
+
+# Multi-workspace support
+_workspace_store = None
+
+
+def get_workspace_store():
+    """Get the Slack workspace store for multi-workspace support."""
+    global _workspace_store
+    if _workspace_store is None:
+        try:
+            from aragora.storage.slack_workspace_store import get_slack_workspace_store
+
+            _workspace_store = get_slack_workspace_store()
+        except ImportError:
+            logger.debug("Slack workspace store not available")
+    return _workspace_store
+
+
+def resolve_workspace(team_id: str):
+    """Resolve a workspace by team_id.
+
+    Returns workspace object if found, None otherwise.
+    Falls back to environment variable configuration if no store configured.
+    """
+    if not team_id:
+        return None
+
+    store = get_workspace_store()
+    if store:
+        try:
+            return store.get(team_id)
+        except Exception as e:
+            logger.debug(f"Failed to get workspace {team_id}: {e}")
+
+    return None
+
 
 # Patterns for command parsing
 COMMAND_PATTERN = re.compile(r"^/aragora\s+(\w+)(?:\s+(.*))?$")
@@ -122,10 +158,30 @@ class SlackHandler(BaseHandler):
         if handler.command != "POST":
             return error_response("Method not allowed", 405)
 
+        # Read and store body for signature verification and parsing
+        content_length = int(handler.headers.get("Content-Length", 0))
+        body = handler.rfile.read(content_length).decode("utf-8")
+
+        # Extract team_id for multi-workspace support
+        team_id = self._extract_team_id(body, path)
+        workspace = resolve_workspace(team_id) if team_id else None
+
+        # Get signing secret (workspace-specific or fallback to env var)
+        signing_secret = (
+            workspace.signing_secret
+            if workspace and workspace.signing_secret
+            else SLACK_SIGNING_SECRET
+        )
+
         # Verify Slack signature for security
-        if SLACK_SIGNING_SECRET and not self._verify_signature(handler):
-            logger.warning("Slack signature verification failed")
+        if signing_secret and not self._verify_signature(handler, body, signing_secret):
+            logger.warning(f"Slack signature verification failed for team_id={team_id}")
             return error_response("Invalid signature", 401)
+
+        # Store workspace and body in handler for downstream methods
+        handler._slack_workspace = workspace
+        handler._slack_body = body
+        handler._slack_team_id = team_id
 
         if path == "/api/v1/integrations/slack/commands":
             return self._handle_slash_command(handler)
@@ -136,17 +192,54 @@ class SlackHandler(BaseHandler):
 
         return error_response("Not found", 404)
 
+    def _extract_team_id(self, body: str, path: str) -> Optional[str]:
+        """Extract team_id from request body based on endpoint type.
+
+        Args:
+            body: Raw request body
+            path: Request path to determine parsing strategy
+
+        Returns:
+            team_id string or None
+        """
+        try:
+            if path.endswith("/commands"):
+                # Slash commands are form-encoded
+                params = parse_qs(body)
+                return params.get("team_id", [None])[0]
+            elif path.endswith("/interactive"):
+                # Interactive payloads are JSON in 'payload' field
+                params = parse_qs(body)
+                payload_str = params.get("payload", ["{}"])[0]
+                payload = json.loads(payload_str)
+                # Team info can be in 'team' or root
+                team = payload.get("team", {})
+                return team.get("id") or payload.get("team_id")
+            elif path.endswith("/events"):
+                # Events API sends JSON
+                data = json.loads(body)
+                # Team ID in event or root
+                return data.get("team_id") or data.get("event", {}).get("team")
+        except Exception as e:
+            logger.debug(f"Failed to extract team_id: {e}")
+        return None
+
     def handle_post(self, path: str, body: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
         """Handle POST requests."""
         return self.handle(path, {}, handler)
 
-    def _verify_signature(self, handler: Any) -> bool:
+    def _verify_signature(self, handler: Any, body: str, signing_secret: str) -> bool:
         """Verify Slack request signature.
 
         Slack uses HMAC-SHA256 to sign requests.
         See: https://api.slack.com/authentication/verifying-requests-from-slack
+
+        Args:
+            handler: HTTP request handler
+            body: Pre-read request body
+            signing_secret: Signing secret to use (workspace-specific or global)
         """
-        if not SLACK_SIGNING_SECRET:
+        if not signing_secret:
             return True  # Skip verification if no secret configured
 
         try:
@@ -162,16 +255,12 @@ class SlackHandler(BaseHandler):
                 logger.warning("Slack request timestamp too old")
                 return False
 
-            # Read request body
-            content_length = int(handler.headers.get("Content-Length", 0))
-            body = handler.rfile.read(content_length).decode("utf-8")
-
             # Compute signature
             sig_basestring = f"v0:{timestamp}:{body}"
             expected_sig = (
                 "v0="
                 + hmac.new(
-                    SLACK_SIGNING_SECRET.encode(),
+                    signing_secret.encode(),
                     sig_basestring.encode(),
                     hashlib.sha256,
                 ).hexdigest()
@@ -212,10 +301,11 @@ class SlackHandler(BaseHandler):
         - /aragora help - Show available commands
         """
         try:
-            # Parse form-encoded body
-            content_length = int(handler.headers.get("Content-Length", 0))
-            body = handler.rfile.read(content_length).decode("utf-8")
+            # Parse form-encoded body (already read and stored in handle())
+            body = getattr(handler, "_slack_body", "")
             params = parse_qs(body)
+            workspace = getattr(handler, "_slack_workspace", None)
+            team_id = getattr(handler, "_slack_team_id", None)
 
             command = params.get("command", [""])[0]
             text = params.get("text", [""])[0].strip()
@@ -238,9 +328,13 @@ class SlackHandler(BaseHandler):
             elif subcommand == "status":
                 return self._command_status()
             elif subcommand == "debate":
-                return self._command_debate(args, user_id, channel_id, response_url)
+                return self._command_debate(
+                    args, user_id, channel_id, response_url, workspace, team_id
+                )
             elif subcommand == "gauntlet":
-                return self._command_gauntlet(args, user_id, channel_id, response_url)
+                return self._command_gauntlet(
+                    args, user_id, channel_id, response_url, workspace, team_id
+                )
             elif subcommand == "agents":
                 return self._command_agents()
             else:
@@ -383,6 +477,8 @@ class SlackHandler(BaseHandler):
         user_id: str,
         channel_id: str,
         response_url: str,
+        workspace: Optional[Any] = None,
+        team_id: Optional[str] = None,
     ) -> HandlerResult:
         """Run gauntlet adversarial validation on a statement.
 
@@ -391,6 +487,8 @@ class SlackHandler(BaseHandler):
             user_id: Slack user ID
             channel_id: Slack channel ID
             response_url: URL for async responses
+            workspace: Resolved workspace object (for multi-workspace)
+            team_id: Slack team/workspace ID
         """
         if not args:
             return self._slack_response(
@@ -436,7 +534,7 @@ class SlackHandler(BaseHandler):
         # Queue the gauntlet run asynchronously
         if response_url:
             create_tracked_task(
-                self._run_gauntlet_async(statement, response_url, user_id, channel_id),
+                self._run_gauntlet_async(statement, response_url, user_id, channel_id, team_id),
                 name=f"slack-gauntlet-{statement[:30]}",
             )
 
@@ -452,6 +550,7 @@ class SlackHandler(BaseHandler):
         response_url: str,
         user_id: str,
         channel_id: str,
+        workspace_id: Optional[str] = None,
     ) -> None:
         """Run gauntlet asynchronously and POST result to Slack."""
         import aiohttp
@@ -582,6 +681,8 @@ class SlackHandler(BaseHandler):
         user_id: str,
         channel_id: str,
         response_url: str,
+        workspace: Optional[Any] = None,
+        team_id: Optional[str] = None,
     ) -> HandlerResult:
         """Start a debate on a topic.
 
@@ -590,6 +691,8 @@ class SlackHandler(BaseHandler):
             user_id: Slack user ID
             channel_id: Slack channel ID
             response_url: URL for async responses
+            workspace: Resolved workspace object (for multi-workspace)
+            team_id: Slack team/workspace ID
         """
         if not args:
             return self._slack_response(
@@ -637,7 +740,7 @@ class SlackHandler(BaseHandler):
         # Queue the debate creation asynchronously
         if response_url:
             create_tracked_task(
-                self._create_debate_async(topic, response_url, user_id, channel_id),
+                self._create_debate_async(topic, response_url, user_id, channel_id, team_id),
                 name=f"slack-debate-{topic[:30]}",
             )
 
@@ -1018,8 +1121,11 @@ class SlackHandler(BaseHandler):
         This handles button clicks, menu selections, etc. from Slack messages.
         """
         try:
-            content_length = int(handler.headers.get("Content-Length", 0))
-            body = handler.rfile.read(content_length).decode("utf-8")
+            # Use pre-read body from handle()
+            body = getattr(handler, "_slack_body", "")
+            # Workspace context available for future use
+            _workspace = getattr(handler, "_slack_workspace", None)  # noqa: F841
+            _team_id = getattr(handler, "_slack_team_id", None)  # noqa: F841
 
             # Interactive payloads come as form-encoded with a 'payload' field
             params = parse_qs(body)
@@ -1215,8 +1321,11 @@ class SlackHandler(BaseHandler):
         This handles events like app_mention, message, etc.
         """
         try:
-            content_length = int(handler.headers.get("Content-Length", 0))
-            body = handler.rfile.read(content_length).decode("utf-8")
+            # Use pre-read body from handle()
+            body = getattr(handler, "_slack_body", "")
+            # Workspace context available for future use
+            _workspace = getattr(handler, "_slack_workspace", None)  # noqa: F841
+            _team_id = getattr(handler, "_slack_team_id", None)  # noqa: F841
             event = json.loads(body)
 
             event_type = event.get("type")

@@ -53,9 +53,10 @@ class SlackWorkspace:
     scopes: List[str] = field(default_factory=list)
     tenant_id: Optional[str] = None  # Link to Aragora tenant
     is_active: bool = True
+    signing_secret: Optional[str] = None  # Workspace-specific signing secret
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary (excludes sensitive token)."""
+        """Convert to dictionary (excludes sensitive token and signing_secret)."""
         return {
             "workspace_id": self.workspace_id,
             "workspace_name": self.workspace_name,
@@ -68,6 +69,7 @@ class SlackWorkspace:
             "scopes": self.scopes,
             "tenant_id": self.tenant_id,
             "is_active": self.is_active,
+            "has_signing_secret": bool(self.signing_secret),
         }
 
     @classmethod
@@ -75,6 +77,13 @@ class SlackWorkspace:
         """Create from database row."""
         scopes_str = row["scopes"] or ""
         scopes = scopes_str.split(",") if scopes_str else []
+
+        # Handle signing_secret column which may not exist in older DBs
+        signing_secret = None
+        try:
+            signing_secret = row["signing_secret"]
+        except (IndexError, KeyError):
+            pass
 
         return cls(
             workspace_id=row["workspace_id"],
@@ -86,6 +95,7 @@ class SlackWorkspace:
             scopes=scopes,
             tenant_id=row["tenant_id"],
             is_active=bool(row["is_active"]),
+            signing_secret=signing_secret,
         )
 
 
@@ -107,7 +117,8 @@ class SlackWorkspaceStore:
         installed_by TEXT,
         scopes TEXT,
         tenant_id TEXT,
-        is_active INTEGER DEFAULT 1
+        is_active INTEGER DEFAULT 1,
+        signing_secret TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_slack_workspaces_tenant
@@ -115,6 +126,11 @@ class SlackWorkspaceStore:
 
     CREATE INDEX IF NOT EXISTS idx_slack_workspaces_active
         ON slack_workspaces(is_active);
+    """
+
+    # Migration to add signing_secret column to existing databases
+    MIGRATION_ADD_SIGNING_SECRET = """
+    ALTER TABLE slack_workspaces ADD COLUMN signing_secret TEXT;
     """
 
     def __init__(self, db_path: Optional[str] = None):
@@ -143,11 +159,23 @@ class SlackWorkspaceStore:
         return self._local.connection
 
     def _ensure_schema(self, conn: sqlite3.Connection) -> None:
-        """Ensure database schema exists."""
+        """Ensure database schema exists and run migrations."""
         with self._init_lock:
             if not self._initialized:
                 conn.executescript(self.SCHEMA)
                 conn.commit()
+
+                # Run migration to add signing_secret column if needed
+                try:
+                    cursor = conn.execute("PRAGMA table_info(slack_workspaces)")
+                    columns = {row[1] for row in cursor.fetchall()}
+                    if "signing_secret" not in columns:
+                        conn.execute(self.MIGRATION_ADD_SIGNING_SECRET)
+                        conn.commit()
+                        logger.info("Added signing_secret column to slack_workspaces")
+                except Exception as e:
+                    logger.debug(f"Migration check: {e}")
+
                 self._initialized = True
 
     def _encrypt_token(self, token: str) -> str:
@@ -206,14 +234,17 @@ class SlackWorkspaceStore:
         conn = self._get_connection()
         try:
             encrypted_token = self._encrypt_token(workspace.access_token)
+            encrypted_secret = (
+                self._encrypt_token(workspace.signing_secret) if workspace.signing_secret else None
+            )
             scopes_str = ",".join(workspace.scopes)
 
             conn.execute(
                 """
                 INSERT OR REPLACE INTO slack_workspaces
                 (workspace_id, workspace_name, access_token, bot_user_id,
-                 installed_at, installed_by, scopes, tenant_id, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 installed_at, installed_by, scopes, tenant_id, is_active, signing_secret)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     workspace.workspace_id,
@@ -225,6 +256,7 @@ class SlackWorkspaceStore:
                     scopes_str,
                     workspace.tenant_id,
                     1 if workspace.is_active else 0,
+                    encrypted_secret,
                 ),
             )
             conn.commit()
@@ -255,6 +287,8 @@ class SlackWorkspaceStore:
             if row:
                 workspace = SlackWorkspace.from_row(row)
                 workspace.access_token = self._decrypt_token(workspace.access_token)
+                if workspace.signing_secret:
+                    workspace.signing_secret = self._decrypt_token(workspace.signing_secret)
                 return workspace
 
             return None
@@ -287,6 +321,8 @@ class SlackWorkspaceStore:
             for row in cursor.fetchall():
                 workspace = SlackWorkspace.from_row(row)
                 workspace.access_token = self._decrypt_token(workspace.access_token)
+                if workspace.signing_secret:
+                    workspace.signing_secret = self._decrypt_token(workspace.signing_secret)
                 workspaces.append(workspace)
 
             return workspaces
@@ -321,6 +357,8 @@ class SlackWorkspaceStore:
             for row in cursor.fetchall():
                 workspace = SlackWorkspace.from_row(row)
                 workspace.access_token = self._decrypt_token(workspace.access_token)
+                if workspace.signing_secret:
+                    workspace.signing_secret = self._decrypt_token(workspace.signing_secret)
                 workspaces.append(workspace)
 
             return workspaces
