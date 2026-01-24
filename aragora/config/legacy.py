@@ -240,6 +240,7 @@ DEBATE_TIMEOUT_SECONDS = _env_int("ARAGORA_DEBATE_TIMEOUT", 900)  # 15 minutes
 AGENT_TIMEOUT_SECONDS = _env_int("ARAGORA_AGENT_TIMEOUT", 240)  # 4 minutes per agent call
 
 # Concurrency limits to prevent API rate limit exhaustion
+# These are now also available via get_settings().concurrency for Pydantic validation
 MAX_CONCURRENT_PROPOSALS = _env_int("ARAGORA_MAX_CONCURRENT_PROPOSALS", 5)
 MAX_CONCURRENT_CRITIQUES = _env_int("ARAGORA_MAX_CONCURRENT_CRITIQUES", 10)
 MAX_CONCURRENT_REVISIONS = _env_int("ARAGORA_MAX_CONCURRENT_REVISIONS", 5)
@@ -249,6 +250,21 @@ PROPOSAL_STAGGER_SECONDS = _env_float("ARAGORA_PROPOSAL_STAGGER_SECONDS", 0.0)
 
 # Heartbeat and timeout configuration
 HEARTBEAT_INTERVAL_SECONDS = _env_int("ARAGORA_HEARTBEAT_INTERVAL", 15)
+
+
+def get_concurrency_settings():
+    """Get concurrency settings with Pydantic validation.
+
+    Preferred over direct constant access for new code.
+    Provides type safety and validation via Pydantic.
+
+    Returns:
+        ConcurrencySettings instance with validated values
+    """
+    from aragora.config.settings import get_settings
+
+    return get_settings().concurrency
+
 
 # Language enforcement for multilingual models (DeepSeek, Kimi, Qwen)
 DEFAULT_DEBATE_LANGUAGE = _env_str("ARAGORA_DEBATE_LANGUAGE", "English")

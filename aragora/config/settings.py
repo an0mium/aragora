@@ -853,6 +853,80 @@ class IntegrationSettings(BaseSettings):
     )
 
 
+class ConcurrencySettings(BaseSettings):
+    """Debate phase concurrency configuration.
+
+    Controls how many parallel API calls are made during each debate phase.
+    Lower values reduce API rate limit pressure; higher values increase speed.
+
+    Environment Variables:
+        ARAGORA_MAX_CONCURRENT_PROPOSALS: Max parallel proposal generations
+        ARAGORA_MAX_CONCURRENT_CRITIQUES: Max parallel critique generations
+        ARAGORA_MAX_CONCURRENT_REVISIONS: Max parallel revision generations
+        ARAGORA_MAX_CONCURRENT_STREAMING: Max parallel streaming connections
+        ARAGORA_PROPOSAL_STAGGER_SECONDS: Legacy stagger delay (0 = use semaphore)
+        ARAGORA_AGENT_TIMEOUT_SECONDS: Timeout per agent call
+        ARAGORA_HEARTBEAT_INTERVAL_SECONDS: Heartbeat interval for long operations
+    """
+
+    model_config = SettingsConfigDict(env_prefix="ARAGORA_")
+
+    # Phase concurrency limits
+    max_concurrent_proposals: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        alias="ARAGORA_MAX_CONCURRENT_PROPOSALS",
+        description="Maximum parallel proposal generations",
+    )
+    max_concurrent_critiques: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        alias="ARAGORA_MAX_CONCURRENT_CRITIQUES",
+        description="Maximum parallel critique generations",
+    )
+    max_concurrent_revisions: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        alias="ARAGORA_MAX_CONCURRENT_REVISIONS",
+        description="Maximum parallel revision generations",
+    )
+    max_concurrent_streaming: int = Field(
+        default=3,
+        ge=1,
+        le=20,
+        alias="ARAGORA_MAX_CONCURRENT_STREAMING",
+        description="Maximum parallel streaming connections",
+    )
+
+    # Timeouts
+    agent_timeout_seconds: int = Field(
+        default=240,
+        ge=30,
+        le=1200,
+        alias="ARAGORA_AGENT_TIMEOUT",
+        description="Timeout per agent call in seconds",
+    )
+    heartbeat_interval_seconds: int = Field(
+        default=15,
+        ge=5,
+        le=120,
+        alias="ARAGORA_HEARTBEAT_INTERVAL",
+        description="Heartbeat interval for long operations",
+    )
+
+    # Legacy stagger mode (0 = disabled, use semaphore instead)
+    proposal_stagger_seconds: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=30.0,
+        alias="ARAGORA_PROPOSAL_STAGGER_SECONDS",
+        description="Legacy stagger delay between proposals (0 = use semaphore)",
+    )
+
+
 class ProviderRateLimitSettings(BaseSettings):
     """Provider-specific rate limits (requests per minute)."""
 
@@ -927,6 +1001,7 @@ class Settings(BaseSettings):
     _consensus: Optional[ConsensusSettings] = None
     _provider_rate_limit: Optional[ProviderRateLimitSettings] = None
     _integration: Optional[IntegrationSettings] = None
+    _concurrency: Optional[ConcurrencySettings] = None
 
     @property
     def auth(self) -> AuthSettings:
@@ -1047,6 +1122,12 @@ class Settings(BaseSettings):
         if self._integration is None:
             self._integration = IntegrationSettings()
         return self._integration
+
+    @property
+    def concurrency(self) -> ConcurrencySettings:
+        if self._concurrency is None:
+            self._concurrency = ConcurrencySettings()
+        return self._concurrency
 
 
 @lru_cache()
