@@ -648,3 +648,128 @@ class TestMCPRoundsValidation:
             mock_env.assert_called_once()
             call_kwargs = mock_env.call_args[1]
             assert call_kwargs["max_rounds"] == 10
+
+
+# ===========================================================================
+# Rate Limiting Tests
+# ===========================================================================
+
+
+class TestMCPRateLimiting:
+    """Tests for rate limiting functionality."""
+
+    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
+    def test_rate_limiter_allows_within_limit(self):
+        """Test rate limiter allows requests within limit."""
+        from aragora.mcp.server import RateLimiter
+
+        limiter = RateLimiter({"test_tool": 5})
+
+        # First 5 requests should pass
+        for _ in range(5):
+            allowed, error = limiter.check("test_tool")
+            assert allowed is True
+            assert error is None
+
+    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
+    def test_rate_limiter_blocks_over_limit(self):
+        """Test rate limiter blocks requests over limit."""
+        from aragora.mcp.server import RateLimiter
+
+        limiter = RateLimiter({"test_tool": 3})
+
+        # Use up the limit
+        for _ in range(3):
+            limiter.check("test_tool")
+
+        # Next request should be blocked
+        allowed, error = limiter.check("test_tool")
+        assert allowed is False
+        assert "Rate limit exceeded" in error
+
+    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
+    def test_rate_limiter_get_remaining(self):
+        """Test rate limiter returns correct remaining count."""
+        from aragora.mcp.server import RateLimiter
+
+        limiter = RateLimiter({"test_tool": 10})
+
+        assert limiter.get_remaining("test_tool") == 10
+
+        limiter.check("test_tool")
+        assert limiter.get_remaining("test_tool") == 9
+
+        for _ in range(5):
+            limiter.check("test_tool")
+        assert limiter.get_remaining("test_tool") == 4
+
+
+# ===========================================================================
+# Input Validation Tests
+# ===========================================================================
+
+
+class TestMCPInputValidation:
+    """Tests for input validation."""
+
+    @pytest.fixture
+    def server(self):
+        """Create an MCP server instance."""
+        from aragora.mcp.server import AragoraMCPServer
+
+        return AragoraMCPServer()
+
+    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
+    def test_validate_question_length(self, server):
+        """Test validation rejects overly long questions."""
+        long_question = "x" * 15000  # Over MAX_QUESTION_LENGTH
+
+        error = server._validate_input("run_debate", {"question": long_question})
+
+        assert error is not None
+        assert "maximum length" in error.lower()
+
+    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
+    def test_validate_content_length(self, server):
+        """Test validation rejects overly long content."""
+        long_content = "x" * 150000  # Over MAX_CONTENT_LENGTH
+
+        error = server._validate_input("run_gauntlet", {"content": long_content})
+
+        assert error is not None
+        assert "maximum length" in error.lower()
+
+    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
+    def test_validate_query_length(self, server):
+        """Test validation rejects overly long queries."""
+        long_query = "x" * 1500  # Over MAX_QUERY_LENGTH
+
+        error = server._validate_input("search_debates", {"query": long_query})
+
+        assert error is not None
+        assert "maximum length" in error.lower()
+
+    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
+    def test_validate_rounds_type(self, server):
+        """Test validation rejects invalid rounds type."""
+        error = server._validate_input("run_debate", {"question": "Q?", "rounds": "five"})
+
+        assert error is not None
+        assert "rounds" in error.lower()
+
+    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
+    def test_validate_valid_input_passes(self, server):
+        """Test validation passes for valid input."""
+        error = server._validate_input("run_debate", {"question": "What is 2+2?", "rounds": 3})
+
+        assert error is None
+
+    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
+    def test_sanitize_strips_whitespace(self, server):
+        """Test sanitization strips whitespace from strings."""
+        args = {"question": "  What is 2+2?  ", "rounds": 3}
+
+        sanitized = server._sanitize_arguments(args)
+
+        assert sanitized["question"] == "What is 2+2?"
+        assert sanitized["rounds"] == 3

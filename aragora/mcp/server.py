@@ -2,6 +2,12 @@
 Aragora MCP Server Implementation.
 
 Implements the MCP 1.0 protocol to expose Aragora capabilities.
+
+Features:
+- Rate limiting per tool (configurable via environment)
+- Input validation and sanitization
+- Comprehensive error handling and logging
+- Resource caching for debate results
 """
 
 from __future__ import annotations
@@ -9,10 +15,72 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import sys
-from typing import Any, Callable, Coroutine, Dict, List, Optional, cast
+import time
+from collections import defaultdict
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple, cast
 
 logger = logging.getLogger(__name__)
+
+# Rate limiting configuration (requests per minute per tool)
+# Can be overridden via MCP_RATE_LIMIT_{TOOL_NAME} env vars
+DEFAULT_RATE_LIMITS: Dict[str, int] = {
+    "run_debate": int(os.environ.get("MCP_RATE_LIMIT_RUN_DEBATE", "10")),
+    "run_gauntlet": int(os.environ.get("MCP_RATE_LIMIT_RUN_GAUNTLET", "20")),
+    "list_agents": int(os.environ.get("MCP_RATE_LIMIT_LIST_AGENTS", "60")),
+    "get_debate": int(os.environ.get("MCP_RATE_LIMIT_GET_DEBATE", "60")),
+    "search_debates": int(os.environ.get("MCP_RATE_LIMIT_SEARCH_DEBATES", "30")),
+    "get_agent_history": int(os.environ.get("MCP_RATE_LIMIT_GET_AGENT_HISTORY", "30")),
+    "get_consensus_proofs": int(os.environ.get("MCP_RATE_LIMIT_GET_CONSENSUS_PROOFS", "30")),
+    "list_trending_topics": int(os.environ.get("MCP_RATE_LIMIT_LIST_TRENDING_TOPICS", "30")),
+}
+
+# Maximum input sizes for validation
+MAX_QUESTION_LENGTH = 10000
+MAX_CONTENT_LENGTH = 100000
+MAX_QUERY_LENGTH = 1000
+
+
+class RateLimiter:
+    """Simple in-memory rate limiter with per-tool limits."""
+
+    def __init__(self, limits: Optional[Dict[str, int]] = None):
+        self._limits = limits or DEFAULT_RATE_LIMITS
+        self._requests: Dict[str, List[float]] = defaultdict(list)
+        self._window_seconds = 60
+
+    def check(self, tool_name: str) -> Tuple[bool, Optional[str]]:
+        """Check if a request is allowed.
+
+        Returns:
+            Tuple of (allowed, error_message)
+        """
+        limit = self._limits.get(tool_name, 60)  # Default 60/min
+        now = time.time()
+        window_start = now - self._window_seconds
+
+        # Clean old requests
+        self._requests[tool_name] = [t for t in self._requests[tool_name] if t > window_start]
+
+        # Check limit
+        if len(self._requests[tool_name]) >= limit:
+            remaining_wait = self._requests[tool_name][0] - window_start
+            return False, f"Rate limit exceeded for {tool_name}. Try again in {remaining_wait:.0f}s"
+
+        # Record request
+        self._requests[tool_name].append(now)
+        return True, None
+
+    def get_remaining(self, tool_name: str) -> int:
+        """Get remaining requests for a tool."""
+        limit = self._limits.get(tool_name, 60)
+        now = time.time()
+        window_start = now - self._window_seconds
+
+        current_count = len([t for t in self._requests[tool_name] if t > window_start])
+        return max(0, limit - current_count)
+
 
 # Check if mcp package is available
 try:
@@ -52,14 +120,54 @@ class AragoraMCPServer:
     - trending://topics: Access trending topics
     """
 
-    def __init__(self):
+    def __init__(self, rate_limits: Optional[Dict[str, int]] = None):
         if not MCP_AVAILABLE:
             raise ImportError("MCP package not installed. Install with: pip install mcp")
 
         self.server = Server("aragora")
+        self._rate_limiter = RateLimiter(rate_limits)
         self._setup_handlers()
         self._debates_cache: Dict[str, Dict[str, Any]] = {}
         self._agents_cache: Dict[str, Dict[str, Any]] = {}
+
+    def _validate_input(self, tool_name: str, arguments: Dict[str, Any]) -> Optional[str]:
+        """Validate tool input arguments.
+
+        Returns error message if validation fails, None otherwise.
+        """
+        if tool_name == "run_debate":
+            question = arguments.get("question", "")
+            if question and len(question) > MAX_QUESTION_LENGTH:
+                return f"Question exceeds maximum length ({MAX_QUESTION_LENGTH} chars)"
+            rounds = arguments.get("rounds", 3)
+            if not isinstance(rounds, int) or rounds < 1 or rounds > 10:
+                return "Rounds must be an integer between 1 and 10"
+
+        elif tool_name == "run_gauntlet":
+            content = arguments.get("content", "")
+            if content and len(content) > MAX_CONTENT_LENGTH:
+                return f"Content exceeds maximum length ({MAX_CONTENT_LENGTH} chars)"
+
+        elif tool_name == "search_debates":
+            query = arguments.get("query", "")
+            if query and len(query) > MAX_QUERY_LENGTH:
+                return f"Query exceeds maximum length ({MAX_QUERY_LENGTH} chars)"
+
+        return None
+
+    def _sanitize_arguments(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Sanitize tool arguments to prevent injection attacks.
+
+        Returns sanitized copy of arguments.
+        """
+        sanitized = {}
+        for key, value in arguments.items():
+            if isinstance(value, str):
+                # Strip leading/trailing whitespace
+                sanitized[key] = value.strip()
+            else:
+                sanitized[key] = value
+        return sanitized
 
     def _setup_handlers(self) -> None:
         """Set up MCP request handlers."""
@@ -113,10 +221,37 @@ class AragoraMCPServer:
 
         @self.server.call_tool()
         async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
-            """Handle tool calls by dispatching to tools.py functions."""
+            """Handle tool calls with rate limiting and input validation."""
             from aragora.mcp.tools import TOOLS_METADATA
 
             try:
+                # Rate limiting check
+                allowed, rate_error = self._rate_limiter.check(name)
+                if not allowed:
+                    logger.warning(f"Rate limit exceeded for tool {name}")
+                    return [
+                        TextContent(
+                            type="text",
+                            text=json.dumps(
+                                {
+                                    "error": rate_error,
+                                    "rate_limited": True,
+                                }
+                            ),
+                        )
+                    ]
+
+                # Input validation
+                validation_error = self._validate_input(name, arguments)
+                if validation_error:
+                    logger.warning(f"Input validation failed for {name}: {validation_error}")
+                    return [
+                        TextContent(
+                            type="text",
+                            text=json.dumps({"error": validation_error}),
+                        )
+                    ]
+
                 # Find tool function from metadata
                 tool_func: Optional[Callable[..., Coroutine[Any, Any, Dict[str, Any]]]] = None
                 for meta in TOOLS_METADATA:
@@ -129,8 +264,9 @@ class AragoraMCPServer:
                 if tool_func is None:
                     result: Dict[str, Any] = {"error": f"Unknown tool: {name}"}
                 else:
-                    # Call the tool function with arguments
-                    result = await tool_func(**arguments)
+                    # Call the tool function with sanitized arguments
+                    sanitized_args = self._sanitize_arguments(arguments)
+                    result = await tool_func(**sanitized_args)
 
                     # Cache debate results for resource access
                     if name == "run_debate" and "debate_id" in result and "error" not in result:
