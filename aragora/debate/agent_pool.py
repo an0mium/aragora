@@ -250,7 +250,10 @@ class AgentPool:
         elo_score = 1000.0
         if self._config.elo_system is not None:
             try:
-                elo_score = self._config.elo_system.get_rating(agent_name)
+                rating = self._config.elo_system.get_rating(agent_name)
+                if rating is not None:
+                    # Extract the elo value from the AgentRating object
+                    elo_score = getattr(rating, "elo", 1000.0)
             except (KeyError, AttributeError, TypeError, ValueError) as e:
                 logger.debug(f"ELO rating lookup failed for {agent_name}: {e}")
 
@@ -277,24 +280,37 @@ class AgentPool:
 
         Extracted from Arena._get_calibration_weight().
 
+        Tries calibration_tracker first, then falls back to elo_system's
+        calibration_score property on AgentRating.
+
         Args:
             agent_name: Name of the agent
 
         Returns:
             Calibration weight (0.5 - 1.5 range)
         """
-        if self._config.calibration_tracker is None:
-            return 1.0
+        # Try calibration_tracker first
+        if self._config.calibration_tracker is not None:
+            try:
+                calibration = self._config.calibration_tracker.get_calibration(agent_name)
+                if calibration is not None:
+                    # Map calibration (0-1) to weight (0.5-1.5)
+                    return 0.5 + calibration
+            except (KeyError, AttributeError, TypeError, ValueError) as e:
+                logger.debug(f"Calibration tracker lookup failed for {agent_name}: {e}")
 
-        try:
-            calibration = self._config.calibration_tracker.get_calibration(agent_name)
-            if calibration is None:
-                return 1.0
-            # Map calibration (0-1) to weight (0.5-1.5)
-            return 0.5 + calibration
-        except (KeyError, AttributeError, TypeError, ValueError) as e:
-            logger.debug(f"Calibration lookup failed for {agent_name}: {e}")
-            return 1.0
+        # Fallback to elo_system's calibration_score
+        if self._config.elo_system is not None:
+            try:
+                rating = self._config.elo_system.get_rating(agent_name)
+                if rating is not None and hasattr(rating, "calibration_score"):
+                    cal_score = rating.calibration_score
+                    # Map calibration_score (0-1) to weight (0.5-1.5)
+                    return 0.5 + cal_score
+            except (KeyError, AttributeError, TypeError, ValueError) as e:
+                logger.debug(f"ELO calibration lookup failed for {agent_name}: {e}")
+
+        return 1.0
 
     # =========================================================================
     # Critic Selection

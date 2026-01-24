@@ -432,7 +432,10 @@ class TestKeyRotationE2E:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Security routes not handled in CI environment")
+@pytest.mark.skipif(
+    "CI" in __import__("os").environ or "GITHUB_ACTIONS" in __import__("os").environ,
+    reason="Security routes not handled in CI environment",
+)
 class TestSecurityHardeningVerification:
     """Tests verifying security hardening is properly configured."""
 

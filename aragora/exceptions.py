@@ -488,6 +488,39 @@ class OAuthStateError(AuthError):
 
 
 # ============================================================================
+# Billing/Budget Errors
+# ============================================================================
+
+
+class BillingError(AragoraError):
+    """Base exception for billing-related errors."""
+
+    pass
+
+
+class BudgetExceededError(BillingError):
+    """Raised when organization budget is exceeded and hard-stop is enforced."""
+
+    def __init__(self, message: str, org_id: str = "", remaining_usd: float = 0.0):
+        super().__init__(message, {"org_id": org_id, "remaining_usd": remaining_usd})
+        self.org_id = org_id
+        self.remaining_usd = remaining_usd
+
+
+class InsufficientCreditsError(BillingError):
+    """Raised when organization has insufficient credits for an operation."""
+
+    def __init__(self, required: float, available: float, org_id: str = ""):
+        super().__init__(
+            f"Insufficient credits: required {required:.2f}, available {available:.2f}",
+            {"required": required, "available": available, "org_id": org_id},
+        )
+        self.required = required
+        self.available = available
+        self.org_id = org_id
+
+
+# ============================================================================
 # Infrastructure Errors
 # ============================================================================
 

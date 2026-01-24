@@ -1466,6 +1466,112 @@ class Arena:
         """Gather pulse/trending context from social platforms."""
         return await self._context_delegator.gather_trending_context()
 
+    # =========================================================================
+    # Budget Enforcement
+    # =========================================================================
+
+    def _check_budget_before_debate(self, debate_id: str) -> None:
+        """Check if organization has sufficient budget before starting debate.
+
+        Raises:
+            BudgetExceededError: If budget is exhausted and hard-stop is enforced.
+        """
+        if not self.org_id:
+            return  # No org context - skip budget check
+
+        try:
+            from aragora.billing.budget_manager import BudgetAction, get_budget_manager
+
+            manager = get_budget_manager()
+
+            # Estimate cost for a typical debate (conservative estimate)
+            # A 3-round debate typically uses 20k-50k tokens total
+            estimated_cost_usd = 0.10  # $0.10 conservative estimate
+
+            allowed, reason, action = manager.check_budget(
+                org_id=self.org_id,
+                estimated_cost_usd=estimated_cost_usd,
+                user_id=self.user_id or None,
+            )
+
+            if not allowed:
+                logger.warning(
+                    "budget_check_failed org_id=%s debate_id=%s reason=%s",
+                    self.org_id,
+                    debate_id,
+                    reason,
+                )
+                # Import here to avoid circular imports
+                from aragora.exceptions import BudgetExceededError
+
+                raise BudgetExceededError(f"Budget limit reached for organization: {reason}")
+
+            if action == BudgetAction.SOFT_LIMIT:
+                logger.warning(
+                    "budget_soft_limit_warning org_id=%s debate_id=%s reason=%s",
+                    self.org_id,
+                    debate_id,
+                    reason,
+                )
+
+        except ImportError:
+            # Budget manager not available - proceed without check
+            logger.debug("Budget manager not available, skipping pre-debate check")
+
+    def _record_debate_cost(
+        self,
+        debate_id: str,
+        result: "DebateResult",
+    ) -> None:
+        """Record actual debate cost against organization budget.
+
+        Args:
+            debate_id: Debate identifier
+            result: Completed debate result with token usage info
+        """
+        if not self.org_id:
+            return  # No org context - skip cost recording
+
+        try:
+            from aragora.billing.budget_manager import get_budget_manager
+
+            manager = get_budget_manager()
+
+            # Calculate actual cost from usage metrics
+            # Try to get from extensions first (which tracks per-agent costs)
+            actual_cost_usd = 0.0
+
+            # Check if extensions recorded usage
+            if hasattr(self.extensions, "total_cost_usd"):
+                actual_cost_usd = getattr(self.extensions, "total_cost_usd", 0.0)
+            elif hasattr(result, "metadata") and isinstance(result.metadata, dict):
+                actual_cost_usd = result.metadata.get("total_cost_usd", 0.0)
+
+            # Fallback: estimate from message count and rounds
+            if actual_cost_usd <= 0:
+                # Rough estimate: $0.01 per message
+                message_count = len(result.messages) if result.messages else 0
+                critique_count = len(result.critiques) if result.critiques else 0
+                actual_cost_usd = (message_count + critique_count) * 0.01
+
+            if actual_cost_usd > 0:
+                manager.record_spend(
+                    org_id=self.org_id,
+                    amount_usd=actual_cost_usd,
+                    description=f"Debate: {result.task[:50] if result.task else 'Unknown'}",
+                    debate_id=debate_id,
+                    user_id=self.user_id or None,
+                )
+                logger.info(
+                    "debate_cost_recorded org_id=%s debate_id=%s cost=$%.4f",
+                    self.org_id,
+                    debate_id,
+                    actual_cost_usd,
+                )
+
+        except ImportError:
+            logger.debug("Budget manager not available, skipping cost recording")
+
     async def _fetch_knowledge_context(self, task: str, limit: int = 10) -> Optional[str]:
         """Fetch relevant knowledge from Knowledge Mound for debate context.
 
@@ -1686,6 +1792,9 @@ class Arena:
         # Emit agent preview for quick UI feedback
         self._emit_agent_preview()
 
+        # Check budget before starting debate (may raise BudgetExceededError)
+        self._check_budget_before_debate(debate_id)
+
         # Initialize result early for timeout recovery
         ctx.result = DebateResult(
             task=self.env.task,
@@ -1809,6 +1918,10 @@ class Arena:
         # Trigger extensions (billing, training export)
         # Extensions handle their own error handling and won't fail the debate
         self.extensions.on_debate_complete(ctx, ctx.result, self.agents)
+
+        # Record debate cost against organization budget
+        if ctx.result:
+            self._record_debate_cost(debate_id, ctx.result)
 
         # Ingest high-confidence consensus into Knowledge Mound for future retrieval
         # This enables cross-debate learning by storing reliable conclusions

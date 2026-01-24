@@ -7,38 +7,65 @@
 import type {
   AragoraConfig,
   Agent,
+  AgentCalibration,
+  AgentConsistency,
+  AgentFlip,
+  AgentMoment,
+  AgentNetwork,
+  AgentPerformance,
+  AgentPosition,
   AgentProfile,
   AgentScore,
+  ConsensusQualityAnalytics,
+  CritiqueEntry,
   Debate,
   DebateCreateRequest,
   DebateCreateResponse,
+  DebateUpdateRequest,
+  DisagreementAnalytics,
+  DomainRating,
+  EarlyStopAnalytics,
+  ExplainabilityResult,
+  GauntletComparison,
+  GauntletHeatmapExtended,
+  GauntletPersona,
+  GauntletResult,
+  GauntletRun,
   GraphDebate,
   GraphDebateCreateRequest,
+  HeadToHeadStats,
   HealthCheck,
+  MarketplaceTemplate,
   MatrixConclusion,
   MatrixDebate,
   MatrixDebateCreateRequest,
   MemoryAnalytics,
+  MemoryEntry,
+  MemorySearchParams,
+  MemoryStats,
   MemoryTier,
   MemoryTierStats,
+  OpponentBriefing,
   PaginationParams,
+  RankingStats,
   Replay,
   ReplayFormat,
+  DecisionReceipt,
+  RiskHeatmap,
+  RoleRotationAnalytics,
   ScoreAgentsRequest,
+  SearchResponse,
   SelectionPlugin,
   TeamSelection,
   TeamSelectionRequest,
   VerificationBackend,
+  VerificationReport,
   VerificationResult,
   VerificationStatus,
   VerifyClaimRequest,
   WebSocketEvent,
   Workflow,
   WorkflowTemplate,
-  DecisionReceipt,
-  RiskHeatmap,
-  ExplainabilityResult,
-  MarketplaceTemplate,
 } from './types';
 import { AragoraError } from './types';
 import { AragoraWebSocket, createWebSocket, streamDebate, type WebSocketOptions, type StreamOptions } from './websocket';
@@ -295,8 +322,50 @@ export class AragoraClient {
     return this.request<{ matches: unknown[] }>('GET', `/api/agent/${encodeURIComponent(name)}/history`, { params });
   }
 
-  async getAgentCalibration(name: string): Promise<unknown> {
-    return this.request<unknown>('GET', `/api/agent/${encodeURIComponent(name)}/calibration`);
+  async getAgentCalibration(name: string): Promise<AgentCalibration> {
+    return this.request<AgentCalibration>('GET', `/api/v1/agent/${encodeURIComponent(name)}/calibration`);
+  }
+
+  async getAgentPerformance(name: string): Promise<AgentPerformance> {
+    return this.request<AgentPerformance>('GET', `/api/v1/agent/${encodeURIComponent(name)}/performance`);
+  }
+
+  async getAgentHeadToHead(name: string, opponent: string): Promise<HeadToHeadStats> {
+    return this.request<HeadToHeadStats>(
+      'GET',
+      `/api/v1/agent/${encodeURIComponent(name)}/head-to-head/${encodeURIComponent(opponent)}`
+    );
+  }
+
+  async getAgentOpponentBriefing(name: string, opponent: string): Promise<OpponentBriefing> {
+    return this.request<OpponentBriefing>(
+      'GET',
+      `/api/v1/agent/${encodeURIComponent(name)}/opponent-briefing/${encodeURIComponent(opponent)}`
+    );
+  }
+
+  async getAgentConsistency(name: string): Promise<AgentConsistency> {
+    return this.request<AgentConsistency>('GET', `/api/v1/agent/${encodeURIComponent(name)}/consistency`);
+  }
+
+  async getAgentFlips(name: string, params?: { limit?: number } & PaginationParams): Promise<{ flips: AgentFlip[] }> {
+    return this.request<{ flips: AgentFlip[] }>('GET', `/api/v1/agent/${encodeURIComponent(name)}/flips`, { params });
+  }
+
+  async getAgentNetwork(name: string): Promise<AgentNetwork> {
+    return this.request<AgentNetwork>('GET', `/api/v1/agent/${encodeURIComponent(name)}/network`);
+  }
+
+  async getAgentMoments(name: string, params?: { type?: string; limit?: number } & PaginationParams): Promise<{ moments: AgentMoment[] }> {
+    return this.request<{ moments: AgentMoment[] }>('GET', `/api/v1/agent/${encodeURIComponent(name)}/moments`, { params });
+  }
+
+  async getAgentPositions(name: string, params?: { topic?: string; limit?: number } & PaginationParams): Promise<{ positions: AgentPosition[] }> {
+    return this.request<{ positions: AgentPosition[] }>('GET', `/api/v1/agent/${encodeURIComponent(name)}/positions`, { params });
+  }
+
+  async getAgentDomains(name: string): Promise<{ domains: DomainRating[] }> {
+    return this.request<{ domains: DomainRating[] }>('GET', `/api/v1/agent/${encodeURIComponent(name)}/domains`);
   }
 
   async getLeaderboard(): Promise<{ agents: Agent[] }> {
@@ -353,8 +422,16 @@ export class AragoraClient {
     return this.request<unknown>('GET', `/api/debates/${encodeURIComponent(debateId)}/export/${format}`);
   }
 
-  async searchDebates(query: string, params?: PaginationParams): Promise<{ debates: Debate[] }> {
-    return this.request<{ debates: Debate[] }>('GET', '/api/search', { params: { q: query, ...params } });
+  async searchDebates(query: string, params?: PaginationParams): Promise<SearchResponse> {
+    return this.request<SearchResponse>('GET', '/api/v1/search', { params: { q: query, ...params } });
+  }
+
+  async updateDebate(debateId: string, updates: DebateUpdateRequest): Promise<Debate> {
+    return this.request<Debate>('PATCH', `/api/v1/debates/${encodeURIComponent(debateId)}`, { body: updates });
+  }
+
+  async getVerificationReport(debateId: string): Promise<VerificationReport> {
+    return this.request<VerificationReport>('GET', `/api/v1/debates/${encodeURIComponent(debateId)}/verification-report`);
   }
 
   // ===========================================================================
@@ -527,6 +604,33 @@ export class AragoraClient {
     return this.request<RiskHeatmap>('GET', `/api/gauntlet/heatmaps/${encodeURIComponent(heatmapId)}`);
   }
 
+  async getGauntlet(gauntletId: string): Promise<GauntletRun> {
+    return this.request<GauntletRun>('GET', `/api/v1/gauntlet/${encodeURIComponent(gauntletId)}`);
+  }
+
+  async deleteGauntlet(gauntletId: string): Promise<{ deleted: boolean }> {
+    return this.request<{ deleted: boolean }>('DELETE', `/api/v1/gauntlet/${encodeURIComponent(gauntletId)}`);
+  }
+
+  async listGauntletPersonas(params?: { category?: string; enabled?: boolean }): Promise<{ personas: GauntletPersona[] }> {
+    return this.request<{ personas: GauntletPersona[] }>('GET', '/api/v1/gauntlet/personas', { params });
+  }
+
+  async listGauntletResults(params?: { gauntlet_id?: string; status?: string } & PaginationParams): Promise<{ results: GauntletResult[] }> {
+    return this.request<{ results: GauntletResult[] }>('GET', '/api/v1/gauntlet/results', { params });
+  }
+
+  async getGauntletHeatmap(gauntletId: string, format?: 'json' | 'svg'): Promise<GauntletHeatmapExtended> {
+    return this.request<GauntletHeatmapExtended>('GET', `/api/v1/gauntlet/${encodeURIComponent(gauntletId)}/heatmap`, { params: { format } });
+  }
+
+  async compareGauntlets(gauntletId1: string, gauntletId2: string): Promise<GauntletComparison> {
+    return this.request<GauntletComparison>(
+      'GET',
+      `/api/v1/gauntlet/${encodeURIComponent(gauntletId1)}/compare/${encodeURIComponent(gauntletId2)}`
+    );
+  }
+
   // ===========================================================================
   // Marketplace
   // ===========================================================================
@@ -595,15 +699,36 @@ export class AragoraClient {
   // Memory & Consensus
   // ===========================================================================
 
-  async getMemoryStats(): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/memory/stats');
+  async getMemoryStats(): Promise<MemoryStats> {
+    return this.request<MemoryStats>('GET', '/api/v1/memory/stats');
+  }
+
+  async searchMemory(params: MemorySearchParams): Promise<{ entries: MemoryEntry[] }> {
+    return this.request<{ entries: MemoryEntry[] }>('GET', '/api/v1/memory/search', {
+      params: {
+        q: params.query,
+        tiers: params.tiers?.join(','),
+        agent: params.agent,
+        limit: params.limit,
+        min_importance: params.min_importance,
+        include_expired: params.include_expired,
+      }
+    });
+  }
+
+  async getMemoryTiers(): Promise<{ tiers: MemoryTierStats[] }> {
+    return this.request<{ tiers: MemoryTierStats[] }>('GET', '/api/v1/memory/tiers');
+  }
+
+  async getMemoryCritiques(params?: { limit?: number } & PaginationParams): Promise<{ critiques: CritiqueEntry[] }> {
+    return this.request<{ critiques: CritiqueEntry[] }>('GET', '/api/v1/memory/critiques', { params });
   }
 
   async retrieveFromContinuum(query: string, options?: {
     tier?: 'fast' | 'medium' | 'slow' | 'glacial';
     limit?: number;
-  }): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/memory/continuum/retrieve', {
+  }): Promise<{ entries: MemoryEntry[] }> {
+    return this.request<{ entries: MemoryEntry[] }>('GET', '/api/memory/continuum/retrieve', {
       params: { q: query, ...options },
     });
   }
@@ -628,20 +753,24 @@ export class AragoraClient {
   // Analytics
   // ===========================================================================
 
-  async getDisagreementAnalytics(): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/analytics/disagreements');
+  async getDisagreementAnalytics(params?: { period?: string }): Promise<DisagreementAnalytics> {
+    return this.request<DisagreementAnalytics>('GET', '/api/v1/analytics/disagreements', { params });
   }
 
-  async getRoleRotationAnalytics(): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/analytics/role-rotation');
+  async getRoleRotationAnalytics(params?: { period?: string }): Promise<RoleRotationAnalytics> {
+    return this.request<RoleRotationAnalytics>('GET', '/api/v1/analytics/role-rotation', { params });
   }
 
-  async getEarlyStopAnalytics(): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/analytics/early-stops');
+  async getEarlyStopAnalytics(params?: { period?: string }): Promise<EarlyStopAnalytics> {
+    return this.request<EarlyStopAnalytics>('GET', '/api/v1/analytics/early-stops', { params });
   }
 
-  async getRankingStats(): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/ranking/stats');
+  async getConsensusQualityAnalytics(params?: { period?: string }): Promise<ConsensusQualityAnalytics> {
+    return this.request<ConsensusQualityAnalytics>('GET', '/api/v1/analytics/consensus-quality', { params });
+  }
+
+  async getRankingStats(): Promise<RankingStats> {
+    return this.request<RankingStats>('GET', '/api/v1/ranking/stats');
   }
 
   // ===========================================================================

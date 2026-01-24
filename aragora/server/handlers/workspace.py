@@ -410,9 +410,19 @@ class WorkspaceHandler(SecureHandler):
         if not name:
             return error_response("name is required", 400)
 
-        org_id = body.get("organization_id") or auth_ctx.org_id
+        # SECURITY: Always use authenticated user's org_id to prevent cross-tenant access
+        org_id = auth_ctx.org_id
         if not org_id:
             return error_response("organization_id is required", 400)
+
+        # Reject requests that attempt to specify a different organization
+        requested_org_id = body.get("organization_id")
+        if requested_org_id and requested_org_id != org_id:
+            logger.warning(
+                f"Cross-tenant workspace creation attempt: user={auth_ctx.user_id} "
+                f"own_org={org_id} requested_org={requested_org_id}"
+            )
+            return error_response("Cannot create workspace in another organization", 403)
 
         initial_members = body.get("members", [])
 
@@ -456,7 +466,18 @@ class WorkspaceHandler(SecureHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
-        org_id = query_params.get("organization_id", auth_ctx.org_id)
+        # SECURITY: Only list workspaces from user's own organization
+        org_id = auth_ctx.org_id
+
+        # Reject requests that attempt to access another organization's workspaces
+        requested_org_id = query_params.get("organization_id")
+        if requested_org_id and requested_org_id != org_id:
+            logger.warning(
+                f"Cross-tenant workspace list attempt: user={auth_ctx.user_id} "
+                f"own_org={org_id} requested_org={requested_org_id}"
+            )
+            return error_response("Cannot list workspaces from another organization", 403)
+
         manager = self._get_isolation_manager()
         workspaces = self._run_async(
             manager.list_workspaces(

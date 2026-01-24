@@ -724,3 +724,433 @@ export interface MemoryTierStats {
   newest_entry?: string;
   utilization_pct: number;
 }
+
+// =============================================================================
+// Extended Agent Types (Profile, Performance, etc.)
+// =============================================================================
+
+export interface AgentCalibration {
+  agent: string;
+  overall_score: number;
+  domain_scores: Record<string, number>;
+  confidence_accuracy: number;
+  last_calibrated?: string;
+  sample_size: number;
+}
+
+export interface AgentPerformance {
+  agent: string;
+  win_rate: number;
+  loss_rate: number;
+  draw_rate: number;
+  elo_trend: number[];
+  elo_change_30d: number;
+  avg_confidence: number;
+  avg_round_duration_ms: number;
+  total_debates: number;
+  recent_results: Array<{ debate_id: string; outcome: string; date: string }>;
+}
+
+export interface HeadToHeadStats {
+  agent: string;
+  opponent: string;
+  total_matchups: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  win_rate: number;
+  avg_margin: number;
+  recent_matchups: Array<{
+    debate_id: string;
+    outcome: string;
+    margin: number;
+    date: string;
+  }>;
+  domain_breakdown?: Record<string, { wins: number; losses: number }>;
+}
+
+export interface OpponentBriefing {
+  agent: string;
+  opponent: string;
+  opponent_profile: {
+    elo: number;
+    strengths: string[];
+    weaknesses: string[];
+    preferred_domains: string[];
+  };
+  historical_summary: string;
+  recommended_strategy: string;
+  key_insights: string[];
+  confidence: number;
+}
+
+export interface AgentConsistency {
+  agent: string;
+  overall_consistency: number;
+  position_stability: number;
+  flip_rate: number;
+  consistency_by_domain: Record<string, number>;
+  volatility_index: number;
+  sample_size: number;
+}
+
+export interface AgentFlip {
+  flip_id: string;
+  agent: string;
+  debate_id: string;
+  topic: string;
+  original_position: string;
+  new_position: string;
+  flip_reason?: string;
+  round_number: number;
+  timestamp: string;
+  was_justified: boolean;
+}
+
+export interface AgentNetwork {
+  agent: string;
+  allies: Array<{
+    agent: string;
+    agreement_rate: number;
+    shared_debates: number;
+  }>;
+  rivals: Array<{
+    agent: string;
+    disagreement_rate: number;
+    shared_debates: number;
+  }>;
+  neutrals: string[];
+  cluster_id?: string;
+  network_position: 'central' | 'peripheral' | 'bridge';
+}
+
+export interface AgentMoment {
+  moment_id: string;
+  agent: string;
+  debate_id: string;
+  type: 'breakthrough' | 'comeback' | 'decisive_argument' | 'consensus_catalyst' | 'upset';
+  description: string;
+  impact_score: number;
+  timestamp: string;
+  context: {
+    round: number;
+    opponent?: string;
+    topic?: string;
+  };
+}
+
+export interface AgentPosition {
+  position_id: string;
+  agent: string;
+  debate_id: string;
+  topic: string;
+  stance: string;
+  confidence: number;
+  supporting_evidence: string[];
+  round_number: number;
+  timestamp: string;
+  was_final: boolean;
+}
+
+export interface DomainRating {
+  domain: string;
+  elo: number;
+  matches: number;
+  win_rate: number;
+  avg_confidence: number;
+  last_active?: string;
+  trend: 'rising' | 'stable' | 'falling';
+}
+
+// =============================================================================
+// Gauntlet Types (Extended)
+// =============================================================================
+
+export interface GauntletRun {
+  id: string;
+  name?: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  config: {
+    scenarios: string[];
+    personas?: string[];
+    max_rounds?: number;
+    parallel?: boolean;
+  };
+  progress: {
+    total: number;
+    completed: number;
+    failed: number;
+  };
+  results_summary?: {
+    pass_rate: number;
+    avg_confidence: number;
+    risk_score: number;
+  };
+  metadata?: Record<string, unknown>;
+}
+
+export interface GauntletPersona {
+  id: string;
+  name: string;
+  description: string;
+  category: 'adversarial' | 'edge_case' | 'stress' | 'compliance' | 'custom';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  tags: string[];
+  example_prompts?: string[];
+  enabled: boolean;
+}
+
+export interface GauntletResult {
+  id: string;
+  gauntlet_id: string;
+  scenario: string;
+  persona?: string;
+  status: 'pass' | 'fail' | 'error' | 'skip';
+  verdict: string;
+  confidence: number;
+  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  duration_ms: number;
+  debate_id?: string;
+  findings: Array<{
+    type: string;
+    description: string;
+    severity: string;
+  }>;
+  timestamp: string;
+}
+
+export interface GauntletHeatmapExtended {
+  gauntlet_id: string;
+  dimensions: {
+    categories: string[];
+    personas: string[];
+  };
+  matrix: number[][];
+  overall_risk: number;
+  hotspots: Array<{
+    category: string;
+    persona: string;
+    risk: number;
+  }>;
+  generated_at: string;
+}
+
+export interface GauntletComparison {
+  gauntlet_a: string;
+  gauntlet_b: string;
+  comparison: {
+    pass_rate_delta: number;
+    risk_score_delta: number;
+    new_failures: string[];
+    fixed_failures: string[];
+    regression_count: number;
+    improvement_count: number;
+  };
+  scenario_diffs: Array<{
+    scenario: string;
+    a_status: string;
+    b_status: string;
+    delta: string;
+  }>;
+  recommendation: 'promote' | 'investigate' | 'block';
+  generated_at: string;
+}
+
+// =============================================================================
+// Analytics Types
+// =============================================================================
+
+export interface DisagreementAnalytics {
+  period: string;
+  total_debates: number;
+  disagreement_rate: number;
+  avg_dissent_count: number;
+  top_disagreement_topics: Array<{
+    topic: string;
+    count: number;
+    avg_resolution_rounds: number;
+  }>;
+  agent_disagreement_matrix: Record<string, Record<string, number>>;
+  persistent_disagreements: Array<{
+    agents: string[];
+    topic_pattern: string;
+    occurrence_count: number;
+  }>;
+}
+
+export interface RoleRotationAnalytics {
+  period: string;
+  total_assignments: number;
+  role_distribution: Record<string, number>;
+  agent_role_frequency: Record<string, Record<string, number>>;
+  rotation_fairness_index: number;
+  stuck_agents: Array<{
+    agent: string;
+    dominant_role: string;
+    frequency: number;
+  }>;
+  recommendations: string[];
+}
+
+export interface EarlyStopAnalytics {
+  period: string;
+  total_debates: number;
+  early_stop_rate: number;
+  avg_rounds_saved: number;
+  early_stop_reasons: Record<string, number>;
+  confidence_at_stop: {
+    avg: number;
+    min: number;
+    max: number;
+    distribution: number[];
+  };
+  false_early_stops: number;
+  missed_early_stops: number;
+}
+
+export interface ConsensusQualityAnalytics {
+  period: string;
+  total_consensuses: number;
+  quality_distribution: Record<'high' | 'medium' | 'low', number>;
+  avg_confidence: number;
+  avg_agreement_level: number;
+  hollow_consensus_rate: number;
+  contested_consensus_rate: number;
+  consensus_durability: {
+    stable: number;
+    challenged: number;
+    overturned: number;
+  };
+  quality_by_topic: Record<string, number>;
+}
+
+export interface RankingStats {
+  total_agents: number;
+  elo_distribution: {
+    min: number;
+    max: number;
+    mean: number;
+    median: number;
+    std_dev: number;
+  };
+  tier_distribution: Record<string, number>;
+  top_performers: Array<{
+    agent: string;
+    elo: number;
+    trend: string;
+  }>;
+  most_improved: Array<{
+    agent: string;
+    elo_change: number;
+    period: string;
+  }>;
+  last_updated: string;
+}
+
+export interface MemoryStats {
+  total_entries: number;
+  storage_bytes: number;
+  tier_counts: Record<MemoryTier, number>;
+  consolidation_rate: number;
+  avg_importance: number;
+  cache_hit_rate: number;
+  oldest_entry?: string;
+  newest_entry?: string;
+  health_status: 'healthy' | 'degraded' | 'critical';
+}
+
+// =============================================================================
+// Debate Update Types
+// =============================================================================
+
+export interface DebateUpdateRequest {
+  status?: DebateStatus;
+  metadata?: Record<string, unknown>;
+  tags?: string[];
+  archived?: boolean;
+  notes?: string;
+}
+
+export interface VerificationReport {
+  debate_id: string;
+  verified: boolean;
+  verification_method: string;
+  claims_verified: number;
+  claims_failed: number;
+  claims_skipped: number;
+  claim_details: Array<{
+    claim: string;
+    verified: boolean;
+    confidence: number;
+    evidence?: string;
+    counterevidence?: string;
+  }>;
+  overall_confidence: number;
+  verification_duration_ms: number;
+  generated_at: string;
+}
+
+export interface SearchResult {
+  type: 'debate' | 'agent' | 'memory' | 'claim';
+  id: string;
+  title?: string;
+  snippet: string;
+  score: number;
+  highlights: string[];
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+}
+
+export interface SearchResponse {
+  query: string;
+  results: SearchResult[];
+  total_count: number;
+  facets?: Record<string, Record<string, number>>;
+  suggestions?: string[];
+  took_ms: number;
+}
+
+// =============================================================================
+// Memory Search Types
+// =============================================================================
+
+export interface MemoryEntry {
+  id: string;
+  tier: MemoryTier;
+  content: string;
+  importance: number;
+  consolidation_count: number;
+  source_debate_id?: string;
+  agent?: string;
+  tags?: string[];
+  created_at: string;
+  accessed_at?: string;
+  expires_at?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface MemorySearchParams {
+  query: string;
+  tiers?: MemoryTier[];
+  agent?: string;
+  limit?: number;
+  min_importance?: number;
+  include_expired?: boolean;
+}
+
+export interface CritiqueEntry {
+  id: string;
+  debate_id: string;
+  critic_agent: string;
+  target_agent: string;
+  critique: string;
+  severity: 'minor' | 'moderate' | 'major';
+  was_addressed: boolean;
+  resolution?: string;
+  round_number: number;
+  timestamp: string;
+  impact_score?: number;
+}

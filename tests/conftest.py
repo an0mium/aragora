@@ -117,6 +117,26 @@ requires_plugins = not HAS_PLUGINS
 
 
 # ============================================================================
+# CI Environment Detection
+# ============================================================================
+# Detect common CI environment variables
+RUNNING_IN_CI = any(
+    os.environ.get(var)
+    for var in [
+        "CI",  # Generic CI flag (GitHub Actions, GitLab CI, etc.)
+        "GITHUB_ACTIONS",  # GitHub Actions
+        "GITLAB_CI",  # GitLab CI
+        "CIRCLECI",  # CircleCI
+        "JENKINS_URL",  # Jenkins
+        "TRAVIS",  # Travis CI
+        "BUILDKITE",  # Buildkite
+    ]
+)
+REQUIRES_NO_CI = "Test skipped in CI environment"
+requires_no_ci = RUNNING_IN_CI
+
+
+# ============================================================================
 # Test Tier Configuration
 # ============================================================================
 

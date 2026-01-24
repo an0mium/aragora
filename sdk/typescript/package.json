@@ -19,6 +19,8 @@
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "generate:types": "python ../../scripts/generate_sdk_types.py --output src/openapi-types.ts",
+    "check:types": "python ../../scripts/generate_sdk_types.py --output src/openapi-types.ts --check",
     "lint": "eslint src --ext .ts",
     "test": "vitest run",
     "test:watch": "vitest",

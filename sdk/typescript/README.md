@@ -377,6 +377,20 @@ import { AragoraClient, AragoraClientSync } from '@aragora/sdk';
 
 The SDK works in all modern browsers. For older browsers, you may need to polyfill `fetch` and `WebSocket`.
 
+## Development
+
+Regenerate OpenAPI-derived types:
+
+```bash
+npm run generate:types
+```
+
+Verify generated types are up to date:
+
+```bash
+npm run check:types
+```
+
 ## License
 
 MIT

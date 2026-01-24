@@ -1,12 +1,6 @@
 """Integration tests for Calibration scoring in debate workflows."""
 
 import pytest
-
-# Skip entire module - multiple Arena API mismatches in CI
-pytest.skip(
-    "Calibration integration tests have Arena API mismatches (AgentRating * float, weight >1.0)",
-    allow_module_level=True,
-)
 from unittest.mock import MagicMock, AsyncMock, patch
 from dataclasses import dataclass
 
@@ -16,7 +10,6 @@ from aragora.core import Environment
 from aragora.ranking.elo import AgentRating, EloSystem
 
 
-@pytest.mark.skip(reason="Calibration weight calculation returns 1.0 instead of expected >1.0")
 class TestCalibrationWeighting:
     """Tests for calibration-based agent weighting."""
 

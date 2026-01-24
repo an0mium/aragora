@@ -337,7 +337,10 @@ class TestHealthEndpointLoad:
             assert result.p95_ms < 1000, f"P95 too high: {result.p95_ms:.1f}ms"
 
     @pytest.mark.slow
-    @pytest.mark.skip(reason="Performance test too flaky on CI runners")
+    @pytest.mark.skipif(
+        "CI" in __import__("os").environ or "GITHUB_ACTIONS" in __import__("os").environ,
+        reason="Performance test too flaky on CI runners",
+    )
     def test_health_endpoint_heavy_load(self, health_handler):
         """Health endpoint should handle heavy load."""
         config = LoadTestConfig(
@@ -550,7 +553,10 @@ class TestEndpointSpecificLoad:
 
 
 @pytest.mark.slow
-@pytest.mark.skip(reason="Stress tests too flaky on CI runners")
+@pytest.mark.skipif(
+    "CI" in __import__("os").environ or "GITHUB_ACTIONS" in __import__("os").environ,
+    reason="Stress tests too flaky on CI runners",
+)
 class TestStressConditions:
     """Stress tests for extreme conditions."""
 

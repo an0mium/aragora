@@ -68,7 +68,10 @@ class TestVoiceMapping:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Edge TTS tests fail in CI environment")
+@pytest.mark.skipif(
+    "CI" in __import__("os").environ or "GITHUB_ACTIONS" in __import__("os").environ,
+    reason="Edge TTS tests fail in CI environment",
+)
 class TestEdgeTTS:
     """Tests for edge-tts audio generation."""
 
@@ -529,7 +532,10 @@ class TestGenerateAudio:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Audio integration tests fail in CI environment")
+@pytest.mark.skipif(
+    "CI" in __import__("os").environ or "GITHUB_ACTIONS" in __import__("os").environ,
+    reason="Audio integration tests fail in CI environment",
+)
 class TestAudioEngineIntegration:
     """Integration tests for audio engine."""
 

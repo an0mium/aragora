@@ -30,6 +30,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -40,6 +45,9 @@ jobs:
         run: |
           python scripts/generate_openapi.py --output docs/api/openapi_generated.json
           python scripts/generate_openapi.py --output docs/api/openapi_generated.yaml --format yaml
+
+      - name: Check SDK type generation
+        run: python scripts/generate_sdk_types.py --check
 
       - name: Compare with existing spec
         id: compare
