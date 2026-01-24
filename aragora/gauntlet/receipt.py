@@ -210,7 +210,7 @@ class DecisionReceipt:
         input_hash: Optional[str] = None,
     ) -> "DecisionReceipt":
         """Create receipt from aragora.modes.gauntlet.GauntletResult."""
-        receipt_id = f"receipt-{datetime.now().strftime('%Y%m%d%H%M%S')}-{result.gauntlet_id[-8:]}"
+        receipt_id = str(uuid.uuid4())
 
         findings = list(getattr(result, "all_findings", []))
         critical = len(getattr(result, "critical_findings", []))
@@ -330,7 +330,7 @@ class DecisionReceipt:
         This handles the GauntletResult dataclass from config.py which has
         different attributes than the one from result.py.
         """
-        receipt_id = f"receipt-{datetime.now().strftime('%Y%m%d%H%M%S')}-{result.id[-8:]}"
+        receipt_id = str(uuid.uuid4())
         timestamp = datetime.now().isoformat()
 
         # Build provenance chain from findings
