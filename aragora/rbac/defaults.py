@@ -644,6 +644,55 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         # Decisions
         PERM_DECISION_CREATE,
         PERM_DECISION_READ,
+        # Enterprise - Data Governance
+        PERM_DATA_CLASSIFICATION_READ,
+        PERM_DATA_CLASSIFICATION_CLASSIFY,
+        PERM_DATA_CLASSIFICATION_UPDATE,
+        PERM_DATA_RETENTION_READ,
+        PERM_DATA_RETENTION_UPDATE,
+        PERM_DATA_LINEAGE_READ,
+        PERM_PII_READ,
+        PERM_PII_REDACT,
+        PERM_PII_MASK,
+        # Enterprise - Compliance
+        PERM_COMPLIANCE_POLICY_READ,
+        PERM_COMPLIANCE_POLICY_UPDATE,
+        PERM_COMPLIANCE_POLICY_ENFORCE,
+        PERM_AUDIT_LOG_READ,
+        PERM_AUDIT_LOG_EXPORT,
+        PERM_AUDIT_LOG_SEARCH,
+        PERM_AUDIT_LOG_STREAM,
+        PERM_AUDIT_LOG_CONFIGURE,
+        PERM_VENDOR_READ,
+        PERM_VENDOR_APPROVE,
+        # Enterprise - Teams
+        PERM_TEAM_CREATE,
+        PERM_TEAM_READ,
+        PERM_TEAM_UPDATE,
+        PERM_TEAM_DELETE,
+        PERM_TEAM_ADD_MEMBER,
+        PERM_TEAM_REMOVE_MEMBER,
+        PERM_TEAM_SHARE,
+        # Enterprise - Cost & Quota
+        PERM_QUOTA_READ,
+        PERM_QUOTA_UPDATE,
+        PERM_COST_CENTER_READ,
+        PERM_COST_CENTER_UPDATE,
+        PERM_BUDGET_READ,
+        PERM_BUDGET_UPDATE,
+        # Enterprise - Session & Auth
+        PERM_SESSION_READ,
+        PERM_SESSION_REVOKE,
+        PERM_AUTH_RESET_PASSWORD,
+        PERM_AUTH_REQUIRE_MFA,
+        # Enterprise - Approvals
+        PERM_APPROVAL_REQUEST,
+        PERM_APPROVAL_GRANT,
+        PERM_APPROVAL_READ,
+        # Enterprise - Connector Lifecycle
+        PERM_CONNECTOR_AUTHORIZE,
+        PERM_CONNECTOR_ROTATE,
+        PERM_CONNECTOR_TEST,
     ]
 }
 
@@ -935,13 +984,135 @@ ROLE_MEMBER = Role(
     is_system=True,
 )
 
+# Compliance Officer - Enterprise compliance and data governance
+ROLE_COMPLIANCE_OFFICER = Role(
+    id="compliance_officer",
+    name="compliance_officer",
+    display_name="Compliance Officer",
+    description="Manage compliance policies, data governance, and audit trails. Cannot modify debates or agents.",
+    permissions={
+        # Data governance (full control)
+        PERM_DATA_CLASSIFICATION_READ.key,
+        PERM_DATA_CLASSIFICATION_CLASSIFY.key,
+        PERM_DATA_CLASSIFICATION_UPDATE.key,
+        PERM_DATA_RETENTION_READ.key,
+        PERM_DATA_RETENTION_UPDATE.key,
+        PERM_DATA_LINEAGE_READ.key,
+        PERM_PII_READ.key,
+        PERM_PII_REDACT.key,
+        PERM_PII_MASK.key,
+        # Compliance (full control)
+        PERM_COMPLIANCE_POLICY_READ.key,
+        PERM_COMPLIANCE_POLICY_UPDATE.key,
+        PERM_COMPLIANCE_POLICY_ENFORCE.key,
+        # Audit logs (full access)
+        PERM_AUDIT_LOG_READ.key,
+        PERM_AUDIT_LOG_EXPORT.key,
+        PERM_AUDIT_LOG_SEARCH.key,
+        PERM_AUDIT_LOG_STREAM.key,
+        PERM_AUDIT_LOG_CONFIGURE.key,
+        # Vendor management
+        PERM_VENDOR_READ.key,
+        PERM_VENDOR_APPROVE.key,
+        # Approvals (can grant)
+        PERM_APPROVAL_GRANT.key,
+        PERM_APPROVAL_READ.key,
+        # Read access to resources for auditing
+        PERM_DEBATE_READ.key,
+        PERM_AGENT_READ.key,
+        PERM_USER_READ.key,
+        PERM_ORG_READ.key,
+        PERM_ORG_AUDIT.key,
+        PERM_FINDINGS_READ.key,
+        PERM_FINDINGS_UPDATE.key,
+        PERM_GAUNTLET_READ.key,
+        # Session management for security
+        PERM_SESSION_READ.key,
+        PERM_SESSION_REVOKE.key,
+        PERM_AUTH_REQUIRE_MFA.key,
+    },
+    priority=75,  # Between admin and debate_creator
+    is_system=True,
+)
+
+# Team Lead - Manage team members and resources
+ROLE_TEAM_LEAD = Role(
+    id="team_lead",
+    name="team_lead",
+    display_name="Team Lead",
+    description="Manage team membership and share resources with team. Inherits member permissions.",
+    permissions={
+        # Team management
+        PERM_TEAM_READ.key,
+        PERM_TEAM_UPDATE.key,
+        PERM_TEAM_ADD_MEMBER.key,
+        PERM_TEAM_REMOVE_MEMBER.key,
+        PERM_TEAM_SHARE.key,
+        # Quotas (read only)
+        PERM_QUOTA_READ.key,
+        # Cost center (read only)
+        PERM_COST_CENTER_READ.key,
+        # Approvals (can request and view)
+        PERM_APPROVAL_REQUEST.key,
+        PERM_APPROVAL_READ.key,
+        # All debate operations (like member+)
+        PERM_DEBATE_CREATE.key,
+        PERM_DEBATE_READ.key,
+        PERM_DEBATE_UPDATE.key,
+        PERM_DEBATE_RUN.key,
+        PERM_DEBATE_STOP.key,
+        PERM_DEBATE_FORK.key,
+        # Agent read
+        PERM_AGENT_READ.key,
+        # Memory
+        PERM_MEMORY_READ.key,
+        PERM_MEMORY_UPDATE.key,
+        # Workflow
+        PERM_WORKFLOW_CREATE.key,
+        PERM_WORKFLOW_READ.key,
+        PERM_WORKFLOW_RUN.key,
+        # Evidence
+        PERM_EVIDENCE_READ.key,
+        PERM_EVIDENCE_CREATE.key,
+        # Analytics
+        PERM_ANALYTICS_READ.key,
+        # Checkpoints
+        PERM_CHECKPOINT_READ.key,
+        PERM_CHECKPOINT_CREATE.key,
+        # Gauntlet
+        PERM_GAUNTLET_RUN.key,
+        PERM_GAUNTLET_READ.key,
+        # Marketplace
+        PERM_MARKETPLACE_READ.key,
+        PERM_MARKETPLACE_IMPORT.key,
+        # Explainability
+        PERM_EXPLAINABILITY_READ.key,
+        # Findings
+        PERM_FINDINGS_READ.key,
+        PERM_FINDINGS_UPDATE.key,
+        PERM_FINDINGS_ASSIGN.key,
+        # Basic access
+        PERM_USER_READ.key,
+        PERM_ORG_READ.key,
+        PERM_API_GENERATE_KEY.key,
+        # Decisions
+        PERM_DECISION_CREATE.key,
+        PERM_DECISION_READ.key,
+    },
+    parent_roles=["member"],
+    priority=55,  # Between debate_creator and member
+    is_system=True,
+)
+
 # All system roles
 SYSTEM_ROLES: dict[str, Role] = {
     r.name: r
     for r in [
         ROLE_OWNER,
         ROLE_ADMIN,
+        ROLE_COMPLIANCE_OFFICER,
         ROLE_DEBATE_CREATOR,
+        ROLE_TEAM_LEAD,
         ROLE_ANALYST,
         ROLE_VIEWER,
         ROLE_MEMBER,
@@ -951,8 +1122,10 @@ SYSTEM_ROLES: dict[str, Role] = {
 # Role hierarchy (for inheritance resolution)
 ROLE_HIERARCHY: dict[str, list[str]] = {
     "owner": ["admin"],
-    "admin": ["debate_creator", "analyst"],
-    "debate_creator": ["member"],
+    "admin": ["compliance_officer", "debate_creator", "analyst"],
+    "compliance_officer": ["analyst"],
+    "debate_creator": ["team_lead"],
+    "team_lead": ["member"],
     "analyst": ["viewer"],
     "member": ["viewer"],
     "viewer": [],

@@ -445,7 +445,16 @@ class TestSystemRoles:
 
     def test_all_system_roles_exist(self):
         """Verify all expected system roles exist."""
-        expected = {"owner", "admin", "debate_creator", "analyst", "viewer", "member"}
+        expected = {
+            "owner",
+            "admin",
+            "compliance_officer",
+            "debate_creator",
+            "team_lead",
+            "analyst",
+            "viewer",
+            "member",
+        }
         actual = set(SYSTEM_ROLES_V2.keys())
         assert expected == actual
 
