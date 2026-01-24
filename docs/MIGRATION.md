@@ -2,6 +2,66 @@
 
 This guide covers migrating to newer Aragora versions.
 
+---
+
+## Deprecated Modules
+
+The following modules are deprecated and will be removed in v2.3.0:
+
+### `aragora.crawlers` → `aragora.connectors`
+
+The `aragora.crawlers` module is deprecated. Use the connectors module instead.
+
+**Why:** The connectors module provides better AST-based symbol extraction, concurrent processing, provenance tracking, and reliability scoring.
+
+**Migration:**
+
+```python
+# Old (deprecated)
+from aragora.crawlers import RepositoryCrawler
+
+# New (recommended)
+from aragora.connectors.repository_crawler import RepositoryCrawler
+```
+
+| Old Module | New Module |
+|------------|------------|
+| `aragora.crawlers.RepositoryCrawler` | `aragora.connectors.repository_crawler.RepositoryCrawler` |
+| `aragora.crawlers.BaseCrawler` | `aragora.connectors.base.BaseCrawler` |
+| Local docs crawling | `aragora.connectors.local_docs` |
+| Web content | `aragora.connectors.web` |
+
+**Removal:** v2.3.0 (estimated Q2 2026)
+
+### `aragora.modes.gauntlet` → `aragora.gauntlet`
+
+The `aragora.modes.gauntlet` module is deprecated. Use the gauntlet package instead.
+
+**Why:** The new package provides a more feature-complete API with templates, receipt generation, and persona-based regulatory testing.
+
+**Migration:**
+
+```python
+# Old (deprecated)
+from aragora.modes.gauntlet import GauntletOrchestrator
+
+# New (recommended)
+from aragora.gauntlet import GauntletOrchestrator, GauntletRunner
+```
+
+| Feature | Old API | New API |
+|---------|---------|---------|
+| Simple 3-phase execution | Custom implementation | `GauntletRunner` |
+| Full 5-phase execution | `GauntletOrchestrator` | `GauntletOrchestrator` |
+| Templates | Not available | `aragora.gauntlet.templates` |
+| Receipts | Not available | `aragora.gauntlet.receipts` |
+
+See `docs/GAUNTLET_ARCHITECTURE.md` for detailed migration guide.
+
+**Removal:** v2.3.0 (estimated Q2 2026)
+
+---
+
 ## API v1 → v2
 
 For comprehensive API migration from v1 to v2, see [**MIGRATION_V1_TO_V2.md**](./MIGRATION_V1_TO_V2.md).
