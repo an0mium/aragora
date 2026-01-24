@@ -9,8 +9,10 @@ retries), use `@aragora/sdk` instead.
 | Feature | `@aragora/sdk` | `@aragora/client` |
 |---------|---------------|-------------------|
 | **Best for** | Full platform apps | Lightweight/legacy integrations |
-| **API surface** | Broad (workflows, marketplace, explainability) | Core debates + gauntlet + control plane |
-| **API paths** | `/api/*` | `/api/v1/*` |
+| **API base** | `/api` + `/api/v1` legacy endpoints | `/api/v1` only |
+| **Workflows / Marketplace / Explainability** | Yes | No |
+| **Control Plane / Graph / Matrix / Verification** | Yes | Yes |
+| **API style** | Flat methods + sync wrapper | Namespaced REST client |
 | **Retries/backoff** | Built-in | Minimal |
 | **WebSocket streaming** | Yes | Yes |
 
@@ -20,9 +22,9 @@ retries), use `@aragora/sdk` instead.
 - Built-in retry/backoff defaults
 
 **Choose `@aragora/client`** if you need:
-- A smaller surface area with `/api/v1` compatibility
-- Control plane helpers
-- Minimal dependencies
+- A lightweight `/api/v1` client with stable endpoints
+- Namespaced REST helpers (`client.debates.*`, `client.controlPlane.*`)
+- Minimal dependencies and smaller bundle size
 
 ## Installation
 

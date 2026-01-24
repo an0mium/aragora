@@ -1,6 +1,27 @@
 # Changelog
 
 
+## [v2.2.0] - 2026-01-24
+
+### Features
+
+- **release:** bump runtime version to 2.2.0 across core packages
+- **cli:** add guided `aragora setup` wizard for self-hosted configuration
+- **ui:** add Decision Inbox filters and receipt deep links
+- **integrations:** route Slack/Teams receipt links to UI when `ARAGORA_PUBLIC_URL` is set
+- **costs:** wire cost dashboard components to backend API base
+- **docs:** add 2.2.0 status entry for SME + developer focus
+
+### Bug Fixes
+
+- **receipts:** fix export flow for gauntlet-backed receipts and checksum verification
+
+### Maintenance
+
+- **live:** update PyPI version label on the about page
+
+---
+
 ## [v2.1.15] - 2026-01-24
 
 ### Features

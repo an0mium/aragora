@@ -2,25 +2,20 @@
 
 Official TypeScript SDK for the Aragora multi-agent debate platform.
 
-Need a smaller, legacy-compatible client? Use `@aragora/client` for `/api/v1`
-compatibility and a narrower surface area (see `aragora-js/README.md`).
-
-> **Need Control Plane, Graph/Matrix Debates, or Formal Verification?** Use [`@aragora/client`](../../aragora-js) for enterprise features.
+Need a smaller, `/api/v1`-only client or minimal dependencies? Use
+`@aragora/client` for legacy compatibility (see `aragora-js/README.md`).
 
 ## Package Comparison
 
 | Feature | `@aragora/sdk` | `@aragora/client` |
 |---------|----------------|-------------------|
-| **Best for** | Application developers | Enterprise/Operators |
-| **Workflows** | Full support | Not included |
-| **Explainability** | Full support | Not included |
-| **Marketplace** | Full support | Not included |
-| **Basic Debates** | Yes | Yes |
+| **Best for** | Full platform apps | Lightweight `/api/v1` integrations |
+| **API base** | `/api` + `/api/v1` legacy endpoints | `/api/v1` only |
+| **API style** | Flat methods + sync wrapper | Namespaced REST client |
+| **Workflows / Marketplace / Explainability** | Yes | No |
+| **Control Plane / Graph / Matrix / Verification** | Yes | Yes |
+| **Retries/backoff** | Built-in | Minimal |
 | **WebSocket Streaming** | Yes | Yes |
-| **Control Plane API** | Not included | Full support |
-| **Graph/Matrix Debates** | Not included | Full support |
-| **Formal Verification** | Not included | Z3/Lean backend |
-| **Team Selection Plugins** | Not included | Full support |
 | **Build format** | ESM + CJS | CJS |
 
 ## Installation

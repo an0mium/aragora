@@ -247,10 +247,15 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "load: marks tests as load/stress tests (deselect with '-m \"not load\"')",
     "integration: marks tests as integration tests",
-    "e2e: marks tests as end-to-end tests",
+    "integration_minimal: marks integration tests safe to run without external services",
+    "e2e: marks tests as end-to-end tests (require running server)",
     "serial: marks tests that must run serially (use with 'pytest -p no:xdist' or '-n0')",
     "knowledge: marks tests for knowledge mound features",
     "new_features: marks tests for new feature E2E testing",
+    "experimental: marks tests for experimental/unstable features",
+    "external: marks tests requiring external services (APIs, databases)",
+    "flaky: marks tests with known intermittent failures",
+    "requires_server: marks tests that need a running Aragora server",
 ]
 # Parallel test execution: pip install pytest-xdist && pytest -n auto
 # To run serial-only tests: pytest -m serial -n0
