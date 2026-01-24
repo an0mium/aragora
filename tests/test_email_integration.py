@@ -290,7 +290,7 @@ class TestSmtpConnection:
 
         integration._smtp_send(msg, "user@example.com")
 
-        mock_smtp.assert_called_once_with("smtp.test.com", 587)
+        mock_smtp.assert_called_once_with("smtp.test.com", 587, timeout=30.0)
         smtp_instance = mock_smtp.return_value.__enter__.return_value
         smtp_instance.starttls.assert_called_once()
         smtp_instance.login.assert_called_once_with("testuser", "testpass")
