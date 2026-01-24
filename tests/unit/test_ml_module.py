@@ -164,8 +164,9 @@ class TestConsensusPredictor:
         assert prediction.probability == 0.0
         assert prediction.confidence == 0.0
 
+    @pytest.mark.slow
     def test_predict_agreeing_responses(self):
-        """Test prediction with agreeing responses."""
+        """Test prediction with agreeing responses (requires real embeddings)."""
         from aragora.ml import get_consensus_predictor
 
         predictor = get_consensus_predictor()

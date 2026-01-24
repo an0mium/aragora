@@ -1,6 +1,6 @@
 {
   "name": "aragora-webview-ui",
-  "version": "0.1.0",
+  "version": "2.1.14",
   "private": true,
   "type": "module",
   "scripts": {

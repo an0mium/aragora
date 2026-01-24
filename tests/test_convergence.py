@@ -210,8 +210,9 @@ class TestSentenceTransformerBackend:
         similarity = backend.compute_similarity(text, text)
         assert similarity > 0.99
 
+    @pytest.mark.slow
     def test_semantic_similarity_captured(self):
-        """Should understand semantic similarity."""
+        """Should understand semantic similarity (requires real embeddings)."""
         backend = SentenceTransformerBackend()
         text1 = "I prefer TypeScript for type safety"
         text2 = "TypeScript is better because it has types"
@@ -525,13 +526,13 @@ class TestGetSimilarityBackend:
 
     def test_auto_returns_at_least_jaccard(self):
         """'auto' should at least return Jaccard (always available)."""
-        # Force other backends to fail
+        # Force other backends to fail by patching the correct module
         with patch(
-            "aragora.debate.convergence.SentenceTransformerBackend",
+            "aragora.debate.similarity.backends.SentenceTransformerBackend",
             side_effect=ImportError,
         ):
             with patch(
-                "aragora.debate.convergence.TFIDFBackend",
+                "aragora.debate.similarity.backends.TFIDFBackend",
                 side_effect=ImportError,
             ):
                 backend = get_similarity_backend("auto")
@@ -594,9 +595,10 @@ class TestBatchSimilarityMethods:
         similarity = backend.compute_batch_similarity(texts)
         assert 0.0 <= similarity <= 1.0
 
+    @pytest.mark.slow
     @requires_sentence_transformers
     def test_compute_pairwise_similarities_basic(self):
-        """Test pairwise similarities with equal length lists."""
+        """Test pairwise similarities (requires real embeddings)."""
         backend = SentenceTransformerBackend()
         texts_a = ["hello world", "good morning", "python programming"]
         texts_b = ["hello world", "good evening", "javascript coding"]
@@ -842,11 +844,11 @@ class TestBackendFallbackChain:
     def test_auto_falls_back_on_import_error(self):
         """Auto-select should fall back gracefully on import errors."""
         with patch(
-            "aragora.debate.convergence.SentenceTransformerBackend",
+            "aragora.debate.similarity.backends.SentenceTransformerBackend",
             side_effect=ImportError("No module"),
         ):
             with patch(
-                "aragora.debate.convergence.TFIDFBackend",
+                "aragora.debate.similarity.backends.TFIDFBackend",
                 side_effect=ImportError("No sklearn"),
             ):
                 backend = get_similarity_backend("auto")
@@ -855,11 +857,11 @@ class TestBackendFallbackChain:
     def test_auto_falls_back_on_runtime_error(self):
         """Auto-select should fall back on RuntimeError (Keras issues)."""
         with patch(
-            "aragora.debate.convergence.SentenceTransformerBackend",
+            "aragora.debate.similarity.backends.SentenceTransformerBackend",
             side_effect=RuntimeError("Keras 3 incompatible"),
         ):
             with patch(
-                "aragora.debate.convergence.TFIDFBackend",
+                "aragora.debate.similarity.backends.TFIDFBackend",
                 side_effect=ImportError("No sklearn"),
             ):
                 backend = get_similarity_backend("auto")
@@ -868,11 +870,11 @@ class TestBackendFallbackChain:
     def test_auto_falls_back_on_os_error(self):
         """Auto-select should fall back on OSError (model files)."""
         with patch(
-            "aragora.debate.convergence.SentenceTransformerBackend",
+            "aragora.debate.similarity.backends.SentenceTransformerBackend",
             side_effect=OSError("Model file corrupted"),
         ):
             with patch(
-                "aragora.debate.convergence.TFIDFBackend",
+                "aragora.debate.similarity.backends.TFIDFBackend",
                 side_effect=ImportError("No sklearn"),
             ):
                 backend = get_similarity_backend("auto")

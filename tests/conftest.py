@@ -199,6 +199,168 @@ def reset_circuit_breakers():
 
 
 @pytest.fixture(autouse=True)
+def mock_sentence_transformers(request, monkeypatch):
+    """Mock SentenceTransformer to prevent HuggingFace model downloads.
+
+    This prevents tests from making network calls to HuggingFace Hub,
+    which can cause timeouts and flaky tests. Tests marked @pytest.mark.slow
+    that need real embeddings are excluded.
+
+    The mock returns deterministic embeddings based on input text hash,
+    ensuring consistent behavior across test runs.
+    """
+    import numpy as np
+
+    # Clear embedding service cache to ensure fresh instances per test
+    try:
+        import aragora.ml.embeddings as emb_module
+
+        emb_module._embedding_services.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Skip for slow tests that may need real embeddings
+    if "slow" in [m.name for m in request.node.iter_markers()]:
+        yield
+        # Clear cache after slow test too
+        try:
+            emb_module._embedding_services.clear()
+        except (ImportError, AttributeError, NameError):
+            pass
+        return
+
+    class MockSentenceTransformer:
+        """Mock SentenceTransformer that returns deterministic embeddings."""
+
+        def __init__(self, model_name_or_path=None, **kwargs):
+            self.model_name = model_name_or_path or "mock-model"
+            self._embedding_dim = 384  # Standard for many models
+
+        def encode(
+            self,
+            sentences,
+            batch_size=32,
+            show_progress_bar=False,
+            convert_to_numpy=True,
+            convert_to_tensor=False,
+            normalize_embeddings=False,
+            **kwargs,
+        ):
+            """Return deterministic embeddings with semantic-like similarity.
+
+            Embeddings are based on word tokens, so texts with common words
+            will have similar embeddings (mimicking real semantic similarity).
+            """
+            single_input = isinstance(sentences, str)
+            if single_input:
+                sentences = [sentences]
+
+            embeddings = []
+            for text in sentences:
+                # Create embedding based on word tokens for semantic-like similarity
+                emb = np.zeros(self._embedding_dim, dtype=np.float32)
+                words = text.lower().split()
+                for word in words:
+                    # Add contribution from each word (deterministic)
+                    word_seed = hash(word) % (2**32)
+                    word_rng = np.random.RandomState(word_seed)
+                    word_vec = word_rng.randn(self._embedding_dim).astype(np.float32)
+                    emb += word_vec * 0.1
+                # Add small unique component for exact text
+                text_seed = hash(text) % (2**32)
+                text_rng = np.random.RandomState(text_seed)
+                emb += text_rng.randn(self._embedding_dim).astype(np.float32) * 0.01
+
+                if normalize_embeddings:
+                    norm = np.linalg.norm(emb)
+                    if norm > 0:
+                        emb = emb / norm
+                embeddings.append(emb)
+
+            result = np.array(embeddings)
+
+            # Return 1D array for single input (matches real SentenceTransformer behavior)
+            if single_input:
+                result = result[0]
+
+            if convert_to_tensor:
+                try:
+                    import torch
+
+                    return torch.tensor(result)
+                except ImportError:
+                    pass
+            return result
+
+        def get_sentence_embedding_dimension(self):
+            return self._embedding_dim
+
+    class MockCrossEncoder:
+        """Mock CrossEncoder for NLI/contradiction detection."""
+
+        def __init__(self, model_name=None, **kwargs):
+            self.model_name = model_name or "mock-cross-encoder"
+
+        def predict(self, sentence_pairs, **kwargs):
+            """Return mock contradiction scores."""
+            if not sentence_pairs:
+                return np.array([])
+            # Return neutral scores (entailment, neutral, contradiction)
+            return np.array([[0.1, 0.8, 0.1]] * len(sentence_pairs))
+
+    # Mock at the sentence_transformers module level
+    try:
+        import sentence_transformers
+
+        monkeypatch.setattr(sentence_transformers, "SentenceTransformer", MockSentenceTransformer)
+        if hasattr(sentence_transformers, "CrossEncoder"):
+            monkeypatch.setattr(sentence_transformers, "CrossEncoder", MockCrossEncoder)
+    except ImportError:
+        pass
+
+    # Also patch string-based imports
+    try:
+        monkeypatch.setattr(
+            "sentence_transformers.SentenceTransformer",
+            MockSentenceTransformer,
+        )
+        monkeypatch.setattr(
+            "sentence_transformers.CrossEncoder",
+            MockCrossEncoder,
+        )
+    except (ImportError, AttributeError):
+        pass
+
+    # Patch modules that do lazy imports
+    modules_to_patch = [
+        "aragora.debate.convergence",
+        "aragora.debate.similarity.backends",
+        "aragora.debate.similarity.factory",
+        "aragora.knowledge.bridges",
+        "aragora.memory.embeddings",
+        "aragora.analysis.semantic",
+        "aragora.ml.embeddings",
+    ]
+    for module_path in modules_to_patch:
+        try:
+            monkeypatch.setattr(
+                f"{module_path}.SentenceTransformer",
+                MockSentenceTransformer,
+            )
+        except (ImportError, AttributeError):
+            pass
+        try:
+            monkeypatch.setattr(
+                f"{module_path}.CrossEncoder",
+                MockCrossEncoder,
+            )
+        except (ImportError, AttributeError):
+            pass
+
+    yield
+
+
+@pytest.fixture(autouse=True)
 def clear_handler_cache():
     """Clear the handler cache before and after each test.
 

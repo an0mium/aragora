@@ -1,6 +1,6 @@
 {
   "name": "aragora-live",
-  "version": "0.1.0",
+  "version": "2.1.14",
   "description": "Control Plane for Multi-Agent Vetted Decisionmaking - Orchestrate AI debate across org knowledge and channels",
   "private": true,
   "scripts": {
@@ -25,7 +25,9 @@
     "test:visual": "playwright test --project=visual-regression",
     "test:visual:update": "playwright test --project=visual-regression --update-snapshots",
     "test:e2e:integration": "playwright test e2e/integration/",
-    "test:e2e:prod": "playwright test e2e/production/",
+    "test:e2e:prod": "PLAYWRIGHT_INCLUDE_PROD=1 playwright test --project=production",
+    "test:e2e:prod:smoke": "PLAYWRIGHT_INCLUDE_PROD=1 playwright test --project=production e2e/production/smoke.prod.spec.ts",
+    "test:e2e:prod:auth": "PLAYWRIGHT_INCLUDE_PROD=1 playwright test --project=production e2e/production/auth-flow*.prod.spec.ts",
     "generate:types": "openapi-typescript ../../docs/api/openapi.json -o src/types/api.generated.ts",
     "check:types": "npm run generate:types && git diff --exit-code src/types/api.generated.ts || (echo 'API types are out of sync. Run npm run generate:types' && exit 1)"
   },

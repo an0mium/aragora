@@ -626,8 +626,9 @@ class TestNLIContradictionDetection:
             "We should accept the proposal", "We should reject the proposal"
         )
 
+    @pytest.mark.slow
     def test_nli_detects_semantic_opposites(self, nli_backend):
-        """NLI should detect nuanced semantic opposites."""
+        """NLI should detect nuanced semantic opposites (requires real NLI)."""
         # These wouldn't be caught by simple pattern matching
         assert nli_backend.is_contradictory(
             "We should proceed cautiously", "We should move quickly without hesitation"
