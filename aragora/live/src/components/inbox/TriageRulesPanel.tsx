@@ -173,16 +173,17 @@ export function TriageRulesPanel({
       );
 
       if (!response.ok) {
-        // Use demo data on error
-        setRules(DEMO_RULES);
+        setError(`Failed to load rules: ${response.status}`);
+        setRules([]);
         return;
       }
 
       const data = await response.json();
       setRules(data.rules || []);
-    } catch {
-      // Use demo data on error
-      setRules(DEMO_RULES);
+      setError(null);
+    } catch (err) {
+      setError(`Failed to fetch rules: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setRules([]);
     } finally {
       setIsLoading(false);
     }
@@ -212,23 +213,8 @@ export function TriageRulesPanel({
       });
 
       if (!response.ok) {
-        // Demo mode - add locally
-        const demoRule: TriageRule = {
-          id: `rule-${Date.now()}`,
-          name: newRule.name || 'New Rule',
-          description: newRule.description,
-          conditions: newRule.conditions || [],
-          condition_logic: newRule.condition_logic || 'AND',
-          actions: newRule.actions || [],
-          priority: newRule.priority || 5,
-          enabled: newRule.enabled !== false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          stats: { total_matches: 0 },
-        };
-        setRules([...rules, demoRule]);
-        setIsCreating(false);
-        resetNewRule();
+        const errorText = await response.text();
+        setError(`Failed to create rule: ${response.status} ${errorText || response.statusText}`);
         return;
       }
 
@@ -294,8 +280,8 @@ export function TriageRulesPanel({
       const data = await response.json();
       alert(`Rule "${rule.name}" matches ${data.match_count} emails`);
       onRuleApplied?.(rule.id, data.match_count);
-    } catch {
-      alert(`Rule "${rule.name}" would match approximately ${Math.floor(Math.random() * 20) + 5} emails`);
+    } catch (err) {
+      alert(`Failed to test rule: ${err instanceof Error ? err.message : 'Unable to connect to server'}`);
     }
   };
 

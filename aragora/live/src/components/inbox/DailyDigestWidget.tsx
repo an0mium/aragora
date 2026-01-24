@@ -42,44 +42,12 @@ export function DailyDigestWidget({
           const data = await response.json();
           setStats(data);
         } else {
-          // Use mock data if API not available
-          setStats({
-            emailsReceived: 47,
-            emailsProcessed: 42,
-            criticalHandled: 3,
-            timeSaved: '1.5 hrs',
-            topSenders: [
-              { name: 'team@company.com', count: 12 },
-              { name: 'client@example.com', count: 8 },
-              { name: 'notifications@github.com', count: 6 },
-            ],
-            categoryBreakdown: [
-              { category: 'Work', count: 28, percentage: 60 },
-              { category: 'Updates', count: 12, percentage: 25 },
-              { category: 'Personal', count: 5, percentage: 11 },
-              { category: 'Spam', count: 2, percentage: 4 },
-            ],
-          });
+          // API error - show empty state
+          setStats(null);
         }
       } catch {
-        // Use mock data on error
-        setStats({
-          emailsReceived: 47,
-          emailsProcessed: 42,
-          criticalHandled: 3,
-          timeSaved: '1.5 hrs',
-          topSenders: [
-            { name: 'team@company.com', count: 12 },
-            { name: 'client@example.com', count: 8 },
-            { name: 'notifications@github.com', count: 6 },
-          ],
-          categoryBreakdown: [
-            { category: 'Work', count: 28, percentage: 60 },
-            { category: 'Updates', count: 12, percentage: 25 },
-            { category: 'Personal', count: 5, percentage: 11 },
-            { category: 'Spam', count: 2, percentage: 4 },
-          ],
-        });
+        // Network error - show empty state
+        setStats(null);
       } finally {
         setLoading(false);
       }
