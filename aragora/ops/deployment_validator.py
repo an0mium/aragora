@@ -375,21 +375,28 @@ class DeploymentValidator:
         if db_backend in ("postgres", "postgresql"):
             await self._check_postgres()
         else:
-            # SQLite - just verify we can create/access the file
+            # SQLite - just verify we can create/access the database
             try:
-                from aragora.storage.schema import get_database_manager  # type: ignore[attr-defined]
+                import sqlite3
 
-                db = get_database_manager()
-                # Quick query to verify connectivity
-                async with db.get_session() as session:
-                    await session.execute("SELECT 1")
+                data_dir = os.environ.get("ARAGORA_DATA_DIR", "./data")
+                db_path = Path(data_dir) / "aragora.db"
+
+                # Ensure directory exists
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+
+                # Test connection
+                conn = sqlite3.connect(str(db_path), timeout=5.0)
+                cursor = conn.execute("SELECT 1")
+                cursor.fetchone()
+                conn.close()
 
                 self.components.append(
                     ComponentHealth(
                         name="database",
                         status=ComponentStatus.HEALTHY,
                         latency_ms=(time.time() - start) * 1000,
-                        metadata={"backend": "sqlite"},
+                        metadata={"backend": "sqlite", "path": str(db_path)},
                     )
                 )
             except Exception as e:
