@@ -22,6 +22,7 @@ ALLOWED_QUERY_PARAMS = {
     # Pagination (numeric, validated by int parsing)
     "limit": None,
     "offset": None,
+    "min_debates": None,
     # Filtering (string, need length limits)
     "domain": 100,
     "loop_id": 100,

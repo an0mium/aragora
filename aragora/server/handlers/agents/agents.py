@@ -41,6 +41,7 @@ from aragora.config import (
 
 logger = logging.getLogger(__name__)
 from aragora.persistence.db_config import DatabaseType, get_db_path
+from aragora.server.versioning.compat import strip_version_prefix
 
 from ..base import (
     SAFE_AGENT_PATTERN,
@@ -65,77 +66,79 @@ class AgentsHandler(BaseHandler):
     """Handler for agent-related endpoints."""
 
     ROUTES = [
-        "/api/v1/agents",
-        "/api/v1/agents/health",
-        "/api/v1/agents/local",
-        "/api/v1/agents/local/status",
-        "/api/v1/leaderboard",
-        "/api/v1/rankings",
+        "/api/agents",
+        "/api/agents/health",
+        "/api/agents/local",
+        "/api/agents/local/status",
+        "/api/leaderboard",
+        "/api/rankings",
         # Note: /api/calibration/leaderboard handled by CalibrationHandler
-        "/api/v1/matches/recent",
-        "/api/v1/agent/compare",
-        "/api/v1/agent/*/profile",
-        "/api/v1/agent/*/history",
-        "/api/v1/agent/*/calibration",
-        "/api/v1/agent/*/consistency",
-        "/api/v1/agent/*/flips",
-        "/api/v1/agent/*/network",
-        "/api/v1/agent/*/rivals",
-        "/api/v1/agent/*/allies",
-        "/api/v1/agent/*/moments",
-        "/api/v1/agent/*/positions",
-        "/api/v1/agent/*/domains",
-        "/api/v1/agent/*/performance",
-        "/api/v1/agent/*/metadata",
-        "/api/v1/agent/*/head-to-head/*",
-        "/api/v1/agent/*/opponent-briefing/*",
-        "/api/v1/agent/*/introspect",
-        "/api/v1/flips/recent",
-        "/api/v1/flips/summary",
+        "/api/matches/recent",
+        "/api/agent/compare",
+        "/api/agent/*/profile",
+        "/api/agent/*/history",
+        "/api/agent/*/calibration",
+        "/api/agent/*/consistency",
+        "/api/agent/*/flips",
+        "/api/agent/*/network",
+        "/api/agent/*/rivals",
+        "/api/agent/*/allies",
+        "/api/agent/*/moments",
+        "/api/agent/*/positions",
+        "/api/agent/*/domains",
+        "/api/agent/*/performance",
+        "/api/agent/*/metadata",
+        "/api/agent/*/head-to-head/*",
+        "/api/agent/*/opponent-briefing/*",
+        "/api/agent/*/introspect",
+        "/api/flips/recent",
+        "/api/flips/summary",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path == "/api/v1/agents":
+        path = strip_version_prefix(path)
+        if path == "/api/agents":
             return True
-        if path == "/api/v1/agents/health":
+        if path == "/api/agents/health":
             return True
-        if path in ("/api/v1/agents/local", "/api/v1/agents/local/status"):
+        if path in ("/api/agents/local", "/api/agents/local/status"):
             return True
-        if path in ("/api/v1/leaderboard", "/api/v1/rankings"):
+        if path in ("/api/leaderboard", "/api/rankings"):
             return True
-        if path == "/api/v1/matches/recent":
+        if path == "/api/matches/recent":
             return True
-        if path == "/api/v1/agent/compare":
+        if path == "/api/agent/compare":
             return True
-        if path.startswith("/api/v1/agent/"):
+        if path.startswith("/api/agent/"):
             return True
-        if path.startswith("/api/v1/flips/"):
+        if path.startswith("/api/flips/"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route agent requests to appropriate methods."""
+        path = strip_version_prefix(path)
         # Agent health endpoint (must come before /api/agents check)
-        if path == "/api/v1/agents/health":
+        if path == "/api/agents/health":
             return self._get_agent_health()
 
         # Local LLM endpoints (must come before /api/agents check)
-        if path == "/api/v1/agents/local":
+        if path == "/api/agents/local":
             return self._list_local_agents()
 
-        if path == "/api/v1/agents/local/status":
+        if path == "/api/agents/local/status":
             return self._get_local_status()
 
         # List all agents
-        if path == "/api/v1/agents":
+        if path == "/api/agents":
             include_stats = (
                 get_string_param(query_params, "include_stats", "false").lower() == "true"
             )
             return self._list_agents(include_stats)
 
         # Leaderboard endpoints
-        if path in ("/api/v1/leaderboard", "/api/v1/rankings"):
+        if path in ("/api/leaderboard", "/api/rankings"):
             limit = get_int_param(query_params, "limit", 20)
             domain = get_string_param(query_params, "domain")
             if domain:
@@ -146,7 +149,7 @@ class AgentsHandler(BaseHandler):
 
         # Note: /api/calibration/leaderboard now handled by CalibrationHandler
 
-        if path == "/api/v1/matches/recent":
+        if path == "/api/matches/recent":
             limit = get_int_param(query_params, "limit", 10)
             loop_id = get_string_param(query_params, "loop_id")
             if loop_id:
@@ -156,56 +159,57 @@ class AgentsHandler(BaseHandler):
             return self._get_recent_matches(limit, loop_id)
 
         # Agent comparison
-        if path == "/api/v1/agent/compare":
+        if path == "/api/agent/compare":
             agents = query_params.get("agents", [])
             if isinstance(agents, str):
                 agents = [agents]
             return self._compare_agents(agents)
 
         # Per-agent endpoints
-        if path.startswith("/api/v1/agent/"):
+        if path.startswith("/api/agent/"):
             return self._handle_agent_endpoint(path, query_params)
 
         # Flip endpoints (not per-agent)
-        if path == "/api/v1/flips/recent":
+        if path == "/api/flips/recent":
             limit = get_int_param(query_params, "limit", 20)
             return self._get_recent_flips(limit)
 
-        if path == "/api/v1/flips/summary":
+        if path == "/api/flips/summary":
             return self._get_flip_summary()
 
         return None
 
     def _handle_agent_endpoint(self, path: str, query_params: dict) -> Optional[HandlerResult]:
-        """Handle /api/v1/agent/{name}/* endpoints."""
+        """Handle /api/agent/{name}/* endpoints."""
+        path = strip_version_prefix(path)
         parts = path.split("/")
-        # Parts: ["", "api", "v1", "agent", "{name}", ...]
+        # Parts: ["", "api", "agent", "{name}", ...]
         if len(parts) < 5:
             return error_response("Invalid agent path", 400)
 
-        # Extract and validate agent name (index 4 for versioned path)
-        agent_name, err = self.extract_path_param(path, 4, "agent", SAFE_AGENT_PATTERN)
+        # Extract and validate agent name (index 3 for versionless path)
+        agent_name, err = self.extract_path_param(path, 3, "agent", SAFE_AGENT_PATTERN)
         if err:
             return err
 
-        # Head-to-head: /api/v1/agent/{name}/head-to-head/{opponent}
-        # Parts: ["", "api", "v1", "agent", "{name}", "head-to-head", "{opponent}"]
-        if len(parts) >= 7 and parts[5] == "head-to-head":
-            opponent, err = self.extract_path_param(path, 6, "opponent", SAFE_AGENT_PATTERN)
+        # Head-to-head: /api/agent/{name}/head-to-head/{opponent}
+        # Parts: ["", "api", "agent", "{name}", "head-to-head", "{opponent}"]
+        if len(parts) >= 6 and parts[4] == "head-to-head":
+            opponent, err = self.extract_path_param(path, 5, "opponent", SAFE_AGENT_PATTERN)
             if err:
                 return err
             return self._get_head_to_head(agent_name, opponent)
 
-        # Opponent briefing: /api/v1/agent/{name}/opponent-briefing/{opponent}
-        if len(parts) >= 7 and parts[5] == "opponent-briefing":
-            opponent, err = self.extract_path_param(path, 6, "opponent", SAFE_AGENT_PATTERN)
+        # Opponent briefing: /api/agent/{name}/opponent-briefing/{opponent}
+        if len(parts) >= 6 and parts[4] == "opponent-briefing":
+            opponent, err = self.extract_path_param(path, 5, "opponent", SAFE_AGENT_PATTERN)
             if err:
                 return err
             return self._get_opponent_briefing(agent_name, opponent)
 
-        # Other endpoints: /api/v1/agent/{name}/{endpoint}
-        if len(parts) >= 6:
-            endpoint = parts[5]
+        # Other endpoints: /api/agent/{name}/{endpoint}
+        if len(parts) >= 5:
+            endpoint = parts[4]
             return self._dispatch_agent_endpoint(agent_name, endpoint, query_params)
 
         return None

@@ -1,6 +1,7 @@
 # Aragora Python SDK
 
 The Aragora Python SDK provides a type-safe interface for interacting with the Aragora API.
+Prefer `/api/v1` endpoints for SDK usage; unversioned `/api` endpoints remain supported but are deprecated for SDK clients.
 
 ## Package Options
 

@@ -31,6 +31,7 @@ from .base import (
     handle_errors,
     json_response,
 )
+from aragora.server.versioning.compat import strip_version_prefix
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -56,32 +57,33 @@ class RoutingHandler(BaseHandler):
     """Handler for agent routing endpoints."""
 
     ROUTES = [
-        "/api/v1/routing/best-teams",
-        "/api/v1/routing/recommendations",
-        "/api/v1/routing/auto-route",
-        "/api/v1/routing/detect-domain",
-        "/api/v1/routing/domain-leaderboard",
+        "/api/routing/best-teams",
+        "/api/routing/recommendations",
+        "/api/routing/auto-route",
+        "/api/routing/detect-domain",
+        "/api/routing/domain-leaderboard",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES
+        return strip_version_prefix(path) in self.ROUTES
 
     def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
+        path = strip_version_prefix(path)
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _routing_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for routing endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/v1/routing/best-teams":
+        if path == "/api/routing/best-teams":
             min_debates = get_clamped_int_param(
                 query_params, "min_debates", 3, min_val=1, max_val=20
             )
             limit = get_clamped_int_param(query_params, "limit", 10, min_val=1, max_val=50)
             return self._get_best_team_combinations(min_debates, limit)
-        if path == "/api/v1/routing/domain-leaderboard":
+        if path == "/api/routing/domain-leaderboard":
             domain = query_params.get("domain", ["general"])[0]
             limit = get_clamped_int_param(query_params, "limit", 10, min_val=1, max_val=50)
             return self._get_domain_leaderboard(domain, limit)
@@ -89,11 +91,12 @@ class RoutingHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        if path == "/api/v1/routing/recommendations":
+        path = strip_version_prefix(path)
+        if path == "/api/routing/recommendations":
             return self._get_recommendations(handler)
-        if path == "/api/v1/routing/auto-route":
+        if path == "/api/routing/auto-route":
             return self._auto_route(handler)
-        if path == "/api/v1/routing/detect-domain":
+        if path == "/api/routing/detect-domain":
             return self._detect_domain(handler)
         return None
 

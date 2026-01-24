@@ -959,6 +959,60 @@ export interface GauntletComparison {
   generated_at: string;
 }
 
+export interface GauntletRunRequest {
+  /** The input text to run through the gauntlet */
+  input: string;
+  /** Optional gauntlet profile to use */
+  profile?: string;
+  /** List of persona categories to include */
+  personas?: string[];
+  /** Maximum rounds per scenario */
+  max_rounds?: number;
+  /** Run scenarios in parallel */
+  parallel?: boolean;
+  /** Optional metadata */
+  metadata?: Record<string, unknown>;
+}
+
+export interface GauntletRunResponse {
+  gauntlet_id: string;
+  status: 'pending' | 'running';
+  status_url: string;
+  estimated_duration_seconds?: number;
+}
+
+// =============================================================================
+// Knowledge Types
+// =============================================================================
+
+export interface KnowledgeEntry {
+  id?: string;
+  content: string;
+  source?: string;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+  importance?: number;
+  visibility?: 'private' | 'team' | 'global';
+  expires_at?: string;
+}
+
+export interface KnowledgeSearchResult {
+  id: string;
+  content: string;
+  score: number;
+  source?: string;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface KnowledgeStats {
+  total_entries: number;
+  by_visibility: Record<string, number>;
+  by_source: Record<string, number>;
+  storage_bytes: number;
+}
+
 // =============================================================================
 // Analytics Types
 // =============================================================================

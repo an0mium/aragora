@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     pass
 
 from aragora.server.validation import validate_agent_name_with_version
+from aragora.server.versioning.compat import strip_version_prefix
 from aragora.utils.optional_imports import try_import_class
 
 from .base import (
@@ -45,22 +46,24 @@ class CritiqueHandler(BaseHandler):
     """Handler for critique pattern and reputation endpoints."""
 
     ROUTES = [
-        "/api/v1/critiques/patterns",
-        "/api/v1/critiques/archive",
-        "/api/v1/reputation/all",
+        "/api/critiques/patterns",
+        "/api/critiques/archive",
+        "/api/reputation/all",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
+        path = strip_version_prefix(path)
         if path in self.ROUTES:
             return True
         # Dynamic route for agent reputation
-        if path.startswith("/api/v1/agent/") and path.endswith("/reputation"):
+        if path.startswith("/api/agent/") and path.endswith("/reputation"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route critique requests to appropriate methods."""
+        path = strip_version_prefix(path)
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _critique_limiter.is_allowed(client_ip):
@@ -69,20 +72,20 @@ class CritiqueHandler(BaseHandler):
 
         nomic_dir = self.ctx.get("nomic_dir")
 
-        if path == "/api/v1/critiques/patterns":
+        if path == "/api/critiques/patterns":
             limit = get_clamped_int_param(query_params, "limit", 10, min_val=1, max_val=50)
             min_success = get_bounded_float_param(
                 query_params, "min_success", 0.5, min_val=0.0, max_val=1.0
             )
             return self._get_critique_patterns(nomic_dir, limit, min_success)
 
-        if path == "/api/v1/critiques/archive":
+        if path == "/api/critiques/archive":
             return self._get_archive_stats(nomic_dir)
 
-        if path == "/api/v1/reputation/all":
+        if path == "/api/reputation/all":
             return self._get_all_reputations(nomic_dir)
 
-        if path.startswith("/api/v1/agent/") and path.endswith("/reputation"):
+        if path.startswith("/api/agent/") and path.endswith("/reputation"):
             agent = self._extract_agent_name(path)
             if agent is None:
                 return error_response("Invalid agent name", 400)
@@ -92,14 +95,14 @@ class CritiqueHandler(BaseHandler):
 
     def _extract_agent_name(self, path: str) -> Optional[str]:
         """Extract and validate agent name from path."""
-        # Pattern: /api/v1/agent/{name}/reputation
-        # Parts: ["", "api", "v1", "agent", "{name}", "reputation"]
+        # Pattern: /api/agent/{name}/reputation
+        # Parts: ["", "api", "agent", "{name}", "reputation"]
         # Block path traversal attempts
         if ".." in path:
             return None
         parts = path.split("/")
         if len(parts) >= 5:
-            agent = parts[4]
+            agent = parts[3]
             is_valid, _ = validate_agent_name_with_version(agent)
             if is_valid:
                 return agent

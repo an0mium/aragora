@@ -214,7 +214,8 @@ class TeamsIntegrationHandler(BaseHandler):
             service_url = body.get("serviceUrl", "")
 
             if action == "vote":
-                return self._handle_vote(value, conversation, service_url)
+                from_user = body.get("from", {})
+                return self._handle_vote(value, conversation, service_url, from_user)
             elif action == "cancel_debate":
                 return self._cancel_debate(conversation)
             elif action == "view_receipt":
@@ -483,18 +484,47 @@ class TeamsIntegrationHandler(BaseHandler):
         value: Dict[str, Any],
         conversation: Dict[str, Any],
         service_url: str,
+        from_user: Optional[Dict[str, Any]] = None,
     ) -> HandlerResult:
         """Handle a vote action from Adaptive Card."""
         vote_value = value.get("vote")
         debate_id = value.get("debate_id")
+        user_id = from_user.get("id", "unknown") if from_user else "unknown"
 
-        # TODO: Record vote in debate system
-        logger.info(f"Vote received: {vote_value} for debate {debate_id}")
+        logger.info(f"Vote received: {vote_value} for debate {debate_id} from {user_id}")
+
+        # Record vote in debates database
+        try:
+            from aragora.server.storage import get_debates_db
+
+            db = get_debates_db()
+            if db and hasattr(db, "record_vote"):
+                db.record_vote(
+                    debate_id=debate_id,
+                    voter_id=f"teams:{user_id}",
+                    vote=vote_value,
+                    source="teams",
+                )
+                logger.info(f"Vote recorded in DB: {debate_id} -> {vote_value}")
+        except Exception as e:
+            logger.warning(f"Failed to record vote in storage: {e}")
+
+        # Record in vote aggregator if available
+        try:
+            from aragora.debate.vote_aggregator import VoteAggregator
+
+            aggregator = VoteAggregator.get_instance()
+            if aggregator:
+                position = "for" if vote_value == "agree" else "against"
+                aggregator.record_vote(debate_id, f"teams:{user_id}", position)
+        except (ImportError, AttributeError) as e:
+            logger.debug(f"Vote aggregator not available: {e}")
 
         return json_response(
             {
                 "status": "vote_recorded",
                 "vote": vote_value,
+                "debate_id": debate_id,
             }
         )
 

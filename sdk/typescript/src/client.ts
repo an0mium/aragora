@@ -31,10 +31,15 @@ import type {
   GauntletPersona,
   GauntletResult,
   GauntletRun,
+  GauntletRunRequest,
+  GauntletRunResponse,
   GraphDebate,
   GraphDebateCreateRequest,
   HeadToHeadStats,
   HealthCheck,
+  KnowledgeEntry,
+  KnowledgeSearchResult,
+  KnowledgeStats,
   MarketplaceTemplate,
   MatrixConclusion,
   MatrixDebate,
@@ -629,6 +634,222 @@ export class AragoraClient {
       'GET',
       `/api/v1/gauntlet/${encodeURIComponent(gauntletId1)}/compare/${encodeURIComponent(gauntletId2)}`
     );
+  }
+
+  /**
+   * Run a gauntlet stress-test on input content.
+   *
+   * @param request - Gauntlet run configuration
+   * @returns Gauntlet run response with ID for status polling
+   *
+   * @example
+   * ```typescript
+   * const run = await client.runGauntlet({
+   *   input: 'AI should replace all human workers',
+   *   profile: 'comprehensive',
+   *   personas: ['adversarial', 'compliance'],
+   * });
+   *
+   * // Poll for completion
+   * let status = await client.getGauntlet(run.gauntlet_id);
+   * while (status.status === 'running') {
+   *   await new Promise(r => setTimeout(r, 2000));
+   *   status = await client.getGauntlet(run.gauntlet_id);
+   * }
+   * ```
+   */
+  async runGauntlet(request: GauntletRunRequest): Promise<GauntletRunResponse> {
+    return this.request<GauntletRunResponse>('POST', '/api/v1/gauntlet/run', { body: request });
+  }
+
+  /**
+   * Run a gauntlet and wait for completion.
+   * Convenience method that handles polling.
+   *
+   * @param request - Gauntlet run configuration
+   * @param options - Polling options
+   * @returns Completed gauntlet run
+   */
+  async runGauntletAndWait(
+    request: GauntletRunRequest,
+    options?: {
+      pollIntervalMs?: number;
+      timeoutMs?: number;
+    }
+  ): Promise<GauntletRun> {
+    const response = await this.runGauntlet(request);
+    const gauntletId = response.gauntlet_id;
+    const pollInterval = options?.pollIntervalMs ?? 2000;
+    const timeout = options?.timeoutMs ?? 300000;
+
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeout) {
+      const run = await this.getGauntlet(gauntletId);
+      if (['completed', 'failed', 'cancelled'].includes(run.status)) {
+        return run;
+      }
+      await this.sleep(pollInterval);
+    }
+
+    throw new AragoraError(
+      `Gauntlet ${gauntletId} did not complete within ${timeout}ms`,
+      'AGENT_TIMEOUT'
+    );
+  }
+
+  // ===========================================================================
+  // Knowledge
+  // ===========================================================================
+
+  /**
+   * Search the knowledge base.
+   *
+   * @param query - Search query
+   * @param options - Search options
+   * @returns Matching knowledge entries
+   */
+  async searchKnowledge(query: string, options?: {
+    limit?: number;
+    source?: string;
+    tags?: string[];
+    min_score?: number;
+  }): Promise<{ results: KnowledgeSearchResult[] }> {
+    return this.request<{ results: KnowledgeSearchResult[] }>('GET', '/api/v1/knowledge/search', {
+      params: {
+        q: query,
+        limit: options?.limit,
+        source: options?.source,
+        tags: options?.tags?.join(','),
+        min_score: options?.min_score,
+      },
+    });
+  }
+
+  /**
+   * Add an entry to the knowledge base.
+   *
+   * @param entry - Knowledge entry to add
+   * @returns Created entry with ID
+   */
+  async addKnowledge(entry: KnowledgeEntry): Promise<{ id: string; created_at: string }> {
+    return this.request<{ id: string; created_at: string }>('POST', '/api/v1/knowledge', { body: entry });
+  }
+
+  /**
+   * Get a knowledge entry by ID.
+   *
+   * @param entryId - Knowledge entry ID
+   * @returns Knowledge entry
+   */
+  async getKnowledgeEntry(entryId: string): Promise<KnowledgeEntry> {
+    return this.request<KnowledgeEntry>('GET', `/api/v1/knowledge/${encodeURIComponent(entryId)}`);
+  }
+
+  /**
+   * Update a knowledge entry.
+   *
+   * @param entryId - Knowledge entry ID
+   * @param updates - Fields to update
+   * @returns Updated entry
+   */
+  async updateKnowledge(entryId: string, updates: Partial<KnowledgeEntry>): Promise<KnowledgeEntry> {
+    return this.request<KnowledgeEntry>('PATCH', `/api/v1/knowledge/${encodeURIComponent(entryId)}`, { body: updates });
+  }
+
+  /**
+   * Delete a knowledge entry.
+   *
+   * @param entryId - Knowledge entry ID
+   */
+  async deleteKnowledge(entryId: string): Promise<{ deleted: boolean }> {
+    return this.request<{ deleted: boolean }>('DELETE', `/api/v1/knowledge/${encodeURIComponent(entryId)}`);
+  }
+
+  /**
+   * Get knowledge base statistics.
+   */
+  async getKnowledgeStats(): Promise<KnowledgeStats> {
+    return this.request<KnowledgeStats>('GET', '/api/v1/knowledge/stats');
+  }
+
+  /**
+   * Bulk import knowledge entries.
+   *
+   * @param entries - Entries to import
+   * @returns Import results
+   */
+  async bulkImportKnowledge(entries: KnowledgeEntry[]): Promise<{
+    imported: number;
+    failed: number;
+    errors?: Array<{ index: number; error: string }>;
+  }> {
+    return this.request<{ imported: number; failed: number; errors?: Array<{ index: number; error: string }> }>(
+      'POST',
+      '/api/v1/knowledge/bulk',
+      { body: { entries } }
+    );
+  }
+
+  // ===========================================================================
+  // Memory Store/Retrieve
+  // ===========================================================================
+
+  /**
+   * Store a value in memory.
+   *
+   * @param key - Memory key
+   * @param value - Value to store
+   * @param options - Storage options
+   */
+  async storeMemory(key: string, value: unknown, options?: {
+    tier?: 'fast' | 'medium' | 'slow' | 'glacial';
+    importance?: number;
+    tags?: string[];
+    ttl_seconds?: number;
+  }): Promise<{ stored: boolean; tier: string }> {
+    return this.request<{ stored: boolean; tier: string }>('POST', '/api/v1/memory/store', {
+      body: {
+        key,
+        value,
+        ...options,
+      },
+    });
+  }
+
+  /**
+   * Retrieve a value from memory by key.
+   *
+   * @param key - Memory key
+   * @param options - Retrieval options
+   * @returns Stored value or null if not found
+   */
+  async retrieveMemory(key: string, options?: {
+    tier?: 'fast' | 'medium' | 'slow' | 'glacial';
+  }): Promise<{ value: unknown; tier: string; metadata?: Record<string, unknown> } | null> {
+    try {
+      return await this.request<{ value: unknown; tier: string; metadata?: Record<string, unknown> }>(
+        'GET',
+        '/api/v1/memory/retrieve',
+        { params: { key, tier: options?.tier } }
+      );
+    } catch (error) {
+      if (error instanceof AragoraError && error.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a memory entry.
+   *
+   * @param key - Memory key
+   * @param tier - Optional tier to delete from
+   */
+  async deleteMemory(key: string, tier?: 'fast' | 'medium' | 'slow' | 'glacial'): Promise<{ deleted: boolean }> {
+    return this.request<{ deleted: boolean }>('DELETE', '/api/v1/memory/delete', {
+      params: { key, tier },
+    });
   }
 
   // ===========================================================================

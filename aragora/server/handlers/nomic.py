@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from aragora.server.stream.nomic_loop_stream import NomicLoopStreamServer
 
 from aragora.server.http_utils import run_async as _run_async
+from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
     BaseHandler,
@@ -55,20 +56,20 @@ class NomicHandler(BaseHandler):
     """
 
     ROUTES = [
-        "/api/v1/nomic/state",
-        "/api/v1/nomic/health",
-        "/api/v1/nomic/metrics",
-        "/api/v1/nomic/log",
-        "/api/v1/nomic/risk-register",
-        "/api/v1/nomic/control/start",
-        "/api/v1/nomic/control/stop",
-        "/api/v1/nomic/control/pause",
-        "/api/v1/nomic/control/resume",
-        "/api/v1/nomic/control/skip-phase",
-        "/api/v1/nomic/proposals",
-        "/api/v1/nomic/proposals/approve",
-        "/api/v1/nomic/proposals/reject",
-        "/api/v1/modes",
+        "/api/nomic/state",
+        "/api/nomic/health",
+        "/api/nomic/metrics",
+        "/api/nomic/log",
+        "/api/nomic/risk-register",
+        "/api/nomic/control/start",
+        "/api/nomic/control/stop",
+        "/api/nomic/control/pause",
+        "/api/nomic/control/resume",
+        "/api/nomic/control/skip-phase",
+        "/api/nomic/proposals",
+        "/api/nomic/proposals/approve",
+        "/api/nomic/proposals/reject",
+        "/api/modes",
     ]
 
     def __init__(self, server_context: dict):
@@ -145,17 +146,19 @@ class NomicHandler(BaseHandler):
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
-        return path in self.ROUTES or path.startswith("/api/v1/nomic/")
+        path = strip_version_prefix(path)
+        return path in self.ROUTES or path.startswith("/api/nomic/")
 
     @rate_limit(rpm=30)
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route nomic endpoint requests."""
+        path = strip_version_prefix(path)
         handlers = {
-            "/api/v1/nomic/state": self._get_nomic_state,
-            "/api/v1/nomic/health": self._get_nomic_health,
-            "/api/v1/nomic/metrics": self._get_nomic_metrics,
-            "/api/v1/nomic/proposals": self._get_proposals,
-            "/api/v1/modes": self._get_modes,
+            "/api/nomic/state": self._get_nomic_state,
+            "/api/nomic/health": self._get_nomic_health,
+            "/api/nomic/metrics": self._get_nomic_metrics,
+            "/api/nomic/proposals": self._get_proposals,
+            "/api/modes": self._get_modes,
         }
 
         endpoint_handler = handlers.get(path)
@@ -163,12 +166,12 @@ class NomicHandler(BaseHandler):
             return endpoint_handler()
 
         # Endpoints with parameters
-        if path == "/api/v1/nomic/log":
+        if path == "/api/nomic/log":
             lines = get_int_param(query_params, "lines", 100)
             lines = max(1, min(lines, 1000))  # Clamp to valid range
             return self._get_nomic_log(lines)
 
-        if path == "/api/v1/nomic/risk-register":
+        if path == "/api/nomic/risk-register":
             limit = get_int_param(query_params, "limit", 50)
             limit = max(1, min(limit, 200))  # Clamp to valid range
             return self._get_risk_register(limit)

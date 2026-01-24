@@ -2,6 +2,7 @@
 OpenAPI Endpoint Definitions.
 
 Each submodule contains endpoint specifications for a specific domain.
+Endpoints can also be registered using the @api_endpoint decorator.
 """
 
 from aragora.server.openapi.endpoints.system import SYSTEM_ENDPOINTS
@@ -50,6 +51,21 @@ from aragora.server.openapi.endpoints.threat_intel import THREAT_INTEL_ENDPOINTS
 from aragora.server.openapi.endpoints.budgets import BUDGET_ENDPOINTS
 from aragora.server.openapi.endpoints.teams import TEAMS_ENDPOINTS
 
+
+# Import decorator-based endpoints registry
+def _get_decorator_endpoints() -> dict:
+    """Get endpoints registered via @api_endpoint decorator.
+
+    Returns empty dict if decorator module not available or no endpoints registered.
+    """
+    try:
+        from aragora.server.handlers.openapi_decorator import get_registered_endpoints_dict
+
+        return get_registered_endpoints_dict()
+    except ImportError:
+        return {}
+
+
 # Combined endpoints dictionary
 ALL_ENDPOINTS = {
     **SYSTEM_ENDPOINTS,
@@ -93,6 +109,8 @@ ALL_ENDPOINTS = {
     **THREAT_INTEL_ENDPOINTS,
     **BUDGET_ENDPOINTS,
     **TEAMS_ENDPOINTS,
+    # Decorator-registered endpoints (merged last to allow overrides)
+    **_get_decorator_endpoints(),
 }
 
 __all__ = [

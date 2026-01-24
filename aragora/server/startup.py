@@ -1493,6 +1493,86 @@ def init_workflow_checkpoint_persistence() -> bool:
     return False
 
 
+async def init_backup_scheduler() -> bool:
+    """Initialize the backup scheduler for automated backups and DR drills.
+
+    Starts the backup scheduler that runs scheduled backups at configured
+    intervals and performs disaster recovery verification drills.
+
+    Environment Variables:
+        BACKUP_ENABLED: Set to "true" to enable backup scheduling (default: false)
+        BACKUP_DIR: Directory for backup storage (default: ~/.aragora/backups)
+        BACKUP_DAILY_TIME: Time for daily backups in HH:MM format (default: 02:00)
+        BACKUP_DR_DRILL_ENABLED: Enable DR drills (default: true)
+        BACKUP_DR_DRILL_INTERVAL_DAYS: Days between DR drills (default: 30)
+
+    Returns:
+        True if scheduler was started, False otherwise
+    """
+    import os
+    from datetime import time as dt_time
+
+    # Check if backup scheduling is enabled
+    if os.environ.get("BACKUP_ENABLED", "false").lower() not in ("true", "1", "yes"):
+        logger.debug("Backup scheduler disabled (set BACKUP_ENABLED=true to enable)")
+        return False
+
+    try:
+        from aragora.backup.manager import get_backup_manager
+        from aragora.backup.scheduler import (
+            BackupSchedule,
+            start_backup_scheduler,
+        )
+
+        # Parse configuration from environment
+        backup_dir = os.environ.get("BACKUP_DIR")
+
+        # Parse daily backup time (HH:MM format)
+        daily_time_str = os.environ.get("BACKUP_DAILY_TIME", "02:00")
+        try:
+            hour, minute = map(int, daily_time_str.split(":"))
+            daily_time = dt_time(hour, minute)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid BACKUP_DAILY_TIME '{daily_time_str}', using 02:00")
+            daily_time = dt_time(2, 0)
+
+        # Parse DR drill settings
+        dr_drills_enabled = os.environ.get("BACKUP_DR_DRILL_ENABLED", "true").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+        dr_drill_interval = int(os.environ.get("BACKUP_DR_DRILL_INTERVAL_DAYS", "30"))
+
+        # Get or create the backup manager
+        manager = get_backup_manager(backup_dir)
+
+        # Create schedule configuration
+        schedule = BackupSchedule(
+            daily=daily_time,
+            enable_dr_drills=dr_drills_enabled,
+            dr_drill_interval_days=dr_drill_interval,
+        )
+
+        # Start the scheduler
+        await start_backup_scheduler(manager, schedule)
+
+        logger.info(
+            f"Backup scheduler started "
+            f"(daily={daily_time_str}, "
+            f"dr_drills={'enabled' if dr_drills_enabled else 'disabled'}, "
+            f"dr_interval={dr_drill_interval}d)"
+        )
+        return True
+
+    except ImportError as e:
+        logger.debug(f"Backup scheduler not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to start backup scheduler: {e}")
+
+    return False
+
+
 def _get_degraded_status() -> dict[str, Any]:
     """Return a minimal status dict for degraded mode startup.
 
@@ -1528,6 +1608,7 @@ def _get_degraded_status() -> dict[str, Any]:
         "rbac_distributed_cache": False,
         "notification_worker": False,
         "graphql": False,
+        "backup_scheduler": False,
     }
 
 
@@ -1678,6 +1759,7 @@ async def run_startup_sequence(
         "rbac_distributed_cache": False,
         "notification_worker": False,
         "graphql": False,
+        "backup_scheduler": False,
     }
 
     # Initialize Redis HA early (other components may depend on it)
@@ -1714,6 +1796,9 @@ async def run_startup_sequence(
 
     # Start gauntlet worker for durable queue processing (if enabled)
     status["gauntlet_worker"] = await init_gauntlet_worker()
+
+    # Start backup scheduler for automated backups and DR drills (if enabled)
+    status["backup_scheduler"] = await init_backup_scheduler()
 
     # Start notification dispatcher worker for queue processing
     status["notification_worker"] = await init_notification_worker()
@@ -2293,6 +2378,7 @@ __all__ = [
     "init_persistent_task_queue",
     "init_km_adapters",
     "init_workflow_checkpoint_persistence",
+    "init_backup_scheduler",
     "init_webhook_dispatcher",
     "init_slo_webhooks",
     "init_gauntlet_run_recovery",

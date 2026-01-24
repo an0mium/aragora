@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     pass
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
+from aragora.server.versioning.compat import strip_version_prefix
 from aragora.utils.optional_imports import try_import_class
 
 from .base import (
@@ -55,44 +56,46 @@ class IntrospectionHandler(BaseHandler):
     """Handler for introspection-related endpoints."""
 
     ROUTES = [
-        "/api/v1/introspection/all",
-        "/api/v1/introspection/leaderboard",
-        "/api/v1/introspection/agents",
-        "/api/v1/introspection/agents/*",
+        "/api/introspection/all",
+        "/api/introspection/leaderboard",
+        "/api/introspection/agents",
+        "/api/introspection/agents/*",
     ]
 
     DEFAULT_AGENTS = ["gemini", "claude", "codex", "grok", "deepseek"]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
+        path = strip_version_prefix(path)
         if path in (
-            "/api/v1/introspection/all",
-            "/api/v1/introspection/leaderboard",
-            "/api/v1/introspection/agents",
+            "/api/introspection/all",
+            "/api/introspection/leaderboard",
+            "/api/introspection/agents",
         ):
             return True
-        if path.startswith("/api/v1/introspection/agents/"):
+        if path.startswith("/api/introspection/agents/"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route introspection requests to appropriate methods."""
+        path = strip_version_prefix(path)
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _introspection_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for introspection endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/v1/introspection/all":
+        if path == "/api/introspection/all":
             return self._get_all_introspection()
-        elif path == "/api/v1/introspection/leaderboard":
+        elif path == "/api/introspection/leaderboard":
             limit = get_int_param(query_params, "limit", 10)
             return self._get_introspection_leaderboard(min(limit, 50))
-        elif path == "/api/v1/introspection/agents":
+        elif path == "/api/introspection/agents":
             return self._list_agents()
-        elif path.startswith("/api/v1/introspection/agents/"):
-            # Path: /api/v1/introspection/agents/{name}
-            # After strip().split("/") = ["api", "v1", "introspection", "agents", "{name}"]
+        elif path.startswith("/api/introspection/agents/"):
+            # Path: /api/introspection/agents/{name}
+            # After strip().split("/") = ["api", "introspection", "agents", "{name}"]
             # Agent name is at index 4
             agent, err = self.extract_path_param(path, 4, "agent", SAFE_AGENT_PATTERN)
             if err:

@@ -19,6 +19,7 @@ Usage:
     path, count = save_openapi_schema("docs/api/openapi.json")
 """
 
+import copy
 import json
 from pathlib import Path
 from typing import Any
@@ -35,21 +36,39 @@ API_VERSION = "1.0.0"
 
 def _add_v1_aliases(paths: dict[str, Any]) -> dict[str, Any]:
     """Add /api/v1 aliases for non-versioned /api endpoints."""
-    aliased: dict[str, Any] = dict(paths)
+    aliased: dict[str, Any] = {}
     for path, spec in paths.items():
+        aliased[path] = copy.deepcopy(spec)
         if not path.startswith("/api/"):
             continue
         if path.startswith("/api/v1/") or path.startswith("/api/v2/"):
             continue
         v1_path = path.replace("/api/", "/api/v1/", 1)
         if v1_path not in aliased:
-            aliased[v1_path] = spec
+            aliased[v1_path] = copy.deepcopy(spec)
     return aliased
+
+
+def _mark_legacy_paths_deprecated(paths: dict[str, Any]) -> dict[str, Any]:
+    """Mark non-versioned /api endpoints as deprecated."""
+    methods = {"get", "post", "put", "patch", "delete", "options", "head", "trace"}
+    for path, spec in paths.items():
+        if not path.startswith("/api/"):
+            continue
+        if path.startswith("/api/v1/") or path.startswith("/api/v2/"):
+            continue
+        for method, operation in spec.items():
+            if method.lower() in methods and isinstance(operation, dict):
+                operation.setdefault(
+                    "deprecated",
+                    True,
+                )
+    return paths
 
 
 def generate_openapi_schema() -> dict[str, Any]:
     """Generate complete OpenAPI 3.1 schema."""
-    paths = _add_v1_aliases(ALL_ENDPOINTS)
+    paths = _mark_legacy_paths_deprecated(_add_v1_aliases(ALL_ENDPOINTS))
     return {
         "openapi": "3.1.0",
         "info": {

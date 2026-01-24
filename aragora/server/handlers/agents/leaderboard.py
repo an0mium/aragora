@@ -21,6 +21,7 @@ from aragora.config import (
     CACHE_TTL_LB_TEAMS,
 )
 from aragora.persistence.db_config import DatabaseType, get_db_path
+from aragora.server.versioning.compat import strip_version_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +50,11 @@ _leaderboard_limiter = RateLimiter(requests_per_minute=60)
 class LeaderboardViewHandler(BaseHandler):
     """Handler for consolidated leaderboard view endpoint."""
 
-    ROUTES = ["/api/v1/leaderboard-view"]
+    ROUTES = ["/api/leaderboard-view"]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path == "/api/v1/leaderboard-view"
+        return strip_version_prefix(path) == "/api/leaderboard-view"
 
     def _safe_fetch_section(
         self, data: dict, errors: dict, key: str, fetch_fn, fallback: dict
@@ -78,6 +79,7 @@ class LeaderboardViewHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route leaderboard view requests."""
+        path = strip_version_prefix(path)
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _leaderboard_limiter.is_allowed(client_ip):
@@ -85,7 +87,7 @@ class LeaderboardViewHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         logger.debug(f"Leaderboard request: {path} params={query_params}")
-        if path == "/api/v1/leaderboard-view":
+        if path == "/api/leaderboard-view":
             limit = get_int_param(query_params, "limit", 10)
             domain = get_string_param(query_params, "domain")
             if domain:
