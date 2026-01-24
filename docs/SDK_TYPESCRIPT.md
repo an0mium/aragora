@@ -1,6 +1,7 @@
 # Aragora TypeScript SDK
 
 The Aragora TypeScript SDK (`@aragora/sdk`) provides a type-safe client for the Aragora API with built-in retry logic, WebSocket streaming, and comprehensive type definitions.
+For a smaller, legacy-compatible client that targets `/api/v1`, use `@aragora/client` (see `aragora-js/README.md`).
 
 ## Installation
 

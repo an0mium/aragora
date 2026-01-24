@@ -144,6 +144,71 @@ aragora/
 └── aragora-js/        # TypeScript SDK
 ```
 
+## Package Naming
+
+### Python Packages
+
+| Package | Purpose | Install | Import |
+|---------|---------|---------|--------|
+| `aragora` | Full control plane + SDK | `pip install aragora` | `from aragora.client import AragoraClient` |
+| `aragora-client` | Lightweight async SDK | `pip install aragora-client` | `from aragora_client import AragoraClient` |
+| `aragora-sdk` | Deprecated | _avoid_ | _deprecated_ |
+
+```python
+# Full control plane package
+from aragora.client import AragoraClient
+
+# Lightweight SDK (async)
+from aragora_client import AragoraClient as AragoraAsyncClient
+```
+
+### TypeScript Packages
+
+Two npm packages are available with different focuses:
+
+| Package | Purpose | Install |
+|---------|---------|---------|
+| `@aragora/sdk` | Full platform apps - workflows, explainability, marketplace | `npm install @aragora/sdk` |
+| `@aragora/client` | Lightweight client - `/api/v1` compatibility, control plane helpers | `npm install @aragora/client` |
+
+```typescript
+// For application developers
+import { createClient } from '@aragora/sdk';
+
+// For enterprise/control plane
+import { AragoraClient } from '@aragora/client';
+```
+
+See [aragora-js/README.md](aragora-js/README.md) and [sdk/typescript/README.md](sdk/typescript/README.md) for detailed feature comparison.
+
+### Version Synchronization
+
+All packages maintain version parity. The following must stay in sync:
+
+| File | Version Location |
+|------|------------------|
+| `pyproject.toml` | `project.version` |
+| `aragora/__version__.py` | `__version__` |
+| `sdk/typescript/package.json` | `version` |
+| `aragora-js/package.json` | `version` |
+| `aragora/live/package.json` | `version` |
+
+CI automatically validates version parity on every build. To check locally:
+
+```bash
+# Verify all versions match
+python -c "
+import json, tomllib
+py = tomllib.load(open('pyproject.toml', 'rb'))['project']['version']
+sdk = json.load(open('sdk/typescript/package.json'))['version']
+client = json.load(open('aragora-js/package.json'))['version']
+print(f'Python: {py}, SDK: {sdk}, Client: {client}')
+assert py == sdk == client, 'Version mismatch!'
+"
+```
+
+> **Note**: The TypeScript packages (`@aragora/sdk` and `@aragora/client`) will be consolidated in v3.0.0. See [docs/SDK_CONSOLIDATION.md](docs/SDK_CONSOLIDATION.md) for the roadmap.
+
 ## Adding New Features
 
 ### Adding a New Agent

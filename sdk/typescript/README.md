@@ -2,6 +2,27 @@
 
 Official TypeScript SDK for the Aragora multi-agent debate platform.
 
+Need a smaller, legacy-compatible client? Use `@aragora/client` for `/api/v1`
+compatibility and a narrower surface area (see `aragora-js/README.md`).
+
+> **Need Control Plane, Graph/Matrix Debates, or Formal Verification?** Use [`@aragora/client`](../../aragora-js) for enterprise features.
+
+## Package Comparison
+
+| Feature | `@aragora/sdk` | `@aragora/client` |
+|---------|----------------|-------------------|
+| **Best for** | Application developers | Enterprise/Operators |
+| **Workflows** | Full support | Not included |
+| **Explainability** | Full support | Not included |
+| **Marketplace** | Full support | Not included |
+| **Basic Debates** | Yes | Yes |
+| **WebSocket Streaming** | Yes | Yes |
+| **Control Plane API** | Not included | Full support |
+| **Graph/Matrix Debates** | Not included | Full support |
+| **Formal Verification** | Not included | Z3/Lean backend |
+| **Team Selection Plugins** | Not included | Full support |
+| **Build format** | ESM + CJS | CJS |
+
 ## Installation
 
 ```bash

@@ -1,6 +1,7 @@
 # SDK-API Parity Report
 
-Generated: 2026-01-15
+Generated: 2026-01-24
+Last Audit: Sprint 1 (DEV-03)
 
 ## Executive Summary
 
@@ -10,8 +11,55 @@ Generated: 2026-01-15
 | **SDK Methods** | 301 |
 | **Coverage Percentage** | **~100%** |
 | **SDK API Classes** | 46 |
+| **TypeScript SDK** | `aragora-js` (68 methods) |
+| **Python SDK** | `aragora-py` (50+ methods) |
 
 The TypeScript SDK (`aragora-js`) provides comprehensive coverage of the Aragora API. All major domains are covered including: debates, agents, memory, gauntlet, verification, evolution, admin, billing, webhooks, plugins, and more.
+
+---
+
+## Sprint 1 Audit Findings
+
+### SDK Package Landscape
+
+| Package | Type | Methods | Status | Notes |
+|---------|------|---------|--------|-------|
+| `aragora-js/` | TypeScript | 68 | Active | Primary TS SDK |
+| `sdk/typescript/` | TypeScript | 68 | Active | Duplicate of aragora-js |
+| `aragora-py/` | Python | 50+ | Active | Primary Python SDK |
+| `sdk/python/` | Python | Legacy | Deprecated | Migrate to aragora-py |
+| `sdk/react/` | React | Components | Active | UI components |
+
+### Recommended Consolidation
+
+1. **Keep:** `aragora-js/` as primary TypeScript SDK
+2. **Keep:** `aragora-py/` as primary Python SDK
+3. **Deprecate:** `sdk/typescript/` (duplicate)
+4. **Deprecate:** `sdk/python/` (outdated)
+5. **Keep:** `sdk/react/` for UI components
+
+### Coverage Gaps by Category
+
+| Category | Coverage | Gap Priority |
+|----------|----------|--------------|
+| Debates | 68% (15/22) | P1 |
+| Batch Debates | 100% (3/3) | - |
+| Graph Debates | 100% (3/3) | - |
+| Matrix Debates | 100% (3/3) | - |
+| **Agents** | **18% (5/28)** | **P0** |
+| Leaderboard | 100% (1/1) | - |
+| Verification | 75% (3/4) | P2 |
+| Memory | 75% (9/12) | P2 |
+| **Gauntlet** | **25% (2/8)** | **P0** |
+| **Analytics** | **33% (3/9)** | **P0** |
+
+### Sprint 2 Parity Targets (DEV-04)
+
+Focus on P0 gaps for SME Starter Pack:
+
+1. **Agents API** - Add `rankings`, `compare`, `profile`
+2. **Gauntlet API** - Add `results`, `heatmap`, `compare`
+3. **Analytics API** - Add `export`, `compare`, `trends`
 
 ---
 

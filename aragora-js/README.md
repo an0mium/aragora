@@ -1,8 +1,28 @@
 # @aragora/client
 
-Lightweight TypeScript/JavaScript client for the Aragora REST API.
+Lightweight TypeScript/JavaScript client for the Aragora REST API. If you need
+the full feature surface (workflows, marketplace, explainability, built-in
+retries), use `@aragora/sdk` instead.
 
-> **Note:** For the full-featured SDK with WebSocket support, streaming, and typed events, use [`@aragora/sdk`](../sdk/typescript).
+## Package Comparison
+
+| Feature | `@aragora/sdk` | `@aragora/client` |
+|---------|---------------|-------------------|
+| **Best for** | Full platform apps | Lightweight/legacy integrations |
+| **API surface** | Broad (workflows, marketplace, explainability) | Core debates + gauntlet + control plane |
+| **API paths** | `/api/*` | `/api/v1/*` |
+| **Retries/backoff** | Built-in | Minimal |
+| **WebSocket streaming** | Yes | Yes |
+
+**Choose `@aragora/sdk`** if you need (see `sdk/typescript/README.md`):
+- Full workflow and marketplace APIs
+- Explainability endpoints
+- Built-in retry/backoff defaults
+
+**Choose `@aragora/client`** if you need:
+- A smaller surface area with `/api/v1` compatibility
+- Control plane helpers
+- Minimal dependencies
 
 ## Installation
 
@@ -329,7 +349,7 @@ If you run a single-port server, use that port instead.
 ### Class-based API
 
 ```typescript
-import { DebateStream } from '@aragora/sdk';
+import { DebateStream } from '@aragora/client';
 
 const debateId = 'debate-123';
 const stream = new DebateStream('http://localhost:8765', debateId);
@@ -363,7 +383,7 @@ await stream.connect();
 ### Async Iterator API
 
 ```typescript
-import { streamDebate } from '@aragora/sdk';
+import { streamDebate } from '@aragora/client';
 
 const debateId = 'debate-123';
 const stream = streamDebate('http://localhost:8765', debateId);
@@ -396,7 +416,7 @@ const stream = new DebateStream('http://localhost:8765', 'debate-123', {
 ## Error Handling
 
 ```typescript
-import { AragoraError } from '@aragora/sdk';
+import { AragoraError } from '@aragora/client';
 
 try {
   await client.debates.get('nonexistent-123');
@@ -421,27 +441,28 @@ import type {
   DebateStatus,
   ConsensusResult,
   GraphDebate,
-  GraphDebateBranch,
+  GraphBranch,
   MatrixDebate,
   MatrixConclusion,
   // Verification types
-  VerifyClaimResponse,
+  VerificationResult,
   VerificationStatus,
   // Agent types
   AgentProfile,
   GauntletReceipt,
+  // Control Plane types
+  RegisteredAgent,
+  AgentHealth,
+  Task,
+  ControlPlaneStatus,
   // Event types
   DebateEvent,
+  DebateEventType,
   // Selection plugin types
-  SelectionPluginsResponse,
-  ScoreAgentsRequest,
-  ScoreAgentsResponse,
-  SelectTeamRequest,
-  SelectTeamResponse,
-  ScorerInfo,
-  TeamSelectorInfo,
-  RoleAssignerInfo,
-} from '@aragora/sdk';
+  AgentScore,
+  TeamSelection,
+  SelectionPlugins,
+} from '@aragora/client';
 ```
 
 ## Framework Integration
@@ -453,7 +474,7 @@ Create a custom hook for debates:
 ```typescript
 // hooks/useDebate.ts
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { AragoraClient, DebateStream, Debate, DebateEvent } from '@aragora/sdk';
+import { AragoraClient, DebateStream, Debate, DebateEvent } from '@aragora/client';
 
 const client = new AragoraClient({
   baseUrl: process.env.NEXT_PUBLIC_ARAGORA_URL || 'http://localhost:8080',
@@ -585,7 +606,7 @@ function DebateViewer({ debateId }: { debateId: string }) {
 ```typescript
 // composables/useDebate.ts
 import { ref, onMounted, onUnmounted, watch } from 'vue';
-import { AragoraClient, DebateStream, Debate, DebateEvent } from '@aragora/sdk';
+import { AragoraClient, DebateStream, Debate, DebateEvent } from '@aragora/client';
 
 const client = new AragoraClient({
   baseUrl: import.meta.env.VITE_ARAGORA_URL || 'http://localhost:8080',
@@ -676,7 +697,7 @@ export function useDebate(debateId?: string) {
 ### Retry with Exponential Backoff
 
 ```typescript
-import { AragoraClient, AragoraError } from '@aragora/sdk';
+import { AragoraClient, AragoraError } from '@aragora/client';
 
 async function withRetry<T>(
   fn: () => Promise<T>,
@@ -715,7 +736,7 @@ const debate = await withRetry(() =>
 ### Request Caching
 
 ```typescript
-import { AragoraClient, Debate } from '@aragora/sdk';
+import { AragoraClient, Debate } from '@aragora/client';
 
 class CachedClient {
   private client: AragoraClient;
@@ -803,7 +824,7 @@ const debates = await processBatch(
 ### Event Aggregation
 
 ```typescript
-import { DebateStream, DebateEvent } from '@aragora/sdk';
+import { DebateStream, DebateEvent } from '@aragora/client';
 
 class DebateEventAggregator {
   private events: DebateEvent[] = [];
