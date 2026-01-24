@@ -13,6 +13,8 @@ import { SidebarProvider } from '@/context/SidebarContext';
 import { ConfigHealthBanner } from '@/components/ConfigHealthBanner';
 import { CommandPaletteProvider } from '@/context/CommandPaletteContext';
 import { CommandPalette } from '@/components/command-palette';
+import { KeyboardShortcutsProvider } from '@/context/KeyboardShortcutsContext';
+import { KeyboardShortcutsHelp } from '@/components/shortcuts';
 import { ThemeProvider, themeInitScript } from '@/context/ThemeContext';
 
 export const metadata: Metadata = {
@@ -80,12 +82,15 @@ export default function RootLayout({
                       <LayoutProvider>
                         <RightSidebarProvider>
                           <CommandPaletteProvider>
-                            <ToastProvider>
-                              <ErrorBoundary>
-                                <CommandPalette />
-                                {children}
-                              </ErrorBoundary>
-                            </ToastProvider>
+                            <KeyboardShortcutsProvider>
+                              <ToastProvider>
+                                <ErrorBoundary>
+                                  <CommandPalette />
+                                  <KeyboardShortcutsHelp />
+                                  {children}
+                                </ErrorBoundary>
+                              </ToastProvider>
+                            </KeyboardShortcutsProvider>
                           </CommandPaletteProvider>
                         </RightSidebarProvider>
                       </LayoutProvider>

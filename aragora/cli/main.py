@@ -1083,6 +1083,13 @@ def cmd_init(args: argparse.Namespace) -> None:
     init_handler(args)
 
 
+def cmd_setup(args: argparse.Namespace) -> None:
+    """Run interactive setup wizard."""
+    from aragora.cli.setup import cmd_setup as setup_handler
+
+    setup_handler(args)
+
+
 def cmd_repl(args: argparse.Namespace) -> None:
     """Handle 'repl' command - interactive debate mode."""
     from aragora.cli.repl import cmd_repl as repl_handler
@@ -1675,6 +1682,27 @@ Production deployment:
     init_parser.add_argument("--force", "-f", action="store_true", help="Overwrite existing files")
     init_parser.add_argument("--no-git", action="store_true", help="Don't modify .gitignore")
     init_parser.set_defaults(func=cmd_init)
+
+    # Setup command (interactive wizard)
+    setup_parser = subparsers.add_parser(
+        "setup",
+        help="Interactive setup wizard for API keys and configuration",
+        description=(
+            "Guides you through configuring Aragora including API keys, "
+            "database settings, and optional integrations. Generates a .env file."
+        ),
+    )
+    setup_parser.add_argument(
+        "--output", "-o", help="Output directory for .env file (default: current)"
+    )
+    setup_parser.add_argument(
+        "--minimal", "-m", action="store_true", help="Only configure essential settings"
+    )
+    setup_parser.add_argument("--skip-test", action="store_true", help="Skip API key validation")
+    setup_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Non-interactive mode (use defaults)"
+    )
+    setup_parser.set_defaults(func=cmd_setup)
 
     # REPL command (interactive mode)
     repl_parser = subparsers.add_parser("repl", help="Interactive debate mode")

@@ -885,3 +885,443 @@ class QuickAuditResult(BaseModel):
     findings_by_severity: dict[str, int] = Field(default_factory=dict)
     critical_findings: list[AuditFinding] = Field(default_factory=list)
     high_findings: list[AuditFinding] = Field(default_factory=list)
+
+
+# =============================================================================
+# Extended Agent Models
+# =============================================================================
+
+
+class AgentCalibration(BaseModel):
+    """Calibration scores for an agent."""
+
+    agent: str
+    overall_score: float = Field(ge=0.0, le=1.0)
+    domain_scores: dict[str, float] = Field(default_factory=dict)
+    confidence_accuracy: float = 0.0
+    last_calibrated: Optional[datetime] = None
+    sample_size: int = 0
+
+
+class AgentPerformance(BaseModel):
+    """Performance statistics for an agent."""
+
+    agent: str
+    win_rate: float = Field(ge=0.0, le=1.0)
+    loss_rate: float = Field(ge=0.0, le=1.0)
+    draw_rate: float = Field(ge=0.0, le=1.0)
+    elo_trend: list[float] = Field(default_factory=list)
+    elo_change_30d: float = 0.0
+    avg_confidence: float = 0.0
+    avg_round_duration_ms: int = 0
+    total_debates: int = 0
+    recent_results: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class HeadToHeadStats(BaseModel):
+    """Head-to-head statistics between two agents."""
+
+    agent: str
+    opponent: str
+    total_matchups: int = 0
+    wins: int = 0
+    losses: int = 0
+    draws: int = 0
+    win_rate: float = 0.0
+    avg_margin: float = 0.0
+    recent_matchups: list[dict[str, Any]] = Field(default_factory=list)
+    domain_breakdown: dict[str, dict[str, int]] = Field(default_factory=dict)
+
+
+class OpponentBriefing(BaseModel):
+    """Strategic briefing against an opponent."""
+
+    agent: str
+    opponent: str
+    opponent_profile: dict[str, Any] = Field(default_factory=dict)
+    historical_summary: str = ""
+    recommended_strategy: str = ""
+    key_insights: list[str] = Field(default_factory=list)
+    confidence: float = 0.0
+
+
+class AgentConsistency(BaseModel):
+    """Consistency metrics for an agent."""
+
+    agent: str
+    overall_consistency: float = 0.0
+    position_stability: float = 0.0
+    flip_rate: float = 0.0
+    consistency_by_domain: dict[str, float] = Field(default_factory=dict)
+    volatility_index: float = 0.0
+    sample_size: int = 0
+
+
+class AgentFlip(BaseModel):
+    """A position flip event."""
+
+    flip_id: str
+    agent: str
+    debate_id: str
+    topic: str = ""
+    original_position: str = ""
+    new_position: str = ""
+    flip_reason: Optional[str] = None
+    round_number: int = 0
+    timestamp: Optional[datetime] = None
+    was_justified: bool = False
+
+
+class AgentNetwork(BaseModel):
+    """Agent relationship network."""
+
+    agent: str
+    allies: list[dict[str, Any]] = Field(default_factory=list)
+    rivals: list[dict[str, Any]] = Field(default_factory=list)
+    neutrals: list[str] = Field(default_factory=list)
+    cluster_id: Optional[str] = None
+    network_position: str = "peripheral"  # central, peripheral, bridge
+
+
+class AgentMoment(BaseModel):
+    """A significant moment for an agent."""
+
+    moment_id: str
+    agent: str
+    debate_id: str
+    type: str  # breakthrough, comeback, decisive_argument, consensus_catalyst, upset
+    description: str = ""
+    impact_score: float = 0.0
+    timestamp: Optional[datetime] = None
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentPosition(BaseModel):
+    """A position taken by an agent."""
+
+    position_id: str
+    agent: str
+    debate_id: str
+    topic: str = ""
+    stance: str = ""
+    confidence: float = 0.0
+    supporting_evidence: list[str] = Field(default_factory=list)
+    round_number: int = 0
+    timestamp: Optional[datetime] = None
+    was_final: bool = False
+
+
+class DomainRating(BaseModel):
+    """Domain-specific rating for an agent."""
+
+    domain: str
+    elo: int = 1500
+    matches: int = 0
+    win_rate: float = 0.0
+    avg_confidence: float = 0.0
+    last_active: Optional[datetime] = None
+    trend: str = "stable"  # rising, stable, falling
+
+
+# =============================================================================
+# Extended Gauntlet Models
+# =============================================================================
+
+
+class GauntletRunStatus(str, Enum):
+    """Status of a gauntlet run."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class GauntletRun(BaseModel):
+    """A gauntlet run status."""
+
+    id: str
+    name: Optional[str] = None
+    status: GauntletRunStatus = GauntletRunStatus.PENDING
+    created_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    config: dict[str, Any] = Field(default_factory=dict)
+    progress: dict[str, int] = Field(default_factory=dict)
+    results_summary: Optional[dict[str, Any]] = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class GauntletPersonaCategory(str, Enum):
+    """Category of gauntlet persona."""
+
+    ADVERSARIAL = "adversarial"
+    EDGE_CASE = "edge_case"
+    STRESS = "stress"
+    COMPLIANCE = "compliance"
+    CUSTOM = "custom"
+
+
+class GauntletPersona(BaseModel):
+    """A gauntlet testing persona."""
+
+    id: str
+    name: str
+    description: str = ""
+    category: GauntletPersonaCategory = GauntletPersonaCategory.CUSTOM
+    severity: str = "medium"  # low, medium, high, critical
+    tags: list[str] = Field(default_factory=list)
+    example_prompts: list[str] = Field(default_factory=list)
+    enabled: bool = True
+
+
+class GauntletResultStatus(str, Enum):
+    """Status of a gauntlet result."""
+
+    PASS = "pass"
+    FAIL = "fail"
+    ERROR = "error"
+    SKIP = "skip"
+
+
+class GauntletResult(BaseModel):
+    """A single gauntlet scenario result."""
+
+    id: str
+    gauntlet_id: str
+    scenario: str = ""
+    persona: Optional[str] = None
+    status: GauntletResultStatus = GauntletResultStatus.PASS
+    verdict: str = ""
+    confidence: float = 0.0
+    risk_level: str = "low"  # low, medium, high, critical
+    duration_ms: int = 0
+    debate_id: Optional[str] = None
+    findings: list[dict[str, Any]] = Field(default_factory=list)
+    timestamp: Optional[datetime] = None
+
+
+class GauntletHeatmapExtended(BaseModel):
+    """Extended heatmap data for a gauntlet run."""
+
+    gauntlet_id: str
+    dimensions: dict[str, list[str]] = Field(default_factory=dict)
+    matrix: list[list[float]] = Field(default_factory=list)
+    overall_risk: float = 0.0
+    hotspots: list[dict[str, Any]] = Field(default_factory=list)
+    generated_at: Optional[datetime] = None
+
+
+class GauntletComparison(BaseModel):
+    """Comparison between two gauntlet runs."""
+
+    gauntlet_a: str
+    gauntlet_b: str
+    comparison: dict[str, Any] = Field(default_factory=dict)
+    scenario_diffs: list[dict[str, Any]] = Field(default_factory=list)
+    recommendation: str = "investigate"  # promote, investigate, block
+    generated_at: Optional[datetime] = None
+
+
+# =============================================================================
+# Analytics Models
+# =============================================================================
+
+
+class DisagreementAnalytics(BaseModel):
+    """Disagreement analytics."""
+
+    period: str = ""
+    total_debates: int = 0
+    disagreement_rate: float = 0.0
+    avg_dissent_count: float = 0.0
+    top_disagreement_topics: list[dict[str, Any]] = Field(default_factory=list)
+    agent_disagreement_matrix: dict[str, dict[str, float]] = Field(default_factory=dict)
+    persistent_disagreements: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class RoleRotationAnalytics(BaseModel):
+    """Role rotation analytics."""
+
+    period: str = ""
+    total_assignments: int = 0
+    role_distribution: dict[str, int] = Field(default_factory=dict)
+    agent_role_frequency: dict[str, dict[str, int]] = Field(default_factory=dict)
+    rotation_fairness_index: float = 0.0
+    stuck_agents: list[dict[str, Any]] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+
+
+class EarlyStopAnalytics(BaseModel):
+    """Early stop analytics."""
+
+    period: str = ""
+    total_debates: int = 0
+    early_stop_rate: float = 0.0
+    avg_rounds_saved: float = 0.0
+    early_stop_reasons: dict[str, int] = Field(default_factory=dict)
+    confidence_at_stop: dict[str, float] = Field(default_factory=dict)
+    false_early_stops: int = 0
+    missed_early_stops: int = 0
+
+
+class ConsensusQualityAnalytics(BaseModel):
+    """Consensus quality analytics."""
+
+    period: str = ""
+    total_consensuses: int = 0
+    quality_distribution: dict[str, int] = Field(default_factory=dict)
+    avg_confidence: float = 0.0
+    avg_agreement_level: float = 0.0
+    hollow_consensus_rate: float = 0.0
+    contested_consensus_rate: float = 0.0
+    consensus_durability: dict[str, int] = Field(default_factory=dict)
+    quality_by_topic: dict[str, float] = Field(default_factory=dict)
+
+
+class RankingStats(BaseModel):
+    """Ranking statistics."""
+
+    total_agents: int = 0
+    elo_distribution: dict[str, float] = Field(default_factory=dict)
+    tier_distribution: dict[str, int] = Field(default_factory=dict)
+    top_performers: list[dict[str, Any]] = Field(default_factory=list)
+    most_improved: list[dict[str, Any]] = Field(default_factory=list)
+    last_updated: Optional[datetime] = None
+
+
+class MemoryStats(BaseModel):
+    """Memory system statistics."""
+
+    total_entries: int = 0
+    storage_bytes: int = 0
+    tier_counts: dict[str, int] = Field(default_factory=dict)
+    consolidation_rate: float = 0.0
+    avg_importance: float = 0.0
+    cache_hit_rate: float = 0.0
+    oldest_entry: Optional[datetime] = None
+    newest_entry: Optional[datetime] = None
+    health_status: str = "healthy"  # healthy, degraded, critical
+
+
+# =============================================================================
+# Debate Update and Search Models
+# =============================================================================
+
+
+class DebateUpdateRequest(BaseModel):
+    """Request to update a debate."""
+
+    status: Optional[DebateStatus] = None
+    metadata: Optional[dict[str, Any]] = None
+    tags: Optional[list[str]] = None
+    archived: Optional[bool] = None
+    notes: Optional[str] = None
+
+
+class VerificationReportClaimDetail(BaseModel):
+    """Detail for a verified claim."""
+
+    claim: str
+    verified: bool
+    confidence: float = 0.0
+    evidence: Optional[str] = None
+    counterevidence: Optional[str] = None
+
+
+class VerificationReport(BaseModel):
+    """Verification report for a debate."""
+
+    debate_id: str
+    verified: bool
+    verification_method: str = ""
+    claims_verified: int = 0
+    claims_failed: int = 0
+    claims_skipped: int = 0
+    claim_details: list[VerificationReportClaimDetail] = Field(default_factory=list)
+    overall_confidence: float = 0.0
+    verification_duration_ms: int = 0
+    generated_at: Optional[datetime] = None
+
+
+class SearchResult(BaseModel):
+    """A search result."""
+
+    type: str  # debate, agent, memory, claim
+    id: str
+    title: Optional[str] = None
+    snippet: str = ""
+    score: float = 0.0
+    highlights: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+class SearchResponse(BaseModel):
+    """Search response."""
+
+    query: str
+    results: list[SearchResult] = Field(default_factory=list)
+    total_count: int = 0
+    facets: dict[str, dict[str, int]] = Field(default_factory=dict)
+    suggestions: list[str] = Field(default_factory=list)
+    took_ms: int = 0
+
+
+# =============================================================================
+# Memory Search Models
+# =============================================================================
+
+
+class MemoryTierType(str, Enum):
+    """Memory tier type."""
+
+    FAST = "fast"
+    MEDIUM = "medium"
+    SLOW = "slow"
+    GLACIAL = "glacial"
+
+
+class MemoryEntry(BaseModel):
+    """A memory entry."""
+
+    id: str
+    tier: MemoryTierType = MemoryTierType.MEDIUM
+    content: str = ""
+    importance: float = 0.0
+    consolidation_count: int = 0
+    source_debate_id: Optional[str] = None
+    agent: Optional[str] = None
+    tags: list[str] = Field(default_factory=list)
+    created_at: Optional[datetime] = None
+    accessed_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class MemorySearchParams(BaseModel):
+    """Memory search parameters."""
+
+    query: str
+    tiers: Optional[list[MemoryTierType]] = None
+    agent: Optional[str] = None
+    limit: int = 20
+    min_importance: Optional[float] = None
+    include_expired: bool = False
+
+
+class CritiqueEntry(BaseModel):
+    """A critique entry from memory."""
+
+    id: str
+    debate_id: str
+    critic_agent: str
+    target_agent: str
+    critique: str = ""
+    severity: str = "moderate"  # minor, moderate, major
+    was_addressed: bool = False
+    resolution: Optional[str] = None
+    round_number: int = 0
+    timestamp: Optional[datetime] = None
+    impact_score: float = 0.0

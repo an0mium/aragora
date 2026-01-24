@@ -52,6 +52,7 @@ from .errors import (
 from .transport import RateLimiter, RetryConfig
 from .resources import (
     AgentsAPI,
+    AnalyticsAPI,
     AuditAPI,
     ConsensusAPI,
     DebatesAPI,
@@ -189,6 +190,9 @@ class AragoraClient:
 
         # Agent tournaments
         self.tournaments = TournamentsAPI(self)
+
+        # Analytics (disagreements, role rotation, early stops, consensus quality)
+        self.analytics = AnalyticsAPI(self)
 
     def _get_headers(self) -> dict[str, str]:
         """Get common request headers."""

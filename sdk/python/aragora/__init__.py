@@ -29,11 +29,26 @@ from aragora.client import (
     AragoraClient,
     AragoraClientSync,
 )
+from aragora.streaming import (
+    AragoraWebSocket,
+    WebSocketEvent,
+    WebSocketOptions,
+    WebSocketState,
+    stream_debate,
+)
 
 __version__ = "2.2.0"
 __all__ = [
+    # Client
     "AragoraClient",
     "AragoraClientSync",
     "ApiConfig",
+    # Streaming
+    "AragoraWebSocket",
+    "WebSocketEvent",
+    "WebSocketOptions",
+    "WebSocketState",
+    "stream_debate",
+    # Version
     "__version__",
 ]

@@ -5,6 +5,7 @@ These modules contain the API interface classes that are used by AragoraClient.
 """
 
 from .agents import AgentsAPI
+from .analytics import AnalyticsAPI
 from .audit import AuditAPI
 from .debates import DebatesAPI
 from .consensus import ConsensusAPI
@@ -22,6 +23,7 @@ from .verification import VerificationAPI
 
 __all__ = [
     "AgentsAPI",
+    "AnalyticsAPI",
     "AuditAPI",
     "ConsensusAPI",
     "DebatesAPI",

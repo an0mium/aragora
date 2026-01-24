@@ -24,9 +24,13 @@ OPENAPI_TYPESCRIPT_VERSION = "7.10.1"
 
 def resolve_generator() -> list[str]:
     """Resolve the openapi-typescript binary to invoke."""
-    local_bin = Path("aragora/live/node_modules/.bin/openapi-typescript")
-    if local_bin.exists():
-        return [str(local_bin)]
+    candidates = [
+        Path("sdk/typescript/node_modules/.bin/openapi-typescript"),
+        Path("aragora/live/node_modules/.bin/openapi-typescript"),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return [str(candidate)]
     return ["npx", f"openapi-typescript@{OPENAPI_TYPESCRIPT_VERSION}"]
 
 

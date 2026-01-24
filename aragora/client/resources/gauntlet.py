@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from aragora.client.client import AragoraClient
 
 from aragora.client.errors import AragoraAPIError
 from aragora.client.models import (
+    GauntletComparison,
+    GauntletHeatmapExtended,
+    GauntletPersona,
     GauntletReceipt,
+    GauntletResult,
+    GauntletRun,
     GauntletRunRequest,
     GauntletRunResponse,
 )
@@ -121,6 +126,168 @@ class GauntletAPI:
             time.sleep(5)
 
         raise TimeoutError(f"Gauntlet {gauntlet_id} did not complete within {timeout}s")
+
+    def get(self, gauntlet_id: str) -> GauntletRun:
+        """
+        Get gauntlet run status.
+
+        Args:
+            gauntlet_id: The gauntlet run ID.
+
+        Returns:
+            GauntletRun with status and progress.
+        """
+        response = self._client._get(f"/api/v1/gauntlet/{gauntlet_id}")
+        return GauntletRun(**response)
+
+    async def get_async(self, gauntlet_id: str) -> GauntletRun:
+        """Async version of get()."""
+        response = await self._client._get_async(f"/api/v1/gauntlet/{gauntlet_id}")
+        return GauntletRun(**response)
+
+    def delete(self, gauntlet_id: str) -> dict[str, bool]:
+        """
+        Delete a gauntlet run.
+
+        Args:
+            gauntlet_id: The gauntlet run ID.
+
+        Returns:
+            Dict with 'deleted' status.
+        """
+        response = self._client._delete(f"/api/v1/gauntlet/{gauntlet_id}")
+        return {"deleted": response.get("deleted", True)}
+
+    async def delete_async(self, gauntlet_id: str) -> dict[str, bool]:
+        """Async version of delete()."""
+        response = await self._client._delete_async(f"/api/v1/gauntlet/{gauntlet_id}")
+        return {"deleted": response.get("deleted", True)}
+
+    def list_personas(
+        self, category: Optional[str] = None, enabled: Optional[bool] = None
+    ) -> list[GauntletPersona]:
+        """
+        List available gauntlet personas.
+
+        Args:
+            category: Optional filter by category.
+            enabled: Optional filter by enabled status.
+
+        Returns:
+            List of GauntletPersona.
+        """
+        params: dict[str, Any] = {}
+        if category:
+            params["category"] = category
+        if enabled is not None:
+            params["enabled"] = enabled
+        response = self._client._get("/api/v1/gauntlet/personas", params=params)
+        personas = response.get("personas", response) if isinstance(response, dict) else response
+        return [GauntletPersona(**p) for p in personas]
+
+    async def list_personas_async(
+        self, category: Optional[str] = None, enabled: Optional[bool] = None
+    ) -> list[GauntletPersona]:
+        """Async version of list_personas()."""
+        params: dict[str, Any] = {}
+        if category:
+            params["category"] = category
+        if enabled is not None:
+            params["enabled"] = enabled
+        response = await self._client._get_async("/api/v1/gauntlet/personas", params=params)
+        personas = response.get("personas", response) if isinstance(response, dict) else response
+        return [GauntletPersona(**p) for p in personas]
+
+    def list_results(
+        self,
+        gauntlet_id: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[GauntletResult]:
+        """
+        List gauntlet results.
+
+        Args:
+            gauntlet_id: Optional filter by gauntlet ID.
+            status: Optional filter by status.
+            limit: Maximum results to return.
+            offset: Results to skip.
+
+        Returns:
+            List of GauntletResult.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if gauntlet_id:
+            params["gauntlet_id"] = gauntlet_id
+        if status:
+            params["status"] = status
+        response = self._client._get("/api/v1/gauntlet/results", params=params)
+        results = response.get("results", response) if isinstance(response, dict) else response
+        return [GauntletResult(**r) for r in results]
+
+    async def list_results_async(
+        self,
+        gauntlet_id: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[GauntletResult]:
+        """Async version of list_results()."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if gauntlet_id:
+            params["gauntlet_id"] = gauntlet_id
+        if status:
+            params["status"] = status
+        response = await self._client._get_async("/api/v1/gauntlet/results", params=params)
+        results = response.get("results", response) if isinstance(response, dict) else response
+        return [GauntletResult(**r) for r in results]
+
+    def get_heatmap(self, gauntlet_id: str, format: str = "json") -> GauntletHeatmapExtended:
+        """
+        Get risk heatmap for a gauntlet run.
+
+        Args:
+            gauntlet_id: The gauntlet run ID.
+            format: Output format (json or svg).
+
+        Returns:
+            GauntletHeatmapExtended with risk matrix.
+        """
+        response = self._client._get(
+            f"/api/v1/gauntlet/{gauntlet_id}/heatmap", params={"format": format}
+        )
+        return GauntletHeatmapExtended(**response)
+
+    async def get_heatmap_async(
+        self, gauntlet_id: str, format: str = "json"
+    ) -> GauntletHeatmapExtended:
+        """Async version of get_heatmap()."""
+        response = await self._client._get_async(
+            f"/api/v1/gauntlet/{gauntlet_id}/heatmap", params={"format": format}
+        )
+        return GauntletHeatmapExtended(**response)
+
+    def compare(self, gauntlet_id_a: str, gauntlet_id_b: str) -> GauntletComparison:
+        """
+        Compare two gauntlet runs.
+
+        Args:
+            gauntlet_id_a: First gauntlet run ID.
+            gauntlet_id_b: Second gauntlet run ID.
+
+        Returns:
+            GauntletComparison with delta analysis.
+        """
+        response = self._client._get(f"/api/v1/gauntlet/{gauntlet_id_a}/compare/{gauntlet_id_b}")
+        return GauntletComparison(**response)
+
+    async def compare_async(self, gauntlet_id_a: str, gauntlet_id_b: str) -> GauntletComparison:
+        """Async version of compare()."""
+        response = await self._client._get_async(
+            f"/api/v1/gauntlet/{gauntlet_id_a}/compare/{gauntlet_id_b}"
+        )
+        return GauntletComparison(**response)
 
 
 __all__ = ["GauntletAPI"]

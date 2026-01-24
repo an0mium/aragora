@@ -106,6 +106,7 @@ Tests use markers to categorize them:
 | `slow` | Tests that take >5 seconds | `-m "not slow"` to skip |
 | `load` | Load/stress tests | `-m load` to run only |
 | `integration` | Integration tests | `-m integration` |
+| `integration_minimal` | Minimal integration baseline (no external services) | `-m integration_minimal` |
 | `e2e` | End-to-end tests | `-m e2e` |
 
 ```bash
@@ -114,6 +115,9 @@ pytest tests/ -m "not slow and not load"
 
 # Run integration tests only
 pytest tests/ -m integration
+
+# Run minimal integration baseline
+pytest tests/integration/ -m integration_minimal
 
 # Run everything except e2e
 pytest tests/ -m "not e2e"

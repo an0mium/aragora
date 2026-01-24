@@ -15,6 +15,9 @@ from ..models import (
     DebateCreateRequest,
     DebateCreateResponse,
     DebateStatus,
+    DebateUpdateRequest,
+    SearchResponse,
+    VerificationReport,
 )
 
 if TYPE_CHECKING:
@@ -430,3 +433,110 @@ class DebatesAPI:
             if len(debates) < page_size:
                 break
             offset += page_size
+
+    def update(
+        self,
+        debate_id: str,
+        status: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        tags: List[str] | None = None,
+        archived: bool | None = None,
+        notes: str | None = None,
+    ) -> Debate:
+        """
+        Update debate metadata.
+
+        Args:
+            debate_id: The debate ID.
+            status: New status.
+            metadata: Metadata to update.
+            tags: Tags to set.
+            archived: Archive status.
+            notes: Notes to add.
+
+        Returns:
+            Updated Debate.
+        """
+        request = DebateUpdateRequest(
+            status=DebateStatus(status) if status else None,
+            metadata=metadata,
+            tags=tags,
+            archived=archived,
+            notes=notes,
+        )
+        response = self._client._patch(
+            f"/api/v1/debates/{debate_id}", request.model_dump(exclude_none=True)
+        )
+        return Debate(**response)
+
+    async def update_async(
+        self,
+        debate_id: str,
+        status: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        tags: List[str] | None = None,
+        archived: bool | None = None,
+        notes: str | None = None,
+    ) -> Debate:
+        """Async version of update()."""
+        request = DebateUpdateRequest(
+            status=DebateStatus(status) if status else None,
+            metadata=metadata,
+            tags=tags,
+            archived=archived,
+            notes=notes,
+        )
+        response = await self._client._patch_async(
+            f"/api/v1/debates/{debate_id}", request.model_dump(exclude_none=True)
+        )
+        return Debate(**response)
+
+    def get_verification_report(self, debate_id: str) -> VerificationReport:
+        """
+        Get verification report for a debate.
+
+        Args:
+            debate_id: The debate ID.
+
+        Returns:
+            VerificationReport with claim verification details.
+        """
+        response = self._client._get(f"/api/v1/debates/{debate_id}/verification-report")
+        return VerificationReport(**response)
+
+    async def get_verification_report_async(self, debate_id: str) -> VerificationReport:
+        """Async version of get_verification_report()."""
+        response = await self._client._get_async(f"/api/v1/debates/{debate_id}/verification-report")
+        return VerificationReport(**response)
+
+    def search(
+        self,
+        query: str,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> SearchResponse:
+        """
+        Search debates.
+
+        Args:
+            query: Search query string.
+            limit: Maximum results to return.
+            offset: Results to skip.
+
+        Returns:
+            SearchResponse with results and facets.
+        """
+        params: dict[str, Any] = {"q": query, "limit": limit, "offset": offset}
+        response = self._client._get("/api/v1/search", params=params)
+        return SearchResponse(**response)
+
+    async def search_async(
+        self,
+        query: str,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> SearchResponse:
+        """Async version of search()."""
+        params: dict[str, Any] = {"q": query, "limit": limit, "offset": offset}
+        response = await self._client._get_async("/api/v1/search", params=params)
+        return SearchResponse(**response)
