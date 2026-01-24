@@ -88,6 +88,19 @@ from aragora.nomic.task_decomposer import (
     get_task_decomposer,
 )
 
+# Autonomous orchestration
+from aragora.nomic.autonomous_orchestrator import (
+    AgentAssignment,
+    AgentRouter,
+    AutonomousOrchestrator,
+    FeedbackLoop,
+    OrchestrationResult,
+    Track,
+    TrackConfig,
+    get_orchestrator,
+    reset_orchestrator,
+)
+
 # Legacy NomicLoop API (compatibility)
 from aragora.nomic.loop import NomicLoop
 
@@ -293,6 +306,16 @@ __all__ = [
     "DecomposerConfig",
     "analyze_task",
     "get_task_decomposer",
+    # Autonomous orchestration
+    "AutonomousOrchestrator",
+    "AgentRouter",
+    "FeedbackLoop",
+    "Track",
+    "TrackConfig",
+    "AgentAssignment",
+    "OrchestrationResult",
+    "get_orchestrator",
+    "reset_orchestrator",
     # Cross-cycle learning
     "NomicCycleRecord",
     "AgentContribution",

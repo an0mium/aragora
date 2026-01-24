@@ -164,6 +164,44 @@ pytest tests/connectors/ -v --timeout=60
 
 ---
 
+## Autonomous Orchestration (Experimental)
+
+Aragora can orchestrate its own development using the `AutonomousOrchestrator`:
+
+```python
+from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
+
+orchestrator = AutonomousOrchestrator()
+
+# Execute a high-level goal
+result = await orchestrator.execute_goal(
+    goal="Maximize utility for SME SMB users",
+    tracks=["sme", "qa"],
+    max_cycles=5,
+)
+
+# Or focus on a specific track
+result = await orchestrator.execute_track(
+    track="developer",
+    focus_areas=["SDK documentation", "API coverage"],
+)
+```
+
+**Components:**
+- `AgentRouter`: Routes subtasks to appropriate agents based on domain
+- `FeedbackLoop`: Handles verification failures with retry/redesign logic
+- `TrackConfig`: Defines folders, protected files, and agent preferences per track
+
+**Safety Features:**
+- Domain isolation prevents file conflicts
+- Core track limited to 1 concurrent task
+- Approval gates for dangerous changes
+- Checkpoint callbacks for monitoring
+
+See `aragora/nomic/autonomous_orchestrator.py` for full API.
+
+---
+
 ## Recent Patterns to Follow
 
 Based on recent commits, follow these patterns:
