@@ -19,13 +19,16 @@ class APIVersion(Enum):
 
 
 # Current default API version
-CURRENT_VERSION = APIVersion.V1
+CURRENT_VERSION = APIVersion.V2
 
 # All supported versions
 API_VERSIONS: Dict[str, APIVersion] = {
     "v1": APIVersion.V1,
     "v2": APIVersion.V2,
 }
+
+# V1 deprecation date (matches docs/API_VERSIONING.md)
+V1_SUNSET_DATE = "2026-06-01"
 
 
 @dataclass
@@ -40,8 +43,16 @@ class VersionInfo:
 
 # Version registry
 _version_info: Dict[APIVersion, VersionInfo] = {
-    APIVersion.V1: VersionInfo(version=APIVersion.V1, description="Initial API version"),
-    APIVersion.V2: VersionInfo(version=APIVersion.V2, description="Enhanced API version"),
+    APIVersion.V1: VersionInfo(
+        version=APIVersion.V1,
+        deprecated=True,
+        sunset_date=V1_SUNSET_DATE,
+        description="Initial API version (deprecated, use v2)",
+    ),
+    APIVersion.V2: VersionInfo(
+        version=APIVersion.V2,
+        description="Enhanced API version (current)",
+    ),
 }
 
 
