@@ -142,6 +142,7 @@ UnifiedInboxHandler: HandlerType = None
 CodebaseAuditHandler: HandlerType = None
 LegalHandler: HandlerType = None
 DevOpsHandler: HandlerType = None
+ReceiptsHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
 # Import handlers with graceful fallback
