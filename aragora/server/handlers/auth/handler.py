@@ -70,23 +70,24 @@ class AuthHandler(SecureHandler):
     # Resource type for audit logging
     RESOURCE_TYPE = "auth"
 
+    # Routes use non-versioned paths (handler registry normalizes /api/v1/auth/* to /api/auth/*)
     ROUTES = [
-        "/api/v1/auth/register",
-        "/api/v1/auth/login",
-        "/api/v1/auth/logout",
-        "/api/v1/auth/logout-all",
-        "/api/v1/auth/refresh",
-        "/api/v1/auth/revoke",
-        "/api/v1/auth/me",
-        "/api/v1/auth/password",
-        "/api/v1/auth/api-key",
-        "/api/v1/auth/mfa/setup",
-        "/api/v1/auth/mfa/enable",
-        "/api/v1/auth/mfa/disable",
-        "/api/v1/auth/mfa/verify",
-        "/api/v1/auth/mfa/backup-codes",
-        "/api/v1/auth/sessions",
-        "/api/v1/auth/sessions/*",  # For DELETE /api/auth/sessions/:id
+        "/api/auth/register",
+        "/api/auth/login",
+        "/api/auth/logout",
+        "/api/auth/logout-all",
+        "/api/auth/refresh",
+        "/api/auth/revoke",
+        "/api/auth/me",
+        "/api/auth/password",
+        "/api/auth/api-key",
+        "/api/auth/mfa/setup",
+        "/api/auth/mfa/enable",
+        "/api/auth/mfa/disable",
+        "/api/auth/mfa/verify",
+        "/api/auth/mfa/backup-codes",
+        "/api/auth/sessions",
+        "/api/auth/sessions/*",  # For DELETE /api/auth/sessions/:id
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -94,72 +95,75 @@ class AuthHandler(SecureHandler):
         if path in self.ROUTES:
             return True
         # Handle wildcard routes for session management
-        if path.startswith("/api/v1/auth/sessions/"):
+        if path.startswith("/api/auth/sessions/"):
             return True
         return False
 
     def handle(
         self, path: str, query_params: dict, handler, method: str = "GET"
     ) -> Optional[HandlerResult]:
-        """Route auth requests to appropriate methods."""
+        """Route auth requests to appropriate methods.
+
+        Note: Paths are normalized by handler_registry (e.g., /api/v1/auth/me -> /api/auth/me)
+        """
         # Determine HTTP method from handler if not provided
         if hasattr(handler, "command"):
             method = handler.command
 
-        if path == "/api/v1/auth/register" and method == "POST":
+        if path == "/api/auth/register" and method == "POST":
             return self._handle_register(handler)
 
-        if path == "/api/v1/auth/login" and method == "POST":
+        if path == "/api/auth/login" and method == "POST":
             return self._handle_login(handler)
 
-        if path == "/api/v1/auth/logout" and method == "POST":
+        if path == "/api/auth/logout" and method == "POST":
             return self._handle_logout(handler)
 
-        if path == "/api/v1/auth/logout-all" and method == "POST":
+        if path == "/api/auth/logout-all" and method == "POST":
             return self._handle_logout_all(handler)
 
-        if path == "/api/v1/auth/refresh" and method == "POST":
+        if path == "/api/auth/refresh" and method == "POST":
             return self._handle_refresh(handler)
 
-        if path == "/api/v1/auth/me":
+        if path == "/api/auth/me":
             if method == "GET":
                 return self._handle_get_me(handler)
             elif method == "PUT":
                 return self._handle_update_me(handler)
 
-        if path == "/api/v1/auth/password" and method == "POST":
+        if path == "/api/auth/password" and method == "POST":
             return self._handle_change_password(handler)
 
-        if path == "/api/v1/auth/revoke" and method == "POST":
+        if path == "/api/auth/revoke" and method == "POST":
             return self._handle_revoke_token(handler)
 
-        if path == "/api/v1/auth/api-key":
+        if path == "/api/auth/api-key":
             if method == "POST":
                 return self._handle_generate_api_key(handler)
             elif method == "DELETE":
                 return self._handle_revoke_api_key(handler)
 
         # MFA endpoints
-        if path == "/api/v1/auth/mfa/setup" and method == "POST":
+        if path == "/api/auth/mfa/setup" and method == "POST":
             return self._handle_mfa_setup(handler)
 
-        if path == "/api/v1/auth/mfa/enable" and method == "POST":
+        if path == "/api/auth/mfa/enable" and method == "POST":
             return self._handle_mfa_enable(handler)
 
-        if path == "/api/v1/auth/mfa/disable" and method == "POST":
+        if path == "/api/auth/mfa/disable" and method == "POST":
             return self._handle_mfa_disable(handler)
 
-        if path == "/api/v1/auth/mfa/verify" and method == "POST":
+        if path == "/api/auth/mfa/verify" and method == "POST":
             return self._handle_mfa_verify(handler)
 
-        if path == "/api/v1/auth/mfa/backup-codes" and method == "POST":
+        if path == "/api/auth/mfa/backup-codes" and method == "POST":
             return self._handle_mfa_backup_codes(handler)
 
         # Session management endpoints
-        if path == "/api/v1/auth/sessions" and method == "GET":
+        if path == "/api/auth/sessions" and method == "GET":
             return self._handle_list_sessions(handler)
 
-        if path.startswith("/api/v1/auth/sessions/") and method == "DELETE":
+        if path.startswith("/api/auth/sessions/") and method == "DELETE":
             session_id = path.split("/")[-1]
             return self._handle_revoke_session(handler, session_id)
 
