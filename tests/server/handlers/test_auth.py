@@ -116,6 +116,7 @@ class MockAuthContext:
     email: str = "test@example.com"
     org_id: str | None = None
     role: str = "user"
+    error_reason: str | None = None
 
 
 @dataclass
@@ -385,24 +386,25 @@ class TestAuthHandlerRouting:
     """Tests for AuthHandler routing."""
 
     def test_can_handle_register(self, auth_handler):
-        assert auth_handler.can_handle("/api/v1/auth/register") is True
+        # Handler uses non-versioned paths (registry normalizes /api/v1/* to /api/*)
+        assert auth_handler.can_handle("/api/auth/register") is True
 
     def test_can_handle_login(self, auth_handler):
-        assert auth_handler.can_handle("/api/v1/auth/login") is True
+        assert auth_handler.can_handle("/api/auth/login") is True
 
     def test_can_handle_logout(self, auth_handler):
-        assert auth_handler.can_handle("/api/v1/auth/logout") is True
+        assert auth_handler.can_handle("/api/auth/logout") is True
 
     def test_can_handle_me(self, auth_handler):
-        assert auth_handler.can_handle("/api/v1/auth/me") is True
+        assert auth_handler.can_handle("/api/auth/me") is True
 
     def test_can_handle_mfa_endpoints(self, auth_handler):
-        assert auth_handler.can_handle("/api/v1/auth/mfa/setup") is True
-        assert auth_handler.can_handle("/api/v1/auth/mfa/enable") is True
-        assert auth_handler.can_handle("/api/v1/auth/mfa/verify") is True
+        assert auth_handler.can_handle("/api/auth/mfa/setup") is True
+        assert auth_handler.can_handle("/api/auth/mfa/enable") is True
+        assert auth_handler.can_handle("/api/auth/mfa/verify") is True
 
     def test_cannot_handle_unknown(self, auth_handler):
-        assert auth_handler.can_handle("/api/v1/other/endpoint") is False
+        assert auth_handler.can_handle("/api/other/endpoint") is False
 
 
 # ===========================================================================
@@ -428,7 +430,7 @@ class TestAuthHandlerRegistration:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/register", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/register", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 201
@@ -445,7 +447,7 @@ class TestAuthHandlerRegistration:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/register", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/register", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 400
@@ -461,7 +463,7 @@ class TestAuthHandlerRegistration:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/register", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/register", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 400
@@ -476,7 +478,7 @@ class TestAuthHandlerRegistration:
         handler.rfile = BytesIO(b"invalid")
         handler.client_address = ("127.0.0.1", 12345)
 
-        result = auth_handler.handle("/api/v1/auth/register", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/register", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 400
@@ -511,7 +513,7 @@ class TestAuthHandlerLogin:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/login", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/login", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -539,7 +541,7 @@ class TestAuthHandlerLogin:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/login", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/login", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 401
@@ -558,7 +560,7 @@ class TestAuthHandlerLogin:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/login", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/login", {}, handler, "POST")
 
         assert result is not None
         # Should return 401, not 404, to prevent email enumeration
@@ -579,7 +581,7 @@ class TestAuthHandlerLogin:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/login", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/login", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 429
@@ -603,7 +605,7 @@ class TestAuthHandlerLogin:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/login", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/login", {}, handler, "POST")
 
         assert result is not None
         # 401: disabled accounts cannot authenticate (per handler implementation)
@@ -630,7 +632,7 @@ class TestAuthHandlerLogin:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/login", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/login", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -666,7 +668,7 @@ class TestAuthHandlerRefresh:
 
         handler = make_mock_handler({"refresh_token": "valid_refresh_token"})
 
-        result = auth_handler.handle("/api/v1/auth/refresh", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/refresh", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -680,7 +682,7 @@ class TestAuthHandlerRefresh:
 
         handler = make_mock_handler({"refresh_token": "invalid_token"})
 
-        result = auth_handler.handle("/api/v1/auth/refresh", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/refresh", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 401
@@ -689,7 +691,7 @@ class TestAuthHandlerRefresh:
     def test_refresh_missing_token(self, auth_handler):
         handler = make_mock_handler({"refresh_token": ""})
 
-        result = auth_handler.handle("/api/v1/auth/refresh", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/refresh", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 400
@@ -719,7 +721,7 @@ class TestAuthHandlerLogout:
 
         handler = make_mock_handler({})
 
-        result = auth_handler.handle("/api/v1/auth/logout", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/logout", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -732,7 +734,7 @@ class TestAuthHandlerLogout:
 
         handler = make_mock_handler({})
 
-        result = auth_handler.handle("/api/v1/auth/logout", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/logout", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 401
@@ -755,7 +757,7 @@ class TestAuthHandlerLogout:
 
         handler = make_mock_handler({})
 
-        result = auth_handler.handle("/api/v1/auth/logout-all", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/logout-all", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -780,7 +782,7 @@ class TestAuthHandlerUserInfo:
 
         handler = make_mock_handler(method="GET")
 
-        result = auth_handler.handle("/api/v1/auth/me", {}, handler, "GET")
+        result = auth_handler.handle("/api/auth/me", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -798,7 +800,7 @@ class TestAuthHandlerUserInfo:
 
         handler = make_mock_handler(method="GET")
 
-        result = auth_handler.handle("/api/v1/auth/me", {}, handler, "GET")
+        result = auth_handler.handle("/api/auth/me", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -812,7 +814,7 @@ class TestAuthHandlerUserInfo:
 
         handler = make_mock_handler(method="GET")
 
-        result = auth_handler.handle("/api/v1/auth/me", {}, handler, "GET")
+        result = auth_handler.handle("/api/auth/me", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 401
@@ -826,7 +828,7 @@ class TestAuthHandlerUserInfo:
 
         handler = make_mock_handler({"name": "Updated Name"}, method="PUT")
 
-        result = auth_handler.handle("/api/v1/auth/me", {}, handler, "PUT")
+        result = auth_handler.handle("/api/auth/me", {}, handler, "PUT")
 
         assert result is not None
         assert result.status_code == 200
@@ -859,7 +861,7 @@ class TestAuthHandlerPasswordChange:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/password", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/password", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -881,7 +883,7 @@ class TestAuthHandlerPasswordChange:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/password", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/password", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 401
@@ -901,7 +903,7 @@ class TestAuthHandlerPasswordChange:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/password", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/password", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 400
@@ -925,7 +927,7 @@ class TestAuthHandlerApiKey:
 
         handler = make_mock_handler({})
 
-        result = auth_handler.handle("/api/v1/auth/api-key", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/api-key", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -947,7 +949,7 @@ class TestAuthHandlerApiKey:
 
         handler = make_mock_handler({})
 
-        result = auth_handler.handle("/api/v1/auth/api-key", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/api-key", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 403
@@ -961,7 +963,7 @@ class TestAuthHandlerApiKey:
 
         handler = make_mock_handler({}, method="DELETE")
 
-        result = auth_handler.handle("/api/v1/auth/api-key", {}, handler, "DELETE")
+        result = auth_handler.handle("/api/auth/api-key", {}, handler, "DELETE")
 
         assert result is not None
         assert result.status_code == 200
@@ -989,7 +991,7 @@ class TestAuthHandlerMFA:
 
         handler = make_mock_handler({})
 
-        result = auth_handler.handle("/api/v1/auth/mfa/setup", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/mfa/setup", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -1009,7 +1011,7 @@ class TestAuthHandlerMFA:
 
         handler = make_mock_handler({})
 
-        result = auth_handler.handle("/api/v1/auth/mfa/setup", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/mfa/setup", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 400
@@ -1031,7 +1033,7 @@ class TestAuthHandlerMFA:
 
         handler = make_mock_handler({"code": code})
 
-        result = auth_handler.handle("/api/v1/auth/mfa/enable", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/mfa/enable", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -1051,7 +1053,7 @@ class TestAuthHandlerMFA:
 
         handler = make_mock_handler({"code": "000000"})
 
-        result = auth_handler.handle("/api/v1/auth/mfa/enable", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/mfa/enable", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 400
@@ -1068,7 +1070,7 @@ class TestAuthHandlerMFA:
 
         handler = make_mock_handler({"password": "correct_password"})
 
-        result = auth_handler.handle("/api/v1/auth/mfa/disable", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/mfa/disable", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -1100,7 +1102,7 @@ class TestAuthHandlerMFA:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/mfa/verify", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/mfa/verify", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -1121,7 +1123,7 @@ class TestAuthHandlerMFA:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/mfa/verify", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/mfa/verify", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 401
@@ -1152,7 +1154,7 @@ class TestAuthHandlerRevokeToken:
 
         handler = make_mock_handler({})
 
-        result = auth_handler.handle("/api/v1/auth/revoke", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/revoke", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -1173,7 +1175,7 @@ class TestAuthHandlerRevokeToken:
 
         handler = make_mock_handler({"token": "specific_token_to_revoke"})
 
-        result = auth_handler.handle("/api/v1/auth/revoke", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/revoke", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -1191,7 +1193,7 @@ class TestAuthHandlerMethodNotAllowed:
     def test_register_wrong_method(self, auth_handler):
         handler = make_mock_handler(method="GET")
 
-        result = auth_handler.handle("/api/v1/auth/register", {}, handler, "GET")
+        result = auth_handler.handle("/api/auth/register", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 405
@@ -1199,7 +1201,7 @@ class TestAuthHandlerMethodNotAllowed:
     def test_login_wrong_method(self, auth_handler):
         handler = make_mock_handler(method="GET")
 
-        result = auth_handler.handle("/api/v1/auth/login", {}, handler, "GET")
+        result = auth_handler.handle("/api/auth/login", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 405
@@ -1225,7 +1227,7 @@ class TestAuthHandlerServiceUnavailable:
             }
         )
 
-        result = auth_handler.handle("/api/v1/auth/register", {}, handler, "POST")
+        result = auth_handler.handle("/api/auth/register", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 503
