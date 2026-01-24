@@ -43,7 +43,7 @@ export async function retry<T>(
 }
 
 /**
- * Fetch with automatic retry on network errors
+ * Fetch with automatic retry on network errors and rate limiting
  */
 export async function fetchWithRetry(
   url: string,
@@ -53,7 +53,16 @@ export async function fetchWithRetry(
   return retry(async () => {
     const response = await fetch(url, init);
 
-    // Retry on server errors (5xx), but not client errors (4xx)
+    // Handle rate limiting (429) with exponential backoff
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After');
+      const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : 5000;
+      console.warn(`[fetchWithRetry] Rate limited on ${url}, waiting ${waitTime}ms`);
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+      throw new Error(`Rate limited: ${response.status}`);
+    }
+
+    // Retry on server errors (5xx), but not other client errors (4xx)
     if (response.status >= 500) {
       throw new Error(`Server error: ${response.status}`);
     }

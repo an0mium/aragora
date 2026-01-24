@@ -122,6 +122,15 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
         setError(null);
       }
     } catch (err) {
+      // Check if this was a rate limit error - don't fallback to 6 endpoints if rate limited
+      const errMessage = err instanceof Error ? err.message : String(err);
+      if (errMessage.includes('429') || errMessage.toLowerCase().includes('rate limit')) {
+        console.warn('Rate limited on consolidated endpoint, not falling back to legacy endpoints');
+        setError('Too many requests. Please wait a moment.');
+        setLoading(false);
+        return;
+      }
+
       // Fallback: consolidated endpoint failed, try legacy endpoints
       // But only if we have auth - otherwise don't make more unauthenticated requests
       console.warn('Consolidated endpoint failed:', err);
