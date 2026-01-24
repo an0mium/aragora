@@ -101,6 +101,24 @@ from aragora.nomic.autonomous_orchestrator import (
     reset_orchestrator,
 )
 
+# Meta-planning (debate-driven goal prioritization)
+from aragora.nomic.meta_planner import (
+    MetaPlanner,
+    MetaPlannerConfig,
+    PlanningContext,
+    PrioritizedGoal,
+)
+
+# Branch coordination (parallel development)
+from aragora.nomic.branch_coordinator import (
+    BranchCoordinator,
+    BranchCoordinatorConfig,
+    ConflictReport,
+    CoordinationResult,
+    MergeResult,
+    TrackAssignment,
+)
+
 # Legacy NomicLoop API (compatibility)
 from aragora.nomic.loop import NomicLoop
 
@@ -316,6 +334,18 @@ __all__ = [
     "OrchestrationResult",
     "get_orchestrator",
     "reset_orchestrator",
+    # Meta-planning
+    "MetaPlanner",
+    "MetaPlannerConfig",
+    "PrioritizedGoal",
+    "PlanningContext",
+    # Branch coordination
+    "BranchCoordinator",
+    "BranchCoordinatorConfig",
+    "TrackAssignment",
+    "ConflictReport",
+    "MergeResult",
+    "CoordinationResult",
     # Cross-cycle learning
     "NomicCycleRecord",
     "AgentContribution",

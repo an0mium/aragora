@@ -3,15 +3,20 @@
 Analyzes task complexity and decomposes large tasks into smaller subtasks
 for parallel or sequential processing.
 
+Supports two decomposition modes:
+1. Heuristic: Fast pattern-matching for concrete goals with file mentions
+2. Debate: Multi-agent Arena debate for abstract high-level goals
+
 Integrates with workflow patterns for execution strategies.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
@@ -53,6 +58,9 @@ class DecomposerConfig:
     file_complexity_weight: float = 0.3
     concept_complexity_weight: float = 0.4
     length_complexity_weight: float = 0.3
+    # Debate-based decomposition settings
+    debate_rounds: int = 2  # Rounds for goal decomposition debate
+    debate_timeout: int = 120  # Timeout in seconds for debate
 
 
 # Keywords that indicate different complexity areas
@@ -419,6 +427,263 @@ class TaskDecomposer:
                 estimated_complexity="low",
             ),
         ]
+
+    # =========================================================================
+    # Debate-based decomposition (for abstract high-level goals)
+    # =========================================================================
+
+    async def analyze_with_debate(
+        self,
+        goal: str,
+        agents: Optional[List[Any]] = None,
+        context: str = "",
+    ) -> TaskDecomposition:
+        """Analyze an abstract goal using multi-agent debate.
+
+        Uses Arena debate to decompose high-level goals like "Maximize utility
+        for SME businesses" into concrete, actionable subtasks. Multiple agents
+        debate what improvements would best serve the goal and reach consensus.
+
+        This is more powerful than heuristic decomposition for abstract goals
+        but uses more tokens and takes longer.
+
+        Args:
+            goal: High-level goal to decompose (can be abstract)
+            agents: Optional list of agents to use in debate. If not provided,
+                   will use default API agents.
+            context: Optional additional context about the codebase or project
+
+        Returns:
+            TaskDecomposition with debate-derived subtasks
+
+        Example:
+            decomposer = TaskDecomposer()
+            result = await decomposer.analyze_with_debate(
+                "Maximize utility for SME businesses"
+            )
+            for subtask in result.subtasks:
+                print(f"  - {subtask.title}: {subtask.description}")
+        """
+        from aragora.core import Environment
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+
+        # Build the debate task - ask agents to decompose the goal
+        debate_task = self._build_debate_task(goal, context)
+
+        # Get agents if not provided
+        if agents is None:
+            agents = await self._get_default_agents()
+
+        # Configure debate protocol for decomposition
+        protocol = DebateProtocol(
+            rounds=self.config.debate_rounds,
+            consensus="majority",
+            timeout_seconds=self.config.debate_timeout,
+        )
+
+        # Create environment
+        env = Environment(
+            task=debate_task,
+            context=context,
+            max_rounds=self.config.debate_rounds,
+            require_consensus=True,
+            consensus_threshold=0.6,
+        )
+
+        logger.info(f"debate_decomposition_started goal={goal[:50]}...")
+
+        try:
+            # Run the debate
+            arena = Arena(env, agents, protocol)
+            result = await arena.run()
+
+            # Parse subtasks from consensus
+            subtasks = self._parse_debate_subtasks(result.consensus_text or "")
+
+            if not subtasks:
+                logger.warning("debate_decomposition_empty falling back to heuristic")
+                subtasks = self._create_generic_phases(goal)
+
+            logger.info(
+                f"debate_decomposition_completed subtasks={len(subtasks)} "
+                f"confidence={result.confidence:.2f}"
+            )
+
+            return TaskDecomposition(
+                original_task=goal,
+                complexity_score=8,  # Debate implies high complexity
+                complexity_level="high",
+                should_decompose=True,
+                subtasks=subtasks[: self.config.max_subtasks],
+                rationale=f"Debate decomposition (confidence={result.confidence:.2f}): "
+                + (result.consensus_text or "")[:200],
+            )
+
+        except Exception as e:
+            logger.exception(f"debate_decomposition_failed error={e}")
+            # Fall back to heuristic analysis
+            return self.analyze(goal)
+
+    def _build_debate_task(self, goal: str, context: str = "") -> str:
+        """Build the debate task prompt for goal decomposition."""
+        context_section = f"\n\nContext:\n{context}" if context else ""
+
+        return f"""Decompose this high-level goal into 3-5 concrete, actionable subtasks.
+
+GOAL: {goal}
+{context_section}
+
+For each subtask, provide:
+1. A clear title (2-5 words)
+2. A specific description of what needs to be done
+3. Estimated complexity (low/medium/high)
+4. Files or areas likely affected
+5. Dependencies on other subtasks (if any)
+
+Format your response as a JSON array:
+```json
+[
+  {{
+    "title": "Subtask Title",
+    "description": "Specific description of what to implement",
+    "complexity": "medium",
+    "files": ["path/to/file.py", "another/file.tsx"],
+    "dependencies": []
+  }},
+  ...
+]
+```
+
+Focus on:
+- Concrete, implementable tasks (not abstract goals)
+- Clear boundaries between subtasks
+- Parallelizable work where possible
+- Practical files and areas in a typical codebase
+
+Prioritize by impact: which improvements would provide the most value?"""
+
+    def _parse_debate_subtasks(self, consensus_text: str) -> List[SubTask]:
+        """Parse subtasks from debate consensus text."""
+        subtasks: List[SubTask] = []
+
+        # Try to extract JSON from the consensus
+        json_match = re.search(r"```json\s*([\s\S]*?)\s*```", consensus_text)
+        if json_match:
+            json_str = json_match.group(1)
+        else:
+            # Try to find JSON array directly
+            json_match = re.search(r"\[\s*\{[\s\S]*\}\s*\]", consensus_text)
+            if json_match:
+                json_str = json_match.group(0)
+            else:
+                logger.debug("No JSON found in debate consensus")
+                return subtasks
+
+        try:
+            parsed = json.loads(json_str)
+            if not isinstance(parsed, list):
+                parsed = [parsed]
+
+            for i, item in enumerate(parsed):
+                if not isinstance(item, dict):
+                    continue
+
+                subtasks.append(
+                    SubTask(
+                        id=f"subtask_{i + 1}",
+                        title=item.get("title", f"Subtask {i + 1}"),
+                        description=item.get("description", ""),
+                        dependencies=item.get("dependencies", []),
+                        estimated_complexity=item.get("complexity", "medium"),
+                        file_scope=item.get("files", []),
+                    )
+                )
+
+        except json.JSONDecodeError as e:
+            logger.debug(f"Failed to parse debate JSON: {e}")
+
+        return subtasks
+
+    async def _get_default_agents(self) -> List[Any]:
+        """Get default agents for debate decomposition.
+
+        Uses aragora.config.secrets to load API keys from AWS Secrets Manager
+        or environment variables.
+        """
+        from aragora.config.secrets import get_secret
+
+        agents = []
+        errors = []
+
+        # Try Anthropic agents first (pass API key explicitly)
+        anthropic_key = get_secret("ANTHROPIC_API_KEY")
+        if anthropic_key:
+            try:
+                from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+                agents.extend(
+                    [
+                        AnthropicAPIAgent(
+                            name="claude-strategist",
+                            model="claude-sonnet-4-20250514",
+                            api_key=anthropic_key,
+                        ),
+                        AnthropicAPIAgent(
+                            name="claude-architect",
+                            model="claude-sonnet-4-20250514",
+                            api_key=anthropic_key,
+                        ),
+                    ]
+                )
+            except Exception as e:
+                errors.append(f"Anthropic: {e}")
+
+        # Try OpenAI agents (pass API key explicitly)
+        openai_key = get_secret("OPENAI_API_KEY")
+        if openai_key:
+            try:
+                from aragora.agents.api_agents.openai import OpenAIAPIAgent
+
+                agents.append(
+                    OpenAIAPIAgent(name="gpt-analyst", model="gpt-4o", api_key=openai_key)
+                )
+            except Exception as e:
+                errors.append(f"OpenAI: {e}")
+
+        # Try OpenRouter as fallback (pass API key explicitly)
+        openrouter_key = get_secret("OPENROUTER_API_KEY")
+        if not agents and openrouter_key:
+            try:
+                from aragora.agents.api_agents.openrouter import OpenRouterAgent
+
+                agents.extend(
+                    [
+                        OpenRouterAgent(
+                            name="or-claude",
+                            model="anthropic/claude-3.5-sonnet",
+                            api_key=openrouter_key,
+                        ),
+                        OpenRouterAgent(
+                            name="or-gpt",
+                            model="openai/gpt-4o",
+                            api_key=openrouter_key,
+                        ),
+                    ]
+                )
+            except Exception as e:
+                errors.append(f"OpenRouter: {e}")
+
+        if not agents:
+            raise RuntimeError(
+                "No API agents available for debate decomposition.\n"
+                "Required: ANTHROPIC_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY\n"
+                "For AWS Secrets Manager: set ARAGORA_USE_SECRETS_MANAGER=true\n"
+                f"Errors: {'; '.join(errors) if errors else 'No API keys found'}"
+            )
+
+        logger.info(f"debate_agents_loaded count={len(agents)}")
+        return agents
 
 
 # Module-level singleton
