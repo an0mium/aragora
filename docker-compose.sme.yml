@@ -1,0 +1,184 @@
+# Aragora SME Starter Stack
+# Single-server deployment for small/medium enterprises
+#
+# Quick Start:
+#   1. Copy .env.example to .env and set your API keys
+#   2. docker compose -f docker-compose.sme.yml up -d
+#   3. Access Aragora at http://localhost:8080
+#   4. Access Grafana at http://localhost:3001 (admin/admin)
+#
+# Requirements:
+#   - Docker 24+ with compose v2
+#   - At least 4GB RAM, 2 CPU cores
+#   - ANTHROPIC_API_KEY or OPENAI_API_KEY set in .env
+
+services:
+  # ============================================================================
+  # Core Application
+  # ============================================================================
+
+  aragora:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aragora-sme
+    ports:
+      - "${ARAGORA_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # AI Providers (at least one required)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      # Database
+      - DATABASE_URL=postgresql://aragora:${POSTGRES_PASSWORD:-aragora_sme}@postgres:5432/aragora
+      - ARAGORA_DB_BACKEND=postgres
+      # Redis
+      - REDIS_URL=redis://redis:6379
+      # Security
+      - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN:-}
+      - ARAGORA_ALLOWED_ORIGINS=${ARAGORA_ALLOWED_ORIGINS:-*}
+      - ARAGORA_JWT_SECRET=${ARAGORA_JWT_SECRET:-change-me-in-production}
+      # Performance
+      - ARAGORA_MAX_CONCURRENT_DEBATES=${ARAGORA_MAX_CONCURRENT_DEBATES:-10}
+      # Observability
+      - ARAGORA_METRICS_ENABLED=true
+      - ARAGORA_LOG_LEVEL=${ARAGORA_LOG_LEVEL:-INFO}
+    volumes:
+      - aragora-data:/app/data
+      - aragora-logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    labels:
+      - "prometheus.scrape=true"
+      - "prometheus.port=8080"
+      - "prometheus.path=/metrics"
+
+  # ============================================================================
+  # Data Layer
+  # ============================================================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: aragora-sme-postgres
+    environment:
+      POSTGRES_USER: aragora
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aragora_sme}
+      POSTGRES_DB: aragora
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./aragora/db/schema/postgres_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aragora"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: aragora-sme-redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy volatile-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # ============================================================================
+  # Backup Service (runs daily at 2 AM)
+  # ============================================================================
+
+  backup:
+    image: postgres:16-alpine
+    container_name: aragora-sme-backup
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: aragora
+      PGPASSWORD: ${POSTGRES_PASSWORD:-aragora_sme}
+      PGDATABASE: aragora
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+    volumes:
+      - backups:/backups
+    entrypoint: /bin/sh
+    command: |
+      -c 'while true; do
+        BACKUP_FILE="/backups/aragora_$$(date +%Y%m%d_%H%M%S).sql.gz"
+        echo "[Backup] Starting backup to $$BACKUP_FILE"
+        pg_dump -Fc | gzip > "$$BACKUP_FILE"
+        echo "[Backup] Completed. Cleaning old backups..."
+        find /backups -name "*.sql.gz" -mtime +$$BACKUP_RETENTION_DAYS -delete
+        echo "[Backup] Next backup in 24 hours"
+        sleep 86400
+      done'
+    restart: unless-stopped
+
+  # ============================================================================
+  # Observability (Prometheus + Grafana)
+  # ============================================================================
+
+  prometheus:
+    image: prom/prometheus:v2.49.0
+    container_name: aragora-sme-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.3.1
+    container_name: aragora-sme-grafana
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:3001}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  aragora-data:
+    name: aragora-sme-data
+  aragora-logs:
+    name: aragora-sme-logs
+  postgres-data:
+    name: aragora-sme-postgres
+  redis-data:
+    name: aragora-sme-redis
+  backups:
+    name: aragora-sme-backups
+  prometheus-data:
+    name: aragora-sme-prometheus
+  grafana-data:
+    name: aragora-sme-grafana
+
+# Network isolation
+networks:
+  default:
+    name: aragora-sme-network
