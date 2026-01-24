@@ -100,9 +100,27 @@ export type {
   VoteEvent,
   ConsensusEvent,
   DebateEndEvent,
+  SynthesisEvent,
+  RevisionEvent,
+  PhaseChangeEvent,
+  AudienceSuggestionEvent,
+  UserVoteEvent,
+  ErrorEvent,
+  WarningEvent,
 
   // Health
   HealthCheck,
+
+  // Control Plane
+  AgentStatus,
+  TaskStatus,
+  TaskPriority,
+  RegisteredAgent,
+  Task,
+  TaskSubmitRequest,
+  AgentRegisterRequest,
+  HeartbeatRequest,
+  ControlPlaneHealth,
 
   // Marketplace
   MarketplaceTemplate,

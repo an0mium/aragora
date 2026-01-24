@@ -315,11 +315,19 @@ export type WebSocketEventType =
   | 'round_start'
   | 'round_end'
   | 'agent_message'
+  | 'propose'
   | 'critique'
+  | 'revision'
+  | 'synthesis'
   | 'vote'
   | 'consensus'
+  | 'consensus_reached'
   | 'debate_end'
+  | 'phase_change'
+  | 'audience_suggestion'
+  | 'user_vote'
   | 'error'
+  | 'warning'
   | 'heartbeat';
 
 export interface WebSocketEvent<T = unknown> {
@@ -378,6 +386,54 @@ export interface DebateEndEvent {
   result?: Debate;
 }
 
+export interface SynthesisEvent {
+  debate_id: string;
+  round_number: number;
+  synthesis: string;
+  confidence?: number;
+}
+
+export interface RevisionEvent {
+  debate_id: string;
+  round_number: number;
+  agent: string;
+  original: string;
+  revised: string;
+}
+
+export interface PhaseChangeEvent {
+  debate_id: string;
+  from_phase: string;
+  to_phase: string;
+}
+
+export interface AudienceSuggestionEvent {
+  debate_id: string;
+  user_id: string;
+  suggestion: string;
+  round_number?: number;
+}
+
+export interface UserVoteEvent {
+  debate_id: string;
+  user_id: string;
+  vote: string;
+  weight?: number;
+}
+
+export interface ErrorEvent {
+  debate_id?: string;
+  code: string;
+  message: string;
+  recoverable?: boolean;
+}
+
+export interface WarningEvent {
+  debate_id?: string;
+  code: string;
+  message: string;
+}
+
 // =============================================================================
 // Health Types
 // =============================================================================
@@ -388,6 +444,72 @@ export interface HealthCheck {
   timestamp: string;
   checks?: Record<string, { status: string; latency_ms?: number }>;
   response_time_ms?: number;
+}
+
+// =============================================================================
+// Control Plane Types
+// =============================================================================
+
+export type AgentStatus = 'idle' | 'busy' | 'offline' | 'draining';
+export type TaskStatus = 'pending' | 'claimed' | 'running' | 'completed' | 'failed' | 'cancelled' | 'timeout';
+export type TaskPriority = 'low' | 'normal' | 'high' | 'critical';
+
+export interface RegisteredAgent {
+  agent_id: string;
+  name?: string;
+  capabilities?: string[];
+  status: AgentStatus;
+  registered_at: string;
+  last_heartbeat?: string;
+  current_task?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface Task {
+  task_id: string;
+  task_type: string;
+  payload: Record<string, unknown>;
+  priority: TaskPriority;
+  status: TaskStatus;
+  submitted_at: string;
+  claimed_at?: string;
+  completed_at?: string;
+  assigned_agent?: string;
+  result?: unknown;
+  error?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TaskSubmitRequest {
+  task_type: string;
+  payload: Record<string, unknown>;
+  priority?: TaskPriority;
+  agent_hint?: string;
+  timeout_seconds?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AgentRegisterRequest {
+  agent_id: string;
+  name?: string;
+  capabilities?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface HeartbeatRequest {
+  agent_id: string;
+  status?: AgentStatus;
+  current_task?: string;
+  metrics?: Record<string, number>;
+}
+
+export interface ControlPlaneHealth {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  agents_total: number;
+  agents_active: number;
+  tasks_pending: number;
+  tasks_running: number;
+  uptime_seconds?: number;
 }
 
 // =============================================================================

@@ -15,6 +15,13 @@ import type {
   VoteEvent,
   ConsensusEvent,
   DebateEndEvent,
+  SynthesisEvent,
+  RevisionEvent,
+  PhaseChangeEvent,
+  AudienceSuggestionEvent,
+  UserVoteEvent,
+  ErrorEvent,
+  WarningEvent,
 } from './types';
 
 export type WebSocketState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
@@ -39,10 +46,18 @@ interface EventHandlers {
   debate_start: EventHandler<DebateStartEvent>[];
   round_start: EventHandler<RoundStartEvent>[];
   agent_message: EventHandler<AgentMessageEvent>[];
+  propose: EventHandler<AgentMessageEvent>[];
   critique: EventHandler<CritiqueEvent>[];
+  revision: EventHandler<RevisionEvent>[];
+  synthesis: EventHandler<SynthesisEvent>[];
   vote: EventHandler<VoteEvent>[];
   consensus: EventHandler<ConsensusEvent>[];
+  consensus_reached: EventHandler<ConsensusEvent>[];
   debate_end: EventHandler<DebateEndEvent>[];
+  phase_change: EventHandler<PhaseChangeEvent>[];
+  audience_suggestion: EventHandler<AudienceSuggestionEvent>[];
+  user_vote: EventHandler<UserVoteEvent>[];
+  warning: EventHandler<WarningEvent>[];
   message: EventHandler<WebSocketEvent>[];
 }
 
@@ -62,10 +77,18 @@ export class AragoraWebSocket {
     debate_start: [],
     round_start: [],
     agent_message: [],
+    propose: [],
     critique: [],
+    revision: [],
+    synthesis: [],
     vote: [],
     consensus: [],
+    consensus_reached: [],
     debate_end: [],
+    phase_change: [],
+    audience_suggestion: [],
+    user_vote: [],
+    warning: [],
     message: [],
   };
 

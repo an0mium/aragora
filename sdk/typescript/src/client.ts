@@ -626,6 +626,229 @@ export class AragoraClient {
   }
 
   // ===========================================================================
+  // Control Plane
+  // ===========================================================================
+
+  /**
+   * Register an agent with the control plane.
+   */
+  async registerAgent(body: {
+    agent_id: string;
+    name?: string;
+    capabilities?: string[];
+    metadata?: Record<string, unknown>;
+  }): Promise<{ registered: boolean; agent_id: string }> {
+    return this.request<{ registered: boolean; agent_id: string }>(
+      'POST',
+      '/api/control-plane/agents/register',
+      { body }
+    );
+  }
+
+  /**
+   * Unregister an agent from the control plane.
+   */
+  async unregisterAgent(agentId: string): Promise<{ unregistered: boolean }> {
+    return this.request<{ unregistered: boolean }>(
+      'POST',
+      `/api/control-plane/agents/${encodeURIComponent(agentId)}/unregister`
+    );
+  }
+
+  /**
+   * Send a heartbeat for an agent.
+   */
+  async sendHeartbeat(body: {
+    agent_id: string;
+    status?: 'idle' | 'busy' | 'offline' | 'draining';
+    current_task?: string;
+    metrics?: Record<string, number>;
+  }): Promise<{ acknowledged: boolean }> {
+    return this.request<{ acknowledged: boolean }>(
+      'POST',
+      '/api/control-plane/heartbeat',
+      { body }
+    );
+  }
+
+  /**
+   * Get the status of an agent.
+   */
+  async getAgentStatus(agentId: string): Promise<{
+    agent_id: string;
+    status: string;
+    last_heartbeat?: string;
+    current_task?: string;
+  }> {
+    return this.request<{
+      agent_id: string;
+      status: string;
+      last_heartbeat?: string;
+      current_task?: string;
+    }>('GET', `/api/control-plane/agents/${encodeURIComponent(agentId)}/status`);
+  }
+
+  /**
+   * List all registered agents.
+   */
+  async listRegisteredAgents(params?: {
+    status?: 'idle' | 'busy' | 'offline' | 'draining';
+    capability?: string;
+  } & PaginationParams): Promise<{ agents: Array<{
+    agent_id: string;
+    name?: string;
+    status: string;
+    capabilities?: string[];
+    last_heartbeat?: string;
+  }> }> {
+    return this.request<{ agents: Array<{
+      agent_id: string;
+      name?: string;
+      status: string;
+      capabilities?: string[];
+      last_heartbeat?: string;
+    }> }>('GET', '/api/control-plane/agents', { params });
+  }
+
+  /**
+   * Submit a task to the control plane.
+   */
+  async submitTask(body: {
+    task_type: string;
+    payload: Record<string, unknown>;
+    priority?: 'low' | 'normal' | 'high' | 'critical';
+    agent_hint?: string;
+    timeout_seconds?: number;
+    metadata?: Record<string, unknown>;
+  }): Promise<{ task_id: string; status: string }> {
+    return this.request<{ task_id: string; status: string }>(
+      'POST',
+      '/api/control-plane/tasks',
+      { body }
+    );
+  }
+
+  /**
+   * Get the status of a task.
+   */
+  async getTaskStatus(taskId: string): Promise<{
+    task_id: string;
+    status: string;
+    assigned_agent?: string;
+    result?: unknown;
+    error?: string;
+    submitted_at: string;
+    completed_at?: string;
+  }> {
+    return this.request<{
+      task_id: string;
+      status: string;
+      assigned_agent?: string;
+      result?: unknown;
+      error?: string;
+      submitted_at: string;
+      completed_at?: string;
+    }>('GET', `/api/control-plane/tasks/${encodeURIComponent(taskId)}`);
+  }
+
+  /**
+   * List tasks with optional filtering.
+   */
+  async listTasks(params?: {
+    status?: 'pending' | 'claimed' | 'running' | 'completed' | 'failed' | 'cancelled';
+    task_type?: string;
+    agent_id?: string;
+  } & PaginationParams): Promise<{ tasks: Array<{
+    task_id: string;
+    task_type: string;
+    status: string;
+    priority: string;
+    assigned_agent?: string;
+    submitted_at: string;
+  }> }> {
+    return this.request<{ tasks: Array<{
+      task_id: string;
+      task_type: string;
+      status: string;
+      priority: string;
+      assigned_agent?: string;
+      submitted_at: string;
+    }> }>('GET', '/api/control-plane/tasks', { params });
+  }
+
+  /**
+   * Claim a pending task for an agent.
+   */
+  async claimTask(body: {
+    agent_id: string;
+    task_type?: string;
+    capabilities?: string[];
+  }): Promise<{ task_id: string; payload: Record<string, unknown> } | null> {
+    return this.request<{ task_id: string; payload: Record<string, unknown> } | null>(
+      'POST',
+      '/api/control-plane/tasks/claim',
+      { body }
+    );
+  }
+
+  /**
+   * Complete a task with a result.
+   */
+  async completeTask(taskId: string, body: {
+    result: unknown;
+    metrics?: Record<string, number>;
+  }): Promise<{ completed: boolean }> {
+    return this.request<{ completed: boolean }>(
+      'POST',
+      `/api/control-plane/tasks/${encodeURIComponent(taskId)}/complete`,
+      { body }
+    );
+  }
+
+  /**
+   * Fail a task with an error.
+   */
+  async failTask(taskId: string, body: {
+    error: string;
+    retry?: boolean;
+  }): Promise<{ failed: boolean }> {
+    return this.request<{ failed: boolean }>(
+      'POST',
+      `/api/control-plane/tasks/${encodeURIComponent(taskId)}/fail`,
+      { body }
+    );
+  }
+
+  /**
+   * Cancel a pending or running task.
+   */
+  async cancelTask(taskId: string): Promise<{ cancelled: boolean }> {
+    return this.request<{ cancelled: boolean }>(
+      'POST',
+      `/api/control-plane/tasks/${encodeURIComponent(taskId)}/cancel`
+    );
+  }
+
+  /**
+   * Get control plane health status.
+   */
+  async getControlPlaneHealth(): Promise<{
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    agents_total: number;
+    agents_active: number;
+    tasks_pending: number;
+    tasks_running: number;
+  }> {
+    return this.request<{
+      status: 'healthy' | 'degraded' | 'unhealthy';
+      agents_total: number;
+      agents_active: number;
+      tasks_pending: number;
+      tasks_running: number;
+    }>('GET', '/api/control-plane/health');
+  }
+
+  // ===========================================================================
   // Relationships
   // ===========================================================================
 
