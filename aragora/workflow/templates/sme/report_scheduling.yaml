@@ -1,0 +1,329 @@
+id: sme_report_scheduling
+name: Automated Report Scheduling
+description: |
+  Automated report generation and scheduling workflow for SME businesses.
+  Generates various business reports on schedule, formats them appropriately,
+  and delivers to stakeholders via configured channels.
+version: "1.0.0"
+category: general
+tags:
+  - sme
+  - reports
+  - scheduling
+  - automation
+  - analytics
+icon: chart-bar
+is_template: true
+
+inputs:
+  report_type: Type of report (sales, financial, inventory, customer, custom)
+  frequency: Report frequency (daily, weekly, monthly, quarterly)
+  date_range: Date range for report data (last_day, last_week, last_month, custom)
+  format: Output format (pdf, excel, html, json)
+  recipients: List of email recipients
+  include_charts: Whether to include visualizations (default true)
+  comparison: Include comparison to previous period (default true)
+
+outputs:
+  report_id: Generated report identifier
+  report_file: Generated report file
+  insights: Key insights extracted from data
+  delivery_status: Status of report delivery
+
+steps:
+  - id: validate_schedule
+    name: Validate Report Schedule
+    step_type: task
+    description: Validate the report configuration and schedule
+    config:
+      handler: validate_report_config
+      inputs:
+        report_type: "{report_type}"
+        frequency: "{frequency}"
+        date_range: "{date_range}"
+        format: "{format}"
+    visual:
+      position: {x: 100, y: 100}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - fetch_data
+
+  - id: fetch_data
+    name: Fetch Report Data
+    step_type: parallel
+    description: Fetch data from multiple sources based on report type
+    config:
+      parallel_steps:
+        - id: fetch_primary_data
+          name: Fetch Primary Data
+          step_type: task
+          config:
+            handler: fetch_report_data
+            inputs:
+              report_type: "{report_type}"
+              date_range: "{date_range}"
+
+        - id: fetch_comparison_data
+          name: Fetch Comparison Data
+          step_type: task
+          config:
+            handler: fetch_report_data
+            inputs:
+              report_type: "{report_type}"
+              date_range: "previous_{date_range}"
+            condition: "{comparison} == true"
+
+        - id: fetch_benchmarks
+          name: Fetch Industry Benchmarks
+          step_type: task
+          config:
+            handler: fetch_benchmarks
+            inputs:
+              report_type: "{report_type}"
+              industry: "{company_industry}"
+    visual:
+      position: {x: 100, y: 200}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - analyze_data
+
+  - id: analyze_data
+    name: Analyze Report Data
+    step_type: agent
+    description: Analyze data and extract key insights
+    config:
+      agent_type: claude
+      prompt_template: |
+        Analyze the following business data for a {report_type} report:
+
+        Primary Data ({date_range}):
+        {step.fetch_data.fetch_primary_data}
+
+        Comparison Data (previous period):
+        {step.fetch_data.fetch_comparison_data}
+
+        Industry Benchmarks:
+        {step.fetch_data.fetch_benchmarks}
+
+        Provide:
+        1. Key performance metrics with period-over-period change
+        2. Top 5 insights or trends
+        3. Areas of concern or opportunity
+        4. Comparison to industry benchmarks
+        5. Recommended actions based on data
+
+        Structure the analysis in JSON format with:
+        - summary: Executive summary (2-3 sentences)
+        - metrics: Array of key metrics with values and changes
+        - insights: Array of insight objects
+        - concerns: Array of concern items
+        - recommendations: Array of action items
+    visual:
+      position: {x: 100, y: 300}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - check_charts
+
+  - id: check_charts
+    name: Check Chart Requirement
+    step_type: decision
+    description: Check if charts should be generated
+    config:
+      condition: "{include_charts} == true"
+      true_step: generate_charts
+      false_step: format_report
+    visual:
+      position: {x: 100, y: 400}
+      category: control
+      color: "#ed8936"
+    next_steps:
+      - generate_charts
+      - format_report
+
+  - id: generate_charts
+    name: Generate Visualizations
+    step_type: agent
+    description: Generate chart configurations for the report
+    config:
+      agent_type: claude
+      prompt_template: |
+        Generate chart configurations for the {report_type} report:
+
+        Data: {step.fetch_data.fetch_primary_data}
+        Comparison: {step.fetch_data.fetch_comparison_data}
+        Analysis: {step.analyze_data}
+
+        Create configurations for:
+        1. Primary trend chart (line or bar)
+        2. Comparison chart (current vs previous)
+        3. Distribution/breakdown chart (pie or stacked bar)
+        4. Key metrics dashboard cards
+
+        Return chart configs in JSON format compatible with Chart.js:
+        - chart_type, data, options, title, description
+    visual:
+      position: {x: 200, y: 500}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - render_charts
+
+  - id: render_charts
+    name: Render Chart Images
+    step_type: task
+    description: Render charts as images for the report
+    config:
+      handler: render_charts
+      inputs:
+        configs: "{step.generate_charts}"
+        format: png
+        width: 800
+        height: 400
+    visual:
+      position: {x: 200, y: 600}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - format_report
+
+  - id: format_report
+    name: Format Report Document
+    step_type: agent
+    description: Create the formatted report document
+    config:
+      agent_type: claude
+      prompt_template: |
+        Create a professional {report_type} report in {format} format:
+
+        Report Period: {date_range}
+        Frequency: {frequency}
+
+        Data:
+        - Primary: {step.fetch_data.fetch_primary_data}
+        - Comparison: {step.fetch_data.fetch_comparison_data}
+        - Analysis: {step.analyze_data}
+        - Charts: {step.render_charts}
+
+        Structure the report with:
+        1. Executive Summary
+        2. Key Metrics Dashboard
+        3. Detailed Analysis by Category
+        4. Trend Analysis with Charts
+        5. Insights and Recommendations
+        6. Appendix with Raw Data
+
+        Use professional formatting with:
+        - Clear headings and sections
+        - Tables for data presentation
+        - Highlight key numbers
+        - Color coding for positive/negative changes
+
+        Return the report content structured for {format} generation.
+    visual:
+      position: {x: 100, y: 700}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - generate_file
+
+  - id: generate_file
+    name: Generate Report File
+    step_type: task
+    description: Generate the report file in requested format
+    config:
+      handler: generate_report_file
+      inputs:
+        content: "{step.format_report}"
+        format: "{format}"
+        charts: "{step.render_charts}"
+        metadata:
+          report_type: "{report_type}"
+          date_range: "{date_range}"
+          generated_at: "{now}"
+    visual:
+      position: {x: 100, y: 800}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - deliver_report
+
+  - id: deliver_report
+    name: Deliver Report
+    step_type: parallel
+    description: Deliver report to all recipients
+    config:
+      parallel_steps:
+        - id: email_report
+          name: Email Report
+          step_type: task
+          config:
+            handler: send_email
+            inputs:
+              to: "{recipients}"
+              subject: "{report_type} Report - {date_range}"
+              body: |
+                Please find attached your {frequency} {report_type} report.
+
+                Executive Summary:
+                {step.analyze_data.summary}
+
+                Key Insights:
+                {step.analyze_data.insights}
+
+                The full report is attached for your review.
+              attachments:
+                - "{step.generate_file}"
+
+        - id: store_report
+          name: Store Report Archive
+          step_type: task
+          config:
+            handler: store_file
+            inputs:
+              file: "{step.generate_file}"
+              path: "reports/{report_type}/{date_range}"
+              metadata:
+                report_id: "{workflow_id}"
+                generated_at: "{now}"
+    visual:
+      position: {x: 100, y: 900}
+      category: integration
+      color: "#9f7aea"
+    next_steps:
+      - log_completion
+
+  - id: log_completion
+    name: Log Report Completion
+    step_type: memory_write
+    description: Log report generation for tracking and analytics
+    config:
+      collection: report_logs
+      data:
+        report_id: "{workflow_id}"
+        report_type: "{report_type}"
+        frequency: "{frequency}"
+        date_range: "{date_range}"
+        generated_at: "{now}"
+        file_path: "{step.generate_file.path}"
+        recipients: "{recipients}"
+        insights_count: "{step.analyze_data.insights_count}"
+        delivery_status: "{step.deliver_report.status}"
+    visual:
+      position: {x: 100, y: 1000}
+      category: memory
+      color: "#667eea"
+    next_steps: []
+
+entry_step: validate_schedule
+
+transitions:
+  - from_step: check_charts
+    to_step: generate_charts
+    condition: "{include_charts} == true"
+    priority: 1
+  - from_step: check_charts
+    to_step: format_report
+    priority: 2

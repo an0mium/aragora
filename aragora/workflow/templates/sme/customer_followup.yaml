@@ -1,0 +1,319 @@
+id: sme_customer_followup
+name: Customer Follow-up Automation
+description: |
+  Automated customer follow-up workflow for SME businesses.
+  Monitors customer interactions, identifies follow-up opportunities,
+  drafts personalized messages, and schedules or sends communications.
+version: "1.0.0"
+category: general
+tags:
+  - sme
+  - customer
+  - crm
+  - automation
+  - follow-up
+icon: users
+is_template: true
+
+inputs:
+  customer_id: Customer to follow up with (optional - can batch process)
+  followup_type: Type of follow-up (post_sale, check_in, renewal, feedback)
+  days_since_contact: Days since last customer contact (for filtering)
+  channel: Communication channel (email, sms, call_scheduled)
+  auto_send: Whether to auto-send or queue for review (default false)
+
+outputs:
+  customers_processed: Number of customers processed
+  messages_sent: Number of messages sent
+  messages_queued: Number of messages queued for review
+  next_followups: Scheduled next follow-up dates
+
+steps:
+  - id: identify_customers
+    name: Identify Follow-up Candidates
+    step_type: agent
+    description: Find customers needing follow-up based on criteria
+    config:
+      agent_type: claude
+      prompt_template: |
+        Identify customers requiring follow-up:
+
+        Criteria:
+        - Follow-up type: {followup_type}
+        - Days since last contact: {days_since_contact}
+        - Specific customer (if any): {customer_id}
+
+        For each customer, determine:
+        1. Last interaction date and type
+        2. Purchase history summary
+        3. Any open issues or pending items
+        4. Recommended follow-up approach
+
+        Return list of customers with context in JSON format.
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - check_customers_found
+
+  - id: check_customers_found
+    name: Check Customers Found
+    step_type: decision
+    description: Check if any customers need follow-up
+    config:
+      condition: "len({step.identify_customers.customers}) > 0"
+      true_step: analyze_context
+      false_step: no_followups_needed
+    visual:
+      position: {x: 100, y: 200}
+      category: control
+      color: "#ed8936"
+    next_steps:
+      - analyze_context
+      - no_followups_needed
+
+  - id: no_followups_needed
+    name: No Follow-ups Needed
+    step_type: task
+    description: Log that no follow-ups are needed
+    config:
+      handler: log_result
+      message: "No customers require follow-up at this time"
+    visual:
+      position: {x: 300, y: 200}
+      category: task
+      color: "#a0aec0"
+    next_steps: []
+
+  - id: analyze_context
+    name: Analyze Customer Context
+    step_type: parallel
+    description: Analyze context for each customer in parallel
+    config:
+      parallel_steps:
+        - id: analyze_sentiment
+          name: Analyze Sentiment
+          step_type: agent
+          config:
+            agent_type: claude
+            prompt_template: |
+              Analyze customer sentiment based on recent interactions:
+              {step.identify_customers.customers}
+
+              Consider:
+              - Tone of recent communications
+              - Issue resolution satisfaction
+              - Product/service feedback
+              - Overall relationship health
+
+        - id: analyze_opportunities
+          name: Identify Opportunities
+          step_type: agent
+          config:
+            agent_type: claude
+            prompt_template: |
+              Identify upsell/cross-sell opportunities:
+              {step.identify_customers.customers}
+
+              Look for:
+              - Complementary products/services
+              - Upgrade possibilities
+              - Renewal timing
+              - Referral potential
+    visual:
+      position: {x: 100, y: 300}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - draft_messages
+
+  - id: draft_messages
+    name: Draft Follow-up Messages
+    step_type: agent
+    description: Generate personalized follow-up messages
+    config:
+      agent_type: claude
+      prompt_template: |
+        Draft personalized follow-up messages for each customer:
+
+        Customers: {step.identify_customers.customers}
+        Sentiment Analysis: {step.analyze_context.analyze_sentiment}
+        Opportunities: {step.analyze_context.analyze_opportunities}
+        Follow-up Type: {followup_type}
+        Channel: {channel}
+
+        For each customer, create a message that:
+        1. References specific past interactions
+        2. Addresses any outstanding concerns
+        3. Provides value (tips, updates, offers)
+        4. Has a clear but soft call-to-action
+        5. Matches the tone appropriate for their sentiment
+
+        Return messages in JSON format with:
+        - customer_id, subject, body, tone, priority
+    visual:
+      position: {x: 100, y: 400}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - check_auto_send
+
+  - id: check_auto_send
+    name: Check Auto-Send Setting
+    step_type: decision
+    description: Determine if messages should be auto-sent or queued
+    config:
+      condition: "{auto_send} == true"
+      true_step: send_messages
+      false_step: queue_for_review
+    visual:
+      position: {x: 100, y: 500}
+      category: control
+      color: "#ed8936"
+    next_steps:
+      - send_messages
+      - queue_for_review
+
+  - id: queue_for_review
+    name: Queue for Human Review
+    step_type: human_checkpoint
+    description: Queue messages for human review before sending
+    config:
+      checkpoint_type: approval
+      title: Review Follow-up Messages
+      description: "Review and approve follow-up messages before sending"
+      data:
+        messages: "{step.draft_messages}"
+      actions:
+        - id: approve_all
+          label: Approve All
+          next_step: send_messages
+        - id: approve_selected
+          label: Approve Selected
+          next_step: send_selected
+        - id: edit
+          label: Edit Messages
+          next_step: draft_messages
+        - id: cancel
+          label: Cancel
+          next_step: log_cancelled
+    visual:
+      position: {x: 200, y: 600}
+      category: human
+      color: "#f56565"
+    next_steps:
+      - send_messages
+      - send_selected
+      - draft_messages
+      - log_cancelled
+
+  - id: send_messages
+    name: Send Follow-up Messages
+    step_type: task
+    description: Send all approved follow-up messages
+    config:
+      handler: send_bulk_messages
+      inputs:
+        messages: "{step.draft_messages}"
+        channel: "{channel}"
+    visual:
+      position: {x: 100, y: 700}
+      category: integration
+      color: "#9f7aea"
+    next_steps:
+      - schedule_next_followup
+
+  - id: send_selected
+    name: Send Selected Messages
+    step_type: task
+    description: Send only selected messages
+    config:
+      handler: send_bulk_messages
+      inputs:
+        messages: "{approved_messages}"
+        channel: "{channel}"
+    visual:
+      position: {x: 200, y: 700}
+      category: integration
+      color: "#9f7aea"
+    next_steps:
+      - schedule_next_followup
+
+  - id: log_cancelled
+    name: Log Cancelled
+    step_type: task
+    description: Log that follow-ups were cancelled
+    config:
+      handler: log_result
+      message: "Follow-up workflow cancelled by user"
+    visual:
+      position: {x: 400, y: 700}
+      category: task
+      color: "#a0aec0"
+    next_steps: []
+
+  - id: schedule_next_followup
+    name: Schedule Next Follow-up
+    step_type: agent
+    description: Determine and schedule next follow-up dates
+    config:
+      agent_type: claude
+      prompt_template: |
+        Based on the messages sent and customer context, schedule next follow-ups:
+
+        Messages Sent: {step.send_messages}
+        Customer Context: {step.identify_customers.customers}
+        Follow-up Type: {followup_type}
+
+        For each customer, determine:
+        1. Recommended next follow-up date
+        2. Type of follow-up (check_in, feedback, renewal, etc.)
+        3. Priority level
+        4. Any specific notes or reminders
+
+        Return schedule in JSON format.
+    visual:
+      position: {x: 100, y: 800}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_followup_records
+
+  - id: store_followup_records
+    name: Store Follow-up Records
+    step_type: memory_write
+    description: Store follow-up history and next schedules
+    config:
+      collection: customer_followups
+      data:
+        workflow_run_id: "{workflow_id}"
+        customers_processed: "{step.identify_customers.customers}"
+        messages_sent: "{step.send_messages}"
+        next_followups: "{step.schedule_next_followup}"
+        timestamp: "{now}"
+    visual:
+      position: {x: 100, y: 900}
+      category: memory
+      color: "#667eea"
+    next_steps: []
+
+entry_step: identify_customers
+
+transitions:
+  - from_step: check_customers_found
+    to_step: analyze_context
+    condition: "len({step.identify_customers.customers}) > 0"
+    priority: 1
+  - from_step: check_customers_found
+    to_step: no_followups_needed
+    condition: "len({step.identify_customers.customers}) == 0"
+    priority: 2
+  - from_step: check_auto_send
+    to_step: send_messages
+    condition: "{auto_send} == true"
+    priority: 1
+  - from_step: check_auto_send
+    to_step: queue_for_review
+    condition: "{auto_send} != true"
+    priority: 2

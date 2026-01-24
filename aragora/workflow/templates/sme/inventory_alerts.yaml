@@ -1,0 +1,346 @@
+id: sme_inventory_alerts
+name: Inventory Alert System
+description: |
+  Automated inventory monitoring and alerting workflow for SME businesses.
+  Monitors stock levels, predicts stockouts, generates alerts,
+  and can automatically create purchase orders for replenishment.
+version: "1.0.0"
+category: general
+tags:
+  - sme
+  - inventory
+  - alerts
+  - automation
+  - supply-chain
+icon: package
+is_template: true
+
+inputs:
+  check_frequency: How often to check inventory (hourly, daily, weekly)
+  alert_threshold: Percentage of safety stock to trigger alert (default 20)
+  auto_reorder: Whether to automatically create purchase orders (default false)
+  notification_channels: List of channels for alerts (email, slack, sms)
+  categories: Product categories to monitor (optional - all if empty)
+
+outputs:
+  low_stock_items: Items below threshold
+  critical_items: Items at critical levels
+  reorder_suggestions: Suggested reorder quantities
+  orders_created: Purchase orders created (if auto_reorder enabled)
+  alerts_sent: Alerts sent to channels
+
+steps:
+  - id: fetch_inventory
+    name: Fetch Current Inventory
+    step_type: task
+    description: Retrieve current inventory levels from data source
+    config:
+      handler: fetch_inventory_data
+      inputs:
+        categories: "{categories}"
+        include_pending: true
+        include_reserved: true
+    visual:
+      position: {x: 100, y: 100}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - analyze_levels
+
+  - id: analyze_levels
+    name: Analyze Stock Levels
+    step_type: agent
+    description: Analyze inventory levels and identify issues
+    config:
+      agent_type: claude
+      prompt_template: |
+        Analyze current inventory levels:
+
+        Inventory Data: {step.fetch_inventory}
+        Alert Threshold: {alert_threshold}%
+
+        For each item, calculate:
+        1. Current stock vs safety stock ratio
+        2. Days of stock remaining (based on avg daily usage)
+        3. Risk level (normal, low, critical, stockout)
+
+        Categorize items into:
+        - Normal: Above safety stock
+        - Low: Below safety stock but above threshold
+        - Critical: Below threshold
+        - Stockout: Zero or negative available
+
+        Return analysis in JSON with:
+        - item_id, name, current_qty, safety_stock, days_remaining, risk_level
+    visual:
+      position: {x: 100, y: 200}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - check_critical_items
+
+  - id: check_critical_items
+    name: Check for Critical Items
+    step_type: decision
+    description: Check if any items are at critical or stockout levels
+    config:
+      condition: "len({step.analyze_levels.critical_items}) > 0 or len({step.analyze_levels.stockout_items}) > 0"
+      true_step: calculate_reorder
+      false_step: check_low_items
+    visual:
+      position: {x: 100, y: 300}
+      category: control
+      color: "#ed8936"
+    next_steps:
+      - calculate_reorder
+      - check_low_items
+
+  - id: check_low_items
+    name: Check for Low Stock Items
+    step_type: decision
+    description: Check if any items are at low stock levels
+    config:
+      condition: "len({step.analyze_levels.low_items}) > 0"
+      true_step: calculate_reorder
+      false_step: log_healthy
+    visual:
+      position: {x: 300, y: 300}
+      category: control
+      color: "#ed8936"
+    next_steps:
+      - calculate_reorder
+      - log_healthy
+
+  - id: log_healthy
+    name: Log Healthy Status
+    step_type: task
+    description: Log that inventory levels are healthy
+    config:
+      handler: log_result
+      message: "All inventory levels are healthy"
+      level: info
+    visual:
+      position: {x: 400, y: 400}
+      category: task
+      color: "#48bb78"
+    next_steps: []
+
+  - id: calculate_reorder
+    name: Calculate Reorder Quantities
+    step_type: agent
+    description: Calculate optimal reorder quantities
+    config:
+      agent_type: claude
+      prompt_template: |
+        Calculate optimal reorder quantities for low/critical items:
+
+        Items Needing Reorder:
+        - Critical: {step.analyze_levels.critical_items}
+        - Low: {step.analyze_levels.low_items}
+        - Stockout: {step.analyze_levels.stockout_items}
+
+        Consider:
+        1. Economic Order Quantity (EOQ) if data available
+        2. Lead time for each supplier
+        3. Seasonal demand patterns
+        4. Current pending orders
+        5. Storage capacity constraints
+
+        For each item, recommend:
+        - reorder_qty: Quantity to order
+        - urgency: immediate, standard, can_wait
+        - preferred_supplier: If known
+        - estimated_cost: If pricing available
+
+        Return recommendations in JSON format.
+    visual:
+      position: {x: 100, y: 400}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - prepare_alerts
+
+  - id: prepare_alerts
+    name: Prepare Alert Messages
+    step_type: agent
+    description: Create alert messages for each notification channel
+    config:
+      agent_type: claude
+      prompt_template: |
+        Create alert messages for inventory issues:
+
+        Analysis: {step.analyze_levels}
+        Reorder Recommendations: {step.calculate_reorder}
+        Channels: {notification_channels}
+
+        Create appropriate messages for each channel:
+        - Email: Detailed report with tables
+        - Slack: Concise with key items highlighted
+        - SMS: Critical items only, very brief
+
+        Include:
+        1. Summary of issues found
+        2. Top priority items
+        3. Recommended actions
+        4. Links to inventory dashboard (if applicable)
+
+        Return messages in JSON format by channel.
+    visual:
+      position: {x: 100, y: 500}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - send_alerts
+
+  - id: send_alerts
+    name: Send Alert Notifications
+    step_type: parallel
+    description: Send alerts to all configured channels
+    config:
+      parallel_steps:
+        - id: send_email_alert
+          name: Send Email Alert
+          step_type: task
+          config:
+            handler: send_email
+            inputs:
+              to: "{inventory_alert_recipients}"
+              subject: "Inventory Alert: {step.analyze_levels.summary}"
+              body: "{step.prepare_alerts.email}"
+            condition: "'email' in {notification_channels}"
+
+        - id: send_slack_alert
+          name: Send Slack Alert
+          step_type: task
+          config:
+            handler: send_slack
+            inputs:
+              channel: "{inventory_slack_channel}"
+              message: "{step.prepare_alerts.slack}"
+            condition: "'slack' in {notification_channels}"
+
+        - id: send_sms_alert
+          name: Send SMS Alert
+          step_type: task
+          config:
+            handler: send_sms
+            inputs:
+              to: "{inventory_sms_recipients}"
+              message: "{step.prepare_alerts.sms}"
+            condition: "'sms' in {notification_channels}"
+    visual:
+      position: {x: 100, y: 600}
+      category: integration
+      color: "#9f7aea"
+    next_steps:
+      - check_auto_reorder
+
+  - id: check_auto_reorder
+    name: Check Auto-Reorder Setting
+    step_type: decision
+    description: Determine if purchase orders should be auto-created
+    config:
+      condition: "{auto_reorder} == true"
+      true_step: create_purchase_orders
+      false_step: store_results
+    visual:
+      position: {x: 100, y: 700}
+      category: control
+      color: "#ed8936"
+    next_steps:
+      - create_purchase_orders
+      - store_results
+
+  - id: create_purchase_orders
+    name: Create Purchase Orders
+    step_type: agent
+    description: Generate purchase orders for reorder items
+    config:
+      agent_type: claude
+      prompt_template: |
+        Create purchase orders based on reorder recommendations:
+
+        Recommendations: {step.calculate_reorder}
+        Supplier Data: {supplier_catalog}
+
+        For each order:
+        1. Group items by supplier for efficiency
+        2. Apply any volume discounts
+        3. Calculate total cost
+        4. Set appropriate delivery dates based on urgency
+
+        Generate PO documents with:
+        - PO number (auto-generated)
+        - Supplier details
+        - Line items with quantities and prices
+        - Requested delivery date
+        - Payment terms
+
+        Return purchase orders in JSON format.
+    visual:
+      position: {x: 200, y: 800}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - submit_orders
+
+  - id: submit_orders
+    name: Submit Purchase Orders
+    step_type: task
+    description: Submit purchase orders to suppliers
+    config:
+      handler: submit_purchase_orders
+      inputs:
+        orders: "{step.create_purchase_orders}"
+        send_to_suppliers: true
+    visual:
+      position: {x: 200, y: 900}
+      category: integration
+      color: "#9f7aea"
+    next_steps:
+      - store_results
+
+  - id: store_results
+    name: Store Monitoring Results
+    step_type: memory_write
+    description: Store inventory check results for tracking
+    config:
+      collection: inventory_checks
+      data:
+        workflow_run_id: "{workflow_id}"
+        check_timestamp: "{now}"
+        items_checked: "{step.fetch_inventory.count}"
+        low_stock_count: "{step.analyze_levels.low_count}"
+        critical_count: "{step.analyze_levels.critical_count}"
+        alerts_sent: "{step.send_alerts}"
+        orders_created: "{step.create_purchase_orders}"
+    visual:
+      position: {x: 100, y: 1000}
+      category: memory
+      color: "#667eea"
+    next_steps: []
+
+entry_step: fetch_inventory
+
+transitions:
+  - from_step: check_critical_items
+    to_step: calculate_reorder
+    condition: "len({step.analyze_levels.critical_items}) > 0 or len({step.analyze_levels.stockout_items}) > 0"
+    priority: 1
+  - from_step: check_critical_items
+    to_step: check_low_items
+    priority: 2
+  - from_step: check_low_items
+    to_step: calculate_reorder
+    condition: "len({step.analyze_levels.low_items}) > 0"
+    priority: 1
+  - from_step: check_low_items
+    to_step: log_healthy
+    priority: 2
+  - from_step: check_auto_reorder
+    to_step: create_purchase_orders
+    condition: "{auto_reorder} == true"
+    priority: 1
+  - from_step: check_auto_reorder
+    to_step: store_results
+    priority: 2

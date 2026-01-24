@@ -1,0 +1,181 @@
+id: sme_invoice_generation
+name: Invoice Generation
+description: |
+  Automated invoice generation workflow for SME businesses.
+  Collects customer and service data, calculates totals with tax,
+  generates professional invoices, and optionally sends via email.
+version: "1.0.0"
+category: accounting
+tags:
+  - sme
+  - invoice
+  - billing
+  - automation
+icon: receipt
+is_template: true
+
+inputs:
+  customer_id: Customer identifier or name
+  items: List of items/services with quantities and prices
+  tax_rate: Tax rate percentage (default 0)
+  due_days: Days until payment due (default 30)
+  notes: Additional notes for invoice
+  send_email: Whether to send invoice via email (default false)
+
+outputs:
+  invoice_id: Generated invoice identifier
+  invoice_pdf: PDF document of the invoice
+  total_amount: Total amount including tax
+  email_sent: Whether email was sent successfully
+
+steps:
+  - id: validate_customer
+    name: Validate Customer Data
+    step_type: agent
+    description: Validate customer exists and retrieve billing details
+    config:
+      agent_type: claude
+      prompt_template: |
+        Validate customer data for invoice generation:
+        Customer ID: {customer_id}
+
+        Check:
+        1. Customer exists in the system
+        2. Billing address is complete
+        3. Contact email is valid
+
+        Return customer details in JSON format with fields:
+        - name, address, email, payment_terms
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - calculate_totals
+
+  - id: calculate_totals
+    name: Calculate Invoice Totals
+    step_type: task
+    description: Calculate line items, subtotal, tax, and grand total
+    config:
+      handler: calculate_invoice_totals
+      inputs:
+        items: "{items}"
+        tax_rate: "{tax_rate}"
+    visual:
+      position: {x: 100, y: 200}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - generate_invoice
+
+  - id: generate_invoice
+    name: Generate Invoice Document
+    step_type: agent
+    description: Generate professional invoice with all details
+    config:
+      agent_type: claude
+      prompt_template: |
+        Generate a professional invoice with the following details:
+
+        Customer: {step.validate_customer}
+        Items: {items}
+        Calculations: {step.calculate_totals}
+        Due in: {due_days} days
+        Notes: {notes}
+
+        Create a well-formatted invoice including:
+        - Invoice number (generate unique ID)
+        - Issue date and due date
+        - Itemized list with descriptions, quantities, unit prices
+        - Subtotal, tax breakdown, and grand total
+        - Payment instructions
+
+        Return as structured JSON for PDF generation.
+    visual:
+      position: {x: 100, y: 300}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - create_pdf
+
+  - id: create_pdf
+    name: Create PDF Document
+    step_type: task
+    description: Convert invoice data to PDF format
+    config:
+      handler: generate_pdf
+      template: invoice
+      inputs:
+        data: "{step.generate_invoice}"
+    visual:
+      position: {x: 100, y: 400}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - check_send_email
+
+  - id: check_send_email
+    name: Check Email Setting
+    step_type: decision
+    description: Check if invoice should be sent via email
+    config:
+      condition: "{send_email} == true"
+      true_step: send_email
+      false_step: store_invoice
+    visual:
+      position: {x: 100, y: 500}
+      category: control
+      color: "#ed8936"
+    next_steps:
+      - send_email
+      - store_invoice
+
+  - id: send_email
+    name: Send Invoice Email
+    step_type: task
+    description: Send invoice to customer via email
+    config:
+      handler: send_email
+      inputs:
+        to: "{step.validate_customer.email}"
+        subject: "Invoice from {company_name}"
+        template: invoice_email
+        attachments:
+          - "{step.create_pdf}"
+    visual:
+      position: {x: 200, y: 600}
+      category: integration
+      color: "#9f7aea"
+    next_steps:
+      - store_invoice
+
+  - id: store_invoice
+    name: Store Invoice Record
+    step_type: memory_write
+    description: Store invoice in knowledge mound for record keeping
+    config:
+      collection: invoices
+      data:
+        invoice_id: "{step.generate_invoice.invoice_id}"
+        customer_id: "{customer_id}"
+        total: "{step.calculate_totals.grand_total}"
+        status: sent
+        pdf_path: "{step.create_pdf.path}"
+    visual:
+      position: {x: 100, y: 700}
+      category: memory
+      color: "#667eea"
+    next_steps: []
+
+entry_step: validate_customer
+
+transitions:
+  - from_step: check_send_email
+    to_step: send_email
+    condition: "{send_email} == true"
+    priority: 1
+  - from_step: check_send_email
+    to_step: store_invoice
+    condition: "{send_email} != true"
+    priority: 2

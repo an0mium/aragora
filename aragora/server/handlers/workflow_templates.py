@@ -522,3 +522,509 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Failed to instantiate pattern {pattern_id}: {e}")
             return error_response(f"Failed to instantiate pattern: {e}", 500)
+
+
+# =============================================================================
+# Template Recommendations for Onboarding
+# =============================================================================
+
+# Use case to template recommendations mapping
+USE_CASE_TEMPLATES = {
+    "team_decisions": [
+        {
+            "id": "general/quick-decision",
+            "name": "Quick Decision",
+            "description": "Fast yes/no decisions with 2 agents",
+        },
+        {
+            "id": "product/feature-prioritization",
+            "name": "Feature Prioritization",
+            "description": "Prioritize features using multi-agent debate",
+        },
+        {
+            "id": "general/pros-cons",
+            "name": "Pros and Cons Analysis",
+            "description": "Balanced analysis of options",
+        },
+    ],
+    "project_planning": [
+        {
+            "id": "product/feature-prioritization",
+            "name": "Feature Prioritization",
+            "description": "Prioritize features using multi-agent debate",
+        },
+        {
+            "id": "devops/incident-response",
+            "name": "Incident Response",
+            "description": "Structured incident analysis and response",
+        },
+        {
+            "id": "code/architecture-review",
+            "name": "Architecture Review",
+            "description": "Review system architecture decisions",
+        },
+    ],
+    "vendor_selection": [
+        {
+            "id": "general/vendor-comparison",
+            "name": "Vendor Comparison",
+            "description": "Compare vendors across multiple criteria",
+        },
+        {
+            "id": "general/pros-cons",
+            "name": "Pros and Cons Analysis",
+            "description": "Balanced analysis of options",
+        },
+        {
+            "id": "general/quick-decision",
+            "name": "Quick Decision",
+            "description": "Fast yes/no decisions with 2 agents",
+        },
+    ],
+    "policy_review": [
+        {
+            "id": "legal/contract-review",
+            "name": "Contract Review",
+            "description": "Comprehensive contract analysis",
+        },
+        {
+            "id": "legal/compliance-check",
+            "name": "Compliance Check",
+            "description": "Policy compliance validation",
+        },
+        {
+            "id": "general/policy-evaluation",
+            "name": "Policy Evaluation",
+            "description": "Multi-perspective policy analysis",
+        },
+    ],
+    "technical_decisions": [
+        {
+            "id": "code/architecture-review",
+            "name": "Architecture Review",
+            "description": "Review system architecture decisions",
+        },
+        {
+            "id": "code/security-audit",
+            "name": "Security Audit",
+            "description": "Security vulnerability analysis",
+        },
+        {
+            "id": "devops/infrastructure-review",
+            "name": "Infrastructure Review",
+            "description": "Cloud infrastructure decisions",
+        },
+    ],
+    "general": [
+        {
+            "id": "general/quick-decision",
+            "name": "Quick Decision",
+            "description": "Fast yes/no decisions with 2 agents",
+        },
+        {
+            "id": "general/pros-cons",
+            "name": "Pros and Cons Analysis",
+            "description": "Balanced analysis of options",
+        },
+        {
+            "id": "general/brainstorm",
+            "name": "Brainstorm",
+            "description": "Creative ideation with multiple agents",
+        },
+        {
+            "id": "general/deep-dive",
+            "name": "Deep Dive",
+            "description": "Thorough analysis with extended rounds",
+        },
+    ],
+}
+
+
+class TemplateRecommendationsHandler(BaseHandler):
+    """Handler for template recommendations based on use case."""
+
+    ROUTES: list[str] = [
+        "/api/v1/templates/recommended",
+    ]
+
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        return path == "/api/v1/templates/recommended" and method == "GET"
+
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+        """Return recommended templates based on use case."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _template_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded", 429)
+
+        return self._get_recommendations(query_params)
+
+    @handle_errors("get template recommendations")
+    def _get_recommendations(self, query_params: dict) -> HandlerResult:
+        """Get recommended templates for a use case."""
+        from aragora.workflow.templates import get_template
+
+        use_case = get_bounded_string_param(query_params, "use_case", "general", max_length=50)
+        limit = get_clamped_int_param(query_params, "limit", 4, min_val=1, max_val=10)
+
+        # Get recommendations for the use case
+        recommendations = USE_CASE_TEMPLATES.get(use_case, USE_CASE_TEMPLATES["general"])
+
+        # Limit results
+        recommendations = recommendations[:limit]
+
+        # Enrich with template details
+        enriched = []
+        for rec in recommendations:
+            template = get_template(rec["id"]) or {}
+            enriched.append(
+                {
+                    "id": rec["id"],
+                    "name": rec.get("name") or template.get("name", rec["id"]),
+                    "description": rec.get("description") or template.get("description", ""),
+                    "agents_count": len(template.get("recommended_agents", [])) or 2,
+                    "rounds": template.get("config", {}).get("rounds", 3),
+                    "estimated_duration_minutes": template.get("estimated_duration", 5),
+                    "use_case": use_case,
+                    "category": rec["id"].split("/")[0] if "/" in rec["id"] else "general",
+                }
+            )
+
+        # Include available use cases
+        available_use_cases = list(USE_CASE_TEMPLATES.keys())
+
+        return json_response(
+            {
+                "recommendations": enriched,
+                "use_case": use_case,
+                "available_use_cases": available_use_cases,
+                "total": len(enriched),
+            }
+        )
+
+
+class SMEWorkflowsHandler(BaseHandler):
+    """Handler for SME-specific workflow templates and automations.
+
+    Provides quick access to pre-built SME workflows:
+    - Invoice generation
+    - Customer follow-ups
+    - Inventory alerts
+    - Report scheduling
+    """
+
+    ROUTES: list[str] = [
+        "/api/v1/sme/workflows",
+        "/api/v1/sme/workflows/*",
+    ]
+
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        return path.startswith("/api/v1/sme/workflows")
+
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+        """Route SME workflow requests."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _template_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded", 429)
+
+        method = handler.command if hasattr(handler, "command") else "GET"
+
+        # List available SME workflows
+        if path == "/api/v1/sme/workflows":
+            if method == "GET":
+                return self._list_sme_workflows()
+            else:
+                return error_response(f"Method {method} not allowed", 405)
+
+        # Handle specific workflow types
+        parts = path.split("/")
+        if len(parts) >= 5:
+            workflow_type = parts[4]
+
+            # POST to create a workflow instance
+            if method == "POST":
+                return self._create_sme_workflow(workflow_type, handler)
+
+            # GET to get workflow schema/info
+            if method == "GET":
+                return self._get_sme_workflow_info(workflow_type)
+
+        return error_response("Invalid SME workflow path", 400)
+
+    @handle_errors("list SME workflows")
+    def _list_sme_workflows(self) -> HandlerResult:
+        """List available SME workflow automations."""
+        workflows = [
+            {
+                "id": "invoice",
+                "name": "Invoice Generation",
+                "description": "Generate and send professional invoices",
+                "icon": "receipt",
+                "category": "billing",
+                "inputs": ["customer_id", "items", "tax_rate", "due_days"],
+                "features": ["PDF generation", "Email delivery", "Record keeping"],
+            },
+            {
+                "id": "followup",
+                "name": "Customer Follow-up",
+                "description": "Automated customer follow-up campaigns",
+                "icon": "users",
+                "category": "crm",
+                "inputs": ["followup_type", "days_since_contact", "channel"],
+                "features": ["Sentiment analysis", "Personalized messages", "Scheduling"],
+            },
+            {
+                "id": "inventory",
+                "name": "Inventory Alerts",
+                "description": "Monitor stock levels and send alerts",
+                "icon": "package",
+                "category": "operations",
+                "inputs": ["alert_threshold", "notification_channels", "auto_reorder"],
+                "features": ["Stock monitoring", "Multi-channel alerts", "Auto-reorder"],
+            },
+            {
+                "id": "report",
+                "name": "Report Scheduling",
+                "description": "Automated report generation and delivery",
+                "icon": "chart-bar",
+                "category": "analytics",
+                "inputs": ["report_type", "frequency", "format", "recipients"],
+                "features": ["Multiple formats", "Charts", "Period comparison"],
+            },
+        ]
+
+        return json_response(
+            {
+                "workflows": workflows,
+                "total": len(workflows),
+            }
+        )
+
+    @handle_errors("get SME workflow info")
+    def _get_sme_workflow_info(self, workflow_type: str) -> HandlerResult:
+        """Get detailed info about an SME workflow type."""
+        workflow_schemas = {
+            "invoice": {
+                "id": "invoice",
+                "name": "Invoice Generation",
+                "description": "Generate and send professional invoices to customers",
+                "inputs": {
+                    "customer_id": {
+                        "type": "string",
+                        "required": True,
+                        "description": "Customer ID or name",
+                    },
+                    "items": {
+                        "type": "array",
+                        "required": True,
+                        "description": "Invoice line items",
+                        "items": {
+                            "name": {"type": "string", "required": True},
+                            "quantity": {"type": "number", "required": True},
+                            "unit_price": {"type": "number", "required": True},
+                        },
+                    },
+                    "tax_rate": {
+                        "type": "number",
+                        "required": False,
+                        "default": 0,
+                        "description": "Tax rate (0-1)",
+                    },
+                    "due_days": {
+                        "type": "integer",
+                        "required": False,
+                        "default": 30,
+                        "description": "Days until due",
+                    },
+                    "send_email": {"type": "boolean", "required": False, "default": False},
+                    "notes": {"type": "string", "required": False, "default": ""},
+                },
+                "outputs": ["invoice_id", "invoice_pdf", "total_amount", "email_sent"],
+            },
+            "followup": {
+                "id": "followup",
+                "name": "Customer Follow-up",
+                "description": "Automated customer follow-up campaigns",
+                "inputs": {
+                    "followup_type": {
+                        "type": "string",
+                        "required": False,
+                        "default": "check_in",
+                        "enum": ["post_sale", "check_in", "renewal", "feedback"],
+                    },
+                    "days_since_contact": {"type": "integer", "required": False, "default": 30},
+                    "channel": {
+                        "type": "string",
+                        "required": False,
+                        "default": "email",
+                        "enum": ["email", "sms", "call_scheduled"],
+                    },
+                    "auto_send": {"type": "boolean", "required": False, "default": False},
+                    "customer_id": {
+                        "type": "string",
+                        "required": False,
+                        "description": "Specific customer (optional)",
+                    },
+                },
+                "outputs": [
+                    "customers_processed",
+                    "messages_sent",
+                    "messages_queued",
+                    "next_followups",
+                ],
+            },
+            "inventory": {
+                "id": "inventory",
+                "name": "Inventory Alerts",
+                "description": "Monitor stock levels and send alerts",
+                "inputs": {
+                    "alert_threshold": {
+                        "type": "integer",
+                        "required": False,
+                        "default": 20,
+                        "description": "% of safety stock",
+                    },
+                    "auto_reorder": {"type": "boolean", "required": False, "default": False},
+                    "notification_channels": {
+                        "type": "array",
+                        "required": False,
+                        "default": ["email"],
+                        "items": {"type": "string", "enum": ["email", "slack", "sms"]},
+                    },
+                    "categories": {
+                        "type": "array",
+                        "required": False,
+                        "description": "Product categories to monitor",
+                    },
+                },
+                "outputs": [
+                    "low_stock_items",
+                    "critical_items",
+                    "reorder_suggestions",
+                    "orders_created",
+                    "alerts_sent",
+                ],
+            },
+            "report": {
+                "id": "report",
+                "name": "Report Scheduling",
+                "description": "Automated report generation and delivery",
+                "inputs": {
+                    "report_type": {
+                        "type": "string",
+                        "required": True,
+                        "enum": ["sales", "financial", "inventory", "customer", "custom"],
+                    },
+                    "frequency": {
+                        "type": "string",
+                        "required": False,
+                        "default": "weekly",
+                        "enum": ["daily", "weekly", "monthly", "quarterly"],
+                    },
+                    "date_range": {
+                        "type": "string",
+                        "required": False,
+                        "default": "last_week",
+                        "enum": ["last_day", "last_week", "last_month", "custom"],
+                    },
+                    "format": {
+                        "type": "string",
+                        "required": False,
+                        "default": "pdf",
+                        "enum": ["pdf", "excel", "html", "json"],
+                    },
+                    "recipients": {"type": "array", "required": False, "items": {"type": "string"}},
+                    "include_charts": {"type": "boolean", "required": False, "default": True},
+                    "comparison": {"type": "boolean", "required": False, "default": True},
+                },
+                "outputs": ["report_id", "report_file", "insights", "delivery_status"],
+            },
+        }
+
+        schema = workflow_schemas.get(workflow_type)
+        if not schema:
+            return error_response(f"Unknown SME workflow type: {workflow_type}", 404)
+
+        return json_response(schema)
+
+    @handle_errors("create SME workflow")
+    def _create_sme_workflow(self, workflow_type: str, handler: Any) -> HandlerResult:
+        """Create and optionally execute an SME workflow."""
+        # Parse request body
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            body = handler.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body) if body else {}
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        # Import SME workflow factories
+        from aragora.workflow.templates.sme import (
+            create_invoice_workflow,
+            create_followup_workflow,
+            create_inventory_alert_workflow,
+            create_report_workflow,
+        )
+
+        execute = data.pop("execute", False)
+
+        try:
+            # Create workflow based on type
+            if workflow_type == "invoice":
+                workflow = create_invoice_workflow(
+                    customer_id=data.get("customer_id", ""),
+                    items=data.get("items", []),
+                    tax_rate=data.get("tax_rate", 0),
+                    due_days=data.get("due_days", 30),
+                    send_email=data.get("send_email", False),
+                    notes=data.get("notes", ""),
+                )
+            elif workflow_type == "followup":
+                workflow = create_followup_workflow(
+                    followup_type=data.get("followup_type", "check_in"),
+                    days_since_contact=data.get("days_since_contact", 30),
+                    channel=data.get("channel", "email"),
+                    auto_send=data.get("auto_send", False),
+                    customer_id=data.get("customer_id"),
+                )
+            elif workflow_type == "inventory":
+                workflow = create_inventory_alert_workflow(
+                    alert_threshold=data.get("alert_threshold", 20),
+                    auto_reorder=data.get("auto_reorder", False),
+                    notification_channels=data.get("notification_channels"),
+                    categories=data.get("categories"),
+                )
+            elif workflow_type == "report":
+                workflow = create_report_workflow(
+                    report_type=data.get("report_type", "sales"),
+                    frequency=data.get("frequency", "weekly"),
+                    date_range=data.get("date_range", "last_week"),
+                    format=data.get("format", "pdf"),
+                    recipients=data.get("recipients"),
+                    include_charts=data.get("include_charts", True),
+                    include_comparison=data.get("comparison", True),
+                )
+            else:
+                return error_response(f"Unknown SME workflow type: {workflow_type}", 400)
+
+            response_data = {
+                "workflow_id": workflow.id,
+                "workflow_type": workflow_type,
+                "name": workflow.name,
+                "steps_count": len(workflow.steps),
+                "status": "created",
+            }
+
+            # Execute if requested
+            if execute:
+                # TODO: Implement async workflow execution
+                # For now, mark as accepted and return workflow ID for polling
+                response_data["status"] = "accepted"
+                response_data["message"] = "Workflow queued for execution"
+
+            return json_response(response_data, status=201)
+
+        except Exception as e:
+            logger.error(f"Failed to create SME workflow: {e}")
+            return error_response(f"Failed to create workflow: {e}", 500)
