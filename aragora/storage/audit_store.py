@@ -78,13 +78,26 @@ class AuditStore:
         self._local = threading.local()
         self._external_get_connection = get_connection
 
-        # Determine backend type
+        # Determine backend type with Supabase preference
+        from aragora.storage.connection_factory import (
+            get_supabase_postgres_dsn,
+            get_selfhosted_postgres_dsn,
+        )
+
+        # Preference order: Supabase → self-hosted PostgreSQL → DATABASE_URL → SQLite
+        supabase_dsn = get_supabase_postgres_dsn()
+        postgres_dsn = get_selfhosted_postgres_dsn()
         env_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_DATABASE_URL")
-        actual_url = database_url or env_url
+        actual_url = database_url or supabase_dsn or postgres_dsn or env_url
 
         if backend is None:
-            env_backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
-            backend = "postgresql" if (actual_url and env_backend == "postgresql") else "sqlite"
+            env_backend = os.environ.get("ARAGORA_DB_BACKEND", "auto").lower()
+            if env_backend in ("supabase", "postgres", "postgresql") and actual_url:
+                backend = "postgresql"
+            elif env_backend == "auto" and actual_url:
+                backend = "postgresql"
+            else:
+                backend = "sqlite"
 
         self.backend_type = backend
         self._backend: Optional[DatabaseBackend] = None
@@ -509,9 +522,13 @@ def get_audit_store(
     """
     Get or create the default AuditStore instance.
 
-    Uses environment variables to configure:
-    - ARAGORA_DB_BACKEND: Global database backend ("sqlite" or "postgresql")
-    - DATABASE_URL or ARAGORA_DATABASE_URL: PostgreSQL connection string
+    Uses unified preference order: Supabase → PostgreSQL → SQLite.
+
+    Environment variables:
+    - ARAGORA_AUDIT_STORE_BACKEND: Store-specific backend override
+    - ARAGORA_DB_BACKEND: Global database backend fallback
+    - SUPABASE_URL + SUPABASE_DB_PASSWORD: Supabase PostgreSQL (preferred)
+    - DATABASE_URL or ARAGORA_POSTGRES_DSN: Self-hosted PostgreSQL
 
     Returns:
         Configured AuditStore instance
@@ -521,6 +538,34 @@ def get_audit_store(
     if _default_store is None:
         with _store_lock:
             if _default_store is None:
+                # Use connection factory to determine backend and DSN
+                from aragora.storage.connection_factory import (
+                    resolve_database_config,
+                    StorageBackendType,
+                )
+
+                # Check for explicit backend override, else use preference order
+                store_backend = os.environ.get("ARAGORA_AUDIT_STORE_BACKEND")
+                if not store_backend and backend is None:
+                    config = resolve_database_config("audit", allow_sqlite=True)
+                    if config.backend_type in (
+                        StorageBackendType.SUPABASE,
+                        StorageBackendType.POSTGRES,
+                    ):
+                        backend = "postgresql"
+                        database_url = database_url or config.dsn
+                    else:
+                        backend = "sqlite"
+                elif store_backend:
+                    store_backend = store_backend.lower()
+                    if store_backend in ("postgres", "postgresql", "supabase"):
+                        # Get DSN from connection factory
+                        config = resolve_database_config("audit", allow_sqlite=True)
+                        database_url = database_url or config.dsn
+                        backend = "postgresql"
+                    else:
+                        backend = store_backend
+
                 _default_store = AuditStore(
                     db_path=db_path,
                     backend=backend,
@@ -538,7 +583,7 @@ def get_audit_store(
                         "audit_store",
                         StorageMode.SQLITE,
                         "Audit data must use distributed storage in production. "
-                        "Configure DATABASE_URL for PostgreSQL.",
+                        "Configure Supabase or PostgreSQL.",
                     )
 
     return _default_store

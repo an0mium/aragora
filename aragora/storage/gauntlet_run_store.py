@@ -22,7 +22,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -922,7 +921,9 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
 
     def get_sync(self, run_id: str) -> Optional[dict[str, Any]]:
         """Get run data by ID (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get(run_id))
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.get(run_id))
 
     async def save(self, data: dict[str, Any]) -> None:
         """Save run data."""
@@ -962,7 +963,9 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
 
     def save_sync(self, data: dict[str, Any]) -> None:
         """Save run data (sync wrapper)."""
-        asyncio.get_event_loop().run_until_complete(self.save(data))
+        from aragora.utils.async_utils import run_async
+
+        run_async(self.save(data))
 
     async def delete(self, run_id: str) -> bool:
         """Delete run data."""
@@ -975,7 +978,9 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
 
     def delete_sync(self, run_id: str) -> bool:
         """Delete run data (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.delete(run_id))
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.delete(run_id))
 
     async def list_all(self) -> list[dict[str, Any]]:
         """List all runs."""
@@ -989,7 +994,9 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
 
     def list_all_sync(self) -> list[dict[str, Any]]:
         """List all runs (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_all())
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.list_all())
 
     async def list_by_status(self, status: str) -> list[dict[str, Any]]:
         """List runs by status."""
@@ -1006,7 +1013,9 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
 
     def list_by_status_sync(self, status: str) -> list[dict[str, Any]]:
         """List runs by status (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_by_status(status))
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.list_by_status(status))
 
     async def list_by_template(self, template_id: str) -> list[dict[str, Any]]:
         """List runs by template."""
@@ -1023,7 +1032,9 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
 
     def list_by_template_sync(self, template_id: str) -> list[dict[str, Any]]:
         """List runs by template (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_by_template(template_id))
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.list_by_template(template_id))
 
     async def list_active(self) -> list[dict[str, Any]]:
         """List active (pending/running) runs."""
@@ -1041,7 +1052,9 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
 
     def list_active_sync(self) -> list[dict[str, Any]]:
         """List active runs (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_active())
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.list_active())
 
     async def update_status(
         self, run_id: str, status: str, result_data: Optional[dict[str, Any]] = None
@@ -1089,9 +1102,9 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
         self, run_id: str, status: str, result_data: Optional[dict[str, Any]] = None
     ) -> bool:
         """Update run status (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.update_status(run_id, status, result_data)
-        )
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.update_status(run_id, status, result_data))
 
     async def close(self) -> None:
         """Close is a no-op for pool-based stores (pool managed externally)."""
@@ -1103,14 +1116,16 @@ def get_gauntlet_run_store() -> GauntletRunStoreBackend:
     Get the global gauntlet run store instance.
 
     Backend is selected based on environment variables:
-    - ARAGORA_GAUNTLET_STORE_BACKEND: "memory", "sqlite", "postgres", or "redis"
+    - ARAGORA_GAUNTLET_STORE_BACKEND: "memory", "sqlite", "postgres", "supabase", or "redis"
     - ARAGORA_DB_BACKEND: fallback if ARAGORA_GAUNTLET_STORE_BACKEND not set
 
     Options:
     - "memory": InMemoryGauntletRunStore (for testing)
-    - "sqlite": SQLiteGauntletRunStore (default, single-instance)
-    - "postgres" or "postgresql": PostgresGauntletRunStore (multi-instance)
+    - "sqlite": SQLiteGauntletRunStore (single-instance)
+    - "postgres", "postgresql", or "supabase": PostgresGauntletRunStore (multi-instance)
     - "redis": RedisGauntletRunStore (multi-instance)
+
+    Uses unified Supabase → PostgreSQL → SQLite preference order.
     """
     global _gauntlet_run_store
 
@@ -1121,30 +1136,25 @@ def get_gauntlet_run_store() -> GauntletRunStoreBackend:
         # Check store-specific backend first, then global database backend
         backend = os.getenv("ARAGORA_GAUNTLET_STORE_BACKEND")
         if not backend:
-            backend = os.getenv("ARAGORA_DB_BACKEND", "sqlite")
+            backend = os.getenv("ARAGORA_DB_BACKEND", "auto")
         backend = backend.lower()
 
-        if backend == "memory":
-            _gauntlet_run_store = InMemoryGauntletRunStore()
-            logger.info("Using in-memory gauntlet run store")
-        elif backend in ("postgres", "postgresql"):
-            logger.info("Using PostgreSQL gauntlet run store")
-            try:
-                from aragora.storage.postgres_store import get_postgres_pool
-
-                pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
-                store = PostgresGauntletRunStore(pool)
-                asyncio.get_event_loop().run_until_complete(store.initialize())
-                _gauntlet_run_store = store
-            except Exception as e:
-                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-                _gauntlet_run_store = SQLiteGauntletRunStore()
-        elif backend == "redis":
+        # Redis is handled specially (uses SQLite fallback internally)
+        if backend == "redis":
             _gauntlet_run_store = RedisGauntletRunStore()
             logger.info("Using Redis gauntlet run store")
-        else:  # Default to SQLite
-            _gauntlet_run_store = SQLiteGauntletRunStore()
-            logger.info("Using SQLite gauntlet run store")
+            return _gauntlet_run_store
+
+        # Use unified factory for memory/sqlite/postgres/supabase
+        from aragora.storage.connection_factory import create_persistent_store
+
+        _gauntlet_run_store = create_persistent_store(
+            store_name="gauntlet",
+            sqlite_class=SQLiteGauntletRunStore,
+            postgres_class=PostgresGauntletRunStore,
+            db_filename="gauntlet_runs.db",
+            memory_class=InMemoryGauntletRunStore,
+        )
 
         return _gauntlet_run_store
 

@@ -26,7 +26,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -44,6 +43,7 @@ from aragora.storage.backends import (
     PostgreSQLBackend,
     SQLiteBackend,
 )
+from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -1081,7 +1081,7 @@ class PostgresGovernanceStore:
         metadata: Optional[dict] = None,
     ) -> str:
         """Save a new approval request (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
+        return run_async(
             self.save_approval_async(
                 approval_id,
                 title,
@@ -1151,7 +1151,7 @@ class PostgresGovernanceStore:
         rejection_reason: Optional[str] = None,
     ) -> bool:
         """Update approval status (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
+        return run_async(
             self.update_approval_status_async(approval_id, status, approved_by, rejection_reason)
         )
 
@@ -1191,7 +1191,7 @@ class PostgresGovernanceStore:
 
     def get_approval(self, approval_id: str) -> Optional[ApprovalRecord]:
         """Get an approval by ID (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_approval_async(approval_id))
+        return run_async(self.get_approval_async(approval_id))
 
     async def get_approval_async(self, approval_id: str) -> Optional[ApprovalRecord]:
         """Get an approval by ID asynchronously."""
@@ -1221,9 +1221,7 @@ class PostgresGovernanceStore:
         limit: int = 100,
     ) -> list[ApprovalRecord]:
         """List approvals with filters (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.list_approvals_async(status, org_id, risk_level, limit)
-        )
+        return run_async(self.list_approvals_async(status, org_id, risk_level, limit))
 
     async def list_approvals_async(
         self,
@@ -1268,7 +1266,7 @@ class PostgresGovernanceStore:
 
     def delete_approval(self, approval_id: str) -> bool:
         """Delete an approval record (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.delete_approval_async(approval_id))
+        return run_async(self.delete_approval_async(approval_id))
 
     async def delete_approval_async(self, approval_id: str) -> bool:
         """Delete an approval record asynchronously."""
@@ -1331,7 +1329,7 @@ class PostgresGovernanceStore:
         workspace_id: Optional[str] = None,
     ) -> str:
         """Save a verification result (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
+        return run_async(
             self.save_verification_async(
                 verification_id,
                 claim,
@@ -1393,9 +1391,7 @@ class PostgresGovernanceStore:
 
     def get_verification(self, verification_id: str) -> Optional[VerificationRecord]:
         """Get a verification by ID (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.get_verification_async(verification_id)
-        )
+        return run_async(self.get_verification_async(verification_id))
 
     async def get_verification_async(self, verification_id: str) -> Optional[VerificationRecord]:
         """Get a verification by ID asynchronously."""
@@ -1422,9 +1418,7 @@ class PostgresGovernanceStore:
         limit: int = 100,
     ) -> list[VerificationRecord]:
         """List verifications with filters (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.list_verifications_async(org_id, claim_type, limit)
-        )
+        return run_async(self.list_verifications_async(org_id, claim_type, limit))
 
     async def list_verifications_async(
         self,
@@ -1511,7 +1505,7 @@ class PostgresGovernanceStore:
         metadata: Optional[dict] = None,
     ) -> str:
         """Save a decision record (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
+        return run_async(
             self.save_decision_async(
                 decision_id,
                 debate_id,
@@ -1580,7 +1574,7 @@ class PostgresGovernanceStore:
 
     def get_decision(self, decision_id: str) -> Optional[DecisionRecord]:
         """Get a decision by ID (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_decision_async(decision_id))
+        return run_async(self.get_decision_async(decision_id))
 
     async def get_decision_async(self, decision_id: str) -> Optional[DecisionRecord]:
         """Get a decision by ID asynchronously."""
@@ -1603,9 +1597,7 @@ class PostgresGovernanceStore:
 
     def get_decisions_for_debate(self, debate_id: str) -> list[DecisionRecord]:
         """Get all decisions for a debate (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.get_decisions_for_debate_async(debate_id)
-        )
+        return run_async(self.get_decisions_for_debate_async(debate_id))
 
     async def get_decisions_for_debate_async(self, debate_id: str) -> list[DecisionRecord]:
         """Get all decisions for a debate asynchronously."""
@@ -1630,9 +1622,7 @@ class PostgresGovernanceStore:
         limit: int = 100,
     ) -> list[DecisionRecord]:
         """List decisions with filters (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.list_decisions_async(org_id, consensus_only, limit)
-        )
+        return run_async(self.list_decisions_async(org_id, consensus_only, limit))
 
     async def list_decisions_async(
         self,
@@ -1714,7 +1704,7 @@ class PostgresGovernanceStore:
         decisions_days: int = 90,
     ) -> dict:
         """Clean up old records (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
+        return run_async(
             self.cleanup_old_records_async(approvals_days, verifications_days, decisions_days)
         )
 
@@ -1786,25 +1776,41 @@ def get_governance_store(
     """
     Get or create the default GovernanceStore instance.
 
-    Uses environment variables to configure:
-    - ARAGORA_DB_BACKEND: Global database backend ("sqlite", "postgres", or "postgresql")
-    - ARAGORA_GOVERNANCE_STORE_BACKEND: Store-specific backend override
-    - DATABASE_URL or ARAGORA_DATABASE_URL: PostgreSQL connection string
+    Uses environment variables to configure (preference order):
+    1. SUPABASE_URL + SUPABASE_DB_PASSWORD: Supabase PostgreSQL (preferred)
+    2. ARAGORA_POSTGRES_DSN or DATABASE_URL: Self-hosted PostgreSQL
+    3. SQLite: Last resort (with production guard)
+
+    Backend overrides:
+    - ARAGORA_GOVERNANCE_STORE_BACKEND: Store-specific override
+    - ARAGORA_DB_BACKEND: Global database backend override
 
     Returns:
         Configured GovernanceStore or PostgresGovernanceStore instance
     """
     global _default_store, _postgres_store
 
+    from aragora.storage.connection_factory import (
+        resolve_database_config,
+        StorageBackendType,
+    )
+    from aragora.utils.async_utils import run_async
+
     # Check store-specific backend first, then global database backend
     backend_type = os.environ.get("ARAGORA_GOVERNANCE_STORE_BACKEND")
     if not backend_type and backend is None:
-        # Fall back to global database backend setting
-        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+        # Use connection factory to determine backend with preference order
+        config = resolve_database_config("governance", allow_sqlite=True)
+        if config.backend_type in (StorageBackendType.SUPABASE, StorageBackendType.POSTGRES):
+            backend_type = "postgres"
+        else:
+            backend_type = "sqlite"
     elif backend:
         backend_type = backend.lower()
+    else:
+        backend_type = backend_type.lower() if backend_type else "sqlite"
 
-    if backend_type in ("postgres", "postgresql"):
+    if backend_type in ("postgres", "postgresql", "supabase"):
         if _postgres_store is not None:
             return _postgres_store
 
@@ -1812,11 +1818,17 @@ def get_governance_store(
         try:
             from aragora.storage.postgres_store import get_postgres_pool
 
-            # Initialize PostgreSQL store with connection pool
-            pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
-            store = PostgresGovernanceStore(pool)
-            asyncio.get_event_loop().run_until_complete(store.initialize())
-            _postgres_store = store
+            # Get DSN from connection factory (handles Supabase preference)
+            config = resolve_database_config("governance", allow_sqlite=True)
+
+            # Initialize PostgreSQL store with connection pool using run_async
+            async def init_postgres_store():
+                pool = await get_postgres_pool(dsn=config.dsn)
+                store = PostgresGovernanceStore(pool)
+                await store.initialize()
+                return store
+
+            _postgres_store = run_async(init_postgres_store())
             return _postgres_store
         except Exception as e:
             logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
@@ -1846,7 +1858,7 @@ def get_governance_store(
             "governance_store",
             StorageMode.SQLITE,
             "RBAC/governance policies must use distributed storage in production. "
-            "Configure ARAGORA_DB_BACKEND=postgres.",
+            "Configure Supabase or PostgreSQL.",
         )
         _default_store = GovernanceStore(
             db_path=db_path,

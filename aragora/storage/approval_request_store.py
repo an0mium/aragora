@@ -22,7 +22,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -1145,11 +1144,12 @@ def get_approval_request_store() -> ApprovalRequestStoreBackend:
 
     Backend is selected based on ARAGORA_APPROVAL_STORE_BACKEND env var:
     - "memory": InMemoryApprovalRequestStore (for testing)
-    - "sqlite": SQLiteApprovalRequestStore (default, single-instance)
-    - "postgres" or "postgresql": PostgresApprovalRequestStore (multi-instance)
+    - "sqlite": SQLiteApprovalRequestStore (single-instance)
+    - "postgres", "postgresql", or "supabase": PostgresApprovalRequestStore (multi-instance)
     - "redis": RedisApprovalRequestStore (multi-instance)
 
     Also checks ARAGORA_DB_BACKEND for global database backend selection.
+    Uses unified Supabase → PostgreSQL → SQLite preference order.
     """
     global _approval_request_store
 
@@ -1160,31 +1160,25 @@ def get_approval_request_store() -> ApprovalRequestStoreBackend:
         # Check store-specific backend first, then global database backend
         backend = os.getenv("ARAGORA_APPROVAL_STORE_BACKEND")
         if not backend:
-            backend = os.getenv("ARAGORA_DB_BACKEND", "sqlite")
+            backend = os.getenv("ARAGORA_DB_BACKEND", "auto")
         backend = backend.lower()
 
-        if backend == "memory":
-            _approval_request_store = InMemoryApprovalRequestStore()
-            logger.info("Using in-memory approval request store")
-        elif backend == "postgres" or backend == "postgresql":
-            logger.info("Using PostgreSQL approval request store")
-            try:
-                from aragora.storage.postgres_store import get_postgres_pool
-
-                # Initialize PostgreSQL store with connection pool
-                pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
-                store = PostgresApprovalRequestStore(pool)
-                asyncio.get_event_loop().run_until_complete(store.initialize())
-                _approval_request_store = store
-            except Exception as e:
-                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-                _approval_request_store = SQLiteApprovalRequestStore()
-        elif backend == "redis":
+        # Redis is handled specially (uses SQLite fallback internally)
+        if backend == "redis":
             _approval_request_store = RedisApprovalRequestStore()
             logger.info("Using Redis approval request store")
-        else:  # Default to SQLite
-            _approval_request_store = SQLiteApprovalRequestStore()
-            logger.info("Using SQLite approval request store")
+            return _approval_request_store
+
+        # Use unified factory for memory/sqlite/postgres/supabase
+        from aragora.storage.connection_factory import create_persistent_store
+
+        _approval_request_store = create_persistent_store(
+            store_name="approval",
+            sqlite_class=SQLiteApprovalRequestStore,
+            postgres_class=PostgresApprovalRequestStore,
+            db_filename="approval_requests.db",
+            memory_class=InMemoryApprovalRequestStore,
+        )
 
         return _approval_request_store
 

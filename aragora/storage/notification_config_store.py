@@ -249,13 +249,26 @@ class NotificationConfigStore:
         self._db_path = db_path
         self._local = threading.local()
 
-        # Determine backend type
+        # Determine backend type with Supabase preference
+        from aragora.storage.connection_factory import (
+            get_supabase_postgres_dsn,
+            get_selfhosted_postgres_dsn,
+        )
+
+        # Preference order: Supabase → self-hosted PostgreSQL → DATABASE_URL → SQLite
+        supabase_dsn = get_supabase_postgres_dsn()
+        postgres_dsn = get_selfhosted_postgres_dsn()
         env_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_DATABASE_URL")
-        actual_url = database_url or env_url
+        actual_url = database_url or supabase_dsn or postgres_dsn or env_url
 
         if backend is None:
-            env_backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
-            backend = "postgresql" if (actual_url and env_backend == "postgresql") else "sqlite"
+            env_backend = os.environ.get("ARAGORA_DB_BACKEND", "auto").lower()
+            if env_backend in ("supabase", "postgres", "postgresql") and actual_url:
+                backend = "postgresql"
+            elif env_backend == "auto" and actual_url:
+                backend = "postgresql"
+            else:
+                backend = "sqlite"
 
         self.backend_type = backend
         self._backend: Optional[DatabaseBackend] = None
@@ -734,10 +747,12 @@ def get_notification_config_store(
 ) -> NotificationConfigStore:
     """Get the singleton notification config store instance.
 
+    Uses unified preference order: Supabase → PostgreSQL → SQLite.
+
     Args:
         db_path: Path to SQLite database file (used when backend="sqlite")
-        backend: Database backend ("sqlite" or "postgresql")
-        database_url: PostgreSQL connection URL
+        backend: Database backend ("sqlite", "postgresql", or "supabase")
+        database_url: PostgreSQL connection URL (optional, auto-detected)
 
     Returns:
         Configured NotificationConfigStore instance
@@ -746,6 +761,32 @@ def get_notification_config_store(
     if _notification_config_store is None:
         with _store_lock:
             if _notification_config_store is None:
+                # Use connection factory to determine backend and DSN
+                from aragora.storage.connection_factory import (
+                    resolve_database_config,
+                    StorageBackendType,
+                )
+
+                # Check for explicit backend override, else use preference order
+                store_backend = os.environ.get("ARAGORA_NOTIFICATION_CONFIG_STORE_BACKEND")
+                if not store_backend and backend is None:
+                    config = resolve_database_config("notification_config", allow_sqlite=True)
+                    if config.backend_type in (
+                        StorageBackendType.SUPABASE,
+                        StorageBackendType.POSTGRES,
+                    ):
+                        backend = "postgresql"
+                        database_url = database_url or config.dsn
+                    else:
+                        backend = "sqlite"
+                elif store_backend:
+                    backend = store_backend.lower()
+                    if backend in ("postgres", "postgresql", "supabase"):
+                        # Get DSN from connection factory
+                        config = resolve_database_config("notification_config", allow_sqlite=True)
+                        database_url = database_url or config.dsn
+                        backend = "postgresql"
+
                 _notification_config_store = NotificationConfigStore(
                     db_path=db_path,
                     backend=backend,
@@ -763,7 +804,7 @@ def get_notification_config_store(
                         "notification_config_store",
                         StorageMode.SQLITE,
                         "Notification configs must use distributed storage in production. "
-                        "Configure DATABASE_URL for PostgreSQL.",
+                        "Configure Supabase or PostgreSQL.",
                     )
     return _notification_config_store
 
