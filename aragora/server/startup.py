@@ -468,6 +468,79 @@ async def validate_backend_connectivity(
     }
 
 
+def validate_storage_backend() -> dict[str, Any]:
+    """Validate storage backend configuration for production.
+
+    This function ensures that the correct storage backend is being used
+    in production environments. SQLite is not suitable for multi-instance
+    deployments as each server would have its own isolated database.
+
+    Returns:
+        Dictionary with validation results:
+        {
+            "valid": True/False,
+            "backend": "supabase" | "postgres" | "sqlite",
+            "is_production": True/False,
+            "warnings": [str, ...],
+            "errors": [str, ...]
+        }
+    """
+    import os
+
+    from aragora.storage.factory import get_storage_backend, StorageBackend
+
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    env = os.environ.get("ARAGORA_ENV", "development")
+    is_production = env == "production"
+    backend = get_storage_backend()
+    allow_sqlite = os.environ.get("ARAGORA_ALLOW_SQLITE_FALLBACK", "").lower() in (
+        "true",
+        "1",
+    )
+
+    if is_production and backend == StorageBackend.SQLITE:
+        if allow_sqlite:
+            warnings.append(
+                "SQLite backend used in production with ARAGORA_ALLOW_SQLITE_FALLBACK=true. "
+                "This is not recommended for multi-instance deployments. "
+                "Users created on one server will not be visible on other servers."
+            )
+        else:
+            errors.append(
+                "Production environment requires distributed storage (Supabase or PostgreSQL). "
+                "SQLite is not suitable for multi-instance deployments. "
+                "Configure SUPABASE_URL + SUPABASE_DB_PASSWORD or ARAGORA_POSTGRES_DSN, "
+                "or set ARAGORA_ALLOW_SQLITE_FALLBACK=true to override (not recommended)."
+            )
+
+    # Log results
+    backend_name = backend.value
+    if backend == StorageBackend.SUPABASE:
+        logger.info("[STORAGE BACKEND] Using Supabase PostgreSQL (recommended)")
+    elif backend == StorageBackend.POSTGRES:
+        logger.info("[STORAGE BACKEND] Using self-hosted PostgreSQL")
+    else:
+        if is_production:
+            logger.warning("[STORAGE BACKEND] Using SQLite in production (not recommended)")
+        else:
+            logger.info("[STORAGE BACKEND] Using SQLite (development mode)")
+
+    for warning in warnings:
+        logger.warning(f"[STORAGE BACKEND] {warning}")
+    for error in errors:
+        logger.error(f"[STORAGE BACKEND] {error}")
+
+    return {
+        "valid": len(errors) == 0,
+        "backend": backend_name,
+        "is_production": is_production,
+        "warnings": warnings,
+        "errors": errors,
+    }
+
+
 async def init_error_monitoring() -> bool:
     """Initialize error monitoring (Sentry).
 
@@ -1556,8 +1629,27 @@ async def run_startup_sequence(
 
         raise RuntimeError(error_msg)
 
+    # Validate storage backend configuration
+    storage_backend = validate_storage_backend()
+    if not storage_backend["valid"]:
+        for error in storage_backend["errors"]:
+            logger.error(f"Storage backend error: {error}")
+
+        error_msg = f"Storage backend validation failed: {'; '.join(storage_backend['errors'])}"
+
+        if graceful_degradation:
+            set_degraded(
+                reason=error_msg,
+                error_code=DegradedErrorCode.DATABASE_UNAVAILABLE,
+                details={"storage_backend": storage_backend},
+            )
+            return _get_degraded_status()
+
+        raise RuntimeError(error_msg)
+
     status: dict[str, Any] = {
         "backend_connectivity": connectivity,
+        "storage_backend": storage_backend,
         "redis_ha": {"enabled": False, "mode": "standalone", "healthy": False},
         "error_monitoring": False,
         "opentelemetry": False,
@@ -2107,6 +2199,7 @@ __all__ = [
     "validate_redis_connectivity",
     "validate_database_connectivity",
     "validate_backend_connectivity",
+    "validate_storage_backend",
     "init_redis_ha",
     "init_error_monitoring",
     "init_opentelemetry",

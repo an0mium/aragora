@@ -878,14 +878,34 @@ def init_handler_stores(nomic_dir: Path) -> dict:
         logger.debug(f"[init] VideoGenerator unavailable: {e}")
 
     # UserStore for user/org persistence
+    # Uses PostgreSQL in production for distributed deployments
     try:
         from aragora.storage import UserStore
+        from aragora.storage.user_store import PostgresUserStore
+        from aragora.storage.connection_factory import create_persistent_store
 
-        user_db_path = nomic_dir / "users.db"
-        stores["user_store"] = UserStore(user_db_path)
-        logger.info(f"[init] UserStore initialized at {user_db_path}")
+        stores["user_store"] = create_persistent_store(
+            store_name="user_store",
+            sqlite_class=UserStore,
+            postgres_class=PostgresUserStore,
+            db_filename="users.db",
+            data_dir=str(nomic_dir),
+        )
+        store_type = type(stores["user_store"]).__name__
+        logger.info(f"[init] UserStore initialized ({store_type})")
     except ImportError as e:
         logger.debug(f"[init] UserStore unavailable: {e}")
+    except Exception as e:
+        logger.error(f"[init] UserStore initialization failed: {e}")
+        # Try SQLite fallback
+        try:
+            from aragora.storage import UserStore
+
+            user_db_path = nomic_dir / "users.db"
+            stores["user_store"] = UserStore(user_db_path)
+            logger.warning(f"[init] UserStore fell back to SQLite at {user_db_path}")
+        except Exception as fallback_error:
+            logger.error(f"[init] UserStore SQLite fallback failed: {fallback_error}")
 
     # UsageTracker for billing events
     try:
