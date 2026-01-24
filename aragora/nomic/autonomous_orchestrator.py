@@ -240,6 +240,48 @@ class AgentRouter:
         # Default to first preferred agent
         return config.agent_types[0]
 
+    def get_coding_harness(
+        self,
+        agent_type: str,
+        track: Track,
+    ) -> Optional[Dict[str, str]]:
+        """Determine the coding harness to use for an agent.
+
+        For agents with native coding harnesses (claude, codex), returns None.
+        For other agents (gemini, grok, etc.), returns KiloCode configuration
+        if the track allows it.
+
+        Args:
+            agent_type: The selected agent type
+            track: The development track
+
+        Returns:
+            None if agent has native harness, otherwise dict with:
+            - harness: "kilocode"
+            - provider_id: The KiloCode provider to use
+            - mode: The KiloCode mode (code, architect, etc.)
+        """
+        # Agents with native coding harnesses don't need KiloCode
+        if agent_type in AGENTS_WITH_CODING_HARNESS:
+            return None
+
+        # Check if track allows KiloCode harness
+        config = self.track_configs.get(track, DEFAULT_TRACK_CONFIGS[Track.DEVELOPER])
+        if not config.use_kilocode_harness:
+            return None
+
+        # Get KiloCode provider for this agent type
+        provider_id = KILOCODE_PROVIDER_MAPPING.get(agent_type)
+        if not provider_id:
+            # No KiloCode mapping for this agent
+            return None
+
+        return {
+            "harness": "kilocode",
+            "provider_id": provider_id,
+            "mode": "code",  # Use code mode for implementation tasks
+        }
+
     def check_conflicts(
         self,
         subtask: SubTask,
@@ -671,6 +713,28 @@ class AutonomousOrchestrator:
         """Build a workflow definition for a subtask."""
         subtask = assignment.subtask
 
+        # Check if agent needs a coding harness (e.g., KiloCode for Gemini)
+        coding_harness = self.router.get_coding_harness(
+            assignment.agent_type,
+            assignment.track,
+        )
+
+        # Build implementation step config
+        implement_config: Dict[str, Any] = {
+            "agent_type": assignment.agent_type,
+            "prompt_template": "implement",
+            "files": subtask.file_scope,
+        }
+
+        # If agent needs a coding harness, add it to the config
+        if coding_harness:
+            implement_config["coding_harness"] = coding_harness
+            logger.info(
+                f"subtask_using_kilocode agent={assignment.agent_type} "
+                f"provider={coding_harness['provider_id']} "
+                f"track={assignment.track.value}"
+            )
+
         # Create workflow with phases aligned to nomic loop
         steps = [
             StepDefinition(
@@ -688,11 +752,7 @@ class AutonomousOrchestrator:
                 id="implement",
                 name="Implement Changes",
                 step_type="agent",
-                config={
-                    "agent_type": assignment.agent_type,
-                    "prompt_template": "implement",
-                    "files": subtask.file_scope,
-                },
+                config=implement_config,
                 next_steps=["verify"],
             ),
             StepDefinition(

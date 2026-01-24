@@ -150,18 +150,28 @@ class AgentStep(BaseStep):
     - Content generation
     - Analysis and review
     - Decision making
+
+    Config options:
+    - agent_type: The type of agent to use (claude, codex, gemini, etc.)
+    - prompt_template: Template string for the prompt
+    - coding_harness: Optional harness config for agents without native coding support
+      - harness: "kilocode"
+      - provider_id: KiloCode provider (e.g., "gemini-explorer")
+      - mode: KiloCode mode (code, architect, ask, debug)
     """
 
     def __init__(
         self,
         name: str,
-        agent_type: str,
-        prompt_template: str,
+        agent_type: str | None = None,
+        prompt_template: str | None = None,
         config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(name, config)
-        self.agent_type = agent_type
-        self.prompt_template = prompt_template
+        # Extract from config if not passed directly (for engine compatibility)
+        self.agent_type = agent_type or self._config.get("agent_type", "claude")
+        self.prompt_template = prompt_template or self._config.get("prompt_template", "")
+        self.coding_harness = self._config.get("coding_harness")
 
     async def execute(self, context: WorkflowContext) -> Any:
         """Execute the agent step."""
@@ -171,11 +181,38 @@ class AgentStep(BaseStep):
         # Build prompt from template and context
         prompt = self._build_prompt(context)
 
-        # Create and run agent
+        # Check if we should use a coding harness (e.g., KiloCode for Gemini)
+        if self.coding_harness and self.coding_harness.get("harness") == "kilocode":
+            return await self._execute_with_kilocode(prompt, context)
+
+        # Create and run agent normally
         agent = create_agent(self.agent_type)  # type: ignore[arg-type]
         response = await agent.generate(prompt)
 
         return {"response": response, "agent_type": self.agent_type}
+
+    async def _execute_with_kilocode(self, prompt: str, context: WorkflowContext) -> Dict[str, Any]:
+        """Execute using KiloCode as the coding harness."""
+        from aragora.agents.cli_agents import KiloCodeAgent
+
+        provider_id = self.coding_harness.get("provider_id", "gemini-explorer")  # type: ignore[union-attr]
+        mode = self.coding_harness.get("mode", "code")  # type: ignore[union-attr]
+
+        # Create KiloCode agent with the specified provider
+        agent = KiloCodeAgent(
+            name=f"kilocode-{provider_id}",
+            provider_id=provider_id,
+            mode=mode,
+        )
+
+        response = await agent.generate(prompt)
+
+        return {
+            "response": response,
+            "agent_type": self.agent_type,
+            "coding_harness": "kilocode",
+            "provider_id": provider_id,
+        }
 
     def _build_prompt(self, context: WorkflowContext) -> str:
         """Build prompt from template and context."""
