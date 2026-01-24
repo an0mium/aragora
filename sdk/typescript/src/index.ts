@@ -103,6 +103,9 @@ export { AragoraError } from './types';
 // Re-export client
 export { AragoraClient, createClient } from './client';
 
+// Re-export sync client
+export { AragoraClientSync, createSyncClient } from './sync';
+
 // Re-export WebSocket
 export type { WebSocketState, WebSocketOptions } from './websocket';
 export { AragoraWebSocket, createWebSocket } from './websocket';

@@ -58,6 +58,27 @@ const debate = await client.getDebate(result.debate_id);
 console.log('Final answer:', debate.final_answer);
 ```
 
+## Sync-Style Client
+
+For simpler code with async/await, use the sync-style wrapper:
+
+```typescript
+import { AragoraClientSync } from '@aragora/sdk';
+
+const client = new AragoraClientSync({
+  baseUrl: 'https://api.aragora.ai',
+  apiKey: 'your-api-key'
+});
+
+// Methods return arrays directly instead of wrapped objects
+const debates = await client.listDebates();
+const templates = await client.browseMarketplace({ category: 'security' });
+const categories = await client.getMarketplaceCategories();
+
+// Batch operations with automatic polling
+const results = await client.compareExplanations(['debate-1', 'debate-2']);
+```
+
 ## Real-time Streaming
 
 Stream debate events as they happen using WebSockets:
@@ -213,9 +234,24 @@ const narrative = await client.getNarrative('debate-id', {
 ### Workflows
 
 ```typescript
-// List workflow templates
+// List workflow templates with optional tags filter
 const { templates } = await client.listWorkflowTemplates({
-  category: 'analysis'
+  category: 'analysis',
+  tags: 'security,compliance'
+});
+
+// Get a template with examples
+const pkg = await client.getWorkflowTemplatePackage('template-id', {
+  include_examples: true
+});
+console.log(pkg.template, pkg.examples);
+
+// Create workflow from pattern
+const { template_id, workflow } = await client.instantiatePattern('pattern-id', {
+  name: 'My Security Workflow',
+  description: 'Custom security analysis',
+  category: 'security',
+  agents: ['claude', 'gpt-4']
 });
 
 // Run a workflow template
@@ -256,6 +292,9 @@ const sarif = await client.exportGauntletReceipt('receipt-id', 'sarif');
 ### Template Marketplace
 
 ```typescript
+// Get marketplace categories
+const { categories } = await client.getMarketplaceCategories();
+
 // Browse templates
 const { templates } = await client.browseMarketplace({
   category: 'security',
@@ -267,6 +306,23 @@ const { imported_id } = await client.importTemplate('template-id');
 
 // Rate a template
 await client.rateTemplate('template-id', 5);
+
+// Write a review
+const { review_id } = await client.reviewTemplate('template-id', {
+  rating: 5,
+  title: 'Excellent template',
+  content: 'This template saved us hours of work...'
+});
+
+// Publish a template with documentation
+const { marketplace_id } = await client.publishTemplate({
+  template_id: 'my-template',
+  name: 'Security Audit',
+  description: 'Comprehensive security analysis workflow',
+  category: 'security',
+  tags: ['audit', 'compliance'],
+  documentation: '# Usage\n\nThis template...'
+});
 
 // Get featured templates
 const { templates } = await client.getFeaturedTemplates();
@@ -311,8 +367,15 @@ import type {
   AgentProfile,
   ConsensusResult,
   Workflow,
-  WorkflowTemplate
+  WorkflowTemplate,
+  MarketplaceTemplate,
+  TemplateReview,
+  DecisionReceipt,
+  ExplainabilityResult
 } from '@aragora/sdk';
+
+// Import both client types
+import { AragoraClient, AragoraClientSync } from '@aragora/sdk';
 ```
 
 ## Browser Support

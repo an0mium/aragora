@@ -335,6 +335,7 @@ export class AragoraClient {
     category?: string;
     pattern?: string;
     search?: string;
+    tags?: string;
   } & PaginationParams): Promise<{ templates: WorkflowTemplate[] }> {
     return this.request<{ templates: WorkflowTemplate[] }>('GET', '/api/workflow/templates', { params });
   }
@@ -356,6 +357,30 @@ export class AragoraClient {
 
   async listWorkflowPatterns(): Promise<{ patterns: string[] }> {
     return this.request<{ patterns: string[] }>('GET', '/api/workflow/patterns');
+  }
+
+  async getWorkflowTemplatePackage(templateId: string, options?: {
+    include_examples?: boolean;
+  }): Promise<{ template: WorkflowTemplate; examples?: unknown[] }> {
+    return this.request<{ template: WorkflowTemplate; examples?: unknown[] }>(
+      'GET',
+      `/api/workflow/templates/${encodeURIComponent(templateId)}/package`,
+      { params: options }
+    );
+  }
+
+  async instantiatePattern(patternId: string, body: {
+    name: string;
+    description: string;
+    category?: string;
+    config?: Record<string, unknown>;
+    agents?: string[];
+  }): Promise<{ template_id: string; workflow: Workflow }> {
+    return this.request<{ template_id: string; workflow: Workflow }>(
+      'POST',
+      `/api/workflow/patterns/${encodeURIComponent(patternId)}/instantiate`,
+      { body }
+    );
   }
 
   // ===========================================================================
@@ -409,6 +434,7 @@ export class AragoraClient {
     description: string;
     category: string;
     tags?: string[];
+    documentation?: string;
   }): Promise<{ marketplace_id: string }> {
     return this.request<{ marketplace_id: string }>('POST', '/api/marketplace/templates', { body });
   }
@@ -431,6 +457,22 @@ export class AragoraClient {
 
   async getTrendingTemplates(): Promise<{ templates: MarketplaceTemplate[] }> {
     return this.request<{ templates: MarketplaceTemplate[] }>('GET', '/api/marketplace/trending');
+  }
+
+  async reviewTemplate(templateId: string, body: {
+    rating: number;
+    title: string;
+    content: string;
+  }): Promise<{ review_id: string }> {
+    return this.request<{ review_id: string }>(
+      'POST',
+      `/api/marketplace/templates/${encodeURIComponent(templateId)}/review`,
+      { body }
+    );
+  }
+
+  async getMarketplaceCategories(): Promise<{ categories: string[] }> {
+    return this.request<{ categories: string[] }>('GET', '/api/marketplace/categories');
   }
 
   // ===========================================================================
