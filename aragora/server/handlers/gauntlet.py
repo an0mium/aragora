@@ -796,6 +796,9 @@ class GauntletHandler(BaseHandler):
             except (OSError, RuntimeError, ValueError) as storage_err:
                 logger.warning(f"Failed to persist gauntlet {gauntlet_id}: {storage_err}")
 
+            # Auto-persist decision receipt
+            await self._auto_persist_receipt(result, gauntlet_id)
+
             # Clean up in-memory storage after persisting (keep result_obj for receipt generation)
             # In-memory entry can be removed after a timeout in production
 
@@ -846,6 +849,76 @@ class GauntletHandler(BaseHandler):
             logger.warning(f"Storage lookup failed for {gauntlet_id}: {e}")
 
         return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
+
+    async def _auto_persist_receipt(self, result: Any, gauntlet_id: str) -> None:
+        """Auto-persist decision receipt after gauntlet completion.
+
+        Generates and stores a decision receipt for compliance and audit trail.
+        Optionally signs the receipt if ARAGORA_AUTO_SIGN_RECEIPTS=true.
+        """
+        try:
+            from aragora.gauntlet.receipt import DecisionReceipt
+            from aragora.storage.receipt_store import StoredReceipt, get_receipt_store
+
+            # Get run data for input hash
+            run = _gauntlet_runs.get(gauntlet_id, {})
+
+            # Generate receipt from result
+            receipt = DecisionReceipt.from_mode_result(
+                result,
+                input_hash=run.get("input_hash"),
+            )
+
+            # Create stored receipt
+            stored = StoredReceipt(
+                receipt_id=receipt.receipt_id,
+                gauntlet_id=gauntlet_id,
+                debate_id=getattr(result, "debate_id", None),
+                created_at=time.time(),
+                verdict=receipt.verdict,
+                confidence=receipt.confidence,
+                risk_level=self._risk_level_from_score(receipt.robustness_score),
+                risk_score=1.0 - receipt.robustness_score,  # Invert: higher score = lower risk
+                checksum=hashlib.sha256(str(receipt.to_dict()).encode()).hexdigest(),
+                data=receipt.to_dict(),
+            )
+
+            # Save to receipt store
+            store = get_receipt_store()
+            store.save(stored)
+            logger.info(f"Decision receipt auto-persisted: {receipt.receipt_id}")
+
+            # Optional auto-signing
+            if os.environ.get("ARAGORA_AUTO_SIGN_RECEIPTS", "").lower() in ("true", "1", "yes"):
+                try:
+                    from aragora.gauntlet.signing import sign_receipt
+
+                    signed = sign_receipt(receipt.to_dict())
+                    store.update_signature(
+                        receipt.receipt_id,
+                        signature=signed.signature,
+                        algorithm=signed.signature_metadata.algorithm,
+                        key_id=signed.signature_metadata.key_id,
+                    )
+                    logger.info(f"Receipt auto-signed: {receipt.receipt_id}")
+                except (ImportError, ValueError) as sign_err:
+                    logger.warning(f"Auto-signing failed for {receipt.receipt_id}: {sign_err}")
+
+        except ImportError as e:
+            logger.debug(f"Receipt persistence skipped (module not available): {e}")
+        except Exception as e:
+            logger.warning(f"Failed to auto-persist receipt for {gauntlet_id}: {e}")
+
+    def _risk_level_from_score(self, robustness_score: float) -> str:
+        """Determine risk level from robustness score."""
+        if robustness_score >= 0.8:
+            return "LOW"
+        elif robustness_score >= 0.6:
+            return "MEDIUM"
+        elif robustness_score >= 0.4:
+            return "HIGH"
+        else:
+            return "CRITICAL"
 
     async def _get_receipt(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Get decision receipt for gauntlet run."""

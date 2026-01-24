@@ -96,6 +96,7 @@ FeaturesHandler: HandlerType = None
 MemoryAnalyticsHandler: HandlerType = None
 GauntletHandler: HandlerType = None
 SlackHandler: HandlerType = None
+SlackOAuthHandler: HandlerType = None
 OrganizationsHandler: HandlerType = None
 OAuthHandler: HandlerType = None
 ReviewsHandler: HandlerType = None
@@ -318,6 +319,9 @@ try:
     from aragora.server.handlers import (
         SlackHandler as _SlackHandler,
     )
+    from aragora.server.handlers.social.slack_oauth import (
+        SlackOAuthHandler as _SlackOAuthHandler,
+    )
     from aragora.server.handlers import (
         SocialMediaHandler as _SocialMediaHandler,
     )
@@ -420,6 +424,9 @@ try:
     from aragora.server.handlers.features import (
         DevOpsHandler as _DevOpsHandler,
     )
+    from aragora.server.handlers.receipts import (
+        ReceiptsHandler as _ReceiptsHandler,
+    )
 
     # Assign imported classes to module-level variables
     SystemHandler = _SystemHandler
@@ -473,6 +480,7 @@ try:
     MemoryAnalyticsHandler = _MemoryAnalyticsHandler
     GauntletHandler = _GauntletHandler
     SlackHandler = _SlackHandler
+    SlackOAuthHandler = _SlackOAuthHandler
     OrganizationsHandler = _OrganizationsHandler
     OAuthHandler = _OAuthHandler
     ReviewsHandler = _ReviewsHandler
@@ -514,6 +522,7 @@ try:
     CodebaseAuditHandler = _CodebaseAuditHandler
     LegalHandler = _LegalHandler
     DevOpsHandler = _DevOpsHandler
+    ReceiptsHandler = _ReceiptsHandler
     HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
@@ -582,6 +591,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_memory_analytics_handler", MemoryAnalyticsHandler),
     ("_gauntlet_handler", GauntletHandler),
     ("_slack_handler", SlackHandler),
+    ("_slack_oauth_handler", SlackOAuthHandler),
     ("_organizations_handler", OrganizationsHandler),
     ("_oauth_handler", OAuthHandler),
     ("_reviews_handler", ReviewsHandler),
@@ -621,6 +631,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_codebase_audit_handler", CodebaseAuditHandler),
     ("_legal_handler", LegalHandler),
     ("_devops_handler", DevOpsHandler),
+    ("_receipts_handler", ReceiptsHandler),
 ]
 
 
@@ -763,6 +774,10 @@ class RouteIndex:
             "_ecommerce_handler": [
                 "/api/ecommerce/",
                 "/api/v1/ecommerce/",
+            ],
+            "_receipts_handler": [
+                "/api/v2/receipts",
+                "/api/v2/receipts/",
             ],
         }
 
