@@ -536,7 +536,7 @@ class TestReceiptStoreIntegrity:
 
         # Mock DecisionReceipt to return same checksum
         mock_receipt = MagicMock()
-        mock_receipt.compute_checksum.return_value = "sha256:valid"
+        mock_receipt._compute_checksum.return_value = "sha256:valid"
         mock_receipt_class = MagicMock()
         mock_receipt_class.from_dict.return_value = mock_receipt
 
@@ -556,7 +556,7 @@ class TestReceiptStoreIntegrity:
 
         # Mock DecisionReceipt to return different checksum
         mock_receipt = MagicMock()
-        mock_receipt.compute_checksum.return_value = "sha256:tampered"
+        mock_receipt._compute_checksum.return_value = "sha256:tampered"
         mock_receipt_class = MagicMock()
         mock_receipt_class.from_dict.return_value = mock_receipt
 
