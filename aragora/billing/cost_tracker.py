@@ -28,6 +28,18 @@ from aragora.billing.usage import (
     calculate_token_cost,
 )
 
+# Import Prometheus metrics for cost tracking
+try:
+    from aragora.server.prometheus import record_cost_usd
+
+    PROMETHEUS_AVAILABLE = True
+except ImportError:
+    PROMETHEUS_AVAILABLE = False
+
+    def record_cost_usd(provider: str, model: str, agent_id: str, cost_usd: float) -> None:
+        pass  # No-op if Prometheus not available
+
+
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.cost_adapter import CostAdapter
 
@@ -402,6 +414,14 @@ class CostTracker:
                 },
             )
             self._usage_tracker.record(event)
+
+        # Record to Prometheus metrics for dashboards
+        record_cost_usd(
+            provider=usage.provider,
+            model=usage.model,
+            agent_id=usage.agent_id or usage.agent_name,
+            cost_usd=float(usage.cost_usd),
+        )
 
         logger.debug(
             f"cost_recorded workspace={usage.workspace_id} agent={usage.agent_name} "

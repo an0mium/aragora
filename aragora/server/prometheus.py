@@ -68,6 +68,26 @@ if PROMETHEUS_AVAILABLE:
         ["outcome"],  # consensus, no_consensus, error, timeout
     )
 
+    # Cost metrics
+    COST_USD_TOTAL = Counter(
+        "aragora_cost_usd_total",
+        "Total cost in USD (multiply by 1e-6 for actual dollars)",
+        ["provider", "model", "agent_id"],
+    )
+
+    COST_PER_DEBATE = Histogram(
+        "aragora_debate_cost_usd",
+        "Cost per debate in USD (multiply by 1e-6 for actual dollars)",
+        ["provider"],
+        buckets=[1000, 5000, 10000, 50000, 100000, 500000, 1000000],  # micro-dollars
+    )
+
+    BUDGET_UTILIZATION = Gauge(
+        "aragora_budget_utilization_percent",
+        "Current budget utilization percentage",
+        ["workspace_id", "budget_type"],  # budget_type: daily, monthly, per_debate
+    )
+
     # Agent metrics
     AGENT_GENERATION_DURATION = Histogram(
         "aragora_agent_generation_seconds",
@@ -638,6 +658,49 @@ def record_tokens_used(model: str, input_tokens: int, output_tokens: int) -> Non
             "aragora_debate_tokens_total",
             {"model": model, "direction": "output"},
             output_tokens,
+        )
+
+
+def record_cost_usd(provider: str, model: str, agent_id: str, cost_usd: float) -> None:
+    """Record cost in USD.
+
+    Cost is stored as micro-dollars (1e-6) for precision with counters.
+    """
+    micro_dollars = int(cost_usd * 1_000_000)
+    if PROMETHEUS_AVAILABLE:
+        COST_USD_TOTAL.labels(provider=provider, model=model, agent_id=agent_id).inc(micro_dollars)
+    else:
+        _simple_metrics.inc_counter(
+            "aragora_cost_usd_total",
+            {"provider": provider, "model": model, "agent_id": agent_id},
+            micro_dollars,
+        )
+
+
+def record_debate_cost(provider: str, cost_usd: float) -> None:
+    """Record cost for a completed debate."""
+    micro_dollars = int(cost_usd * 1_000_000)
+    if PROMETHEUS_AVAILABLE:
+        COST_PER_DEBATE.labels(provider=provider).observe(micro_dollars)
+    else:
+        _simple_metrics.observe_histogram(
+            "aragora_debate_cost_usd",
+            micro_dollars,
+            {"provider": provider},
+        )
+
+
+def set_budget_utilization(workspace_id: str, budget_type: str, utilization_percent: float) -> None:
+    """Set current budget utilization percentage."""
+    if PROMETHEUS_AVAILABLE:
+        BUDGET_UTILIZATION.labels(workspace_id=workspace_id, budget_type=budget_type).set(
+            utilization_percent
+        )
+    else:
+        _simple_metrics.set_gauge(
+            "aragora_budget_utilization_percent",
+            utilization_percent,
+            {"workspace_id": workspace_id, "budget_type": budget_type},
         )
 
 
