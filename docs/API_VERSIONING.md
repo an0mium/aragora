@@ -41,9 +41,17 @@ Accept: application/json; version=2
 
 ## Deprecation Policy
 
+For the complete deprecation policy covering API endpoints, SDK methods, configuration options, and internal APIs, see **[DEPRECATION_POLICY.md](./DEPRECATION_POLICY.md)**.
+
+### Summary
+
+Aragora follows a **2 minor version grace period** for all deprecations:
+- Deprecated in v2.1.0 -> Removed in v2.3.0
+- Minimum 6 months notice for public APIs
+
 ### Timeline
-- **Warning**: 6+ months before sunset
-- **Critical**: 30 days before sunset
+- **Warning**: 6+ months before sunset (deprecation announced)
+- **Critical**: 30 days before sunset (final warning)
 - **Sunset**: Endpoint removed
 
 ### Headers
@@ -57,7 +65,7 @@ Deprecated endpoints include:
 ```http
 HTTP/1.1 200 OK
 Deprecation: @1735689600
-Sunset: 2025-01-01
+Sunset: 2026-06-01
 Link: </api/v2/users>; rel="successor-version"
 X-Deprecation-Level: warning
 ```
@@ -362,3 +370,4 @@ curl -H "X-API-Version: 2" https://api.aragora.io/api/debates
 3. **Test with new versions early** - Use beta/alpha in staging
 4. **Use semantic versioning** - Major version = breaking changes
 5. **Plan migrations** - Start migration 3+ months before sunset
+6. **Review deprecation policy** - See [DEPRECATION_POLICY.md](./DEPRECATION_POLICY.md) for complete guidelines

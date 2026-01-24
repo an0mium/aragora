@@ -5,8 +5,11 @@ Provides production-hardening capabilities:
 - Retry logic with exponential backoff for transient failures
 - Explicit transaction boundaries for multi-table operations
 - Connection health monitoring
-- Circuit breaker integration
+- Circuit breaker integration for adapters
 - Cache invalidation events
+- SLO monitoring with Prometheus metrics
+- Bulkhead isolation for adapter operations
+- Timeout configuration for all operations
 
 "Reliability is a feature."
 """
@@ -18,12 +21,27 @@ import functools
 import json
 import logging
 import random
+import sys
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, AsyncIterator, Awaitable, Callable, Optional, TypeVar
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Optional, TypeVar
+
+# Python 3.11+ has asyncio.timeout, earlier versions need async-timeout
+if sys.version_info >= (3, 11):
+    asyncio_timeout = asyncio.timeout
+else:
+    try:
+        from async_timeout import timeout as asyncio_timeout
+    except ImportError:
+        # Fallback: create a simple context manager that doesn't timeout
+        @asynccontextmanager
+        async def asyncio_timeout(delay: float):  # type: ignore[misc]
+            """Fallback timeout context manager (no-op)."""
+            yield
+
 
 logger = logging.getLogger(__name__)
 
@@ -179,9 +197,7 @@ class CacheInvalidationBus:
         if errors:
             logger.warning(f"Cache invalidation had {len(errors)} subscriber errors")
 
-    async def publish_node_update(
-        self, workspace_id: str, node_id: str, **metadata: Any
-    ) -> None:
+    async def publish_node_update(self, workspace_id: str, node_id: str, **metadata: Any) -> None:
         """Convenience method for node update events."""
         await self.publish(
             CacheInvalidationEvent(
@@ -192,9 +208,7 @@ class CacheInvalidationBus:
             )
         )
 
-    async def publish_node_delete(
-        self, workspace_id: str, node_id: str, **metadata: Any
-    ) -> None:
+    async def publish_node_delete(self, workspace_id: str, node_id: str, **metadata: Any) -> None:
         """Convenience method for node deletion events."""
         await self.publish(
             CacheInvalidationEvent(
@@ -205,9 +219,7 @@ class CacheInvalidationBus:
             )
         )
 
-    async def publish_query_invalidation(
-        self, workspace_id: str, **metadata: Any
-    ) -> None:
+    async def publish_query_invalidation(self, workspace_id: str, **metadata: Any) -> None:
         """Convenience method for query cache invalidation."""
         await self.publish(
             CacheInvalidationEvent(
@@ -266,9 +278,7 @@ def with_retry(
                         )
                         await asyncio.sleep(delay)
                     else:
-                        logger.error(
-                            f"Max retries exceeded for {func.__name__}: {e}"
-                        )
+                        logger.error(f"Max retries exceeded for {func.__name__}: {e}")
 
             # Should not reach here, but just in case
             if last_exception:
@@ -474,9 +484,7 @@ class ConnectionHealthMonitor:
         self._status.last_error = error
         if self._status.consecutive_failures >= self._failure_threshold:
             self._status.healthy = False
-            logger.error(
-                f"Connection unhealthy after {self._status.consecutive_failures} failures"
-            )
+            logger.error(f"Connection unhealthy after {self._status.consecutive_failures} failures")
 
     def is_healthy(self) -> bool:
         """Check if connections are healthy."""
@@ -773,9 +781,7 @@ class ResilientPostgresStore:
                 f"Integrity check found {len(result.issues_found)} issues: {result.issues_found}"
             )
         else:
-            logger.info(
-                f"Integrity check passed ({result.checks_performed} checks)"
-            )
+            logger.info(f"Integrity check passed ({result.checks_performed} checks)")
 
         return result
 
@@ -925,3 +931,937 @@ class ResilientPostgresStore:
         if not self._integrity_verifier:
             raise RuntimeError("ResilientPostgresStore not initialized")
         return await self._integrity_verifier.repair_orphans(dry_run=dry_run)
+
+
+# =============================================================================
+# Adapter Circuit Breaker
+# =============================================================================
+
+
+class AdapterCircuitState(str, Enum):
+    """Circuit breaker states for adapters."""
+
+    CLOSED = "closed"  # Normal operation
+    OPEN = "open"  # Blocking requests
+    HALF_OPEN = "half_open"  # Testing recovery
+
+
+@dataclass
+class AdapterCircuitBreakerConfig:
+    """Configuration for adapter circuit breaker.
+
+    Attributes:
+        failure_threshold: Failures before opening circuit
+        success_threshold: Successes in half-open to close circuit
+        timeout_seconds: Time in open state before trying half-open
+        half_open_max_calls: Max concurrent calls in half-open state
+    """
+
+    failure_threshold: int = 5
+    success_threshold: int = 2
+    timeout_seconds: float = 30.0
+    half_open_max_calls: int = 1
+
+
+@dataclass
+class AdapterCircuitStats:
+    """Statistics for an adapter circuit breaker."""
+
+    adapter_name: str
+    state: AdapterCircuitState
+    failure_count: int = 0
+    success_count: int = 0
+    last_failure_time: Optional[float] = None
+    last_success_time: Optional[float] = None
+    state_changed_at: float = field(default_factory=time.time)
+    total_failures: int = 0
+    total_successes: int = 0
+    total_circuit_opens: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "adapter_name": self.adapter_name,
+            "state": self.state.value,
+            "failure_count": self.failure_count,
+            "success_count": self.success_count,
+            "last_failure_time": self.last_failure_time,
+            "last_success_time": self.last_success_time,
+            "state_changed_at": self.state_changed_at,
+            "total_failures": self.total_failures,
+            "total_successes": self.total_successes,
+            "total_circuit_opens": self.total_circuit_opens,
+        }
+
+
+class AdapterCircuitBreaker:
+    """
+    Circuit breaker specifically designed for Knowledge Mound adapters.
+
+    Provides per-adapter circuit breaker functionality with:
+    - Configurable failure thresholds
+    - Half-open state for gradual recovery
+    - Metrics integration for monitoring
+    - State persistence for recovery
+
+    Usage:
+        breaker = AdapterCircuitBreaker("continuum")
+
+        async def operation():
+            if not breaker.can_proceed():
+                raise AdapterUnavailableError("Circuit open")
+            try:
+                result = await adapter.do_something()
+                breaker.record_success()
+                return result
+            except Exception as e:
+                breaker.record_failure(str(e))
+                raise
+    """
+
+    def __init__(
+        self,
+        adapter_name: str,
+        config: Optional[AdapterCircuitBreakerConfig] = None,
+    ):
+        """Initialize adapter circuit breaker.
+
+        Args:
+            adapter_name: Name of the adapter (continuum, consensus, etc.)
+            config: Circuit breaker configuration
+        """
+        self.adapter_name = adapter_name
+        self.config = config or AdapterCircuitBreakerConfig()
+        self._state = AdapterCircuitState.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._half_open_calls = 0
+        self._last_failure_time: Optional[float] = None
+        self._last_success_time: Optional[float] = None
+        self._state_changed_at = time.time()
+        self._total_failures = 0
+        self._total_successes = 0
+        self._total_circuit_opens = 0
+        self._lock = asyncio.Lock()
+
+    @property
+    def state(self) -> AdapterCircuitState:
+        """Get current circuit state."""
+        return self._state
+
+    @property
+    def is_open(self) -> bool:
+        """Check if circuit is open (blocking requests)."""
+        return self._state == AdapterCircuitState.OPEN
+
+    @property
+    def is_closed(self) -> bool:
+        """Check if circuit is closed (normal operation)."""
+        return self._state == AdapterCircuitState.CLOSED
+
+    def can_proceed(self) -> bool:
+        """Check if a request can proceed through the circuit.
+
+        Returns:
+            True if request is allowed, False if circuit is open
+        """
+        if self._state == AdapterCircuitState.CLOSED:
+            return True
+
+        if self._state == AdapterCircuitState.OPEN:
+            # Check if timeout has elapsed
+            if time.time() - self._state_changed_at >= self.config.timeout_seconds:
+                self._transition_to_half_open()
+                return self._half_open_calls < self.config.half_open_max_calls
+            return False
+
+        if self._state == AdapterCircuitState.HALF_OPEN:
+            return self._half_open_calls < self.config.half_open_max_calls
+
+        return False
+
+    def record_success(self) -> None:
+        """Record a successful operation."""
+        self._last_success_time = time.time()
+        self._total_successes += 1
+
+        if self._state == AdapterCircuitState.HALF_OPEN:
+            self._success_count += 1
+            self._half_open_calls -= 1
+            if self._success_count >= self.config.success_threshold:
+                self._transition_to_closed()
+        elif self._state == AdapterCircuitState.CLOSED:
+            # Reset failure count on success
+            self._failure_count = 0
+
+        self._record_metrics("success")
+
+    def record_failure(self, error: Optional[str] = None) -> bool:
+        """Record a failed operation.
+
+        Args:
+            error: Optional error message for logging
+
+        Returns:
+            True if circuit just opened
+        """
+        self._last_failure_time = time.time()
+        self._total_failures += 1
+        circuit_opened = False
+
+        if self._state == AdapterCircuitState.HALF_OPEN:
+            # Any failure in half-open reopens the circuit
+            self._half_open_calls -= 1
+            self._transition_to_open()
+            circuit_opened = True
+            logger.warning(f"Adapter circuit {self.adapter_name} reopened from half-open: {error}")
+        elif self._state == AdapterCircuitState.CLOSED:
+            self._failure_count += 1
+            if self._failure_count >= self.config.failure_threshold:
+                self._transition_to_open()
+                circuit_opened = True
+                logger.warning(
+                    f"Adapter circuit {self.adapter_name} opened after "
+                    f"{self._failure_count} failures: {error}"
+                )
+
+        self._record_metrics("failure")
+        return circuit_opened
+
+    def _transition_to_open(self) -> None:
+        """Transition to open state."""
+        self._state = AdapterCircuitState.OPEN
+        self._state_changed_at = time.time()
+        self._total_circuit_opens += 1
+        self._success_count = 0
+        logger.info(f"Adapter circuit {self.adapter_name} -> OPEN")
+        self._record_state_change()
+
+    def _transition_to_half_open(self) -> None:
+        """Transition to half-open state."""
+        self._state = AdapterCircuitState.HALF_OPEN
+        self._state_changed_at = time.time()
+        self._half_open_calls = 0
+        self._success_count = 0
+        logger.info(f"Adapter circuit {self.adapter_name} -> HALF_OPEN")
+        self._record_state_change()
+
+    def _transition_to_closed(self) -> None:
+        """Transition to closed state."""
+        self._state = AdapterCircuitState.CLOSED
+        self._state_changed_at = time.time()
+        self._failure_count = 0
+        self._success_count = 0
+        logger.info(f"Adapter circuit {self.adapter_name} -> CLOSED")
+        self._record_state_change()
+
+    def reset(self) -> None:
+        """Reset circuit to closed state."""
+        self._state = AdapterCircuitState.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._half_open_calls = 0
+        self._state_changed_at = time.time()
+        logger.info(f"Adapter circuit {self.adapter_name} reset to CLOSED")
+
+    def get_stats(self) -> AdapterCircuitStats:
+        """Get circuit breaker statistics."""
+        return AdapterCircuitStats(
+            adapter_name=self.adapter_name,
+            state=self._state,
+            failure_count=self._failure_count,
+            success_count=self._success_count,
+            last_failure_time=self._last_failure_time,
+            last_success_time=self._last_success_time,
+            state_changed_at=self._state_changed_at,
+            total_failures=self._total_failures,
+            total_successes=self._total_successes,
+            total_circuit_opens=self._total_circuit_opens,
+        )
+
+    def cooldown_remaining(self) -> float:
+        """Get remaining time in cooldown (open state).
+
+        Returns:
+            Seconds remaining, or 0 if not in open state
+        """
+        if self._state != AdapterCircuitState.OPEN:
+            return 0.0
+        elapsed = time.time() - self._state_changed_at
+        remaining = self.config.timeout_seconds - elapsed
+        return max(0.0, remaining)
+
+    def _record_metrics(self, event_type: str) -> None:
+        """Record Prometheus metrics for circuit breaker events."""
+        try:
+            from aragora.observability.metrics.km import (
+                record_km_adapter_sync,
+            )
+
+            success = event_type == "success"
+            record_km_adapter_sync(self.adapter_name, "circuit_breaker", success)
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.debug(f"Failed to record circuit breaker metric: {e}")
+
+    def _record_state_change(self) -> None:
+        """Record Prometheus metrics for state changes."""
+        try:
+            # Map state to health status for logging
+            state_map = {
+                AdapterCircuitState.CLOSED: 3,  # healthy
+                AdapterCircuitState.HALF_OPEN: 2,  # degraded
+                AdapterCircuitState.OPEN: 1,  # unhealthy
+            }
+            logger.debug(
+                f"Adapter {self.adapter_name} state: {self._state.value} "
+                f"(health={state_map.get(self._state, 0)})"
+            )
+        except Exception as e:
+            logger.debug(f"Failed to record state change metric: {e}")
+
+    @asynccontextmanager
+    async def protected_call(self) -> AsyncIterator[None]:
+        """Context manager for circuit-breaker-protected async calls.
+
+        Raises:
+            AdapterUnavailableError: If circuit is open
+
+        Usage:
+            async with breaker.protected_call():
+                result = await adapter.operation()
+        """
+        if not self.can_proceed():
+            remaining = self.cooldown_remaining()
+            raise AdapterUnavailableError(
+                self.adapter_name,
+                remaining,
+                f"Circuit breaker open, retry in {remaining:.1f}s",
+            )
+
+        if self._state == AdapterCircuitState.HALF_OPEN:
+            self._half_open_calls += 1
+
+        try:
+            yield
+            self.record_success()
+        except asyncio.CancelledError:
+            # Don't count task cancellation as failure
+            if self._state == AdapterCircuitState.HALF_OPEN:
+                self._half_open_calls -= 1
+            raise
+        except Exception as e:
+            self.record_failure(str(e))
+            raise
+
+
+class AdapterUnavailableError(Exception):
+    """Raised when an adapter is unavailable due to circuit breaker."""
+
+    def __init__(
+        self,
+        adapter_name: str,
+        cooldown_remaining: float,
+        message: Optional[str] = None,
+    ):
+        self.adapter_name = adapter_name
+        self.cooldown_remaining = cooldown_remaining
+        super().__init__(
+            message or f"Adapter '{adapter_name}' unavailable. Retry in {cooldown_remaining:.1f}s"
+        )
+
+
+# Global registry of adapter circuit breakers
+_adapter_circuits: Dict[str, AdapterCircuitBreaker] = {}
+
+
+def get_adapter_circuit_breaker(
+    adapter_name: str,
+    config: Optional[AdapterCircuitBreakerConfig] = None,
+) -> AdapterCircuitBreaker:
+    """Get or create a circuit breaker for an adapter.
+
+    Args:
+        adapter_name: Name of the adapter
+        config: Optional configuration (only used if creating new)
+
+    Returns:
+        AdapterCircuitBreaker instance
+    """
+    if adapter_name not in _adapter_circuits:
+        _adapter_circuits[adapter_name] = AdapterCircuitBreaker(adapter_name, config)
+    return _adapter_circuits[adapter_name]
+
+
+def get_all_adapter_circuit_stats() -> Dict[str, Dict[str, Any]]:
+    """Get statistics for all adapter circuit breakers.
+
+    Returns:
+        Dict mapping adapter names to their stats
+    """
+    return {name: cb.get_stats().to_dict() for name, cb in _adapter_circuits.items()}
+
+
+def reset_adapter_circuit_breaker(adapter_name: str) -> bool:
+    """Reset a specific adapter's circuit breaker.
+
+    Args:
+        adapter_name: Name of the adapter
+
+    Returns:
+        True if reset, False if adapter not found
+    """
+    if adapter_name in _adapter_circuits:
+        _adapter_circuits[adapter_name].reset()
+        return True
+    return False
+
+
+def reset_all_adapter_circuit_breakers() -> int:
+    """Reset all adapter circuit breakers.
+
+    Returns:
+        Number of circuit breakers reset
+    """
+    count = 0
+    for cb in _adapter_circuits.values():
+        cb.reset()
+        count += 1
+    return count
+
+
+# =============================================================================
+# SLO Monitoring for Adapters
+# =============================================================================
+
+
+@dataclass
+class AdapterSLOConfig:
+    """SLO configuration for adapter operations.
+
+    Defines latency thresholds for monitoring adapter performance.
+    """
+
+    # Forward sync (source -> KM) latencies in milliseconds
+    forward_sync_p50_ms: float = 100.0
+    forward_sync_p90_ms: float = 300.0
+    forward_sync_p99_ms: float = 800.0
+
+    # Reverse query (KM -> consumer) latencies in milliseconds
+    reverse_query_p50_ms: float = 50.0
+    reverse_query_p90_ms: float = 150.0
+    reverse_query_p99_ms: float = 500.0
+
+    # Semantic search latencies in milliseconds
+    semantic_search_p50_ms: float = 100.0
+    semantic_search_p90_ms: float = 300.0
+    semantic_search_p99_ms: float = 1000.0
+
+    # Operation timeouts in seconds
+    forward_sync_timeout_s: float = 5.0
+    reverse_query_timeout_s: float = 3.0
+    semantic_search_timeout_s: float = 5.0
+
+
+# Default SLO config
+_adapter_slo_config: Optional[AdapterSLOConfig] = None
+
+
+def get_adapter_slo_config() -> AdapterSLOConfig:
+    """Get the adapter SLO configuration."""
+    global _adapter_slo_config
+    if _adapter_slo_config is None:
+        _adapter_slo_config = AdapterSLOConfig()
+    return _adapter_slo_config
+
+
+def set_adapter_slo_config(config: AdapterSLOConfig) -> None:
+    """Set a custom adapter SLO configuration."""
+    global _adapter_slo_config
+    _adapter_slo_config = config
+
+
+def check_adapter_slo(
+    operation: str,
+    latency_ms: float,
+    adapter_name: str,
+    percentile: str = "p99",
+) -> tuple[bool, str]:
+    """Check if adapter operation meets SLO.
+
+    Args:
+        operation: Operation type (forward_sync, reverse_query, semantic_search)
+        latency_ms: Measured latency in milliseconds
+        adapter_name: Name of the adapter
+        percentile: SLO percentile to check (p50, p90, p99)
+
+    Returns:
+        Tuple of (is_within_slo, message)
+    """
+    config = get_adapter_slo_config()
+
+    # Get threshold for operation and percentile
+    attr_name = f"{operation}_{percentile}_ms"
+    threshold = getattr(config, attr_name, None)
+
+    if threshold is None:
+        return True, f"No SLO defined for {operation}.{percentile}"
+
+    is_within = latency_ms <= threshold
+
+    if is_within:
+        return (
+            True,
+            f"{adapter_name}.{operation} latency {latency_ms:.1f}ms "
+            f"within {percentile} SLO ({threshold}ms)",
+        )
+    else:
+        return (
+            False,
+            f"{adapter_name}.{operation} latency {latency_ms:.1f}ms "
+            f"EXCEEDS {percentile} SLO ({threshold}ms)",
+        )
+
+
+def record_adapter_slo_check(
+    adapter_name: str,
+    operation: str,
+    latency_ms: float,
+    success: bool,
+    context: Optional[Dict[str, Any]] = None,
+) -> tuple[bool, str]:
+    """Record an adapter operation and check SLO compliance.
+
+    Combines metric recording with SLO checking for convenience.
+
+    Args:
+        adapter_name: Name of the adapter
+        operation: Operation type (forward_sync, reverse_query, semantic_search)
+        latency_ms: Measured latency in milliseconds
+        success: Whether the operation succeeded
+        context: Optional context for SLO violation reporting
+
+    Returns:
+        Tuple of (is_within_slo, message)
+    """
+    # Record the operation latency
+    try:
+        from aragora.observability.metrics.km import (
+            record_forward_sync_latency,
+            record_reverse_query_latency,
+            record_km_operation,
+        )
+
+        latency_seconds = latency_ms / 1000.0
+
+        if operation == "forward_sync":
+            record_forward_sync_latency(adapter_name, latency_seconds)
+        elif operation == "reverse_query":
+            record_reverse_query_latency(adapter_name, latency_seconds)
+
+        record_km_operation(f"{adapter_name}_{operation}", success, latency_seconds)
+
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.debug(f"Failed to record adapter metrics: {e}")
+
+    # Check SLO compliance
+    passed, message = check_adapter_slo(operation, latency_ms, adapter_name)
+
+    # Record SLO check if metrics available
+    if not passed:
+        try:
+            from aragora.observability.metrics.slo import (
+                check_and_record_slo_with_recovery,
+            )
+
+            # Map to standard SLO operation name
+            slo_operation = f"adapter_{operation}"
+            check_and_record_slo_with_recovery(
+                operation=slo_operation,
+                latency_ms=latency_ms,
+                context={
+                    "adapter": adapter_name,
+                    "operation": operation,
+                    "success": success,
+                    **(context or {}),
+                },
+            )
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.debug(f"Failed to record SLO check: {e}")
+
+        logger.warning(message)
+
+    return passed, message
+
+
+# =============================================================================
+# Bulkhead Pattern for Adapter Isolation
+# =============================================================================
+
+
+@dataclass
+class BulkheadConfig:
+    """Configuration for bulkhead isolation.
+
+    Limits concurrent operations per adapter to prevent cascade failures.
+    """
+
+    max_concurrent_calls: int = 10
+    max_wait_seconds: float = 5.0
+
+
+class AdapterBulkhead:
+    """
+    Bulkhead pattern for isolating adapter operations.
+
+    Limits the number of concurrent calls to an adapter to prevent
+    resource exhaustion and cascade failures.
+
+    Usage:
+        bulkhead = AdapterBulkhead("continuum", max_concurrent=10)
+
+        async with bulkhead.acquire():
+            result = await adapter.operation()
+    """
+
+    def __init__(
+        self,
+        adapter_name: str,
+        config: Optional[BulkheadConfig] = None,
+    ):
+        """Initialize bulkhead.
+
+        Args:
+            adapter_name: Name of the adapter
+            config: Bulkhead configuration
+        """
+        self.adapter_name = adapter_name
+        self.config = config or BulkheadConfig()
+        self._semaphore = asyncio.Semaphore(self.config.max_concurrent_calls)
+        self._active_calls = 0
+        self._rejected_calls = 0
+        self._total_calls = 0
+
+    @property
+    def active_calls(self) -> int:
+        """Get number of active calls."""
+        return self._active_calls
+
+    @property
+    def available_permits(self) -> int:
+        """Get number of available permits."""
+        return self.config.max_concurrent_calls - self._active_calls
+
+    @asynccontextmanager
+    async def acquire(self) -> AsyncIterator[None]:
+        """Acquire a permit from the bulkhead.
+
+        Raises:
+            BulkheadFullError: If bulkhead is full and wait times out
+        """
+        self._total_calls += 1
+
+        try:
+            acquired = await asyncio.wait_for(
+                self._semaphore.acquire(),
+                timeout=self.config.max_wait_seconds,
+            )
+            if not acquired:
+                self._rejected_calls += 1
+                raise BulkheadFullError(
+                    self.adapter_name,
+                    self.config.max_concurrent_calls,
+                )
+        except asyncio.TimeoutError:
+            self._rejected_calls += 1
+            raise BulkheadFullError(
+                self.adapter_name,
+                self.config.max_concurrent_calls,
+                f"Bulkhead full after waiting {self.config.max_wait_seconds}s",
+            )
+
+        self._active_calls += 1
+        try:
+            yield
+        finally:
+            self._active_calls -= 1
+            self._semaphore.release()
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get bulkhead statistics."""
+        return {
+            "adapter_name": self.adapter_name,
+            "max_concurrent_calls": self.config.max_concurrent_calls,
+            "active_calls": self._active_calls,
+            "available_permits": self.available_permits,
+            "total_calls": self._total_calls,
+            "rejected_calls": self._rejected_calls,
+            "rejection_rate": (
+                self._rejected_calls / self._total_calls if self._total_calls > 0 else 0.0
+            ),
+        }
+
+
+class BulkheadFullError(Exception):
+    """Raised when bulkhead is at capacity."""
+
+    def __init__(
+        self,
+        adapter_name: str,
+        max_concurrent: int,
+        message: Optional[str] = None,
+    ):
+        self.adapter_name = adapter_name
+        self.max_concurrent = max_concurrent
+        super().__init__(
+            message or f"Bulkhead '{adapter_name}' full (max {max_concurrent} concurrent calls)"
+        )
+
+
+# Global registry of adapter bulkheads
+_adapter_bulkheads: Dict[str, AdapterBulkhead] = {}
+
+
+def get_adapter_bulkhead(
+    adapter_name: str,
+    config: Optional[BulkheadConfig] = None,
+) -> AdapterBulkhead:
+    """Get or create a bulkhead for an adapter.
+
+    Args:
+        adapter_name: Name of the adapter
+        config: Optional configuration (only used if creating new)
+
+    Returns:
+        AdapterBulkhead instance
+    """
+    if adapter_name not in _adapter_bulkheads:
+        _adapter_bulkheads[adapter_name] = AdapterBulkhead(adapter_name, config)
+    return _adapter_bulkheads[adapter_name]
+
+
+def get_all_adapter_bulkhead_stats() -> Dict[str, Dict[str, Any]]:
+    """Get statistics for all adapter bulkheads."""
+    return {name: bh.get_stats() for name, bh in _adapter_bulkheads.items()}
+
+
+# =============================================================================
+# Resilient Adapter Base
+# =============================================================================
+
+
+class ResilientAdapterMixin:
+    """
+    Mixin providing resilience patterns for Knowledge Mound adapters.
+
+    Combines circuit breaker, bulkhead, retry, and SLO monitoring
+    into a consistent interface for adapter implementations.
+
+    Usage:
+        class MyAdapter(ResilientAdapterMixin):
+            def __init__(self):
+                self._init_resilience("my_adapter")
+
+            async def my_operation(self):
+                async with self._resilient_call("forward_sync"):
+                    return await self._do_operation()
+    """
+
+    _adapter_name: str
+    _circuit_breaker: Optional[AdapterCircuitBreaker] = None
+    _bulkhead: Optional[AdapterBulkhead] = None
+    _retry_config: Optional[RetryConfig] = None
+    _timeout_seconds: float = 5.0
+
+    def _init_resilience(
+        self,
+        adapter_name: str,
+        circuit_config: Optional[AdapterCircuitBreakerConfig] = None,
+        bulkhead_config: Optional[BulkheadConfig] = None,
+        retry_config: Optional[RetryConfig] = None,
+        timeout_seconds: float = 5.0,
+    ) -> None:
+        """Initialize resilience components.
+
+        Args:
+            adapter_name: Name of the adapter
+            circuit_config: Circuit breaker configuration
+            bulkhead_config: Bulkhead configuration
+            retry_config: Retry configuration
+            timeout_seconds: Default operation timeout
+        """
+        self._adapter_name = adapter_name
+        self._circuit_breaker = get_adapter_circuit_breaker(adapter_name, circuit_config)
+        self._bulkhead = get_adapter_bulkhead(adapter_name, bulkhead_config)
+        self._retry_config = retry_config or RetryConfig()
+        self._timeout_seconds = timeout_seconds
+
+    @asynccontextmanager
+    async def _resilient_call(
+        self,
+        operation: str,
+        timeout: Optional[float] = None,
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """Execute an operation with full resilience protection.
+
+        Applies circuit breaker, bulkhead, timeout, and SLO monitoring.
+
+        Args:
+            operation: Operation name (forward_sync, reverse_query, etc.)
+            timeout: Optional timeout override
+
+        Yields:
+            Context dict for storing operation metadata
+
+        Raises:
+            AdapterUnavailableError: If circuit is open
+            BulkheadFullError: If bulkhead is full
+            asyncio.TimeoutError: If operation times out
+        """
+        if not hasattr(self, "_adapter_name"):
+            raise RuntimeError("Call _init_resilience() before using _resilient_call()")
+
+        context: Dict[str, Any] = {
+            "adapter": self._adapter_name,
+            "operation": operation,
+        }
+
+        start_time = time.time()
+        success = False
+        timeout_s = timeout or self._timeout_seconds
+
+        try:
+            # Check circuit breaker
+            if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+                remaining = self._circuit_breaker.cooldown_remaining()
+                raise AdapterUnavailableError(self._adapter_name, remaining)
+
+            # Acquire bulkhead permit with timeout
+            if self._bulkhead:
+                async with self._bulkhead.acquire():
+                    # Execute with timeout
+                    async with asyncio_timeout(timeout_s):
+                        yield context
+                        success = True
+            else:
+                async with asyncio_timeout(timeout_s):
+                    yield context
+                    success = True
+
+            # Record success in circuit breaker
+            if self._circuit_breaker:
+                self._circuit_breaker.record_success()
+
+        except asyncio.TimeoutError:
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure(f"Timeout after {timeout_s}s")
+            raise
+        except (AdapterUnavailableError, BulkheadFullError):
+            raise
+        except Exception as e:
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure(str(e))
+            raise
+        finally:
+            # Record SLO metrics
+            latency_ms = (time.time() - start_time) * 1000
+            record_adapter_slo_check(
+                self._adapter_name,
+                operation,
+                latency_ms,
+                success,
+                context,
+            )
+
+    def get_resilience_stats(self) -> Dict[str, Any]:
+        """Get combined resilience statistics."""
+        stats: Dict[str, Any] = {
+            "adapter_name": self._adapter_name,
+            "timeout_seconds": self._timeout_seconds,
+        }
+
+        if self._circuit_breaker:
+            stats["circuit_breaker"] = self._circuit_breaker.get_stats().to_dict()
+
+        if self._bulkhead:
+            stats["bulkhead"] = self._bulkhead.get_stats()
+
+        return stats
+
+
+# =============================================================================
+# Timeout Decorator
+# =============================================================================
+
+
+def with_timeout(
+    timeout_seconds: float,
+    fallback: Optional[Callable[..., Any]] = None,
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
+    """
+    Decorator for adding timeout to async functions.
+
+    Args:
+        timeout_seconds: Maximum execution time
+        fallback: Optional fallback function to call on timeout
+
+    Usage:
+        @with_timeout(5.0)
+        async def my_operation():
+            ...
+
+        @with_timeout(5.0, fallback=lambda: [])
+        async def get_items():
+            ...
+    """
+
+    def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
+            try:
+                return await asyncio.wait_for(
+                    func(*args, **kwargs),
+                    timeout=timeout_seconds,
+                )
+            except asyncio.TimeoutError:
+                if fallback is not None:
+                    result = fallback(*args, **kwargs)
+                    if asyncio.iscoroutine(result):
+                        return await result
+                    return result  # type: ignore
+                raise
+
+        return wrapper
+
+    return decorator
+
+
+# =============================================================================
+# Combined Health Status
+# =============================================================================
+
+
+def get_km_resilience_status() -> Dict[str, Any]:
+    """Get comprehensive resilience status for all KM components.
+
+    Returns:
+        Dict with circuit breaker, bulkhead, and SLO status
+    """
+    return {
+        "circuit_breakers": get_all_adapter_circuit_stats(),
+        "bulkheads": get_all_adapter_bulkhead_stats(),
+        "slo_config": {
+            "forward_sync_p99_ms": get_adapter_slo_config().forward_sync_p99_ms,
+            "reverse_query_p99_ms": get_adapter_slo_config().reverse_query_p99_ms,
+            "semantic_search_p99_ms": get_adapter_slo_config().semantic_search_p99_ms,
+        },
+        "adapters_with_open_circuits": [
+            name for name, cb in _adapter_circuits.items() if cb.is_open
+        ],
+        "total_adapters_tracked": len(_adapter_circuits),
+    }
