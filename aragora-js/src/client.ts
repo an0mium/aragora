@@ -63,6 +63,18 @@ import type {
   CrossPollinationStats,
   LearningEfficiency,
   VotingAccuracy,
+  // Memory types
+  MemoryItem,
+  MemoryRetrieveResponse,
+  MemoryTierInfo,
+  MemoryTiersResponse,
+  MemoryPressure,
+  MemorySearchResult,
+  Critique,
+  CritiqueListResponse,
+  ConsolidationResult,
+  CleanupResult,
+  ArchiveStats,
 } from './types';
 
 export interface AragoraClientOptions {
@@ -171,6 +183,106 @@ export class DebatesAPI {
     }
 
     throw new AragoraError(`Debate ${debateId} did not complete within ${timeout}ms`);
+  }
+
+  /**
+   * Update a debate's metadata or configuration.
+   */
+  async update(debateId: string, options: {
+    metadata?: Record<string, unknown>;
+    status?: string;
+    tags?: string[];
+  }): Promise<Debate> {
+    return this.client.post<Debate>(`/api/v1/debates/${debateId}`, {
+      ...(options.metadata && { metadata: options.metadata }),
+      ...(options.status && { status: options.status }),
+      ...(options.tags && { tags: options.tags }),
+    });
+  }
+
+  /**
+   * Verify a debate's integrity and consensus.
+   */
+  async verify(debateId: string): Promise<{ valid: boolean; issues: string[]; hash: string }> {
+    return this.client.get(`/api/v1/debates/${debateId}/verify`);
+  }
+
+  /**
+   * Get a detailed verification report for a debate.
+   */
+  async verificationReport(debateId: string): Promise<{
+    debate_id: string;
+    verified_at: string;
+    consensus_valid: boolean;
+    message_integrity: boolean;
+    agent_signatures: Array<{ agent: string; valid: boolean }>;
+    provenance_chain: Array<{ step: string; hash: string; valid: boolean }>;
+    overall_valid: boolean;
+  }> {
+    return this.client.get(`/api/v1/debates/${debateId}/verification-report`);
+  }
+
+  /**
+   * Search debates by query string.
+   */
+  async search(query: string, options: {
+    limit?: number;
+    offset?: number;
+    status?: string;
+    agents?: string[];
+    dateFrom?: string;
+    dateTo?: string;
+  } = {}): Promise<{ debates: Debate[]; total: number }> {
+    return this.client.get('/api/v1/debates/search', {
+      q: query,
+      limit: options.limit ?? 20,
+      offset: options.offset ?? 0,
+      ...(options.status && { status: options.status }),
+      ...(options.agents && { agents: options.agents.join(',') }),
+      ...(options.dateFrom && { date_from: options.dateFrom }),
+      ...(options.dateTo && { date_to: options.dateTo }),
+    });
+  }
+
+  /**
+   * Fork a debate to create a new branch with different parameters.
+   */
+  async fork(debateId: string, options: {
+    fromRound?: number;
+    newTask?: string;
+    agents?: string[];
+    maxRounds?: number;
+  } = {}): Promise<{ id: string; forked_from: string; fork_point: number }> {
+    return this.client.post(`/api/v1/debates/${debateId}/fork`, {
+      ...(options.fromRound !== undefined && { from_round: options.fromRound }),
+      ...(options.newTask && { new_task: options.newTask }),
+      ...(options.agents && { agents: options.agents }),
+      ...(options.maxRounds !== undefined && { max_rounds: options.maxRounds }),
+    });
+  }
+
+  /**
+   * Cancel a running debate.
+   */
+  async cancel(debateId: string, options: { reason?: string } = {}): Promise<{ cancelled: boolean }> {
+    return this.client.post(`/api/v1/debates/${debateId}/cancel`, {
+      ...(options.reason && { reason: options.reason }),
+    });
+  }
+
+  /**
+   * Get debate statistics.
+   */
+  async stats(debateId: string): Promise<{
+    debate_id: string;
+    total_rounds: number;
+    total_messages: number;
+    consensus_reached: boolean;
+    avg_message_length: number;
+    agent_participation: Record<string, number>;
+    duration_seconds: number;
+  }> {
+    return this.client.get(`/api/v1/debates/${debateId}/stats`);
   }
 }
 
@@ -708,6 +820,108 @@ export class TeamSelectionAPI {
   }
 }
 
+export class MemoryAPI {
+  private client: AragoraClient;
+
+  constructor(client: AragoraClient) {
+    this.client = client;
+  }
+
+  /**
+   * Retrieve memories from the continuum memory system.
+   */
+  async retrieve(options: {
+    query?: string;
+    tiers?: ('fast' | 'medium' | 'slow' | 'glacial')[];
+    limit?: number;
+    minImportance?: number;
+  } = {}): Promise<MemoryRetrieveResponse> {
+    return this.client.get<MemoryRetrieveResponse>('/api/v1/memory/continuum/retrieve', {
+      ...(options.query && { query: options.query }),
+      ...(options.tiers && { tiers: options.tiers.join(',') }),
+      limit: options.limit ?? 10,
+      min_importance: options.minImportance ?? 0,
+    });
+  }
+
+  /**
+   * Get all memory tiers with detailed statistics.
+   */
+  async tiers(): Promise<MemoryTiersResponse> {
+    return this.client.get<MemoryTiersResponse>('/api/v1/memory/tiers');
+  }
+
+  /**
+   * Get tier statistics (summary).
+   */
+  async tierStats(): Promise<{ tiers: Record<string, { count: number; total_size: number; avg_age: number }> }> {
+    return this.client.get('/api/v1/memory/tier-stats');
+  }
+
+  /**
+   * Get archive statistics.
+   */
+  async archiveStats(): Promise<ArchiveStats> {
+    return this.client.get<ArchiveStats>('/api/v1/memory/archive-stats');
+  }
+
+  /**
+   * Get memory pressure and utilization.
+   */
+  async pressure(): Promise<MemoryPressure> {
+    return this.client.get<MemoryPressure>('/api/v1/memory/pressure');
+  }
+
+  /**
+   * Search memories across tiers.
+   */
+  async search(query: string, options: {
+    tiers?: ('fast' | 'medium' | 'slow' | 'glacial')[];
+    limit?: number;
+    minScore?: number;
+  } = {}): Promise<MemorySearchResult> {
+    return this.client.get<MemorySearchResult>('/api/v1/memory/search', {
+      query,
+      ...(options.tiers && { tiers: options.tiers.join(',') }),
+      limit: options.limit ?? 20,
+      ...(options.minScore !== undefined && { min_score: options.minScore }),
+    });
+  }
+
+  /**
+   * Browse critique store entries.
+   */
+  async critiques(options: {
+    debateId?: string;
+    agent?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<CritiqueListResponse> {
+    return this.client.get<CritiqueListResponse>('/api/v1/memory/critiques', {
+      ...(options.debateId && { debate_id: options.debateId }),
+      ...(options.agent && { agent: options.agent }),
+      limit: options.limit ?? 50,
+      offset: options.offset ?? 0,
+    });
+  }
+
+  /**
+   * Trigger memory consolidation (requires auth).
+   */
+  async consolidate(): Promise<ConsolidationResult> {
+    return this.client.post<ConsolidationResult>('/api/v1/memory/continuum/consolidate', {});
+  }
+
+  /**
+   * Cleanup expired memories (requires auth).
+   */
+  async cleanup(options: { maxAge?: number } = {}): Promise<CleanupResult> {
+    return this.client.post<CleanupResult>('/api/v1/memory/continuum/cleanup', {
+      ...(options.maxAge !== undefined && { max_age: options.maxAge }),
+    });
+  }
+}
+
 export class AragoraClient {
   public readonly baseUrl: string;
   private apiKey?: string;
@@ -724,6 +938,7 @@ export class AragoraClient {
   public readonly teamSelection: TeamSelectionAPI;
   public readonly controlPlane: ControlPlaneAPI;
   public readonly analytics: AnalyticsAPI;
+  public readonly memory: MemoryAPI;
 
   constructor(baseUrl: string = 'http://localhost:8080', options: AragoraClientOptions = {}) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
@@ -746,6 +961,7 @@ export class AragoraClient {
     this.teamSelection = new TeamSelectionAPI(this);
     this.controlPlane = new ControlPlaneAPI(this);
     this.analytics = new AnalyticsAPI(this);
+    this.memory = new MemoryAPI(this);
   }
 
   /**

@@ -809,3 +809,96 @@ export interface VotingAccuracy {
   accuracy?: number;
   agents?: Array<{ agent: string; accuracy: number }>;
 }
+
+// =============================================================================
+// Memory API Types (parity with Python SDK)
+// =============================================================================
+
+export interface MemoryItem {
+  id: string;
+  tier: 'fast' | 'medium' | 'slow' | 'glacial';
+  content: string;
+  importance: number;
+  surprise_score?: number;
+  consolidation_score?: number;
+  update_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MemoryRetrieveResponse {
+  memories: MemoryItem[];
+  count: number;
+  query: string;
+  tiers: string[];
+}
+
+export interface MemoryTierInfo {
+  name: string;
+  ttl_seconds: number;
+  max_items: number;
+  current_items: number;
+  utilization_percent: number;
+  avg_importance: number;
+  oldest_entry_age_seconds?: number;
+  newest_entry_age_seconds?: number;
+}
+
+export interface MemoryTiersResponse {
+  tiers: MemoryTierInfo[];
+  total_items: number;
+  total_capacity: number;
+}
+
+export interface MemoryPressure {
+  overall_pressure: number;
+  tier_pressures: Record<string, number>;
+  recommendation: 'ok' | 'consolidate' | 'cleanup';
+  items_pending_promotion: number;
+  items_pending_eviction: number;
+}
+
+export interface MemorySearchResult {
+  memories: MemoryItem[];
+  total_count: number;
+  search_time_ms: number;
+  tiers_searched: string[];
+}
+
+export interface Critique {
+  id: string;
+  debate_id: string;
+  critic_agent: string;
+  target_agent: string;
+  content: string;
+  score?: number;
+  critique_type: 'constructive' | 'challenging' | 'supportive';
+  created_at: string;
+}
+
+export interface CritiqueListResponse {
+  critiques: Critique[];
+  count: number;
+  has_more: boolean;
+}
+
+export interface ConsolidationResult {
+  promoted: number;
+  evicted: number;
+  merged: number;
+  duration_ms: number;
+}
+
+export interface CleanupResult {
+  removed: number;
+  recovered_bytes: number;
+  duration_ms: number;
+}
+
+export interface ArchiveStats {
+  total_archived: number;
+  total_bytes: number;
+  oldest_entry?: string;
+  newest_entry?: string;
+  compression_ratio?: number;
+}
