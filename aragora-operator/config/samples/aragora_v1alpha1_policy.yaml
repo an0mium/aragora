@@ -1,0 +1,114 @@
+apiVersion: aragora.ai/v1alpha1
+kind: AragoraPolicy
+metadata:
+  name: cost-controls
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: policy
+spec:
+  clusterRef: production-cluster
+  priority: 100
+  enabled: true
+
+  costLimits:
+    dailyLimitUSD: "1000"
+    monthlyLimitUSD: "25000"
+    alertThresholdPercent: 80
+    hardLimit: true
+    notificationChannels:
+      - type: slack
+        endpoint: "#aragora-alerts"
+        secretRef: slack-webhook-secret
+      - type: pagerduty
+        endpoint: "https://events.pagerduty.com/v2/enqueue"
+        secretRef: pagerduty-secret
+
+  modelRestrictions:
+    - name: claude-opus-4
+      allowed: true
+      maxRequestsPerHour: 100
+      maxTokensPerRequest: 16000
+      allowedOperations:
+        - complex_analysis
+        - code_review
+    - name: claude-sonnet-4
+      allowed: true
+      maxRequestsPerHour: 500
+    - name: gpt-4
+      allowed: false
+
+  rateLimits:
+    debatesPerMinute: 50
+    requestsPerMinute: 200
+    tokensPerMinute: 100000
+    concurrentDebates: 25
+    burstLimit: 10
+    perWorkspace: true
+
+  accessControl:
+    requireAuthentication: true
+    allowedRoles:
+      - admin
+      - developer
+      - analyst
+    mfaRequired: false
+    ipWhitelist:
+      - "10.0.0.0/8"
+      - "192.168.0.0/16"
+
+  auditLogging:
+    enabled: true
+    logLevel: request
+    retentionDays: 90
+    externalSink:
+      type: elasticsearch
+      endpoint: "https://elasticsearch:9200"
+      secretRef: elasticsearch-credentials
+
+  resourceQuotas:
+    maxDebatesPerHour: 1000
+    maxConcurrentAgents: 15
+    maxStorageBytes: "50Gi"
+    maxMemoryEntries: 1000000
+
+  selector:
+    matchAll: true
+---
+apiVersion: aragora.ai/v1alpha1
+kind: AragoraPolicy
+metadata:
+  name: dev-environment
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: policy
+    environment: development
+spec:
+  clusterRef: production-cluster
+  priority: 50
+  enabled: true
+
+  costLimits:
+    dailyLimitUSD: "100"
+    monthlyLimitUSD: "2000"
+    alertThresholdPercent: 90
+    hardLimit: false
+
+  modelRestrictions:
+    - name: claude-opus-4
+      allowed: false
+    - name: claude-sonnet-4
+      allowed: true
+      maxRequestsPerHour: 100
+    - name: claude-haiku-3
+      allowed: true
+
+  rateLimits:
+    debatesPerMinute: 10
+    concurrentDebates: 5
+
+  selector:
+    workspaces:
+      - dev-workspace
+      - test-workspace
+    tenants:
+      - development-team

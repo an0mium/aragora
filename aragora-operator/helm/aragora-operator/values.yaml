@@ -1,0 +1,121 @@
+# Default values for aragora-operator
+# This is a YAML-formatted file.
+
+# Operator image settings
+image:
+  repository: ghcr.io/an0mium/aragora-operator
+  pullPolicy: IfNotPresent
+  tag: ""  # Overrides the image tag whose default is the chart appVersion
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Number of operator replicas (for HA, use 2+)
+replicaCount: 1
+
+# Service account settings
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod annotations and labels
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+# Node selector for scheduling
+nodeSelector: {}
+
+# Tolerations for pod scheduling
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Leader election settings (for HA deployments)
+leaderElection:
+  enabled: true
+
+# Aragora control plane API settings
+aragoraAPI:
+  endpoint: ""
+  tokenSecretName: ""
+  tokenSecretKey: "token"
+
+# Metrics settings
+metrics:
+  enabled: true
+  port: 8080
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+
+# Health probe settings
+healthProbe:
+  port: 8081
+
+# Logging settings
+logging:
+  level: info
+  format: json
+
+# RBAC settings
+rbac:
+  create: true
+  clusterRole: true
+
+# CRD installation settings
+crds:
+  install: true
+  keep: true
+
+# Webhook settings (if using admission webhooks)
+webhooks:
+  enabled: false
+  port: 9443
+  certManager:
+    enabled: false
+    issuerRef:
+      name: ""
+      kind: ""
+
+# Priority class
+priorityClassName: ""
+
+# Topology spread constraints
+topologySpreadConstraints: []
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1

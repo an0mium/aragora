@@ -1,0 +1,64 @@
+apiVersion: aragora.ai/v1alpha1
+kind: AragoraCluster
+metadata:
+  name: production-cluster
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/instance: production
+spec:
+  version: "1.0.0"
+  replicas: 3
+
+  resources:
+    memory: "4Gi"
+    cpu: "2"
+    requestsMemory: "2Gi"
+    requestsCPU: "1"
+
+  storage:
+    size: "100Gi"
+    storageClassName: "fast-ssd"
+
+  agents:
+    enabled:
+      - anthropic
+      - openai
+      - mistral
+    fallback: "openrouter"
+    defaultModel: "claude-sonnet-4"
+    rateLimits:
+      anthropic:
+        requestsPerMinute: 60
+        tokensPerMinute: 100000
+      openai:
+        requestsPerMinute: 100
+        tokensPerMinute: 150000
+
+  memory:
+    backend: "redis"
+    redisURL: "redis://redis-master:6379"
+    tiers:
+      fast:
+        ttl: "1m"
+        maxSize: "1Gi"
+      medium:
+        ttl: "1h"
+        maxSize: "5Gi"
+      slow:
+        ttl: "24h"
+        maxSize: "10Gi"
+
+  highAvailability:
+    enabled: true
+    minReplicas: 2
+    podDisruptionBudget: true
+
+  secretRef:
+    name: aragora-api-keys
+
+  monitoring:
+    enabled: true
+    serviceMonitor: true
+    prometheusRules: true
+    tracingEnabled: true
+    tracingEndpoint: "http://otel-collector:4317"

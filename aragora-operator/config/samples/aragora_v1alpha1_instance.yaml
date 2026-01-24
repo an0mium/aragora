@@ -1,0 +1,60 @@
+apiVersion: aragora.ai/v1alpha1
+kind: AragoraInstance
+metadata:
+  name: debate-workers
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: worker
+spec:
+  clusterRef: production-cluster
+  role: worker
+
+  scaling:
+    enabled: true
+    metric: debates_per_second
+    target: 10
+    minReplicas: 2
+    maxReplicas: 20
+    scaleDownStabilizationWindowSeconds: 300
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 60
+      scaleDown:
+        stabilizationWindowSeconds: 300
+
+  maxConcurrentDebates: 20
+  priority: 50
+
+  capabilities:
+    - debates
+    - consensus
+    - memory
+
+  labels:
+    tier: production
+    region: us-east-1
+---
+apiVersion: aragora.ai/v1alpha1
+kind: AragoraInstance
+metadata:
+  name: gateway
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: gateway
+spec:
+  clusterRef: production-cluster
+  role: gateway
+
+  scaling:
+    enabled: true
+    metric: cpu
+    target: 70
+    minReplicas: 2
+    maxReplicas: 10
+
+  priority: 100
+
+  capabilities:
+    - routing
+    - authentication
+    - rate-limiting

@@ -568,14 +568,304 @@ class CostHandler:
             logger.exception(f"Failed to dismiss alert: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
+    async def handle_get_recommendations(self, request: web.Request) -> web.Response:
+        """
+        GET /api/costs/recommendations
+
+        Get cost optimization recommendations.
+
+        Query params:
+            - workspace_id: Workspace ID (default: default)
+            - status: Filter by status (pending, applied, dismissed)
+            - type: Filter by type (model_downgrade, caching, batching)
+        """
+        try:
+            workspace_id = request.query.get("workspace_id", "default")
+            status_filter = request.query.get("status")
+            type_filter = request.query.get("type")
+
+            from aragora.billing.optimizer import get_cost_optimizer
+            from aragora.billing.recommendations import (
+                RecommendationStatus,
+                RecommendationType,
+            )
+
+            optimizer = get_cost_optimizer()
+
+            # Generate new recommendations if none exist
+            existing = optimizer.get_workspace_recommendations(workspace_id)
+            if not existing:
+                await optimizer.analyze_workspace(workspace_id)
+
+            # Apply filters
+            status = RecommendationStatus(status_filter) if status_filter else None
+            rec_type = RecommendationType(type_filter) if type_filter else None
+
+            recommendations = optimizer.get_workspace_recommendations(
+                workspace_id, status=status, type_filter=rec_type
+            )
+
+            summary = optimizer.get_summary(workspace_id)
+
+            return web.json_response(
+                {
+                    "recommendations": [r.to_dict() for r in recommendations],
+                    "summary": summary.to_dict(),
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Failed to get recommendations: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_get_recommendation(self, request: web.Request) -> web.Response:
+        """
+        GET /api/costs/recommendations/{recommendation_id}
+
+        Get a specific recommendation.
+        """
+        try:
+            recommendation_id = request.match_info.get("recommendation_id")
+
+            from aragora.billing.optimizer import get_cost_optimizer
+
+            optimizer = get_cost_optimizer()
+            recommendation = optimizer.get_recommendation(recommendation_id)
+
+            if not recommendation:
+                return web.json_response(
+                    {"error": "Recommendation not found"},
+                    status=404,
+                )
+
+            return web.json_response(recommendation.to_dict())
+
+        except Exception as e:
+            logger.exception(f"Failed to get recommendation: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_apply_recommendation(self, request: web.Request) -> web.Response:
+        """
+        POST /api/costs/recommendations/{recommendation_id}/apply
+
+        Apply a recommendation.
+        """
+        try:
+            recommendation_id = request.match_info.get("recommendation_id")
+            body = await request.json()
+            user_id = body.get("user_id", "unknown")
+
+            from aragora.billing.optimizer import get_cost_optimizer
+
+            optimizer = get_cost_optimizer()
+            success = optimizer.apply_recommendation(recommendation_id, user_id)
+
+            if not success:
+                return web.json_response(
+                    {"error": "Recommendation not found"},
+                    status=404,
+                )
+
+            recommendation = optimizer.get_recommendation(recommendation_id)
+
+            return web.json_response(
+                {
+                    "success": True,
+                    "recommendation": recommendation.to_dict() if recommendation else None,
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Failed to apply recommendation: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_dismiss_recommendation(self, request: web.Request) -> web.Response:
+        """
+        POST /api/costs/recommendations/{recommendation_id}/dismiss
+
+        Dismiss a recommendation.
+        """
+        try:
+            recommendation_id = request.match_info.get("recommendation_id")
+
+            from aragora.billing.optimizer import get_cost_optimizer
+
+            optimizer = get_cost_optimizer()
+            success = optimizer.dismiss_recommendation(recommendation_id)
+
+            if not success:
+                return web.json_response(
+                    {"error": "Recommendation not found"},
+                    status=404,
+                )
+
+            return web.json_response({"success": True, "dismissed": True})
+
+        except Exception as e:
+            logger.exception(f"Failed to dismiss recommendation: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_get_efficiency(self, request: web.Request) -> web.Response:
+        """
+        GET /api/costs/efficiency
+
+        Get efficiency metrics.
+
+        Query params:
+            - workspace_id: Workspace ID (default: default)
+            - range: Time range (24h, 7d, 30d)
+        """
+        try:
+            workspace_id = request.query.get("workspace_id", "default")
+            time_range = request.query.get("range", "7d")
+
+            tracker = _get_cost_tracker()
+            if not tracker:
+                return web.json_response(
+                    {"error": "Cost tracker not available"},
+                    status=503,
+                )
+
+            stats = tracker.get_workspace_stats(workspace_id)
+
+            # Calculate efficiency metrics
+            total_tokens = stats.get("total_tokens_in", 0) + stats.get("total_tokens_out", 0)
+            total_calls = stats.get("total_api_calls", 0)
+            total_cost = float(stats.get("total_cost_usd", "0"))
+
+            cost_per_1k_tokens = (total_cost / total_tokens * 1000) if total_tokens > 0 else 0
+            tokens_per_call = total_tokens / total_calls if total_calls > 0 else 0
+            cost_per_call = total_cost / total_calls if total_calls > 0 else 0
+
+            # Model utilization
+            cost_by_model = stats.get("cost_by_model", {})
+            model_utilization = []
+            for model, cost in cost_by_model.items():
+                model_utilization.append(
+                    {
+                        "model": model,
+                        "cost": str(cost),
+                        "percentage": (float(cost) / total_cost * 100) if total_cost > 0 else 0,
+                    }
+                )
+
+            return web.json_response(
+                {
+                    "workspace_id": workspace_id,
+                    "time_range": time_range,
+                    "metrics": {
+                        "cost_per_1k_tokens": round(cost_per_1k_tokens, 4),
+                        "tokens_per_call": round(tokens_per_call, 0),
+                        "cost_per_call": round(cost_per_call, 4),
+                        "total_tokens": total_tokens,
+                        "total_calls": total_calls,
+                        "total_cost": round(total_cost, 2),
+                    },
+                    "model_utilization": sorted(model_utilization, key=lambda x: -x["percentage"]),
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Failed to get efficiency: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_get_forecast(self, request: web.Request) -> web.Response:
+        """
+        GET /api/costs/forecast
+
+        Get cost forecast.
+
+        Query params:
+            - workspace_id: Workspace ID (default: default)
+            - days: Forecast days (default: 30)
+        """
+        try:
+            workspace_id = request.query.get("workspace_id", "default")
+            forecast_days = int(request.query.get("days", "30"))
+
+            from aragora.billing.forecaster import get_cost_forecaster
+
+            forecaster = get_cost_forecaster()
+            report = await forecaster.generate_forecast(
+                workspace_id=workspace_id,
+                forecast_days=forecast_days,
+            )
+
+            return web.json_response(report.to_dict())
+
+        except Exception as e:
+            logger.exception(f"Failed to get forecast: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_simulate_forecast(self, request: web.Request) -> web.Response:
+        """
+        POST /api/costs/forecast/simulate
+
+        Simulate a cost scenario.
+
+        Body:
+            - workspace_id: Workspace ID
+            - scenario: Scenario object with name, description, changes
+            - days: Days to simulate (default: 30)
+        """
+        try:
+            body = await request.json()
+            workspace_id = body.get("workspace_id", "default")
+            scenario_data = body.get("scenario", {})
+            days = body.get("days", 30)
+
+            from aragora.billing.forecaster import SimulationScenario, get_cost_forecaster
+
+            scenario = SimulationScenario(
+                name=scenario_data.get("name", "Custom Scenario"),
+                description=scenario_data.get("description", ""),
+                changes=scenario_data.get("changes", {}),
+            )
+
+            forecaster = get_cost_forecaster()
+            result = await forecaster.simulate_scenario(
+                workspace_id=workspace_id,
+                scenario=scenario,
+                days=days,
+            )
+
+            return web.json_response(result.to_dict())
+
+        except Exception as e:
+            logger.exception(f"Failed to simulate forecast: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
 
 def register_routes(app: web.Application) -> None:
     """Register cost visibility routes."""
     handler = CostHandler()
 
+    # Core cost endpoints
     app.router.add_get("/api/costs", handler.handle_get_costs)
     app.router.add_get("/api/costs/breakdown", handler.handle_get_breakdown)
     app.router.add_get("/api/costs/timeline", handler.handle_get_timeline)
     app.router.add_get("/api/costs/alerts", handler.handle_get_alerts)
     app.router.add_post("/api/costs/budget", handler.handle_set_budget)
     app.router.add_post("/api/costs/alerts/{alert_id}/dismiss", handler.handle_dismiss_alert)
+
+    # Optimization recommendations
+    app.router.add_get("/api/costs/recommendations", handler.handle_get_recommendations)
+    app.router.add_get(
+        "/api/costs/recommendations/{recommendation_id}",
+        handler.handle_get_recommendation,
+    )
+    app.router.add_post(
+        "/api/costs/recommendations/{recommendation_id}/apply",
+        handler.handle_apply_recommendation,
+    )
+    app.router.add_post(
+        "/api/costs/recommendations/{recommendation_id}/dismiss",
+        handler.handle_dismiss_recommendation,
+    )
+
+    # Efficiency metrics
+    app.router.add_get("/api/costs/efficiency", handler.handle_get_efficiency)
+
+    # Forecasting
+    app.router.add_get("/api/costs/forecast", handler.handle_get_forecast)
+    app.router.add_post("/api/costs/forecast/simulate", handler.handle_simulate_forecast)

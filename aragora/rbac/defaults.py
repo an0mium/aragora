@@ -483,6 +483,38 @@ PERM_BUDGET_UPDATE = _permission(
     ResourceType.BUDGET, Action.SET_LIMIT, "Set Budgets", "Configure spending limits and alerts"
 )
 
+# Cost optimization permissions (billing resource)
+PERM_BILLING_READ = _permission(
+    ResourceType.BILLING,
+    Action.READ,
+    "View Cost Data",
+    "View cost analytics and efficiency metrics",
+)
+PERM_BILLING_RECOMMENDATIONS_READ = _permission(
+    ResourceType.BILLING,
+    Action.READ,
+    "View Cost Recommendations",
+    "View cost optimization recommendations",
+)
+PERM_BILLING_RECOMMENDATIONS_APPLY = _permission(
+    ResourceType.BILLING,
+    Action.UPDATE,
+    "Apply Cost Recommendations",
+    "Apply and dismiss cost optimization recommendations",
+)
+PERM_BILLING_FORECAST_READ = _permission(
+    ResourceType.BILLING,
+    Action.READ,
+    "View Cost Forecasts",
+    "View cost forecasts and projections",
+)
+PERM_BILLING_FORECAST_SIMULATE = _permission(
+    ResourceType.BILLING,
+    Action.UPDATE,
+    "Simulate Cost Scenarios",
+    "Run what-if cost simulations",
+)
+
 # ============================================================================
 # ENTERPRISE PERMISSIONS - Session & Authentication
 # ============================================================================
@@ -680,6 +712,12 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_COST_CENTER_UPDATE,
         PERM_BUDGET_READ,
         PERM_BUDGET_UPDATE,
+        # Cost optimization
+        PERM_BILLING_READ,
+        PERM_BILLING_RECOMMENDATIONS_READ,
+        PERM_BILLING_RECOMMENDATIONS_APPLY,
+        PERM_BILLING_FORECAST_READ,
+        PERM_BILLING_FORECAST_SIMULATE,
         # Enterprise - Session & Auth
         PERM_SESSION_READ,
         PERM_SESSION_REVOKE,
