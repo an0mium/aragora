@@ -1,7 +1,7 @@
 # Test Skip Marker Audit
 
 **Generated**: 2026-01-24
-**Total Skip Markers**: 592
+**Total Skip Markers**: 601
 
 ---
 
@@ -9,11 +9,11 @@
 
 | Category | Count | Percentage |
 |----------|-------|------------|
-| missing_feature | 317 | 53.5% |
-| optional_dependency | 154 | 26.0% |
-| uncategorized | 85 | 14.4% |
-| integration_dependency | 23 | 3.9% |
-| known_bug | 6 | 1.0% |
+| missing_feature | 318 | 52.9% |
+| optional_dependency | 156 | 26.0% |
+| uncategorized | 94 | 15.6% |
+| integration_dependency | 21 | 3.5% |
+| known_bug | 5 | 0.8% |
 | platform_specific | 4 | 0.7% |
 | performance | 3 | 0.5% |
 
@@ -21,15 +21,15 @@
 
 | Type | Count |
 |------|-------|
-| `pytest.skip` | 348 |
-| `skipif` | 215 |
-| `skip` | 29 |
+| `pytest.skip` | 350 |
+| `skipif` | 230 |
+| `skip` | 21 |
 
 ## High-Skip Files (Top 10)
 
 | File | Skip Count |
 |------|------------|
-| `tests/test_mcp_server.py` | 29 |
+| `tests/test_mcp_server.py` | 38 |
 | `tests/test_matrix_debates_integration.py` | 24 |
 | `tests/test_formal.py` | 24 |
 | `tests/server/handlers/test_workflows_handler.py` | 22 |
@@ -70,7 +70,7 @@
 
 ## Skip Count Baseline
 
-Current baseline: **592** skips
+Current baseline: **601** skips
 
 CI will warn if skip count exceeds this baseline.
 Update `tests/.skip_baseline` when intentionally adding skips.

@@ -48,6 +48,10 @@ CATEGORY_PATTERNS = {
         r"no module",
         r"cannot import",
         r"pip install",
+        r"\w+\s+required$",  # "MCP required", "asyncpg required"
+        r"^\w+\s+required",  # "aiosqlite required for..."
+        r"is installed",  # "python3-saml is installed" (inverted check)
+        r"binary.*not.*PATH",  # "whisper.cpp binary not in PATH"
     ],
     "missing_feature": [
         r"not.*available",
@@ -67,6 +71,9 @@ CATEGORY_PATTERNS = {
         r"server.*not.*running",
         r"requires.*service",
         r"external.*service",
+        r"requires running server",
+        r"requires.*server",
+        r"API.*KEY",  # "Requires ANTHROPIC_API_KEY"
     ],
     "platform_specific": [
         r"platform",
