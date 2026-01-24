@@ -81,6 +81,8 @@ const DOC_MAP = {
   'PULSE.md': 'guides/pulse.md',
   'WEBSOCKET_EVENTS.md': 'guides/websocket-events.md',
   'SDK_TYPESCRIPT.md': 'guides/sdk-typescript.md',
+  'SDK_PARITY.md': 'guides/sdk-parity.md',
+  'SDK_CONSOLIDATION.md': 'guides/sdk-consolidation.md',
   'LIBRARY_USAGE.md': 'guides/library-usage.md',
   'PLUGIN_GUIDE.md': 'guides/plugin-guide.md',
 
