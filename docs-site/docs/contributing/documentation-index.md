@@ -24,7 +24,7 @@ Use this index for fast navigation. For a fuller map, see
 | Production deployment | [DEPLOYMENT.md](../deployment/overview) |
 | Troubleshooting | [TROUBLESHOOTING.md](../operations/troubleshooting) |
 | Email prioritization | [EMAIL_PRIORITIZATION.md](../guides/email-prioritization) |
-| Unified inbox guide | [INBOX_GUIDE.md](../guides/inbox-guide) |
+| Unified inbox guide | [INBOX_GUIDE.md](INBOX_GUIDE.md) |
 | Shared inbox | [SHARED_INBOX.md](../guides/shared-inbox) |
 | Document ingestion | [DOCUMENTS.md](../guides/documents) |
 | Codebase analysis | [CODEBASE_ANALYSIS.md](../analysis/codebase) |
@@ -60,7 +60,7 @@ Use this index for fast navigation. For a fuller map, see
 - Channels overview: [CHANNELS.md](../guides/channels)
 - Bot integrations: [BOT_INTEGRATIONS.md](../guides/bot-integrations)
 - Email prioritization: [EMAIL_PRIORITIZATION.md](../guides/email-prioritization)
-- Unified inbox guide: [INBOX_GUIDE.md](../guides/inbox-guide)
+- Unified inbox guide: [INBOX_GUIDE.md](INBOX_GUIDE.md)
 - Shared inbox: [SHARED_INBOX.md](../guides/shared-inbox)
 
 ## Analysis & Code Health
@@ -109,8 +109,8 @@ Use this index for fast navigation. For a fuller map, see
 
 ## Deprecated & Historical
 
-Deprecated docs are archived in `docs/deprecated/` in the repo; see
-[Deprecation policy](./deprecation) for the process.
+Deprecated docs are archived in `docs/deprecated/`. See
+[docs/deprecated/README.md](../analysis/adr) for the index.
 
 ## Inventory
 

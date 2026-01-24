@@ -7,6 +7,7 @@ including JWT and API key validation.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -93,8 +94,10 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
     # Check for Bearer token (JWT)
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
+        token_fingerprint = hashlib.sha256(token.encode()).hexdigest()[:8]
         logger.info(
-            f"[AUTH_DEBUG] extract_user_from_request: Bearer token found, length={len(token)}"
+            "[AUTH_DEBUG] extract_user_from_request: Bearer token found, "
+            f"length={len(token)}, fingerprint={token_fingerprint}"
         )
 
         # Check if it's an API key

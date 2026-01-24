@@ -39,6 +39,9 @@ services:
       - ARAGORA_DB_BACKEND=postgres
       # Redis
       - REDIS_URL=redis://redis:6379
+      # Environment mode
+      - ARAGORA_ENV=${ARAGORA_ENV:-production}
+      - ARAGORA_ENVIRONMENT=${ARAGORA_ENVIRONMENT:-production}
       # Security
       - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN:-}
       - ARAGORA_ALLOWED_ORIGINS=${ARAGORA_ALLOWED_ORIGINS:-*}

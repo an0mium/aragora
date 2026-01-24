@@ -5,7 +5,7 @@ description: Bot Integrations Guide
 
 # Bot Integrations Guide
 
-> **Last Updated:** 2026-01-22
+> **Last Updated:** 2026-01-23
 
 Aragora is the **control plane for multi-agent vetted decisionmaking across organizational knowledge and channels**. It is **omnivorous by design**—communicating bidirectionally across multiple channels. Query from wherever you work; get defensible decisions delivered back to you.
 
@@ -228,12 +228,65 @@ Create `manifest.json`:
 3. Upload the app package
 4. Approve for your organization
 
-### Step 5: Configure Environment
+### Step 5: Configure Azure AD Permissions (Graph API)
+
+For advanced features like file operations, channel history, and evidence collection, configure Microsoft Graph API permissions:
+
+1. Go to [Azure Portal](https://portal.azure.com) > "Azure Active Directory" > "App registrations"
+2. Select your bot's app registration
+3. Go to "API permissions" > "Add a permission" > "Microsoft Graph"
+
+**Required Application Permissions:**
+
+| Permission | Type | Description | Admin Consent |
+|------------|------|-------------|---------------|
+| `ChannelMessage.Read.All` | Application | Read channel messages for evidence collection | Required |
+| `Files.ReadWrite.All` | Application | Upload/download files in channel SharePoint folders | Required |
+| `Team.ReadBasic.All` | Application | Read team and channel metadata | Required |
+| `User.Read.All` | Application | Look up user information | Required |
+
+**Optional Permissions (for enhanced features):**
+
+| Permission | Type | Description | Admin Consent |
+|------------|------|-------------|---------------|
+| `ChannelMember.Read.All` | Application | List channel members for @mentions | Required |
+| `Chat.Read.All` | Application | Read 1:1 and group chats | Required |
+| `Sites.ReadWrite.All` | Application | Full SharePoint access for files | Required |
+
+4. Click "Grant admin consent for [Organization]" (requires admin)
+
+**Verify Permissions:**
+```bash
+# Check granted permissions via Graph API
+curl -X GET "https://graph.microsoft.com/v1.0/me" \
+  -H "Authorization: Bearer $GRAPH_ACCESS_TOKEN"
+```
+
+### Step 6: Configure Tenant ID (Required for Graph API)
+
+For Graph API features, you need your Azure AD tenant ID:
+
+1. Go to Azure Portal > "Azure Active Directory" > "Overview"
+2. Copy the **Tenant ID**
+
+### Step 7: Configure Environment
 
 ```bash
 TEAMS_APP_ID=your-app-id
 TEAMS_APP_PASSWORD=your-client-secret
+TEAMS_TENANT_ID=your-tenant-id  # Required for Graph API features
 ```
+
+**Feature Availability by Configuration:**
+
+| Feature | Requires Tenant ID | Requires Graph Permissions |
+|---------|-------------------|---------------------------|
+| Basic messaging | No | No |
+| Adaptive cards | No | No |
+| File upload/download | Yes | Files.ReadWrite.All |
+| Channel history | Yes | ChannelMessage.Read.All |
+| Evidence collection | Yes | ChannelMessage.Read.All |
+| User lookup | Yes | User.Read.All |
 
 ### Usage
 
@@ -676,6 +729,21 @@ async def handle_custom(ctx: CommandContext) -> CommandResult:
 - Verify Messaging Endpoint is correct
 - Check Azure Bot health in portal
 - Ensure Teams channel is enabled
+
+### Teams: Graph API Errors (File Operations, Channel History)
+
+- **401 Unauthorized**: Verify `TEAMS_TENANT_ID` is set correctly
+- **403 Forbidden**: Check that admin consent was granted for required permissions
+- **404 Not Found**: Verify `team_id` is passed for channel-scoped operations
+- **Rate Limit (429)**: Implement exponential backoff; Teams connector handles this automatically
+- **File upload fails**: Ensure `Files.ReadWrite.All` permission is granted
+- **Channel history empty**: Ensure `ChannelMessage.Read.All` permission is granted
+
+**Debug Graph API token:**
+```bash
+# Decode your token to check permissions
+echo $GRAPH_TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | jq .roles
+```
 
 ### Zoom: Webhook Verification Failed
 

@@ -95,6 +95,7 @@ nano .env
 # .env
 
 # Environment
+ARAGORA_ENV=production
 ARAGORA_ENVIRONMENT=production
 
 # AI Providers (at least one required)
@@ -105,6 +106,8 @@ OPENAI_API_KEY=sk-...
 POSTGRES_USER=aragora
 POSTGRES_PASSWORD=your-secure-password
 POSTGRES_DB=aragora
+ARAGORA_DB_BACKEND=postgres
+ARAGORA_POSTGRES_DSN=postgresql://aragora:your-secure-password@postgres:5432/aragora
 
 # JWT Secret (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
 ARAGORA_JWT_SECRET=your-secure-jwt-secret-minimum-32-characters

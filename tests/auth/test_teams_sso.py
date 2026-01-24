@@ -254,7 +254,9 @@ class TestTeamsSSOAuthenticateFromActivity:
         mock_bridge.sync_user_from_teams = AsyncMock(return_value=mock_user)
 
         with patch.object(teams_sso, "_get_identity_bridge", return_value=mock_bridge):
-            with patch("aragora.auth.teams_sso.TeamsUserInfo") as mock_user_info_class:
+            with patch(
+                "aragora.connectors.chat.teams_identity.TeamsUserInfo"
+            ) as mock_user_info_class:
                 mock_user_info = MagicMock()
                 mock_user_info_class.return_value = mock_user_info
 

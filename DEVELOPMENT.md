@@ -22,7 +22,7 @@ pip install -e ".[dev]"
 pytest tests/ -v --timeout=30
 
 # Start the development server
-python -m aragora.server.unified_server --port 8080
+python -m aragora.server --api-port 8080 --ws-port 8765
 ```
 
 ## Prerequisites
@@ -280,7 +280,7 @@ aragora/live/
 
 ```bash
 # Enable debug logging
-ARAGORA_LOG_LEVEL=DEBUG python -m aragora.server.unified_server
+ARAGORA_LOG_LEVEL=DEBUG python -m aragora.server --api-port 8080 --ws-port 8765
 
 # Profile a debate
 python -c "

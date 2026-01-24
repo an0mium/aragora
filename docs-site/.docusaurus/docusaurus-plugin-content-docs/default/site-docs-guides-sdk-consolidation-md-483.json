@@ -1,0 +1,20 @@
+{
+  "id": "guides/sdk-consolidation",
+  "title": "TypeScript SDK Consolidation Roadmap",
+  "description": "TypeScript SDK Consolidation Roadmap",
+  "source": "@site/docs/guides/sdk-consolidation.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/sdk-consolidation",
+  "permalink": "/docs/guides/sdk-consolidation",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/sdk-consolidation.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "TypeScript SDK Consolidation Roadmap",
+    "description": "TypeScript SDK Consolidation Roadmap"
+  }
+}

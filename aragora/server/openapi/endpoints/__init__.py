@@ -47,6 +47,8 @@ from aragora.server.openapi.endpoints.knowledge_mound import KNOWLEDGE_MOUND_END
 from aragora.server.openapi.endpoints.audit_sessions import AUDIT_SESSIONS_ENDPOINTS
 from aragora.server.openapi.endpoints.accounting import ACCOUNTING_ENDPOINTS
 from aragora.server.openapi.endpoints.threat_intel import THREAT_INTEL_ENDPOINTS
+from aragora.server.openapi.endpoints.budgets import BUDGET_ENDPOINTS
+from aragora.server.openapi.endpoints.teams import TEAMS_ENDPOINTS
 
 # Combined endpoints dictionary
 ALL_ENDPOINTS = {
@@ -89,6 +91,8 @@ ALL_ENDPOINTS = {
     **AUDIT_SESSIONS_ENDPOINTS,
     **ACCOUNTING_ENDPOINTS,
     **THREAT_INTEL_ENDPOINTS,
+    **BUDGET_ENDPOINTS,
+    **TEAMS_ENDPOINTS,
 }
 
 __all__ = [
@@ -131,5 +135,7 @@ __all__ = [
     "AUDIT_SESSIONS_ENDPOINTS",
     "ACCOUNTING_ENDPOINTS",
     "THREAT_INTEL_ENDPOINTS",
+    "BUDGET_ENDPOINTS",
+    "TEAMS_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]

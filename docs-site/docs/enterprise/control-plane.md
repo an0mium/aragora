@@ -124,7 +124,7 @@ curl http://localhost:8080/api/control-plane/tasks/\{task_id\}
 | `TASK_TIMEOUT` | `300` | Default task timeout (seconds) |
 | `MAX_TASK_RETRIES` | `3` | Maximum task retry attempts |
 | `CLEANUP_INTERVAL` | `60` | Stale agent cleanup interval (seconds) |
-| `ARAGORA_CONTROL_PLANE_POLICY_SOURCE` | `auto` | Policy source: `compliance`, `inprocess` |
+| `ARAGORA_CONTROL_PLANE_POLICY_SOURCE` | `auto` | Policy source: `compliance` or `inprocess` | Auto (compliance in production) |
 
 ### Programmatic Configuration
 
@@ -301,8 +301,8 @@ Task lifecycle events emit notifications through the NotificationDispatcher:
   `aragora/control_plane/deliberation.py` and routed through the control plane
   integration callback.
 
-Enable the notification worker (`ARAGORA_NOTIFICATION_WORKER=1`) to deliver
-messages across configured channels.
+Configure channels in `docs/CONTROL_PLANE.md` and ensure the notification worker
+is enabled (`ARAGORA_NOTIFICATION_WORKER=1`).
 
 ### Health Monitor
 
@@ -480,7 +480,7 @@ Response:
 }
 ```
 
-#### Run a Deliberation Worker
+#### Run a Vetted Decisionmaking Worker (Deliberation Worker)
 
 ```bash
 python scripts/control_plane_deliberation_worker.py --agent-id deliberation-worker-1

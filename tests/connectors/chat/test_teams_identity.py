@@ -152,9 +152,14 @@ class TestTeamsUserIdentityBridgeInit:
         """Test external identity repo is cached after first load."""
         mock_repo = MagicMock()
 
-        with patch(
-            "aragora.connectors.chat.teams_identity.get_external_identity_repository",
-            return_value=mock_repo,
+        # Patch where it's imported from (inside _get_external_identity_repo)
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.repositories.external_identity": MagicMock(
+                    get_external_identity_repository=MagicMock(return_value=mock_repo)
+                )
+            },
         ):
             repo1 = identity_bridge._get_external_identity_repo()
             repo2 = identity_bridge._get_external_identity_repo()

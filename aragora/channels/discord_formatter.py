@@ -33,16 +33,24 @@ class DiscordReceiptFormatter(ReceiptFormatter):
         options = options or {}
         compact = options.get("compact", False)
 
-        confidence = receipt.confidence_score or 0
+        confidence = getattr(receipt, "confidence_score", None)
+        if confidence is None:
+            confidence = getattr(receipt, "confidence", 0)
         color = self._get_embed_color(confidence)
 
         fields: List[Dict[str, Any]] = []
 
         # Decision field
+        decision_text = (
+            getattr(receipt, "decision", None)
+            or getattr(receipt, "verdict", None)
+            or getattr(receipt, "final_answer", None)
+            or "No decision reached"
+        )
         fields.append(
             {
                 "name": "Decision",
-                "value": (receipt.decision or "No decision reached")[:1024],
+                "value": decision_text[:1024],
                 "inline": False,
             }
         )
@@ -61,16 +69,19 @@ class DiscordReceiptFormatter(ReceiptFormatter):
         fields.append(
             {
                 "name": "Rounds",
-                "value": str(receipt.rounds or "N/A"),
+                "value": str(
+                    getattr(receipt, "rounds", None) or getattr(receipt, "rounds_completed", "N/A")
+                ),
                 "inline": True,
             }
         )
 
         # Agents field
-        if receipt.agents:
-            agent_list = ", ".join(receipt.agents[:5])
-            if len(receipt.agents) > 5:
-                agent_list += f" (+{len(receipt.agents) - 5})"
+        agents = getattr(receipt, "agents", None) or getattr(receipt, "agents_involved", [])
+        if agents:
+            agent_list = ", ".join(agents[:5])
+            if len(agents) > 5:
+                agent_list += f" (+{len(agents) - 5})"
             fields.append(
                 {
                     "name": "Agents",
@@ -81,19 +92,31 @@ class DiscordReceiptFormatter(ReceiptFormatter):
 
         if not compact:
             # Key Arguments
-            if receipt.key_arguments:
-                args_text = "\n".join(f"- {arg[:100]}" for arg in receipt.key_arguments[:3])
+            key_arguments = getattr(receipt, "key_arguments", None)
+            mitigations = getattr(receipt, "mitigations", None)
+            key_points = key_arguments or mitigations
+            if key_points:
+                label = "Key Arguments" if key_arguments else "Mitigations"
+                args_text = "\n".join(f"- {arg[:100]}" for arg in key_points[:3])
                 fields.append(
                     {
-                        "name": "Key Arguments",
+                        "name": label,
                         "value": args_text[:1024],
                         "inline": False,
                     }
                 )
 
             # Risks
-            if receipt.risks:
-                risks_text = "\n".join(f"- {risk[:100]}" for risk in receipt.risks[:3])
+            risks = getattr(receipt, "risks", None)
+            if not risks:
+                findings = getattr(receipt, "findings", None) or []
+                risks = [
+                    f"{getattr(f, 'severity', '')}: {getattr(f, 'title', '')}".strip(": ")
+                    for f in findings[:3]
+                    if getattr(f, "title", None) or getattr(f, "severity", None)
+                ]
+            if risks:
+                risks_text = "\n".join(f"- {risk[:100]}" for risk in risks[:3])
                 fields.append(
                     {
                         "name": "Risks",
@@ -103,8 +126,23 @@ class DiscordReceiptFormatter(ReceiptFormatter):
                 )
 
             # Dissenting Views
-            if receipt.dissenting_views:
-                dissent_text = "\n".join(f"- {view[:100]}" for view in receipt.dissenting_views[:2])
+            dissenting_views = getattr(receipt, "dissenting_views", None) or []
+            if dissenting_views:
+                formatted_views = []
+                for view in dissenting_views[:2]:
+                    if isinstance(view, str):
+                        formatted_views.append(view)
+                    elif isinstance(view, dict):
+                        agent = view.get("agent", "Agent")
+                        reasons = view.get("reasons", [])
+                        reason_text = ", ".join(reasons[:2]) if reasons else "Dissent noted"
+                        formatted_views.append(f"{agent}: {reason_text}")
+                    else:
+                        agent = getattr(view, "agent", "Agent")
+                        reasons = getattr(view, "reasons", [])
+                        reason_text = ", ".join(reasons[:2]) if reasons else "Dissent noted"
+                        formatted_views.append(f"{agent}: {reason_text}")
+                dissent_text = "\n".join(f"- {view[:100]}" for view in formatted_views)
                 fields.append(
                     {
                         "name": "Dissenting Views",
@@ -115,7 +153,11 @@ class DiscordReceiptFormatter(ReceiptFormatter):
 
         embed = {
             "title": "Decision Receipt",
-            "description": (receipt.topic or receipt.question or "")[:4096],
+            "description": (
+                getattr(receipt, "topic", None)
+                or getattr(receipt, "question", None)
+                or getattr(receipt, "input_summary", "")
+            )[:4096],
             "color": color,
             "fields": fields,
             "footer": {

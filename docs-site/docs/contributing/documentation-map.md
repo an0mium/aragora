@@ -10,7 +10,7 @@ The `docs/` directory is authoritative; `docs-site/` is a published view synced
 from these sources.
 
 For quick navigation, see [INDEX.md](./documentation-index). Deprecated and historical
-documents are archived in [deprecated/README.md](./deprecation).
+documents are archived in [deprecated/README.md](../analysis/adr).
 
 ## Quick Navigation
 
@@ -23,7 +23,7 @@ documents are archived in [deprecated/README.md](./deprecation).
 | Deploy to production | [DEPLOYMENT.md](../deployment/overview) |
 | Troubleshoot issues | [TROUBLESHOOTING.md](../operations/troubleshooting) |
 | Prioritize inbox | [EMAIL_PRIORITIZATION.md](../guides/email-prioritization) |
-| Unified inbox guide | [INBOX_GUIDE.md](../guides/inbox-guide) |
+| Unified inbox guide | [INBOX_GUIDE.md](INBOX_GUIDE.md) |
 | Manage shared inbox | [SHARED_INBOX.md](../guides/shared-inbox) |
 | Understand document ingestion | [DOCUMENTS.md](../guides/documents) |
 | Analyze codebase health | [CODEBASE_ANALYSIS.md](../analysis/codebase) |
@@ -62,7 +62,7 @@ documents are archived in [deprecated/README.md](./deprecation).
 - [CHANNELS.md](../guides/channels)
 - [BOT_INTEGRATIONS.md](../guides/bot-integrations)
 - [EMAIL_PRIORITIZATION.md](../guides/email-prioritization)
-- [INBOX_GUIDE.md](../guides/inbox-guide)
+- [INBOX_GUIDE.md](INBOX_GUIDE.md)
 - [SHARED_INBOX.md](../guides/shared-inbox)
 
 ### Costs & Billing
@@ -146,7 +146,7 @@ documents are archived in [deprecated/README.md](./deprecation).
 ## Deprecated & Historical
 
 Deprecated documents are stored under `docs/deprecated/` with notes on
-replacement docs. See [Deprecation policy](./deprecation).
+replacement docs. See [deprecated/README.md](../analysis/adr).
 
 ## Inventory & Maintenance
 

@@ -163,6 +163,12 @@ class DiscordIntegration:
 
         return False
 
+    async def verify_webhook(self) -> bool:
+        """Verify Discord webhook connectivity by sending a test message."""
+        if not self.config.webhook_url:
+            return False
+        return await self._send_webhook([], content="Aragora integration test")
+
     def _truncate(self, text: str, max_length: int = 1024) -> str:
         """Truncate text to Discord's field limit."""
         if len(text) <= max_length:

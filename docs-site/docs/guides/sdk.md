@@ -7,7 +7,19 @@ description: Aragora Python SDK
 
 The Aragora Python SDK provides a type-safe interface for interacting with the Aragora API.
 
+## Package Options
+
+- `aragora` - Full control plane package with sync + async SDK (server + CLI + client).
+- `aragora-client` - Lightweight, async-only SDK for remote API use (`/api/v1`).
+- `aragora-sdk` - Deprecated; use `aragora-client` instead.
+
 ## Installation
+
+```bash
+pip install aragora-client
+```
+
+Or install the full control plane package (includes the SDK and server):
 
 ```bash
 pip install aragora
@@ -23,7 +35,24 @@ pip install -e .
 
 ## Quick Start
 
-### Synchronous Usage
+### Standalone SDK (aragora-client)
+
+```python
+import asyncio
+from aragora_client import AragoraClient
+
+async def main():
+    client = AragoraClient("http://localhost:8080")
+    debate = await client.debates.run(
+        task="Should we use microservices?",
+        agents=["anthropic-api", "openai-api"],
+    )
+    print(f"Consensus: {debate.consensus.conclusion}")
+
+asyncio.run(main())
+```
+
+### Full SDK (aragora) - Synchronous Usage
 
 ```python
 from aragora.client import AragoraClient
@@ -40,7 +69,7 @@ debate = client.debates.get(response.debate_id)
 print(f"Status: {debate.status}")
 ```
 
-### Asynchronous Usage
+### Full SDK (aragora) - Asynchronous Usage
 
 ```python
 import asyncio

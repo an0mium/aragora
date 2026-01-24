@@ -430,7 +430,8 @@ WAL (Write-Ahead Logging) mode is enabled by default for:
 |-------|--------|---------|
 | `UserStore` | `aragora.storage.user_store` | User accounts, auth |
 | `OrganizationStore` | `aragora.storage.organization_store` | Multi-tenant orgs |
-| `AuditStore` | `aragora.storage.audit_store` | Security audit log |
+| `PolicyStore` | `aragora.compliance.policy_store` | Policy rules, violations (SQLite/Postgres) |
+| `AuditLog` | `aragora.audit.log` | Immutable audit events + exports (SQLite/Postgres) |
 | `ShareLinkStore` | `aragora.storage.share_store` | Shared debate links |
 | `WebhookStore` | `aragora.storage.webhook_store` | Webhook configs |
 
@@ -440,6 +441,10 @@ from aragora.storage.user_store import UserStore
 store = UserStore(db_path="/path/to/users.db")
 user = store.get_by_email("user@example.com")
 ```
+
+**Audit & Policy Backends:**
+- Set `ARAGORA_AUDIT_STORE_BACKEND=postgres` or `ARAGORA_POLICY_STORE_BACKEND=postgres` to force Postgres for those stores.
+- Both inherit `ARAGORA_DB_BACKEND` when not explicitly set.
 
 ## Cloud Deployment (Supabase)
 

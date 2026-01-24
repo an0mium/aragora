@@ -155,6 +155,14 @@ class SlackIntegration:
             logger.error(f"Slack send failed: {e}")
             return False
 
+    async def verify_webhook(self) -> bool:
+        """Verify Slack webhook connectivity by sending a test message."""
+        if not self.config.webhook_url:
+            return False
+
+        message = SlackMessage(text="Aragora integration test")
+        return await self._send_message(message)
+
     async def post_debate_summary(self, result: DebateResult) -> bool:
         """Post a debate summary to Slack.
 

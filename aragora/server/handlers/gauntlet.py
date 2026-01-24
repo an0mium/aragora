@@ -14,6 +14,7 @@ Endpoints:
 from __future__ import annotations
 
 import asyncio
+import json
 import hashlib
 import logging
 import time
@@ -898,6 +899,32 @@ class GauntletHandler(BaseHandler):
             store.save(stored)
             logger.info(f"Decision receipt auto-persisted: {receipt.receipt_id}")
 
+            # Emit receipt generated webhook
+            try:
+                from aragora.integrations.receipt_webhooks import get_receipt_notifier
+
+                notifier = get_receipt_notifier()
+                debate_id = getattr(result, "debate_id", None) or gauntlet_id
+                agents = getattr(result, "agents_involved", None) or getattr(result, "agents", None)
+                rounds = getattr(result, "rounds_completed", None) or getattr(
+                    result, "rounds_used", None
+                )
+                findings_count = getattr(result, "total_findings", None)
+                if findings_count is None:
+                    findings_count = len(getattr(receipt, "vulnerability_details", []) or [])
+                notifier.notify_receipt_generated(
+                    receipt_id=receipt.receipt_id,
+                    debate_id=debate_id,
+                    verdict=receipt.verdict,
+                    confidence=receipt.confidence,
+                    hash=stored.checksum,
+                    agents=agents,
+                    rounds=rounds,
+                    findings_count=findings_count,
+                )
+            except Exception as e:
+                logger.debug(f"Receipt webhook notification skipped: {e}")
+
             # Optional auto-signing
             if os.environ.get("ARAGORA_AUTO_SIGN_RECEIPTS", "").lower() in ("true", "1", "yes"):
                 try:
@@ -1017,30 +1044,51 @@ class GauntletHandler(BaseHandler):
                 logger.warning(f"Receipt signing failed: {e}")
                 # Continue with unsigned receipt
 
+        def _notify_export(export_format: str, size_bytes: Optional[int] = None) -> None:
+            try:
+                from aragora.integrations.receipt_webhooks import get_receipt_notifier
+
+                notifier = get_receipt_notifier()
+                notifier.notify_receipt_exported(
+                    receipt_id=receipt.receipt_id,
+                    debate_id=gauntlet_id,
+                    export_format=export_format,
+                    file_size=size_bytes,
+                )
+            except Exception as e:
+                logger.debug(f"Receipt export webhook skipped: {e}")
+
         if format_type == "html":
+            html_bytes = receipt.to_html().encode("utf-8")
+            _notify_export("html", len(html_bytes))
             return HandlerResult(
                 status_code=200,
                 content_type="text/html",
-                body=receipt.to_html().encode("utf-8"),
+                body=html_bytes,
             )
         elif format_type == "md":
+            md_bytes = receipt.to_markdown().encode("utf-8")
+            _notify_export("markdown", len(md_bytes))
             return HandlerResult(
                 status_code=200,
                 content_type="text/markdown",
-                body=receipt.to_markdown().encode("utf-8"),
+                body=md_bytes,
             )
         elif format_type == "sarif":
             # SARIF 2.1.0 format for security tool integration
+            sarif_bytes = receipt.to_sarif_json().encode("utf-8")
+            _notify_export("sarif", len(sarif_bytes))
             return HandlerResult(
                 status_code=200,
                 content_type="application/sarif+json",
-                body=receipt.to_sarif_json().encode("utf-8"),
+                body=sarif_bytes,
                 headers={"Content-Disposition": f'attachment; filename="{gauntlet_id}.sarif"'},
             )
         elif format_type == "pdf":
             # PDF format (requires weasyprint)
             try:
                 pdf_bytes = receipt.to_pdf()
+                _notify_export("pdf", len(pdf_bytes))
                 return HandlerResult(
                     status_code=200,
                     content_type="application/pdf",
@@ -1056,15 +1104,18 @@ class GauntletHandler(BaseHandler):
                 )
         elif format_type == "csv":
             # CSV format for spreadsheet import
+            csv_bytes = receipt.to_csv().encode("utf-8")
+            _notify_export("csv", len(csv_bytes))
             return HandlerResult(
                 status_code=200,
                 content_type="text/csv",
-                body=receipt.to_csv().encode("utf-8"),
+                body=csv_bytes,
                 headers={
                     "Content-Disposition": f'attachment; filename="{gauntlet_id}-findings.csv"'
                 },
             )
         else:
+            _notify_export("json", len(json.dumps(receipt_data)))
             return json_response(receipt_data)
 
     async def _verify_receipt(self, gauntlet_id: str, handler: Any) -> HandlerResult:
@@ -1178,6 +1229,39 @@ class GauntletHandler(BaseHandler):
             "key_id": signed_receipt.signature_metadata.key_id,
             "signed_at": signed_receipt.signature_metadata.timestamp,
         }
+
+        # Emit webhook based on verification result
+        try:
+            from aragora.integrations.receipt_webhooks import get_receipt_notifier
+
+            notifier = get_receipt_notifier()
+            receipt_id = signed_receipt.receipt_data.get("receipt_id", "")
+            receipt_hash = signed_receipt.receipt_data.get(
+                "artifact_hash", ""
+            ) or signed_receipt.receipt_data.get("checksum", "")
+            computed_hash = ""
+            try:
+                computed_hash = receipt._calculate_hash()
+            except Exception:
+                computed_hash = ""
+
+            if verification_result["verified"]:
+                notifier.notify_receipt_verified(
+                    receipt_id=receipt_id,
+                    debate_id=gauntlet_id,
+                    hash=receipt_hash,
+                    computed_hash=computed_hash,
+                    valid=True,
+                )
+            else:
+                notifier.notify_receipt_integrity_failed(
+                    receipt_id=receipt_id,
+                    debate_id=gauntlet_id,
+                    error_message="; ".join(verification_result.get("errors", []))
+                    or "verification failed",
+                )
+        except Exception as e:
+            logger.debug(f"Receipt verification webhook skipped: {e}")
 
         # Return appropriate status code
         if verification_result["verified"]:

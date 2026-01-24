@@ -1768,6 +1768,216 @@ COMMON_SCHEMAS: dict[str, Any] = {
         },
         "required": ["success"],
     },
+    # Budget Management schemas
+    "BudgetPeriod": {
+        "type": "string",
+        "description": "Budget period type",
+        "enum": ["daily", "weekly", "monthly", "quarterly", "annual", "unlimited"],
+    },
+    "BudgetStatus": {
+        "type": "string",
+        "description": "Budget status",
+        "enum": ["active", "warning", "critical", "exceeded", "suspended", "paused", "closed"],
+    },
+    "BudgetAction": {
+        "type": "string",
+        "description": "Action when budget threshold is reached",
+        "enum": ["notify", "warn", "soft_limit", "hard_limit", "suspend"],
+    },
+    "BudgetThreshold": {
+        "type": "object",
+        "description": "Budget alert threshold configuration",
+        "properties": {
+            "percentage": {
+                "type": "number",
+                "description": "Threshold percentage (0.0 - 1.0)",
+                "minimum": 0,
+                "maximum": 1,
+            },
+            "action": {"$ref": "#/components/schemas/BudgetAction"},
+        },
+        "required": ["percentage", "action"],
+    },
+    "Budget": {
+        "type": "object",
+        "description": "Budget configuration and state",
+        "properties": {
+            "budget_id": {"type": "string", "description": "Unique budget identifier"},
+            "org_id": {"type": "string", "description": "Organization ID"},
+            "name": {"type": "string", "description": "Budget name"},
+            "description": {"type": "string", "description": "Budget description"},
+            "amount_usd": {"type": "number", "description": "Budget limit in USD"},
+            "period": {"$ref": "#/components/schemas/BudgetPeriod"},
+            "spent_usd": {"type": "number", "description": "Amount spent in current period"},
+            "remaining_usd": {"type": "number", "description": "Remaining budget"},
+            "usage_percentage": {
+                "type": "number",
+                "description": "Current usage as percentage (0.0 - 1.0+)",
+            },
+            "period_start": {"type": "number", "description": "Period start timestamp"},
+            "period_start_iso": {"type": "string", "format": "date-time"},
+            "period_end": {"type": "number", "description": "Period end timestamp"},
+            "period_end_iso": {"type": "string", "format": "date-time"},
+            "status": {"$ref": "#/components/schemas/BudgetStatus"},
+            "current_action": {"$ref": "#/components/schemas/BudgetAction"},
+            "auto_suspend": {"type": "boolean", "description": "Auto-suspend on exceed"},
+            "is_exceeded": {"type": "boolean", "description": "Whether budget is exceeded"},
+            "thresholds": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/BudgetThreshold"},
+            },
+            "created_at": {"type": "number", "description": "Creation timestamp"},
+            "updated_at": {"type": "number", "description": "Last update timestamp"},
+        },
+        "required": ["budget_id", "org_id", "name", "amount_usd"],
+    },
+    "BudgetCreateRequest": {
+        "type": "object",
+        "description": "Request to create a new budget",
+        "properties": {
+            "name": {"type": "string", "description": "Budget name", "minLength": 1},
+            "amount_usd": {
+                "type": "number",
+                "description": "Budget limit in USD",
+                "minimum": 0.01,
+            },
+            "period": {
+                "$ref": "#/components/schemas/BudgetPeriod",
+                "default": "monthly",
+            },
+            "description": {"type": "string", "description": "Budget description"},
+            "auto_suspend": {
+                "type": "boolean",
+                "description": "Auto-suspend when exceeded",
+                "default": True,
+            },
+        },
+        "required": ["name", "amount_usd"],
+    },
+    "BudgetUpdateRequest": {
+        "type": "object",
+        "description": "Request to update a budget",
+        "properties": {
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+            "amount_usd": {"type": "number", "minimum": 0.01},
+            "auto_suspend": {"type": "boolean"},
+            "status": {"$ref": "#/components/schemas/BudgetStatus"},
+        },
+    },
+    "BudgetListResponse": {
+        "type": "object",
+        "description": "List of budgets",
+        "properties": {
+            "budgets": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/Budget"},
+            },
+            "count": {"type": "integer"},
+            "org_id": {"type": "string"},
+        },
+        "required": ["budgets", "count"],
+    },
+    "BudgetSummary": {
+        "type": "object",
+        "description": "Organization budget summary",
+        "properties": {
+            "org_id": {"type": "string"},
+            "total_budget_usd": {"type": "number"},
+            "total_spent_usd": {"type": "number"},
+            "total_remaining_usd": {"type": "number"},
+            "overall_usage_percentage": {"type": "number"},
+            "active_budgets": {"type": "integer"},
+            "exceeded_budgets": {"type": "integer"},
+            "budgets": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/Budget"},
+            },
+        },
+        "required": ["org_id", "total_budget_usd", "total_spent_usd"],
+    },
+    "BudgetCheckRequest": {
+        "type": "object",
+        "description": "Pre-flight budget check request",
+        "properties": {
+            "estimated_cost_usd": {
+                "type": "number",
+                "description": "Estimated operation cost",
+                "minimum": 0.01,
+            },
+        },
+        "required": ["estimated_cost_usd"],
+    },
+    "BudgetCheckResponse": {
+        "type": "object",
+        "description": "Budget check result",
+        "properties": {
+            "allowed": {"type": "boolean", "description": "Whether operation is allowed"},
+            "reason": {"type": "string", "description": "Explanation"},
+            "action": {
+                "type": ["string", "null"],
+                "description": "Required action if any",
+            },
+            "estimated_cost_usd": {"type": "number"},
+        },
+        "required": ["allowed", "reason"],
+    },
+    "BudgetAlert": {
+        "type": "object",
+        "description": "Budget alert event",
+        "properties": {
+            "alert_id": {"type": "string"},
+            "budget_id": {"type": "string"},
+            "org_id": {"type": "string"},
+            "threshold_percentage": {"type": "number"},
+            "action": {"$ref": "#/components/schemas/BudgetAction"},
+            "spent_usd": {"type": "number"},
+            "amount_usd": {"type": "number"},
+            "usage_percentage": {"type": "number"},
+            "message": {"type": "string"},
+            "created_at": {"type": "number"},
+            "created_at_iso": {"type": "string", "format": "date-time"},
+            "acknowledged": {"type": "boolean"},
+            "acknowledged_by": {"type": ["string", "null"]},
+            "acknowledged_at": {"type": ["number", "null"]},
+        },
+        "required": ["alert_id", "budget_id", "message"],
+    },
+    "BudgetAlertListResponse": {
+        "type": "object",
+        "description": "List of budget alerts",
+        "properties": {
+            "alerts": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/BudgetAlert"},
+            },
+            "count": {"type": "integer"},
+            "budget_id": {"type": "string"},
+        },
+        "required": ["alerts", "count"],
+    },
+    "BudgetOverrideRequest": {
+        "type": "object",
+        "description": "Request to add budget override",
+        "properties": {
+            "user_id": {"type": "string", "description": "User to grant override"},
+            "duration_hours": {
+                "type": ["number", "null"],
+                "description": "Override duration (null for permanent)",
+            },
+        },
+        "required": ["user_id"],
+    },
+    "BudgetOverrideResponse": {
+        "type": "object",
+        "properties": {
+            "override_added": {"type": "boolean"},
+            "budget_id": {"type": "string"},
+            "user_id": {"type": "string"},
+            "duration_hours": {"type": ["number", "null"]},
+        },
+        "required": ["override_added", "budget_id", "user_id"],
+    },
 }
 
 

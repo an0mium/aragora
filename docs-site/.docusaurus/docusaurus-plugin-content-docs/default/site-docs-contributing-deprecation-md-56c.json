@@ -1,7 +1,7 @@
 {
   "id": "contributing/deprecation",
-  "title": "API Deprecation Policy",
-  "description": "API Deprecation Policy",
+  "title": "Aragora Deprecation Policy",
+  "description": "Aragora Deprecation Policy",
   "source": "@site/docs/contributing/deprecation.md",
   "sourceDirName": "contributing",
   "slug": "/contributing/deprecation",
@@ -14,7 +14,7 @@
   "lastUpdatedBy": "an0mium",
   "lastUpdatedAt": 1769103634000,
   "frontMatter": {
-    "title": "API Deprecation Policy",
-    "description": "API Deprecation Policy"
+    "title": "Aragora Deprecation Policy",
+    "description": "Aragora Deprecation Policy"
   }
 }

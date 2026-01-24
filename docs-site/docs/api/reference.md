@@ -4452,6 +4452,163 @@ Handle Stripe webhook events (subscription updates, payment events).
 
 ---
 
+## Usage Metering API
+
+Enterprise usage metering endpoints for tracking consumption and quotas.
+
+### Get Usage Summary
+
+```http
+GET /api/v1/billing/usage
+GET /api/v1/billing/usage/summary
+Authorization: Bearer <token>
+```
+
+Query Parameters:
+- `period`: Billing period (`hour`, `day`, `week`, `month`, `quarter`, `year`). Default: `month`
+
+Returns current usage for the authenticated user's organization.
+
+**Response:**
+```json
+{
+  "usage": {
+    "period_start": "2026-01-01T00:00:00Z",
+    "period_end": "2026-01-31T23:59:59Z",
+    "period_type": "month",
+    "tokens": {
+      "input": 500000,
+      "output": 250000,
+      "total": 750000,
+      "cost": "12.50"
+    },
+    "counts": {
+      "debates": 45,
+      "api_calls": 1500
+    },
+    "by_provider": {...},
+    "limits": {...},
+    "usage_percent": {...}
+  }
+}
+```
+
+### Get Usage Breakdown
+
+```http
+GET /api/v1/billing/usage/breakdown
+Authorization: Bearer <token>
+```
+
+Query Parameters:
+- `start`: Start date (ISO format)
+- `end`: End date (ISO format)
+
+Returns detailed usage breakdown by model, provider, and day.
+
+**Response:**
+```json
+{
+  "breakdown": {
+    "totals": {
+      "cost": "125.50",
+      "tokens": 5000000,
+      "debates": 150,
+      "api_calls": 5000
+    },
+    "by_model": [...],
+    "by_provider": [...],
+    "by_day": [...],
+    "by_user": [...]
+  }
+}
+```
+
+### Get Limits
+
+```http
+GET /api/v1/billing/limits
+Authorization: Bearer <token>
+```
+
+Returns current tier limits and utilization percentages.
+
+**Response:**
+```json
+{
+  "limits": {
+    "tier": "enterprise_plus",
+    "limits": {
+      "tokens": 999999999,
+      "debates": 999999,
+      "api_calls": 999999
+    },
+    "used": {
+      "tokens": 750000,
+      "debates": 45,
+      "api_calls": 1500
+    },
+    "percent": {
+      "tokens": 0.075,
+      "debates": 0.0045,
+      "api_calls": 0.15
+    },
+    "exceeded": {
+      "tokens": false,
+      "debates": false,
+      "api_calls": false
+    }
+  }
+}
+```
+
+### Get Quota Status
+
+```http
+GET /api/v1/quotas
+Authorization: Bearer <token>
+```
+
+Returns current quota status for all resources using the unified QuotaManager.
+
+**Response:**
+```json
+{
+  "quotas": {
+    "debates": {
+      "limit": 100,
+      "current": 45,
+      "remaining": 55,
+      "period": "day",
+      "percentage_used": 45.0,
+      "is_exceeded": false,
+      "is_warning": false,
+      "resets_at": "2026-01-24T00:00:00Z"
+    },
+    "api_requests": {...},
+    "tokens": {...},
+    "storage_bytes": {...},
+    "knowledge_bytes": {...}
+  }
+}
+```
+
+### Export Usage
+
+```http
+GET /api/v1/billing/usage/export
+Authorization: Bearer <token>
+```
+
+Query Parameters:
+- `start`: Start date (ISO format)
+- `end`: End date (ISO format)
+- `format`: Export format (`csv` or `json`). Default: `csv`
+
+Returns usage data as downloadable CSV or JSON.
+
+---
+
 ## Job Queue API
 
 Background job queue management for long-running tasks.

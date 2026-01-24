@@ -87,8 +87,6 @@ At least one required for debates to function.
 | `ARAGORA_ENVIRONMENT` | `development` | Environment mode |
 | `ARAGORA_DATA_DIR` | `.nomic` | Data directory for databases |
 | `ARAGORA_INSTANCE_COUNT` | `1` | Number of server instances |
-| `ARAGORA_NOTIFICATION_WORKER` | `1` | Enable notification worker (`0` to disable) |
-| `ARAGORA_NOTIFICATION_CONCURRENCY` | `20` | Max concurrent notification deliveries |
 
 ---
 
@@ -155,20 +153,81 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/aragora
 
 Required for multi-instance deployments and distributed rate limiting.
 
+### Basic Configuration
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `REDIS_URL` | - | Redis connection URL |
+| `ARAGORA_REDIS_URL` | - | Alternative Redis URL |
+| `ARAGORA_REDIS_HOST` | `localhost` | Redis hostname |
+| `ARAGORA_REDIS_PORT` | `6379` | Redis port |
 | `ARAGORA_REDIS_PASSWORD` | - | Redis password |
+| `ARAGORA_REDIS_DB` | `0` | Redis database number |
 | `ARAGORA_REDIS_MAX_CONNECTIONS` | `50` | Max connections |
-| `ARAGORA_REDIS_SOCKET_TIMEOUT` | `5.0` | Socket timeout |
+| `ARAGORA_REDIS_SOCKET_TIMEOUT` | `5.0` | Socket timeout (seconds) |
+| `ARAGORA_REDIS_SOCKET_CONNECT_TIMEOUT` | `5.0` | Connection timeout (seconds) |
 
-### Redis Cluster
+### Redis High-Availability Modes
+
+Aragora supports three Redis deployment modes for different scale and availability requirements:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `ARAGORA_REDIS_MODE` | `standalone` | Mode: `standalone`, `sentinel`, or `cluster` |
+
+**Mode auto-detection:** If `ARAGORA_REDIS_MODE` is not set, the mode is auto-detected based on configuration:
+- If `ARAGORA_REDIS_SENTINEL_HOSTS` is set -> Sentinel mode
+- If `ARAGORA_REDIS_CLUSTER_NODES` is set -> Cluster mode
+- Otherwise -> Standalone mode
+
+### Redis Sentinel (HA Failover)
+
+Redis Sentinel provides automatic master/replica failover. Recommended for production deployments requiring high availability without data sharding.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ARAGORA_REDIS_SENTINEL_HOSTS` | - | Comma-separated sentinel hosts (e.g., `sentinel1:26379,sentinel2:26379`) |
+| `ARAGORA_REDIS_SENTINEL_MASTER` | `mymaster` | Sentinel master name |
+| `ARAGORA_REDIS_SENTINEL_PASSWORD` | - | Sentinel authentication password |
+| `ARAGORA_REDIS_SENTINEL_SOCKET_TIMEOUT` | `5.0` | Sentinel socket timeout |
+
+**Example Sentinel setup:**
+```bash
+# Sentinel mode configuration
+ARAGORA_REDIS_MODE=sentinel
+ARAGORA_REDIS_SENTINEL_HOSTS=sentinel1.example.com:26379,sentinel2.example.com:26379,sentinel3.example.com:26379
+ARAGORA_REDIS_SENTINEL_MASTER=mymaster
+ARAGORA_REDIS_SENTINEL_PASSWORD=sentinel-secret
+ARAGORA_REDIS_PASSWORD=redis-secret
+```
+
+### Redis Cluster (Horizontal Scaling)
+
+Redis Cluster provides data sharding across multiple nodes. Recommended for enterprise deployments requiring both high availability and horizontal scaling.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ARAGORA_REDIS_CLUSTER_NODES` | - | Comma-separated cluster nodes (e.g., `node1:6379,node2:6379`) |
 | `ARAGORA_REDIS_CLUSTER_MODE` | `auto` | Cluster mode detection |
-| `ARAGORA_REDIS_CLUSTER_NODES` | - | Cluster node addresses |
-| `ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS` | `true` | Read from replicas |
+| `ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS` | `true` | Enable read from replicas for scaling |
+| `ARAGORA_REDIS_CLUSTER_SKIP_FULL_COVERAGE` | `false` | Skip slot coverage check |
+
+**Example Cluster setup:**
+```bash
+# Cluster mode configuration
+ARAGORA_REDIS_MODE=cluster
+ARAGORA_REDIS_CLUSTER_NODES=redis1.example.com:6379,redis2.example.com:6379,redis3.example.com:6379
+ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS=true
+ARAGORA_REDIS_PASSWORD=cluster-secret
+```
+
+### SSL/TLS Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ARAGORA_REDIS_SSL` | `false` | Enable SSL/TLS connections |
+| `ARAGORA_REDIS_SSL_CERT_REQS` | - | SSL certificate requirements |
+| `ARAGORA_REDIS_SSL_CA_CERTS` | - | Path to CA certificates |
 
 ### Distributed State (Horizontal Scaling)
 
@@ -180,24 +239,40 @@ For multi-instance deployments where debate state needs to be shared across serv
 | `ARAGORA_REDIS_URL` | `redis://localhost:6379` | Redis URL for state storage |
 | `ARAGORA_INSTANCE_ID` | `instance-\{pid\}` | Unique instance identifier for event deduplication |
 
-**When to use Redis state:**
-- Running multiple server instances behind a load balancer
-- Need debate continuation after server restart
-- Cross-instance WebSocket event broadcasting
+**When to use Redis HA:**
 
-**Example multi-instance setup:**
+| Deployment | Recommended Mode | Use Case |
+|------------|------------------|----------|
+| Development/Test | Standalone | Single instance, local development |
+| Production (small) | Standalone | Single server, moderate load |
+| Production (HA) | Sentinel | Multi-server, automatic failover |
+| Enterprise | Cluster | High scale, data sharding, global distribution |
+
+**Example multi-instance setup with Sentinel:**
 ```bash
 # Instance 1
 ARAGORA_STATE_BACKEND=redis
-ARAGORA_REDIS_URL=redis://redis-server:6379
+ARAGORA_REDIS_MODE=sentinel
+ARAGORA_REDIS_SENTINEL_HOSTS=sentinel1:26379,sentinel2:26379,sentinel3:26379
+ARAGORA_REDIS_SENTINEL_MASTER=mymaster
 ARAGORA_INSTANCE_ID=server-1
 ARAGORA_PORT=8081
 
 # Instance 2
 ARAGORA_STATE_BACKEND=redis
-ARAGORA_REDIS_URL=redis://redis-server:6379
+ARAGORA_REDIS_MODE=sentinel
+ARAGORA_REDIS_SENTINEL_HOSTS=sentinel1:26379,sentinel2:26379,sentinel3:26379
+ARAGORA_REDIS_SENTINEL_MASTER=mymaster
 ARAGORA_INSTANCE_ID=server-2
 ARAGORA_PORT=8082
+```
+
+**Health Check:**
+```python
+from aragora.storage.redis_ha import check_redis_health
+
+health = check_redis_health()
+print(f"Healthy: {health['healthy']}, Mode: {health['mode']}")
 ```
 
 ---
@@ -272,6 +347,16 @@ ARAGORA_PORT=8082
 | `ARAGORA_SLOW_DEBATE_THRESHOLD` | `30` | Slow debate detection (seconds) |
 | `ARAGORA_CONTEXT_TIMEOUT` | `150.0` | Context gathering timeout |
 | `ARAGORA_EVIDENCE_TIMEOUT` | `30.0` | Evidence collection timeout |
+
+### Debate Concurrency
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ARAGORA_MAX_CONCURRENT_PROPOSALS` | `5` | Max parallel proposal generations |
+| `ARAGORA_PROPOSAL_STAGGER_SECONDS` | `0.0` | Stagger delay between proposals (0=disabled) |
+| `ARAGORA_AGENT_TIMEOUT_SECONDS` | `60` | Per-agent timeout |
+
+**Note:** Proposal generation uses bounded semaphores for true parallelism. Set stagger > 0 for legacy sequential behavior.
 
 ---
 

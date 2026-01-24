@@ -5,17 +5,17 @@
       "plugin": "c141421f"
     }
   },
-  "/docs-ca2": {
+  "/docs-5d2": {
     "__comp": "5e95c892",
     "__context": {
       "plugin": "aba21aa0"
     }
   },
-  "/docs-670": {
+  "/docs-e14": {
     "__comp": "a7bd4aaa",
     "__props": "0058b4c6"
   },
-  "/docs-5af": {
+  "/docs-0c7": {
     "__comp": "a94703ab"
   },
   "/docs/admin/-314": {
@@ -765,6 +765,14 @@
   "/docs/guides/sdk-942": {
     "__comp": "17896441",
     "content": "c57ff1f6"
+  },
+  "/docs/guides/sdk-consolidation-066": {
+    "__comp": "17896441",
+    "content": "4834f15d"
+  },
+  "/docs/guides/sdk-parity-3e2": {
+    "__comp": "17896441",
+    "content": "21d25954"
   },
   "/docs/guides/sdk-typescript-7aa": {
     "__comp": "17896441",

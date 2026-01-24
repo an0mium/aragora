@@ -79,13 +79,16 @@ services:
       - ARAGORA_TRUSTED_PROXIES=${ARAGORA_TRUSTED_PROXIES:-127.0.0.1,::1}
       # Performance
       - ARAGORA_MAX_CONCURRENT_DEBATES=${ARAGORA_MAX_CONCURRENT_DEBATES:-5}
+      # Environment mode
+      - ARAGORA_ENV=${ARAGORA_ENV:-development}
+      - ARAGORA_ENVIRONMENT=${ARAGORA_ENVIRONMENT:-development}
       # Redis (for OAuth state, session management, and caching)
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       # Database (PostgreSQL for production, SQLite for development)
-      # When using postgres profile, set ARAGORA_POSTGRES_DSN to use PostgreSQL
+      # When using postgres profile, set ARAGORA_POSTGRES_DSN or DATABASE_URL.
       - DATABASE_URL=${DATABASE_URL:-}
-      - ARAGORA_POSTGRES_DSN=${ARAGORA_POSTGRES_DSN:-postgresql://${POSTGRES_USER:-aragora}:${POSTGRES_PASSWORD:-aragora_dev_password}@postgres:5432/${POSTGRES_DB:-aragora}}
-      - ARAGORA_DB_BACKEND=${ARAGORA_DB_BACKEND:-sqlite}
+      - ARAGORA_POSTGRES_DSN=${ARAGORA_POSTGRES_DSN:-}
+      - ARAGORA_DB_BACKEND=${ARAGORA_DB_BACKEND:-auto}
       - ARAGORA_DB_MODE=${ARAGORA_DB_MODE:-legacy}
       # Stripe billing (use Secrets Manager in production)
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}

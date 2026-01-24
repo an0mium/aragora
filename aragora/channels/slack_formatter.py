@@ -40,7 +40,9 @@ class SlackReceiptFormatter(ReceiptFormatter):
         blocks: List[Dict[str, Any]] = []
 
         # Header
-        confidence = receipt.confidence_score or 0
+        confidence = getattr(receipt, "confidence_score", None)
+        if confidence is None:
+            confidence = getattr(receipt, "confidence", 0)
         confidence_emoji = self._get_confidence_emoji(confidence)
 
         blocks.append(
@@ -55,12 +57,18 @@ class SlackReceiptFormatter(ReceiptFormatter):
         )
 
         # Topic/Question
+        topic = (
+            getattr(receipt, "topic", None)
+            or getattr(receipt, "question", None)
+            or getattr(receipt, "input_summary", None)
+            or "N/A"
+        )
         blocks.append(
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*Topic:* {receipt.topic or receipt.question or 'N/A'}",
+                    "text": f"*Topic:* {topic}",
                 },
             }
         )
@@ -68,7 +76,12 @@ class SlackReceiptFormatter(ReceiptFormatter):
         blocks.append({"type": "divider"})
 
         # Decision with confidence
-        decision_text = receipt.decision or "No decision reached"
+        decision_text = (
+            getattr(receipt, "decision", None)
+            or getattr(receipt, "verdict", None)
+            or getattr(receipt, "final_answer", None)
+            or "No decision reached"
+        )
         blocks.append(
             {
                 "type": "section",
@@ -91,21 +104,35 @@ class SlackReceiptFormatter(ReceiptFormatter):
 
         if not compact:
             # Key Arguments
-            if receipt.key_arguments:
-                args_text = "\n".join(f"- {arg}" for arg in receipt.key_arguments[:5])
+            key_arguments = getattr(receipt, "key_arguments", None) or getattr(
+                receipt, "mitigations", None
+            )
+            if key_arguments:
+                label = (
+                    "Key Arguments" if getattr(receipt, "key_arguments", None) else "Mitigations"
+                )
+                args_text = "\n".join(f"- {arg}" for arg in key_arguments[:5])
                 blocks.append(
                     {
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": f"*Key Arguments:*\n{args_text}",
+                            "text": f"*{label}:*\n{args_text}",
                         },
                     }
                 )
 
             # Risks
-            if receipt.risks:
-                risks_text = "\n".join(f"- :warning: {risk}" for risk in receipt.risks[:3])
+            risks = getattr(receipt, "risks", None)
+            if not risks:
+                findings = getattr(receipt, "findings", None) or []
+                risks = [
+                    f"{getattr(f, 'severity', '')}: {getattr(f, 'title', '')}".strip(": ")
+                    for f in findings[:3]
+                    if getattr(f, "title", None) or getattr(f, "severity", None)
+                ]
+            if risks:
+                risks_text = "\n".join(f"- :warning: {risk}" for risk in risks[:3])
                 blocks.append(
                     {
                         "type": "section",
@@ -117,8 +144,23 @@ class SlackReceiptFormatter(ReceiptFormatter):
                 )
 
             # Dissenting Views
-            if receipt.dissenting_views:
-                dissent_text = "\n".join(f"- {view}" for view in receipt.dissenting_views[:3])
+            dissenting_views = getattr(receipt, "dissenting_views", None) or []
+            if dissenting_views:
+                formatted_views = []
+                for view in dissenting_views[:3]:
+                    if isinstance(view, str):
+                        formatted_views.append(view)
+                    elif isinstance(view, dict):
+                        agent = view.get("agent", "Agent")
+                        reasons = view.get("reasons", [])
+                        reason_text = ", ".join(reasons[:2]) if reasons else "Dissent noted"
+                        formatted_views.append(f"{agent}: {reason_text}")
+                    else:
+                        agent = getattr(view, "agent", "Agent")
+                        reasons = getattr(view, "reasons", [])
+                        reason_text = ", ".join(reasons[:2]) if reasons else "Dissent noted"
+                        formatted_views.append(f"{agent}: {reason_text}")
+                dissent_text = "\n".join(f"- {view}" for view in formatted_views)
                 blocks.append(
                     {
                         "type": "section",
@@ -130,10 +172,11 @@ class SlackReceiptFormatter(ReceiptFormatter):
                 )
 
         # Agents section
-        if include_agents and receipt.agents:
-            agent_names = ", ".join(receipt.agents[:5])
-            if len(receipt.agents) > 5:
-                agent_names += f" +{len(receipt.agents) - 5} more"
+        agents = getattr(receipt, "agents", None) or getattr(receipt, "agents_involved", [])
+        if include_agents and agents:
+            agent_names = ", ".join(agents[:5])
+            if len(agents) > 5:
+                agent_names += f" +{len(agents) - 5} more"
             blocks.append(
                 {
                     "type": "context",
@@ -147,8 +190,9 @@ class SlackReceiptFormatter(ReceiptFormatter):
             )
 
         # Evidence section
-        if include_evidence and receipt.evidence:
-            evidence_count = len(receipt.evidence)
+        evidence = getattr(receipt, "evidence", None)
+        if include_evidence and evidence:
+            evidence_count = len(evidence)
             blocks.append(
                 {
                     "type": "context",
@@ -156,6 +200,19 @@ class SlackReceiptFormatter(ReceiptFormatter):
                         {
                             "type": "mrkdwn",
                             "text": f":bookmark: {evidence_count} evidence sources cited",
+                        },
+                    ],
+                }
+            )
+        elif include_evidence and getattr(receipt, "findings", None):
+            findings_count = len(getattr(receipt, "findings", []))
+            blocks.append(
+                {
+                    "type": "context",
+                    "elements": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f":bookmark: {findings_count} findings reported",
                         },
                     ],
                 }
@@ -171,7 +228,7 @@ class SlackReceiptFormatter(ReceiptFormatter):
                     {
                         "type": "mrkdwn",
                         "text": f"Receipt ID: `{receipt.receipt_id}` | "
-                        f"Rounds: {receipt.rounds or 'N/A'} | "
+                        f"Rounds: {getattr(receipt, 'rounds', None) or getattr(receipt, 'rounds_completed', 'N/A')} | "
                         f"Generated by Aragora",
                     },
                 ],

@@ -128,6 +128,33 @@ Distributed leader election for multi-node deployments.
 
 Uses Redis-based locking for leader election with automatic failover.
 
+### 4.1 Policy Sync
+
+In production, control plane policies are loaded from the compliance policy
+store. Policies should include a `control_plane_policy` payload in their
+metadata to be applied at dispatch time.
+
+Override behavior for testing with:
+
+```bash
+# Force in-process policies only (skip store sync)
+export ARAGORA_CONTROL_PLANE_POLICY_SOURCE=inprocess
+```
+
+### 5. NotificationDispatcher
+
+Resilient notification delivery for control plane events and outputs.
+
+**Location:** `aragora/control_plane/notifications.py`
+
+Features:
+- Retry with exponential backoff + jitter
+- Circuit breaker per channel
+- Redis Streams persistence (optional)
+- SMTP email provider for escalation paths
+- Task lifecycle events via `aragora/control_plane/task_events.py`
+- Vetted decisionmaking consensus notifications from `aragora/control_plane/deliberation.py`
+
 ---
 
 ## Deployment Modes
@@ -341,7 +368,6 @@ python scripts/demo_control_plane.py --simulate-load
 | `CONTROL_PLANE_HEARTBEAT_INTERVAL` | `30` | Heartbeat interval in seconds |
 | `CONTROL_PLANE_AGENT_TIMEOUT` | `90` | Agent timeout in seconds |
 | `CONTROL_PLANE_MAX_RETRIES` | `3` | Maximum task retries |
-| `ARAGORA_CONTROL_PLANE_POLICY_SOURCE` | `auto` | Policy source: `compliance`, `inprocess` |
 
 ### YAML Configuration
 
@@ -389,11 +415,7 @@ See [GOVERNANCE.md](./governance) for full RBAC documentation.
 
 ## Channel Notifications
 
-The control plane includes multi-channel notification delivery via the
-NotificationDispatcher and task lifecycle event emitters:
-
-- Task lifecycle events emitted by `aragora/control_plane/task_events.py`
-- Vetted decisionmaking consensus emitted by `aragora/control_plane/deliberation.py`
+The control plane includes multi-channel notification delivery:
 
 ### Supported Channels
 

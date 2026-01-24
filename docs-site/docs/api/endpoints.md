@@ -13,6 +13,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Accounting](#accounting)
 - [Analytics](#analytics)
 - [Analytics Dashboard](#analytics-dashboard)
+- [AnalyticsMetrics](#analyticsmetrics)
 - [Ap Automation](#ap-automation)
 - [Ar Automation](#ar-automation)
 - [Audit Export](#audit-export)
@@ -56,6 +57,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Orchestration](#orchestration)
 - [Organizations](#organizations)
 - [Partner](#partner)
+- [Payments](#payments)
 - [Persona](#persona)
 - [Policy](#policy)
 - [Privacy](#privacy)
@@ -72,6 +74,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Training](#training)
 - [Transcription](#transcription)
 - [Uncertainty](#uncertainty)
+- [UsageMetering](#usagemetering)
 - [Verticals](#verticals)
 - [Webhook](#webhook)
 - [Workflow Templates](#workflow-templates)
@@ -83,6 +86,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Security](#security)
 - [Audit Bridge](#audit-bridge)
 - [Pr Review](#pr-review)
+- [GraphQL](#graphql)
 
 ---
 
@@ -259,6 +263,52 @@ Agent consistency scores
 ### `GET` `/api/analytics/flips/trends`
 
 Flip trends over time
+
+---
+
+## AnalyticsMetrics
+
+Handler for analytics metrics dashboard endpoints.
+
+### `GET` `/api/v1/analytics/debates/overview` 🔒
+
+Get debate overview statistics
+
+### `GET` `/api/v1/analytics/debates/trends` 🔒
+
+Get agent performance trends over time
+
+### `GET` `/api/v1/analytics/debates/topics` 🔒
+
+Get topic distribution for debates
+
+### `GET` `/api/v1/analytics/debates/outcomes` 🔒
+
+Get debate outcome distribution (win/loss/draw)
+
+### `GET` `/api/v1/analytics/agents/leaderboard` 🔒
+
+Get agent leaderboard with ELO rankings and win rates
+
+### `GET` `/api/v1/analytics/agents/comparison` 🔒
+
+Compare multiple agents
+
+### `GET` `/api/v1/analytics/agents/trends` 🔒
+
+Get agent performance trends over time
+
+### `GET` `/api/v1/analytics/usage/tokens` 🔒
+
+Get token consumption trends
+
+### `GET` `/api/v1/analytics/usage/costs` 🔒
+
+Get cost breakdown by provider and model
+
+### `GET` `/api/v1/analytics/usage/active_users` 🔒
+
+Get active user counts
 
 ---
 
@@ -718,11 +768,11 @@ GET /api/v1/decisions/*
 
 ## Deliberations
 
-Handler for deliberation dashboard endpoints.
+Handler for vetted decisionmaking dashboard endpoints.
 
 ### `GET` `/api/v1/deliberations/active`
 
-Fetch active deliberations from the debate store
+Fetch active vetted decisionmaking sessions from the debate store
 
 ### `GET` `/api/v1/deliberations/stats`
 
@@ -834,7 +884,7 @@ Update prioritization config
 
 ## EmailDebate
 
-Handler for email deliberation API endpoints.
+Handler for email vetted decisionmaking API endpoints.
 
 ### `GET` `/api/v1/email/prioritize`
 
@@ -1492,11 +1542,11 @@ Unified Orchestration Handler for Aragora Control Plane.
 
 ### `POST` `/api/v1/orchestration/deliberate`
 
-Unified deliberation endpoint
+Unified vetted decisionmaking endpoint
 
 ### `GET` `/api/v1/orchestration/status/:id`
 
-Get deliberation status
+Get vetted decisionmaking status
 
 ### `GET` `/api/v1/orchestration/templates`
 
@@ -1504,7 +1554,7 @@ List available templates
 
 ### `POST` `/api/v1/orchestration/deliberate/sync`
 
-Synchronous deliberation
+Synchronous vetted decisionmaking
 
 ---
 
@@ -1589,6 +1639,76 @@ Configure webhook
 ### `GET` `/api/partners/limits`
 
 Get rate limits
+
+---
+
+## Payments
+
+Payment processing handlers for Stripe and Authorize.net.
+
+### `POST` `/api/payments/charge`
+
+Process a payment
+
+### `POST` `/api/payments/authorize`
+
+Authorize a payment (capture later)
+
+### `POST` `/api/payments/capture`
+
+Capture an authorized payment
+
+### `POST` `/api/payments/refund`
+
+Refund a payment
+
+### `POST` `/api/payments/void`
+
+Void a transaction
+
+### `GET` `/api/payments/transaction/\{id\}`
+
+Get transaction details
+
+### `POST` `/api/payments/customer`
+
+Create customer profile
+
+### `GET` `/api/payments/customer/\{id\}`
+
+Get customer profile
+
+### `PUT` `/api/payments/customer/\{id\}`
+
+Update customer profile
+
+### `DELETE` `/api/payments/customer/\{id\}`
+
+Delete customer profile
+
+### `POST` `/api/payments/subscription`
+
+Create subscription
+
+### `GET` `/api/payments/subscription/\{id\}`
+
+Get subscription
+
+### `PUT` `/api/payments/subscription/\{id\}`
+
+Update subscription
+
+### `DELETE` `/api/payments/subscription/\{id\}`
+
+Cancel subscription
+
+### `POST` `/api/payments/webhook/stripe`
+
+Stripe webhook endpoint
+
+### `POST` `/api/payments/webhook/authnet`
+
+Authorize.net webhook endpoint
 
 ---
 
@@ -2112,6 +2232,32 @@ Generate follow-up suggestions from cruxes
 
 ---
 
+## UsageMetering
+
+Handler for usage metering endpoints.
+
+### `GET` `/api/v1/billing/usage` 🔒
+
+Export usage data as CSV
+
+### `GET` `/api/v1/billing/usage/breakdown` 🔒
+
+Get detailed usage breakdown for billing
+
+### `GET` `/api/v1/billing/limits` 🔒
+
+Get current usage limits and utilization percentages
+
+### `GET` `/api/v1/billing/usage/summary`
+
+GET /api/v1/billing/usage/summary
+
+### `GET` `/api/v1/billing/usage/export` 🔒
+
+Export usage data as CSV
+
+---
+
 ## Verticals
 
 Vertical specialist endpoint handlers.
@@ -2439,6 +2585,138 @@ Submit review
 ### `GET` `/api/v1/github/pr/\{pr_number\}/reviews`
 
 List reviews
+
+---
+
+## GraphQL
+
+GraphQL API for efficient data fetching with support for queries, mutations, and subscriptions.
+
+### `POST` `/graphql`
+
+Execute GraphQL queries and mutations
+
+**Request Body:**
+```json
+{
+    "query": "query { debates(limit: 5) { debates { id topic status } } }",
+    "variables": {},
+    "operationName": null
+}
+```
+
+**Response:**
+```json
+{
+    "data": {
+        "debates": {
+            "debates": [
+                { "id": "abc123", "topic": "AI Ethics", "status": "COMPLETED" }
+            ]
+        }
+    }
+}
+```
+
+### `GET` `/graphql`
+
+GraphiQL interactive playground (development mode only)
+
+Opens the GraphiQL IDE for exploring the API and testing queries interactively.
+
+**Note:** GraphiQL is disabled in production by default. Set `ARAGORA_GRAPHIQL_ENABLED=true` to enable.
+
+### `GET` `/graphql/schema`
+
+Get the GraphQL schema in SDL format
+
+**Query Parameters:**
+- `format`: Response format (`sdl` or `json`, default: `sdl`)
+
+**Response (SDL):**
+```graphql
+type Query {
+    debate(id: ID!): Debate
+    debates(status: DebateStatus, limit: Int, offset: Int): DebateConnection!
+    # ...
+}
+```
+
+### Example Queries
+
+**Get recent debates with participants:**
+```graphql
+query GetDebates {
+    debates(limit: 10) {
+        debates {
+            id
+            topic
+            status
+            consensusReached
+            participants {
+                name
+                elo
+            }
+        }
+        total
+        hasMore
+    }
+}
+```
+
+**Get agent leaderboard:**
+```graphql
+query GetLeaderboard {
+    leaderboard(limit: 10) {
+        name
+        elo
+        stats {
+            wins
+            losses
+            winRate
+        }
+    }
+}
+```
+
+**Start a new debate:**
+```graphql
+mutation StartDebate {
+    startDebate(input: {
+        question: "What is the best programming language for beginners?"
+        agents: "claude,gpt4,gemini"
+        rounds: 3
+    }) {
+        id
+        topic
+        status
+    }
+}
+```
+
+**Get system health:**
+```graphql
+query SystemHealth {
+    systemHealth {
+        status
+        uptimeSeconds
+        version
+        components {
+            name
+            status
+            latencyMs
+        }
+    }
+}
+```
+
+### Configuration
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `ARAGORA_GRAPHQL_ENABLED` | `true` | Enable GraphQL API |
+| `ARAGORA_GRAPHQL_INTROSPECTION` | `true` (dev) / `false` (prod) | Allow schema introspection |
+| `ARAGORA_GRAPHIQL_ENABLED` | `true` (dev) / `false` (prod) | Enable GraphiQL playground |
 
 ---
 

@@ -798,6 +798,14 @@
               "sidebar": "guidesSidebar"
             },
             {
+              "id": "guides/sdk-consolidation",
+              "path": "/docs/guides/sdk-consolidation"
+            },
+            {
+              "id": "guides/sdk-parity",
+              "path": "/docs/guides/sdk-parity"
+            },
+            {
               "id": "guides/sdk-typescript",
               "path": "/docs/guides/sdk-typescript"
             },

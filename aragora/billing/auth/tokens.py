@@ -376,7 +376,8 @@ def validate_access_token(
         is_token_revoked_persistent,
     )
 
-    logger.info("[JWT_DEBUG] validate_access_token called")
+    token_fingerprint = hashlib.sha256(token.encode()).hexdigest()[:8]
+    logger.info(f"[JWT_DEBUG] validate_access_token called fingerprint={token_fingerprint}")
 
     payload = decode_jwt(token)
     if payload is None:
@@ -398,8 +399,6 @@ def validate_access_token(
     if use_persistent_blacklist and is_token_revoked_persistent(token):
         logger.warning("[JWT_DEBUG] validate_access_token: token revoked (persistent blacklist)")
         # Add to in-memory cache for faster subsequent checks
-        import hashlib
-
         token_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
         blacklist.revoke(token_jti, payload.exp)
         return None

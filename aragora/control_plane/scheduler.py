@@ -52,6 +52,23 @@ except ImportError:
     PolicyViolationError = None  # type: ignore
     EnforcementLevel = None  # type: ignore
 
+# Cost enforcement imports (optional - graceful fallback if not available)
+try:
+    from aragora.control_plane.cost_enforcement import (
+        CostEnforcer,
+        CostLimitExceededError,
+        CostEnforcementMode,
+        ThrottleLevel,
+    )
+
+    HAS_COST_ENFORCEMENT = True
+except ImportError:
+    HAS_COST_ENFORCEMENT = False
+    CostEnforcer = None  # type: ignore
+    CostLimitExceededError = None  # type: ignore
+    CostEnforcementMode = None  # type: ignore
+    ThrottleLevel = None  # type: ignore
+
 logger = get_logger(__name__)
 
 
@@ -281,6 +298,7 @@ class TaskScheduler:
         consumer_group: str = "aragora-workers",
         claim_timeout_ms: int = 60000,
         policy_manager: Optional["ControlPlanePolicyManager"] = None,
+        cost_enforcer: Optional["CostEnforcer"] = None,
     ):
         """
         Initialize the task scheduler.
@@ -292,6 +310,7 @@ class TaskScheduler:
             consumer_group: Consumer group name
             claim_timeout_ms: Time before unclaimed task can be reclaimed
             policy_manager: Optional policy manager for enforcement
+            cost_enforcer: Optional cost enforcer for budget-aware scheduling
         """
         self._redis_url = redis_url
         self._key_prefix = key_prefix
@@ -300,6 +319,7 @@ class TaskScheduler:
         self._consumer_group = consumer_group
         self._claim_timeout_ms = claim_timeout_ms
         self._policy_manager = policy_manager
+        self._cost_enforcer = cost_enforcer
         self._redis: Optional[Any] = None
         self._local_tasks: Dict[str, Task] = {}
         self._local_queue: List[Task] = []
@@ -386,6 +406,33 @@ class TaskScheduler:
             await self._redis.close()
             logger.info("TaskScheduler disconnected from Redis")
 
+    def set_cost_enforcer(self, cost_enforcer: "CostEnforcer") -> None:
+        """
+        Set the cost enforcer for budget-aware scheduling.
+
+        Args:
+            cost_enforcer: CostEnforcer instance for budget checks
+        """
+        self._cost_enforcer = cost_enforcer
+        logger.info("TaskScheduler connected to CostEnforcer")
+
+    def get_budget_status(
+        self, workspace_id: Optional[str] = None, org_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get current budget status for a workspace/org.
+
+        Args:
+            workspace_id: Workspace to check
+            org_id: Organization to check
+
+        Returns:
+            Budget status dictionary
+        """
+        if not self._cost_enforcer:
+            return {"error": "No cost enforcer configured"}
+        return self._cost_enforcer.get_budget_status(workspace_id=workspace_id, org_id=org_id)
+
     async def submit(
         self,
         task_type: str,
@@ -423,12 +470,49 @@ class TaskScheduler:
 
         Raises:
             PolicyViolationError: If task violates HARD enforcement policy
+            CostLimitExceededError: If task would exceed budget limits
         """
+        # Cost constraint check before creating task (if cost enforcer configured)
+        effective_priority = priority
+        cost_result = None
+        if self._cost_enforcer and HAS_COST_ENFORCEMENT:
+            cost_result = self._cost_enforcer.check_budget_constraint(
+                workspace_id=workspace_id,
+                task_type=task_type,
+            )
+
+            if not cost_result.allowed:
+                raise CostLimitExceededError(
+                    result=cost_result,
+                    task_type=task_type,
+                )
+
+            # Apply priority adjustment for throttling
+            if cost_result.priority_adjustment != 0:
+                # Adjust priority (lower number = lower priority)
+                priority_values = list(TaskPriority)
+                current_idx = priority_values.index(priority)
+                new_idx = max(
+                    0, min(len(priority_values) - 1, current_idx + cost_result.priority_adjustment)
+                )
+                effective_priority = priority_values[new_idx]
+
+                if effective_priority != priority:
+                    logger.info(
+                        "cost_throttle_priority_adjusted",
+                        task_type=task_type,
+                        workspace_id=workspace_id,
+                        original_priority=priority.name,
+                        new_priority=effective_priority.name,
+                        throttle_level=cost_result.throttle_level.value,
+                        budget_percentage=cost_result.budget_percentage_used,
+                    )
+
         task = Task(
             task_type=task_type,
             payload=payload,
             required_capabilities=set(required_capabilities or []),
-            priority=priority,
+            priority=effective_priority,
             timeout_seconds=timeout_seconds,
             max_retries=max_retries,
             metadata=metadata or {},
@@ -437,6 +521,14 @@ class TaskScheduler:
             region_routing_mode=region_routing_mode,
             origin_region=origin_region,
         )
+
+        # Store cost constraint info in metadata for observability
+        if cost_result is not None:
+            task.metadata["cost_constraint"] = {
+                "throttle_level": cost_result.throttle_level.value,
+                "budget_percentage_used": cost_result.budget_percentage_used,
+                "original_priority": priority.name,
+            }
 
         # Store workspace_id in metadata if provided
         if workspace_id:

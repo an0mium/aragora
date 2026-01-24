@@ -36,6 +36,7 @@ help:
 	@echo "Documentation:"
 	@echo "  make docs         Generate documentation"
 	@echo "  make docs-serve   Serve documentation locally"
+	@echo "  make openapi      Export OpenAPI schema to docs/api"
 	@echo ""
 	@echo "Docker:"
 	@echo "  make docker       Build Docker image"
@@ -97,7 +98,7 @@ check: lint typecheck
 
 # Development
 serve:
-	python -m aragora.server.unified_server --port 8080
+	python -m aragora.server --api-port 8080 --ws-port 8765
 
 repl:
 	python -m aragora.cli.main repl
@@ -112,12 +113,15 @@ docs:
 docs-serve:
 	cd docs && mkdocs serve
 
+openapi:
+	python scripts/export_openapi.py --output-dir docs/api
+
 # Docker
 docker:
 	docker build -t aragora:latest .
 
 docker-run:
-	docker run -p 8080:8080 --env-file .env aragora:latest
+	docker run -p 8080:8080 -p 8765:8765 --env-file .env aragora:latest
 
 # Cleanup
 clean:

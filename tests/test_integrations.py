@@ -192,6 +192,17 @@ class TestSlackIntegrationAsync:
         await integration.close()
         assert session.closed
 
+    @pytest.mark.asyncio
+    async def test_verify_webhook_sends_test_message(self, config):
+        """Verify webhook uses a test message for connectivity check."""
+        integration = SlackIntegration(config)
+
+        with patch.object(integration, "_send_message", new_callable=AsyncMock) as mock_send:
+            mock_send.return_value = True
+            result = await integration.verify_webhook()
+            assert result is True
+            mock_send.assert_called_once()
+
 
 class TestDiscordConfig:
     """Test DiscordConfig dataclass."""
@@ -407,6 +418,17 @@ class TestDiscordIntegrationAsync:
         # Close
         await integration.close()
         assert session.closed
+
+    @pytest.mark.asyncio
+    async def test_verify_webhook_sends_test_message(self, config):
+        """Verify webhook uses a test message for connectivity check."""
+        integration = DiscordIntegration(config)
+
+        with patch.object(integration, "_send_webhook", new_callable=AsyncMock) as mock_send:
+            mock_send.return_value = True
+            result = await integration.verify_webhook()
+            assert result is True
+            mock_send.assert_called_once()
 
 
 class TestDiscordWebhookManager:

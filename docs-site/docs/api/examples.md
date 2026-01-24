@@ -1102,6 +1102,167 @@ def safe_api_call(url, params=None):
 
 ---
 
+## SME Starter Pack Examples
+
+These examples focus on the core workflows for SME teams.
+
+### Create a Workspace
+
+```python
+async def create_workspace():
+    """Create a new workspace for your team."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        response = await client.post("/api/workspaces", json={
+            "name": "Acme Corp",
+            "slug": "acme-corp",
+            "settings": {
+                "default_agents": ["anthropic-api", "openai-api"],
+                "budget_monthly_usd": 100,
+                "notification_channel": "slack"
+            }
+        })
+        workspace = response.json()
+        print(f"Workspace created: {workspace['id']}")
+        return workspace
+
+asyncio.run(create_workspace())
+```
+
+### Quick Debate with Receipt
+
+```python
+async def quick_debate_with_receipt():
+    """Run a simple debate and get a decision receipt."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        # Create and run debate
+        response = await client.post("/api/debates", json={
+            "topic": "Should we adopt TypeScript for our frontend?",
+            "context": "We currently use JavaScript with JSDoc for type hints.",
+            "agents": ["anthropic-api", "openai-api"],
+            "rounds": 2,
+            "consensus_mode": "majority"
+        })
+        debate = response.json()
+        debate_id = debate["debate_id"]
+        print(f"Debate started: \{debate_id\}")
+
+        # Wait for completion (in production, use WebSocket)
+        import time
+        while True:
+            status = await client.get(f"/api/debates/\{debate_id\}")
+            if status.json()["status"] == "completed":
+                break
+            time.sleep(2)
+
+        # Get decision receipt
+        receipt = await client.get(f"/api/debates/\{debate_id\}/receipt")
+        receipt_data = receipt.json()
+
+        print(f"\n=== Decision Receipt ===")
+        print(f"Topic: {receipt_data['topic']}")
+        print(f"Decision: {receipt_data['summary']}")
+        print(f"Confidence: {receipt_data['confidence']:.0%}")
+        print(f"Receipt ID: {receipt_data['receipt_id']}")
+
+        # Export as PDF
+        pdf_response = await client.get(
+            f"/api/debates/\{debate_id\}/export/pdf",
+            follow_redirects=True
+        )
+        with open("decision_receipt.pdf", "wb") as f:
+            f.write(pdf_response.content)
+        print("Receipt exported to decision_receipt.pdf")
+
+asyncio.run(quick_debate_with_receipt())
+```
+
+### Connect Slack Integration
+
+```python
+async def connect_slack():
+    """Initiate Slack OAuth flow for workspace integration."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        # Get OAuth URL
+        response = await client.get("/api/integrations/slack/oauth-url", params={
+            "redirect_uri": "http://localhost:3000/integrations/slack/callback"
+        })
+        oauth_data = response.json()
+        print(f"Visit this URL to connect Slack:\n{oauth_data['url']}")
+
+        # After OAuth callback with code:
+        # await client.post("/api/integrations/slack/callback", json={
+        #     "code": "oauth_code_from_callback",
+        #     "state": "state_token"
+        # })
+
+asyncio.run(connect_slack())
+```
+
+### Send Debate Result to Slack
+
+```python
+async def share_to_slack(debate_id: str, channel: str):
+    """Share a debate result to a Slack channel."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        response = await client.post("/api/integrations/slack/share", json={
+            "debate_id": debate_id,
+            "channel": channel,
+            "include_summary": True,
+            "include_key_points": True
+        })
+        result = response.json()
+        print(f"Shared to Slack: {result['message_url']}")
+
+# asyncio.run(share_to_slack("debate_123", "#decisions"))
+```
+
+### Check Usage and Budget
+
+```python
+async def check_usage():
+    """Check workspace usage and remaining budget."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        response = await client.get("/api/billing/usage")
+        usage = response.json()
+
+        print(f"Current Period: {usage['period_start']} - {usage['period_end']}")
+        print(f"Debates: {usage['debates_count']}")
+        print(f"API Costs: ${usage['api_costs_usd']:.2f}")
+        print(f"Budget Used: {usage['budget_used_percent']:.0f}%")
+        print(f"Remaining: ${usage['budget_remaining_usd']:.2f}")
+
+asyncio.run(check_usage())
+```
+
+### Use Workflow Template
+
+```python
+async def use_template():
+    """Create a debate using a workflow template."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        # List available templates
+        templates = await client.get("/api/templates")
+        print("Available templates:")
+        for t in templates.json()["templates"]:
+            print(f"  - {t['id']}: {t['name']}")
+
+        # Use a template
+        response = await client.post("/api/debates/from-template", json={
+            "template_id": "vendor-comparison",
+            "variables": {
+                "vendor_a": "Salesforce",
+                "vendor_b": "HubSpot",
+                "criteria": ["pricing", "features", "integration"]
+            }
+        })
+        debate = response.json()
+        print(f"Debate created from template: {debate['debate_id']}")
+
+asyncio.run(use_template())
+```
+
+---
+
 ## API Reference
 
 For complete endpoint documentation, see [API_REFERENCE.md](./reference).

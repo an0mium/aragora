@@ -37,7 +37,9 @@ class EmailReceiptFormatter(ReceiptFormatter):
         include_css = options.get("include_css", True)
         plain_text_opt = options.get("plain_text", True)
 
-        confidence = receipt.confidence_score or 0
+        confidence = getattr(receipt, "confidence_score", None)
+        if confidence is None:
+            confidence = getattr(receipt, "confidence", 0)
         confidence_color = self._get_confidence_color(confidence)
 
         # Build HTML content
@@ -57,7 +59,12 @@ class EmailReceiptFormatter(ReceiptFormatter):
 """)
 
         # Topic
-        topic = receipt.topic or receipt.question or "N/A"
+        topic = (
+            getattr(receipt, "topic", None)
+            or getattr(receipt, "question", None)
+            or getattr(receipt, "input_summary", None)
+            or "N/A"
+        )
         html_parts.append(f"""
     <div class="topic">
         <h2>{self._escape_html(topic)}</h2>
@@ -77,7 +84,12 @@ class EmailReceiptFormatter(ReceiptFormatter):
 """)
 
         # Decision
-        decision = receipt.decision or "No decision reached"
+        decision = (
+            getattr(receipt, "decision", None)
+            or getattr(receipt, "verdict", None)
+            or getattr(receipt, "final_answer", None)
+            or "No decision reached"
+        )
         html_parts.append(f"""
     <div class="section">
         <h3>Decision</h3>
@@ -87,48 +99,76 @@ class EmailReceiptFormatter(ReceiptFormatter):
 
         if not compact:
             # Key Arguments
-            if receipt.key_arguments:
-                html_parts.append("""
+            key_arguments = getattr(receipt, "key_arguments", None)
+            mitigations = getattr(receipt, "mitigations", None)
+            key_points = key_arguments or mitigations
+            if key_points:
+                label = "Key Arguments" if key_arguments else "Mitigations"
+                html_parts.append(f"""
     <div class="section">
-        <h3>Key Arguments</h3>
+        <h3>{label}</h3>
         <ul>
 """)
-                for arg in receipt.key_arguments[:5]:
+                for arg in key_points[:5]:
                     html_parts.append(f"            <li>{self._escape_html(arg)}</li>\n")
                 html_parts.append("""        </ul>
     </div>
 """)
 
             # Risks
-            if receipt.risks:
+            risks = getattr(receipt, "risks", None)
+            if not risks:
+                findings = getattr(receipt, "findings", None) or []
+                risks = [
+                    f"{getattr(f, 'severity', '')}: {getattr(f, 'title', '')}".strip(": ")
+                    for f in findings[:5]
+                    if getattr(f, "title", None) or getattr(f, "severity", None)
+                ]
+            if risks:
                 html_parts.append("""
     <div class="section risks">
         <h3>Risks Identified</h3>
         <ul>
 """)
-                for risk in receipt.risks[:5]:
+                for risk in risks[:5]:
                     html_parts.append(f"            <li>{self._escape_html(risk)}</li>\n")
                 html_parts.append("""        </ul>
     </div>
 """)
 
             # Dissenting Views
-            if receipt.dissenting_views:
+            dissenting_views = getattr(receipt, "dissenting_views", None) or []
+            if dissenting_views:
                 html_parts.append("""
     <div class="section dissent">
         <h3>Dissenting Views</h3>
         <ul>
 """)
-                for view in receipt.dissenting_views[:3]:
+                formatted_views = []
+                for view in dissenting_views[:3]:
+                    if isinstance(view, str):
+                        formatted_views.append(view)
+                    elif isinstance(view, dict):
+                        agent = view.get("agent", "Agent")
+                        reasons = view.get("reasons", [])
+                        reason_text = ", ".join(reasons[:2]) if reasons else "Dissent noted"
+                        formatted_views.append(f"{agent}: {reason_text}")
+                    else:
+                        agent = getattr(view, "agent", "Agent")
+                        reasons = getattr(view, "reasons", [])
+                        reason_text = ", ".join(reasons[:2]) if reasons else "Dissent noted"
+                        formatted_views.append(f"{agent}: {reason_text}")
+                for view in formatted_views:
                     html_parts.append(f"            <li>{self._escape_html(view)}</li>\n")
                 html_parts.append("""        </ul>
     </div>
 """)
 
         # Metadata
-        agents_str = ", ".join(receipt.agents[:5]) if receipt.agents else "N/A"
-        if receipt.agents and len(receipt.agents) > 5:
-            agents_str += f" (+{len(receipt.agents) - 5} more)"
+        agents = getattr(receipt, "agents", None) or getattr(receipt, "agents_involved", [])
+        agents_str = ", ".join(agents[:5]) if agents else "N/A"
+        if agents and len(agents) > 5:
+            agents_str += f" (+{len(agents) - 5} more)"
 
         html_parts.append(f"""
     <div class="metadata">
@@ -139,7 +179,7 @@ class EmailReceiptFormatter(ReceiptFormatter):
             </tr>
             <tr>
                 <td><strong>Rounds</strong></td>
-                <td>{receipt.rounds or "N/A"}</td>
+                <td>{getattr(receipt, "rounds", None) or getattr(receipt, "rounds_completed", "N/A")}</td>
             </tr>
 """)
         if receipt.timestamp:

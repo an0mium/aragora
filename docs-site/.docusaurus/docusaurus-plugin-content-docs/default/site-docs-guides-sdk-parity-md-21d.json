@@ -1,0 +1,20 @@
+{
+  "id": "guides/sdk-parity",
+  "title": "SDK-API Parity Report",
+  "description": "SDK-API Parity Report",
+  "source": "@site/docs/guides/sdk-parity.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/sdk-parity",
+  "permalink": "/docs/guides/sdk-parity",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/sdk-parity.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "SDK-API Parity Report",
+    "description": "SDK-API Parity Report"
+  }
+}

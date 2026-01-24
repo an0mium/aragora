@@ -251,6 +251,24 @@ class TestTeamsIntegrationBasic:
         assert integration.is_configured is False
 
     @pytest.mark.asyncio
+    async def test_verify_webhook_sends_test_card(self, teams_config):
+        """Verify webhook uses a test card for connectivity check."""
+        integration = TeamsIntegration(teams_config)
+
+        with patch.object(integration, "_send_card", new_callable=AsyncMock) as mock_send:
+            mock_send.return_value = True
+            result = await integration.verify_webhook()
+            assert result is True
+            mock_send.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_verify_webhook_returns_false_when_unconfigured(self):
+        """Verify webhook returns False when no webhook URL is set."""
+        integration = TeamsIntegration(TeamsConfig(webhook_url=""))
+        result = await integration.verify_webhook()
+        assert result is False
+
+    @pytest.mark.asyncio
     async def test_get_session_creates_new(self):
         """Test _get_session creates new session when none exists."""
         integration = TeamsIntegration(TeamsConfig(webhook_url="https://test.com"))

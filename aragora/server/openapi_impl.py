@@ -1,8 +1,13 @@
 """
 OpenAPI Schema Generator for Aragora API.
 
-Generates OpenAPI 3.0 specification for all API endpoints.
+Generates OpenAPI 3.1 specification for all API endpoints.
 Endpoints are organized by tag/category for clear documentation.
+
+OpenAPI 3.1 uses JSON Schema 2020-12 which provides:
+- Better nullable handling (type arrays instead of nullable: true)
+- JSON Schema $ref compatibility
+- Improved content negotiation
 
 Usage:
     from aragora.server.openapi import generate_openapi_schema, save_openapi_schema
@@ -29,9 +34,9 @@ API_VERSION = "1.0.0"
 
 
 def generate_openapi_schema() -> dict[str, Any]:
-    """Generate complete OpenAPI 3.0 schema."""
+    """Generate complete OpenAPI 3.1 schema."""
     return {
-        "openapi": "3.0.3",
+        "openapi": "3.1.0",
         "info": {
             "title": "Aragora API",
             "description": "Control plane for multi-agent vetted decisionmaking across org knowledge and channels. "
@@ -65,6 +70,8 @@ def generate_openapi_schema() -> dict[str, Any]:
             {"name": "Inbox", "description": "Shared inbox and routing rules"},
             {"name": "Email", "description": "Email ingestion and operations"},
             {"name": "Costs", "description": "Cost visibility and budgeting"},
+            {"name": "Budgets", "description": "Budget management, limits, and enforcement"},
+            {"name": "Teams", "description": "Microsoft Teams bot and integration endpoints"},
             {"name": "Accounting", "description": "Accounting and ERP integrations"},
             {"name": "Media", "description": "Audio/video and podcast"},
             {"name": "Social", "description": "Social media publishing"},

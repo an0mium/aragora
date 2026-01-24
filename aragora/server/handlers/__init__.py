@@ -66,6 +66,7 @@ from .utilities import (
 )
 from .belief import BeliefHandler
 from .admin import BillingHandler  # Moved to admin/
+from .budgets import BudgetHandler
 from .usage_metering import UsageMeteringHandler  # Token-level usage metering
 from .breakpoints import BreakpointsHandler
 from .features import AudioHandler  # Moved to features/
@@ -190,6 +191,7 @@ from .ml import MLHandler
 from .rlm import RLMContextHandler
 from .selection import SelectionHandler
 from .social import SlackHandler  # Moved to social/
+from .social.teams import TeamsIntegrationHandler
 from .social import SocialMediaHandler
 from .admin import SystemHandler  # Moved to admin/
 from .tournaments import TournamentHandler
@@ -322,11 +324,13 @@ ALL_HANDLERS = [
     LearningHandler,
     AuthHandler,
     BillingHandler,
+    BudgetHandler,
     UsageMeteringHandler,  # Token-level usage metering for ENTERPRISE_PLUS
     OrganizationsHandler,
     OAuthHandler,
     FeaturesHandler,
     ConnectorsHandler,  # Unified connectors registry
+    TeamsIntegrationHandler,  # Microsoft Teams integration endpoints
     IntegrationsHandler,  # Integration config API
     GmailIngestHandler,  # Gmail OAuth + sync ingestion API
     GmailQueryHandler,  # Gmail search/query API
@@ -431,6 +435,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "FeaturesHandler": Stability.STABLE,
     "ConnectorsHandler": Stability.EXPERIMENTAL,  # Unified connectors registry
     "IntegrationsHandler": Stability.EXPERIMENTAL,  # Integration config API
+    "TeamsIntegrationHandler": Stability.EXPERIMENTAL,  # Teams bot integration endpoints
     "AuthHandler": Stability.STABLE,
     # Extended - Stable
     "TournamentHandler": Stability.STABLE,
@@ -448,6 +453,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "SelectionHandler": Stability.STABLE,  # Selection plugin API
     # Promoted to Stable (Jan 2026) - tested in production
     "BillingHandler": Stability.STABLE,  # Transaction tests, Stripe webhooks
+    "BudgetHandler": Stability.EXPERIMENTAL,  # Budget management API
     "OAuthHandler": Stability.STABLE,  # OAuth flow tests, Google integration
     "AudioHandler": Stability.STABLE,  # Podcast generation, TTS
     "TranscriptionHandler": Stability.EXPERIMENTAL,  # Speech-to-text transcription - new
@@ -680,6 +686,7 @@ __all__ = [
     "LearningHandler",
     "AuthHandler",
     "BillingHandler",
+    "BudgetHandler",
     "OrganizationsHandler",
     # Onboarding handlers
     "handle_get_flow",
@@ -696,6 +703,7 @@ __all__ = [
     "FeaturesHandler",
     "ConnectorsHandler",
     "IntegrationsHandler",
+    "TeamsIntegrationHandler",
     "MemoryAnalyticsHandler",
     "GauntletHandler",
     # Gauntlet v1 API

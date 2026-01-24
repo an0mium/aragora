@@ -89,6 +89,7 @@ LearningHandler: HandlerType = None
 GalleryHandler: HandlerType = None
 AuthHandler: HandlerType = None
 BillingHandler: HandlerType = None
+BudgetHandler: HandlerType = None
 CheckpointHandler: HandlerType = None
 GraphDebatesHandler: HandlerType = None
 MatrixDebatesHandler: HandlerType = None
@@ -97,6 +98,7 @@ MemoryAnalyticsHandler: HandlerType = None
 GauntletHandler: HandlerType = None
 SlackHandler: HandlerType = None
 SlackOAuthHandler: HandlerType = None
+TeamsIntegrationHandler: HandlerType = None
 OrganizationsHandler: HandlerType = None
 OAuthHandler: HandlerType = None
 ReviewsHandler: HandlerType = None
@@ -183,6 +185,9 @@ try:
     )
     from aragora.server.handlers import (
         BillingHandler as _BillingHandler,
+    )
+    from aragora.server.handlers import (
+        BudgetHandler as _BudgetHandler,
     )
     from aragora.server.handlers import (
         BreakpointsHandler as _BreakpointsHandler,
@@ -321,6 +326,9 @@ try:
     )
     from aragora.server.handlers.social.slack_oauth import (
         SlackOAuthHandler as _SlackOAuthHandler,
+    )
+    from aragora.server.handlers.social.teams import (
+        TeamsIntegrationHandler as _TeamsIntegrationHandler,
     )
     from aragora.server.handlers import (
         SocialMediaHandler as _SocialMediaHandler,
@@ -473,6 +481,7 @@ try:
     GalleryHandler = _GalleryHandler
     AuthHandler = _AuthHandler
     BillingHandler = _BillingHandler
+    BudgetHandler = _BudgetHandler
     CheckpointHandler = _CheckpointHandler
     GraphDebatesHandler = _GraphDebatesHandler
     MatrixDebatesHandler = _MatrixDebatesHandler
@@ -481,6 +490,7 @@ try:
     GauntletHandler = _GauntletHandler
     SlackHandler = _SlackHandler
     SlackOAuthHandler = _SlackOAuthHandler
+    TeamsIntegrationHandler = _TeamsIntegrationHandler
     OrganizationsHandler = _OrganizationsHandler
     OAuthHandler = _OAuthHandler
     ReviewsHandler = _ReviewsHandler
@@ -584,6 +594,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_gallery_handler", GalleryHandler),
     ("_auth_handler", AuthHandler),
     ("_billing_handler", BillingHandler),
+    ("_budget_handler", BudgetHandler),
     ("_checkpoint_handler", CheckpointHandler),
     ("_graph_debates_handler", GraphDebatesHandler),
     ("_matrix_debates_handler", MatrixDebatesHandler),
@@ -592,6 +603,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_gauntlet_handler", GauntletHandler),
     ("_slack_handler", SlackHandler),
     ("_slack_oauth_handler", SlackOAuthHandler),
+    ("_teams_integration_handler", TeamsIntegrationHandler),
     ("_organizations_handler", OrganizationsHandler),
     ("_oauth_handler", OAuthHandler),
     ("_reviews_handler", ReviewsHandler),
@@ -707,6 +719,7 @@ class RouteIndex:
             "_gallery_handler": ["/api/gallery/"],
             "_auth_handler": ["/api/auth/", "/api/v1/auth/"],
             "_billing_handler": ["/api/billing/", "/api/v1/billing/"],
+            "_budget_handler": ["/api/v1/budgets"],
             "_checkpoint_handler": ["/api/checkpoints"],
             "_graph_debates_handler": ["/api/debates/graph"],
             "_matrix_debates_handler": ["/api/debates/matrix"],
@@ -737,6 +750,9 @@ class RouteIndex:
             ],
             "_email_handler": [
                 "/api/email/",
+            ],
+            "_teams_integration_handler": [
+                "/api/v1/integrations/teams",
             ],
             "_google_chat_handler": [
                 "/api/bots/google-chat/",
@@ -1134,12 +1150,14 @@ class HandlerRegistryMixin:
     _gallery_handler: Optional["BaseHandler"] = None
     _auth_handler: Optional["BaseHandler"] = None
     _billing_handler: Optional["BaseHandler"] = None
+    _budget_handler: Optional["BaseHandler"] = None
     _graph_debates_handler: Optional["BaseHandler"] = None
     _matrix_debates_handler: Optional["BaseHandler"] = None
     _features_handler: Optional["BaseHandler"] = None
     _memory_analytics_handler: Optional["BaseHandler"] = None
     _gauntlet_handler: Optional["BaseHandler"] = None
     _slack_handler: Optional["BaseHandler"] = None
+    _teams_integration_handler: Optional["BaseHandler"] = None
     _organizations_handler: Optional["BaseHandler"] = None
     _oauth_handler: Optional["BaseHandler"] = None
     _reviews_handler: Optional["BaseHandler"] = None

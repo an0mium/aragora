@@ -325,3 +325,66 @@ psql $DATABASE_URL < backup.sql
 ### Point-in-Time Recovery
 
 For production, enable WAL archiving in your managed service for point-in-time recovery capabilities.
+
+---
+
+## Schema Migrations
+
+Aragora uses a forward-only migration strategy for schema changes.
+
+### Migration Runner
+
+Schema migrations are located in `aragora/persistence/migrations/` and run via:
+
+```bash
+# Run pending migrations
+python -m aragora.persistence.migrations.runner migrate
+
+# Check migration status
+python -m aragora.persistence.migrations.runner status
+
+# Run specific migration
+python -m aragora.persistence.migrations.runner migrate --version 20260115_add_workspace_id
+```
+
+### Migration Best Practices
+
+1. **Always backup first**: `pg_dump $DATABASE_URL > pre_migration_backup.sql`
+2. **Test in staging**: Run migrations against a staging database first
+3. **Deploy during low-traffic**: Schedule migrations during maintenance windows
+4. **Use transactions**: All migrations run in transactions for atomicity
+
+### Rollback Strategy
+
+Aragora uses **forward-only migrations** with compensating changes. Instead of traditional rollback:
+
+1. **For failed migrations**: The transaction is automatically rolled back
+2. **For reverting changes**: Create a new migration that undoes the previous one
+3. **For emergencies**: Restore from backup (see Backup and Recovery section)
+
+**Why forward-only?**
+- Simpler mental model
+- Rollback scripts often untested
+- Compensating migrations are explicit and reviewable
+- Matches modern deployment practices (blue-green, canary)
+
+**Example compensating migration:**
+
+```python
+# migrations/20260120_remove_deprecated_column.py
+def upgrade(conn):
+    conn.execute("ALTER TABLE users DROP COLUMN IF EXISTS deprecated_field")
+
+# To "rollback", create a new migration:
+# migrations/20260121_restore_deprecated_column.py
+def upgrade(conn):
+    conn.execute("ALTER TABLE users ADD COLUMN deprecated_field TEXT")
+```
+
+### Emergency Recovery
+
+If a migration causes production issues:
+
+1. **Immediate**: Restore from latest backup
+2. **After analysis**: Create compensating migration
+3. **Deploy**: Roll forward with the fix

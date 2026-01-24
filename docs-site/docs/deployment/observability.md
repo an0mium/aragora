@@ -646,8 +646,89 @@ curl http://localhost:9090/metrics
 
 ---
 
+## Production Observability Stack
+
+For production deployments, use the complete observability stack in `deploy/monitoring/`:
+
+### Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `prometheus.yml` | Prometheus scrape configs with alerting |
+| `alertmanager.yml` | Alert routing and notifications |
+| `docker-compose.observability.yml` | Full observability stack |
+| `blackbox.yml` | Synthetic monitoring probes |
+| `loki.yml` | Log aggregation configuration |
+| `promtail.yml` | Log shipping to Loki |
+
+### Quick Start
+
+```bash
+cd deploy/monitoring
+
+# Set required environment variables
+export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+export GRAFANA_ADMIN_PASSWORD="secure-password"
+
+# Start the stack
+docker-compose -f docker-compose.observability.yml up -d
+```
+
+### Components Included
+
+- **Prometheus** (port 9090) - Metrics collection with 30-day retention
+- **AlertManager** (port 9093) - Alert routing to Slack, PagerDuty, Email
+- **Grafana** (port 3000) - 16 pre-built dashboards
+- **Jaeger** (port 16686) - Distributed tracing with OTLP support
+- **Loki** (port 3100) - Log aggregation with 30-day retention
+- **Promtail** - Log shipping agent
+- **Node Exporter** (port 9100) - Host metrics
+- **cAdvisor** (port 8081) - Container metrics
+- **Redis Exporter** (port 9121) - Redis metrics
+- **Postgres Exporter** (port 9187) - PostgreSQL metrics
+- **Blackbox Exporter** (port 9115) - Synthetic monitoring
+
+### Alert Channels
+
+Configure these environment variables for notifications:
+
+```bash
+SLACK_WEBHOOK_URL      # Slack incoming webhook
+PAGERDUTY_SERVICE_KEY  # PagerDuty integration key
+SMTP_HOST              # SMTP server (default: smtp.gmail.com:587)
+SMTP_USER              # SMTP username
+SMTP_PASSWORD          # SMTP password
+```
+
+### SLO Tracking
+
+SLOs are defined in `aragora/monitoring/slos.yml`:
+
+| SLO | Target | Window |
+|-----|--------|--------|
+| API Availability | 99.9% | 30 days |
+| API Latency (p99 < 2s) | 99% | 30 days |
+| Debate Completion | 99.5% | 30 days |
+| Agent Reliability | 98% | 7 days |
+
+### Alert Rules
+
+Over 100 alert rules in `aragora/monitoring/alerts/prometheus_rules.yml` covering:
+- Availability and latency
+- Debate quality and consensus
+- Security (RBAC, auth failures)
+- SLO burn rates
+- Resource capacity
+- Knowledge Mound health
+
+---
+
 ## See Also
 
 - [DEPLOYMENT.md](./overview) - Kubernetes deployment
 - [RATE_LIMITING.md](./rate-limiting) - Rate limiting configuration
 - [SECURITY.md](../security/overview) - Security configuration
+- [ENTERPRISE_FEATURES.md](../enterprise/features) - Enterprise capabilities
+- Alert Rules: `aragora/monitoring/alerts/prometheus_rules.yml`
+- SLO Definitions: `aragora/monitoring/slos.yml`
+- Dashboards: `deploy/grafana/dashboards/`

@@ -9,15 +9,15 @@ export default [
   },
   {
     path: '/docs',
-    component: ComponentCreator('/docs', 'ca2'),
+    component: ComponentCreator('/docs', '5d2'),
     routes: [
       {
         path: '/docs',
-        component: ComponentCreator('/docs', '670'),
+        component: ComponentCreator('/docs', 'e14'),
         routes: [
           {
             path: '/docs',
-            component: ComponentCreator('/docs', '5af'),
+            component: ComponentCreator('/docs', '0c7'),
             routes: [
               {
                 path: '/docs/admin/',
@@ -992,6 +992,16 @@ export default [
                 component: ComponentCreator('/docs/guides/sdk', '942'),
                 exact: true,
                 sidebar: "guidesSidebar"
+              },
+              {
+                path: '/docs/guides/sdk-consolidation',
+                component: ComponentCreator('/docs/guides/sdk-consolidation', '066'),
+                exact: true
+              },
+              {
+                path: '/docs/guides/sdk-parity',
+                component: ComponentCreator('/docs/guides/sdk-parity', '3e2'),
+                exact: true
               },
               {
                 path: '/docs/guides/sdk-typescript',
