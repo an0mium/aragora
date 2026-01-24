@@ -1,59 +1,47 @@
 /**
- * Tests for AuthContext
+ * Additional Tests for AuthContext
  *
- * Tests cover:
- * - Initial state (unauthenticated)
- * - Login flow
- * - Register flow
- * - Logout flow
- * - Token refresh
+ * Tests cover features NOT in the root __tests__/AuthContext.test.tsx:
  * - setTokens (OAuth callback flow)
  * - Organization switching
- * - Session persistence (localStorage)
+ * - getCurrentOrgRole
  * - useAuth hook throws outside provider
  * - useRequireAuth redirects when not authenticated
  */
 
 import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, renderHook } from '@testing-library/react';
 import { AuthProvider, useAuth, useRequireAuth } from '../AuthContext';
 
 // Mock localStorage
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: jest.fn((key: string) => store[key] || null),
-    setItem: jest.fn((key: string, value: string) => {
-      store[key] = value;
-    }),
-    removeItem: jest.fn((key: string) => {
-      delete store[key];
-    }),
-    clear: jest.fn(() => {
-      store = {};
-    }),
-    get length() {
-      return Object.keys(store).length;
-    },
-    key: jest.fn((index: number) => Object.keys(store)[index] || null),
-  };
-})();
+const mockLocalStorage: Record<string, string> = {};
+const localStorageMock = {
+  getItem: jest.fn((key: string) => mockLocalStorage[key] || null),
+  setItem: jest.fn((key: string, value: string) => {
+    mockLocalStorage[key] = value;
+  }),
+  removeItem: jest.fn((key: string) => {
+    delete mockLocalStorage[key];
+  }),
+  clear: jest.fn(() => {
+    Object.keys(mockLocalStorage).forEach(key => delete mockLocalStorage[key]);
+  }),
+};
 
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
 });
 
-// Mock window.location
-const mockLocation = {
+// Mock window.location using delete + assignment pattern
+const originalLocation = window.location;
+delete (window as { location?: Location }).location;
+window.location = {
+  ...originalLocation,
   href: '',
   assign: jest.fn(),
   replace: jest.fn(),
   reload: jest.fn(),
-};
-Object.defineProperty(window, 'location', {
-  value: mockLocation,
-  writable: true,
-});
+} as unknown as Location;
 
 // Mock data
 const mockUser = {
