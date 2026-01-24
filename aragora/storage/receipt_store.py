@@ -143,7 +143,8 @@ class ReceiptStore:
     Provides full CRUD operations, signature verification, and retention management.
     """
 
-    SCHEMA_STATEMENTS = [
+    # SQLite schema (uses REAL for floating point)
+    SCHEMA_STATEMENTS_SQLITE = [
         """
         CREATE TABLE IF NOT EXISTS receipts (
             receipt_id TEXT PRIMARY KEY,
@@ -172,6 +173,42 @@ class ReceiptStore:
         "CREATE INDEX IF NOT EXISTS idx_receipts_risk ON receipts(risk_level)",
         "CREATE INDEX IF NOT EXISTS idx_receipts_signed ON receipts(signed_at)",
     ]
+
+    # PostgreSQL schema (uses DOUBLE PRECISION for floating point, JSONB for data)
+    SCHEMA_STATEMENTS_POSTGRESQL = [
+        """
+        CREATE TABLE IF NOT EXISTS receipts (
+            receipt_id TEXT PRIMARY KEY,
+            gauntlet_id TEXT NOT NULL UNIQUE,
+            debate_id TEXT,
+            created_at DOUBLE PRECISION NOT NULL,
+            expires_at DOUBLE PRECISION,
+            verdict TEXT NOT NULL,
+            confidence DOUBLE PRECISION NOT NULL,
+            risk_level TEXT NOT NULL,
+            risk_score DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+            checksum TEXT NOT NULL,
+            signature TEXT,
+            signature_algorithm TEXT,
+            signature_key_id TEXT,
+            signed_at DOUBLE PRECISION,
+            audit_trail_id TEXT,
+            data_json JSONB NOT NULL
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_receipts_created ON receipts(created_at DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_receipts_expires ON receipts(expires_at)",
+        "CREATE INDEX IF NOT EXISTS idx_receipts_gauntlet ON receipts(gauntlet_id)",
+        "CREATE INDEX IF NOT EXISTS idx_receipts_debate ON receipts(debate_id)",
+        "CREATE INDEX IF NOT EXISTS idx_receipts_verdict ON receipts(verdict)",
+        "CREATE INDEX IF NOT EXISTS idx_receipts_risk ON receipts(risk_level)",
+        "CREATE INDEX IF NOT EXISTS idx_receipts_signed ON receipts(signed_at)",
+        # PostgreSQL-specific: GIN index for JSONB queries
+        "CREATE INDEX IF NOT EXISTS idx_receipts_data_gin ON receipts USING GIN (data_json)",
+    ]
+
+    # Legacy property for backwards compatibility
+    SCHEMA_STATEMENTS = SCHEMA_STATEMENTS_SQLITE
 
     def __init__(
         self,
@@ -219,11 +256,17 @@ class ReceiptStore:
         self._init_schema()
 
     def _init_schema(self) -> None:
-        """Initialize database schema."""
+        """Initialize database schema based on backend type."""
         if self._backend is None:
             return
 
-        for statement in self.SCHEMA_STATEMENTS:
+        # Select appropriate schema for backend
+        if self.backend_type == "postgresql":
+            schema_statements = self.SCHEMA_STATEMENTS_POSTGRESQL
+        else:
+            schema_statements = self.SCHEMA_STATEMENTS_SQLITE
+
+        for statement in schema_statements:
             try:
                 self._backend.execute_write(statement)
             except Exception as e:
@@ -286,34 +329,67 @@ class ReceiptStore:
                 except (ValueError, AttributeError):
                     signed_at = time.time()
 
-        self._backend.execute_write(
-            """
-            INSERT OR REPLACE INTO receipts
-            (receipt_id, gauntlet_id, debate_id, created_at, expires_at,
-             verdict, confidence, risk_level, risk_score, checksum,
-             signature, signature_algorithm, signature_key_id, signed_at,
-             audit_trail_id, data_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                receipt_id,
-                gauntlet_id,
-                debate_id,
-                created_at,
-                expires_at,
-                receipt_dict.get("verdict", ""),
-                receipt_dict.get("confidence", 0.0),
-                receipt_dict.get("risk_level", "MEDIUM"),
-                receipt_dict.get("risk_score", 0.0),
-                receipt_dict.get("checksum", ""),
-                signature,
-                signature_algorithm,
-                signature_key_id,
-                signed_at,
-                receipt_dict.get("audit_trail_id"),
-                json.dumps(receipt_dict),
-            ),
+        params = (
+            receipt_id,
+            gauntlet_id,
+            debate_id,
+            created_at,
+            expires_at,
+            receipt_dict.get("verdict", ""),
+            receipt_dict.get("confidence", 0.0),
+            receipt_dict.get("risk_level", "MEDIUM"),
+            receipt_dict.get("risk_score", 0.0),
+            receipt_dict.get("checksum", ""),
+            signature,
+            signature_algorithm,
+            signature_key_id,
+            signed_at,
+            receipt_dict.get("audit_trail_id"),
+            json.dumps(receipt_dict),
         )
+
+        # Use backend-specific upsert syntax
+        if self.backend_type == "postgresql":
+            self._backend.execute_write(
+                """
+                INSERT INTO receipts
+                (receipt_id, gauntlet_id, debate_id, created_at, expires_at,
+                 verdict, confidence, risk_level, risk_score, checksum,
+                 signature, signature_algorithm, signature_key_id, signed_at,
+                 audit_trail_id, data_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (receipt_id) DO UPDATE SET
+                    gauntlet_id = EXCLUDED.gauntlet_id,
+                    debate_id = EXCLUDED.debate_id,
+                    created_at = EXCLUDED.created_at,
+                    expires_at = EXCLUDED.expires_at,
+                    verdict = EXCLUDED.verdict,
+                    confidence = EXCLUDED.confidence,
+                    risk_level = EXCLUDED.risk_level,
+                    risk_score = EXCLUDED.risk_score,
+                    checksum = EXCLUDED.checksum,
+                    signature = EXCLUDED.signature,
+                    signature_algorithm = EXCLUDED.signature_algorithm,
+                    signature_key_id = EXCLUDED.signature_key_id,
+                    signed_at = EXCLUDED.signed_at,
+                    audit_trail_id = EXCLUDED.audit_trail_id,
+                    data_json = EXCLUDED.data_json
+                """,
+                params,
+            )
+        else:
+            # SQLite uses INSERT OR REPLACE
+            self._backend.execute_write(
+                """
+                INSERT OR REPLACE INTO receipts
+                (receipt_id, gauntlet_id, debate_id, created_at, expires_at,
+                 verdict, confidence, risk_level, risk_score, checksum,
+                 signature, signature_algorithm, signature_key_id, signed_at,
+                 audit_trail_id, data_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                params,
+            )
         logger.debug(f"Saved receipt: {receipt_id}")
         return receipt_id
 
