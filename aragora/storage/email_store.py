@@ -701,6 +701,224 @@ class EmailStore(SQLiteStore):
         }
 
     # =========================================================================
+    # Full-Text Search (FTS5)
+    # =========================================================================
+
+    def _ensure_fts_table(self) -> None:
+        """Initialize FTS5 virtual table if not already done."""
+        # Check if already initialized by checking if table exists
+        check = self.fetch_one(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='shared_inbox_messages_fts'"
+        )
+        if check:
+            return
+
+        with self.connection() as conn:
+            # Create standalone FTS5 virtual table (not content-sync to avoid complexity)
+            conn.execute(
+                """
+                CREATE VIRTUAL TABLE IF NOT EXISTS shared_inbox_messages_fts USING fts5(
+                    message_id,
+                    inbox_id,
+                    subject,
+                    from_address,
+                    snippet
+                )
+                """
+            )
+
+            # Check if we need to populate from existing data
+            existing = conn.execute("SELECT COUNT(*) FROM shared_inbox_messages_fts").fetchone()
+            msg_count = conn.execute("SELECT COUNT(*) FROM shared_inbox_messages").fetchone()
+
+            if existing[0] == 0 and msg_count[0] > 0:
+                # Populate from existing messages
+                conn.execute(
+                    """
+                    INSERT INTO shared_inbox_messages_fts(message_id, inbox_id, subject, from_address, snippet)
+                    SELECT id, inbox_id, subject, from_address, snippet
+                    FROM shared_inbox_messages
+                    """
+                )
+                logger.info(
+                    f"[EmailStore] Populated FTS5 index with {msg_count[0]} existing messages"
+                )
+
+        logger.info("[EmailStore] FTS5 full-text search initialized")
+
+    def index_message_for_search(self, message_id: str) -> None:
+        """Index or re-index a message for full-text search."""
+        self._ensure_fts_table()
+
+        msg = self.get_message(message_id)
+        if not msg:
+            return
+
+        with self.connection() as conn:
+            # Delete existing FTS entry
+            conn.execute(
+                "DELETE FROM shared_inbox_messages_fts WHERE message_id = ?",
+                (message_id,),
+            )
+
+            # Insert new FTS entry
+            conn.execute(
+                """
+                INSERT INTO shared_inbox_messages_fts(message_id, inbox_id, subject, from_address, snippet)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (message_id, msg["inbox_id"], msg["subject"], msg["from_address"], msg["snippet"]),
+            )
+
+    def search_messages(
+        self,
+        inbox_id: str,
+        query: str,
+        status: Optional[str] = None,
+        assigned_to: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
+        """
+        Full-text search for messages in a shared inbox.
+
+        Args:
+            inbox_id: Inbox to search in
+            query: Search query (supports FTS5 syntax: AND, OR, NOT, "phrase")
+            status: Optional status filter
+            assigned_to: Optional assignee filter
+            limit: Maximum results to return
+            offset: Pagination offset
+
+        Returns:
+            List of message dicts with search ranking
+        """
+        self._ensure_fts_table()
+
+        if not query or not query.strip():
+            return self.list_inbox_messages(inbox_id, status, assigned_to, limit, offset)
+
+        # Build the query with filters
+        conditions = ["fts.inbox_id = ?"]
+        params: List[Any] = [inbox_id]
+
+        # Add status filter
+        if status:
+            conditions.append("m.status = ?")
+            params.append(status)
+
+        # Add assignee filter
+        if assigned_to:
+            conditions.append("m.assigned_to = ?")
+            params.append(assigned_to)
+
+        # Escape special FTS5 characters in user query
+        safe_query = self._escape_fts_query(query)
+
+        params.extend([safe_query, limit, offset])
+        where_clause = " AND ".join(conditions)
+
+        rows = self.fetch_all(
+            f"""
+            SELECT m.*, fts.rank
+            FROM shared_inbox_messages_fts fts
+            JOIN shared_inbox_messages m ON fts.message_id = m.id
+            WHERE {where_clause}
+                AND shared_inbox_messages_fts MATCH ?
+            ORDER BY fts.rank
+            LIMIT ? OFFSET ?
+            """,  # nosec B608 - where_clause built from hardcoded conditions
+            tuple(params),
+        )
+
+        results = []
+        for row in rows:
+            msg = self._row_to_message(row[:15])
+            msg["search_rank"] = row[15] if len(row) > 15 else 0
+            results.append(msg)
+
+        return results
+
+    def search_messages_with_snippets(
+        self,
+        inbox_id: str,
+        query: str,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """
+        Search messages and return highlighted snippets.
+
+        Args:
+            inbox_id: Inbox to search in
+            query: Search query
+            limit: Maximum results to return
+
+        Returns:
+            List of dicts with message_id, subject, snippet_highlight, rank
+        """
+        self._ensure_fts_table()
+
+        if not query or not query.strip():
+            return []
+
+        safe_query = self._escape_fts_query(query)
+
+        rows = self.fetch_all(
+            """
+            SELECT
+                fts.message_id,
+                m.subject,
+                m.from_address,
+                m.status,
+                snippet(shared_inbox_messages_fts, 4, '<mark>', '</mark>', '...', 32) as snippet_highlight,
+                fts.rank
+            FROM shared_inbox_messages_fts fts
+            JOIN shared_inbox_messages m ON fts.message_id = m.id
+            WHERE fts.inbox_id = ?
+                AND shared_inbox_messages_fts MATCH ?
+            ORDER BY fts.rank
+            LIMIT ?
+            """,
+            (inbox_id, safe_query, limit),
+        )
+
+        return [
+            {
+                "message_id": row[0],
+                "subject": row[1],
+                "from_address": row[2],
+                "status": row[3],
+                "snippet_highlight": row[4],
+                "rank": row[5],
+            }
+            for row in rows
+        ]
+
+    def _escape_fts_query(self, query: str) -> str:
+        """
+        Escape special FTS5 characters in user query.
+
+        Wraps terms in quotes to treat them as literals, avoiding FTS5 syntax issues.
+        """
+        # FTS5 special chars: * ^ : ( ) { } [ ] - ! . @
+        # The dot is a column selector, @ is for column filtering
+        dangerous = ["*", "^", ":", "(", ")", "{", "}", "[", "]", "-", "!", ".", "@"]
+
+        result = query
+
+        # Remove dangerous characters first
+        for char in dangerous:
+            result = result.replace(char, " ")
+
+        # Collapse multiple spaces and split into terms
+        terms = result.split()
+
+        # Quote each term to make it literal
+        quoted_terms = [f'"{term}"' for term in terms if term]
+
+        return " ".join(quoted_terms)
+
+    # =========================================================================
     # Routing Rules
     # =========================================================================
 

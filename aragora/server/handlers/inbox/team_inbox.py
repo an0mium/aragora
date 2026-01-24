@@ -42,6 +42,10 @@ logger = logging.getLogger(__name__)
 _team_inbox_emitter: Optional[Any] = None
 _team_inbox_emitter_lock = threading.Lock()
 
+# Activity store for persistent logging
+_activity_store: Optional[Any] = None
+_activity_store_lock = threading.Lock()
+
 
 def get_team_inbox_emitter_instance():
     """Get or create team inbox emitter (thread-safe)."""
@@ -55,6 +59,50 @@ def get_team_inbox_emitter_instance():
 
             _team_inbox_emitter = get_team_inbox_emitter()
         return _team_inbox_emitter
+
+
+def _get_activity_store():
+    """Get or create the activity store (lazy init, thread-safe)."""
+    global _activity_store
+    if _activity_store is not None:
+        return _activity_store
+    with _activity_store_lock:
+        if _activity_store is None:
+            try:
+                from aragora.storage.inbox_activity_store import get_inbox_activity_store
+
+                _activity_store = get_inbox_activity_store()
+                logger.info("[TeamInbox] Initialized inbox activity store")
+            except Exception as e:
+                logger.warning(f"[TeamInbox] Failed to init activity store: {e}")
+        return _activity_store
+
+
+def _log_activity(
+    inbox_id: str,
+    org_id: str,
+    actor_id: str,
+    action: str,
+    target_id: Optional[str] = None,
+    metadata: Optional[dict[str, Any]] = None,
+) -> None:
+    """Log an inbox activity (non-blocking helper)."""
+    store = _get_activity_store()
+    if store:
+        try:
+            from aragora.storage.inbox_activity_store import InboxActivity
+
+            activity = InboxActivity(
+                inbox_id=inbox_id,
+                org_id=org_id,
+                actor_id=actor_id,
+                action=action,
+                target_id=target_id,
+                metadata=metadata or {},
+            )
+            store.log_activity(activity)
+        except Exception as e:
+            logger.debug(f"[TeamInbox] Failed to log activity: {e}")
 
 
 # =============================================================================
@@ -144,7 +192,7 @@ async def handle_add_team_member(
             role=role,
         )
 
-        # Emit activity
+        # Emit activity (WebSocket)
         await emitter.emit_activity(
             inbox_id=inbox_id,
             activity_type="team_member_added",
@@ -153,6 +201,18 @@ async def handle_add_team_member(
             user_name="System",  # Could be enhanced to get actual name
             metadata={"addedUserId": new_user_id, "role": role},
         )
+
+        # Persist activity log
+        org_id = data.get("org_id")
+        if org_id:
+            _log_activity(
+                inbox_id=inbox_id,
+                org_id=org_id,
+                actor_id=user_id,
+                action="member_added",
+                target_id=new_user_id,
+                metadata={"email": email, "name": name, "role": role},
+            )
 
         return success_response(
             {
@@ -192,7 +252,7 @@ async def handle_remove_team_member(
         if not removed:
             return error_response("Team member not found", status=404)
 
-        # Emit activity
+        # Emit activity (WebSocket)
         await emitter.emit_activity(
             inbox_id=inbox_id,
             activity_type="team_member_removed",
@@ -201,6 +261,18 @@ async def handle_remove_team_member(
             user_name="System",
             metadata={"removedUserId": member_user_id},
         )
+
+        # Persist activity log
+        org_id = data.get("org_id")
+        if org_id:
+            _log_activity(
+                inbox_id=inbox_id,
+                org_id=org_id,
+                actor_id=user_id,
+                action="member_removed",
+                target_id=member_user_id,
+                metadata={},
+            )
 
         return success_response(
             {
@@ -487,6 +559,21 @@ async def handle_add_note(
                     )
                 except Exception as mention_error:
                     logger.warning(f"Failed to create mention for {username}: {mention_error}")
+
+        # Persist activity log
+        org_id = data.get("org_id")
+        if org_id:
+            _log_activity(
+                inbox_id=inbox_id,
+                org_id=org_id,
+                actor_id=user_id,
+                action="note_added",
+                target_id=message_id,
+                metadata={
+                    "note_id": note.id,
+                    "has_mentions": len(mentioned_usernames) > 0,
+                },
+            )
 
         return success_response(
             {

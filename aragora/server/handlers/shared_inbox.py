@@ -87,6 +87,55 @@ def _get_rules_store():
         return _rules_store
 
 
+# Activity store for audit logging
+_activity_store = None
+_activity_store_lock = threading.Lock()
+
+
+def _get_activity_store():
+    """Get or create the activity store (lazy init, thread-safe)."""
+    global _activity_store
+    if _activity_store is not None:
+        return _activity_store
+    with _activity_store_lock:
+        if _activity_store is None:
+            try:
+                from aragora.storage.inbox_activity_store import get_inbox_activity_store
+
+                _activity_store = get_inbox_activity_store()
+                logger.info("[SharedInbox] Initialized inbox activity store")
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to init activity store: {e}")
+        return _activity_store
+
+
+def _log_activity(
+    inbox_id: str,
+    org_id: str,
+    actor_id: str,
+    action: str,
+    target_id: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Log an inbox activity (non-blocking helper)."""
+    store = _get_activity_store()
+    if store:
+        try:
+            from aragora.storage.inbox_activity_store import InboxActivity
+
+            activity = InboxActivity(
+                inbox_id=inbox_id,
+                org_id=org_id,
+                actor_id=actor_id,
+                action=action,
+                target_id=target_id,
+                metadata=metadata or {},
+            )
+            store.log_activity(activity)
+        except Exception as e:
+            logger.debug(f"[SharedInbox] Failed to log activity: {e}")
+
+
 # Storage configuration
 USE_PERSISTENT_STORAGE = True  # Set to False for in-memory only (testing)
 
@@ -645,6 +694,7 @@ async def handle_assign_message(
     message_id: str,
     assigned_to: str,
     assigned_by: Optional[str] = None,
+    org_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Assign a message to a team member.
@@ -657,6 +707,7 @@ async def handle_assign_message(
     try:
         now = datetime.now(timezone.utc)
         new_status = None
+        previous_assignee = None
 
         with _storage_lock:
             messages = _inbox_messages.get(inbox_id, {})
@@ -665,6 +716,7 @@ async def handle_assign_message(
             if not message:
                 return {"success": False, "error": "Message not found"}
 
+            previous_assignee = message.assigned_to
             message.assigned_to = assigned_to
             message.assigned_at = now
             if message.status == MessageStatus.OPEN:
@@ -687,6 +739,21 @@ async def handle_assign_message(
 
         logger.info(f"[SharedInbox] Assigned message {message_id} to {assigned_to}")
 
+        # Log activity
+        if org_id:
+            action = "reassigned" if previous_assignee else "assigned"
+            _log_activity(
+                inbox_id=inbox_id,
+                org_id=org_id,
+                actor_id=assigned_by or "system",
+                action=action,
+                target_id=message_id,
+                metadata={
+                    "assignee_id": assigned_to,
+                    "previous_assignee": previous_assignee,
+                },
+            )
+
         return {
             "success": True,
             "message": message.to_dict(),
@@ -705,6 +772,7 @@ async def handle_update_message_status(
     message_id: str,
     status: str,
     updated_by: Optional[str] = None,
+    org_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Update message status.
@@ -717,6 +785,7 @@ async def handle_update_message_status(
     try:
         now = datetime.now(timezone.utc)
         is_resolved = False
+        previous_status = None
 
         with _storage_lock:
             messages = _inbox_messages.get(inbox_id, {})
@@ -725,6 +794,7 @@ async def handle_update_message_status(
             if not message:
                 return {"success": False, "error": "Message not found"}
 
+            previous_status = message.status.value
             message.status = MessageStatus(status)
 
             if message.status == MessageStatus.RESOLVED:
@@ -746,6 +816,20 @@ async def handle_update_message_status(
 
         logger.info(f"[SharedInbox] Updated message {message_id} status to {status}")
 
+        # Log activity
+        if org_id:
+            _log_activity(
+                inbox_id=inbox_id,
+                org_id=org_id,
+                actor_id=updated_by or "system",
+                action="status_changed",
+                target_id=message_id,
+                metadata={
+                    "from_status": previous_status,
+                    "to_status": status,
+                },
+            )
+
         return {
             "success": True,
             "message": message.to_dict(),
@@ -765,6 +849,8 @@ async def handle_add_message_tag(
     inbox_id: str,
     message_id: str,
     tag: str,
+    added_by: Optional[str] = None,
+    org_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Add a tag to a message.
@@ -775,6 +861,7 @@ async def handle_add_message_tag(
     }
     """
     try:
+        tag_added = False
         with _storage_lock:
             messages = _inbox_messages.get(inbox_id, {})
             message = messages.get(message_id)
@@ -784,6 +871,18 @@ async def handle_add_message_tag(
 
             if tag not in message.tags:
                 message.tags.append(tag)
+                tag_added = True
+
+        # Log activity if tag was actually added
+        if tag_added and org_id:
+            _log_activity(
+                inbox_id=inbox_id,
+                org_id=org_id,
+                actor_id=added_by or "system",
+                action="tag_added",
+                target_id=message_id,
+                metadata={"tag": tag},
+            )
 
         return {
             "success": True,
