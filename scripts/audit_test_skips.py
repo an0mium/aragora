@@ -61,6 +61,9 @@ CATEGORY_PATTERNS = {
         r"WIP",
         r"pending",
         r"placeholder",
+        r"not found",  # "Encryption service not found"
+        r"unavailable",  # "TournamentManager unavailable"
+        r"renamed to",  # "method renamed to..."
     ],
     "integration_dependency": [
         r"redis",
