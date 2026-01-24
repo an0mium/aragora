@@ -23,7 +23,7 @@ class TestTeamsVoteRecording:
         service_url = "https://smba.trafficmanager.net/teams/"
         from_user = {"id": "user_789", "name": "Test User"}
 
-        with patch("aragora.server.handlers.social.teams.get_debates_db") as mock_get_db:
+        with patch("aragora.server.storage.get_debates_db") as mock_get_db:
             mock_db = MagicMock()
             mock_db.record_vote = MagicMock()
             mock_get_db.return_value = mock_db
@@ -50,10 +50,10 @@ class TestTeamsVoteRecording:
         service_url = "https://smba.trafficmanager.net/teams/"
         from_user = {"id": "user_abc", "name": "Test User"}
 
-        with patch("aragora.server.handlers.social.teams.get_debates_db") as mock_get_db:
+        with patch("aragora.server.storage.get_debates_db") as mock_get_db:
             mock_get_db.return_value = None
 
-            with patch("aragora.server.handlers.social.teams.VoteAggregator") as mock_agg_class:
+            with patch("aragora.debate.vote_aggregator.VoteAggregator") as mock_agg_class:
                 mock_aggregator = MagicMock()
                 mock_agg_class.get_instance.return_value = mock_aggregator
 
@@ -71,10 +71,10 @@ class TestTeamsVoteRecording:
         service_url = "https://smba.trafficmanager.net/teams/"
         from_user = {"id": "user_def"}
 
-        with patch("aragora.server.handlers.social.teams.get_debates_db") as mock_get_db:
+        with patch("aragora.server.storage.get_debates_db") as mock_get_db:
             mock_get_db.return_value = None
 
-            with patch("aragora.server.handlers.social.teams.VoteAggregator") as mock_agg_class:
+            with patch("aragora.debate.vote_aggregator.VoteAggregator") as mock_agg_class:
                 mock_aggregator = MagicMock()
                 mock_agg_class.get_instance.return_value = mock_aggregator
 
@@ -90,7 +90,7 @@ class TestTeamsVoteRecording:
         conversation = {"id": "conv_456"}
         service_url = "https://smba.trafficmanager.net/teams/"
 
-        with patch("aragora.server.handlers.social.teams.get_debates_db") as mock_get_db:
+        with patch("aragora.server.storage.get_debates_db") as mock_get_db:
             mock_db = MagicMock()
             mock_db.record_vote = MagicMock()
             mock_get_db.return_value = mock_db
@@ -115,7 +115,7 @@ class TestTeamsVoteRecording:
         service_url = "https://smba.trafficmanager.net/teams/"
         from_user = {"id": "user_ghi"}
 
-        with patch("aragora.server.handlers.social.teams.get_debates_db") as mock_get_db:
+        with patch("aragora.server.storage.get_debates_db") as mock_get_db:
             mock_db = MagicMock()
             mock_db.record_vote.side_effect = Exception("DB connection failed")
             mock_get_db.return_value = mock_db
@@ -133,10 +133,10 @@ class TestTeamsVoteRecording:
         service_url = "https://smba.trafficmanager.net/teams/"
         from_user = {"id": "user_jkl"}
 
-        with patch("aragora.server.handlers.social.teams.get_debates_db") as mock_get_db:
+        with patch("aragora.server.storage.get_debates_db") as mock_get_db:
             mock_get_db.return_value = None
 
-            with patch("aragora.server.handlers.social.teams.VoteAggregator") as mock_agg_class:
+            with patch("aragora.debate.vote_aggregator.VoteAggregator") as mock_agg_class:
                 mock_agg_class.get_instance.return_value = None
 
                 # Should not raise
