@@ -17,7 +17,15 @@ const config = {
   projectName: 'aragora',
 
   onBrokenLinks: 'warn',
-  onBrokenMarkdownLinks: 'warn',
+
+  // Markdown configuration (v4-compatible format)
+  markdown: {
+    preprocessor: ({ fileContent }) => fileContent,
+    parseFrontMatter: undefined,
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+    },
+  },
 
   i18n: {
     defaultLocale: 'en',
