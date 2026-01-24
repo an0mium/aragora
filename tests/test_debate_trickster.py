@@ -923,32 +923,49 @@ class TestEdgeCases:
         # Should still be able to intervene with single agent
         assert result is not None
 
-    @pytest.mark.skip(reason="Test needs updated mocking for EvidencePoweredTrickster")
     def test_very_high_convergence_no_hollow(self):
         """Test high convergence with good quality doesn't trigger."""
         trickster = EvidencePoweredTrickster(linker=MagicMock())
 
-        trickster._analyzer.analyze_batch = MagicMock(
-            return_value={
-                "agent1": EvidenceQualityScore(agent="agent", round_num=1, overall_quality=0.9),
-                "agent2": EvidenceQualityScore(agent="agent", round_num=1, overall_quality=0.9),
-            }
-        )
-        trickster._detector.check = MagicMock(
-            return_value=HollowConsensusAlert(
-                detected=False,
-                severity=0.0,
-                reason="High quality responses",
-                agent_scores={"agent1": 0.9, "agent2": 0.9},
-                recommended_challenges=[],
-                avg_quality=0.9,
+        # Create mock cross analysis result (no concerns)
+        mock_cross_analysis = MagicMock()
+        mock_cross_analysis.has_concerns = False
+        mock_cross_analysis.evidence_gaps = []
+        mock_cross_analysis.contradictory_evidence = []
+        mock_cross_analysis.redundancy_score = 0.3  # Low redundancy
+
+        # Properly mock the internal components
+        with (
+            patch.object(
+                trickster._analyzer,
+                "analyze_batch",
+                return_value={
+                    "agent1": EvidenceQualityScore(agent="agent", round_num=1, overall_quality=0.9),
+                    "agent2": EvidenceQualityScore(agent="agent", round_num=1, overall_quality=0.9),
+                },
+            ),
+            patch.object(
+                trickster._detector,
+                "check",
+                return_value=HollowConsensusAlert(
+                    detected=False,
+                    severity=0.0,
+                    reason="High quality responses",
+                    agent_scores={"agent1": 0.9, "agent2": 0.9},
+                    recommended_challenges=[],
+                    avg_quality=0.9,
+                ),
+            ),
+            patch.object(
+                trickster._cross_analyzer,
+                "analyze",
+                return_value=mock_cross_analysis,
+            ),
+        ):
+            result = trickster.check_and_intervene(
+                responses={"agent1": "Well-supported claim", "agent2": "Also well-supported"},
+                convergence_similarity=0.99,
+                round_num=1,
             )
-        )
 
-        result = trickster.check_and_intervene(
-            responses={"agent1": "Well-supported claim", "agent2": "Also well-supported"},
-            convergence_similarity=0.99,
-            round_num=1,
-        )
-
-        assert result is None  # High convergence but good quality = no intervention
+            assert result is None  # High convergence but good quality = no intervention
