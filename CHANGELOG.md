@@ -15,6 +15,17 @@
 - **tests:** fix flaky timing test with tolerance for CI variability
 - **tests:** fix circuit breaker test with explicit threshold configuration
 - **chat:** fix router path handling for unified inbox
+- **sdk:** fix version mismatch in sdk/python (2.2.0 → 2.1.15)
+
+### CI/CD
+
+- **version:** add version alignment validation job to CI
+- **scripts:** add `check_version_alignment.py` for cross-package version validation
+
+### Documentation
+
+- **backlog:** add Q1 2026 backlog with 60+ issues across 6 sprints
+- **planning:** create Sprint 1-6 milestones and track issues in GitHub
 
 ### Maintenance
 
