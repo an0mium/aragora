@@ -55,6 +55,28 @@ class BudgetAction(Enum):
     SOFT_LIMIT = "soft_limit"  # Warn + require confirmation
     HARD_LIMIT = "hard_limit"  # Block operations
     SUSPEND = "suspend"  # Suspend all operations
+    ALLOW_WITH_CHARGES = "allow_with_charges"  # Allow but track as overage
+
+
+@dataclass
+class SpendResult:
+    """Result of a spend check or operation."""
+
+    allowed: bool
+    message: str = ""
+    is_overage: bool = False
+    overage_amount_usd: float = 0.0
+    overage_rate_multiplier: float = 1.0
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "allowed": self.allowed,
+            "message": self.message,
+            "is_overage": self.is_overage,
+            "overage_amount_usd": self.overage_amount_usd,
+            "overage_rate_multiplier": self.overage_rate_multiplier,
+        }
 
 
 @dataclass
@@ -105,6 +127,12 @@ class Budget:
     override_user_ids: List[str] = field(default_factory=list)  # Users who can bypass
     override_until: Optional[float] = None  # Temporary override expiry
 
+    # Overage settings
+    allow_overage: bool = False  # Allow spending beyond budget with charges
+    overage_rate_multiplier: float = 1.5  # Rate multiplier for overage (1.5x = 50% surcharge)
+    overage_spent_usd: float = 0.0  # Amount spent in overage
+    max_overage_usd: Optional[float] = None  # Optional cap on overage amount
+
     # Metadata
     created_at: float = field(default_factory=lambda: time.time())
     updated_at: float = field(default_factory=lambda: time.time())
@@ -139,39 +167,86 @@ class Budget:
 
         return action
 
-    def can_spend(self, amount_usd: float, user_id: Optional[str] = None) -> tuple[bool, str]:
-        """Check if spending is allowed.
+    def can_spend_extended(self, amount_usd: float, user_id: Optional[str] = None) -> SpendResult:
+        """Check if spending is allowed with extended overage info.
 
         Returns:
-            Tuple of (allowed, reason)
+            SpendResult with allowed status and overage info
         """
         # Check override
         if user_id and user_id in self.override_user_ids:
             if self.override_until is None or time.time() < self.override_until:
-                return True, "Override active"
+                return SpendResult(allowed=True, message="Override active")
 
         # Check status
         if self.status == BudgetStatus.SUSPENDED:
-            return False, "Budget suspended"
+            return SpendResult(allowed=False, message="Budget suspended")
         if self.status == BudgetStatus.PAUSED:
-            return False, "Budget paused"
+            return SpendResult(allowed=False, message="Budget paused")
         if self.status == BudgetStatus.CLOSED:
-            return False, "Budget period closed"
+            return SpendResult(allowed=False, message="Budget period closed")
 
         # Check if period expired
         if self.period_end > 0 and time.time() > self.period_end:
-            return False, "Budget period expired"
+            return SpendResult(allowed=False, message="Budget period expired")
 
-        # Check hard limit
+        # Check if within budget
         new_total = self.spent_usd + amount_usd
-        if new_total > self.amount_usd and self.amount_usd > 0:
-            action = self.current_action
-            if action == BudgetAction.HARD_LIMIT:
-                return False, f"Budget exceeded (${self.spent_usd:.2f}/${self.amount_usd:.2f})"
-            if action == BudgetAction.SUSPEND and self.auto_suspend:
-                return False, "Budget auto-suspended"
+        if new_total <= self.amount_usd or self.amount_usd <= 0:
+            return SpendResult(allowed=True, message="OK")
 
-        return True, "OK"
+        # Over budget - check what action to take
+        overage_amount = new_total - self.amount_usd
+        action = self.current_action
+
+        # Check if overage is allowed
+        if self.allow_overage or action == BudgetAction.ALLOW_WITH_CHARGES:
+            # Check max overage cap if set
+            if self.max_overage_usd is not None:
+                total_overage = self.overage_spent_usd + overage_amount
+                if total_overage > self.max_overage_usd:
+                    return SpendResult(
+                        allowed=False,
+                        message=f"Overage cap exceeded (${total_overage:.2f}/${self.max_overage_usd:.2f})",
+                    )
+
+            return SpendResult(
+                allowed=True,
+                message=f"Overage allowed at {self.overage_rate_multiplier}x rate",
+                is_overage=True,
+                overage_amount_usd=overage_amount,
+                overage_rate_multiplier=self.overage_rate_multiplier,
+            )
+
+        # Hard limit or suspend
+        if action == BudgetAction.HARD_LIMIT:
+            return SpendResult(
+                allowed=False,
+                message=f"Budget exceeded (${self.spent_usd:.2f}/${self.amount_usd:.2f})",
+            )
+        if action == BudgetAction.SUSPEND and self.auto_suspend:
+            return SpendResult(allowed=False, message="Budget auto-suspended")
+
+        # Soft limit or warn - allow but flag
+        return SpendResult(allowed=True, message="OK")
+
+    def can_spend(self, amount_usd: float, user_id: Optional[str] = None) -> tuple[bool, str]:
+        """Check if spending is allowed (legacy interface).
+
+        Returns:
+            Tuple of (allowed, reason)
+        """
+        result = self.can_spend_extended(amount_usd, user_id)
+        return (result.allowed, result.message)
+
+    def record_overage(self, amount_usd: float) -> None:
+        """Record overage spending.
+
+        Args:
+            amount_usd: Amount spent in overage
+        """
+        self.overage_spent_usd += amount_usd
+        self.updated_at = time.time()
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -202,6 +277,11 @@ class Budget:
             "thresholds": [
                 {"percentage": t.percentage, "action": t.action.value} for t in self.thresholds
             ],
+            # Overage settings
+            "allow_overage": self.allow_overage,
+            "overage_rate_multiplier": self.overage_rate_multiplier,
+            "overage_spent_usd": self.overage_spent_usd,
+            "max_overage_usd": self.max_overage_usd,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }

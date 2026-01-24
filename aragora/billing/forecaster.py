@@ -700,6 +700,55 @@ class CostForecaster:
         )
 
 
+async def send_forecast_notifications(
+    report: ForecastReport,
+    org_id: str,
+    org_name: str,
+    email: str,
+    budget_name: str = "Monthly Budget",
+) -> bool:
+    """
+    Send notifications for forecast alerts.
+
+    Args:
+        report: ForecastReport with predictions
+        org_id: Organization ID
+        org_name: Organization name
+        email: Email address to notify
+        budget_name: Name of the budget
+
+    Returns:
+        True if notifications were sent successfully
+    """
+    from aragora.billing.notifications import get_billing_notifier
+
+    notifier = get_billing_notifier()
+
+    # Check if budget will be exceeded
+    if report.days_until_budget_exceeded is not None and report.days_until_budget_exceeded > 0:
+        if report.budget_limit and report.predicted_monthly_cost:
+            projected_date = datetime.now(timezone.utc) + timedelta(
+                days=report.days_until_budget_exceeded
+            )
+
+            # Get current spend from the sum of historical data or from daily_forecasts
+            current_spent = float(report.predicted_daily_average * report.data_points)
+
+            result = notifier.notify_forecast_overage(
+                org_id=org_id,
+                email=email,
+                org_name=org_name,
+                budget_name=budget_name,
+                current_spent=current_spent,
+                budget_limit=float(report.budget_limit),
+                projected_date=projected_date,
+                projected_amount=float(report.predicted_monthly_cost),
+            )
+            return result.success
+
+    return True
+
+
 # Global forecaster instance
 _forecaster: Optional[CostForecaster] = None
 
@@ -730,4 +779,5 @@ __all__ = [
     "SimulationScenario",
     "SimulationResult",
     "get_cost_forecaster",
+    "send_forecast_notifications",
 ]

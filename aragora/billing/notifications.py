@@ -741,6 +741,267 @@ You can adjust your budget alerts in your billing settings.
         )
         return NotificationResult(success=True, method="log")
 
+    def notify_forecast_overage(
+        self,
+        org_id: str,
+        email: str,
+        org_name: str,
+        budget_name: str,
+        current_spent: float,
+        budget_limit: float,
+        projected_date: datetime,
+        projected_amount: float,
+    ) -> NotificationResult:
+        """
+        Send forecast overage alert when projected spending will exceed budget.
+
+        Args:
+            org_id: Organization identifier
+            email: Email address to notify
+            org_name: Organization name
+            budget_name: Name of the budget
+            current_spent: Current spent amount in USD
+            budget_limit: Budget limit in USD
+            projected_date: Date when budget will be exceeded
+            projected_amount: Projected total spend
+
+        Returns:
+            NotificationResult indicating success/failure
+        """
+        days_until = (projected_date - datetime.now(timezone.utc)).days
+        overage_amount = projected_amount - budget_limit
+
+        subject = f"⚠️ Aragora Budget Forecast: Will Exceed {budget_name} in {days_until} days"
+
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #f39c12; color: white; padding: 20px; text-align: center;">
+                <h1 style="margin: 0;">⚠️ Budget Forecast Alert</h1>
+            </div>
+
+            <div style="padding: 30px; background: #f9f9f9;">
+                <p>Hi,</p>
+
+                <p>Based on your current usage patterns, we project that <strong>{org_name}</strong>
+                will exceed the <strong>{budget_name}</strong> budget.</p>
+
+                <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f39c12;">
+                    <h3 style="margin-top: 0;">Forecast Details</h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Current Spend:</strong></td>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right;">${current_spent:,.2f}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Budget Limit:</strong></td>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right;">${budget_limit:,.2f}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Projected Total:</strong></td>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right; color: #e74c3c;">${projected_amount:,.2f}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Projected Overage:</strong></td>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right; color: #e74c3c;">${overage_amount:,.2f}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0;"><strong>Expected Exceed Date:</strong></td>
+                            <td style="padding: 8px 0; text-align: right;">{projected_date.strftime('%B %d, %Y')}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <p><strong>What you can do:</strong></p>
+                <ul>
+                    <li>Review your usage in the billing dashboard</li>
+                    <li>Increase your budget limit if needed</li>
+                    <li>Enable overage billing to avoid service interruption</li>
+                </ul>
+
+                <p>
+                    <a href="https://aragora.ai/dashboard/billing" style="display: inline-block; background: #f39c12; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+                        View Billing Dashboard
+                    </a>
+                </p>
+            </div>
+
+            <div style="padding: 20px; text-align: center; color: #999; font-size: 0.8em;">
+                <p>Aragora - Multi-Agent Debate Platform</p>
+            </div>
+        </body>
+        </html>
+        """
+
+        text_body = f"""
+Budget Forecast Alert
+
+Organization: {org_name}
+Budget: {budget_name}
+
+Based on your current usage patterns, we project that your budget will be exceeded.
+
+Current Spend: ${current_spent:,.2f}
+Budget Limit: ${budget_limit:,.2f}
+Projected Total: ${projected_amount:,.2f}
+Projected Overage: ${overage_amount:,.2f}
+Expected Exceed Date: {projected_date.strftime('%B %d, %Y')}
+
+What you can do:
+- Review your usage in the billing dashboard
+- Increase your budget limit if needed
+- Enable overage billing to avoid service interruption
+
+View your billing dashboard: https://aragora.ai/dashboard/billing
+        """
+
+        # Try to send email first
+        result = self._send_email(email, subject, html_body, text_body)
+        if result.success:
+            return result
+
+        # Fall back to webhook
+        webhook_result = self._send_webhook(
+            {
+                "event": "forecast_overage",
+                "org_id": org_id,
+                "org_name": org_name,
+                "email": email,
+                "budget_name": budget_name,
+                "current_spent": current_spent,
+                "budget_limit": budget_limit,
+                "projected_date": projected_date.isoformat(),
+                "projected_amount": projected_amount,
+                "overage_amount": overage_amount,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        if webhook_result.success:
+            return webhook_result
+
+        # Log as final fallback
+        logger.warning(
+            f"FORECAST_OVERAGE: org={org_id} email={email} budget={budget_name} "
+            f"projected=${projected_amount:.2f} limit=${budget_limit:.2f}"
+        )
+        return NotificationResult(success=True, method="log")
+
+    def notify_credit_expiring(
+        self,
+        org_id: str,
+        email: str,
+        org_name: str,
+        expiring_amount_cents: int,
+        expiration_date: datetime,
+        days_until: int,
+    ) -> NotificationResult:
+        """
+        Send credit expiration notification.
+
+        Args:
+            org_id: Organization identifier
+            email: Email address to notify
+            org_name: Organization name
+            expiring_amount_cents: Amount of credits expiring in cents
+            expiration_date: When credits expire
+            days_until: Days until expiration
+
+        Returns:
+            NotificationResult indicating success/failure
+        """
+        expiring_usd = expiring_amount_cents / 100
+
+        subject = f"💰 Aragora Credits Expiring: ${expiring_usd:.2f} in {days_until} days"
+
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #9b59b6; color: white; padding: 20px; text-align: center;">
+                <h1 style="margin: 0;">💰 Credits Expiring Soon</h1>
+            </div>
+
+            <div style="padding: 30px; background: #f9f9f9;">
+                <p>Hi,</p>
+
+                <p>This is a reminder that <strong>{org_name}</strong> has credits that will expire soon.</p>
+
+                <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #9b59b6;">
+                    <h3 style="margin-top: 0;">Credit Details</h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Expiring Amount:</strong></td>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right; font-size: 1.2em; color: #9b59b6;">${expiring_usd:,.2f}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Expiration Date:</strong></td>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right;">{expiration_date.strftime('%B %d, %Y')}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0;"><strong>Days Remaining:</strong></td>
+                            <td style="padding: 8px 0; text-align: right;">{days_until} days</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <p>Use your credits before they expire by running debates or using the API.</p>
+
+                <p>
+                    <a href="https://aragora.ai/dashboard/debates/new" style="display: inline-block; background: #9b59b6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+                        Start a Debate
+                    </a>
+                </p>
+            </div>
+
+            <div style="padding: 20px; text-align: center; color: #999; font-size: 0.8em;">
+                <p>Aragora - Multi-Agent Debate Platform</p>
+            </div>
+        </body>
+        </html>
+        """
+
+        text_body = f"""
+Credits Expiring Soon
+
+Organization: {org_name}
+
+Expiring Amount: ${expiring_usd:,.2f}
+Expiration Date: {expiration_date.strftime('%B %d, %Y')}
+Days Remaining: {days_until} days
+
+Use your credits before they expire by running debates or using the API.
+
+Start a debate: https://aragora.ai/dashboard/debates/new
+        """
+
+        # Try to send email first
+        result = self._send_email(email, subject, html_body, text_body)
+        if result.success:
+            return result
+
+        # Fall back to webhook
+        webhook_result = self._send_webhook(
+            {
+                "event": "credit_expiring",
+                "org_id": org_id,
+                "org_name": org_name,
+                "email": email,
+                "expiring_amount_cents": expiring_amount_cents,
+                "expiring_amount_usd": expiring_usd,
+                "expiration_date": expiration_date.isoformat(),
+                "days_until": days_until,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        if webhook_result.success:
+            return webhook_result
+
+        # Log as final fallback
+        logger.warning(
+            f"CREDIT_EXPIRING: org={org_id} email={email} "
+            f"amount=${expiring_usd:.2f} expires={expiration_date.date()}"
+        )
+        return NotificationResult(success=True, method="log")
+
 
 # Default notifier instance
 _default_notifier: Optional[BillingNotifier] = None
