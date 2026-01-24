@@ -20,7 +20,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from aragora.gauntlet.receipt import DecisionReceipt
@@ -72,7 +72,7 @@ def export_receipt(
     receipt: "DecisionReceipt",
     format: ReceiptExportFormat = ReceiptExportFormat.JSON,
     options: Optional[ExportOptions] = None,
-) -> str:
+) -> Union[str, bytes]:
     """
     Export a DecisionReceipt to the specified format.
 
@@ -82,7 +82,7 @@ def export_receipt(
         options: Export options
 
     Returns:
-        Exported string representation
+        Exported string or bytes (PDF returns bytes)
     """
     opts = options or ExportOptions()
 
