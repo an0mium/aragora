@@ -427,10 +427,12 @@ Aragora's current security posture is **strong** with most SOC 2 Trust Service C
   - Real-time threat monitoring
 
 - **Access Review Scheduler** (`aragora/scheduler/access_review_scheduler.py`)
+  - **Auto-started at server startup** (via `init_access_review_scheduler()` in startup.py)
   - Monthly automated access reviews
   - Stale credential detection (90+ days)
   - Role certification workflows
   - Manager sign-off tracking
+  - Enable with `ARAGORA_ACCESS_REVIEW_ENABLED=true` (default in production)
 
 - **DR Drill Scheduler** (`aragora/scheduler/dr_drill_scheduler.py`)
   - Monthly backup restoration tests

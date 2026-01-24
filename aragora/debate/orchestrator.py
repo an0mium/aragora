@@ -170,6 +170,8 @@ class Arena:
         auto_create_knowledge_mound: bool = True,  # Auto-create KM if not provided (recommended)
         enable_knowledge_retrieval: bool = True,  # Query mound before debates
         enable_knowledge_ingestion: bool = True,  # Store consensus outcomes in mound
+        enable_knowledge_extraction: bool = False,  # Extract structured claims/relationships
+        extraction_min_confidence: float = 0.3,  # Min debate confidence to trigger extraction
         enable_belief_guidance: bool = False,  # Inject historical cruxes from similar debates
         enable_auto_revalidation: bool = False,  # Auto-trigger revalidation for stale knowledge
         revalidation_staleness_threshold: float = 0.8,  # Score threshold for staleness
@@ -355,6 +357,8 @@ class Arena:
             knowledge_mound=knowledge_mound,
             enable_knowledge_retrieval=enable_knowledge_retrieval,
             enable_knowledge_ingestion=enable_knowledge_ingestion,
+            enable_knowledge_extraction=enable_knowledge_extraction,
+            extraction_min_confidence=extraction_min_confidence,
             enable_belief_guidance=enable_belief_guidance,
             vertical=vertical,
             vertical_persona_manager=vertical_persona_manager,
@@ -547,6 +551,8 @@ class Arena:
         self.knowledge_mound = trackers.knowledge_mound
         self.enable_knowledge_retrieval = trackers.enable_knowledge_retrieval
         self.enable_knowledge_ingestion = trackers.enable_knowledge_ingestion
+        self.enable_knowledge_extraction = trackers.enable_knowledge_extraction
+        self.extraction_min_confidence = trackers.extraction_min_confidence
         self.enable_belief_guidance = trackers.enable_belief_guidance
         self._trackers = trackers.coordinator
         self.vertical = trackers.vertical

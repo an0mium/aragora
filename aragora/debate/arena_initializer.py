@@ -112,6 +112,8 @@ class TrackerComponents:
     knowledge_mound: Any
     enable_knowledge_retrieval: bool
     enable_knowledge_ingestion: bool
+    enable_knowledge_extraction: bool
+    extraction_min_confidence: float
     enable_belief_guidance: bool
     coordinator: SubsystemCoordinator
     # Vertical personas
@@ -383,6 +385,8 @@ class ArenaInitializer:
         knowledge_mound=None,
         enable_knowledge_retrieval: bool = True,
         enable_knowledge_ingestion: bool = True,
+        enable_knowledge_extraction: bool = False,
+        extraction_min_confidence: float = 0.3,
         enable_belief_guidance: bool = False,
         vertical=None,
         vertical_persona_manager=None,
@@ -481,6 +485,8 @@ class ArenaInitializer:
             knowledge_mound=knowledge_mound,
             enable_knowledge_retrieval=enable_knowledge_retrieval,
             enable_knowledge_ingestion=enable_knowledge_ingestion,
+            enable_knowledge_extraction=enable_knowledge_extraction,
+            extraction_min_confidence=extraction_min_confidence,
             enable_belief_guidance=enable_belief_guidance,
             coordinator=coordinator,
             vertical=detected_vertical,

@@ -1524,6 +1524,7 @@ def _get_degraded_status() -> dict[str, Any]:
         "gauntlet_worker": False,
         "redis_state_backend": False,
         "key_rotation_scheduler": False,
+        "access_review_scheduler": False,
         "rbac_distributed_cache": False,
         "notification_worker": False,
         "graphql": False,
@@ -1673,6 +1674,7 @@ async def run_startup_sequence(
         "gauntlet_worker": False,
         "redis_state_backend": False,
         "key_rotation_scheduler": False,
+        "access_review_scheduler": False,
         "rbac_distributed_cache": False,
         "notification_worker": False,
         "graphql": False,
@@ -1724,6 +1726,9 @@ async def run_startup_sequence(
 
     # Initialize key rotation scheduler for automated encryption key management
     status["key_rotation_scheduler"] = await init_key_rotation_scheduler()
+
+    # Initialize access review scheduler for SOC 2 CC6.1/CC6.2 compliance
+    status["access_review_scheduler"] = await init_access_review_scheduler()
 
     # Initialize RBAC distributed cache for horizontal scaling
     status["rbac_distributed_cache"] = await init_rbac_distributed_cache()
@@ -2002,6 +2007,78 @@ async def init_approval_gate_recovery() -> int:
         return 0
 
 
+async def init_access_review_scheduler() -> bool:
+    """Initialize the access review scheduler for SOC 2 compliance.
+
+    Starts the scheduler that runs periodic access reviews:
+    - Monthly user access reviews
+    - Weekly stale credential detection (90+ days unused)
+    - Role certification workflows
+    - Manager sign-off requirements
+
+    SOC 2 Compliance: CC6.1, CC6.2 (Access Control)
+
+    Environment Variables:
+        ARAGORA_ACCESS_REVIEW_ENABLED: Set to "true" to enable (default: true in production)
+        ARAGORA_ACCESS_REVIEW_STORAGE: Path for SQLite storage (default: data/access_reviews.db)
+
+    Returns:
+        True if scheduler was started, False otherwise
+    """
+    import os
+
+    enabled = os.environ.get("ARAGORA_ACCESS_REVIEW_ENABLED", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+    is_production = os.environ.get("ARAGORA_ENV", "development") == "production"
+
+    # Enable by default in production
+    if not enabled and is_production:
+        enabled = True
+
+    if not enabled:
+        logger.debug(
+            "Access review scheduler disabled (set ARAGORA_ACCESS_REVIEW_ENABLED=true to enable)"
+        )
+        return False
+
+    try:
+        from aragora.scheduler.access_review_scheduler import (
+            AccessReviewConfig,
+            get_access_review_scheduler,
+        )
+
+        # Configure storage path
+        storage_path = os.environ.get("ARAGORA_ACCESS_REVIEW_STORAGE")
+        if not storage_path:
+            data_dir = Path("data")
+            data_dir.mkdir(exist_ok=True)
+            storage_path = str(data_dir / "access_reviews.db")
+
+        config = AccessReviewConfig(storage_path=storage_path)
+
+        # Get or create the global scheduler
+        scheduler = get_access_review_scheduler(config)
+
+        # Start the scheduler
+        await scheduler.start()
+
+        logger.info(
+            f"Access review scheduler started "
+            f"(storage={storage_path}, monthly_review_day={config.monthly_review_day})"
+        )
+        return True
+
+    except ImportError as e:
+        logger.debug(f"Access review scheduler not available: {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"Failed to start access review scheduler: {e}")
+        return False
+
+
 async def init_key_rotation_scheduler() -> bool:
     """Initialize the key rotation scheduler for automated key management.
 
@@ -2224,6 +2301,7 @@ __all__ = [
     "init_redis_state_backend",
     "init_decision_router",
     "init_key_rotation_scheduler",
+    "init_access_review_scheduler",
     "init_rbac_distributed_cache",
     "init_approval_gate_recovery",
     "init_notification_worker",

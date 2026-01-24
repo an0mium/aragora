@@ -150,6 +150,10 @@ class ArenaConfig:
     knowledge_mound: Optional[Any] = None  # KnowledgeMound for unified knowledge queries/ingestion
     enable_knowledge_retrieval: bool = True  # Query mound before debates for relevant knowledge
     enable_knowledge_ingestion: bool = True  # Store consensus outcomes in mound after debates
+    enable_knowledge_extraction: bool = (
+        False  # Extract structured claims/relationships from debates
+    )
+    extraction_min_confidence: float = 0.3  # Min debate confidence to trigger extraction
 
     # Automatic knowledge revalidation (staleness detection)
     enable_auto_revalidation: bool = False  # Auto-trigger revalidation for stale knowledge
@@ -463,6 +467,8 @@ class ArenaConfig:
             "knowledge_mound": self.knowledge_mound,
             "enable_knowledge_retrieval": self.enable_knowledge_retrieval,
             "enable_knowledge_ingestion": self.enable_knowledge_ingestion,
+            "enable_knowledge_extraction": self.enable_knowledge_extraction,
+            "extraction_min_confidence": self.extraction_min_confidence,
             # Auto-revalidation (enable_auto_revalidation is passed, detailed config is stored in ArenaConfig)
             "enable_auto_revalidation": self.enable_auto_revalidation,
             # Note: revalidation_staleness_threshold, revalidation_check_interval_seconds,

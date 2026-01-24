@@ -30,6 +30,17 @@ from aragora.connectors.email.outlook_sync import (
     OutlookSyncedMessage,
     start_outlook_sync,
 )
+from aragora.connectors.email.resilience import (
+    ResilientEmailClient,
+    OAuthTokenStore,
+    OAuthToken,
+    EmailCircuitBreaker,
+    RetryExecutor,
+    RetryConfig,
+    CircuitBreakerConfig,
+    RateLimitConfig,
+    CircuitBreakerOpenError,
+)
 
 __all__ = [
     # Gmail Sync
@@ -48,4 +59,14 @@ __all__ = [
     "OutlookSyncStatus",
     "OutlookSyncedMessage",
     "start_outlook_sync",
+    # Resilience
+    "ResilientEmailClient",
+    "OAuthTokenStore",
+    "OAuthToken",
+    "EmailCircuitBreaker",
+    "RetryExecutor",
+    "RetryConfig",
+    "CircuitBreakerConfig",
+    "RateLimitConfig",
+    "CircuitBreakerOpenError",
 ]

@@ -389,9 +389,9 @@ def init_phases(arena: "Arena") -> None:
         loop_id=arena.loop_id,
         notify_spectator=arena._notify_spectator,
         update_agent_relationships=arena._update_agent_relationships,
-        generate_disagreement_report=lambda votes, critiques, winner=None: DisagreementReporter().generate_report(
-            votes, critiques, winner
-        ),
+        generate_disagreement_report=lambda votes,
+        critiques,
+        winner=None: DisagreementReporter().generate_report(votes, critiques, winner),
         create_grounded_verdict=arena._create_grounded_verdict,
         verify_claims_formally=arena._verify_claims_formally,
         format_conclusion=arena._format_conclusion,
@@ -424,6 +424,8 @@ def init_phases(arena: "Arena") -> None:
         broadcast_min_confidence=arena.extensions.broadcast_min_confidence,
         knowledge_mound=getattr(arena, "knowledge_mound", None),
         enable_knowledge_ingestion=getattr(arena, "enable_knowledge_ingestion", True),
+        enable_knowledge_extraction=getattr(arena, "enable_knowledge_extraction", False),
+        extraction_min_confidence=getattr(arena, "extraction_min_confidence", 0.3),
         ingest_debate_outcome=arena._ingest_debate_outcome,
         knowledge_bridge_hub=getattr(arena, "knowledge_bridge_hub", None),
         # Post-debate workflow automation
