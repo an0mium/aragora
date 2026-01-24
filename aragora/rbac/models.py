@@ -40,6 +40,32 @@ class ResourceType(str, Enum):
     FINDINGS = "findings"  # Audit findings management
     DECISION = "decisions"  # Unified decision routing
 
+    # Enterprise data governance
+    DATA_CLASSIFICATION = "data_classification"  # Data sensitivity classification
+    DATA_RETENTION = "data_retention"  # Data retention policies
+    DATA_LINEAGE = "data_lineage"  # Data provenance tracking
+    PII = "pii"  # Personally identifiable information
+
+    # Compliance and regulatory
+    COMPLIANCE_POLICY = "compliance_policy"  # Compliance rules (SOC2, GDPR, HIPAA)
+    AUDIT_LOG = "audit_log"  # Audit trail management
+    VENDOR = "vendor"  # Third-party vendor management
+
+    # Team/group management
+    TEAM = "team"  # Team-based access control
+
+    # Cost and quota management
+    QUOTA = "quota"  # Rate limits and quotas
+    COST_CENTER = "cost_center"  # Cost tracking and chargeback
+    BUDGET = "budget"  # Budget limits and alerts
+
+    # Session and authentication
+    SESSION = "session"  # Active session management
+    AUTHENTICATION = "authentication"  # Auth policy management
+
+    # Approval workflows
+    APPROVAL = "approval"  # Access request approvals
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""
@@ -97,6 +123,42 @@ class Action(str, Enum):
     # Findings-specific
     ASSIGN = "assign"  # Assign to users
     BULK = "bulk"  # Bulk operations
+
+    # Data governance actions
+    CLASSIFY = "classify"  # Classify data sensitivity
+    REDACT = "redact"  # Redact sensitive data
+    MASK = "mask"  # Apply data masking rules
+
+    # Compliance actions
+    ENFORCE = "enforce"  # Enforce compliance policies
+    STREAM = "stream"  # Stream to external systems (SIEM)
+    SEARCH = "search"  # Advanced search capabilities
+
+    # Connector lifecycle actions
+    AUTHORIZE = "authorize"  # Grant OAuth/API credentials
+    ROTATE = "rotate"  # Rotate credentials
+    TEST = "test"  # Test connection health
+    ROLLBACK = "rollback"  # Revert failed operations
+
+    # Team management actions
+    ADD_MEMBER = "add_member"  # Add user to team
+    REMOVE_MEMBER = "remove_member"  # Remove user from team
+    SHARE = "share"  # Share resource with team
+
+    # Quota and cost actions
+    SET_LIMIT = "set_limit"  # Set quotas/limits
+    CHARGEBACK = "chargeback"  # Assign costs to cost center
+
+    # Session and auth actions
+    REVOKE = "revoke"  # Revoke sessions/credentials
+    LIST_ACTIVE = "list_active"  # List active sessions
+    RESET_PASSWORD = "reset_password"  # Reset user password
+    REQUIRE_MFA = "require_mfa"  # Enforce MFA
+
+    # Approval workflow actions
+    REQUEST = "request"  # Request access/approval
+    GRANT = "grant"  # Grant approval
+    DENY = "deny"  # Deny approval
 
     # Wildcard
     ALL = "*"
