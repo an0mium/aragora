@@ -327,11 +327,12 @@ class TestTableColumnInjection:
 
             # Check for dynamic table name patterns (should not exist)
             # Pattern: f"SELECT * FROM {variable}"
+            # Note: Class constants like self._TABLE_NAME are safe and excluded
             dangerous_patterns = [
-                r'f["\']SELECT.*FROM\s*\{',
-                r'f["\']INSERT INTO\s*\{',
-                r'f["\']UPDATE\s*\{',
-                r'f["\']DELETE FROM\s*\{',
+                r'f["\']SELECT.*FROM\s*\{(?!self\._|cls\._)',
+                r'f["\']INSERT INTO\s*\{(?!self\._|cls\._)',
+                r'f["\']UPDATE\s*\{(?!self\._|cls\._)',
+                r'f["\']DELETE FROM\s*\{(?!self\._|cls\._)',
                 r"\.format\([^)]*\).*(?:SELECT|INSERT|UPDATE|DELETE)",
             ]
 

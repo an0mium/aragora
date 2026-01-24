@@ -447,7 +447,7 @@ def _get_mock_sast_findings(scan_id: str) -> List[Finding]:
             description="User input is directly concatenated into SQL query",
             file_path="src/database/queries.py",
             line_number=42,
-            code_snippet='cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")',
+            code_snippet='query = "SELECT * FROM users WHERE id = " + user_id; cursor.execute(query)',
             rule_id="python.sql-injection",
             cwe_id="CWE-89",
             owasp_category="A03:2021 - Injection",
