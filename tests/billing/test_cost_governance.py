@@ -106,6 +106,55 @@ class TestTimeRestriction:
         result = restriction.is_allowed_now()
         assert isinstance(result, bool)
 
+    def test_to_dict(self):
+        """Test serialization."""
+        restriction = TimeRestriction(
+            allowed_hours_start=8,
+            allowed_hours_end=18,
+            allowed_days=[0, 1, 2, 3, 4],
+            timezone="America/New_York",
+        )
+
+        data = restriction.to_dict()
+
+        assert data["allowed_hours_start"] == 8
+        assert data["allowed_hours_end"] == 18
+        assert data["allowed_days"] == [0, 1, 2, 3, 4]
+        assert data["timezone"] == "America/New_York"
+
+    def test_from_dict(self):
+        """Test deserialization."""
+        data = {
+            "allowed_hours_start": 6,
+            "allowed_hours_end": 22,
+            "allowed_days": [0, 1, 2, 3, 4, 5, 6],
+            "timezone": "Europe/London",
+        }
+
+        restriction = TimeRestriction.from_dict(data)
+
+        assert restriction.allowed_hours_start == 6
+        assert restriction.allowed_hours_end == 22
+        assert restriction.allowed_days == [0, 1, 2, 3, 4, 5, 6]
+        assert restriction.timezone == "Europe/London"
+
+    def test_round_trip_serialization(self):
+        """Test that to_dict -> from_dict preserves data."""
+        original = TimeRestriction(
+            allowed_hours_start=10,
+            allowed_hours_end=16,
+            allowed_days=[1, 3, 5],
+            timezone="Asia/Tokyo",
+        )
+
+        data = original.to_dict()
+        restored = TimeRestriction.from_dict(data)
+
+        assert restored.allowed_hours_start == original.allowed_hours_start
+        assert restored.allowed_hours_end == original.allowed_hours_end
+        assert restored.allowed_days == original.allowed_days
+        assert restored.timezone == original.timezone
+
 
 class TestCostGovernancePolicy:
     """Tests for CostGovernancePolicy dataclass."""
@@ -203,6 +252,48 @@ class TestCostGovernancePolicy:
         assert policy.scope == CostPolicyScope.WORKSPACE
         assert policy.spending_limit is not None
         assert policy.spending_limit.daily_limit_usd == Decimal("100")
+
+    def test_to_dict_with_time_restriction(self):
+        """Test policy serialization with time restriction."""
+        policy = CostGovernancePolicy(
+            name="work-hours-only",
+            policy_type=CostPolicyType.TIME_RESTRICTION,
+            time_restriction=TimeRestriction(
+                allowed_hours_start=9,
+                allowed_hours_end=17,
+                allowed_days=[0, 1, 2, 3, 4],
+                timezone="America/Chicago",
+            ),
+        )
+
+        data = policy.to_dict()
+
+        assert data["name"] == "work-hours-only"
+        assert data["time_restriction"] is not None
+        assert data["time_restriction"]["allowed_hours_start"] == 9
+        assert data["time_restriction"]["allowed_hours_end"] == 17
+        assert data["time_restriction"]["timezone"] == "America/Chicago"
+
+    def test_from_dict_with_time_restriction(self):
+        """Test policy deserialization with time restriction."""
+        data = {
+            "name": "time-restricted",
+            "policy_type": "time_restriction",
+            "time_restriction": {
+                "allowed_hours_start": 8,
+                "allowed_hours_end": 20,
+                "allowed_days": [0, 1, 2, 3, 4, 5],
+                "timezone": "UTC",
+            },
+        }
+
+        policy = CostGovernancePolicy.from_dict(data)
+
+        assert policy.name == "time-restricted"
+        assert policy.time_restriction is not None
+        assert policy.time_restriction.allowed_hours_start == 8
+        assert policy.time_restriction.allowed_hours_end == 20
+        assert policy.time_restriction.allowed_days == [0, 1, 2, 3, 4, 5]
 
 
 class TestCostGovernanceEngine:

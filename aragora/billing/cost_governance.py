@@ -168,6 +168,25 @@ class TimeRestriction:
 
         return True
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "allowed_hours_start": self.allowed_hours_start,
+            "allowed_hours_end": self.allowed_hours_end,
+            "allowed_days": self.allowed_days,
+            "timezone": self.timezone,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "TimeRestriction":
+        """Create from dictionary."""
+        return cls(
+            allowed_hours_start=data.get("allowed_hours_start", 0),
+            allowed_hours_end=data.get("allowed_hours_end", 24),
+            allowed_days=data.get("allowed_days", [0, 1, 2, 3, 4]),
+            timezone=data.get("timezone", "UTC"),
+        )
+
 
 @dataclass
 class CostGovernancePolicy:
@@ -261,7 +280,7 @@ class CostGovernancePolicy:
             "target_projects": self.target_projects,
             "model_restrictions": [r.to_dict() for r in self.model_restrictions],
             "spending_limit": self.spending_limit.to_dict() if self.spending_limit else None,
-            "time_restriction": None,  # TODO: serialize time restriction
+            "time_restriction": self.time_restriction.to_dict() if self.time_restriction else None,
             "approval_threshold_usd": str(self.approval_threshold_usd)
             if self.approval_threshold_usd
             else None,
@@ -288,6 +307,10 @@ class CostGovernancePolicy:
         if data.get("spending_limit"):
             spending_limit = SpendingLimit.from_dict(data["spending_limit"])
 
+        time_restriction = None
+        if data.get("time_restriction"):
+            time_restriction = TimeRestriction.from_dict(data["time_restriction"])
+
         return cls(
             id=data.get("id", str(uuid4())),
             name=data["name"],
@@ -301,6 +324,7 @@ class CostGovernancePolicy:
             target_projects=data.get("target_projects", []),
             model_restrictions=model_restrictions,
             spending_limit=spending_limit,
+            time_restriction=time_restriction,
             approval_threshold_usd=Decimal(data["approval_threshold_usd"])
             if data.get("approval_threshold_usd")
             else None,
