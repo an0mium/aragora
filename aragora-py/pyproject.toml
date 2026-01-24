@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aragora-client"
-version = "2.1.10"
+version = "2.1.13"
 description = "Python SDK for the Aragora control plane for multi-agent vetted decisionmaking"
 readme = "README.md"
 license = "MIT"

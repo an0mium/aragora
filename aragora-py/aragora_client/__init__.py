@@ -48,7 +48,7 @@ from aragora_client.types import (
 )
 from aragora_client.websocket import DebateStream, stream_debate
 
-__version__ = "2.0.0"
+__version__ = "2.1.13"
 __all__ = [
     # Client
     "AragoraClient",

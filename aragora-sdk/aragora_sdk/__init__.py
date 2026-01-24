@@ -1,6 +1,10 @@
 """
 Aragora SDK - Python client for the Aragora multi-agent debate platform.
 
+.. deprecated::
+    This package is deprecated. Use `aragora-client` instead:
+    ``pip install aragora-client``
+
 Basic Usage:
     from aragora_sdk import AragoraClient
 
@@ -41,7 +45,15 @@ Technical Personas:
     - testing: Test coverage and quality
 """
 
-__version__ = "0.1.0"
+import warnings
+
+warnings.warn(
+    "aragora-sdk is deprecated. Please use aragora-client instead: " "pip install aragora-client",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+__version__ = "2.1.13"
 
 from .client import AragoraClient, review
 from .exceptions import (

@@ -1,5 +1,11 @@
 # Aragora SDK
 
+> **DEPRECATED**: This package is deprecated. Please use [`aragora-client`](https://pypi.org/project/aragora-client/) instead, which has more features including WebSocket streaming and Control Plane support.
+>
+> ```bash
+> pip install aragora-client
+> ```
+
 Python SDK for the Aragora control plane for multi-agent vetted decisionmaking. Use AI agents to review designs, validate compliance, and stress-test specifications before implementation.
 
 ## Installation
