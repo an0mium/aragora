@@ -1,0 +1,100 @@
+# Blackbox Exporter Configuration for Aragora
+# Synthetic monitoring for HTTP, TCP, and DNS probes
+
+modules:
+  # HTTP probe with 2xx success
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200, 201, 202, 204]
+      method: GET
+      follow_redirects: true
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+      tls_config:
+        insecure_skip_verify: false
+
+  # HTTP probe with authentication
+  http_2xx_auth:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200, 201, 202, 204]
+      method: GET
+      headers:
+        Authorization: "Bearer ${ARAGORA_API_TOKEN}"
+      follow_redirects: true
+
+  # HTTP POST probe (for health endpoints that require POST)
+  http_post_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200, 201, 202, 204]
+      method: POST
+      headers:
+        Content-Type: "application/json"
+      body: '{}'
+
+  # HTTPS probe with certificate validation
+  https_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200]
+      method: GET
+      fail_if_ssl: false
+      fail_if_not_ssl: true
+      tls_config:
+        insecure_skip_verify: false
+
+  # TCP connection probe
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: "ip4"
+
+  # TCP with TLS
+  tcp_tls:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      tls: true
+      tls_config:
+        insecure_skip_verify: false
+
+  # DNS probe
+  dns_lookup:
+    prober: dns
+    timeout: 5s
+    dns:
+      query_name: "api.aragora.ai"
+      query_type: "A"
+      valid_rcodes:
+        - NOERROR
+
+  # WebSocket probe (HTTP upgrade)
+  websocket:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      headers:
+        Connection: "Upgrade"
+        Upgrade: "websocket"
+        Sec-WebSocket-Key: "dGhlIHNhbXBsZSBub25jZQ=="
+        Sec-WebSocket-Version: "13"
+      valid_status_codes: [101]
+
+  # ICMP ping probe (requires CAP_NET_RAW)
+  icmp:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      preferred_ip_protocol: "ip4"

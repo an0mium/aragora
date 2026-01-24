@@ -1,0 +1,270 @@
+# AlertManager Configuration for Aragora
+# Production-ready configuration with multiple notification channels
+
+global:
+  # Default SMTP settings for email notifications
+  smtp_smarthost: '${SMTP_HOST:-smtp.gmail.com:587}'
+  smtp_from: '${SMTP_FROM:-alerts@aragora.ai}'
+  smtp_auth_username: '${SMTP_USER}'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  smtp_require_tls: true
+
+  # Default Slack settings
+  slack_api_url: '${SLACK_WEBHOOK_URL}'
+
+  # Resolve timeout - how long to wait before declaring resolved
+  resolve_timeout: 5m
+
+# Alert templates
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Inhibition rules - prevent alert floods
+inhibit_rules:
+  # If a critical alert fires, inhibit warnings for the same alertname
+  - source_matchers:
+      - severity = critical
+    target_matchers:
+      - severity = warning
+    equal:
+      - alertname
+      - service
+
+  # If the whole service is down, don't alert on individual components
+  - source_matchers:
+      - alertname = ServiceDown
+    target_matchers:
+      - severity =~ "warning|critical"
+    equal:
+      - service
+
+  # Inhibit debate alerts if the entire backend is down
+  - source_matchers:
+      - alertname = ServiceDown
+      - service = aragora-backend
+    target_matchers:
+      - alertname =~ ".*Debate.*"
+
+# Routing tree
+route:
+  # Default receiver for unmatched alerts
+  receiver: 'default-slack'
+
+  # Group alerts by alertname and service
+  group_by: ['alertname', 'service', 'severity']
+
+  # Wait before sending first notification for a group
+  group_wait: 30s
+
+  # Wait before sending updates for a group
+  group_interval: 5m
+
+  # Wait before resending a notification
+  repeat_interval: 4h
+
+  # Child routes for specific alert types
+  routes:
+    # Critical alerts - immediate notification to PagerDuty and Slack
+    - matchers:
+        - severity = critical
+      receiver: 'critical-pagerduty'
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: true  # Also send to Slack
+
+    - matchers:
+        - severity = critical
+      receiver: 'critical-slack'
+      group_wait: 10s
+      repeat_interval: 1h
+
+    # Security alerts - dedicated channel
+    - matchers:
+        - category = security
+      receiver: 'security-slack'
+      group_wait: 30s
+      repeat_interval: 2h
+
+    # SLO burn rate alerts - dedicated channel
+    - matchers:
+        - alertname =~ ".*BurnRate.*"
+      receiver: 'slo-slack'
+      group_wait: 1m
+      repeat_interval: 30m
+
+    # Billing alerts
+    - matchers:
+        - category = billing
+      receiver: 'billing-email'
+      group_wait: 5m
+      repeat_interval: 6h
+
+    # Database alerts
+    - matchers:
+        - service = postgres
+      receiver: 'database-slack'
+      group_wait: 30s
+      repeat_interval: 2h
+
+    # Knowledge Mound alerts
+    - matchers:
+        - alertname =~ "KM.*"
+      receiver: 'km-slack'
+      group_wait: 1m
+      repeat_interval: 2h
+
+    # Nomic Loop alerts
+    - matchers:
+        - alertname =~ "Nomic.*"
+      receiver: 'nomic-slack'
+      group_wait: 1m
+      repeat_interval: 1h
+
+    # Warning alerts - less urgent
+    - matchers:
+        - severity = warning
+      receiver: 'warning-slack'
+      group_wait: 2m
+      repeat_interval: 6h
+
+# Notification receivers
+receivers:
+  # Default Slack channel for general alerts
+  - name: 'default-slack'
+    slack_configs:
+      - channel: '#aragora-alerts'
+        send_resolved: true
+        title: '{{ if eq .Status "firing" }}:fire:{{ else }}:white_check_mark:{{ end }} {{ .GroupLabels.alertname }}'
+        text: |
+          *Severity:* {{ .CommonLabels.severity | toUpper }}
+          *Service:* {{ .CommonLabels.service }}
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Runbook:* {{ .Annotations.runbook_url }}
+          {{ end }}
+        actions:
+          - type: button
+            text: 'Runbook :book:'
+            url: '{{ (index .Alerts 0).Annotations.runbook_url }}'
+          - type: button
+            text: 'Grafana :chart_with_upwards_trend:'
+            url: 'https://grafana.aragora.ai/d/overview'
+
+  # Critical alerts via PagerDuty
+  - name: 'critical-pagerduty'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY}'
+        severity: critical
+        description: '{{ .GroupLabels.alertname }} - {{ .CommonLabels.service }}'
+        details:
+          firing: '{{ .Alerts.Firing | len }}'
+          resolved: '{{ .Alerts.Resolved | len }}'
+          service: '{{ .CommonLabels.service }}'
+
+  # Critical alerts via Slack (dedicated channel)
+  - name: 'critical-slack'
+    slack_configs:
+      - channel: '#aragora-critical'
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+        title: ':rotating_light: CRITICAL: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Service:* {{ .Labels.service }}
+          *Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ if .Annotations.runbook_url }}*Runbook:* {{ .Annotations.runbook_url }}{{ end }}
+          {{ end }}
+
+  # Security alerts
+  - name: 'security-slack'
+    slack_configs:
+      - channel: '#aragora-security'
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}warning{{ else }}good{{ end }}'
+        title: ':shield: Security Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
+
+  # SLO burn rate alerts
+  - name: 'slo-slack'
+    slack_configs:
+      - channel: '#aragora-slo'
+        send_resolved: true
+        title: ':chart_with_downwards_trend: SLO Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *SLO:* {{ .Labels.slo_name }}
+          *Burn Rate:* {{ .Labels.burn_rate }}x
+          *Error Budget Impact:* {{ .Annotations.budget_impact }}
+          {{ end }}
+
+  # Warning alerts
+  - name: 'warning-slack'
+    slack_configs:
+      - channel: '#aragora-alerts'
+        send_resolved: true
+        color: 'warning'
+        title: ':warning: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Service:* {{ .Labels.service }}
+          {{ end }}
+
+  # Database alerts
+  - name: 'database-slack'
+    slack_configs:
+      - channel: '#aragora-database'
+        send_resolved: true
+        title: ':floppy_disk: Database Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
+
+  # Knowledge Mound alerts
+  - name: 'km-slack'
+    slack_configs:
+      - channel: '#aragora-km'
+        send_resolved: true
+        title: ':brain: Knowledge Mound: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          {{ end }}
+
+  # Nomic Loop alerts
+  - name: 'nomic-slack'
+    slack_configs:
+      - channel: '#aragora-nomic'
+        send_resolved: true
+        title: ':arrows_counterclockwise: Nomic Loop: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Phase:* {{ .Labels.phase }}
+          *Alert:* {{ .Annotations.summary }}
+          {{ end }}
+
+  # Billing alerts via email
+  - name: 'billing-email'
+    email_configs:
+      - to: 'billing@aragora.ai'
+        send_resolved: true
+        headers:
+          Subject: '[Aragora Billing] {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>Billing Alert: {{ .GroupLabels.alertname }}</h2>
+          {{ range .Alerts }}
+          <p><strong>Alert:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          {{ end }}
+
+  # Null receiver for silencing
+  - name: 'null'

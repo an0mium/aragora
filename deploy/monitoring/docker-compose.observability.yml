@@ -1,0 +1,268 @@
+# Docker Compose for Aragora Observability Stack
+# Production-ready monitoring with Prometheus, Grafana, AlertManager, and exporters
+#
+# Usage:
+#   docker-compose -f docker-compose.observability.yml up -d
+#
+# Environment variables (create .env file or export):
+#   SLACK_WEBHOOK_URL - Slack incoming webhook URL
+#   PAGERDUTY_SERVICE_KEY - PagerDuty integration key
+#   SMTP_HOST, SMTP_USER, SMTP_PASSWORD - Email configuration
+#   GRAFANA_ADMIN_PASSWORD - Grafana admin password
+
+version: '3.8'
+
+networks:
+  aragora-monitoring:
+    driver: bridge
+    name: aragora-monitoring
+
+volumes:
+  prometheus-data:
+    name: aragora-prometheus-data
+  grafana-data:
+    name: aragora-grafana-data
+  alertmanager-data:
+    name: aragora-alertmanager-data
+
+services:
+  # =============================================================================
+  # Core Monitoring Stack
+  # =============================================================================
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: aragora-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../../aragora/monitoring/alerts:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=10GB'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - aragora-monitoring
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: aragora-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager-templates:/etc/alertmanager/templates:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://alertmanager.aragora.ai'
+      - '--cluster.listen-address='
+    environment:
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - PAGERDUTY_SERVICE_KEY=${PAGERDUTY_SERVICE_KEY:-}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com:587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-alerts@aragora.ai}
+    networks:
+      - aragora-monitoring
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: aragora-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-aragora-admin}
+      - GF_SERVER_ROOT_URL=https://grafana.aragora.ai
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      # SMTP for alert notifications
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=${SMTP_HOST:-smtp.gmail.com:587}
+      - GF_SMTP_USER=${SMTP_USER:-}
+      - GF_SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - GF_SMTP_FROM_ADDRESS=${SMTP_FROM:-alerts@aragora.ai}
+      # Unified alerting
+      - GF_UNIFIED_ALERTING_ENABLED=true
+      - GF_ALERTING_ENABLED=false
+    networks:
+      - aragora-monitoring
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # Infrastructure Exporters
+  # =============================================================================
+
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: aragora-node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - aragora-monitoring
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: aragora-cadvisor
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    networks:
+      - aragora-monitoring
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.56.0
+    container_name: aragora-redis-exporter
+    restart: unless-stopped
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=${REDIS_URL:-redis://redis:6379}
+    networks:
+      - aragora-monitoring
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: aragora-postgres-exporter
+    restart: unless-stopped
+    ports:
+      - "9187:9187"
+    environment:
+      - DATA_SOURCE_NAME=${POSTGRES_URL:-postgresql://postgres:postgres@postgres:5432/aragora?sslmode=disable}
+    networks:
+      - aragora-monitoring
+
+  # =============================================================================
+  # Synthetic Monitoring
+  # =============================================================================
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.24.0
+    container_name: aragora-blackbox-exporter
+    restart: unless-stopped
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - '--config.file=/etc/blackbox_exporter/config.yml'
+    networks:
+      - aragora-monitoring
+
+  # =============================================================================
+  # Distributed Tracing
+  # =============================================================================
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.52
+    container_name: aragora-jaeger
+    restart: unless-stopped
+    ports:
+      - "6831:6831/udp"   # Jaeger thrift compact
+      - "6832:6832/udp"   # Jaeger thrift binary
+      - "16686:16686"     # Jaeger UI
+      - "14268:14268"     # Jaeger HTTP collector
+      - "4317:4317"       # OTLP gRPC
+      - "4318:4318"       # OTLP HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - SPAN_STORAGE_TYPE=badger
+      - BADGER_EPHEMERAL=false
+      - BADGER_DIRECTORY_VALUE=/badger/data
+      - BADGER_DIRECTORY_KEY=/badger/key
+    volumes:
+      - jaeger-data:/badger
+    networks:
+      - aragora-monitoring
+
+  # =============================================================================
+  # Log Aggregation (Optional - Loki stack)
+  # =============================================================================
+
+  loki:
+    image: grafana/loki:2.9.2
+    container_name: aragora-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - aragora-monitoring
+
+  promtail:
+    image: grafana/promtail:2.9.2
+    container_name: aragora-promtail
+    restart: unless-stopped
+    volumes:
+      - ./promtail.yml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - aragora-monitoring
+    depends_on:
+      - loki
+
+# Additional volumes for tracing and logging
+volumes:
+  jaeger-data:
+    name: aragora-jaeger-data
+  loki-data:
+    name: aragora-loki-data

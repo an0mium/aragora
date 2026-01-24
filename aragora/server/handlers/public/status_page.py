@@ -210,10 +210,10 @@ class StatusPageHandler(BaseHandler):
             # Try to get database manager
             from aragora.storage.schema import DatabaseManager
 
-            db = DatabaseManager.get_instance()
-            if db and db.engine:
+            db = DatabaseManager.get_instance()  # type: ignore[call-arg]
+            if db and hasattr(db, "engine") and db.engine:  # type: ignore[attr-defined]
                 # Simple connectivity check
-                with db.engine.connect() as conn:
+                with db.engine.connect() as conn:  # type: ignore[attr-defined]
                     conn.execute("SELECT 1")
                 response_time = (time.perf_counter() - start) * 1000
                 return ComponentHealth(
@@ -236,9 +236,9 @@ class StatusPageHandler(BaseHandler):
         try:
             from aragora.cache import get_cache
 
-            cache = get_cache()
+            cache = get_cache()  # type: ignore[call-arg]
             if cache:
-                cache.ping()
+                cache.ping()  # type: ignore[attr-defined]
                 response_time = (time.perf_counter() - start) * 1000
                 return ComponentHealth(
                     name="Cache",
@@ -528,10 +528,11 @@ class StatusPageHandler(BaseHandler):
 </body>
 </html>"""
 
-        return {
-            "body": html,
-            "headers": {"Content-Type": "text/html; charset=utf-8"},
-        }
+        return HandlerResult(
+            status_code=200,
+            content_type="text/html; charset=utf-8",
+            body=html.encode("utf-8"),
+        )
 
     def _status_message(self, status: ServiceStatus) -> str:
         """Get human-readable status message."""

@@ -1,28 +1,158 @@
 # Prometheus Configuration for Aragora
+# Production-ready configuration with alerting, service discovery, and comprehensive scraping
+
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+  external_labels:
+    monitor: 'aragora-production'
+    environment: '${ENVIRONMENT:-production}'
 
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+      timeout: 10s
+      api_version: v2
+
+# Rule files to load (alert and recording rules)
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+  - "/etc/prometheus/rules/*.yaml"
+
+# Scrape configurations
 scrape_configs:
-  # Backend metrics
+  # =============================================================================
+  # Aragora Application Metrics
+  # =============================================================================
+
+  # Main backend service
   - job_name: 'aragora-backend'
     static_configs:
       - targets: ['backend:8080']
+        labels:
+          service: 'aragora-backend'
+          tier: 'application'
     metrics_path: /metrics
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # WebSocket streaming service (if separate)
+  - job_name: 'aragora-websocket'
+    static_configs:
+      - targets: ['backend:8080']
+        labels:
+          service: 'aragora-websocket'
+          tier: 'application'
+    metrics_path: /metrics/websocket
+    scrape_interval: 15s
+
+  # =============================================================================
+  # Infrastructure Metrics
+  # =============================================================================
+
+  # PostgreSQL metrics (requires postgres_exporter)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+        labels:
+          service: 'postgres'
+          tier: 'database'
+    scrape_interval: 30s
 
   # Redis metrics (requires redis_exporter)
   - job_name: 'redis'
     static_configs:
-      - targets: ['redis:9121']
+      - targets: ['redis-exporter:9121']
+        labels:
+          service: 'redis'
+          tier: 'cache'
+    scrape_interval: 15s
+
+  # Node metrics (requires node_exporter on each host)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          tier: 'infrastructure'
+    scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '(.+):.*'
+        replacement: '${1}'
+
+  # Container metrics (requires cAdvisor)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          tier: 'infrastructure'
+    scrape_interval: 30s
+    metrics_path: /metrics
+    scheme: http
+
+  # =============================================================================
+  # Observability Stack Self-Monitoring
+  # =============================================================================
 
   # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+          tier: 'observability'
+    scrape_interval: 30s
 
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets: []
+  # Alertmanager monitoring
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+        labels:
+          service: 'alertmanager'
+          tier: 'observability'
+    scrape_interval: 30s
 
-rule_files: []
+  # Grafana monitoring
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+        labels:
+          service: 'grafana'
+          tier: 'observability'
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # =============================================================================
+  # External Service Monitoring (Optional)
+  # =============================================================================
+
+  # Blackbox exporter for synthetic checks (if deployed)
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://api.aragora.ai/api/health
+          - https://api.aragora.ai/api/status
+        labels:
+          tier: 'synthetic'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+# Remote write for long-term storage (optional)
+# Uncomment and configure for Thanos, Cortex, or cloud storage
+# remote_write:
+#   - url: "http://thanos-receive:19291/api/v1/receive"
+#     queue_config:
+#       max_samples_per_send: 10000
+#       batch_send_deadline: 5s
+#       capacity: 100000

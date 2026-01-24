@@ -239,20 +239,24 @@ class TestDiscordDeleteMessage:
         mock_response = MagicMock()
         mock_response.status_code = 204
         mock_response.raise_for_status = MagicMock()
+        mock_response.json = MagicMock(return_value={"status": "ok"})
+        mock_response.text = ""
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.delete = AsyncMock(return_value=mock_response)
+            # Now uses request() method instead of delete()
+            mock_instance.request = AsyncMock(return_value=mock_response)
 
             result = await connector.delete_message(
                 channel_id="456",
                 message_id="123",
             )
 
-            # Verify DELETE was called
-            mock_instance.delete.assert_called_once()
-            call_url = mock_instance.delete.call_args[0][0]
-            assert "/channels/456/messages/123" in call_url
+            # Verify DELETE request was called
+            mock_instance.request.assert_called_once()
+            call_kwargs = mock_instance.request.call_args[1]
+            assert call_kwargs["method"] == "DELETE"
+            assert "/channels/456/messages/123" in call_kwargs["url"]
 
         assert result is True
 
@@ -265,7 +269,8 @@ class TestDiscordDeleteMessage:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.delete = AsyncMock(side_effect=Exception("Not found"))
+            # Now uses request() method instead of delete()
+            mock_instance.request = AsyncMock(side_effect=Exception("Not found"))
 
             result = await connector.delete_message(
                 channel_id="456",
