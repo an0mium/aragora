@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TransactionList } from './TransactionList';
 import { ReportGenerator } from './ReportGenerator';
+import { useAuth } from '@/context/AuthContext';
 
 type DashboardTab = 'overview' | 'transactions' | 'customers' | 'reports';
 
@@ -78,6 +79,7 @@ const MOCK_TRANSACTIONS: Transaction[] = [
 ];
 
 export function QBODashboard() {
+  const { tokens, isAuthenticated, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -87,9 +89,24 @@ export function QBODashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   const fetchData = useCallback(async () => {
+    // Skip API call if not authenticated - use mock data instead
+    if (!isAuthenticated || authLoading) {
+      setConnected(true);
+      setCompany(MOCK_COMPANY);
+      setStats(MOCK_STATS);
+      setCustomers(MOCK_CUSTOMERS);
+      setTransactions(MOCK_TRANSACTIONS);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await fetch('/api/accounting/status');
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+      const response = await fetch('/api/accounting/status', { headers });
       if (response.ok) {
         const data = await response.json();
         setConnected(data.connected);
@@ -117,7 +134,7 @@ export function QBODashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tokens?.access_token, isAuthenticated, authLoading]);
 
   useEffect(() => {
     fetchData();

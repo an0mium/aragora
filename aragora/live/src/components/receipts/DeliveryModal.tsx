@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { ChannelSelector, type ChannelType, type ChannelOption } from './ChannelSelector';
+import { useAuth } from '@/context/AuthContext';
 
 export interface DeliveryOptions {
   /** Include full receipt details */
@@ -85,6 +86,7 @@ export function DeliveryModal({
   apiUrl,
   onDeliverySuccess,
 }: DeliveryModalProps) {
+  const { tokens } = useAuth();
   const [channels, setChannels] = useState<ChannelOption[]>(DEFAULT_CHANNELS);
   const [selectedChannel, setSelectedChannel] = useState<ChannelType | null>(null);
   const [selectedDestination, setSelectedDestination] = useState<string | null>(null);
@@ -105,7 +107,11 @@ export function DeliveryModal({
     const fetchChannels = async () => {
       setChannelsLoading(true);
       try {
-        const response = await fetch(`${apiUrl}/api/channels`);
+        const headers: HeadersInit = {};
+        if (tokens?.access_token) {
+          headers['Authorization'] = `Bearer ${tokens.access_token}`;
+        }
+        const response = await fetch(`${apiUrl}/api/channels`, { headers });
         if (response.ok) {
           const data = await response.json();
           if (data.channels) {
@@ -127,7 +133,7 @@ export function DeliveryModal({
       setError(null);
       setSuccess(false);
     }
-  }, [isOpen, apiUrl]);
+  }, [isOpen, apiUrl, tokens?.access_token]);
 
   const handleDeliver = useCallback(async () => {
     if (!selectedChannel || !selectedDestination) {
@@ -139,9 +145,13 @@ export function DeliveryModal({
     setError(null);
 
     try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
       const response = await fetch(`${apiUrl}/api/v1/receipts/${receiptId}/deliver`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           channel_type: selectedChannel,
           destination: selectedDestination,
@@ -166,7 +176,7 @@ export function DeliveryModal({
     } finally {
       setLoading(false);
     }
-  }, [apiUrl, receiptId, selectedChannel, selectedDestination, options, onDeliverySuccess, onClose]);
+  }, [apiUrl, receiptId, selectedChannel, selectedDestination, options, onDeliverySuccess, onClose, tokens?.access_token]);
 
   if (!isOpen) return null;
 

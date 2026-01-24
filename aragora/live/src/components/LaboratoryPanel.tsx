@@ -6,6 +6,7 @@ import { withErrorBoundary } from './PanelErrorBoundary';
 import { fetchWithRetry } from '@/utils/retry';
 import type { StreamEvent } from '@/types/events';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 
 interface EmergentTrait {
   agent: string;
@@ -50,6 +51,7 @@ interface LaboratoryPanelProps {
 const DEFAULT_API_BASE = API_BASE_URL;
 
 function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: LaboratoryPanelProps) {
+  const { tokens, isAuthenticated, isLoading: authLoading } = useAuth();
   const [apiTraits, setApiTraits] = useState<EmergentTrait[]>([]);
   const [pollinations, setPollinations] = useState<CrossPollination[]>([]);
   const [genesisStats, setGenesisStats] = useState<GenesisStats | null>(null);
@@ -86,15 +88,27 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
   const [expanded, setExpanded] = useState(true); // Show by default
 
   const fetchData = useCallback(async () => {
+    // Skip API calls if not authenticated
+    if (!isAuthenticated || authLoading) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
+    // Build auth headers
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (tokens?.access_token) {
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
+    }
+
     // Use allSettled to handle partial failures gracefully
     const results = await Promise.allSettled([
-      fetchWithRetry(`${apiBase}/api/laboratory/emergent-traits?min_confidence=0.3&limit=10`, undefined, { maxRetries: 2 }),
-      fetchWithRetry(`${apiBase}/api/laboratory/cross-pollinations/suggest`, undefined, { maxRetries: 2 }),
-      fetchWithRetry(`${apiBase}/api/genesis/stats`, undefined, { maxRetries: 2 }),
-      fetchWithRetry(`${apiBase}/api/critiques/patterns?limit=15&min_success=0.5`, undefined, { maxRetries: 2 }),
+      fetchWithRetry(`${apiBase}/api/laboratory/emergent-traits?min_confidence=0.3&limit=10`, { headers }, { maxRetries: 2 }),
+      fetchWithRetry(`${apiBase}/api/laboratory/cross-pollinations/suggest`, { headers }, { maxRetries: 2 }),
+      fetchWithRetry(`${apiBase}/api/genesis/stats`, { headers }, { maxRetries: 2 }),
+      fetchWithRetry(`${apiBase}/api/critiques/patterns?limit=15&min_success=0.5`, { headers }, { maxRetries: 2 }),
     ]);
 
     const [traitsResult, pollinationsResult, genesisResult, patternsResult] = results;
@@ -132,7 +146,7 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
       setError('Some data failed to load. Partial results shown.');
     }
     setLoading(false);
-  }, [apiBase]);
+  }, [apiBase, tokens?.access_token, isAuthenticated, authLoading]);
 
   // Use ref to store latest fetchData to avoid interval recreation
   const fetchDataRef = useRef(fetchData);
