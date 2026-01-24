@@ -346,6 +346,9 @@ class TaskScheduler:
                 )
                 await self._redis.ping()
 
+                # Import redis exceptions for specific error handling
+                from redis.exceptions import ResponseError as RedisResponseError
+
                 # Create consumer groups for each priority stream
                 for priority in TaskPriority:
                     stream_key = f"{self._stream_prefix}{priority.name.lower()}"
@@ -356,8 +359,8 @@ class TaskScheduler:
                             id="0",
                             mkstream=True,
                         )
-                    except Exception as e:
-                        # Group may already exist (BUSYGROUP error) - this is expected
+                    except RedisResponseError as e:
+                        # BUSYGROUP error means group already exists - this is expected
                         if "BUSYGROUP" not in str(e):
                             logger.debug(
                                 "consumer_group_note",
@@ -386,7 +389,7 @@ class TaskScheduler:
                     reason="redis package not installed",
                 )
                 self._redis = None
-            except Exception as e:
+            except (ConnectionError, OSError, TimeoutError) as e:
                 if is_distributed_state_required():
                     raise DistributedStateError(
                         "task_scheduler",
@@ -912,8 +915,10 @@ class TaskScheduler:
                                     )
                                     reclaimed += 1
 
-            except Exception as e:
-                logger.error(f"Error reclaiming stale tasks for {priority.name}: {e}")
+            except (ConnectionError, OSError, TimeoutError) as e:
+                logger.error(f"Connection error reclaiming stale tasks for {priority.name}: {e}")
+            except (KeyError, TypeError, ValueError) as e:
+                logger.error(f"Data error reclaiming stale tasks for {priority.name}: {e}")
 
         if reclaimed > 0:
             logger.info(f"Reclaimed {reclaimed} stale tasks")
@@ -1015,8 +1020,10 @@ class TaskScheduler:
             await self._redis.xdel(stream_key, message_id)
 
             logger.debug(f"Acknowledged task {task.id} (message_id={message_id})")
-        except Exception as e:
-            logger.error(f"Failed to acknowledge task {task.id}: {e}")
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Connection error acknowledging task {task.id}: {e}")
+        except (KeyError, TypeError) as e:
+            logger.error(f"Data error acknowledging task {task.id}: {e}")
 
     async def _move_to_dead_letter(self, task: Task, reason: str) -> None:
         """Move task to dead-letter queue after exhausting retries.
@@ -1042,8 +1049,10 @@ class TaskScheduler:
                 },
             )
             logger.info(f"Task {task.id} moved to dead-letter queue: {reason}")
-        except Exception as e:
-            logger.error(f"Failed to move task {task.id} to dead-letter queue: {e}")
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Connection error moving task {task.id} to dead-letter queue: {e}")
+        except (KeyError, TypeError) as e:
+            logger.error(f"Data error moving task {task.id} to dead-letter queue: {e}")
 
     async def _claim_from_redis(
         self,
@@ -1171,8 +1180,10 @@ class TaskScheduler:
 
                         return task
 
-            except Exception as e:
-                logger.error(f"Error claiming from {priority.name} queue: {e}")
+            except (ConnectionError, OSError, TimeoutError) as e:
+                logger.error(f"Connection error claiming from {priority.name} queue: {e}")
+            except (KeyError, TypeError, ValueError) as e:
+                logger.error(f"Data error claiming from {priority.name} queue: {e}")
 
         return None
 
