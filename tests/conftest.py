@@ -152,6 +152,9 @@ def pytest_configure(config):
     )
     config.addinivalue_line("markers", "slow: long-running tests (>30 seconds)")
     config.addinivalue_line("markers", "unit: isolated unit tests with no external dependencies")
+    config.addinivalue_line(
+        "markers", "network: tests requiring external network calls (skip with -m 'not network')"
+    )
 
 
 # ============================================================================
