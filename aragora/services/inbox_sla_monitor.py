@@ -619,13 +619,43 @@ class InboxSLAMonitor:
         status: Optional[str] = None,
         since: Optional[datetime] = None,
     ) -> List[Dict[str, Any]]:
-        """Get messages from inbox store."""
+        """Get messages from inbox store.
+
+        Args:
+            inbox_id: The inbox to fetch messages from
+            status: Optional status filter (e.g., "resolved" for metrics)
+            since: Optional datetime filter for messages received after this time
+
+        Returns:
+            List of message dicts with id, received_at, status, etc.
+        """
         try:
             from aragora.storage.email_store import get_email_store
 
-            _store = get_email_store()  # noqa: F841 - Reserved for future use
-            # TODO: Implement actual message fetch from store
-            return []
+            store = get_email_store()
+            if store is None:
+                logger.debug("[SLAMonitor] Email store not available")
+                return []
+
+            # Fetch messages with optional status filter
+            # Use a high limit since we may need to filter by date
+            messages = store.list_inbox_messages(
+                inbox_id=inbox_id,
+                status=status,
+                limit=1000,
+                offset=0,
+            )
+
+            # Filter by since timestamp if provided
+            if since is not None:
+                filtered = []
+                for msg in messages:
+                    received_at = self._parse_timestamp(msg.get("received_at"))
+                    if received_at and received_at >= since:
+                        filtered.append(msg)
+                messages = filtered
+
+            return messages
         except Exception as e:
             logger.debug(f"[SLAMonitor] Failed to get messages: {e}")
             return []

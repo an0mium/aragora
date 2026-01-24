@@ -559,6 +559,52 @@ class BackupManager:
         """Alias for cleanup_expired for API compatibility."""
         return self.cleanup_expired()
 
+    def apply_retention_policy(self, dry_run: bool = False) -> list[str]:
+        """Apply retention policy to identify or remove old backups.
+
+        Args:
+            dry_run: If True, only return IDs that would be removed without deleting
+
+        Returns:
+            List of backup IDs that were (or would be) removed
+        """
+        if dry_run:
+            # Return list of IDs that would be deleted without actually deleting
+            to_delete: list[str] = []
+            now = datetime.now(timezone.utc)
+            backups = sorted(self._backups.values(), key=lambda b: b.created_at, reverse=True)
+
+            if len(backups) <= self.retention_policy.min_backups:
+                return to_delete
+
+            # Determine which backups exceed retention limits
+            daily_kept = 0
+            weekly_kept = 0
+            monthly_kept = 0
+
+            for backup in backups:
+                age_days = (now - backup.created_at).days
+                keep = False
+
+                # Check retention tiers
+                if age_days <= 7 and daily_kept < self.retention_policy.keep_daily:
+                    daily_kept += 1
+                    keep = True
+                elif age_days <= 30 and weekly_kept < self.retention_policy.keep_weekly:
+                    weekly_kept += 1
+                    keep = True
+                elif monthly_kept < self.retention_policy.keep_monthly:
+                    monthly_kept += 1
+                    keep = True
+
+                if not keep and len(backups) - len(to_delete) > self.retention_policy.min_backups:
+                    to_delete.append(backup.id)
+
+            return to_delete
+        else:
+            # Actually perform cleanup
+            return self.cleanup_expired()
+
     def get_latest_backup(self, source_path: str | None = None) -> BackupMetadata | None:
         """Get the most recent verified backup."""
         backups = self.list_backups(
