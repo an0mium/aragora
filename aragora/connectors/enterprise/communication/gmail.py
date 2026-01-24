@@ -33,6 +33,7 @@ from .models import (
     EmailThread,
     GmailLabel,
     GmailSyncState,
+    GmailWebhookPayload,
 )
 
 logger = logging.getLogger(__name__)
@@ -123,6 +124,10 @@ class GmailConnector(EnterpriseConnector):
 
         # Gmail-specific state
         self._gmail_state: Optional[GmailSyncState] = None
+
+        # Watch management for Pub/Sub notifications
+        self._watch_task: Optional[asyncio.Task] = None
+        self._watch_running: bool = False
 
     @property
     def source_type(self) -> SourceType:
@@ -1555,6 +1560,659 @@ class GmailConnector(EnterpriseConnector):
                 self.record_failure()
             raise
 
+    # =========================================================================
+    # Pub/Sub Watch Management
+    # =========================================================================
+
+    async def setup_watch(
+        self,
+        topic_name: str,
+        label_ids: Optional[List[str]] = None,
+        project_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Set up Gmail push notifications via Google Cloud Pub/Sub.
+
+        This enables real-time notifications when new emails arrive,
+        eliminating the need for polling.
+
+        Args:
+            topic_name: Pub/Sub topic name (e.g., "gmail-notifications")
+            label_ids: Labels to watch (default: ["INBOX"])
+            project_id: Google Cloud project ID (reads from env if not provided)
+
+        Returns:
+            Dict with watch status, history_id, and expiration
+
+        Note:
+            - Requires Gmail API scope and Pub/Sub topic access
+            - Watch expires after ~7 days, use start_watch_renewal() for auto-renewal
+            - Topic must grant Gmail service account publish permission
+        """
+        import os
+
+        project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+        if not project_id:
+            raise ValueError("project_id required for Pub/Sub watch")
+
+        full_topic = f"projects/{project_id}/topics/{topic_name}"
+        watch_labels = label_ids or ["INBOX"]
+
+        access_token = await self._get_access_token()
+
+        if not self.check_circuit_breaker():
+            cb_status = self.get_circuit_breaker_status()
+            raise ConnectionError(
+                f"Circuit breaker open for Gmail. Cooldown: {cb_status.get('cooldown_seconds', 60)}s"
+            )
+
+        try:
+            async with self._get_client() as client:
+                response = await client.post(
+                    f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/watch",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    json={
+                        "topicName": full_topic,
+                        "labelIds": watch_labels,
+                        "labelFilterBehavior": "INCLUDE",
+                    },
+                )
+
+                if response.status_code != 200:
+                    error = response.json().get("error", {})
+                    if response.status_code >= 500 or response.status_code == 429:
+                        self.record_failure()
+                    raise RuntimeError(
+                        f"Failed to setup watch: {error.get('message', response.text)}"
+                    )
+
+                self.record_success()
+                data = response.json()
+
+                # Update state
+                history_id = str(data.get("historyId", ""))
+                expiration_ms = data.get("expiration")
+                expiration = None
+                if expiration_ms:
+                    expiration = datetime.fromtimestamp(int(expiration_ms) / 1000, tz=timezone.utc)
+
+                # Initialize or update gmail state
+                if not self._gmail_state:
+                    self._gmail_state = GmailSyncState(
+                        user_id=self.user_id,
+                        history_id=history_id,
+                    )
+                else:
+                    self._gmail_state.history_id = history_id
+
+                self._gmail_state.watch_expiration = expiration
+                self._gmail_state.watch_resource_id = "active"
+
+                logger.info(f"[Gmail] Watch set up successfully, expires at {expiration}")
+
+                return {
+                    "success": True,
+                    "history_id": history_id,
+                    "expiration": expiration.isoformat() if expiration else None,
+                    "topic": full_topic,
+                    "labels": watch_labels,
+                }
+
+        except Exception as e:
+            if not isinstance(e, (RuntimeError, ConnectionError)):
+                self.record_failure()
+            logger.error(f"[Gmail] Watch setup failed: {e}")
+            raise
+
+    async def stop_watch(self) -> Dict[str, Any]:
+        """
+        Stop Gmail push notifications.
+
+        Returns:
+            Dict with success status
+        """
+        access_token = await self._get_access_token()
+
+        if not self.check_circuit_breaker():
+            cb_status = self.get_circuit_breaker_status()
+            raise ConnectionError(
+                f"Circuit breaker open for Gmail. Cooldown: {cb_status.get('cooldown_seconds', 60)}s"
+            )
+
+        # Cancel renewal task if running
+        if self._watch_task and not self._watch_task.done():
+            self._watch_running = False
+            self._watch_task.cancel()
+            try:
+                await self._watch_task
+            except asyncio.CancelledError:
+                pass
+            self._watch_task = None
+
+        try:
+            async with self._get_client() as client:
+                response = await client.post(
+                    f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/stop",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+
+                if response.status_code == 204:
+                    self.record_success()
+
+                    # Clear watch state
+                    if self._gmail_state:
+                        self._gmail_state.watch_resource_id = None
+                        self._gmail_state.watch_expiration = None
+
+                    logger.info("[Gmail] Watch stopped successfully")
+                    return {"success": True}
+                else:
+                    error = response.json().get("error", {})
+                    if response.status_code >= 500 or response.status_code == 429:
+                        self.record_failure()
+                    logger.warning(
+                        f"[Gmail] Stop watch returned {response.status_code}: "
+                        f"{error.get('message', response.text)}"
+                    )
+                    return {
+                        "success": False,
+                        "error": error.get("message", "Unknown error"),
+                    }
+
+        except Exception as e:
+            self.record_failure()
+            logger.error(f"[Gmail] Failed to stop watch: {e}")
+            raise
+
+    async def handle_pubsub_notification(
+        self,
+        payload: Dict[str, Any],
+    ) -> List[EmailMessage]:
+        """
+        Handle incoming Pub/Sub webhook notification.
+
+        Parses the notification, fetches new messages via History API,
+        and returns the list of new emails.
+
+        Args:
+            payload: Raw webhook payload from Pub/Sub
+
+        Returns:
+            List of new EmailMessage objects
+        """
+        webhook = GmailWebhookPayload.from_pubsub(payload)
+
+        # Validate this is for us
+        if self._gmail_state and webhook.email_address:
+            if (
+                self._gmail_state.email_address
+                and webhook.email_address != self._gmail_state.email_address
+            ):
+                logger.warning(
+                    f"[Gmail] Webhook for {webhook.email_address} "
+                    f"but expecting {self._gmail_state.email_address}"
+                )
+                return []
+
+        logger.info(f"[Gmail] Pub/Sub notification received: historyId={webhook.history_id}")
+
+        # Use History API to get changes
+        if not self._gmail_state or not self._gmail_state.history_id:
+            logger.warning("[Gmail] No history ID available, cannot process webhook")
+            return []
+
+        try:
+            new_messages: List[EmailMessage] = []
+            page_token = None
+            new_history_id = self._gmail_state.history_id
+
+            while True:
+                history, page_token, history_id = await self.get_history(
+                    self._gmail_state.history_id,
+                    page_token=page_token,
+                )
+
+                if not history and not page_token:
+                    if not history_id:
+                        logger.warning("[Gmail] History ID expired during webhook handling")
+                        break
+                    break
+
+                # Extract new message IDs
+                new_message_ids: set[str] = set()
+                for record in history:
+                    for msg_added in record.get("messagesAdded", []):
+                        msg_data = msg_added.get("message", {})
+                        msg_id = msg_data.get("id")
+                        labels = msg_data.get("labelIds", [])
+
+                        # Skip excluded labels
+                        if self.exclude_labels and any(
+                            lbl in self.exclude_labels for lbl in labels
+                        ):
+                            continue
+
+                        if msg_id:
+                            new_message_ids.add(msg_id)
+
+                # Fetch full messages
+                for msg_id in new_message_ids:
+                    try:
+                        msg = await self.get_message(msg_id)
+                        new_messages.append(msg)
+                    except Exception as e:
+                        logger.warning(f"[Gmail] Failed to fetch message {msg_id}: {e}")
+
+                if history_id:
+                    new_history_id = history_id
+
+                if not page_token:
+                    break
+
+            # Update history ID
+            self._gmail_state.history_id = new_history_id
+            self._gmail_state.last_sync = datetime.now(timezone.utc)
+            self._gmail_state.indexed_messages += len(new_messages)
+
+            logger.info(f"[Gmail] Webhook processed: {len(new_messages)} new messages")
+            return new_messages
+
+        except Exception as e:
+            if self._gmail_state:
+                self._gmail_state.sync_errors += 1
+                self._gmail_state.last_error = str(e)
+            logger.error(f"[Gmail] Webhook processing failed: {e}")
+            raise
+
+    async def start_watch_renewal(
+        self,
+        topic_name: str,
+        renewal_hours: int = 144,  # 6 days (watch expires after ~7 days)
+        project_id: Optional[str] = None,
+    ) -> None:
+        """
+        Start background task to auto-renew watch before expiration.
+
+        Args:
+            topic_name: Pub/Sub topic name
+            renewal_hours: Hours between renewals (default: 144 = 6 days)
+            project_id: Google Cloud project ID
+        """
+        if self._watch_task and not self._watch_task.done():
+            logger.warning("[Gmail] Watch renewal already running")
+            return
+
+        self._watch_running = True
+        self._watch_task = asyncio.create_task(
+            self._watch_renewal_loop(topic_name, renewal_hours, project_id)
+        )
+        logger.info(f"[Gmail] Watch renewal started (every {renewal_hours} hours)")
+
+    async def _watch_renewal_loop(
+        self,
+        topic_name: str,
+        renewal_hours: int,
+        project_id: Optional[str],
+    ) -> None:
+        """Background loop to renew watch before expiration."""
+        renewal_seconds = renewal_hours * 3600
+
+        while self._watch_running:
+            try:
+                await asyncio.sleep(renewal_seconds)
+
+                if not self._watch_running:
+                    break
+
+                logger.info("[Gmail] Renewing watch...")
+                await self.setup_watch(
+                    topic_name=topic_name,
+                    project_id=project_id,
+                )
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"[Gmail] Watch renewal failed: {e}")
+                # Retry in 1 minute on failure
+                await asyncio.sleep(60)
+
+    # =========================================================================
+    # State Persistence
+    # =========================================================================
+
+    async def load_gmail_state(
+        self,
+        tenant_id: str,
+        user_id: str,
+        backend: str = "memory",
+        redis_url: Optional[str] = None,
+        postgres_dsn: Optional[str] = None,
+    ) -> Optional[GmailSyncState]:
+        """
+        Load Gmail sync state from persistent storage.
+
+        Supports multiple backends for tenant-isolated state management.
+
+        Args:
+            tenant_id: Tenant identifier for isolation
+            user_id: User identifier
+            backend: Storage backend ("memory", "redis", "postgres")
+            redis_url: Redis connection URL (required for redis backend)
+            postgres_dsn: PostgreSQL DSN (required for postgres backend)
+
+        Returns:
+            GmailSyncState if found, None otherwise
+        """
+        import json
+
+        state_key = f"gmail_sync:{tenant_id}:{user_id}"
+
+        if backend == "redis" and redis_url:
+            try:
+                import redis.asyncio as redis_client
+
+                client = redis_client.from_url(redis_url)
+                data = await client.get(state_key)
+                await client.close()
+                if data:
+                    state = GmailSyncState.from_dict(json.loads(data))
+                    self._gmail_state = state
+                    logger.info(f"[Gmail] Loaded state from Redis for {state_key}")
+                    return state
+            except ImportError:
+                logger.warning("[Gmail] redis package not installed, cannot use Redis backend")
+            except Exception as e:
+                logger.warning(f"[Gmail] Failed to load state from Redis: {e}")
+
+        elif backend == "postgres" and postgres_dsn:
+            try:
+                import asyncpg
+
+                conn = await asyncpg.connect(postgres_dsn)
+                row = await conn.fetchrow(
+                    "SELECT state FROM gmail_sync_state WHERE key = $1",
+                    state_key,
+                )
+                await conn.close()
+                if row:
+                    state = GmailSyncState.from_dict(json.loads(row["state"]))
+                    self._gmail_state = state
+                    logger.info(f"[Gmail] Loaded state from Postgres for {state_key}")
+                    return state
+            except ImportError:
+                logger.warning("[Gmail] asyncpg package not installed, cannot use Postgres backend")
+            except Exception as e:
+                logger.warning(f"[Gmail] Failed to load state from Postgres: {e}")
+
+        # Memory backend or fallback
+        logger.debug(f"[Gmail] No persisted state found for {state_key}")
+        return None
+
+    async def save_gmail_state(
+        self,
+        tenant_id: str,
+        user_id: str,
+        backend: str = "memory",
+        redis_url: Optional[str] = None,
+        postgres_dsn: Optional[str] = None,
+    ) -> bool:
+        """
+        Save Gmail sync state to persistent storage.
+
+        Args:
+            tenant_id: Tenant identifier for isolation
+            user_id: User identifier
+            backend: Storage backend ("memory", "redis", "postgres")
+            redis_url: Redis connection URL (required for redis backend)
+            postgres_dsn: PostgreSQL DSN (required for postgres backend)
+
+        Returns:
+            True if saved successfully
+        """
+        import json
+
+        if not self._gmail_state:
+            logger.warning("[Gmail] No state to save")
+            return False
+
+        state_key = f"gmail_sync:{tenant_id}:{user_id}"
+        state_json = json.dumps(self._gmail_state.to_dict())
+
+        if backend == "redis" and redis_url:
+            try:
+                import redis.asyncio as redis_client
+
+                client = redis_client.from_url(redis_url)
+                await client.set(state_key, state_json)
+                await client.close()
+                logger.info(f"[Gmail] Saved state to Redis for {state_key}")
+                return True
+            except ImportError:
+                logger.warning("[Gmail] redis package not installed, cannot use Redis backend")
+            except Exception as e:
+                logger.warning(f"[Gmail] Failed to save state to Redis: {e}")
+                return False
+
+        elif backend == "postgres" and postgres_dsn:
+            try:
+                import asyncpg
+
+                conn = await asyncpg.connect(postgres_dsn)
+                await conn.execute(
+                    """
+                    INSERT INTO gmail_sync_state (key, state, updated_at)
+                    VALUES ($1, $2, NOW())
+                    ON CONFLICT (key) DO UPDATE SET state = $2, updated_at = NOW()
+                    """,
+                    state_key,
+                    state_json,
+                )
+                await conn.close()
+                logger.info(f"[Gmail] Saved state to Postgres for {state_key}")
+                return True
+            except ImportError:
+                logger.warning("[Gmail] asyncpg package not installed, cannot use Postgres backend")
+            except Exception as e:
+                logger.warning(f"[Gmail] Failed to save state to Postgres: {e}")
+                return False
+
+        # Memory backend - state is already in self._gmail_state
+        logger.debug(f"[Gmail] State in memory for {state_key}")
+        return True
+
+    def get_sync_stats(self) -> Dict[str, Any]:
+        """
+        Get sync service statistics.
+
+        Returns:
+            Dict with current sync state and statistics
+        """
+        return {
+            "user_id": self.user_id,
+            "email_address": self._gmail_state.email_address if self._gmail_state else None,
+            "history_id": self._gmail_state.history_id if self._gmail_state else None,
+            "last_sync": (
+                self._gmail_state.last_sync.isoformat()
+                if self._gmail_state and self._gmail_state.last_sync
+                else None
+            ),
+            "initial_sync_complete": (
+                self._gmail_state.initial_sync_complete if self._gmail_state else False
+            ),
+            "watch_active": bool(self._gmail_state and self._gmail_state.watch_resource_id),
+            "watch_expiration": (
+                self._gmail_state.watch_expiration.isoformat()
+                if self._gmail_state and self._gmail_state.watch_expiration
+                else None
+            ),
+            "total_messages": self._gmail_state.total_messages if self._gmail_state else 0,
+            "indexed_messages": (self._gmail_state.indexed_messages if self._gmail_state else 0),
+            "sync_errors": self._gmail_state.sync_errors if self._gmail_state else 0,
+            "last_error": self._gmail_state.last_error if self._gmail_state else None,
+        }
+
+    # =========================================================================
+    # Prioritization Integration
+    # =========================================================================
+
+    async def sync_with_prioritization(
+        self,
+        messages: List[EmailMessage],
+        prioritizer: Optional[Any] = None,
+        timeout_seconds: float = 30.0,
+    ) -> List[Dict[str, Any]]:
+        """
+        Sync messages with email prioritization scoring.
+
+        Combines Gmail sync with intelligent prioritization to rank
+        emails by importance, urgency, and context relevance.
+
+        Args:
+            messages: List of EmailMessage objects to prioritize
+            prioritizer: EmailPrioritizer instance (creates one if not provided)
+            timeout_seconds: Timeout for each prioritization call
+
+        Returns:
+            List of dicts with message and priority result:
+            [
+                {
+                    "message": EmailMessage,
+                    "priority_result": EmailPriorityResult,
+                    "priority": "HIGH",  # String for easy filtering
+                    "confidence": 0.85,
+                    "rationale": "VIP sender + urgent keywords",
+                }
+            ]
+        """
+        if not messages:
+            return []
+
+        # Create prioritizer if not provided
+        if prioritizer is None:
+            try:
+                from aragora.services.email_prioritization import EmailPrioritizer
+
+                prioritizer = EmailPrioritizer(gmail_connector=self)
+            except ImportError:
+                logger.warning("[Gmail] EmailPrioritizer not available, skipping prioritization")
+                # Return messages without prioritization
+                return [
+                    {
+                        "message": msg,
+                        "priority_result": None,
+                        "priority": "MEDIUM",
+                        "confidence": 0.0,
+                        "rationale": "Prioritization not available",
+                    }
+                    for msg in messages
+                ]
+
+        results: List[Dict[str, Any]] = []
+
+        for msg in messages:
+            try:
+                priority_result = await asyncio.wait_for(
+                    prioritizer.score_email(msg),
+                    timeout=timeout_seconds,
+                )
+
+                results.append(
+                    {
+                        "message": msg,
+                        "priority_result": priority_result,
+                        "priority": priority_result.priority.name,
+                        "confidence": priority_result.confidence,
+                        "rationale": priority_result.rationale,
+                        "suggested_labels": priority_result.suggested_labels,
+                        "auto_archive": priority_result.auto_archive,
+                    }
+                )
+
+                # Update message importance fields
+                msg.importance_score = 1.0 - (priority_result.priority.value - 1) / 5.0
+                msg.importance_reason = priority_result.rationale
+
+            except asyncio.TimeoutError:
+                logger.warning(f"[Gmail] Prioritization timeout for message {msg.id}")
+                results.append(
+                    {
+                        "message": msg,
+                        "priority_result": None,
+                        "priority": "MEDIUM",
+                        "confidence": 0.0,
+                        "rationale": "Prioritization timed out",
+                    }
+                )
+
+            except Exception as e:
+                logger.warning(f"[Gmail] Prioritization failed for message {msg.id}: {e}")
+                results.append(
+                    {
+                        "message": msg,
+                        "priority_result": None,
+                        "priority": "MEDIUM",
+                        "confidence": 0.0,
+                        "rationale": f"Prioritization failed: {str(e)}",
+                    }
+                )
+
+        # Sort by priority (lower value = higher priority)
+        results.sort(
+            key=lambda r: (
+                r["priority_result"].priority.value if r["priority_result"] else 3,
+                -r["confidence"],
+            )
+        )
+
+        logger.info(f"[Gmail] Prioritized {len(results)} messages")
+        return results
+
+    async def rank_inbox(
+        self,
+        max_messages: int = 50,
+        labels: Optional[List[str]] = None,
+        query: str = "",
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch and rank inbox messages by priority.
+
+        Convenience method that combines fetching and prioritization.
+
+        Args:
+            max_messages: Maximum messages to fetch and rank
+            labels: Label filters (default: connector's configured labels)
+            query: Additional Gmail search query
+
+        Returns:
+            Prioritized list of messages with scores
+        """
+        # Use connector's configured labels if not specified
+        filter_labels = labels or self.labels
+
+        # Build query
+        search_query = query
+        if filter_labels:
+            label_filter = " OR ".join(f"label:{lbl}" for lbl in filter_labels)
+            search_query = f"({label_filter}) {query}".strip()
+
+        # Fetch messages
+        message_ids, _ = await self.list_messages(
+            query=search_query,
+            max_results=max_messages,
+        )
+
+        messages: List[EmailMessage] = []
+        for msg_id in message_ids[:max_messages]:
+            try:
+                msg = await self.get_message(msg_id)
+                messages.append(msg)
+            except Exception as e:
+                logger.warning(f"[Gmail] Failed to fetch message {msg_id}: {e}")
+
+        # Prioritize and return
+        return await self.sync_with_prioritization(messages)
+
     def _message_to_sync_item(self, msg: EmailMessage) -> SyncItem:
         """Convert EmailMessage to SyncItem for Knowledge Mound ingestion."""
         # Build content with context
@@ -1599,6 +2257,7 @@ class GmailConnector(EnterpriseConnector):
 
 __all__ = [
     "GmailConnector",
+    "GmailWebhookPayload",
     "GMAIL_SCOPES",
     "GMAIL_SCOPES_READONLY",
     "GMAIL_SCOPES_FULL",

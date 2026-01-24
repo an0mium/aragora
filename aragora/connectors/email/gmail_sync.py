@@ -1,6 +1,31 @@
 """
 Gmail Background Sync Service.
 
+.. deprecated::
+    This module is deprecated. For new implementations, use
+    :class:`~aragora.connectors.enterprise.communication.gmail.GmailConnector`
+    which provides the same functionality plus additional enterprise features:
+
+    - Full Gmail API (send, reply, archive, labels)
+    - Circuit breaker resilience
+    - Knowledge Mound integration
+    - Pub/Sub watch management (setup_watch, stop_watch)
+    - State persistence (load_state, save_state)
+    - Prioritization (sync_with_prioritization, rank_inbox)
+
+    Migration example::
+
+        # Old (deprecated)
+        from aragora.connectors.email.gmail_sync import GmailSyncService
+        service = GmailSyncService(tenant_id="t1", user_id="u1", config=config)
+        await service.start(refresh_token=token)
+
+        # New (recommended)
+        from aragora.connectors.enterprise.communication.gmail import GmailConnector
+        connector = GmailConnector()
+        await connector.authenticate(refresh_token=token)
+        await connector.setup_watch(topic_name="gmail-notifications")
+
 Provides real-time Gmail synchronization using:
 - Google Cloud Pub/Sub for push notifications
 - History API for incremental message retrieval
@@ -48,12 +73,22 @@ import asyncio
 import base64
 import json
 import logging
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import httpx
+
+# Emit deprecation warning on import
+warnings.warn(
+    "aragora.connectors.email.gmail_sync is deprecated. "
+    "Use aragora.connectors.enterprise.communication.gmail.GmailConnector instead, "
+    "which provides the same functionality plus additional enterprise features.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.gmail import GmailConnector

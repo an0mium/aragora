@@ -161,11 +161,72 @@ class EmailThread:
 
 
 @dataclass
+class GmailWebhookPayload:
+    """
+    Parsed webhook payload from Gmail Pub/Sub.
+
+    Gmail push notifications are sent as Pub/Sub messages containing
+    base64-encoded JSON with email address and history ID.
+    """
+
+    message_id: str
+    subscription: str
+    email_address: str
+    history_id: str
+    raw_data: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_pubsub(cls, payload: Dict[str, Any]) -> "GmailWebhookPayload":
+        """
+        Parse Pub/Sub webhook payload.
+
+        The payload format is:
+        {
+            "message": {
+                "data": "<base64 encoded JSON>",
+                "messageId": "...",
+                "message_id": "...",  # Alternate field
+                "publishTime": "..."
+            },
+            "subscription": "projects/project-id/subscriptions/sub-name"
+        }
+
+        The decoded data contains:
+        {
+            "emailAddress": "user@example.com",
+            "historyId": "12345"
+        }
+        """
+        import base64
+        import json
+
+        message = payload.get("message", {})
+        subscription = payload.get("subscription", "")
+
+        # Decode base64 data
+        data_b64 = message.get("data", "")
+        try:
+            data_json = base64.urlsafe_b64decode(data_b64).decode("utf-8")
+            data = json.loads(data_json)
+        except Exception:
+            data = {}
+
+        return cls(
+            message_id=message.get("messageId") or message.get("message_id", ""),
+            subscription=subscription,
+            email_address=data.get("emailAddress", ""),
+            history_id=str(data.get("historyId", "")),
+            raw_data=payload,
+        )
+
+
+@dataclass
 class GmailSyncState:
     """
     Gmail-specific sync state.
 
-    Tracks history ID for incremental sync via Gmail History API.
+    Tracks history ID for incremental sync via Gmail History API,
+    and watch state for Pub/Sub push notifications.
     """
 
     user_id: str
@@ -175,6 +236,15 @@ class GmailSyncState:
     indexed_messages: int = 0
     email_address: str = ""
     labels_synced: List[str] = field(default_factory=list)
+
+    # Watch state for Pub/Sub notifications
+    watch_expiration: Optional[datetime] = None
+    watch_resource_id: Optional[str] = None
+
+    # Extended statistics
+    initial_sync_complete: bool = False
+    sync_errors: int = 0
+    last_error: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary."""
@@ -186,6 +256,13 @@ class GmailSyncState:
             "indexed_messages": self.indexed_messages,
             "email_address": self.email_address,
             "labels_synced": self.labels_synced,
+            "watch_expiration": (
+                self.watch_expiration.isoformat() if self.watch_expiration else None
+            ),
+            "watch_resource_id": self.watch_resource_id,
+            "initial_sync_complete": self.initial_sync_complete,
+            "sync_errors": self.sync_errors,
+            "last_error": self.last_error,
         }
 
     @classmethod
@@ -195,6 +272,10 @@ class GmailSyncState:
         if isinstance(last_sync, str):
             last_sync = datetime.fromisoformat(last_sync)
 
+        watch_expiration = data.get("watch_expiration")
+        if isinstance(watch_expiration, str):
+            watch_expiration = datetime.fromisoformat(watch_expiration)
+
         return cls(
             user_id=data["user_id"],
             history_id=data.get("history_id", ""),
@@ -203,6 +284,11 @@ class GmailSyncState:
             indexed_messages=data.get("indexed_messages", 0),
             email_address=data.get("email_address", ""),
             labels_synced=data.get("labels_synced", []),
+            watch_expiration=watch_expiration,
+            watch_resource_id=data.get("watch_resource_id"),
+            initial_sync_complete=data.get("initial_sync_complete", False),
+            sync_errors=data.get("sync_errors", 0),
+            last_error=data.get("last_error"),
         )
 
 
