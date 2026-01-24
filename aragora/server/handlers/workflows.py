@@ -344,8 +344,19 @@ async def execute_workflow(
         )
         store.save_execution(execution)
         raise
-    except Exception as e:
-        logger.exception(f"Unexpected workflow execution error: {e}")
+    except (OSError, IOError) as e:
+        logger.error(f"Storage error during workflow execution: {e}")
+        execution.update(
+            {
+                "status": "failed",
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "error": str(e),
+            }
+        )
+        store.save_execution(execution)
+        raise
+    except (ConnectionError, TimeoutError) as e:
+        logger.error(f"Connection error during workflow execution: {e}")
         execution.update(
             {
                 "status": "failed",
@@ -734,8 +745,12 @@ def _load_yaml_templates() -> None:
                 loaded += 1
         if loaded > 0:
             logger.info(f"Loaded {loaded} new YAML templates into database")
-    except Exception as e:
-        logger.warning(f"Failed to load YAML templates: {e}")
+    except ImportError as e:
+        logger.debug(f"Template loader not available: {e}")
+    except (OSError, IOError) as e:
+        logger.warning(f"Failed to read YAML templates from disk: {e}")
+    except (ValueError, KeyError, TypeError) as e:
+        logger.warning(f"Failed to parse YAML templates: {e}")
 
 
 # Load templates on module import
@@ -845,7 +860,6 @@ from aragora.server.handlers.base import (
     json_response,
     get_int_param,
     get_string_param,
-    safe_error_message,
 )
 
 
@@ -1131,9 +1145,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 )
             )
             return json_response(result)
-        except Exception as e:
-            logger.exception(f"Failed to list workflows: {e}")
-            return error_response(safe_error_message(e, "list workflows"), 500)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error listing workflows: {e}")
+            return error_response("Internal data error", 500)
 
     def _handle_get_workflow(
         self, workflow_id: str, query_params: dict, handler: Any
@@ -1154,9 +1168,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             if result:
                 return json_response(result)
             return error_response(f"Workflow not found: {workflow_id}", 404)
-        except Exception as e:
-            logger.exception(f"Failed to get workflow: {e}")
-            return error_response(safe_error_message(e, "get workflow"), 500)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error getting workflow: {e}")
+            return error_response("Internal data error", 500)
 
     def _handle_create_workflow(
         self, body: dict, query_params: dict, handler: Any
@@ -1186,9 +1200,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return json_response(result, status=201)
         except ValueError as e:
             return error_response(str(e), 400)
-        except Exception as e:
-            logger.exception(f"Failed to create workflow: {e}")
-            return error_response(safe_error_message(e, "create workflow"), 500)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error creating workflow: {e}")
+            return error_response("Storage error", 503)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error creating workflow: {e}")
+            return error_response("Internal data error", 500)
 
     def _handle_update_workflow(
         self, workflow_id: str, body: dict, query_params: dict, handler: Any
@@ -1212,9 +1229,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(f"Workflow not found: {workflow_id}", 404)
         except ValueError as e:
             return error_response(str(e), 400)
-        except Exception as e:
-            logger.exception(f"Failed to update workflow: {e}")
-            return error_response(safe_error_message(e, "update workflow"), 500)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error updating workflow: {e}")
+            return error_response("Storage error", 503)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error updating workflow: {e}")
+            return error_response("Internal data error", 500)
 
     def _handle_delete_workflow(
         self, workflow_id: str, query_params: dict, handler: Any
@@ -1235,9 +1255,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             if deleted:
                 return json_response({"deleted": True, "id": workflow_id})
             return error_response(f"Workflow not found: {workflow_id}", 404)
-        except Exception as e:
-            logger.exception(f"Failed to delete workflow: {e}")
-            return error_response(safe_error_message(e, "delete workflow"), 500)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error deleting workflow: {e}")
+            return error_response("Storage error", 503)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error deleting workflow: {e}")
+            return error_response("Internal data error", 500)
 
     def _handle_execute(
         self, workflow_id: str, body: dict, query_params: dict, handler: Any
@@ -1259,9 +1282,15 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return json_response(result)
         except ValueError as e:
             return error_response(str(e), 404)
-        except Exception as e:
-            logger.exception(f"Failed to execute workflow: {e}")
-            return error_response(safe_error_message(e, "execute workflow"), 500)
+        except (ConnectionError, TimeoutError) as e:
+            logger.error(f"Connection error executing workflow: {e}")
+            return error_response("Execution service unavailable", 503)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error executing workflow: {e}")
+            return error_response("Storage error", 503)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error executing workflow: {e}")
+            return error_response("Internal data error", 500)
 
     def _handle_simulate(
         self, workflow_id: str, body: dict, query_params: dict, handler: Any
@@ -1317,9 +1346,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 }
             )
 
-        except Exception as e:
-            logger.exception(f"Failed to simulate workflow: {e}")
-            return error_response(safe_error_message(e, "simulate workflow"), 500)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error simulating workflow: {e}")
+            return error_response("Storage error", 503)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error simulating workflow: {e}")
+            return error_response("Internal data error", 500)
 
     def _handle_get_status(
         self, workflow_id: str, query_params: dict, handler: Any
@@ -1340,9 +1372,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                     "message": "No executions found for this workflow",
                 }
             )
-        except Exception as e:
-            logger.exception(f"Failed to get workflow status: {e}")
-            return error_response(safe_error_message(e, "get workflow status"), 500)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error getting workflow status: {e}")
+            return error_response("Storage error", 503)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error getting workflow status: {e}")
+            return error_response("Internal data error", 500)
 
     def _handle_get_versions(
         self, workflow_id: str, query_params: dict, handler: Any
@@ -1362,9 +1397,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 )
             )
             return json_response({"versions": versions, "workflow_id": workflow_id})
-        except Exception as e:
-            logger.exception(f"Failed to get workflow versions: {e}")
-            return error_response(safe_error_message(e, "get workflow versions"), 500)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error getting workflow versions: {e}")
+            return error_response("Storage error", 503)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error getting workflow versions: {e}")
+            return error_response("Internal data error", 500)
 
     def _handle_list_templates(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-templates."""
@@ -1379,9 +1417,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 )
             )
             return json_response({"templates": templates, "count": len(templates)})
-        except Exception as e:
-            logger.exception(f"Failed to list templates: {e}")
-            return error_response(safe_error_message(e, "list workflow templates"), 500)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error listing templates: {e}")
+            return error_response("Storage error", 503)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error listing templates: {e}")
+            return error_response("Internal data error", 500)
 
     def _handle_list_approvals(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-approvals."""
@@ -1398,9 +1439,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 )
             )
             return json_response({"approvals": approvals, "count": len(approvals)})
-        except Exception as e:
-            logger.exception(f"Failed to list approvals: {e}")
-            return error_response(safe_error_message(e, "list workflow approvals"), 500)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error listing approvals: {e}")
+            return error_response("Storage error", 503)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error listing approvals: {e}")
+            return error_response("Internal data error", 500)
 
     def _handle_list_executions(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-executions.
@@ -1436,9 +1480,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                     "count": len(executions),
                 }
             )
-        except Exception as e:
-            logger.exception(f"Failed to list executions: {e}")
-            return error_response(safe_error_message(e, "list workflow executions"), 500)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error listing executions: {e}")
+            return error_response("Storage error", 503)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error listing executions: {e}")
+            return error_response("Internal data error", 500)
 
     def _handle_get_execution(
         self, execution_id: str, query_params: dict, handler: Any
@@ -1458,9 +1505,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 return error_response(f"Execution not found: {execution_id}", 404)
 
             return json_response(execution)
-        except Exception as e:
-            logger.exception(f"Failed to get execution: {e}")
-            return error_response(safe_error_message(e, "get workflow execution"), 500)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error getting execution: {e}")
+            return error_response("Storage error", 503)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error getting execution: {e}")
+            return error_response("Internal data error", 500)
 
     def _handle_resolve_approval(
         self, request_id: str, body: dict, query_params: dict, handler: Any
@@ -1493,6 +1543,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(f"Approval request not found: {request_id}", 404)
         except ValueError as e:
             return error_response(str(e), 400)
-        except Exception as e:
-            logger.exception(f"Failed to resolve approval: {e}")
-            return error_response(safe_error_message(e, "resolve workflow approval"), 500)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error resolving approval: {e}")
+            return error_response("Storage error", 503)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error resolving approval: {e}")
+            return error_response("Internal data error", 500)
