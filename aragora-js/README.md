@@ -1,21 +1,23 @@
-# @aragora/sdk
+# @aragora/client
 
-TypeScript/JavaScript SDK for the Aragora control plane for multi-agent vetted decisionmaking across organizational knowledge and channels.
+Lightweight TypeScript/JavaScript client for the Aragora REST API.
+
+> **Note:** For the full-featured SDK with WebSocket support, streaming, and typed events, use [`@aragora/sdk`](../sdk/typescript).
 
 ## Installation
 
 ```bash
-npm install @aragora/sdk
+npm install @aragora/client
 # or
-yarn add @aragora/sdk
+yarn add @aragora/client
 # or
-pnpm add @aragora/sdk
+pnpm add @aragora/client
 ```
 
 ## Quick Start
 
 ```typescript
-import { AragoraClient } from '@aragora/sdk';
+import { AragoraClient } from '@aragora/client';
 
 const client = new AragoraClient({
   baseUrl: 'http://localhost:8080',
