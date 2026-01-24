@@ -309,6 +309,248 @@ PERM_DECISION_READ = _permission(
 )
 
 
+# ============================================================================
+# ENTERPRISE PERMISSIONS - Data Governance
+# ============================================================================
+
+# Data classification permissions
+PERM_DATA_CLASSIFICATION_READ = _permission(
+    ResourceType.DATA_CLASSIFICATION,
+    Action.READ,
+    "View Data Classifications",
+    "View data sensitivity classifications",
+)
+PERM_DATA_CLASSIFICATION_CLASSIFY = _permission(
+    ResourceType.DATA_CLASSIFICATION,
+    Action.CLASSIFY,
+    "Classify Data",
+    "Mark data as confidential/public/internal",
+)
+PERM_DATA_CLASSIFICATION_UPDATE = _permission(
+    ResourceType.DATA_CLASSIFICATION,
+    Action.UPDATE,
+    "Update Classifications",
+    "Modify existing data classifications",
+)
+
+# Data retention permissions
+PERM_DATA_RETENTION_READ = _permission(
+    ResourceType.DATA_RETENTION,
+    Action.READ,
+    "View Retention Policies",
+    "View data retention policies",
+)
+PERM_DATA_RETENTION_UPDATE = _permission(
+    ResourceType.DATA_RETENTION,
+    Action.UPDATE,
+    "Configure Retention",
+    "Set and enforce retention policies",
+)
+
+# Data lineage permissions
+PERM_DATA_LINEAGE_READ = _permission(
+    ResourceType.DATA_LINEAGE,
+    Action.READ,
+    "View Data Lineage",
+    "Track data provenance and transformations",
+)
+
+# PII permissions
+PERM_PII_READ = _permission(
+    ResourceType.PII, Action.READ, "View PII", "View personally identifiable information"
+)
+PERM_PII_REDACT = _permission(
+    ResourceType.PII, Action.REDACT, "Redact PII", "Redact personally identifiable information"
+)
+PERM_PII_MASK = _permission(
+    ResourceType.PII, Action.MASK, "Mask PII", "Configure PII masking rules"
+)
+
+# ============================================================================
+# ENTERPRISE PERMISSIONS - Compliance & Regulatory
+# ============================================================================
+
+# Compliance policy permissions
+PERM_COMPLIANCE_POLICY_READ = _permission(
+    ResourceType.COMPLIANCE_POLICY,
+    Action.READ,
+    "View Compliance Policies",
+    "Access compliance rules (SOC2, GDPR, HIPAA)",
+)
+PERM_COMPLIANCE_POLICY_UPDATE = _permission(
+    ResourceType.COMPLIANCE_POLICY,
+    Action.UPDATE,
+    "Update Compliance Policies",
+    "Modify compliance rules",
+)
+PERM_COMPLIANCE_POLICY_ENFORCE = _permission(
+    ResourceType.COMPLIANCE_POLICY,
+    Action.ENFORCE,
+    "Enforce Compliance",
+    "Force resolution of compliance findings",
+)
+
+# Audit log permissions
+PERM_AUDIT_LOG_READ = _permission(
+    ResourceType.AUDIT_LOG, Action.READ, "View Audit Logs", "Access audit trail"
+)
+PERM_AUDIT_LOG_EXPORT = _permission(
+    ResourceType.AUDIT_LOG,
+    Action.EXPORT_DATA,
+    "Export Audit Logs",
+    "Export audit logs for compliance",
+)
+PERM_AUDIT_LOG_SEARCH = _permission(
+    ResourceType.AUDIT_LOG,
+    Action.SEARCH,
+    "Search Audit Logs",
+    "Advanced search in audit logs",
+)
+PERM_AUDIT_LOG_STREAM = _permission(
+    ResourceType.AUDIT_LOG,
+    Action.STREAM,
+    "Stream Audit Logs",
+    "Stream logs to external SIEM",
+)
+PERM_AUDIT_LOG_CONFIGURE = _permission(
+    ResourceType.AUDIT_LOG,
+    Action.UPDATE,
+    "Configure Audit Retention",
+    "Set audit log retention policies",
+)
+
+# Vendor management permissions
+PERM_VENDOR_READ = _permission(
+    ResourceType.VENDOR, Action.READ, "View Vendors", "View third-party vendor list"
+)
+PERM_VENDOR_APPROVE = _permission(
+    ResourceType.VENDOR, Action.GRANT, "Approve Vendors", "Approve third-party integrations"
+)
+
+# ============================================================================
+# ENTERPRISE PERMISSIONS - Team Management
+# ============================================================================
+
+PERM_TEAM_CREATE = _permission(ResourceType.TEAM, Action.CREATE, "Create Teams", "Create new teams")
+PERM_TEAM_READ = _permission(
+    ResourceType.TEAM, Action.READ, "View Teams", "View team membership and details"
+)
+PERM_TEAM_UPDATE = _permission(
+    ResourceType.TEAM, Action.UPDATE, "Update Teams", "Modify team settings"
+)
+PERM_TEAM_DELETE = _permission(ResourceType.TEAM, Action.DELETE, "Delete Teams", "Remove teams")
+PERM_TEAM_ADD_MEMBER = _permission(
+    ResourceType.TEAM, Action.ADD_MEMBER, "Add Team Members", "Invite users to teams"
+)
+PERM_TEAM_REMOVE_MEMBER = _permission(
+    ResourceType.TEAM,
+    Action.REMOVE_MEMBER,
+    "Remove Team Members",
+    "Remove users from teams",
+)
+PERM_TEAM_SHARE = _permission(
+    ResourceType.TEAM, Action.SHARE, "Share with Team", "Grant team access to resources"
+)
+
+# ============================================================================
+# ENTERPRISE PERMISSIONS - Cost & Quota Management
+# ============================================================================
+
+# Quota permissions
+PERM_QUOTA_READ = _permission(
+    ResourceType.QUOTA, Action.READ, "View Quotas", "View rate limits and quotas"
+)
+PERM_QUOTA_UPDATE = _permission(
+    ResourceType.QUOTA, Action.SET_LIMIT, "Set Quotas", "Configure rate limits per user/org"
+)
+
+# Cost center permissions
+PERM_COST_CENTER_READ = _permission(
+    ResourceType.COST_CENTER, Action.READ, "View Cost Centers", "View cost center assignments"
+)
+PERM_COST_CENTER_UPDATE = _permission(
+    ResourceType.COST_CENTER,
+    Action.CHARGEBACK,
+    "Manage Cost Centers",
+    "Link resources to cost centers for chargeback",
+)
+
+# Budget permissions
+PERM_BUDGET_READ = _permission(
+    ResourceType.BUDGET, Action.READ, "View Budgets", "View budget limits and usage"
+)
+PERM_BUDGET_UPDATE = _permission(
+    ResourceType.BUDGET, Action.SET_LIMIT, "Set Budgets", "Configure spending limits and alerts"
+)
+
+# ============================================================================
+# ENTERPRISE PERMISSIONS - Session & Authentication
+# ============================================================================
+
+PERM_SESSION_READ = _permission(
+    ResourceType.SESSION, Action.LIST_ACTIVE, "View Active Sessions", "List active user sessions"
+)
+PERM_SESSION_REVOKE = _permission(
+    ResourceType.SESSION, Action.REVOKE, "Revoke Sessions", "Force logout of user sessions"
+)
+
+PERM_AUTH_RESET_PASSWORD = _permission(
+    ResourceType.AUTHENTICATION,
+    Action.RESET_PASSWORD,
+    "Reset Passwords",
+    "Reset user passwords",
+)
+PERM_AUTH_REQUIRE_MFA = _permission(
+    ResourceType.AUTHENTICATION,
+    Action.REQUIRE_MFA,
+    "Require MFA",
+    "Enforce MFA for users or operations",
+)
+
+# ============================================================================
+# ENTERPRISE PERMISSIONS - Approval Workflows
+# ============================================================================
+
+PERM_APPROVAL_REQUEST = _permission(
+    ResourceType.APPROVAL, Action.REQUEST, "Request Access", "Request elevated access or approvals"
+)
+PERM_APPROVAL_GRANT = _permission(
+    ResourceType.APPROVAL,
+    Action.GRANT,
+    "Grant Approvals",
+    "Approve access requests",
+)
+PERM_APPROVAL_READ = _permission(
+    ResourceType.APPROVAL,
+    Action.READ,
+    "View Approval History",
+    "View past approval decisions",
+)
+
+# ============================================================================
+# ENTERPRISE PERMISSIONS - Enhanced Connector Lifecycle
+# ============================================================================
+
+PERM_CONNECTOR_AUTHORIZE = _permission(
+    ResourceType.CONNECTOR,
+    Action.AUTHORIZE,
+    "Authorize Connectors",
+    "Grant OAuth/API credentials for connectors",
+)
+PERM_CONNECTOR_ROTATE = _permission(
+    ResourceType.CONNECTOR,
+    Action.ROTATE,
+    "Rotate Connector Credentials",
+    "Rotate API keys and secrets",
+)
+PERM_CONNECTOR_TEST = _permission(
+    ResourceType.CONNECTOR,
+    Action.TEST,
+    "Test Connectors",
+    "Verify connector health and connectivity",
+)
+
+
 # All permissions as a dictionary for easy lookup
 SYSTEM_PERMISSIONS: dict[str, Permission] = {
     p.key: p
