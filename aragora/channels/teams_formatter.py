@@ -124,21 +124,31 @@ class TeamsReceiptFormatter(ReceiptFormatter):
             }
         )
 
-        key_arguments = getattr(r, "key_arguments", None) or []
-        risks = getattr(r, "risks", None) or []
+        key_arguments = getattr(r, "key_arguments", None)
+        mitigations = getattr(r, "mitigations", None)
+        key_points = key_arguments or mitigations or []
+        risks = getattr(r, "risks", None)
+        if not risks:
+            findings = getattr(r, "findings", None) or []
+            risks = [
+                f"{getattr(f, 'severity', '')}: {getattr(f, 'title', '')}".strip(": ")
+                for f in findings[:3]
+                if getattr(f, "title", None) or getattr(f, "severity", None)
+            ]
+        risks = risks or []
 
         if not compact:
             # Key Arguments
-            if key_arguments:
+            if key_points:
                 body.append(
                     {
                         "type": "TextBlock",
-                        "text": "Key Arguments",
+                        "text": "Key Arguments" if key_arguments else "Mitigations",
                         "weight": "Bolder",
                         "spacing": "Medium",
                     }
                 )
-                for arg in key_arguments[:5]:
+                for arg in key_points[:5]:
                     body.append(
                         {
                             "type": "TextBlock",

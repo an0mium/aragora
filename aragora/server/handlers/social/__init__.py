@@ -13,6 +13,7 @@ from .relationship import (
 from .sharing import DebateVisibility, ShareSettings, SharingHandler
 from .slack import SlackHandler
 from .telegram import TelegramHandler, get_telegram_handler
+from .teams import TeamsIntegrationHandler
 from .telemetry import (
     PROMETHEUS_AVAILABLE as SOCIAL_PROMETHEUS_AVAILABLE,
     get_metrics_summary as get_social_metrics_summary,
@@ -44,6 +45,7 @@ __all__ = [
     "SocialMediaHandler",
     "SOCIAL_PROMETHEUS_AVAILABLE",
     "TelegramHandler",
+    "TeamsIntegrationHandler",
     "WhatsAppHandler",
     "_OAUTH_STATE_TTL",
     "_oauth_states",

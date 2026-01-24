@@ -202,6 +202,24 @@ class TeamsIntegration:
             logger.error("Teams request timed out")
             return False
 
+    async def verify_webhook(self) -> bool:
+        """Verify Teams webhook connectivity by sending a test card."""
+        if not self.is_configured:
+            return False
+
+        card = AdaptiveCard(
+            title="Aragora integration test",
+            body=[
+                {
+                    "type": "TextBlock",
+                    "text": "Connection verified.",
+                    "wrap": True,
+                }
+            ],
+            accent_color=self.config.accent_color,
+        )
+        return await self._send_card(card)
+
     async def post_debate_summary(self, result: DebateResult) -> bool:
         """Post a debate summary to Teams.
 
@@ -237,11 +255,22 @@ class TeamsIntegration:
             )
 
         # Statistics
-        stats_text = f"Rounds: {result.rounds_used}"
-        if result.confidence:
-            stats_text += f" | Confidence: {result.confidence:.0%}"
-        if result.participants:
-            stats_text += f" | Agents: {len(result.participants)}"
+        rounds_used = (
+            result.rounds_used or getattr(result, "total_rounds", 0) or result.rounds_completed
+        )
+        confidence = result.confidence or getattr(result, "consensus_confidence", 0.0)
+        agents: list[str] = []
+        for attr in ("participants", "participating_agents", "agents", "agents_involved"):
+            value = getattr(result, attr, None)
+            if value:
+                agents = list(value)
+                break
+
+        stats_text = f"Rounds: {rounds_used}"
+        if confidence:
+            stats_text += f" | Confidence: {confidence:.0%}"
+        if agents:
+            stats_text += f" | Agents: {len(agents)}"
 
         body.append(
             {
@@ -253,10 +282,10 @@ class TeamsIntegration:
         )
 
         # Agents column set
-        if result.participants:
-            agent_list = ", ".join(result.participants[:5])
-            if len(result.participants) > 5:
-                agent_list += f" +{len(result.participants) - 5} more"
+        if agents:
+            agent_list = ", ".join(agents[:5])
+            if len(agents) > 5:
+                agent_list += f" +{len(agents) - 5} more"
             body.append(
                 {
                     "type": "TextBlock",
