@@ -99,6 +99,8 @@ GauntletHandler: HandlerType = None
 SlackHandler: HandlerType = None
 SlackOAuthHandler: HandlerType = None
 TeamsIntegrationHandler: HandlerType = None
+TeamsOAuthHandler: HandlerType = None
+DiscordOAuthHandler: HandlerType = None
 OrganizationsHandler: HandlerType = None
 OAuthHandler: HandlerType = None
 ReviewsHandler: HandlerType = None
@@ -330,6 +332,12 @@ try:
     from aragora.server.handlers.social.teams import (
         TeamsIntegrationHandler as _TeamsIntegrationHandler,
     )
+    from aragora.server.handlers.social.teams_oauth import (
+        TeamsOAuthHandler as _TeamsOAuthHandler,
+    )
+    from aragora.server.handlers.social.discord_oauth import (
+        DiscordOAuthHandler as _DiscordOAuthHandler,
+    )
     from aragora.server.handlers import (
         SocialMediaHandler as _SocialMediaHandler,
     )
@@ -491,6 +499,8 @@ try:
     SlackHandler = _SlackHandler
     SlackOAuthHandler = _SlackOAuthHandler
     TeamsIntegrationHandler = _TeamsIntegrationHandler
+    TeamsOAuthHandler = _TeamsOAuthHandler
+    DiscordOAuthHandler = _DiscordOAuthHandler
     OrganizationsHandler = _OrganizationsHandler
     OAuthHandler = _OAuthHandler
     ReviewsHandler = _ReviewsHandler
@@ -603,6 +613,8 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_gauntlet_handler", GauntletHandler),
     ("_slack_handler", SlackHandler),
     ("_slack_oauth_handler", SlackOAuthHandler),
+    ("_teams_oauth_handler", TeamsOAuthHandler),
+    ("_discord_oauth_handler", DiscordOAuthHandler),
     ("_teams_integration_handler", TeamsIntegrationHandler),
     ("_organizations_handler", OrganizationsHandler),
     ("_oauth_handler", OAuthHandler),
@@ -750,6 +762,16 @@ class RouteIndex:
             ],
             "_email_handler": [
                 "/api/email/",
+            ],
+            "_teams_oauth_handler": [
+                "/api/integrations/teams/install",
+                "/api/integrations/teams/callback",
+                "/api/integrations/teams/refresh",
+            ],
+            "_discord_oauth_handler": [
+                "/api/integrations/discord/install",
+                "/api/integrations/discord/callback",
+                "/api/integrations/discord/uninstall",
             ],
             "_teams_integration_handler": [
                 "/api/v1/integrations/teams",
@@ -1157,6 +1179,9 @@ class HandlerRegistryMixin:
     _memory_analytics_handler: Optional["BaseHandler"] = None
     _gauntlet_handler: Optional["BaseHandler"] = None
     _slack_handler: Optional["BaseHandler"] = None
+    _slack_oauth_handler: Optional["BaseHandler"] = None
+    _teams_oauth_handler: Optional["BaseHandler"] = None
+    _discord_oauth_handler: Optional["BaseHandler"] = None
     _teams_integration_handler: Optional["BaseHandler"] = None
     _organizations_handler: Optional["BaseHandler"] = None
     _oauth_handler: Optional["BaseHandler"] = None

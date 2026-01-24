@@ -48,8 +48,13 @@ class TestDebatePerformance:
         """
         protocol = DebateProtocol(rounds=1, consensus="any")
 
-        with patch.object(
-            Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None
+        with (
+            patch.object(
+                Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                Arena, "_fetch_knowledge_context", new_callable=AsyncMock, return_value=None
+            ),
         ):
             arena = Arena(benchmark_environment, benchmark_agents, protocol)
 
@@ -66,8 +71,13 @@ class TestDebatePerformance:
         """Measure how latency scales with rounds."""
         round_times = {}
 
-        with patch.object(
-            Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None
+        with (
+            patch.object(
+                Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                Arena, "_fetch_knowledge_context", new_callable=AsyncMock, return_value=None
+            ),
         ):
             for num_rounds in [1, 2, 3]:
                 protocol = DebateProtocol(rounds=num_rounds, consensus="any")
@@ -93,8 +103,13 @@ class TestDebatePerformance:
         """
         agent_times = {}
 
-        with patch.object(
-            Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None
+        with (
+            patch.object(
+                Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                Arena, "_fetch_knowledge_context", new_callable=AsyncMock, return_value=None
+            ),
         ):
             # Warmup run to stabilize timing
             warmup_agents = [BenchmarkAgent(f"warmup_{i}") for i in range(2)]
@@ -254,8 +269,13 @@ class TestConcurrentPerformance:
         """Measure concurrent debate throughput."""
         num_debates = 5
 
-        with patch.object(
-            Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None
+        with (
+            patch.object(
+                Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                Arena, "_fetch_knowledge_context", new_callable=AsyncMock, return_value=None
+            ),
         ):
 
             async def run_single_debate(idx: int):
