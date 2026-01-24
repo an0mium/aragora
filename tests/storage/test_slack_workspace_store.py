@@ -417,24 +417,42 @@ class TestSlackWorkspaceStoreEncryption:
 class TestSlackWorkspaceStoreErrors:
     """Tests for error handling."""
 
-    def test_save_handles_error(self, workspace_store, sample_workspace):
+    def test_save_handles_error(self, temp_db_path, sample_workspace):
         """Test save handles database errors gracefully."""
-        with patch.object(workspace_store, "_get_connection", side_effect=Exception("DB error")):
-            result = workspace_store.save(sample_workspace)
+        store = SlackWorkspaceStore(db_path=temp_db_path)
+
+        # Replace the thread local connection with a mock
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = Exception("DB error")
+        store._local.connection = mock_conn
+
+        result = store.save(sample_workspace)
 
         assert result is False
 
-    def test_get_handles_error(self, workspace_store):
+    def test_get_handles_error(self, temp_db_path):
         """Test get handles database errors gracefully."""
-        with patch.object(workspace_store, "_get_connection", side_effect=Exception("DB error")):
-            result = workspace_store.get("T12345678")
+        store = SlackWorkspaceStore(db_path=temp_db_path)
+
+        # Replace the thread local connection with a mock
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = Exception("DB error")
+        store._local.connection = mock_conn
+
+        result = store.get("T12345678")
 
         assert result is None
 
-    def test_list_active_handles_error(self, workspace_store):
+    def test_list_active_handles_error(self, temp_db_path):
         """Test list_active handles database errors gracefully."""
-        with patch.object(workspace_store, "_get_connection", side_effect=Exception("DB error")):
-            result = workspace_store.list_active()
+        store = SlackWorkspaceStore(db_path=temp_db_path)
+
+        # Replace the thread local connection with a mock
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = Exception("DB error")
+        store._local.connection = mock_conn
+
+        result = store.list_active()
 
         assert result == []
 
