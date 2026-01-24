@@ -224,27 +224,24 @@ class GovernanceStore:
         """
         Initialize governance store.
 
+        Backend selection is handled by get_governance_store() using
+        resolve_database_config(). This __init__ accepts explicit parameters
+        from the factory function.
+
         Args:
             db_path: Path to SQLite database (used when backend="sqlite")
             backend: Database backend ("sqlite" or "postgresql")
             database_url: PostgreSQL connection URL
         """
-        # Determine backend
-        env_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_DATABASE_URL")
-        actual_url = database_url or env_url
+        self.backend_type = backend or "sqlite"
 
-        if backend is None:
-            backend = "postgresql" if actual_url else "sqlite"
-
-        self.backend_type = backend
-
-        # Create backend
-        if backend == "postgresql":
-            if not actual_url:
-                raise ValueError("PostgreSQL backend requires DATABASE_URL")
+        # Create backend based on explicit parameters
+        if self.backend_type == "postgresql":
+            if not database_url:
+                raise ValueError("PostgreSQL backend requires database_url parameter")
             if not POSTGRESQL_AVAILABLE:
                 raise ImportError("psycopg2 required for PostgreSQL")
-            self._backend: DatabaseBackend = PostgreSQLBackend(actual_url)
+            self._backend: DatabaseBackend = PostgreSQLBackend(database_url)
             logger.info("GovernanceStore using PostgreSQL backend")
         else:
             self.db_path = Path(db_path)

@@ -1035,16 +1035,25 @@ print(f"Vulnerability score: {report.vulnerability_score}")
 ### RedTeamMode
 **File:** `aragora/modes/redteam.py`
 
-Adversarial analysis mode for stress-testing debate conclusions.
+Adversarial analysis mode for stress-testing debate conclusions with full attack/defense cycles.
 
 ```python
-from aragora.modes.redteam import RedTeamMode, AttackType
+from aragora.modes.redteam import RedTeamMode, RedTeamProtocol, AttackType
 
-mode = RedTeamMode()
+protocol = RedTeamProtocol(
+    attack_rounds=3,
+    include_steelman=True,  # Red team presents strongest version of proposal
+    include_strawman=True,  # Verify attacks address real claims
+)
+mode = RedTeamMode(protocol)
+
 result = await mode.run_redteam(
     target_proposal="Use microservices architecture",
+    proposer="architect",
     red_team_agents=red_agents,
-    attack_types=[AttackType.DEVILS_ADVOCATE, AttackType.EDGE_CASE],
+    run_agent_fn=my_agent_runner,
+    max_rounds=3,
+    proposer_agent=defender,  # Optional: enables defense execution
 )
 ```
 
@@ -1054,6 +1063,16 @@ result = await mode.run_redteam(
 - `assumption_challenge` - Question premises
 - `scale_test` - Test at different scales
 - `adversarial` - Active exploitation attempts
+
+**Defense Types (when proposer_agent provided):**
+- `refute` - Attack is invalid (residual_risk=0)
+- `mitigate` - Accept issue, explain fix (residual_risk=0.2)
+- `acknowledge` - Understood, will review (residual_risk=0.2)
+- `accept` - Risk is acceptable (residual_risk based on severity)
+
+**Steelman/Strawman Phases:**
+- Steelman: Red team presents strongest version of proposal (round 1)
+- Strawman: Verify attacks address actual claims, not distortions
 
 ---
 

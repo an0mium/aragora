@@ -602,7 +602,7 @@ class ChainExecutor:
         chain = execution.chain
         timeout = chain.overall_timeout_seconds
 
-        async with asyncio.timeout(timeout):
+        async with asyncio.timeout(timeout):  # type: ignore[attr-defined]
             while execution.current_stage_id and execution.status == ChainStatus.RUNNING:
                 # Check for pause
                 await self._pause_flags[execution.execution_id].wait()

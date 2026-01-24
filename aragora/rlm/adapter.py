@@ -504,7 +504,7 @@ Summary:"""
                 )
                 summary = (
                     result.context.get_at_level(  # type: ignore[attr-defined,union-attr]
-                        result.context.abstraction_levels.get("summary", "SUMMARY")
+                        result.context.abstraction_levels.get("summary", "SUMMARY")  # type: ignore[attr-defined]
                     )
                     if hasattr(result, "context")
                     else str(result)

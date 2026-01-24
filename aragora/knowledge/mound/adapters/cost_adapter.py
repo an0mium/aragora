@@ -631,6 +631,83 @@ class CostAdapter:
             importance=alert.get("percentage", 0) / 100,  # Normalize to 0-1
         )
 
+    async def sync_validations_from_km(
+        self,
+        km_items: List[Dict[str, Any]],
+        min_confidence: float = 0.7,
+    ) -> Dict[str, Any]:
+        """
+        Sync KM validations back to cost data.
+
+        Updates cost anomalies and alerts with validation status from KM.
+        High-confidence KM items can adjust alert thresholds.
+
+        Args:
+            km_items: Knowledge items with validation data
+            min_confidence: Minimum confidence to apply updates
+
+        Returns:
+            Dict with sync results
+        """
+        synced = 0
+        skipped = 0
+
+        for item in km_items:
+            confidence = item.get("confidence", 0.0)
+            if confidence < min_confidence:
+                skipped += 1
+                continue
+
+            source_id = item.get("source_id", "")
+            metadata = item.get("metadata", {})
+
+            # Update alerts with KM validation
+            if source_id in self._alerts:
+                alert = self._alerts[source_id]
+                alert["km_validated"] = True
+                alert["km_validation_confidence"] = confidence
+                alert["km_validation_timestamp"] = datetime.now(timezone.utc).isoformat()
+
+                # If KM marked as false positive, reduce severity
+                if metadata.get("false_positive", False):
+                    alert["severity_adjusted"] = True
+                    alert["original_level"] = alert.get("level", "unknown")
+                    alert["level"] = "info"
+
+                synced += 1
+                continue
+
+            # Update anomalies with KM validation
+            if source_id in self._anomalies:
+                anomaly = self._anomalies[source_id]
+                anomaly["km_validated"] = True
+                anomaly["km_confidence"] = confidence
+
+                # Adjust severity based on KM feedback
+                if metadata.get("confirmed", False):
+                    anomaly["km_confirmed"] = True
+                elif metadata.get("false_positive", False):
+                    anomaly["km_false_positive"] = True
+                    anomaly["severity"] = 0.0
+
+                synced += 1
+                continue
+
+            skipped += 1
+
+        result = {
+            "synced": synced,
+            "skipped": skipped,
+            "total_items": len(km_items),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+        if self._event_callback:
+            self._event_callback("cost_km_sync", result)
+
+        logger.info(f"CostAdapter: synced {synced} items from KM, skipped {skipped}")
+        return result
+
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about stored cost data."""
         level_counts: Dict[str, int] = {}

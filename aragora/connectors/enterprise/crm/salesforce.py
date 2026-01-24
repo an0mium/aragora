@@ -572,7 +572,7 @@ class SalesforceConnector(EnterpriseConnector):
                 fields = ["Id", "Name", "CreatedDate", "LastModifiedDate"]
 
             try:
-                soql = self._build_soql_query(object_name, fields, last_sync)
+                soql = self._build_soql_query(object_name, fields, last_sync)  # type: ignore[arg-type]
                 logger.debug(f"[{self.name}] Querying: {soql[:200]}...")
 
                 async for record in self._query(soql):

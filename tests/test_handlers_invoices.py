@@ -565,8 +565,9 @@ class TestGetAnomalies:
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
-        assert len(body["anomalies"]) == 1
-        assert body["count"] == 1
+        data = get_data(body)
+        assert len(data["anomalies"]) == 1
+        assert data["count"] == 1
 
     @pytest.mark.asyncio
     async def test_get_anomalies_invoice_not_found(self, mock_processor):
@@ -594,8 +595,9 @@ class TestGetPendingApprovals:
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
-        assert body["invoices"] == []
-        assert body["count"] == 0
+        data = get_data(body)
+        assert data["invoices"] == []
+        assert data["count"] == 0
 
     @pytest.mark.asyncio
     async def test_get_pending_approvals_with_results(self, mock_processor, mock_invoice):
@@ -609,7 +611,8 @@ class TestGetPendingApprovals:
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
-        assert len(body["invoices"]) == 1
+        data = get_data(body)
+        assert len(data["invoices"]) == 1
 
 
 class TestGetScheduledPayments:
@@ -625,8 +628,9 @@ class TestGetScheduledPayments:
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
-        assert body["payments"] == []
-        assert body["count"] == 0
+        data = get_data(body)
+        assert data["payments"] == []
+        assert data["count"] == 0
 
     @pytest.mark.asyncio
     async def test_get_scheduled_payments_with_dates(self, mock_processor, mock_schedule):
@@ -645,7 +649,8 @@ class TestGetScheduledPayments:
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
-        assert body["count"] == 1
+        data = get_data(body)
+        assert data["count"] == 1
 
 
 class TestCreatePurchaseOrder:
@@ -669,8 +674,9 @@ class TestCreatePurchaseOrder:
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
-        assert "purchaseOrder" in body
-        assert body["message"] == "Purchase order created successfully"
+        data = get_data(body)
+        assert "purchaseOrder" in data
+        assert data["message"] == "Purchase order created successfully"
 
     @pytest.mark.asyncio
     async def test_create_po_missing_number(self):
@@ -728,7 +734,8 @@ class TestGetInvoiceStats:
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
-        assert "stats" in body
+        data = get_data(body)
+        assert "stats" in data
 
 
 class TestGetOverdueInvoices:
@@ -744,8 +751,9 @@ class TestGetOverdueInvoices:
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
-        assert body["invoices"] == []
-        assert body["count"] == 0
+        data = get_data(body)
+        assert data["invoices"] == []
+        assert data["count"] == 0
 
     @pytest.mark.asyncio
     async def test_get_overdue_with_results(self, mock_processor, mock_invoice):
@@ -759,7 +767,8 @@ class TestGetOverdueInvoices:
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
-        assert body["count"] == 1
+        data = get_data(body)
+        assert data["count"] == 1
 
 
 class TestInvoiceHandler:

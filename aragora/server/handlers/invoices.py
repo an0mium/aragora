@@ -748,9 +748,9 @@ class InvoiceHandler(BaseHandler):
     def _extract_invoice_id(self, path: str) -> Optional[str]:
         """Extract invoice_id from path."""
         parts = path.split("/")
-        # /api/v1/accounting/invoices/{invoice_id}/...
-        if len(parts) >= 5:
-            return parts[4]
+        # parts[0]="", [1]="api", [2]="v1", [3]="accounting", [4]="invoices", [5]=invoice_id
+        if len(parts) >= 6:
+            return parts[5]
         return None
 
     async def handle_get(
