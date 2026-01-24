@@ -1305,7 +1305,7 @@ class TestMFARoutes:
         store = mock_user_store_factory(mock_user_without_mfa)
         handler = AuthHandler({"user_store": store})
 
-        assert handler.can_handle("/api/v1/auth/mfa/setup")
+        assert handler.can_handle("/api/auth/mfa/setup")
 
     def test_handler_recognizes_mfa_enable_route(
         self, mock_user_store_factory, mock_user_without_mfa
@@ -1314,7 +1314,7 @@ class TestMFARoutes:
         store = mock_user_store_factory(mock_user_without_mfa)
         handler = AuthHandler({"user_store": store})
 
-        assert handler.can_handle("/api/v1/auth/mfa/enable")
+        assert handler.can_handle("/api/auth/mfa/enable")
 
     def test_handler_recognizes_mfa_disable_route(
         self, mock_user_store_factory, mock_user_without_mfa
@@ -1323,7 +1323,7 @@ class TestMFARoutes:
         store = mock_user_store_factory(mock_user_without_mfa)
         handler = AuthHandler({"user_store": store})
 
-        assert handler.can_handle("/api/v1/auth/mfa/disable")
+        assert handler.can_handle("/api/auth/mfa/disable")
 
     def test_handler_recognizes_mfa_verify_route(
         self, mock_user_store_factory, mock_user_without_mfa
@@ -1332,7 +1332,7 @@ class TestMFARoutes:
         store = mock_user_store_factory(mock_user_without_mfa)
         handler = AuthHandler({"user_store": store})
 
-        assert handler.can_handle("/api/v1/auth/mfa/verify")
+        assert handler.can_handle("/api/auth/mfa/verify")
 
     def test_handler_recognizes_mfa_backup_codes_route(
         self, mock_user_store_factory, mock_user_without_mfa
@@ -1341,7 +1341,7 @@ class TestMFARoutes:
         store = mock_user_store_factory(mock_user_without_mfa)
         handler = AuthHandler({"user_store": store})
 
-        assert handler.can_handle("/api/v1/auth/mfa/backup-codes")
+        assert handler.can_handle("/api/auth/mfa/backup-codes")
 
 
 # ============================================================================
