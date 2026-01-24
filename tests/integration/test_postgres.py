@@ -319,46 +319,5 @@ class TestStoreIntegration:
         # Just verify it initializes
         assert store is not None
 
-    @pytest.mark.skip(
-        reason="Superseded by TestPostgresEloDatabaseIntegration in test_postgres_stores.py"
-    )
-    def test_elo_system_postgres(self, pg_connection_url):
-        """Test EloSystem works with PostgreSQL.
-
-        Note: PostgresEloDatabase is implemented in aragora/ranking/postgres_database.py
-        See tests/integration/test_postgres_stores.py for comprehensive tests.
-        """
-        pass
-
-    @pytest.mark.skip(
-        reason="Superseded by TestPostgresContinuumMemoryIntegration in test_postgres_stores.py"
-    )
-    def test_continuum_memory_postgres(self, pg_connection_url):
-        """Test ContinuumMemory works with PostgreSQL.
-
-        Note: PostgresContinuumMemory is implemented in aragora/memory/postgres_continuum.py
-        See tests/integration/test_postgres_stores.py for comprehensive tests.
-        """
-        pass
-
-
-class TestMigrations:
-    """Tests for database migrations - requires PostgreSQL."""
-
-    @pytest.mark.skip(reason="Superseded by PostgresEloDatabase.initialize() which creates schema")
-    def test_elo_migrations(self, pg_connection_url):
-        """Test ELO system migrations.
-
-        Note: PostgresEloDatabase handles schema creation in initialize().
-        """
-        pass
-
-    @pytest.mark.skip(
-        reason="Superseded by PostgresContinuumMemory.initialize() which creates schema"
-    )
-    def test_continuum_migrations(self, pg_connection_url):
-        """Test Continuum memory migrations.
-
-        Note: PostgresContinuumMemory handles schema creation in initialize().
-        """
-        pass
+    # NOTE: ELO and Continuum tests are in tests/integration/test_postgres_stores.py
+    # See TestPostgresEloDatabaseIntegration and TestPostgresContinuumMemoryIntegration
