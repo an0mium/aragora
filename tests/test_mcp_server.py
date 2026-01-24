@@ -26,23 +26,27 @@ try:
         ResourceTemplate,
         ListToolsRequest,
         CallToolRequest,
+        CallToolRequestParams,
         ListResourcesRequest,
         ListResourceTemplatesRequest,
         ReadResourceRequest,
+        ReadResourceRequestParams,
     )
 
     MCP_AVAILABLE = True
 except ImportError:
     MCP_AVAILABLE = False
-    Tool = None
-    TextContent = None
-    Resource = None
-    ResourceTemplate = None
-    ListToolsRequest = None
-    CallToolRequest = None
-    ListResourcesRequest = None
-    ListResourceTemplatesRequest = None
-    ReadResourceRequest = None
+    Tool = None  # type: ignore[assignment,misc]
+    TextContent = None  # type: ignore[assignment,misc]
+    Resource = None  # type: ignore[assignment,misc]
+    ResourceTemplate = None  # type: ignore[assignment,misc]
+    ListToolsRequest = None  # type: ignore[assignment,misc]
+    CallToolRequest = None  # type: ignore[assignment,misc]
+    CallToolRequestParams = None  # type: ignore[assignment,misc]
+    ListResourcesRequest = None  # type: ignore[assignment,misc]
+    ListResourceTemplatesRequest = None  # type: ignore[assignment,misc]
+    ReadResourceRequest = None  # type: ignore[assignment,misc]
+    ReadResourceRequestParams = None  # type: ignore[assignment,misc]
 
 
 pytestmark = pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP package not installed")
@@ -79,7 +83,7 @@ async def _get_resource_templates(server):
 async def _read_resource(server, uri: str):
     """Helper to read a resource using the correct MCP API."""
     handler = server.server.request_handlers[ReadResourceRequest]
-    result = await handler(ReadResourceRequest(uri=uri))
+    result = await handler(ReadResourceRequest(params=ReadResourceRequestParams(uri=uri)))  # type: ignore[arg-type]
     if hasattr(result, "root"):
         contents = result.root.contents
     else:
@@ -90,7 +94,9 @@ async def _read_resource(server, uri: str):
 async def _call_tool(server, name: str, arguments: dict):
     """Helper to call a tool using the correct MCP API."""
     handler = server.server.request_handlers[CallToolRequest]
-    result = await handler(CallToolRequest(name=name, arguments=arguments))
+    result = await handler(
+        CallToolRequest(params=CallToolRequestParams(name=name, arguments=arguments))
+    )
     if hasattr(result, "root"):
         return result.root.content
     return result.content
@@ -243,7 +249,7 @@ class TestMCPResourceListing:
         resources = await _get_resources(server)
 
         assert len(resources) == 1
-        assert resources[0].uri == "debate://test_123"
+        assert str(resources[0].uri) == "debate://test_123"
         assert "Test debate" in resources[0].name
 
     @pytest.mark.asyncio
@@ -252,8 +258,10 @@ class TestMCPResourceListing:
         """Test resource templates are listed."""
         templates = await _get_resource_templates(server)
 
-        assert len(templates) == 1
-        assert templates[0].uriTemplate == "debate://{debate_id}"
+        # Server exposes multiple resource templates now
+        assert len(templates) >= 1
+        template_uris = [t.uriTemplate for t in templates]
+        assert "debate://{debate_id}" in template_uris
         assert templates[0].mimeType == "application/json"
 
 
@@ -319,7 +327,7 @@ class TestMCPToolExecution:
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_list_agents_tool_execution(self, server):
         """Test list_agents tool returns agents list."""
-        with patch("aragora.agents.registry.list_available_agents") as mock_list:
+        with patch("aragora.agents.base.list_available_agents") as mock_list:
             mock_list.return_value = ["anthropic-api", "openai-api", "gemini"]
 
             result = await server._list_agents()
@@ -331,7 +339,7 @@ class TestMCPToolExecution:
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_list_agents_fallback_on_error(self, server):
         """Test list_agents returns fallback on error."""
-        with patch("aragora.agents.registry.list_available_agents") as mock_list:
+        with patch("aragora.agents.base.list_available_agents") as mock_list:
             mock_list.side_effect = Exception("Registry unavailable")
 
             result = await server._list_agents()
@@ -435,27 +443,29 @@ class TestMCPToolCallHandler:
     @pytest.mark.asyncio
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_call_tool_handles_exceptions(self, server):
-        """Test tool call handler catches exceptions."""
-        # Mock _list_agents to raise an exception
-        original_method = server._list_agents
-        server._list_agents = AsyncMock(side_effect=RuntimeError("Test error"))
-
-        try:
+        """Test tool call handler catches exceptions and uses fallback."""
+        # Mock list_available_agents to raise an exception
+        # This tests that the tool properly catches errors and returns fallback
+        with patch(
+            "aragora.agents.base.list_available_agents",
+            side_effect=RuntimeError("Test error"),
+        ):
             result = await _call_tool(server, "list_agents", {})
 
+            # When list_available_agents fails, list_agents_tool returns fallback
             assert len(result) == 1
             parsed = json.loads(result[0].text)
-            assert "error" in parsed
-            assert "Test error" in parsed["error"]
-        finally:
-            server._list_agents = original_method
+            # Fallback returns a list of agents with a note
+            assert "agents" in parsed
+            assert "note" in parsed  # Fallback includes a note about unavailability
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_call_tool_returns_text_content(self, server):
         """Test tool calls return TextContent objects."""
-        with patch("aragora.agents.registry.list_available_agents") as mock_list:
-            mock_list.return_value = ["test-agent"]
+        with patch("aragora.agents.base.list_available_agents") as mock_list:
+            # Return a dict since list_available_agents returns a dict
+            mock_list.return_value = {"test-agent": {"type": "API"}}
 
             result = await _call_tool(server, "list_agents", {})
 
