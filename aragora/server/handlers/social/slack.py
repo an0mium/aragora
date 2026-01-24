@@ -23,9 +23,37 @@ import os
 import re
 import time
 from typing import Any, Coroutine, Dict, List, Optional
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlparse
 
 logger = logging.getLogger(__name__)
+
+
+# Allowed domains for Slack response URLs (SSRF protection)
+SLACK_ALLOWED_DOMAINS = frozenset({"hooks.slack.com", "api.slack.com"})
+
+
+def _validate_slack_url(url: str) -> bool:
+    """Validate that a URL is a legitimate Slack endpoint.
+
+    This prevents SSRF attacks by ensuring we only POST to Slack's servers.
+
+    Args:
+        url: The URL to validate
+
+    Returns:
+        True if the URL is a valid Slack endpoint, False otherwise
+    """
+    try:
+        parsed = urlparse(url)
+        # Must be HTTPS
+        if parsed.scheme != "https":
+            return False
+        # Must be a Slack domain
+        if parsed.netloc not in SLACK_ALLOWED_DOMAINS:
+            return False
+        return True
+    except Exception:
+        return False
 
 
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
@@ -861,24 +889,10 @@ class SlackHandler(BaseHandler):
 
                 # Persist receipt
                 try:
-                    from aragora.storage.receipt_store import StoredReceipt, get_receipt_store
-                    import hashlib
+                    from aragora.storage.receipt_store import get_receipt_store
 
-                    stored = StoredReceipt(
-                        receipt_id=receipt.receipt_id,
-                        gauntlet_id=None,
-                        debate_id=result.id,
-                        created_at=time.time(),
-                        expires_at=None,  # Receipts don't expire by default
-                        verdict=receipt.verdict,
-                        confidence=receipt.confidence,
-                        risk_level="LOW" if receipt.confidence >= 0.7 else "MEDIUM",
-                        risk_score=1.0 - receipt.confidence,
-                        checksum=hashlib.sha256(str(receipt.to_dict()).encode()).hexdigest(),
-                        data=receipt.to_dict(),
-                    )
                     receipt_store = get_receipt_store()
-                    receipt_store.save(stored)
+                    receipt_store.save(receipt.to_dict())
                 except ImportError:
                     logger.debug("Receipt store not available")
             except ImportError:
@@ -1092,7 +1106,15 @@ class SlackHandler(BaseHandler):
             pass  # Store not available
 
     async def _post_to_response_url(self, url: str, payload: Dict[str, Any]) -> None:
-        """POST a message to Slack's response_url."""
+        """POST a message to Slack's response_url.
+
+        Includes SSRF protection by validating the URL is a Slack endpoint.
+        """
+        # Validate URL to prevent SSRF attacks
+        if not _validate_slack_url(url):
+            logger.warning(f"Invalid Slack response_url blocked (SSRF protection): {url[:50]}")
+            return
+
         import aiohttp
 
         try:

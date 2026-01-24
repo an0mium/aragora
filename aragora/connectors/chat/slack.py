@@ -99,6 +99,35 @@ async def _exponential_backoff(attempt: int, base: float = 1.0, max_delay: float
     await asyncio.sleep(delay)
 
 
+async def _wait_for_rate_limit(
+    response: Any, attempt: int, base: float = 1.0, max_delay: float = 60.0
+) -> None:
+    """Wait according to Slack's rate limit guidance.
+
+    Respects the Retry-After header if present, otherwise falls back to exponential backoff.
+
+    Args:
+        response: The HTTP response from Slack
+        attempt: Current retry attempt number
+        base: Base delay for exponential backoff
+        max_delay: Maximum delay in seconds
+    """
+    retry_after = response.headers.get("Retry-After")
+
+    if retry_after:
+        try:
+            # Slack sends Retry-After in seconds
+            delay = min(int(retry_after), max_delay)
+            logger.info(f"Rate limited by Slack, waiting {delay}s (Retry-After header)")
+            await asyncio.sleep(delay)
+            return
+        except (ValueError, TypeError):
+            pass  # Fall through to exponential backoff
+
+    # Fallback to exponential backoff
+    await _exponential_backoff(attempt, base, max_delay)
+
+
 class SlackConnector(ChatPlatformConnector):
     """
     Slack connector using Slack Web API.
@@ -259,7 +288,11 @@ class SlackConnector(ChatPlatformConnector):
                                     f"Slack {operation} retryable error: {error} "
                                     f"(attempt {attempt + 1}/{self._max_retries})"
                                 )
-                                await _exponential_backoff(attempt)
+                                # Use Retry-After header for rate limits (429), exponential backoff otherwise
+                                if response.status_code == 429:
+                                    await _wait_for_rate_limit(response, attempt)
+                                else:
+                                    await _exponential_backoff(attempt)
                                 continue
 
                         # Non-retryable error

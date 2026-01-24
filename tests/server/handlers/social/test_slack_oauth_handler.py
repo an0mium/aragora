@@ -20,7 +20,7 @@ import pytest
 
 from aragora.server.handlers.social.slack_oauth import (
     SlackOAuthHandler,
-    _oauth_states,
+    _oauth_states_fallback,
     create_slack_oauth_handler,
 )
 
@@ -43,10 +43,10 @@ def oauth_handler(mock_server_context):
 
 
 @pytest.fixture
-def cleanup_oauth_states():
+def cleanup_oauth_states_fallback():
     """Clean up OAuth states after tests."""
     yield
-    _oauth_states.clear()
+    _oauth_states_fallback.clear()
 
 
 def parse_handler_response(result) -> Dict[str, Any]:
@@ -113,7 +113,7 @@ class TestSlackOAuthInstall:
         assert "not configured" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_install_redirect(self, oauth_handler, cleanup_oauth_states):
+    async def test_install_redirect(self, oauth_handler, cleanup_oauth_states_fallback):
         """Test install redirects to Slack OAuth."""
         with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "test-client-id"):
             result = await oauth_handler.handle("GET", "/api/integrations/slack/install")
@@ -124,18 +124,18 @@ class TestSlackOAuthInstall:
         assert "client_id=test-client-id" in result.headers["Location"]
 
     @pytest.mark.asyncio
-    async def test_install_generates_state(self, oauth_handler, cleanup_oauth_states):
+    async def test_install_generates_state(self, oauth_handler, cleanup_oauth_states_fallback):
         """Test install generates state token."""
-        initial_count = len(_oauth_states)
+        initial_count = len(_oauth_states_fallback)
 
         with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "test-client-id"):
             result = await oauth_handler.handle("GET", "/api/integrations/slack/install")
 
-        assert len(_oauth_states) == initial_count + 1
+        assert len(_oauth_states_fallback) == initial_count + 1
         assert "state=" in result.headers["Location"]
 
     @pytest.mark.asyncio
-    async def test_install_with_tenant_id(self, oauth_handler, cleanup_oauth_states):
+    async def test_install_with_tenant_id(self, oauth_handler, cleanup_oauth_states_fallback):
         """Test install stores tenant_id in state."""
         with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "test-client-id"):
             result = await oauth_handler.handle(
@@ -145,7 +145,7 @@ class TestSlackOAuthInstall:
             )
 
         # Find the new state
-        for state, data in _oauth_states.items():
+        for state, data in _oauth_states_fallback.items():
             if data.get("tenant_id") == "tenant-001":
                 assert True
                 return
@@ -153,16 +153,16 @@ class TestSlackOAuthInstall:
         pytest.fail("tenant_id not stored in state")
 
     @pytest.mark.asyncio
-    async def test_install_cleans_old_states(self, oauth_handler, cleanup_oauth_states):
+    async def test_install_cleans_old_states(self, oauth_handler, cleanup_oauth_states_fallback):
         """Test install cleans up expired states."""
         # Add old state
         old_state = "old-state-token"
-        _oauth_states[old_state] = {"created_at": time.time() - 700}  # 11+ minutes old
+        _oauth_states_fallback[old_state] = {"created_at": time.time() - 700}  # 11+ minutes old
 
         with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "test-client-id"):
             await oauth_handler.handle("GET", "/api/integrations/slack/install")
 
-        assert old_state not in _oauth_states
+        assert old_state not in _oauth_states_fallback
 
     @pytest.mark.asyncio
     async def test_install_method_not_allowed(self, oauth_handler):
@@ -220,7 +220,7 @@ class TestSlackOAuthCallback:
         assert "state" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_callback_invalid_state(self, oauth_handler, cleanup_oauth_states):
+    async def test_callback_invalid_state(self, oauth_handler, cleanup_oauth_states_fallback):
         """Test callback rejects invalid state token."""
         result = await oauth_handler.handle(
             "GET",
@@ -235,10 +235,10 @@ class TestSlackOAuthCallback:
         )
 
     @pytest.mark.asyncio
-    async def test_callback_no_client_secret(self, oauth_handler, cleanup_oauth_states):
+    async def test_callback_no_client_secret(self, oauth_handler, cleanup_oauth_states_fallback):
         """Test callback fails without client secret."""
         state = "valid-state"
-        _oauth_states[state] = {"created_at": time.time()}
+        _oauth_states_fallback[state] = {"created_at": time.time()}
 
         with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "id"):
             with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_SECRET", ""):
@@ -251,10 +251,12 @@ class TestSlackOAuthCallback:
         assert result.status_code == 503
 
     @pytest.mark.asyncio
-    async def test_callback_token_exchange_error(self, oauth_handler, cleanup_oauth_states):
+    async def test_callback_token_exchange_error(
+        self, oauth_handler, cleanup_oauth_states_fallback
+    ):
         """Test callback handles token exchange errors."""
         state = "valid-state"
-        _oauth_states[state] = {"created_at": time.time()}
+        _oauth_states_fallback[state] = {"created_at": time.time()}
 
         with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "id"):
             with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_SECRET", "secret"):
@@ -271,10 +273,10 @@ class TestSlackOAuthCallback:
         assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_callback_slack_oauth_error(self, oauth_handler, cleanup_oauth_states):
+    async def test_callback_slack_oauth_error(self, oauth_handler, cleanup_oauth_states_fallback):
         """Test callback handles Slack OAuth error response."""
         state = "valid-state"
-        _oauth_states[state] = {"created_at": time.time()}
+        _oauth_states_fallback[state] = {"created_at": time.time()}
 
         mock_response = MagicMock()
         mock_response.json.return_value = {"ok": False, "error": "invalid_code"}
@@ -297,10 +299,10 @@ class TestSlackOAuthCallback:
         assert "invalid_code" in data.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_callback_success(self, oauth_handler, cleanup_oauth_states):
+    async def test_callback_success(self, oauth_handler, cleanup_oauth_states_fallback):
         """Test successful callback stores workspace."""
         state = "valid-state"
-        _oauth_states[state] = {"created_at": time.time(), "tenant_id": "tenant-001"}
+        _oauth_states_fallback[state] = {"created_at": time.time(), "tenant_id": "tenant-001"}
 
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -480,10 +482,12 @@ class TestSlackOAuthState:
     """Tests for OAuth state token handling."""
 
     @pytest.mark.asyncio
-    async def test_state_consumed_after_callback(self, oauth_handler, cleanup_oauth_states):
+    async def test_state_consumed_after_callback(
+        self, oauth_handler, cleanup_oauth_states_fallback
+    ):
         """Test state token is consumed after successful callback."""
         state = "valid-state"
-        _oauth_states[state] = {"created_at": time.time()}
+        _oauth_states_fallback[state] = {"created_at": time.time()}
 
         # Make callback fail early but still consume state
         with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "id"):
@@ -499,16 +503,16 @@ class TestSlackOAuthState:
                     )
 
         # State should be consumed (removed)
-        assert state not in _oauth_states
+        assert state not in _oauth_states_fallback
 
     @pytest.mark.asyncio
-    async def test_state_includes_timestamp(self, oauth_handler, cleanup_oauth_states):
+    async def test_state_includes_timestamp(self, oauth_handler, cleanup_oauth_states_fallback):
         """Test state includes creation timestamp."""
         with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "id"):
             before = time.time()
             await oauth_handler.handle("GET", "/api/integrations/slack/install")
             after = time.time()
 
-        for state, data in _oauth_states.items():
+        for state, data in _oauth_states_fallback.items():
             assert "created_at" in data
             assert before <= data["created_at"] <= after

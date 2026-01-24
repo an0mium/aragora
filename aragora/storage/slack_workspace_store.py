@@ -36,8 +36,14 @@ SLACK_WORKSPACE_DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(__file__), "..", "..", "data", "slack_workspaces.db"),
 )
 
-# Encryption key for tokens (optional but recommended)
+# Encryption key for tokens (required in production)
 ENCRYPTION_KEY = os.environ.get("ARAGORA_ENCRYPTION_KEY", "")
+
+# Environment mode
+ARAGORA_ENV = os.environ.get("ARAGORA_ENV", "development")
+
+# Track if encryption warning has been shown
+_encryption_warning_shown = False
 
 
 @dataclass
@@ -138,7 +144,26 @@ class SlackWorkspaceStore:
 
         Args:
             db_path: Path to SQLite database file
+
+        Raises:
+            ValueError: If ARAGORA_ENCRYPTION_KEY is not set in production
         """
+        global _encryption_warning_shown
+
+        # Enforce encryption in production
+        if not ENCRYPTION_KEY:
+            if ARAGORA_ENV == "production":
+                raise ValueError(
+                    "ARAGORA_ENCRYPTION_KEY environment variable is required in production. "
+                    "Slack OAuth tokens must be encrypted at rest."
+                )
+            elif not _encryption_warning_shown:
+                logger.warning(
+                    "Slack tokens will be stored UNENCRYPTED. "
+                    "Set ARAGORA_ENCRYPTION_KEY for production use."
+                )
+                _encryption_warning_shown = True
+
         self._db_path = db_path or SLACK_WORKSPACE_DB_PATH
         self._local = threading.local()
         self._init_lock = threading.Lock()
