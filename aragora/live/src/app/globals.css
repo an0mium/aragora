@@ -998,3 +998,160 @@ button,
   user-select: none;
   -webkit-touch-callout: none;
 }
+
+/* ========================================
+   Touch Ripple Effect
+   ======================================== */
+
+@keyframes ripple {
+  from {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0.5;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(4);
+    opacity: 0;
+  }
+}
+
+.animate-ripple {
+  animation: ripple 0.6s linear forwards;
+  width: 100px;
+  height: 100px;
+}
+
+/* Disable ripple animation if user prefers reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-ripple {
+    animation: none;
+    display: none;
+  }
+}
+
+/* ========================================
+   Bottom Navigation Safe Area
+   ======================================== */
+
+.bottom-nav-spacer {
+  height: calc(72px + env(safe-area-inset-bottom, 0px));
+  flex-shrink: 0;
+}
+
+/* ========================================
+   Mobile Menu Styles
+   ======================================== */
+
+/* Backdrop blur for menu overlay */
+.menu-backdrop {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Disable backdrop blur on low-end devices */
+@media (prefers-reduced-motion: reduce) {
+  .menu-backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* ========================================
+   Focus Visible Improvements
+   ======================================== */
+
+/* High contrast mode support */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid CanvasText !important;
+    outline-offset: 3px !important;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible {
+    outline: 3px solid CanvasText !important;
+    outline-offset: 3px !important;
+  }
+}
+
+/* ========================================
+   Accessibility Utilities
+   ======================================== */
+
+/* Focus within - for focus trap containers */
+.focus-trap-container:focus-within {
+  outline: 2px solid var(--acid-green);
+  outline-offset: 4px;
+}
+
+/* Visible on focus only (for skip links) */
+.focus-visible-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.focus-visible-only:focus {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  width: auto;
+  height: auto;
+  padding: 0.75rem 1.5rem;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  z-index: 9999;
+  background: var(--bg);
+  border: 2px solid var(--acid-green);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Inert attribute support for older browsers */
+[inert] {
+  pointer-events: none;
+  user-select: none;
+}
+
+[inert] * {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ========================================
+   Touch Target Size Enforcement
+   ======================================== */
+
+/* Ensure minimum touch targets on mobile */
+@media (hover: none) and (pointer: coarse) {
+  /* Interactive elements */
+  button:not(.touch-target-sm),
+  a:not(.touch-target-sm),
+  [role="button"]:not(.touch-target-sm),
+  [role="tab"]:not(.touch-target-sm),
+  [role="menuitem"]:not(.touch-target-sm),
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Links in navigation */
+  nav a {
+    padding: 0.75rem 1rem;
+  }
+}
+
+/* Allow smaller touch targets when explicitly specified */
+.touch-target-sm {
+  min-height: 32px;
+  min-width: 32px;
+}
