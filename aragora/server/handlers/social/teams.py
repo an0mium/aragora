@@ -544,6 +544,77 @@ class TeamsIntegrationHandler(BaseHandler):
             }
         )
 
+    def _build_voting_card(self, topic: str, verdict: str, debate_id: str) -> List[Dict[str, Any]]:
+        """Build Adaptive Card blocks for voting."""
+        try:
+            from aragora.connectors.chat.teams_adaptive_cards import TeamsAdaptiveCards
+
+            card = TeamsAdaptiveCards.voting_card(
+                topic=topic,
+                verdict=verdict,
+                debate_id=debate_id,
+            )
+            return card.get("body", [])
+        except ImportError:
+            # Fallback to basic voting
+            return [
+                {
+                    "type": "TextBlock",
+                    "text": "Vote on this decision",
+                    "weight": "Bolder",
+                },
+                {
+                    "type": "TextBlock",
+                    "text": verdict,
+                    "wrap": True,
+                },
+                {
+                    "type": "ActionSet",
+                    "actions": [
+                        {
+                            "type": "Action.Submit",
+                            "title": "Agree",
+                            "style": "positive",
+                            "data": {"action": "vote", "vote": "agree", "debate_id": debate_id},
+                        },
+                        {
+                            "type": "Action.Submit",
+                            "title": "Disagree",
+                            "style": "destructive",
+                            "data": {"action": "vote", "vote": "disagree", "debate_id": debate_id},
+                        },
+                    ],
+                },
+            ]
+
+    def _build_error_card(
+        self, title: str, message: str, suggestions: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """Build Adaptive Card blocks for errors."""
+        try:
+            from aragora.connectors.chat.teams_adaptive_cards import TeamsAdaptiveCards
+
+            card = TeamsAdaptiveCards.error_card(
+                title=title,
+                message=message,
+                suggestions=suggestions,
+            )
+            return card.get("body", [])
+        except ImportError:
+            return [
+                {
+                    "type": "TextBlock",
+                    "text": title,
+                    "weight": "Bolder",
+                    "color": "Attention",
+                },
+                {
+                    "type": "TextBlock",
+                    "text": message,
+                    "wrap": True,
+                },
+            ]
+
     def _send_help_response(
         self,
         conversation: Dict[str, Any],
@@ -552,27 +623,41 @@ class TeamsIntegrationHandler(BaseHandler):
         """Send help message with available commands."""
         help_blocks = [
             {
-                "type": "TextBlock",
-                "text": "Aragora Commands",
-                "size": "Large",
-                "weight": "Bolder",
+                "type": "Container",
+                "style": "emphasis",
+                "items": [
+                    {
+                        "type": "TextBlock",
+                        "text": "Aragora Commands",
+                        "size": "Large",
+                        "weight": "Bolder",
+                    }
+                ],
             },
             {
                 "type": "TextBlock",
-                "text": "Available commands:",
+                "text": "Use these commands to interact with Aragora:",
                 "wrap": True,
+                "isSubtle": True,
             },
             {
                 "type": "FactSet",
                 "facts": [
                     {
                         "title": "@aragora debate <topic>",
-                        "value": "Start a new debate on the topic",
+                        "value": "Start a new multi-agent debate on the topic",
                     },
                     {"title": "@aragora status", "value": "Check status of active debate"},
                     {"title": "@aragora cancel", "value": "Cancel the active debate"},
                     {"title": "@aragora help", "value": "Show this help message"},
                 ],
+            },
+            {
+                "type": "TextBlock",
+                "text": "Example: @aragora debate Should we adopt a microservices architecture?",
+                "wrap": True,
+                "isSubtle": True,
+                "spacing": "Medium",
             },
         ]
 
@@ -635,95 +720,170 @@ class TeamsIntegrationHandler(BaseHandler):
             service_url,
         )
 
-    def _build_starting_blocks(self, topic: str, user_name: str) -> List[Dict[str, Any]]:
+    def _build_starting_blocks(
+        self,
+        topic: str,
+        user_name: str,
+        agents: Optional[List[str]] = None,
+        debate_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
         """Build Adaptive Card blocks for debate start."""
-        return [
-            {
-                "type": "TextBlock",
-                "text": "Debate Starting",
-                "size": "Large",
-                "weight": "Bolder",
-                "color": "Accent",
-            },
-            {
-                "type": "TextBlock",
-                "text": f"**Topic:** {topic}",
-                "wrap": True,
-            },
-            {
-                "type": "TextBlock",
-                "text": f"**Initiated by:** {user_name}",
-                "isSubtle": True,
-            },
-            {
-                "type": "TextBlock",
-                "text": "AI agents are now deliberating...",
-                "isSubtle": True,
-            },
-            {
-                "type": "ActionSet",
-                "actions": [
-                    {
-                        "type": "Action.Submit",
-                        "title": "Cancel Debate",
-                        "style": "destructive",
-                        "data": {"action": "cancel_debate"},
-                    }
-                ],
-            },
-        ]
+        try:
+            from aragora.connectors.chat.teams_adaptive_cards import TeamsAdaptiveCards
 
-    def _build_result_blocks(self, topic: str, result: Any) -> List[Dict[str, Any]]:
-        """Build Adaptive Card blocks for debate result."""
-        consensus = getattr(result, "consensus", None) or "No consensus reached"
-        confidence = getattr(result, "confidence", 0.0)
-        rounds = getattr(result, "rounds_completed", 0)
-
-        blocks: List[Dict[str, Any]] = [
-            {
-                "type": "TextBlock",
-                "text": "Debate Complete",
-                "size": "Large",
-                "weight": "Bolder",
-                "color": "Good",
-            },
-            {
-                "type": "TextBlock",
-                "text": f"**Topic:** {topic}",
-                "wrap": True,
-            },
-            {
-                "type": "TextBlock",
-                "text": f"**Decision:** {consensus}",
-                "wrap": True,
-                "weight": "Bolder",
-            },
-            {
-                "type": "FactSet",
-                "facts": [
-                    {"title": "Confidence", "value": f"{confidence:.0%}"},
-                    {"title": "Rounds", "value": str(rounds)},
-                ],
-            },
-        ]
-
-        # Add receipt link if available
-        receipt_id = getattr(result, "receipt_id", None)
-        if receipt_id:
-            blocks.append(
+            card = TeamsAdaptiveCards.starting_card(
+                topic=topic,
+                initiated_by=user_name,
+                agents=agents or ["AI Agent 1", "AI Agent 2", "AI Agent 3"],
+                debate_id=debate_id,
+            )
+            return card.get("body", [])
+        except ImportError:
+            # Fallback to basic blocks
+            return [
+                {
+                    "type": "TextBlock",
+                    "text": "Debate Starting",
+                    "size": "Large",
+                    "weight": "Bolder",
+                    "color": "Accent",
+                },
+                {
+                    "type": "TextBlock",
+                    "text": f"**Topic:** {topic}",
+                    "wrap": True,
+                },
+                {
+                    "type": "TextBlock",
+                    "text": f"**Initiated by:** {user_name}",
+                    "isSubtle": True,
+                },
+                {
+                    "type": "TextBlock",
+                    "text": "AI agents are now deliberating...",
+                    "isSubtle": True,
+                },
                 {
                     "type": "ActionSet",
                     "actions": [
                         {
-                            "type": "Action.OpenUrl",
-                            "title": "View Receipt",
-                            "url": f"/api/v1/gauntlet/receipts/{receipt_id}",
+                            "type": "Action.Submit",
+                            "title": "Cancel Debate",
+                            "style": "destructive",
+                            "data": {"action": "cancel_debate"},
                         }
                     ],
-                }
+                },
+            ]
+
+    def _build_result_blocks(
+        self, topic: str, result: Any, debate_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Build Adaptive Card blocks for debate result."""
+        consensus = (
+            getattr(result, "consensus", None)
+            or getattr(result, "final_answer", None)
+            or "No consensus reached"
+        )
+        confidence = getattr(result, "confidence", 0.0)
+        rounds = getattr(result, "rounds_completed", 0)
+        receipt_id = getattr(result, "receipt_id", None)
+
+        try:
+            from aragora.connectors.chat.teams_adaptive_cards import (
+                TeamsAdaptiveCards,
+                AgentContribution,
             )
 
-        return blocks
+            # Extract agent contributions from result
+            agents = []
+            agent_votes = getattr(result, "agent_votes", {}) or {}
+            agent_summaries = getattr(result, "agent_summaries", {}) or {}
+
+            for agent_name, vote in agent_votes.items():
+                position = "for" if vote in ("for", "agree", "yes", True) else "against"
+                key_point = agent_summaries.get(agent_name, "")[:100] or f"Voted {position}"
+                agents.append(
+                    AgentContribution(
+                        name=agent_name,
+                        position=position,
+                        key_point=key_point,
+                    )
+                )
+
+            # If no agent votes, try to get from rounds
+            if not agents:
+                rounds_data = getattr(result, "rounds", []) or []
+                for rd in rounds_data[-1:]:  # Last round
+                    for msg in rd if isinstance(rd, list) else [rd]:
+                        agent_name = (
+                            getattr(msg, "agent", None) or msg.get("agent", "Agent")
+                            if isinstance(msg, dict)
+                            else "Agent"
+                        )
+                        agents.append(
+                            AgentContribution(
+                                name=str(agent_name),
+                                position="for",
+                                key_point="Participated in debate",
+                            )
+                        )
+
+            card = TeamsAdaptiveCards.verdict_card(
+                topic=topic,
+                verdict=str(consensus),
+                confidence=confidence,
+                agents=agents,
+                rounds_completed=rounds,
+                receipt_id=receipt_id,
+                debate_id=debate_id,
+            )
+            return card.get("body", [])
+        except ImportError:
+            # Fallback to basic blocks
+            blocks: List[Dict[str, Any]] = [
+                {
+                    "type": "TextBlock",
+                    "text": "Debate Complete",
+                    "size": "Large",
+                    "weight": "Bolder",
+                    "color": "Good",
+                },
+                {
+                    "type": "TextBlock",
+                    "text": f"**Topic:** {topic}",
+                    "wrap": True,
+                },
+                {
+                    "type": "TextBlock",
+                    "text": f"**Decision:** {consensus}",
+                    "wrap": True,
+                    "weight": "Bolder",
+                },
+                {
+                    "type": "FactSet",
+                    "facts": [
+                        {"title": "Confidence", "value": f"{confidence:.0%}"},
+                        {"title": "Rounds", "value": str(rounds)},
+                    ],
+                },
+            ]
+
+            if receipt_id:
+                blocks.append(
+                    {
+                        "type": "ActionSet",
+                        "actions": [
+                            {
+                                "type": "Action.OpenUrl",
+                                "title": "View Receipt",
+                                "url": f"/api/v1/receipts/{receipt_id}",
+                            }
+                        ],
+                    }
+                )
+
+            return blocks
 
     def _read_json_body(self, handler: Any) -> Optional[Dict[str, Any]]:
         """Read and parse JSON body from request."""
