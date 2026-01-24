@@ -164,6 +164,24 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
     def name(self) -> str:
         return f"GitHub ({self.repo})"
 
+    @property
+    def is_available(self) -> bool:
+        """Check if gh CLI is installed."""
+        return self._check_gh_cli()
+
+    @property
+    def is_configured(self) -> bool:
+        """Check if authenticated (token or gh CLI auth)."""
+        return bool(self.token) or self._check_gh_cli()
+
+    async def _perform_health_check(self, timeout: float) -> bool:
+        """Verify GitHub API connectivity."""
+        try:
+            result = await self._run_gh(["api", f"repos/{self.repo}"])
+            return result is not None
+        except Exception:
+            return False
+
     def _check_gh_cli(self) -> bool:
         """Check if gh CLI is available."""
         if self._gh_available is not None:

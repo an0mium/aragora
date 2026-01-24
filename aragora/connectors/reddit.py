@@ -100,6 +100,25 @@ class RedditConnector(BaseConnector):
         """Check if httpx is available for making requests."""
         return HTTPX_AVAILABLE
 
+    @property
+    def is_configured(self) -> bool:
+        """Reddit JSON API requires no configuration."""
+        return True
+
+    async def _perform_health_check(self, timeout: float) -> bool:
+        """Verify Reddit API is reachable."""
+        if not HTTPX_AVAILABLE:
+            return False
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get(
+                    "https://www.reddit.com/r/all/top.json?limit=1",
+                    headers=self._get_headers(),
+                )
+                return response.status_code == 200
+        except Exception:
+            return False
+
     async def _rate_limit(self) -> None:
         """Enforce rate limiting between requests."""
         import time

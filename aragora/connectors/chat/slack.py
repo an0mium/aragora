@@ -167,6 +167,33 @@ class SlackConnector(ChatPlatformConnector):
     def platform_display_name(self) -> str:
         return "Slack"
 
+    @property
+    def is_available(self) -> bool:
+        """Check if httpx is installed."""
+        return HTTPX_AVAILABLE
+
+    @property
+    def is_configured(self) -> bool:
+        """Check if bot token is configured."""
+        return bool(self.bot_token)
+
+    async def _perform_health_check(self, timeout: float) -> bool:
+        """Verify Slack API connectivity with auth.test."""
+        if not HTTPX_AVAILABLE or not self.bot_token:
+            return False
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(
+                    f"{SLACK_API_BASE}/auth.test",
+                    headers=self._get_headers(),
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("ok", False)
+                return False
+        except Exception:
+            return False
+
     def _get_headers(self) -> dict[str, str]:
         """Get authorization headers with trace context for distributed tracing."""
         headers = {

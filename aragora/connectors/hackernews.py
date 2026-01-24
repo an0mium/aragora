@@ -99,6 +99,24 @@ class HackerNewsConnector(BaseConnector):
         """Check if httpx is available for making requests."""
         return HTTPX_AVAILABLE
 
+    @property
+    def is_configured(self) -> bool:
+        """HN API requires no configuration."""
+        return True
+
+    async def _perform_health_check(self, timeout: float) -> bool:
+        """Verify HackerNews API is reachable."""
+        if not HTTPX_AVAILABLE:
+            return False
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get(
+                    "https://hacker-news.firebaseio.com/v0/topstories.json?limitToFirst=1",
+                )
+                return response.status_code == 200
+        except Exception:
+            return False
+
     async def _rate_limit(self) -> None:
         """Enforce rate limiting between requests."""
         import time
