@@ -271,11 +271,39 @@ class ContradictionDetector:
         item_a: Any,
         item_b: Any,
     ) -> float:
-        """Compute semantic similarity between two items."""
-        # Use embeddings if available
+        """Compute semantic similarity between two items.
+
+        Uses the following hierarchy:
+        1. Item embeddings if available on the items themselves
+        2. Semantic store embeddings if available
+        3. Topic overlap as fallback
+        """
+        # Use embeddings if available directly on items
         if hasattr(item_a, "embedding") and hasattr(item_b, "embedding"):
             if item_a.embedding is not None and item_b.embedding is not None:
                 return self._cosine_similarity(item_a.embedding, item_b.embedding)
+
+        # Try semantic store embeddings
+        if hasattr(mound, "_semantic_store") and mound._semantic_store is not None:
+            try:
+                # Get embeddings from semantic store
+                entry_a = await mound._semantic_store.get_entry(item_a.id)
+                entry_b = await mound._semantic_store.get_entry(item_b.id)
+
+                if entry_a and entry_b and entry_a.embedding and entry_b.embedding:
+                    return self._cosine_similarity(entry_a.embedding, entry_b.embedding)
+
+                # If not indexed, try to compute embeddings on-the-fly
+                content_a = getattr(item_a, "content", "") or ""
+                content_b = getattr(item_b, "content", "") or ""
+
+                if content_a and content_b:
+                    provider = mound._semantic_store.embedding_provider
+                    emb_a = await provider.embed(content_a)
+                    emb_b = await provider.embed(content_b)
+                    return self._cosine_similarity(emb_a, emb_b)
+            except Exception as e:
+                logger.debug(f"Semantic similarity failed, using topic fallback: {e}")
 
         # Fallback to topic overlap
         topics_a = set(getattr(item_a, "topics", []) or [])
@@ -507,6 +535,32 @@ class ContradictionOperationsMixin:
         """Get contradiction detection statistics."""
         detector = self._get_contradiction_detector()
         return detector.get_stats()
+
+    async def get_contradictions(
+        self,
+        item_id: str,
+        workspace_id: Optional[str] = None,
+    ) -> List[Contradiction]:
+        """
+        Get contradictions involving a specific item.
+
+        This is a convenience method for quickly finding all contradictions
+        that involve a particular knowledge item.
+
+        Args:
+            item_id: The item ID to find contradictions for
+            workspace_id: Optional workspace filter
+
+        Returns:
+            List of contradictions involving the item
+        """
+        detector = self._get_contradiction_detector()
+        async with detector._lock:
+            results = []
+            for c in detector._contradictions.values():
+                if c.item_a_id == item_id or c.item_b_id == item_id:
+                    results.append(c)
+            return results
 
 
 # Singleton instance

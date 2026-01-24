@@ -565,3 +565,41 @@ class CRUDOperationsMixin:
 
         # Return empty list if sharing not configured
         return []
+
+    async def update_confidence(
+        self: CRUDProtocol,
+        node_id: str,
+        new_confidence: float,
+    ) -> bool:
+        """
+        Update the confidence level of a knowledge node.
+
+        This method is used by the confidence decay system to adjust
+        confidence levels over time based on age, usage, and validation events.
+
+        Args:
+            node_id: The node ID to update
+            new_confidence: New confidence level (0.0 to 1.0)
+
+        Returns:
+            True if update was successful, False if node not found
+        """
+        self._ensure_initialized()
+
+        # Validate inputs
+        validate_id(node_id, field_name="node_id")
+        new_confidence = max(0.0, min(1.0, new_confidence))
+
+        # Update the node
+        try:
+            await self._update_node(node_id, {"confidence": new_confidence})
+
+            # Invalidate cache
+            if self._cache:
+                await self._cache.invalidate_node(node_id)
+
+            logger.debug(f"Updated confidence for {node_id} to {new_confidence:.3f}")
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to update confidence for {node_id}: {e}")
+            return False
