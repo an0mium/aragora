@@ -154,6 +154,20 @@ from .delegation import (
     revoke_delegation,
 )
 
+# Profile system (lite/standard/enterprise)
+from .profiles import (
+    RBACProfile,
+    ProfileConfig,
+    PROFILE_CONFIGS,
+    get_profile_config,
+    get_profile_roles,
+    get_default_role,
+    get_available_roles_for_assignment,
+    can_upgrade_profile,
+    get_migration_plan,
+    get_lite_role_summary,
+)
+
 
 __all__ = [
     # Legacy Types (backward compatible)
@@ -251,4 +265,15 @@ __all__ = [
     "delegate_permission",
     "check_delegated_permission",
     "revoke_delegation",
+    # Profile System (Lite/Standard/Enterprise)
+    "RBACProfile",
+    "ProfileConfig",
+    "PROFILE_CONFIGS",
+    "get_profile_config",
+    "get_profile_roles",
+    "get_default_role",
+    "get_available_roles_for_assignment",
+    "can_upgrade_profile",
+    "get_migration_plan",
+    "get_lite_role_summary",
 ]
