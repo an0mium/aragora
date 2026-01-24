@@ -216,13 +216,14 @@ class TestValidateRedirectUrl:
 
         assert _validate_redirect_url("data:text/html,<script>alert(1)</script>") is False
 
-    def test_allows_localhost_in_dev(self):
+    def test_allows_localhost_in_dev(self, monkeypatch):
         """Should allow localhost when in allowed hosts."""
         from aragora.server.handlers import oauth
         from aragora.server.handlers.oauth import _validate_redirect_url
 
-        with patch.object(oauth, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset(["localhost"])):
-            assert _validate_redirect_url("http://localhost:3000/callback") is True
+        # Patch the function that's called at validation time, not the module constant
+        monkeypatch.setattr(oauth, "_get_allowed_redirect_hosts", lambda: frozenset(["localhost"]))
+        assert _validate_redirect_url("http://localhost:3000/callback") is True
 
     def test_rejects_unknown_host(self):
         """Should reject hosts not in allowlist."""
@@ -299,15 +300,16 @@ class TestOAuthUserInfo:
 class TestHandleGoogleAuthStart:
     """Tests for _handle_google_auth_start()."""
 
-    def test_returns_503_when_not_configured(self):
+    def test_returns_503_when_not_configured(self, monkeypatch):
         """Should return 503 when Google OAuth not configured."""
         from aragora.server.handlers import oauth
 
         handler = create_oauth_handler()
         mock_http = MockHandler()
 
-        with patch.object(oauth, "GOOGLE_CLIENT_ID", ""):
-            result = handler._handle_google_auth_start(mock_http, {})
+        # Patch the function that's called at runtime, not the module constant
+        monkeypatch.setattr(oauth, "_get_google_client_id", lambda: "")
+        result = handler._handle_google_auth_start(mock_http, {})
 
         assert get_status(result) == 503
         assert "not configured" in get_body(result)["error"]

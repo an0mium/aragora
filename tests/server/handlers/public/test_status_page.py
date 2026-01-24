@@ -104,12 +104,21 @@ class TestStatusPageHandler:
         result = handler.handle("/status", {}, Mock())
 
         assert result is not None
-        assert isinstance(result, dict)
-        assert "body" in result
-        assert "headers" in result
-        assert result["headers"]["Content-Type"] == "text/html; charset=utf-8"
+        # HandlerResult has attributes: status_code, content_type, body, headers
+        assert hasattr(result, "body") or isinstance(result, dict)
 
-        html = result["body"]
+        if hasattr(result, "content_type"):
+            # HandlerResult object
+            assert result.content_type == "text/html; charset=utf-8"
+            html = result.body
+            if isinstance(html, bytes):
+                html = html.decode("utf-8")
+        else:
+            # Dict response
+            assert "body" in result
+            assert result["headers"]["Content-Type"] == "text/html; charset=utf-8"
+            html = result["body"]
+
         assert "<!DOCTYPE html>" in html
         assert "Aragora Status" in html
         assert "All Systems" in html or "System" in html
