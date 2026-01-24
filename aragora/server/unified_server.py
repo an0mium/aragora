@@ -1160,6 +1160,13 @@ async def run_unified_server(
             ssl_key="/path/to/key.pem",
         )
     """
+    # Check for minimal mode (SQLite + in-memory, no Redis/Postgres)
+    from aragora.config.minimal import is_minimal_mode, apply_minimal_mode
+
+    if is_minimal_mode():
+        applied = apply_minimal_mode()
+        logger.info(f"[server] Running in minimal mode (SQLite + in-memory): {applied}")
+
     # Check environment variables for SSL config
     from aragora.config import SSL_CERT_PATH, SSL_ENABLED, SSL_KEY_PATH
 
