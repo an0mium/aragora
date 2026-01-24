@@ -265,59 +265,114 @@ class TestMLHandlerPostConsensus:
         assert "error" in body
 
 
-@pytest.mark.skip(reason="Embed endpoint returns error in CI environment")
 class TestMLHandlerPostEmbed:
     """Test MLHandler embed endpoint."""
 
     def test_post_embed_valid(self, ml_handler, mock_http_handler):
         """Test posting valid embed request."""
-        data = {"text": "Some text to embed"}
-        result = ml_handler.handle_post("/api/v1/ml/embed", data, mock_http_handler)
+        # Mock the embeddings component
+        mock_embeddings = MagicMock()
+        mock_embeddings.embed.return_value = [0.1, 0.2, 0.3, 0.4]
 
-        assert result is not None
-        body = json.loads(result.body)
-        assert "embeddings" in body
-        assert "dimension" in body
-        assert isinstance(body["embeddings"], list)
+        with patch(
+            "aragora.server.handlers.ml._get_ml_component",
+            return_value=mock_embeddings,
+        ):
+            data = {"text": "Some text to embed"}
+            result = ml_handler.handle_post("/api/v1/ml/embed", data, mock_http_handler)
+
+            assert result is not None
+            body = json.loads(result.body)
+            assert "embeddings" in body
+            assert "dimension" in body
+            assert isinstance(body["embeddings"], list)
 
     def test_post_embed_batch(self, ml_handler, mock_http_handler):
         """Test posting batch embed request."""
-        data = {
-            "texts": ["First text", "Second text", "Third text"],
-        }
-        result = ml_handler.handle_post("/api/v1/ml/embed", data, mock_http_handler)
+        # Mock the embeddings component
+        mock_embeddings = MagicMock()
+        mock_embeddings.embed_batch.return_value = [
+            [0.1, 0.2, 0.3],
+            [0.4, 0.5, 0.6],
+            [0.7, 0.8, 0.9],
+        ]
 
-        assert result is not None
-        body = json.loads(result.body)
-        assert "embeddings" in body
-        assert len(body["embeddings"]) == 3
+        with patch(
+            "aragora.server.handlers.ml._get_ml_component",
+            return_value=mock_embeddings,
+        ):
+            data = {
+                "texts": ["First text", "Second text", "Third text"],
+            }
+            result = ml_handler.handle_post("/api/v1/ml/embed", data, mock_http_handler)
+
+            assert result is not None
+            body = json.loads(result.body)
+            assert "embeddings" in body
+            assert len(body["embeddings"]) == 3
+
+    def test_post_embed_no_ml_component(self, ml_handler, mock_http_handler):
+        """Test embed returns 503 when ML component unavailable."""
+        with patch(
+            "aragora.server.handlers.ml._get_ml_component",
+            return_value=None,
+        ):
+            data = {"text": "Some text"}
+            result = ml_handler.handle_post("/api/v1/ml/embed", data, mock_http_handler)
+
+            assert result is not None
+            assert result.status_code == 503
 
 
-@pytest.mark.skip(reason="Search endpoint returns error in CI environment")
 class TestMLHandlerPostSearch:
     """Test MLHandler search endpoint."""
 
     def test_post_search_valid(self, ml_handler, mock_http_handler):
         """Test posting valid search request."""
-        data = {
-            "query": "rate limiting algorithms",
-            "documents": [
-                "Token bucket algorithm for rate limiting",
-                "Database indexing strategies",
-                "Leaky bucket implementation",
-            ],
-            "top_k": 2,
-        }
-        result = ml_handler.handle_post("/api/v1/ml/search", data, mock_http_handler)
+        # Mock the embeddings component with search result
+        mock_result = MagicMock()
+        mock_result.text = "Token bucket algorithm for rate limiting"
+        mock_result.score = 0.95
+        mock_result.index = 0
 
-        assert result is not None
-        body = json.loads(result.body)
-        assert "results" in body
-        assert len(body["results"]) <= 2
-        # Results should include text and score
-        if body["results"]:
-            assert "text" in body["results"][0]
-            assert "score" in body["results"][0]
+        mock_embeddings = MagicMock()
+        mock_embeddings.search.return_value = [mock_result]
+
+        with patch(
+            "aragora.server.handlers.ml._get_ml_component",
+            return_value=mock_embeddings,
+        ):
+            data = {
+                "query": "rate limiting algorithms",
+                "documents": [
+                    "Token bucket algorithm for rate limiting",
+                    "Database indexing strategies",
+                    "Leaky bucket implementation",
+                ],
+                "top_k": 2,
+            }
+            result = ml_handler.handle_post("/api/v1/ml/search", data, mock_http_handler)
+
+            assert result is not None
+            body = json.loads(result.body)
+            assert "results" in body
+            assert len(body["results"]) <= 2
+            # Results should include text and score
+            if body["results"]:
+                assert "text" in body["results"][0]
+                assert "score" in body["results"][0]
+
+    def test_post_search_no_ml_component(self, ml_handler, mock_http_handler):
+        """Test search returns 503 when ML component unavailable."""
+        with patch(
+            "aragora.server.handlers.ml._get_ml_component",
+            return_value=None,
+        ):
+            data = {"query": "test", "documents": ["doc1"]}
+            result = ml_handler.handle_post("/api/v1/ml/search", data, mock_http_handler)
+
+            assert result is not None
+            assert result.status_code == 503
 
 
 class TestMLHandlerPostExportTraining:
