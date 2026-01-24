@@ -11,6 +11,7 @@ __all__ = [
     "BaseConnector",
     "Connector",
     "Evidence",
+    "ConnectorHealth",
     # Re-export exceptions for backward compatibility
     "ConnectorError",
     "ConnectorAuthError",
@@ -134,6 +135,36 @@ class Evidence:
         )
 
 
+@dataclass
+class ConnectorHealth:
+    """
+    Health status of a connector.
+
+    Used for monitoring connector availability and configuration state.
+    """
+
+    name: str
+    is_available: bool  # Whether required dependencies are installed
+    is_configured: bool  # Whether required credentials are configured
+    is_healthy: bool  # Whether the connector is operational
+    latency_ms: Optional[float] = None  # Response latency if checked
+    error: Optional[str] = None  # Error message if unhealthy
+    last_check: Optional[datetime] = None
+    metadata: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "is_available": self.is_available,
+            "is_configured": self.is_configured,
+            "is_healthy": self.is_healthy,
+            "latency_ms": self.latency_ms,
+            "error": self.error,
+            "last_check": self.last_check.isoformat() if self.last_check else None,
+            "metadata": self.metadata,
+        }
+
+
 class BaseConnector(ABC):
     """
     Abstract base class for evidence connectors.
@@ -147,6 +178,103 @@ class BaseConnector(ABC):
     DEFAULT_BASE_DELAY = 1.0  # seconds
     DEFAULT_MAX_DELAY = 30.0  # seconds
     DEFAULT_JITTER_FACTOR = 0.3  # ±30%
+
+    # Connector identification
+    name: str = "base"  # Override in subclasses
+    source_type: SourceType = SourceType.WEB_SEARCH  # Default source type
+
+    @property
+    def is_available(self) -> bool:
+        """
+        Check if required dependencies are installed.
+
+        Subclasses should override to check for optional dependencies.
+        """
+        return True
+
+    @property
+    def is_configured(self) -> bool:
+        """
+        Check if required credentials/configuration are set.
+
+        Subclasses should override to check for API keys, tokens, etc.
+        """
+        return True
+
+    async def health_check(self, timeout: float = 5.0) -> ConnectorHealth:
+        """
+        Perform a health check on the connector.
+
+        This makes a lightweight API call (if applicable) to verify
+        the connector is operational.
+
+        Args:
+            timeout: Maximum time to wait for health check
+
+        Returns:
+            ConnectorHealth with status details
+        """
+        start_time = time.time()
+        error_msg = None
+
+        try:
+            if not self.is_available:
+                return ConnectorHealth(
+                    name=self.name,
+                    is_available=False,
+                    is_configured=False,
+                    is_healthy=False,
+                    error="Required dependencies not installed",
+                    last_check=datetime.now(),
+                )
+
+            if not self.is_configured:
+                return ConnectorHealth(
+                    name=self.name,
+                    is_available=True,
+                    is_configured=False,
+                    is_healthy=False,
+                    error="Connector not configured (missing credentials)",
+                    last_check=datetime.now(),
+                )
+
+            # Try a lightweight operation to verify connectivity
+            is_healthy = await self._perform_health_check(timeout)
+            latency_ms = (time.time() - start_time) * 1000
+
+            return ConnectorHealth(
+                name=self.name,
+                is_available=True,
+                is_configured=True,
+                is_healthy=is_healthy,
+                latency_ms=latency_ms,
+                last_check=datetime.now(),
+            )
+
+        except asyncio.TimeoutError:
+            error_msg = f"Health check timed out after {timeout}s"
+        except Exception as e:
+            error_msg = str(e)
+
+        latency_ms = (time.time() - start_time) * 1000
+        return ConnectorHealth(
+            name=self.name,
+            is_available=self.is_available,
+            is_configured=self.is_configured,
+            is_healthy=False,
+            latency_ms=latency_ms,
+            error=error_msg,
+            last_check=datetime.now(),
+        )
+
+    async def _perform_health_check(self, timeout: float) -> bool:
+        """
+        Perform the actual health check operation.
+
+        Subclasses can override to make a lightweight API call.
+        Default implementation just returns True if configured.
+        """
+        return True
 
     def __init__(
         self,
@@ -174,6 +302,7 @@ class BaseConnector(ABC):
         # Lazy import metrics
         try:
             from aragora.connectors.metrics import record_cache_hit, record_cache_miss
+
             metrics_available = True
         except ImportError:
             metrics_available = False
@@ -323,6 +452,7 @@ class BaseConnector(ABC):
                 record_sync_error,
                 record_rate_limit,
             )
+
             metrics_available = True
         except ImportError:
             metrics_available = False

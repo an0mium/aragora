@@ -112,6 +112,28 @@ class TwitterConnector(BaseConnector):
         """Check if Twitter API credentials are configured."""
         return bool(self.bearer_token)
 
+    async def _perform_health_check(self, timeout: float) -> bool:
+        """
+        Verify Twitter API connectivity with a lightweight request.
+
+        Uses a simple search query to verify the API is responding.
+        """
+        if not HTTPX_AVAILABLE:
+            return False
+
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                # Use a simple search with minimal results
+                response = await client.get(
+                    TWITTER_SEARCH_URL,
+                    headers=self._get_headers(),
+                    params={"query": "hello", "max_results": 10},
+                )
+                # 200 = success, 429 = rate limited (still connected)
+                return response.status_code in (200, 429)
+        except Exception:
+            return False
+
     async def _rate_limit(self) -> None:
         """Enforce rate limiting between requests."""
         import time
