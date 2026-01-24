@@ -238,6 +238,12 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HealthCheck"
+                },
+                "example": {
+                  "status": "healthy",
+                  "version": "2.2.0",
+                  "uptime_seconds": 86400,
+                  "timestamp": "2024-01-15T10:00:00Z"
                 }
               }
             }
@@ -259,7 +265,31 @@
         "description": "Get detailed health status with component checks, observer metrics, memory stats",
         "responses": {
           "200": {
-            "description": "Detailed health information"
+            "description": "Detailed health information",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "healthy",
+                  "version": "2.2.0",
+                  "components": {
+                    "database": {
+                      "status": "healthy",
+                      "latency_ms": 5
+                    },
+                    "redis": {
+                      "status": "healthy",
+                      "latency_ms": 2
+                    },
+                    "agents": {
+                      "status": "healthy",
+                      "available": 15
+                    }
+                  },
+                  "uptime_seconds": 86400,
+                  "timestamp": "2024-01-15T10:00:00Z"
+                }
+              }
+            }
           }
         },
         "operationId": "listHealthDetailed",
@@ -625,6 +655,35 @@
                       "type": "integer"
                     }
                   }
+                },
+                "example": {
+                  "agents": [
+                    {
+                      "id": "claude-3-opus",
+                      "name": "Claude 3 Opus",
+                      "provider": "anthropic",
+                      "capabilities": [
+                        "reasoning",
+                        "coding",
+                        "analysis"
+                      ],
+                      "status": "available",
+                      "elo_rating": 1850
+                    },
+                    {
+                      "id": "gpt-4",
+                      "name": "GPT-4",
+                      "provider": "openai",
+                      "capabilities": [
+                        "reasoning",
+                        "coding",
+                        "creative"
+                      ],
+                      "status": "available",
+                      "elo_rating": 1820
+                    }
+                  ],
+                  "total": 2
                 }
               }
             }
@@ -698,7 +757,37 @@
         ],
         "responses": {
           "200": {
-            "description": "Agent rankings"
+            "description": "Agent rankings",
+            "content": {
+              "application/json": {
+                "example": {
+                  "rankings": [
+                    {
+                      "agent": "claude-3-opus",
+                      "elo": 1850,
+                      "wins": 142,
+                      "losses": 58,
+                      "rank": 1
+                    },
+                    {
+                      "agent": "gpt-4",
+                      "elo": 1820,
+                      "wins": 135,
+                      "losses": 65,
+                      "rank": 2
+                    },
+                    {
+                      "agent": "gemini-pro",
+                      "elo": 1780,
+                      "wins": 120,
+                      "losses": 80,
+                      "rank": 3
+                    }
+                  ],
+                  "updated_at": "2024-01-15T10:00:00Z"
+                }
+              }
+            }
           }
         },
         "operationId": "listRankings",
@@ -1679,6 +1768,19 @@
                     "consensus": "weighted"
                   }
                 }
+              },
+              "example": {
+                "question": "Should we adopt TypeScript for our backend services?",
+                "agents": [
+                  "claude-3-opus",
+                  "gpt-4",
+                  "gemini-pro"
+                ],
+                "rounds": 3,
+                "consensus_threshold": 0.7,
+                "workspace_id": "ws_abc123",
+                "protocol": "structured",
+                "context": "We currently use Python with type hints. Consider developer productivity, type safety, and ecosystem."
               }
             }
           }
@@ -1690,6 +1792,20 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DebateCreateResponse"
+                },
+                "example": {
+                  "id": "dbt_xyz789",
+                  "status": "active",
+                  "question": "Should we adopt TypeScript for our backend services?",
+                  "agents": [
+                    "claude-3-opus",
+                    "gpt-4",
+                    "gemini-pro"
+                  ],
+                  "current_round": 1,
+                  "total_rounds": 3,
+                  "created_at": "2024-01-15T10:30:00Z",
+                  "consensus_reached": false
                 }
               }
             }
@@ -1938,6 +2054,35 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Debate"
+                },
+                "example": {
+                  "id": "dbt_xyz789",
+                  "status": "completed",
+                  "question": "Should we adopt TypeScript for our backend services?",
+                  "agents": [
+                    "claude-3-opus",
+                    "gpt-4",
+                    "gemini-pro"
+                  ],
+                  "current_round": 3,
+                  "total_rounds": 3,
+                  "created_at": "2024-01-15T10:30:00Z",
+                  "completed_at": "2024-01-15T10:35:00Z",
+                  "consensus_reached": true,
+                  "verdict": "Adopt TypeScript for new services, migrate existing services gradually",
+                  "confidence": 0.85,
+                  "proposals": [
+                    {
+                      "agent": "claude-3-opus",
+                      "content": "TypeScript offers significant benefits...",
+                      "round": 1
+                    }
+                  ],
+                  "votes": {
+                    "claude-3-opus": "approve",
+                    "gpt-4": "approve",
+                    "gemini-pro": "approve"
+                  }
                 }
               }
             }
@@ -6992,6 +7137,23 @@
                   "output_schema": {
                     "type": "object"
                   }
+                }
+              },
+              "example": {
+                "name": "Code Review Workflow",
+                "template_id": "tpl_code_review",
+                "workspace_id": "ws_abc123",
+                "inputs": {
+                  "repository": "https://github.com/org/repo",
+                  "pull_request": 42,
+                  "review_depth": "thorough"
+                },
+                "schedule": {
+                  "trigger": "on_pr_open",
+                  "filters": [
+                    "*.py",
+                    "*.ts"
+                  ]
                 }
               }
             }
@@ -32054,11 +32216,20 @@
                 "$ref": "#/components/schemas/BudgetCreateRequest"
               },
               "example": {
-                "name": "Monthly AI Budget",
-                "amount_usd": 500.0,
+                "name": "Q1 AI Budget",
+                "workspace_id": "ws_abc123",
+                "limit_usd": 5000.0,
                 "period": "monthly",
-                "description": "Budget for AI debate operations",
-                "auto_suspend": true
+                "alerts": {
+                  "thresholds": [
+                    0.5,
+                    0.8,
+                    0.95
+                  ],
+                  "notify": [
+                    "admin@example.com"
+                  ]
+                }
               }
             }
           }

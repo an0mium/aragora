@@ -130,9 +130,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthCheck'
+              example:
+                status: healthy
+                version: 2.2.0
+                uptime_seconds: 86400
+                timestamp: '2024-01-15T10:00:00Z'
         '503':
           description: System degraded
       operationId: getHealth
+      security: []
   /api/health/detailed:
     get:
       tags:
@@ -143,7 +149,25 @@ paths:
       responses:
         '200':
           description: Detailed health information
+          content:
+            application/json:
+              example:
+                status: healthy
+                version: 2.2.0
+                components:
+                  database:
+                    status: healthy
+                    latency_ms: 5
+                  redis:
+                    status: healthy
+                    latency_ms: 2
+                  agents:
+                    status: healthy
+                    available: 15
+                uptime_seconds: 86400
+                timestamp: '2024-01-15T10:00:00Z'
       operationId: listHealthDetailed
+      security: []
   /api/nomic/state:
     get:
       tags:
@@ -154,6 +178,8 @@ paths:
         '200':
           description: Nomic state
       operationId: listNomicState
+      security:
+      - bearerAuth: []
   /api/nomic/health:
     get:
       tags:
@@ -164,6 +190,8 @@ paths:
         '200':
           description: Nomic health status
       operationId: getNomicHealth
+      security:
+      - bearerAuth: []
   /api/nomic/log:
     get:
       tags:
@@ -177,10 +205,13 @@ paths:
           type: integer
           default: 100
           maximum: 1000
+        description: The lines value
       responses:
         '200':
           description: Log lines
       operationId: listNomicLog
+      security:
+      - bearerAuth: []
   /api/nomic/risk-register:
     get:
       tags:
@@ -194,10 +225,13 @@ paths:
           type: integer
           default: 50
           maximum: 200
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Risk entries
       operationId: listNomicRiskRegister
+      security:
+      - bearerAuth: []
   /api/modes:
     get:
       tags:
@@ -208,6 +242,8 @@ paths:
         '200':
           description: Available modes
       operationId: listModes
+      security:
+      - bearerAuth: []
   /api/history/cycles:
     get:
       tags:
@@ -218,15 +254,19 @@ paths:
         in: query
         schema:
           type: string
+        description: Unique identifier of the loop
       - name: limit
         in: query
         schema:
           type: integer
           default: 50
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Cycle history
       operationId: listHistoryCycles
+      security:
+      - bearerAuth: []
   /api/history/events:
     get:
       tags:
@@ -237,15 +277,19 @@ paths:
         in: query
         schema:
           type: string
+        description: Unique identifier of the loop
       - name: limit
         in: query
         schema:
           type: integer
           default: 100
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Event history
       operationId: listHistoryEvents
+      security:
+      - bearerAuth: []
   /api/history/debates:
     get:
       tags:
@@ -256,15 +300,19 @@ paths:
         in: query
         schema:
           type: string
+        description: Unique identifier of the loop
       - name: limit
         in: query
         schema:
           type: integer
           default: 50
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Debate history
       operationId: listHistoryDebates
+      security:
+      - bearerAuth: []
   /api/history/summary:
     get:
       tags:
@@ -275,10 +323,13 @@ paths:
         in: query
         schema:
           type: string
+        description: Unique identifier of the loop
       responses:
         '200':
           description: Summary statistics
       operationId: listHistorySummary
+      security:
+      - bearerAuth: []
   /api/system/maintenance:
     get:
       tags:
@@ -296,10 +347,13 @@ paths:
           - checkpoint
           - full
           default: status
+        description: The task
       responses:
         '200':
           description: Maintenance results
       operationId: listSystemMaintenance
+      security:
+      - bearerAuth: []
   /api/openapi:
     get:
       tags:
@@ -312,6 +366,7 @@ paths:
           content:
             application/json: {}
       operationId: listOpenapi
+      security: []
   /api/agents:
     get:
       tags:
@@ -324,6 +379,7 @@ paths:
         schema:
           type: boolean
           default: false
+        description: Whether to enable include stats
       responses:
         '200':
           description: List of agents
@@ -338,7 +394,30 @@ paths:
                       $ref: '#/components/schemas/Agent'
                   total:
                     type: integer
+              example:
+                agents:
+                - id: claude-3-opus
+                  name: Claude 3 Opus
+                  provider: anthropic
+                  capabilities:
+                  - reasoning
+                  - coding
+                  - analysis
+                  status: available
+                  elo_rating: 1850
+                - id: gpt-4
+                  name: GPT-4
+                  provider: openai
+                  capabilities:
+                  - reasoning
+                  - coding
+                  - creative
+                  status: available
+                  elo_rating: 1820
+                total: 2
       operationId: listAgents
+      security:
+      - bearerAuth: []
   /api/leaderboard:
     get:
       tags:
@@ -352,6 +431,7 @@ paths:
           type: integer
           default: 20
           maximum: 100
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: domain
         in: query
         schema:
@@ -361,6 +441,8 @@ paths:
         '200':
           description: Agent rankings
       operationId: listLeaderboard
+      security:
+      - bearerAuth: []
   /api/rankings:
     get:
       tags:
@@ -373,10 +455,33 @@ paths:
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Agent rankings
+          content:
+            application/json:
+              example:
+                rankings:
+                - agent: claude-3-opus
+                  elo: 1850
+                  wins: 142
+                  losses: 58
+                  rank: 1
+                - agent: gpt-4
+                  elo: 1820
+                  wins: 135
+                  losses: 65
+                  rank: 2
+                - agent: gemini-pro
+                  elo: 1780
+                  wins: 120
+                  losses: 80
+                  rank: 3
+                updated_at: '2024-01-15T10:00:00Z'
       operationId: listRankings
+      security:
+      - bearerAuth: []
   /api/leaderboard-view:
     get:
       tags:
@@ -389,18 +494,23 @@ paths:
         schema:
           type: integer
           default: 10
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: domain
         in: query
         schema:
           type: string
+        description: Filter by domain
       - name: loop_id
         in: query
         schema:
           type: string
+        description: Unique identifier of the loop
       responses:
         '200':
           description: Leaderboard view
       operationId: listLeaderboardView
+      security:
+      - bearerAuth: []
   /api/agent/{name}/profile:
     get:
       tags:
@@ -412,6 +522,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Agent profile
@@ -449,6 +560,8 @@ paths:
                     trace_id: req_abc123xyz
                     support_url: https://github.com/an0mium/aragora/issues
       operationId: listAgentBynameProfile
+      security:
+      - bearerAuth: []
   /api/agent/{name}/history:
     get:
       tags:
@@ -460,15 +573,19 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       - name: limit
         in: query
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Match history
       operationId: listAgentBynameHistory
+      security:
+      - bearerAuth: []
   /api/agent/{name}/calibration:
     get:
       tags:
@@ -480,6 +597,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Calibration data
@@ -488,6 +606,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Calibration'
       operationId: listAgentBynameCalibration
+      security:
+      - bearerAuth: []
   /api/agent/{name}/calibration-curve:
     get:
       tags:
@@ -499,10 +619,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Calibration curve data
       operationId: listAgentBynameCalibrationCurve
+      security:
+      - bearerAuth: []
   /api/agent/{name}/calibration-summary:
     get:
       tags:
@@ -514,10 +637,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Calibration summary
       operationId: listAgentBynameCalibrationSummary
+      security:
+      - bearerAuth: []
   /api/agent/{name}/consistency:
     get:
       tags:
@@ -529,10 +655,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Consistency metrics
       operationId: listAgentBynameConsistency
+      security:
+      - bearerAuth: []
   /api/agent/{name}/flips:
     get:
       tags:
@@ -545,15 +674,19 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       - name: limit
         in: query
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Position flips
       operationId: listAgentBynameFlips
+      security:
+      - bearerAuth: []
   /api/agent/{name}/network:
     get:
       tags:
@@ -565,10 +698,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Relationship network
       operationId: listAgentBynameNetwork
+      security:
+      - bearerAuth: []
   /api/agent/{name}/rivals:
     get:
       tags:
@@ -580,10 +716,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Rival agents
       operationId: listAgentBynameRivals
+      security:
+      - bearerAuth: []
   /api/agent/{name}/allies:
     get:
       tags:
@@ -595,10 +734,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Allied agents
       operationId: listAgentBynameAllies
+      security:
+      - bearerAuth: []
   /api/agent/{name}/moments:
     get:
       tags:
@@ -611,10 +753,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Agent moments
       operationId: listAgentBynameMoments
+      security:
+      - bearerAuth: []
   /api/agent/{name}/reputation:
     get:
       tags:
@@ -626,10 +771,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Reputation data
       operationId: listAgentBynameReputation
+      security:
+      - bearerAuth: []
   /api/agent/{name}/persona:
     get:
       tags:
@@ -641,10 +789,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Persona data
       operationId: listAgentBynamePersona
+      security:
+      - bearerAuth: []
   /api/agent/{name}/grounded-persona:
     get:
       tags:
@@ -657,10 +808,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Grounded persona
       operationId: listAgentBynameGroundedPersona
+      security:
+      - bearerAuth: []
   /api/agent/{name}/identity-prompt:
     get:
       tags:
@@ -672,10 +826,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Identity prompt
       operationId: listAgentBynameIdentityPrompt
+      security:
+      - bearerAuth: []
   /api/agent/{name}/performance:
     get:
       tags:
@@ -687,10 +844,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Performance metrics
       operationId: listAgentBynamePerformance
+      security:
+      - bearerAuth: []
   /api/agent/{name}/domains:
     get:
       tags:
@@ -702,10 +862,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Domain expertise
       operationId: listAgentBynameDomains
+      security:
+      - bearerAuth: []
   /api/agent/{name}/accuracy:
     get:
       tags:
@@ -717,10 +880,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Accuracy metrics
       operationId: listAgentBynameAccuracy
+      security:
+      - bearerAuth: []
   /api/agent/compare:
     get:
       tags:
@@ -733,15 +899,19 @@ paths:
         required: true
         schema:
           type: string
+        description: The agent a
       - name: agent_b
         in: query
         required: true
         schema:
           type: string
+        description: The agent b
       responses:
         '200':
           description: Comparison data
       operationId: listAgentCompare
+      security:
+      - bearerAuth: []
   /api/matches/recent:
     get:
       tags:
@@ -753,10 +923,13 @@ paths:
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Recent matches
       operationId: listMatchesRecent
+      security:
+      - bearerAuth: []
   /api/calibration/leaderboard:
     get:
       tags:
@@ -769,10 +942,13 @@ paths:
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Calibration rankings
       operationId: listCalibrationLeaderboard
+      security:
+      - bearerAuth: []
   /api/personas:
     get:
       tags:
@@ -782,6 +958,8 @@ paths:
         '200':
           description: All personas
       operationId: listPersonas
+      security:
+      - bearerAuth: []
   /api/debates:
     get:
       tags:
@@ -936,6 +1114,18 @@ paths:
                   context: We have 50 microservices and 10 engineers.
                   rounds: 5
                   consensus: weighted
+            example:
+              question: Should we adopt TypeScript for our backend services?
+              agents:
+              - claude-3-opus
+              - gpt-4
+              - gemini-pro
+              rounds: 3
+              consensus_threshold: 0.7
+              workspace_id: ws_abc123
+              protocol: structured
+              context: We currently use Python with type hints. Consider developer
+                productivity, type safety, and ecosystem.
       responses:
         '200':
           description: Debate created successfully
@@ -943,6 +1133,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DebateCreateResponse'
+              example:
+                id: dbt_xyz789
+                status: active
+                question: Should we adopt TypeScript for our backend services?
+                agents:
+                - claude-3-opus
+                - gpt-4
+                - gemini-pro
+                current_round: 1
+                total_rounds: 3
+                created_at: '2024-01-15T10:30:00Z'
+                consensus_reached: false
         '400':
           description: Bad request - Invalid input or malformed JSON
           content:
@@ -1102,6 +1304,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       responses:
         '200':
           description: Debate details
@@ -1109,6 +1312,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Debate'
+              example:
+                id: dbt_xyz789
+                status: completed
+                question: Should we adopt TypeScript for our backend services?
+                agents:
+                - claude-3-opus
+                - gpt-4
+                - gemini-pro
+                current_round: 3
+                total_rounds: 3
+                created_at: '2024-01-15T10:30:00Z'
+                completed_at: '2024-01-15T10:35:00Z'
+                consensus_reached: true
+                verdict: Adopt TypeScript for new services, migrate existing services
+                  gradually
+                confidence: 0.85
+                proposals:
+                - agent: claude-3-opus
+                  content: TypeScript offers significant benefits...
+                  round: 1
+                votes:
+                  claude-3-opus: approve
+                  gpt-4: approve
+                  gemini-pro: approve
         '404':
           description: Not found - The requested resource does not exist
           content:
@@ -1125,6 +1352,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: getDebatesByid
+      security:
+      - bearerAuth: []
   /api/debates/slug/{slug}:
     get:
       tags:
@@ -1136,6 +1365,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The slug
       responses:
         '200':
           description: Debate details
@@ -1159,6 +1389,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: getDebatesSlugByslug
+      security:
+      - bearerAuth: []
   /api/debates/{id}/messages:
     get:
       tags:
@@ -1171,21 +1403,26 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       - name: limit
         in: query
         schema:
           type: integer
           default: 50
           maximum: 200
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: offset
         in: query
         schema:
           type: integer
           default: 0
+        description: Number of items to skip for pagination
       responses:
         '200':
           description: Paginated messages
       operationId: listDebatesByidMessages
+      security:
+      - bearerAuth: []
   /api/debates/{id}/convergence:
     get:
       tags:
@@ -1198,10 +1435,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       responses:
         '200':
           description: Convergence status
       operationId: listDebatesByidConvergence
+      security:
+      - bearerAuth: []
   /api/debates/{id}/citations:
     get:
       tags:
@@ -1214,10 +1454,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       responses:
         '200':
           description: Citations and grounding score
       operationId: listDebatesByidCitations
+      security:
+      - bearerAuth: []
   /api/debates/{id}/evidence:
     get:
       tags:
@@ -1229,10 +1472,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       responses:
         '200':
           description: Evidence data
       operationId: listDebatesByidEvidence
+      security:
+      - bearerAuth: []
   /api/debates/{id}/impasse:
     get:
       tags:
@@ -1245,10 +1491,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       responses:
         '200':
           description: Impasse status
       operationId: listDebatesByidImpasse
+      security:
+      - bearerAuth: []
   /api/debates/{id}/meta-critique:
     get:
       tags:
@@ -1260,10 +1509,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       responses:
         '200':
           description: Meta-critique data
       operationId: listDebatesByidMetaCritique
+      security:
+      - bearerAuth: []
   /api/debates/{id}/graph/stats:
     get:
       tags:
@@ -1275,10 +1527,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       responses:
         '200':
           description: Graph statistics
       operationId: listDebatesByidGraphStats
+      security:
+      - bearerAuth: []
   /api/debates/{id}/fork:
     post:
       tags:
@@ -1291,6 +1546,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       requestBody:
         content:
           application/json:
@@ -1334,6 +1590,8 @@ paths:
                     field: rounds
                     trace_id: req_abc123xyz
       operationId: createDebatesByidFork
+      security:
+      - bearerAuth: []
   /api/debates/{id}/export/{format}:
     get:
       tags:
@@ -1345,6 +1603,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       - name: format
         in: path
         required: true
@@ -1355,10 +1614,13 @@ paths:
           - markdown
           - html
           - pdf
+        description: Output format (e.g., json, yaml, csv)
       responses:
         '200':
           description: Exported debate
       operationId: getDebatesByidExportByformat
+      security:
+      - bearerAuth: []
   /api/debates/{id}/broadcast:
     post:
       tags:
@@ -1371,6 +1633,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       requestBody:
         content:
           application/json:
@@ -1401,6 +1664,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       responses:
         '200':
           description: Published to Twitter
@@ -1418,6 +1682,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       responses:
         '200':
           description: Published to YouTube
@@ -1435,10 +1700,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       responses:
         '200':
           description: Red team results
       operationId: listDebatesByidRedTeam
+      security:
+      - bearerAuth: []
   /api/search:
     get:
       tags:
@@ -1450,15 +1718,19 @@ paths:
         required: true
         schema:
           type: string
+        description: Search query string
       - name: limit
         in: query
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Search results
       operationId: listSearch
+      security:
+      - bearerAuth: []
   /api/dashboard/debates:
     get:
       tags:
@@ -1470,20 +1742,25 @@ paths:
         in: query
         schema:
           type: string
+        description: Filter by domain
       - name: limit
         in: query
         schema:
           type: integer
           default: 10
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: hours
         in: query
         schema:
           type: integer
           default: 24
+        description: The hours value
       responses:
         '200':
           description: Dashboard data
       operationId: listDashboardDebates
+      security:
+      - bearerAuth: []
   /api/analytics/disagreements:
     get:
       tags:
@@ -1494,6 +1771,8 @@ paths:
         '200':
           description: Disagreement statistics
       operationId: listAnalyticsDisagreements
+      security:
+      - bearerAuth: []
   /api/analytics/role-rotation:
     get:
       tags:
@@ -1503,6 +1782,8 @@ paths:
         '200':
           description: Role rotation data
       operationId: listAnalyticsRoleRotation
+      security:
+      - bearerAuth: []
   /api/analytics/early-stops:
     get:
       tags:
@@ -1512,6 +1793,8 @@ paths:
         '200':
           description: Early stop data
       operationId: listAnalyticsEarlyStops
+      security:
+      - bearerAuth: []
   /api/ranking/stats:
     get:
       tags:
@@ -1521,6 +1804,8 @@ paths:
         '200':
           description: Ranking stats
       operationId: listRankingStats
+      security:
+      - bearerAuth: []
   /api/memory/stats:
     get:
       tags:
@@ -1530,6 +1815,8 @@ paths:
         '200':
           description: Memory stats
       operationId: listMemoryStats
+      security:
+      - bearerAuth: []
   /api/flips/recent:
     get:
       tags:
@@ -1541,10 +1828,13 @@ paths:
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Recent flips
       operationId: listFlipsRecent
+      security:
+      - bearerAuth: []
   /api/flips/summary:
     get:
       tags:
@@ -1554,6 +1844,8 @@ paths:
         '200':
           description: Flip summary statistics
       operationId: listFlipsSummary
+      security:
+      - bearerAuth: []
   /api/insights/recent:
     get:
       tags:
@@ -1565,10 +1857,13 @@ paths:
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Recent insights
       operationId: listInsightsRecent
+      security:
+      - bearerAuth: []
   /api/insights/extract-detailed:
     post:
       tags:
@@ -1595,6 +1890,8 @@ paths:
         '200':
           description: Moments summary
       operationId: listMomentsSummary
+      security:
+      - bearerAuth: []
   /api/moments/timeline:
     get:
       tags:
@@ -1604,6 +1901,8 @@ paths:
         '200':
           description: Timeline data
       operationId: listMomentsTimeline
+      security:
+      - bearerAuth: []
   /api/moments/trending:
     get:
       tags:
@@ -1613,6 +1912,8 @@ paths:
         '200':
           description: Trending moments
       operationId: listMomentsTrending
+      security:
+      - bearerAuth: []
   /api/moments/by-type/{type}:
     get:
       tags:
@@ -1624,10 +1925,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Filter by type
       responses:
         '200':
           description: Moments of specified type
       operationId: getMomentsByTypeBytype
+      security:
+      - bearerAuth: []
   /api/consensus/similar:
     get:
       tags:
@@ -1640,15 +1944,19 @@ paths:
         required: true
         schema:
           type: string
+        description: Topic to filter or search by
       - name: limit
         in: query
         schema:
           type: integer
           default: 10
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Similar debates
       operationId: listConsensusSimilar
+      security:
+      - bearerAuth: []
   /api/consensus/settled:
     get:
       tags:
@@ -1660,15 +1968,19 @@ paths:
         schema:
           type: number
           default: 0.8
+        description: Threshold value
       - name: limit
         in: query
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Settled questions
       operationId: listConsensusSettled
+      security:
+      - bearerAuth: []
   /api/consensus/stats:
     get:
       tags:
@@ -1678,6 +1990,8 @@ paths:
         '200':
           description: Consensus stats
       operationId: listConsensusStats
+      security:
+      - bearerAuth: []
   /api/consensus/dissents:
     get:
       tags:
@@ -1689,10 +2003,13 @@ paths:
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Dissenting views
       operationId: listConsensusDissents
+      security:
+      - bearerAuth: []
   /api/consensus/contrarian-views:
     get:
       tags:
@@ -1702,6 +2019,8 @@ paths:
         '200':
           description: Contrarian views
       operationId: listConsensusContrarianViews
+      security:
+      - bearerAuth: []
   /api/consensus/risk-warnings:
     get:
       tags:
@@ -1711,6 +2030,8 @@ paths:
         '200':
           description: Risk warnings
       operationId: listConsensusRiskWarnings
+      security:
+      - bearerAuth: []
   /api/consensus/domain/{domain}:
     get:
       tags:
@@ -1722,10 +2043,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Filter by domain
       responses:
         '200':
           description: Domain consensus data
       operationId: getConsensusDomainBydomain
+      security:
+      - bearerAuth: []
   /api/relationships/summary:
     get:
       tags:
@@ -1735,6 +2059,8 @@ paths:
         '200':
           description: Relationship summary
       operationId: listRelationshipsSummary
+      security:
+      - bearerAuth: []
   /api/relationships/graph:
     get:
       tags:
@@ -1745,6 +2071,8 @@ paths:
         '200':
           description: Graph data
       operationId: listRelationshipsGraph
+      security:
+      - bearerAuth: []
   /api/relationships/stats:
     get:
       tags:
@@ -1754,6 +2082,8 @@ paths:
         '200':
           description: Relationship stats
       operationId: listRelationshipsStats
+      security:
+      - bearerAuth: []
   /api/relationship/{agent_a}/{agent_b}:
     get:
       tags:
@@ -1765,11 +2095,13 @@ paths:
         required: true
         schema:
           type: string
+        description: The agent a
       - name: agent_b
         in: path
         required: true
         schema:
           type: string
+        description: The agent b
       responses:
         '200':
           description: Relationship data
@@ -1778,6 +2110,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Relationship'
       operationId: getRelationshipByagentaByagentb
+      security:
+      - bearerAuth: []
   /api/memory/continuum/retrieve:
     get:
       tags:
@@ -1789,6 +2123,7 @@ paths:
         in: query
         schema:
           type: string
+        description: Search query string
       - name: tier
         in: query
         schema:
@@ -1798,15 +2133,19 @@ paths:
           - medium
           - slow
           - glacial
+        description: The tier
       - name: limit
         in: query
         schema:
           type: integer
           default: 10
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Retrieved memories
       operationId: listMemoryContinuumRetrieve
+      security:
+      - bearerAuth: []
   /api/memory/continuum/consolidate:
     post:
       tags:
@@ -1840,6 +2179,8 @@ paths:
         '200':
           description: Tier stats
       operationId: listMemoryTierStats
+      security:
+      - bearerAuth: []
   /api/memory/archive-stats:
     get:
       tags:
@@ -1849,6 +2190,8 @@ paths:
         '200':
           description: Archive stats
       operationId: listMemoryArchiveStats
+      security:
+      - bearerAuth: []
   /api/belief-network/{debate_id}/cruxes:
     get:
       tags:
@@ -1860,10 +2203,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the debate
       responses:
         '200':
           description: Debate cruxes
       operationId: listBeliefNetworkBydebateidCruxes
+      security:
+      - bearerAuth: []
   /api/belief-network/{debate_id}/load-bearing-claims:
     get:
       tags:
@@ -1875,10 +2221,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the debate
       responses:
         '200':
           description: Load-bearing claims
       operationId: listBeliefNetworkBydebateidLoadBearingClaims
+      security:
+      - bearerAuth: []
   /api/debate/{debate_id}/graph-stats:
     get:
       tags:
@@ -1890,10 +2239,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the debate
       responses:
         '200':
           description: Graph statistics
       operationId: listDebateBydebateidGraphStats
+      security:
+      - bearerAuth: []
   /api/pulse/trending:
     get:
       tags:
@@ -1907,10 +2259,13 @@ paths:
           type: integer
           default: 10
           maximum: 50
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Trending topics
       operationId: listPulseTrending
+      security:
+      - bearerAuth: []
   /api/pulse/suggest:
     get:
       tags:
@@ -1922,10 +2277,13 @@ paths:
         in: query
         schema:
           type: string
+        description: Filter by category
       responses:
         '200':
           description: Suggested topic
       operationId: listPulseSuggest
+      security:
+      - bearerAuth: []
   /api/metrics:
     get:
       tags:
@@ -1935,6 +2293,7 @@ paths:
         '200':
           description: Metrics data
       operationId: getMetrics
+      security: []
   /api/metrics/health:
     get:
       tags:
@@ -1944,6 +2303,7 @@ paths:
         '200':
           description: Metrics health
       operationId: getMetricsHealth
+      security: []
   /api/metrics/cache:
     get:
       tags:
@@ -1953,6 +2313,7 @@ paths:
         '200':
           description: Cache metrics
       operationId: listMetricsCache
+      security: []
   /api/metrics/system:
     get:
       tags:
@@ -1962,6 +2323,7 @@ paths:
         '200':
           description: System metrics
       operationId: listMetricsSystem
+      security: []
   /metrics:
     get:
       tags:
@@ -1974,6 +2336,8 @@ paths:
           content:
             text/plain: {}
       operationId: getmetrics
+      security:
+      - bearerAuth: []
   /api/verification/status:
     get:
       tags:
@@ -1983,6 +2347,8 @@ paths:
         '200':
           description: Verification status
       operationId: listVerificationStatus
+      security:
+      - bearerAuth: []
   /api/verification/formal-verify:
     post:
       tags:
@@ -2057,6 +2423,8 @@ paths:
         '200':
           description: Document list
       operationId: listDocuments
+      security:
+      - bearerAuth: []
   /api/documents/formats:
     get:
       tags:
@@ -2066,6 +2434,8 @@ paths:
         '200':
           description: Supported formats
       operationId: listDocumentsFormats
+      security:
+      - bearerAuth: []
   /api/documents/upload:
     post:
       tags:
@@ -2093,6 +2463,8 @@ paths:
           content:
             application/xml: {}
       operationId: listPodcastFeed.Xml
+      security:
+      - bearerAuth: []
   /api/podcast/episodes:
     get:
       tags:
@@ -2102,6 +2474,8 @@ paths:
         '200':
           description: Episode list
       operationId: listPodcastEpisodes
+      security:
+      - bearerAuth: []
   /api/youtube/auth:
     get:
       tags:
@@ -2111,6 +2485,8 @@ paths:
         '200':
           description: Auth URL
       operationId: listYoutubeAuth
+      security:
+      - bearerAuth: []
   /api/youtube/callback:
     get:
       tags:
@@ -2120,6 +2496,8 @@ paths:
         '200':
           description: Auth complete
       operationId: listYoutubeCallback
+      security:
+      - bearerAuth: []
   /api/youtube/status:
     get:
       tags:
@@ -2129,6 +2507,8 @@ paths:
         '200':
           description: Auth status
       operationId: listYoutubeStatus
+      security:
+      - bearerAuth: []
   /api/plugins:
     get:
       tags:
@@ -2138,6 +2518,8 @@ paths:
         '200':
           description: Plugin list
       operationId: listPlugins
+      security:
+      - bearerAuth: []
   /api/plugins/{name}:
     get:
       tags:
@@ -2149,10 +2531,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Plugin details
       operationId: getPluginsByname
+      security:
+      - bearerAuth: []
   /api/plugins/{name}/run:
     post:
       tags:
@@ -2164,6 +2549,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       requestBody:
         content:
           application/json:
@@ -2186,15 +2572,19 @@ paths:
         schema:
           type: number
           default: 0.5
+        description: Min Confidence parameter
       - name: limit
         in: query
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Emergent traits
       operationId: listLaboratoryEmergentTraits
+      security:
+      - bearerAuth: []
   /api/laboratory/cross-pollinations/suggest:
     get:
       tags:
@@ -2204,6 +2594,8 @@ paths:
         '200':
           description: Suggestions
       operationId: listLaboratoryCrossPollinationsSuggest
+      security:
+      - bearerAuth: []
   /api/tournaments:
     get:
       tags:
@@ -2213,6 +2605,8 @@ paths:
         '200':
           description: Tournament list
       operationId: listTournaments
+      security:
+      - bearerAuth: []
   /api/tournaments/{id}/standings:
     get:
       tags:
@@ -2224,10 +2618,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       responses:
         '200':
           description: Standings
       operationId: listTournamentsByidStandings
+      security:
+      - bearerAuth: []
   /api/genesis/stats:
     get:
       tags:
@@ -2237,6 +2634,8 @@ paths:
         '200':
           description: Genesis stats
       operationId: listGenesisStats
+      security:
+      - bearerAuth: []
   /api/genesis/events:
     get:
       tags:
@@ -2246,6 +2645,8 @@ paths:
         '200':
           description: Genesis events
       operationId: listGenesisEvents
+      security:
+      - bearerAuth: []
   /api/genesis/lineage/{agent}:
     get:
       tags:
@@ -2257,10 +2658,13 @@ paths:
         required: true
         schema:
           type: string
+        description: The agent
       responses:
         '200':
           description: Lineage data
       operationId: getGenesisLineageByagent
+      security:
+      - bearerAuth: []
   /api/genesis/tree/{agent}:
     get:
       tags:
@@ -2272,10 +2676,13 @@ paths:
         required: true
         schema:
           type: string
+        description: The agent
       responses:
         '200':
           description: Tree data
       operationId: getGenesisTreeByagent
+      security:
+      - bearerAuth: []
   /api/evolution/{agent}/history:
     get:
       tags:
@@ -2287,10 +2694,13 @@ paths:
         required: true
         schema:
           type: string
+        description: The agent
       responses:
         '200':
           description: Evolution history
       operationId: listEvolutionByagentHistory
+      security:
+      - bearerAuth: []
   /api/replays:
     get:
       tags:
@@ -2300,6 +2710,8 @@ paths:
         '200':
           description: Replay list
       operationId: listReplays
+      security:
+      - bearerAuth: []
   /api/replays/{id}:
     get:
       tags:
@@ -2311,10 +2723,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       responses:
         '200':
           description: Replay data
       operationId: getReplaysByid
+      security:
+      - bearerAuth: []
   /api/learning/evolution:
     get:
       tags:
@@ -2324,6 +2739,8 @@ paths:
         '200':
           description: Evolution data
       operationId: listLearningEvolution
+      security:
+      - bearerAuth: []
   /api/meta-learning/stats:
     get:
       tags:
@@ -2333,6 +2750,8 @@ paths:
         '200':
           description: Meta-learning stats
       operationId: listMetaLearningStats
+      security:
+      - bearerAuth: []
   /api/critiques/patterns:
     get:
       tags:
@@ -2342,6 +2761,8 @@ paths:
         '200':
           description: Patterns
       operationId: listCritiquesPatterns
+      security:
+      - bearerAuth: []
   /api/critiques/archive:
     get:
       tags:
@@ -2351,6 +2772,8 @@ paths:
         '200':
           description: Archive
       operationId: listCritiquesArchive
+      security:
+      - bearerAuth: []
   /api/reputation/all:
     get:
       tags:
@@ -2360,6 +2783,8 @@ paths:
         '200':
           description: Reputations
       operationId: listReputationAll
+      security:
+      - bearerAuth: []
   /api/routing/best-teams:
     get:
       tags:
@@ -2371,15 +2796,19 @@ paths:
         schema:
           type: integer
           default: 3
+        description: The min debates value
       - name: limit
         in: query
         schema:
           type: integer
           default: 10
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Best teams
       operationId: listRoutingBestTeams
+      security:
+      - bearerAuth: []
   /api/routing/recommendations:
     post:
       tags:
@@ -2405,6 +2834,8 @@ paths:
         '200':
           description: Recommendations
       operationId: createRoutingRecommendations
+      security:
+      - bearerAuth: []
   /api/introspection/all:
     get:
       tags:
@@ -2414,6 +2845,8 @@ paths:
         '200':
           description: Introspection data
       operationId: listIntrospectionAll
+      security:
+      - bearerAuth: []
   /api/introspection/leaderboard:
     get:
       tags:
@@ -2423,6 +2856,8 @@ paths:
         '200':
           description: Leaderboard
       operationId: listIntrospectionLeaderboard
+      security:
+      - bearerAuth: []
   /api/introspection/agents:
     get:
       tags:
@@ -2432,6 +2867,8 @@ paths:
         '200':
           description: Agent list
       operationId: listIntrospectionAgents
+      security:
+      - bearerAuth: []
   /api/introspection/agents/{name}:
     get:
       tags:
@@ -2443,10 +2880,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the resource
       responses:
         '200':
           description: Agent introspection
       operationId: getIntrospectionAgentsByname
+      security:
+      - bearerAuth: []
   /api/auth/oauth/google:
     get:
       tags:
@@ -2522,6 +2962,8 @@ paths:
                     trace_id: req_abc123xyz
                     support_url: https://github.com/an0mium/aragora/issues
       operationId: listAuthOauthGoogle
+      security:
+      - bearerAuth: []
   /api/auth/oauth/google/callback:
     get:
       tags:
@@ -2592,6 +3034,7 @@ paths:
                     trace_id: req_abc123xyz
                     support_url: https://github.com/an0mium/aragora/issues
       operationId: listAuthOauthGoogleCallback
+      security: []
   /api/auth/oauth/github:
     get:
       tags:
@@ -2666,6 +3109,8 @@ paths:
                     trace_id: req_abc123xyz
                     support_url: https://github.com/an0mium/aragora/issues
       operationId: listAuthOauthGithub
+      security:
+      - bearerAuth: []
   /api/auth/oauth/github/callback:
     get:
       tags:
@@ -2730,6 +3175,7 @@ paths:
                     trace_id: req_abc123xyz
                     support_url: https://github.com/an0mium/aragora/issues
       operationId: listAuthOauthGithubCallback
+      security: []
   /api/auth/oauth/link:
     post:
       tags:
@@ -2904,6 +3350,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/OAuthProviders'
       operationId: listAuthOauthProviders
+      security:
+      - bearerAuth: []
   /api/user/oauth-providers:
     get:
       tags:
@@ -2950,11 +3398,13 @@ paths:
           type: integer
           default: 50
           maximum: 200
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: offset
         in: query
         schema:
           type: integer
           default: 0
+        description: Number of items to skip for pagination
       responses:
         '200':
           description: List of workspaces
@@ -3103,6 +3553,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Workspace to scope the query to
       responses:
         '200':
           description: Workspace details
@@ -3179,6 +3630,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Workspace to scope the query to
       responses:
         '200':
           description: Workspace deleted
@@ -3252,6 +3704,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Workspace to scope the query to
       requestBody:
         required: true
         content:
@@ -3501,6 +3954,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the policy
       responses:
         '200':
           description: Execution result with affected items count
@@ -3690,6 +4144,7 @@ paths:
           - internal
           - confidential
           - restricted
+        description: Filter by level (e.g., debug, info, warning, error)
       responses:
         '200':
           description: Policy details for the sensitivity level
@@ -3753,14 +4208,17 @@ paths:
         in: query
         schema:
           type: string
+        description: The actor id
       - name: resource_id
         in: query
         schema:
           type: string
+        description: The resource id
       - name: action
         in: query
         schema:
           type: string
+        description: The action
       - name: outcome
         in: query
         schema:
@@ -3769,21 +4227,25 @@ paths:
           - success
           - denied
           - error
+        description: The outcome
       - name: start_time
         in: query
         schema:
           type: string
           format: date-time
+        description: Start time for filtering (Unix timestamp or ISO 8601)
       - name: end_time
         in: query
         schema:
           type: string
           format: date-time
+        description: End time for filtering (Unix timestamp or ISO 8601)
       - name: limit
         in: query
         schema:
           type: integer
           default: 100
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Filtered audit entries
@@ -3844,12 +4306,14 @@ paths:
         schema:
           type: string
           format: date
+        description: Start date for filtering (ISO 8601 format)
       - name: end_date
         in: query
         required: true
         schema:
           type: string
           format: date
+        description: End date for filtering (ISO 8601 format)
       - name: format
         in: query
         schema:
@@ -3859,6 +4323,7 @@ paths:
           - csv
           - pdf
           default: json
+        description: Output format (e.g., json, yaml, csv)
       responses:
         '200':
           description: Compliance report
@@ -3944,10 +4409,12 @@ paths:
         in: query
         schema:
           type: integer
+        description: The start sequence value
       - name: end_sequence
         in: query
         schema:
           type: integer
+        description: The end sequence value
       responses:
         '200':
           description: Verification result with integrity status
@@ -4026,11 +4493,13 @@ paths:
           type: integer
           default: 50
           maximum: 200
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: offset
         in: query
         schema:
           type: integer
           default: 0
+        description: Number of items to skip for pagination
       responses:
         '200':
           description: List of workflows with pagination
@@ -4039,6 +4508,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/WorkflowList'
       operationId: listWorkflows
+      security:
+      - bearerAuth: []
     post:
       tags:
       - Workflows
@@ -4081,6 +4552,19 @@ paths:
                   type: object
                 output_schema:
                   type: object
+            example:
+              name: Code Review Workflow
+              template_id: tpl_code_review
+              workspace_id: ws_abc123
+              inputs:
+                repository: https://github.com/org/repo
+                pull_request: 42
+                review_depth: thorough
+              schedule:
+                trigger: on_pr_open
+                filters:
+                - '*.py'
+                - '*.ts'
       responses:
         '201':
           description: Workflow created
@@ -4116,6 +4600,8 @@ paths:
                     field: rounds
                     trace_id: req_abc123xyz
       operationId: createWorkflows
+      security:
+      - bearerAuth: []
   /api/workflows/{workflow_id}:
     get:
       tags:
@@ -4128,6 +4614,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the workflow
       responses:
         '200':
           description: Workflow definition
@@ -4151,6 +4638,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: getWorkflowsByworkflowid
+      security:
+      - bearerAuth: []
     put:
       tags:
       - Workflows
@@ -4162,6 +4651,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the workflow
       requestBody:
         required: true
         content:
@@ -4218,6 +4708,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: updateWorkflowsByworkflowid
+      security:
+      - bearerAuth: []
     delete:
       tags:
       - Workflows
@@ -4229,6 +4721,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the workflow
       responses:
         '200':
           description: Workflow deleted
@@ -4248,6 +4741,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: deleteWorkflowsByworkflowid
+      security:
+      - bearerAuth: []
   /api/workflows/{workflow_id}/execute:
     post:
       tags:
@@ -4260,6 +4755,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the workflow
       requestBody:
         required: false
         content:
@@ -4334,6 +4830,8 @@ paths:
                     trace_id: req_abc123xyz
                     support_url: https://github.com/an0mium/aragora/issues
       operationId: createWorkflowsByworkflowidExecute
+      security:
+      - bearerAuth: []
   /api/workflows/{workflow_id}/versions:
     get:
       tags:
@@ -4346,11 +4844,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the workflow
       - name: limit
         in: query
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: List of workflow versions
@@ -4370,6 +4870,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: listWorkflowsByworkflowidVersions
+      security:
+      - bearerAuth: []
   /api/workflow-templates:
     get:
       tags:
@@ -4390,6 +4892,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/WorkflowTemplateList'
       operationId: listWorkflowTemplates
+      security:
+      - bearerAuth: []
   /api/workflow-templates/{template_id}:
     get:
       tags:
@@ -4402,6 +4906,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the template
       responses:
         '200':
           description: Workflow template
@@ -4425,6 +4930,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: getWorkflowTemplatesBytemplateid
+      security:
+      - bearerAuth: []
   /api/workflow-executions:
     get:
       tags:
@@ -4453,6 +4960,7 @@ paths:
         schema:
           type: integer
           default: 50
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: List of workflow executions
@@ -4461,6 +4969,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExecutionList'
       operationId: listWorkflowExecutions
+      security:
+      - bearerAuth: []
   /api/workflow-executions/{execution_id}:
     get:
       tags:
@@ -4473,6 +4983,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The execution id
       responses:
         '200':
           description: Execution details with step progress
@@ -4492,6 +5003,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: getWorkflowExecutionsByexecutionid
+      security:
+      - bearerAuth: []
     delete:
       tags:
       - Workflows
@@ -4503,6 +5016,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The execution id
       responses:
         '200':
           description: Execution cancelled
@@ -4549,6 +5063,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: deleteWorkflowExecutionsByexecutionid
+      security:
+      - bearerAuth: []
   /api/workflow-approvals:
     get:
       tags:
@@ -4594,6 +5110,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The approval id
       requestBody:
         required: true
         content:
@@ -4686,6 +5203,8 @@ paths:
         '200':
           description: Subscriber statistics with totals and per-handler metrics
       operationId: listCrossPollinationStats
+      security:
+      - bearerAuth: []
   /api/cross-pollination/subscribers:
     get:
       tags:
@@ -4697,6 +5216,8 @@ paths:
         '200':
           description: List of subscribers with event types and descriptions
       operationId: listCrossPollinationSubscribers
+      security:
+      - bearerAuth: []
   /api/cross-pollination/bridge:
     get:
       tags:
@@ -4708,6 +5229,8 @@ paths:
         '200':
           description: Bridge status with connection state and event mappings
       operationId: listCrossPollinationBridge
+      security:
+      - bearerAuth: []
   /api/cross-pollination/metrics:
     get:
       tags:
@@ -4721,6 +5244,8 @@ paths:
           content:
             text/plain: {}
       operationId: getCrossPollinationMetrics
+      security:
+      - bearerAuth: []
   /api/cross-pollination/reset:
     post:
       tags:
@@ -4732,6 +5257,8 @@ paths:
         '200':
           description: Statistics reset confirmation with handler count
       operationId: createCrossPollinationReset
+      security:
+      - bearerAuth: []
   /api/cross-pollination/handlers/{handler_name}/circuit-breaker:
     get:
       tags:
@@ -4752,6 +5279,8 @@ paths:
         '404':
           description: Handler not found
       operationId: listCrossPollinationHandlersByhandlernameCircuitBreaker
+      security:
+      - bearerAuth: []
     post:
       tags:
       - Cross-Pollination
@@ -4771,6 +5300,8 @@ paths:
         '404':
           description: Handler not found
       operationId: createCrossPollinationHandlersByhandlernameCircuitBreaker
+      security:
+      - bearerAuth: []
   /api/gauntlet/receipts:
     get:
       tags:
@@ -4813,11 +5344,13 @@ paths:
           type: integer
           default: 50
           maximum: 200
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: offset
         in: query
         schema:
           type: integer
           default: 0
+        description: Number of items to skip for pagination
       responses:
         '200':
           description: List of decision receipts
@@ -4826,6 +5359,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ReceiptList'
       operationId: listGauntletReceipts
+      security:
+      - bearerAuth: []
   /api/gauntlet/receipts/{receipt_id}:
     get:
       tags:
@@ -4838,6 +5373,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the receipt
       responses:
         '200':
           description: Decision receipt details
@@ -4861,6 +5397,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: getGauntletReceiptsByreceiptid
+      security:
+      - bearerAuth: []
   /api/gauntlet/receipts/{receipt_id}/export:
     get:
       tags:
@@ -4873,6 +5411,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the receipt
       - name: format
         in: query
         description: Export format
@@ -4941,6 +5480,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: listGauntletReceiptsByreceiptidExport
+      security:
+      - bearerAuth: []
   /api/gauntlet/receipts/export/bundle:
     post:
       tags:
@@ -5008,6 +5549,8 @@ paths:
                     field: rounds
                     trace_id: req_abc123xyz
       operationId: createGauntletReceiptsExportBundle
+      security:
+      - bearerAuth: []
   /api/gauntlet/heatmaps:
     get:
       tags:
@@ -5025,6 +5568,7 @@ paths:
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: List of risk heatmaps
@@ -5033,6 +5577,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/HeatmapList'
       operationId: listGauntletHeatmaps
+      security:
+      - bearerAuth: []
   /api/gauntlet/heatmaps/{heatmap_id}:
     get:
       tags:
@@ -5045,6 +5591,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The heatmap id
       responses:
         '200':
           description: Risk heatmap details
@@ -5068,6 +5615,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: getGauntletHeatmapsByheatmapid
+      security:
+      - bearerAuth: []
   /api/gauntlet/heatmaps/{heatmap_id}/export:
     get:
       tags:
@@ -5080,6 +5629,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The heatmap id
       - name: format
         in: query
         description: Export format
@@ -5119,6 +5669,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: listGauntletHeatmapsByheatmapidExport
+      security:
+      - bearerAuth: []
   /api/gauntlet/receipts/{receipt_id}/stream:
     get:
       tags:
@@ -5131,6 +5683,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the receipt
       responses:
         '200':
           description: Streaming JSON response
@@ -5154,6 +5707,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: listGauntletReceiptsByreceiptidStream
+      security:
+      - bearerAuth: []
   /api/patterns:
     get:
       tags:
@@ -5179,6 +5734,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/PatternTemplateList'
       operationId: listPatterns
+      security:
+      - bearerAuth: []
   /api/patterns/{pattern_id}:
     get:
       tags:
@@ -5191,6 +5748,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The pattern id
       responses:
         '200':
           description: Pattern template details
@@ -5214,6 +5772,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: getPatternsBypatternid
+      security:
+      - bearerAuth: []
   /api/patterns/hive-mind:
     post:
       tags:
@@ -5288,6 +5848,8 @@ paths:
                     field: rounds
                     trace_id: req_abc123xyz
       operationId: createPatternsHiveMind
+      security:
+      - bearerAuth: []
   /api/patterns/map-reduce:
     post:
       tags:
@@ -5369,6 +5931,8 @@ paths:
                     field: rounds
                     trace_id: req_abc123xyz
       operationId: createPatternsMapReduce
+      security:
+      - bearerAuth: []
   /api/patterns/review-cycle:
     post:
       tags:
@@ -5444,6 +6008,8 @@ paths:
                     field: rounds
                     trace_id: req_abc123xyz
       operationId: createPatternsReviewCycle
+      security:
+      - bearerAuth: []
   /api/km/checkpoints:
     get:
       tags:
@@ -5593,6 +6159,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the checkpoint
       responses:
         '200':
           description: Checkpoint metadata
@@ -5648,6 +6215,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the checkpoint
       responses:
         '200':
           description: Checkpoint deleted
@@ -5700,6 +6268,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the checkpoint
       requestBody:
         required: false
         content:
@@ -5802,6 +6371,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the checkpoint
       responses:
         '200':
           description: Comparison result
@@ -5983,6 +6553,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Name of the checkpoint
       responses:
         '200':
           description: Checkpoint file download
@@ -6081,6 +6652,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: listDebatesBydebateidExplainability
+      security:
+      - bearerAuth: []
   /api/debates/{debate_id}/explainability/factors:
     get:
       tags:
@@ -6094,6 +6667,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the debate
       - name: min_contribution
         in: query
         description: Minimum contribution threshold (0-1)
@@ -6156,6 +6730,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: listDebatesBydebateidExplainabilityFactors
+      security:
+      - bearerAuth: []
   /api/debates/{debate_id}/explainability/counterfactual:
     get:
       tags:
@@ -6169,6 +6745,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the debate
       - name: max_scenarios
         in: query
         description: Maximum number of scenarios to generate
@@ -6225,6 +6802,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: listDebatesBydebateidExplainabilityCounterfactual
+      security:
+      - bearerAuth: []
     post:
       tags:
       - Explainability
@@ -6237,6 +6816,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the debate
       requestBody:
         required: true
         content:
@@ -6300,6 +6880,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: createDebatesBydebateidExplainabilityCounterfactual
+      security:
+      - bearerAuth: []
   /api/debates/{debate_id}/explainability/provenance:
     get:
       tags:
@@ -6313,6 +6895,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the debate
       - name: include_timestamps
         in: query
         description: Include timestamps for each step
@@ -6379,6 +6962,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: listDebatesBydebateidExplainabilityProvenance
+      security:
+      - bearerAuth: []
   /api/debates/{debate_id}/explainability/narrative:
     get:
       tags:
@@ -6391,6 +6976,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the debate
       - name: format
         in: query
         description: Narrative format
@@ -6444,6 +7030,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: listDebatesBydebateidExplainabilityNarrative
+      security:
+      - bearerAuth: []
   /api/workflow/templates:
     get:
       tags:
@@ -6483,11 +7071,13 @@ paths:
           type: integer
           default: 50
           maximum: 100
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: offset
         in: query
         schema:
           type: integer
           default: 0
+        description: Number of items to skip for pagination
       responses:
         '200':
           description: List of workflow templates
@@ -6507,6 +7097,8 @@ paths:
                   offset:
                     type: integer
       operationId: listWorkflowTemplates1
+      security:
+      - bearerAuth: []
   /api/workflow/templates/{template_id}:
     get:
       tags:
@@ -6543,6 +7135,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: getWorkflowTemplatesBytemplateid1
+      security:
+      - bearerAuth: []
   /api/workflow/templates/{template_id}/package:
     get:
       tags:
@@ -6556,6 +7150,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the template
       - name: include_examples
         in: query
         description: Include usage examples
@@ -6623,6 +7218,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: listWorkflowTemplatesBytemplateidPackage
+      security:
+      - bearerAuth: []
   /api/workflow/templates/{template_id}/run:
     post:
       tags:
@@ -6635,6 +7232,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the template
       requestBody:
         required: true
         content:
@@ -6740,6 +7338,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: createWorkflowTemplatesBytemplateidRun
+      security:
+      - bearerAuth: []
   /api/workflow/categories:
     get:
       tags:
@@ -6770,6 +7370,8 @@ paths:
                         icon:
                           type: string
       operationId: listWorkflowCategories
+      security:
+      - bearerAuth: []
   /api/workflow/patterns:
     get:
       tags:
@@ -6802,6 +7404,8 @@ paths:
                           items:
                             type: string
       operationId: listWorkflowPatterns
+      security:
+      - bearerAuth: []
   /api/workflow/patterns/{pattern_id}/instantiate:
     post:
       tags:
@@ -6814,6 +7418,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The pattern id
       requestBody:
         required: true
         content:
@@ -6888,6 +7493,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       operationId: createWorkflowPatternsBypatternidInstantiate
+      security:
+      - bearerAuth: []
   /api/control-plane/agents:
     get:
       tags:
@@ -7102,6 +7709,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the agent
       responses:
         '200':
           description: Agent details
@@ -7192,6 +7800,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the agent
       responses:
         '200':
           description: Agent unregistered
@@ -7279,6 +7888,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the agent
       requestBody:
         required: true
         content:
@@ -7500,6 +8110,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The task id
       responses:
         '200':
           description: Task details
@@ -7591,6 +8202,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The task id
       requestBody:
         required: true
         content:
@@ -7691,6 +8303,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The task id
       requestBody:
         required: true
         content:
@@ -7791,6 +8404,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The task id
       responses:
         '200':
           description: Task cancelled
@@ -7966,6 +8580,7 @@ paths:
         schema:
           type: integer
           default: 50
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Queue snapshot
@@ -8252,6 +8867,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the agent
       responses:
         '200':
           description: Agent health
@@ -8448,6 +9064,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The request id
       responses:
         '200':
           description: Decisionmaking record
@@ -8539,6 +9156,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The request id
       responses:
         '200':
           description: Decisionmaking status
@@ -8616,6 +9234,7 @@ paths:
           type: integer
           default: 20
           maximum: 200
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Decision list
@@ -8714,6 +9333,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The request id
       responses:
         '200':
           description: Decision result
@@ -8765,6 +9385,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The request id
       responses:
         '200':
           description: Decision status
@@ -8801,6 +9422,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       requestBody:
         required: true
         content:
@@ -8921,6 +9543,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       responses:
         '200':
           description: Latest scan
@@ -9012,11 +9635,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       - name: scan_id
         in: path
         required: true
         schema:
           type: string
+        description: The scan id
       responses:
         '200':
           description: Scan result
@@ -9108,20 +9733,24 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       - name: status
         in: query
         schema:
           type: string
+        description: Filter by status (e.g., pending, active, completed, failed)
       - name: limit
         in: query
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: offset
         in: query
         schema:
           type: integer
           default: 0
+        description: Number of items to skip for pagination
       responses:
         '200':
           description: Scan list
@@ -9198,28 +9827,34 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       - name: severity
         in: query
         schema:
           type: string
+        description: Filter by severity (e.g., low, medium, high, critical)
       - name: package
         in: query
         schema:
           type: string
+        description: The package
       - name: ecosystem
         in: query
         schema:
           type: string
+        description: The ecosystem
       - name: limit
         in: query
         schema:
           type: integer
           default: 100
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: offset
         in: query
         schema:
           type: integer
           default: 0
+        description: Number of items to skip for pagination
       responses:
         '200':
           description: Vulnerability list
@@ -9296,15 +9931,18 @@ paths:
         required: true
         schema:
           type: string
+        description: The ecosystem
       - name: package
         in: path
         required: true
         schema:
           type: string
+        description: The package
       - name: version
         in: query
         schema:
           type: string
+        description: Version string or number
       responses:
         '200':
           description: Package vulnerabilities
@@ -9381,6 +10019,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The cve id
       responses:
         '200':
           description: CVE details
@@ -9954,6 +10593,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       requestBody:
         required: true
         content:
@@ -10063,6 +10703,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       responses:
         '200':
           description: Secrets scan
@@ -10154,11 +10795,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       - name: scan_id
         in: path
         required: true
         schema:
           type: string
+        description: The scan id
       responses:
         '200':
           description: Secrets scan
@@ -10250,6 +10893,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       responses:
         '200':
           description: Secrets list
@@ -10326,6 +10970,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       responses:
         '200':
           description: Secrets scan list
@@ -10402,6 +11047,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       requestBody:
         required: true
         content:
@@ -10522,11 +11168,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       - name: scan_id
         in: path
         required: true
         schema:
           type: string
+        description: The scan id
       responses:
         '200':
           description: SAST scan status
@@ -10618,24 +11266,29 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       - name: severity
         in: query
         schema:
           type: string
+        description: Filter by severity (e.g., low, medium, high, critical)
       - name: owasp_category
         in: query
         schema:
           type: string
+        description: The owasp category
       - name: limit
         in: query
         schema:
           type: integer
           default: 100
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: offset
         in: query
         schema:
           type: integer
           default: 0
+        description: Number of items to skip for pagination
       responses:
         '200':
           description: SAST findings
@@ -10712,6 +11365,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       responses:
         '200':
           description: OWASP summary
@@ -10788,6 +11442,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       requestBody:
         required: true
         content:
@@ -10916,6 +11571,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       responses:
         '200':
           description: Metrics report
@@ -11007,11 +11663,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       - name: analysis_id
         in: path
         required: true
         schema:
           type: string
+        description: The analysis id
       responses:
         '200':
           description: Metrics report
@@ -11103,16 +11761,19 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       - name: limit
         in: query
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: offset
         in: query
         schema:
           type: integer
           default: 0
+        description: Number of items to skip for pagination
       responses:
         '200':
           description: Metrics history
@@ -11189,16 +11850,19 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       - name: min_complexity
         in: query
         schema:
           type: integer
           default: 5
+        description: The min complexity value
       - name: limit
         in: query
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Hotspots
@@ -11275,16 +11939,19 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       - name: min_lines
         in: query
         schema:
           type: integer
           default: 6
+        description: The min lines value
       - name: limit
         in: query
         schema:
           type: integer
           default: 20
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       responses:
         '200':
           description: Duplicates
@@ -11361,11 +12028,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       - name: file_path
         in: path
         required: true
         schema:
           type: string
+        description: The file path
       responses:
         '200':
           description: File metrics
@@ -11457,6 +12126,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       requestBody:
         required: true
         content:
@@ -11526,6 +12196,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       responses:
         '200':
           description: Symbols
@@ -11562,6 +12233,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       responses:
         '200':
           description: Call graph
@@ -11598,6 +12270,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       responses:
         '200':
           description: Dead code
@@ -11634,6 +12307,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       requestBody:
         required: true
         content:
@@ -11703,6 +12377,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       requestBody:
         required: true
         content:
@@ -11772,6 +12447,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       requestBody:
         required: true
         content:
@@ -11841,11 +12517,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       - name: audit_id
         in: path
         required: true
         schema:
           type: string
+        description: The audit id
       responses:
         '200':
           description: Audit status
@@ -11897,6 +12575,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       requestBody:
         required: true
         content:
@@ -11966,6 +12645,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       responses:
         '200':
           description: Symbols
@@ -12002,6 +12682,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       responses:
         '200':
           description: Call graph
@@ -12038,6 +12719,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       responses:
         '200':
           description: Dead code
@@ -12074,6 +12756,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       requestBody:
         required: true
         content:
@@ -12143,6 +12826,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       requestBody:
         required: true
         content:
@@ -12212,6 +12896,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       requestBody:
         required: true
         content:
@@ -12281,11 +12966,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Repository name or path
       - name: audit_id
         in: path
         required: true
         schema:
           type: string
+        description: The audit id
       responses:
         '200':
           description: Audit status
@@ -12400,6 +13087,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The scan id
       responses:
         '200':
           description: Scan result
@@ -12584,11 +13272,13 @@ paths:
         required: true
         schema:
           type: integer
+        description: The pr number value
       - name: repository
         in: query
         required: true
         schema:
           type: string
+        description: The repository
       responses:
         '200':
           description: PR details
@@ -12707,6 +13397,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The review id
       responses:
         '200':
           description: Review status
@@ -12798,11 +13489,13 @@ paths:
         required: true
         schema:
           type: integer
+        description: The pr number value
       - name: repository
         in: query
         required: true
         schema:
           type: string
+        description: The repository
       responses:
         '200':
           description: Review list
@@ -12906,6 +13599,7 @@ paths:
         required: true
         schema:
           type: integer
+        description: The pr number value
       requestBody:
         required: true
         content:
@@ -13261,6 +13955,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the session
       responses:
         '200':
           description: Sync status
@@ -13330,6 +14025,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the session
       responses:
         '200':
           description: Sync started
@@ -13399,10 +14095,12 @@ paths:
         in: query
         schema:
           type: string
+        description: The range
       - name: workspace_id
         in: query
         schema:
           type: string
+        description: Workspace to scope the query to
       responses:
         '200':
           description: Cost summary
@@ -13478,10 +14176,12 @@ paths:
         in: query
         schema:
           type: string
+        description: The range
       - name: workspace_id
         in: query
         schema:
           type: string
+        description: Workspace to scope the query to
       - name: group_by
         in: query
         schema:
@@ -13490,6 +14190,7 @@ paths:
           - provider
           - feature
           - model
+        description: The group by
       responses:
         '200':
           description: Cost breakdown
@@ -13565,10 +14266,12 @@ paths:
         in: query
         schema:
           type: string
+        description: The range
       - name: workspace_id
         in: query
         schema:
           type: string
+        description: Workspace to scope the query to
       responses:
         '200':
           description: Cost timeline
@@ -13644,6 +14347,7 @@ paths:
         in: query
         schema:
           type: string
+        description: Workspace to scope the query to
       responses:
         '200':
           description: Alerts
@@ -13823,6 +14527,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The alert id
       responses:
         '200':
           description: Alert dismissed
@@ -14015,10 +14720,12 @@ paths:
         in: query
         schema:
           type: string
+        description: Workspace to scope the query to
       - name: user_id
         in: query
         schema:
           type: string
+        description: Unique identifier of the user
       responses:
         '200':
           description: Inbox list
@@ -14095,6 +14802,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       responses:
         '200':
           description: Inbox detail
@@ -14186,26 +14894,32 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       - name: status
         in: query
         schema:
           type: string
+        description: Filter by status (e.g., pending, active, completed, failed)
       - name: assigned_to
         in: query
         schema:
           type: string
+        description: The assigned to
       - name: tag
         in: query
         schema:
           type: string
+        description: Tag to filter by
       - name: limit
         in: query
         schema:
           type: integer
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: offset
         in: query
         schema:
           type: integer
+        description: Number of items to skip for pagination
       responses:
         '200':
           description: Inbox messages
@@ -14297,11 +15011,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       - name: msg_id
         in: path
         required: true
         schema:
           type: string
+        description: The msg id
       requestBody:
         required: true
         content:
@@ -14426,11 +15142,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       - name: msg_id
         in: path
         required: true
         schema:
           type: string
+        description: The msg id
       requestBody:
         required: true
         content:
@@ -14555,11 +15273,13 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       - name: msg_id
         in: path
         required: true
         schema:
           type: string
+        description: The msg id
       requestBody:
         required: true
         content:
@@ -14785,18 +15505,22 @@ paths:
         in: query
         schema:
           type: string
+        description: Workspace to scope the query to
       - name: enabled_only
         in: query
         schema:
           type: boolean
+        description: Whether to enable enabled only
       - name: limit
         in: query
         schema:
           type: integer
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: offset
         in: query
         schema:
           type: integer
+        description: Number of items to skip for pagination
       responses:
         '200':
           description: Rule list
@@ -14873,6 +15597,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       requestBody:
         required: true
         content:
@@ -14996,6 +15721,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       responses:
         '200':
           description: Rule deleted
@@ -15087,6 +15813,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the resource
       requestBody:
         required: true
         content:
@@ -15210,6 +15937,7 @@ paths:
         in: query
         schema:
           type: string
+        description: Unique identifier of the user
       responses:
         '200':
           description: Labels
@@ -15357,6 +16085,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The label id
       requestBody:
         required: true
         content:
@@ -15468,10 +16197,12 @@ paths:
         required: true
         schema:
           type: string
+        description: The label id
       - name: user_id
         in: query
         schema:
           type: string
+        description: Unique identifier of the user
       responses:
         '200':
           description: Label deleted
@@ -15541,6 +16272,7 @@ paths:
         in: query
         schema:
           type: string
+        description: Unique identifier of the user
       responses:
         '200':
           description: Filters
@@ -15677,10 +16409,12 @@ paths:
         required: true
         schema:
           type: string
+        description: The filter id
       - name: user_id
         in: query
         schema:
           type: string
+        description: Unique identifier of the user
       responses:
         '200':
           description: Filter deleted
@@ -15751,6 +16485,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the message
       requestBody:
         required: true
         content:
@@ -15839,6 +16574,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the message
       requestBody:
         required: false
         content:
@@ -15900,6 +16636,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the message
       requestBody:
         required: false
         content:
@@ -15961,6 +16698,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the message
       responses:
         '200':
           description: Message archived
@@ -16016,6 +16754,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the message
       requestBody:
         required: false
         content:
@@ -16077,15 +16816,18 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the message
       - name: attachment_id
         in: path
         required: true
         schema:
           type: string
+        description: The attachment id
       - name: user_id
         in: query
         schema:
           type: string
+        description: Unique identifier of the user
       responses:
         '200':
           description: Attachment
@@ -16155,22 +16897,27 @@ paths:
         in: query
         schema:
           type: string
+        description: Unique identifier of the user
       - name: q
         in: query
         schema:
           type: string
+        description: Search query string
       - name: label_ids
         in: query
         schema:
           type: string
+        description: The label ids
       - name: limit
         in: query
         schema:
           type: integer
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: page_token
         in: query
         schema:
           type: string
+        description: The page token
       responses:
         '200':
           description: Threads
@@ -16226,10 +16973,12 @@ paths:
         required: true
         schema:
           type: string
+        description: The thread id
       - name: user_id
         in: query
         schema:
           type: string
+        description: Unique identifier of the user
       responses:
         '200':
           description: Thread
@@ -16300,6 +17049,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The thread id
       responses:
         '200':
           description: Thread archived
@@ -16355,6 +17105,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The thread id
       requestBody:
         required: false
         content:
@@ -16416,6 +17167,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The thread id
       requestBody:
         required: true
         content:
@@ -16476,14 +17228,17 @@ paths:
         in: query
         schema:
           type: string
+        description: Unique identifier of the user
       - name: limit
         in: query
         schema:
           type: integer
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: page_token
         in: query
         schema:
           type: string
+        description: The page token
       responses:
         '200':
           description: Drafts
@@ -16620,10 +17375,12 @@ paths:
         required: true
         schema:
           type: string
+        description: The draft id
       - name: user_id
         in: query
         schema:
           type: string
+        description: Unique identifier of the user
       responses:
         '200':
           description: Draft
@@ -16693,6 +17450,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The draft id
       requestBody:
         required: true
         content:
@@ -16795,10 +17553,12 @@ paths:
         required: true
         schema:
           type: string
+        description: The draft id
       - name: user_id
         in: query
         schema:
           type: string
+        description: Unique identifier of the user
       responses:
         '200':
           description: Draft deleted
@@ -16869,6 +17629,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The draft id
       responses:
         '200':
           description: Draft sent
@@ -16924,10 +17685,12 @@ paths:
         required: true
         schema:
           type: string
+        description: The redirect uri
       - name: workspace_id
         in: query
         schema:
           type: string
+        description: Workspace to scope the query to
       responses:
         '200':
           description: OAuth URL
@@ -17063,6 +17826,7 @@ paths:
         in: query
         schema:
           type: string
+        description: Workspace to scope the query to
       responses:
         '200':
           description: Folders
@@ -17117,22 +17881,27 @@ paths:
         in: query
         schema:
           type: string
+        description: Workspace to scope the query to
       - name: folder_id
         in: query
         schema:
           type: string
+        description: The folder id
       - name: max_results
         in: query
         schema:
           type: integer
+        description: The max results value
       - name: page_token
         in: query
         schema:
           type: string
+        description: The page token
       - name: filter
         in: query
         schema:
           type: string
+        description: The filter
       responses:
         '200':
           description: Messages
@@ -17188,10 +17957,12 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the message
       - name: workspace_id
         in: query
         schema:
           type: string
+        description: Workspace to scope the query to
       responses:
         '200':
           description: Message
@@ -17261,6 +18032,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the message
       responses:
         '200':
           description: Message deleted
@@ -17331,10 +18103,12 @@ paths:
         required: true
         schema:
           type: string
+        description: The conversation id
       - name: workspace_id
         in: query
         schema:
           type: string
+        description: Workspace to scope the query to
       responses:
         '200':
           description: Conversation
@@ -17568,10 +18342,12 @@ paths:
         in: query
         schema:
           type: string
+        description: Search query string
       - name: workspace_id
         in: query
         schema:
           type: string
+        description: Workspace to scope the query to
       responses:
         '200':
           description: Search results
@@ -17627,6 +18403,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the message
       requestBody:
         required: false
         content:
@@ -17688,6 +18465,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the message
       requestBody:
         required: true
         content:
@@ -17748,6 +18526,7 @@ paths:
         in: query
         schema:
           type: string
+        description: Workspace to scope the query to
       responses:
         '200':
           description: Status
@@ -18011,10 +18790,12 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the channel
       - name: workspace_id
         in: query
         schema:
           type: string
+        description: Workspace to scope the query to
       responses:
         '200':
           description: Channel summary
@@ -18240,6 +19021,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the user
       responses:
         '200':
           description: Permissions
@@ -18353,10 +19135,12 @@ paths:
         in: query
         schema:
           type: integer
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: offset
         in: query
         schema:
           type: integer
+        description: Number of items to skip for pagination
       responses:
         '200':
           description: Audit trail
@@ -18393,6 +19177,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the user
       responses:
         '200':
           description: User audit
@@ -18473,14 +19258,17 @@ paths:
         in: query
         schema:
           type: string
+        description: Filter by status (e.g., pending, active, completed, failed)
       - name: limit
         in: query
         schema:
           type: integer
+        description: 'Maximum number of items to return (default: 20, max: 100)'
       - name: offset
         in: query
         schema:
           type: integer
+        description: Number of items to skip for pagination
       responses:
         '200':
           description: Sessions
@@ -18579,6 +19367,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the session
       responses:
         '200':
           description: Session
@@ -18629,6 +19418,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the session
       responses:
         '200':
           description: Session deleted
@@ -18680,6 +19470,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the session
       responses:
         '200':
           description: Audit started
@@ -18731,6 +19522,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the session
       responses:
         '200':
           description: Audit paused
@@ -18782,6 +19574,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the session
       responses:
         '200':
           description: Audit resumed
@@ -18833,6 +19626,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the session
       responses:
         '200':
           description: Audit cancelled
@@ -18884,10 +19678,12 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the session
       - name: audit_type
         in: query
         schema:
           type: string
+        description: The audit type
       responses:
         '200':
           description: Findings
@@ -18939,6 +19735,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the session
       responses:
         '200':
           description: Event stream
@@ -18990,6 +19787,7 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the session
       requestBody:
         required: true
         content:
@@ -19074,10 +19872,12 @@ paths:
         required: true
         schema:
           type: string
+        description: Unique identifier of the session
       - name: format
         in: query
         schema:
           type: string
+        description: Output format (e.g., json, yaml, csv)
       responses:
         '200':
           description: Report
@@ -19545,6 +20345,7 @@ paths:
         in: query
         schema:
           type: boolean
+        description: Filter to only active items
       responses:
         '200':
           description: Employees
@@ -19580,14 +20381,17 @@ paths:
         in: query
         schema:
           type: string
+        description: Start date for filtering (ISO 8601 format)
       - name: end_date
         in: query
         schema:
           type: string
+        description: End date for filtering (ISO 8601 format)
       - name: processed
         in: query
         schema:
           type: boolean
+        description: Whether to enable processed
       responses:
         '200':
           description: Payrolls
@@ -19651,6 +20455,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The payroll id
       responses:
         '200':
           description: Payroll
@@ -19702,6 +20507,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The payroll id
       requestBody:
         required: false
         content:
@@ -19923,6 +20729,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The ip address
       responses:
         '200':
           description: IP result
@@ -20060,6 +20867,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The hash value
       responses:
         '200':
           description: Hash result
@@ -20387,11 +21195,17 @@ paths:
             schema:
               $ref: '#/components/schemas/BudgetCreateRequest'
             example:
-              name: Monthly AI Budget
-              amount_usd: 500.0
+              name: Q1 AI Budget
+              workspace_id: ws_abc123
+              limit_usd: 5000.0
               period: monthly
-              description: Budget for AI debate operations
-              auto_suspend: true
+              alerts:
+                thresholds:
+                - 0.5
+                - 0.8
+                - 0.95
+                notify:
+                - admin@example.com
       responses:
         '201':
           description: Budget created
@@ -21111,6 +21925,8 @@ paths:
                 password_configured: true
                 tenant_id_configured: true
                 connector_ready: true
+      security:
+      - bearerAuth: []
   /api/v1/integrations/teams/commands:
     post:
       tags:
@@ -21211,6 +22027,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
   /api/v1/integrations/teams/interactive:
     post:
       tags:
@@ -21293,6 +22111,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
   /api/v1/integrations/teams/notify:
     post:
       tags:
@@ -21441,6 +22261,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
   /api/v1/bots/teams/status:
     get:
       tags:
@@ -21469,6 +22291,8 @@ paths:
                     type:
                     - string
                     - 'null'
+      security:
+      - bearerAuth: []
 components:
   schemas:
     Error:
