@@ -863,15 +863,18 @@ def get_finding_workflow_store() -> FindingWorkflowStoreBackend:
     """
     Get the global finding workflow store instance.
 
-    Backend is selected based on environment variables:
-    - ARAGORA_WORKFLOW_STORE_BACKEND: "memory", "sqlite", "postgres", or "redis"
-    - ARAGORA_DB_BACKEND: fallback if ARAGORA_WORKFLOW_STORE_BACKEND not set
+    Backend selection (in preference order):
+    1. Supabase PostgreSQL (if SUPABASE_URL + SUPABASE_DB_PASSWORD configured)
+    2. Self-hosted PostgreSQL (if DATABASE_URL or ARAGORA_POSTGRES_DSN configured)
+    3. Redis (if ARAGORA_WORKFLOW_STORE_BACKEND=redis)
+    4. SQLite (fallback, with production warning)
 
-    Options:
-    - "memory": InMemoryFindingWorkflowStore (for testing)
-    - "sqlite": SQLiteFindingWorkflowStore (default, single-instance)
-    - "postgres" or "postgresql": PostgresFindingWorkflowStore (multi-instance)
-    - "redis": RedisFindingWorkflowStore (multi-instance)
+    Override via:
+    - ARAGORA_WORKFLOW_STORE_BACKEND: "memory", "sqlite", "postgres", "supabase", or "redis"
+    - ARAGORA_DB_BACKEND: Global override
+
+    Returns:
+        Configured FindingWorkflowStoreBackend instance
     """
     global _finding_workflow_store
 
@@ -879,33 +882,23 @@ def get_finding_workflow_store() -> FindingWorkflowStoreBackend:
         if _finding_workflow_store is not None:
             return _finding_workflow_store
 
-        # Check store-specific backend first, then global database backend
-        backend = os.getenv("ARAGORA_WORKFLOW_STORE_BACKEND")
-        if not backend:
-            backend = os.getenv("ARAGORA_DB_BACKEND", "sqlite")
-        backend = backend.lower()
-
-        if backend == "memory":
-            _finding_workflow_store = InMemoryFindingWorkflowStore()
-            logger.info("Using in-memory finding workflow store")
-        elif backend in ("postgres", "postgresql"):
-            logger.info("Using PostgreSQL finding workflow store")
-            try:
-                from aragora.storage.postgres_store import get_postgres_pool
-
-                pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
-                store = PostgresFindingWorkflowStore(pool)
-                asyncio.get_event_loop().run_until_complete(store.initialize())
-                _finding_workflow_store = store
-            except Exception as e:
-                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-                _finding_workflow_store = SQLiteFindingWorkflowStore()
-        elif backend == "redis":
+        # Check store-specific backend for Redis (not handled by create_persistent_store)
+        backend = os.getenv("ARAGORA_WORKFLOW_STORE_BACKEND", "").lower()
+        if backend == "redis":
             _finding_workflow_store = RedisFindingWorkflowStore()
             logger.info("Using Redis finding workflow store")
-        else:  # Default to SQLite
-            _finding_workflow_store = SQLiteFindingWorkflowStore()
-            logger.info("Using SQLite finding workflow store")
+            return _finding_workflow_store
+
+        # Use unified factory for memory/sqlite/postgres/supabase
+        from aragora.storage.connection_factory import create_persistent_store
+
+        _finding_workflow_store = create_persistent_store(
+            store_name="workflow",
+            sqlite_class=SQLiteFindingWorkflowStore,
+            postgres_class=PostgresFindingWorkflowStore,
+            db_filename="finding_workflows.db",
+            memory_class=InMemoryFindingWorkflowStore,
+        )
 
         return _finding_workflow_store
 

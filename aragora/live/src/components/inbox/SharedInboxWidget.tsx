@@ -64,23 +64,12 @@ export function SharedInboxWidget({
           urgent_count: 0, // Would need separate API call
         });
       } else {
-        // Use mock data
-        setSummary({
-          total_inboxes: 3,
-          total_messages: 46,
-          unread_count: 13,
-          assigned_to_me: 5,
-          urgent_count: 2,
-        });
+        // API error - show empty state
+        setSummary(null);
       }
     } catch {
-      setSummary({
-        total_inboxes: 3,
-        total_messages: 46,
-        unread_count: 13,
-        assigned_to_me: 5,
-        urgent_count: 2,
-      });
+      // Network error - show empty state
+      setSummary(null);
     } finally {
       setLoading(false);
     }

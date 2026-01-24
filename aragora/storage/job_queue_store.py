@@ -22,7 +22,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import sqlite3
 import threading
 import time
@@ -930,11 +929,14 @@ def get_job_store() -> JobStoreBackend:
     """
     Get or create the job queue store.
 
-    Uses environment variables to configure:
-    - ARAGORA_JOB_STORE_BACKEND: "sqlite", "postgres", or "postgresql"
-    - ARAGORA_DB_BACKEND: Global database backend (fallback)
-    - ARAGORA_DATA_DIR: Directory for SQLite database
-    - ARAGORA_POSTGRES_DSN or DATABASE_URL: PostgreSQL connection string
+    Backend selection (in preference order):
+    1. Supabase PostgreSQL (if SUPABASE_URL + SUPABASE_DB_PASSWORD configured)
+    2. Self-hosted PostgreSQL (if DATABASE_URL or ARAGORA_POSTGRES_DSN configured)
+    3. SQLite (fallback, with production warning)
+
+    Override via:
+    - ARAGORA_JOB_STORE_BACKEND: "memory", "sqlite", "postgres", or "supabase"
+    - ARAGORA_DB_BACKEND: Global override
 
     Returns:
         Configured JobStoreBackend instance
@@ -943,49 +945,14 @@ def get_job_store() -> JobStoreBackend:
     if _job_store is not None:
         return _job_store
 
-    # Check store-specific backend first, then global database backend
-    backend_type = os.environ.get("ARAGORA_JOB_STORE_BACKEND")
-    if not backend_type:
-        # Fall back to global database backend setting
-        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
-    backend_type = backend_type.lower()
+    from aragora.storage.connection_factory import create_persistent_store
 
-    # Get data directory
-    try:
-        from aragora.config.legacy import DATA_DIR
-
-        data_dir = DATA_DIR
-    except ImportError:
-        env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-        data_dir = Path(env_dir or ".nomic")
-
-    db_path = data_dir / "job_queue.db"
-
-    if backend_type == "postgres" or backend_type == "postgresql":
-        logger.info("Using PostgreSQL job store")
-        try:
-            from aragora.storage.postgres_store import get_postgres_pool
-            from aragora.utils.async_utils import run_async
-
-            # Initialize PostgreSQL store with connection pool using run_async
-            # to safely handle both sync and async contexts
-            async def init_postgres_store():
-                pool = await get_postgres_pool()
-                store = PostgresJobQueueStore(pool)
-                await store.initialize()
-                return store
-
-            _job_store = run_async(init_postgres_store())
-        except Exception as e:
-            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-            _job_store = SQLiteJobStore(db_path)
-    elif backend_type == "sqlite":
-        logger.info(f"Using SQLite job store: {db_path}")
-        _job_store = SQLiteJobStore(db_path)
-    else:
-        # Default to SQLite
-        logger.info(f"Using SQLite job store (default): {db_path}")
-        _job_store = SQLiteJobStore(db_path)
+    _job_store = create_persistent_store(
+        store_name="job",
+        sqlite_class=SQLiteJobStore,
+        postgres_class=PostgresJobQueueStore,
+        db_filename="job_queue.db",
+    )
 
     return _job_store
 

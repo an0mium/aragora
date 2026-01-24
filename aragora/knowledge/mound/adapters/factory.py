@@ -86,7 +86,7 @@ def _init_specs() -> None:
             name="consensus",
             adapter_class=ConsensusAdapter,
             required_deps=["consensus_memory"],
-            forward_method="get",  # Consensus is query-only
+            forward_method="sync_to_km",  # Sync pending consensus records to KM
             reverse_method="sync_validations_from_km",  # KM validations update consensus metadata
             priority=90,
             config_key="km_consensus_adapter",

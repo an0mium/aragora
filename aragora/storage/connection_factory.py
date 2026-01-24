@@ -367,22 +367,19 @@ def get_database_pool_sync(
 
     # Check if we're in an async context
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
         # We're in an async context - can't use run_until_complete
         # Return config with DSN, let caller handle pool creation async
         logger.debug(f"[{store_name}] Async context detected, returning config only")
         return None, config
     except RuntimeError:
-        # No running loop - safe to create one
+        # No running loop - safe to run async
         pass
 
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    # Use run_async to safely run in sync context, avoiding deprecated get_event_loop()
+    from aragora.utils.async_utils import run_async
 
-    return loop.run_until_complete(get_database_pool(store_name, allow_sqlite, dsn_override))
+    return run_async(get_database_pool(store_name, allow_sqlite, dsn_override))
 
 
 async def close_all_pools() -> None:

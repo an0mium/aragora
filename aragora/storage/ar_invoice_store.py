@@ -1358,10 +1358,17 @@ def get_ar_invoice_store() -> ARInvoiceStoreBackend:
     """
     Get the global AR invoice store instance.
 
-    Backend is selected based on ARAGORA_AR_STORE_BACKEND env var:
-    - "memory": InMemoryARInvoiceStore (for testing)
-    - "sqlite": SQLiteARInvoiceStore (default, single-instance)
-    - "postgres": PostgresARInvoiceStore (multi-instance)
+    Backend selection (in preference order):
+    1. Supabase PostgreSQL (if SUPABASE_URL + SUPABASE_DB_PASSWORD configured)
+    2. Self-hosted PostgreSQL (if DATABASE_URL or ARAGORA_POSTGRES_DSN configured)
+    3. SQLite (fallback, with production warning)
+
+    Override via:
+    - ARAGORA_AR_STORE_BACKEND: "memory", "sqlite", "postgres", or "supabase"
+    - ARAGORA_DB_BACKEND: Global override
+
+    Returns:
+        Configured ARInvoiceStoreBackend instance
     """
     global _ar_invoice_store
 
@@ -1369,35 +1376,15 @@ def get_ar_invoice_store() -> ARInvoiceStoreBackend:
         if _ar_invoice_store is not None:
             return _ar_invoice_store
 
-        backend = os.getenv("ARAGORA_AR_STORE_BACKEND")
-        if not backend:
-            backend = os.getenv("ARAGORA_DB_BACKEND", "sqlite")
-        backend = backend.lower()
+        from aragora.storage.connection_factory import create_persistent_store
 
-        if backend == "memory":
-            _ar_invoice_store = InMemoryARInvoiceStore()
-            logger.info("Using in-memory AR invoice store")
-        elif backend in ("postgres", "postgresql"):
-            logger.info("Using PostgreSQL AR invoice store")
-            try:
-                from aragora.storage.postgres_store import get_postgres_pool
-                from aragora.utils.async_utils import run_async
-
-                # Initialize PostgreSQL store with connection pool using run_async
-                # to safely handle both sync and async contexts
-                async def init_postgres_store():
-                    pool = await get_postgres_pool()
-                    store = PostgresARInvoiceStore(pool)
-                    await store.initialize()
-                    return store
-
-                _ar_invoice_store = run_async(init_postgres_store())
-            except Exception as e:
-                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-                _ar_invoice_store = SQLiteARInvoiceStore()
-        else:
-            _ar_invoice_store = SQLiteARInvoiceStore()
-            logger.info("Using SQLite AR invoice store")
+        _ar_invoice_store = create_persistent_store(
+            store_name="ar",
+            sqlite_class=SQLiteARInvoiceStore,
+            postgres_class=PostgresARInvoiceStore,
+            db_filename="ar_invoices.db",
+            memory_class=InMemoryARInvoiceStore,
+        )
 
         return _ar_invoice_store
 

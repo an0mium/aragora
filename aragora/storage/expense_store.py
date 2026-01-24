@@ -1152,10 +1152,17 @@ def get_expense_store() -> ExpenseStoreBackend:
     """
     Get the global expense store instance.
 
-    Backend is selected based on ARAGORA_EXPENSE_STORE_BACKEND env var:
-    - "memory": InMemoryExpenseStore (for testing)
-    - "sqlite": SQLiteExpenseStore (default, single-instance)
-    - "postgres": PostgresExpenseStore (multi-instance)
+    Backend selection (in preference order):
+    1. Supabase PostgreSQL (if SUPABASE_URL + SUPABASE_DB_PASSWORD configured)
+    2. Self-hosted PostgreSQL (if DATABASE_URL or ARAGORA_POSTGRES_DSN configured)
+    3. SQLite (fallback, with production warning)
+
+    Override via:
+    - ARAGORA_EXPENSE_STORE_BACKEND: "memory", "sqlite", "postgres", or "supabase"
+    - ARAGORA_DB_BACKEND: Global override
+
+    Returns:
+        Configured ExpenseStoreBackend instance
     """
     global _expense_store
 
@@ -1163,35 +1170,15 @@ def get_expense_store() -> ExpenseStoreBackend:
         if _expense_store is not None:
             return _expense_store
 
-        backend = os.getenv("ARAGORA_EXPENSE_STORE_BACKEND")
-        if not backend:
-            backend = os.getenv("ARAGORA_DB_BACKEND", "sqlite")
-        backend = backend.lower()
+        from aragora.storage.connection_factory import create_persistent_store
 
-        if backend == "memory":
-            _expense_store = InMemoryExpenseStore()
-            logger.info("Using in-memory expense store")
-        elif backend in ("postgres", "postgresql"):
-            logger.info("Using PostgreSQL expense store")
-            try:
-                from aragora.storage.postgres_store import get_postgres_pool
-                from aragora.utils.async_utils import run_async
-
-                # Initialize PostgreSQL store with connection pool using run_async
-                # to safely handle both sync and async contexts
-                async def init_postgres_store():
-                    pool = await get_postgres_pool()
-                    store = PostgresExpenseStore(pool)
-                    await store.initialize()
-                    return store
-
-                _expense_store = run_async(init_postgres_store())
-            except Exception as e:
-                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-                _expense_store = SQLiteExpenseStore()
-        else:
-            _expense_store = SQLiteExpenseStore()
-            logger.info("Using SQLite expense store")
+        _expense_store = create_persistent_store(
+            store_name="expense",
+            sqlite_class=SQLiteExpenseStore,
+            postgres_class=PostgresExpenseStore,
+            db_filename="expenses.db",
+            memory_class=InMemoryExpenseStore,
+        )
 
         return _expense_store
 

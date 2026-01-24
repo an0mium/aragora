@@ -140,12 +140,20 @@ async def handle_list_connectors(
 async def handle_get_connector(
     connector_id: str,
     tenant_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Get connector details.
 
     GET /api/connectors/:connector_id
+
+    Requires connectors.read permission.
     """
+    # Check RBAC permission
+    perm_error = _check_permission(auth_context, "connectors.read", connector_id)
+    if perm_error:
+        return perm_error
+
     scheduler = get_scheduler()
     job_id = f"{tenant_id}:{connector_id}"
     job = scheduler.get_job(job_id)
@@ -376,12 +384,20 @@ async def handle_trigger_sync(
 async def handle_get_sync_status(
     connector_id: str,
     tenant_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Get current sync status.
 
     GET /api/connectors/:connector_id/sync/status
+
+    Requires connectors.read permission.
     """
+    # Check RBAC permission
+    perm_error = _check_permission(auth_context, "connectors.read", connector_id)
+    if perm_error:
+        return perm_error
+
     scheduler = get_scheduler()
     job_id = f"{tenant_id}:{connector_id}"
     job = scheduler.get_job(job_id)
@@ -404,13 +420,21 @@ async def handle_get_sync_history(
     tenant_id: str = "default",
     status: Optional[str] = None,
     limit: int = 50,
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Get sync history.
 
     GET /api/connectors/sync/history
     GET /api/connectors/:connector_id/sync/history
+
+    Requires connectors.read permission.
     """
+    # Check RBAC permission
+    perm_error = _check_permission(auth_context, "connectors.read", connector_id)
+    if perm_error:
+        return perm_error
+
     scheduler = get_scheduler()
 
     job_id = f"{tenant_id}:{connector_id}" if connector_id else None
@@ -463,12 +487,21 @@ async def handle_webhook(
 # =============================================================================
 
 
-async def handle_start_scheduler() -> Dict[str, Any]:
+async def handle_start_scheduler(
+    auth_context: Optional[Any] = None,
+) -> Dict[str, Any]:
     """
     Start the sync scheduler.
 
     POST /api/connectors/scheduler/start
+
+    Requires connectors.execute permission.
     """
+    # Check RBAC permission - starting scheduler is an admin operation
+    perm_error = _check_permission(auth_context, "connectors.execute")
+    if perm_error:
+        return perm_error
+
     scheduler = get_scheduler()
     await scheduler.start()
 
@@ -477,12 +510,21 @@ async def handle_start_scheduler() -> Dict[str, Any]:
     }
 
 
-async def handle_stop_scheduler() -> Dict[str, Any]:
+async def handle_stop_scheduler(
+    auth_context: Optional[Any] = None,
+) -> Dict[str, Any]:
     """
     Stop the sync scheduler.
 
     POST /api/connectors/scheduler/stop
+
+    Requires connectors.execute permission.
     """
+    # Check RBAC permission - stopping scheduler is an admin operation
+    perm_error = _check_permission(auth_context, "connectors.execute")
+    if perm_error:
+        return perm_error
+
     scheduler = get_scheduler()
     await scheduler.stop()
 
@@ -493,12 +535,20 @@ async def handle_stop_scheduler() -> Dict[str, Any]:
 
 async def handle_get_scheduler_stats(
     tenant_id: Optional[str] = None,
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Get scheduler statistics.
 
     GET /api/connectors/scheduler/stats
+
+    Requires connectors.read permission.
     """
+    # Check RBAC permission
+    perm_error = _check_permission(auth_context, "connectors.read")
+    if perm_error:
+        return perm_error
+
     scheduler = get_scheduler()
     return scheduler.get_stats(tenant_id=tenant_id)
 
@@ -561,11 +611,15 @@ async def handle_mongodb_aggregate(
     tenant_id: str = "default",
     limit: int = 1000,
     explain: bool = False,
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Execute MongoDB aggregation pipeline.
 
     POST /api/connectors/:connector_id/aggregate
+
+    Requires connectors.execute permission.
+
     {
         "collection": "users",
         "pipeline": [
@@ -582,6 +636,11 @@ async def handle_mongodb_aggregate(
     - $graphLookup, $bucket, $bucketAuto
     - $addFields, $replaceRoot, $merge
     """
+    # Check RBAC permission - executing aggregation is a data access operation
+    perm_error = _check_permission(auth_context, "connectors.execute", connector_id)
+    if perm_error:
+        return perm_error
+
     from aragora.connectors.enterprise.registry import get_connector
 
     connector = get_connector(connector_id, tenant_id=tenant_id)
@@ -635,12 +694,20 @@ async def handle_mongodb_aggregate(
 async def handle_mongodb_collections(
     connector_id: str,
     tenant_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     List collections in MongoDB database.
 
     GET /api/connectors/:connector_id/collections
+
+    Requires connectors.read permission.
     """
+    # Check RBAC permission
+    perm_error = _check_permission(auth_context, "connectors.read", connector_id)
+    if perm_error:
+        return perm_error
+
     from aragora.connectors.enterprise.registry import get_connector
 
     connector = get_connector(connector_id, tenant_id=tenant_id)

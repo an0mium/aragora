@@ -620,9 +620,14 @@ def get_audit_trail_store(
     """
     Get or create the default AuditTrailStore instance.
 
-    Uses environment variables to configure:
-    - ARAGORA_DB_BACKEND: Global database backend ("sqlite" or "postgresql")
-    - DATABASE_URL or ARAGORA_DATABASE_URL: PostgreSQL connection string
+    Backend selection (in preference order):
+    1. Supabase PostgreSQL (if SUPABASE_URL + SUPABASE_DB_PASSWORD configured)
+    2. Self-hosted PostgreSQL (if DATABASE_URL or ARAGORA_POSTGRES_DSN configured)
+    3. SQLite (fallback, with production warning)
+
+    Override via:
+    - ARAGORA_AUDIT_TRAIL_STORE_BACKEND: "sqlite", "postgres", or "supabase"
+    - ARAGORA_DB_BACKEND: Global override
 
     Returns:
         Configured AuditTrailStore instance
@@ -632,6 +637,34 @@ def get_audit_trail_store(
     if _default_store is None:
         with _store_lock:
             if _default_store is None:
+                # Use connection factory to determine backend and DSN
+                from aragora.storage.connection_factory import (
+                    resolve_database_config,
+                    StorageBackendType,
+                )
+
+                # Check for explicit backend override, else use preference order
+                store_backend = os.environ.get("ARAGORA_AUDIT_TRAIL_STORE_BACKEND")
+                if not store_backend and backend is None:
+                    config = resolve_database_config("audit_trail", allow_sqlite=True)
+                    if config.backend_type in (
+                        StorageBackendType.SUPABASE,
+                        StorageBackendType.POSTGRES,
+                    ):
+                        backend = "postgresql"
+                        database_url = database_url or config.dsn
+                    else:
+                        backend = "sqlite"
+                elif store_backend:
+                    store_backend = store_backend.lower()
+                    if store_backend in ("postgres", "postgresql", "supabase"):
+                        # Get DSN from connection factory
+                        config = resolve_database_config("audit_trail", allow_sqlite=True)
+                        database_url = database_url or config.dsn
+                        backend = "postgresql"
+                    else:
+                        backend = store_backend
+
                 _default_store = AuditTrailStore(
                     db_path=db_path,
                     backend=backend,
@@ -649,7 +682,7 @@ def get_audit_trail_store(
                         "audit_trail_store",
                         StorageMode.SQLITE,
                         "Audit trails must use distributed storage in production. "
-                        "Configure DATABASE_URL for PostgreSQL.",
+                        "Configure SUPABASE_URL or DATABASE_URL for PostgreSQL.",
                     )
 
     return _default_store

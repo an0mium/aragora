@@ -949,15 +949,18 @@ def get_federation_registry_store() -> FederationRegistryStoreBackend:
     """
     Get the global federation registry store instance.
 
-    Backend is selected based on environment variables:
-    - ARAGORA_FEDERATION_STORE_BACKEND: Store-specific override
-    - ARAGORA_DB_BACKEND: Global database backend fallback
+    Backend selection (in preference order):
+    1. Supabase PostgreSQL (if SUPABASE_URL + SUPABASE_DB_PASSWORD configured)
+    2. Self-hosted PostgreSQL (if DATABASE_URL or ARAGORA_POSTGRES_DSN configured)
+    3. Redis (if ARAGORA_FEDERATION_STORE_BACKEND=redis)
+    4. SQLite (fallback, with production warning)
 
-    Values:
-    - "memory": InMemoryFederationRegistryStore (for testing)
-    - "sqlite": SQLiteFederationRegistryStore (default, single-instance)
-    - "redis": RedisFederationRegistryStore (multi-instance)
-    - "postgres" or "postgresql": PostgresFederationRegistryStore (multi-instance)
+    Override via:
+    - ARAGORA_FEDERATION_STORE_BACKEND: "memory", "sqlite", "postgres", "supabase", or "redis"
+    - ARAGORA_DB_BACKEND: Global override
+
+    Returns:
+        Configured FederationRegistryStoreBackend instance
     """
     global _federation_registry_store
 
@@ -965,39 +968,23 @@ def get_federation_registry_store() -> FederationRegistryStoreBackend:
         if _federation_registry_store is not None:
             return _federation_registry_store
 
-        # Check store-specific backend first, then global database backend
-        backend = os.getenv("ARAGORA_FEDERATION_STORE_BACKEND")
-        if not backend:
-            backend = os.getenv("ARAGORA_DB_BACKEND", "sqlite")
-        backend = backend.lower()
-
-        if backend == "memory":
-            _federation_registry_store = InMemoryFederationRegistryStore()
-            logger.info("Using in-memory federation registry store")
-        elif backend == "redis":
+        # Check store-specific backend for Redis (not handled by create_persistent_store)
+        backend = os.getenv("ARAGORA_FEDERATION_STORE_BACKEND", "").lower()
+        if backend == "redis":
             _federation_registry_store = RedisFederationRegistryStore()
             logger.info("Using Redis federation registry store")
-        elif backend == "postgres" or backend == "postgresql":
-            logger.info("Using PostgreSQL federation registry store")
-            try:
-                from aragora.storage.postgres_store import get_postgres_pool
-                from aragora.utils.async_utils import run_async
+            return _federation_registry_store
 
-                # Initialize PostgreSQL store with connection pool using run_async
-                # to safely handle both sync and async contexts
-                async def init_postgres_store():
-                    pool = await get_postgres_pool()
-                    store = PostgresFederationRegistryStore(pool)
-                    await store.initialize()
-                    return store
+        # Use unified factory for memory/sqlite/postgres/supabase
+        from aragora.storage.connection_factory import create_persistent_store
 
-                _federation_registry_store = run_async(init_postgres_store())
-            except Exception as e:
-                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-                _federation_registry_store = SQLiteFederationRegistryStore()
-        else:  # Default to SQLite
-            _federation_registry_store = SQLiteFederationRegistryStore()
-            logger.info("Using SQLite federation registry store")
+        _federation_registry_store = create_persistent_store(
+            store_name="federation",
+            sqlite_class=SQLiteFederationRegistryStore,
+            postgres_class=PostgresFederationRegistryStore,
+            db_filename="federation_registry.db",
+            memory_class=InMemoryFederationRegistryStore,
+        )
 
         return _federation_registry_store
 

@@ -577,18 +577,16 @@ class ConsensusAdapter:
 
     def store_consensus(self, record: "ConsensusRecord") -> None:
         """
-        Store a consensus record in the Knowledge Mound (forward flow).
+        Mark a consensus record for KM sync (forward flow).
 
         This is called by ConsensusMemory when a high-confidence consensus
         is stored and should be synced to KM for cross-session learning.
 
         Args:
-            record: The ConsensusRecord to store in KM
+            record: The ConsensusRecord to mark for sync
         """
         from datetime import datetime
 
-        # This method is a hook for KM sync. The actual KM storage happens
-        # when sync_to_mound is called with a mound instance.
         logger.debug(
             f"Consensus marked for KM sync: {record.id} "
             f"(topic={record.topic[:50]}..., confidence={record.confidence:.2f})"
@@ -611,6 +609,119 @@ class ConsensusAdapter:
                 "strength": record.strength.value,
             },
         )
+
+    async def sync_to_km(
+        self,
+        mound: Any,
+        min_confidence: float = 0.7,
+        batch_size: int = 50,
+    ) -> Dict[str, Any]:
+        """
+        Sync pending consensus records to Knowledge Mound (forward flow).
+
+        This method finds all records marked with km_sync_pending=True,
+        converts them to KnowledgeItems, and stores them in the mound.
+
+        Args:
+            mound: The KnowledgeMound instance to sync to
+            min_confidence: Minimum confidence threshold for syncing
+            batch_size: Maximum records to sync in one call
+
+        Returns:
+            Dict with sync statistics:
+            - records_synced: Number of records successfully synced
+            - records_skipped: Number skipped (already synced or low confidence)
+            - records_failed: Number that failed to sync
+            - errors: List of error messages
+        """
+        import time
+        from datetime import datetime
+
+        start = time.time()
+        result = {
+            "records_synced": 0,
+            "records_skipped": 0,
+            "records_failed": 0,
+            "errors": [],
+            "duration_ms": 0.0,
+        }
+
+        # Find all pending records
+        pending_records = []
+        for record in self._consensus.get_all_consensus():
+            if record.metadata.get("km_sync_pending") and record.confidence >= min_confidence:
+                pending_records.append(record)
+            elif record.confidence < min_confidence:
+                result["records_skipped"] += 1
+
+        if not pending_records:
+            logger.debug("No pending consensus records to sync to KM")
+            result["duration_ms"] = (time.time() - start) * 1000
+            return result
+
+        logger.info(f"Syncing {len(pending_records[:batch_size])} consensus records to KM")
+
+        # Batch process records
+        for record in pending_records[:batch_size]:
+            try:
+                # Convert to KnowledgeItem
+                km_item = self.to_knowledge_item(record)
+
+                # Store in mound
+                if hasattr(mound, "store_item"):
+                    await mound.store_item(km_item)
+                elif hasattr(mound, "store"):
+                    await mound.store(km_item)
+                else:
+                    # Fallback: use mound's semantic store directly
+                    if hasattr(mound, "_semantic_store"):
+                        await mound._semantic_store.store(km_item)
+
+                # Clear pending flag and record sync time
+                record.metadata["km_sync_pending"] = False
+                record.metadata["km_synced_at"] = datetime.now().isoformat()
+                record.metadata["km_item_id"] = km_item.id
+
+                result["records_synced"] += 1
+
+                # Emit event for successful sync
+                self._emit_event(
+                    "km_adapter_forward_sync_complete",
+                    {
+                        "source": "consensus",
+                        "consensus_id": record.id,
+                        "km_item_id": km_item.id,
+                        "confidence": record.confidence,
+                    },
+                )
+
+            except Exception as e:
+                result["records_failed"] += 1
+                error_msg = f"Failed to sync consensus {record.id}: {str(e)}"
+                result["errors"].append(error_msg)
+                logger.warning(error_msg)
+
+                # Mark as failed but keep pending for retry
+                record.metadata["km_sync_error"] = str(e)
+                record.metadata["km_sync_failed_at"] = datetime.now().isoformat()
+
+        result["duration_ms"] = (time.time() - start) * 1000
+
+        # Record metrics
+        self._record_metric(
+            "sync",
+            result["records_failed"] == 0,
+            result["duration_ms"] / 1000,
+        )
+
+        logger.info(
+            f"Consensus KM sync complete: "
+            f"synced={result['records_synced']}, "
+            f"skipped={result['records_skipped']}, "
+            f"failed={result['records_failed']}"
+        )
+
+        return result
 
     async def sync_validations_from_km(
         self,

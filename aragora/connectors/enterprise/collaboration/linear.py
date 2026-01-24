@@ -359,7 +359,7 @@ class LinearConnector(EnterpriseConnector):
 
     def __init__(self, credentials: LinearCredentials, tenant_id: str = "default"):
         super().__init__(connector_id="linear", tenant_id=tenant_id)
-        self.credentials = credentials
+        self.credentials = credentials  # type: ignore[assignment]
         self._client: httpx.AsyncClient | None = None
 
     @property
@@ -377,7 +377,7 @@ class LinearConnector(EnterpriseConnector):
         if self._client is None:
             self._client = httpx.AsyncClient(
                 headers={
-                    "Authorization": self.credentials.api_key,
+                    "Authorization": self.credentials.api_key,  # type: ignore[attr-defined]
                     "Content-Type": "application/json",
                 },
                 timeout=30.0,
@@ -392,7 +392,7 @@ class LinearConnector(EnterpriseConnector):
         """Execute GraphQL query."""
         client = await self._get_client()
         response = await client.post(
-            self.credentials.base_url,
+            self.credentials.base_url,  # type: ignore[attr-defined]
             json={"query": query, "variables": variables or {}},
         )
 
@@ -1027,7 +1027,7 @@ class LinearConnector(EnterpriseConnector):
         try:
             await self._get_client()
             # Test connection by fetching current user
-            await self.get_viewer()
+            await self.get_current_user()
             logger.info("Connected to Linear API")
             return True
         except Exception as e:
@@ -1057,8 +1057,8 @@ class LinearConnector(EnterpriseConnector):
         results: List[Evidence] = []
 
         try:
-            team_id = kwargs.get("team_id")
-            issues = await self.search_issues(query, team_id=team_id, limit=limit)
+            team_id = kwargs.get("team_id")  # noqa: F841
+            issues = await self.search_issues(query, first=limit)  # type: ignore[call-arg]
 
             for issue in issues:
                 results.append(

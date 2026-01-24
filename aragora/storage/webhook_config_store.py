@@ -1227,12 +1227,15 @@ def get_webhook_config_store() -> WebhookConfigStoreBackend:
     """
     Get or create the webhook config store.
 
-    Uses environment variables to configure:
-    - ARAGORA_DB_BACKEND: "sqlite" or "postgres" (selects database backend)
-    - ARAGORA_WEBHOOK_CONFIG_STORE_BACKEND: "memory", "sqlite", "postgres", or "redis"
-    - ARAGORA_DATA_DIR: Directory for SQLite database
-    - ARAGORA_REDIS_URL: Redis connection URL (for redis backend)
-    - ARAGORA_POSTGRES_DSN or DATABASE_URL: PostgreSQL connection string
+    Backend selection (in preference order):
+    1. Supabase PostgreSQL (if SUPABASE_URL + SUPABASE_DB_PASSWORD configured)
+    2. Self-hosted PostgreSQL (if DATABASE_URL or ARAGORA_POSTGRES_DSN configured)
+    3. Redis (if ARAGORA_WEBHOOK_CONFIG_STORE_BACKEND=redis)
+    4. SQLite (fallback, with production warning)
+
+    Override via:
+    - ARAGORA_WEBHOOK_CONFIG_STORE_BACKEND: "memory", "sqlite", "postgres", "supabase", or "redis"
+    - ARAGORA_DB_BACKEND: Global override
 
     Returns:
         Configured WebhookConfigStoreBackend instance
@@ -1241,51 +1244,32 @@ def get_webhook_config_store() -> WebhookConfigStoreBackend:
     if _webhook_config_store is not None:
         return _webhook_config_store
 
-    # Check store-specific backend first, then global database backend
-    backend_type = os.environ.get("ARAGORA_WEBHOOK_CONFIG_STORE_BACKEND")
-    if not backend_type:
-        # Fall back to global database backend setting
-        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
-    backend_type = backend_type.lower()
-
-    # Get data directory for SQLite
-    try:
-        from aragora.config.legacy import DATA_DIR
-
-        data_dir = DATA_DIR
-    except ImportError:
-        env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-        data_dir = Path(env_dir or ".nomic")
-
-    db_path = data_dir / "webhook_configs.db"
-
-    if backend_type == "memory":
-        logger.info("Using in-memory webhook config store (not persistent)")
-        _webhook_config_store = InMemoryWebhookConfigStore()
-    elif backend_type == "postgres" or backend_type == "postgresql":
-        logger.info("Using PostgreSQL webhook config store")
+    # Check store-specific backend for Redis (not handled by create_persistent_store)
+    backend_type = os.environ.get("ARAGORA_WEBHOOK_CONFIG_STORE_BACKEND", "").lower()
+    if backend_type == "redis":
+        # Get data directory for SQLite fallback
         try:
-            from aragora.storage.postgres_store import get_postgres_pool
-            from aragora.utils.async_utils import run_async
+            from aragora.config.legacy import DATA_DIR
 
-            # Initialize PostgreSQL store with connection pool using run_async
-            # to safely handle both sync and async contexts
-            async def init_postgres_store():
-                pool = await get_postgres_pool()
-                store = PostgresWebhookConfigStore(pool)
-                await store.initialize()
-                return store
-
-            _webhook_config_store = run_async(init_postgres_store())
-        except Exception as e:
-            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-            _webhook_config_store = SQLiteWebhookConfigStore(db_path)
-    elif backend_type == "redis":
+            data_dir = DATA_DIR
+        except ImportError:
+            env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
+            data_dir = Path(env_dir or ".nomic")
+        db_path = data_dir / "webhook_configs.db"
         logger.info("Using Redis webhook config store with SQLite fallback")
         _webhook_config_store = RedisWebhookConfigStore(db_path)
-    else:  # Default: sqlite
-        logger.info(f"Using SQLite webhook config store: {db_path}")
-        _webhook_config_store = SQLiteWebhookConfigStore(db_path)
+        return _webhook_config_store
+
+    # Use unified factory for memory/sqlite/postgres/supabase
+    from aragora.storage.connection_factory import create_persistent_store
+
+    _webhook_config_store = create_persistent_store(
+        store_name="webhook_config",
+        sqlite_class=SQLiteWebhookConfigStore,
+        postgres_class=PostgresWebhookConfigStore,
+        db_filename="webhook_configs.db",
+        memory_class=InMemoryWebhookConfigStore,
+    )
 
     return _webhook_config_store
 

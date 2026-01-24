@@ -153,7 +153,7 @@ export function SharedInboxView({
   const [messages, setMessages] = useState<SharedInboxMessage[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<SharedInboxMessage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [_error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<MessageStatus | 'all'>('all');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
   const [showRulesPanel, setShowRulesPanel] = useState(false);
@@ -172,9 +172,8 @@ export function SharedInboxView({
       );
 
       if (!response.ok) {
-        // Use demo data
-        setInboxes([DEMO_INBOX]);
-        setSelectedInbox(DEMO_INBOX);
+        setError(`Failed to load inboxes: ${response.status} ${response.statusText}`);
+        setInboxes([]);
         return;
       }
 
@@ -184,10 +183,9 @@ export function SharedInboxView({
       if (fetchedInboxes.length > 0) {
         setSelectedInbox(fetchedInboxes[0]);
       }
-    } catch {
-      // Use demo data on error
-      setInboxes([DEMO_INBOX]);
-      setSelectedInbox(DEMO_INBOX);
+    } catch (err) {
+      setError(`Failed to connect to inbox service: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setInboxes([]);
     } finally {
       setIsLoading(false);
     }
@@ -213,16 +211,17 @@ export function SharedInboxView({
       );
 
       if (!response.ok) {
-        // Use demo data
-        setMessages(DEMO_MESSAGES);
+        setError(`Failed to load messages: ${response.status} ${response.statusText}`);
+        setMessages([]);
         return;
       }
 
       const data = await response.json();
       setMessages(data.messages || []);
-    } catch {
-      // Use demo data on error
-      setMessages(DEMO_MESSAGES);
+      setError(null);
+    } catch (err) {
+      setError(`Failed to fetch messages: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setMessages([]);
     }
   }, [apiBase, authToken, selectedInbox, statusFilter, assigneeFilter]);
 
@@ -341,6 +340,23 @@ export function SharedInboxView({
       <div className="border border-acid-green/30 bg-surface/50 p-4 rounded">
         <div className="text-center py-8 text-text-muted font-mono text-sm animate-pulse">
           Loading shared inbox...
+        </div>
+      </div>
+    );
+  }
+
+  if (error && inboxes.length === 0) {
+    return (
+      <div className="border border-red-500/30 bg-red-900/10 p-4 rounded">
+        <div className="text-center py-8">
+          <div className="text-red-400 font-mono text-sm mb-2">Failed to load inbox</div>
+          <div className="text-text-muted text-xs">{error}</div>
+          <button
+            onClick={() => fetchInboxes()}
+            className="mt-4 px-4 py-2 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 rounded"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );

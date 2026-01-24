@@ -44,6 +44,7 @@ from ..base import (
     validate_path_segment,
 )
 from ..utils.rate_limit import rate_limit
+from ..utils.decorators import require_permission
 
 # Cache TTLs for system endpoints (in seconds)
 CACHE_TTL_HISTORY = 60  # History queries
@@ -135,7 +136,7 @@ class SystemHandler(BaseHandler):
         # Simple routes with no parameters
         simple_routes = {
             "/api/v1/debug/test": lambda: self._handle_debug_test(handler),
-            "/api/v1/auth/stats": self._get_auth_stats,
+            "/api/v1/auth/stats": lambda: self._get_auth_stats(handler),
             "/metrics": self._get_prometheus_metrics,
             "/api/v1/circuit-breakers": self._get_circuit_breaker_metrics,
         }
@@ -143,9 +144,9 @@ class SystemHandler(BaseHandler):
         if path in simple_routes:
             return simple_routes[path]()
 
-        # System maintenance
+        # System maintenance (requires admin:system permission)
         if path == "/api/v1/system/maintenance":
-            return self._handle_maintenance(query_params)
+            return self._handle_maintenance(query_params, handler)
 
         # History endpoints (require auth)
         if path in self._HISTORY_CONFIG:
@@ -158,8 +159,12 @@ class SystemHandler(BaseHandler):
         method = getattr(handler, "command", "GET")
         return json_response({"status": "ok", "method": method, "message": "Modular handler works"})
 
-    def _handle_maintenance(self, query_params: dict) -> HandlerResult:
-        """Handle system maintenance endpoint."""
+    @require_permission("admin:system")
+    def _handle_maintenance(self, query_params: dict, handler=None, user=None) -> HandlerResult:
+        """Handle system maintenance endpoint.
+
+        Requires admin:system permission.
+        """
         task = get_string_param(query_params, "task", "status")
         valid_tasks = ("status", "vacuum", "analyze", "checkpoint", "full")
         if task not in valid_tasks:
@@ -194,7 +199,7 @@ class SystemHandler(BaseHandler):
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests for auth endpoints."""
         if path == "/api/v1/auth/revoke":
-            return self._revoke_token(handler)
+            return self._revoke_token(handler, handler)
         return None
 
     def _load_filtered_json(
@@ -375,8 +380,11 @@ class SystemHandler(BaseHandler):
             logger.exception(f"Maintenance task '{task}' failed: {e}")
             return error_response(safe_error_message(e, "maintenance"), 500)
 
-    def _get_auth_stats(self) -> HandlerResult:
+    @require_permission("admin:security")
+    def _get_auth_stats(self, handler=None, user=None) -> HandlerResult:
         """Get authentication and rate limiting statistics.
+
+        Requires admin:security permission.
 
         Returns:
             enabled: Whether auth is enabled
@@ -397,8 +405,11 @@ class SystemHandler(BaseHandler):
             }
         )
 
-    def _revoke_token(self, handler) -> HandlerResult:
+    @require_permission("admin:security")
+    def _revoke_token(self, handler, _handler=None, user=None) -> HandlerResult:
         """Revoke a token to invalidate it immediately.
+
+        Requires admin:security permission.
 
         POST body:
             token: The token to revoke (required)

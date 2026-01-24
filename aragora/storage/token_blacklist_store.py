@@ -488,7 +488,7 @@ def get_blacklist_backend() -> BlacklistBackend:
             postgres_class=PostgresBlacklist,
             db_filename="token_blacklist.db",
             memory_class=InMemoryBlacklist,
-            data_dir=data_dir,
+            data_dir=str(data_dir) if data_dir else None,
         )
 
     return _blacklist_backend

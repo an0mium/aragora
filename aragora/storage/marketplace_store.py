@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -1513,77 +1512,30 @@ def get_marketplace_store() -> Union[MarketplaceStore, PostgresMarketplaceStore]
     """
     Get or create the default marketplace store instance.
 
-    Uses environment variables to configure:
-    - ARAGORA_DB_BACKEND: "sqlite" or "postgres" (selects database backend)
-    - ARAGORA_MARKETPLACE_STORE_BACKEND: "sqlite" or "postgres" (store-specific override)
+    Backend selection (in preference order):
+    1. Supabase PostgreSQL (if SUPABASE_URL + SUPABASE_DB_PASSWORD configured)
+    2. Self-hosted PostgreSQL (if DATABASE_URL or ARAGORA_POSTGRES_DSN configured)
+    3. SQLite (fallback, with production warning)
+
+    Override via:
+    - ARAGORA_MARKETPLACE_STORE_BACKEND: "sqlite", "postgres", or "supabase"
+    - ARAGORA_DB_BACKEND: Global override
 
     Returns:
         Configured marketplace store instance
-
-    Raises:
-        RuntimeError: If multi-instance mode requires PostgreSQL but it's unavailable
     """
     global _marketplace_store
     if _marketplace_store is not None:
         return _marketplace_store
 
-    # Check production/multi-instance requirements
-    is_production = os.environ.get("ARAGORA_ENV") == "production"
-    is_multi_instance = os.environ.get("ARAGORA_MULTI_INSTANCE", "").lower() in ("true", "1", "yes")
+    from aragora.storage.connection_factory import create_persistent_store
 
-    # Check store-specific backend first, then global database backend
-    backend_type = os.environ.get("ARAGORA_MARKETPLACE_STORE_BACKEND")
-    if not backend_type:
-        # Fall back to global database backend setting
-        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
-    backend_type = backend_type.lower()
-
-    if backend_type == "postgres" or backend_type == "postgresql":
-        logger.info("Using PostgreSQL marketplace store")
-        try:
-            from aragora.storage.postgres_store import get_postgres_pool
-            from aragora.utils.async_utils import run_async
-
-            # Initialize PostgreSQL store with connection pool using run_async
-            # to safely handle both sync and async contexts
-            async def init_postgres_store():
-                pool = await get_postgres_pool()
-                store = PostgresMarketplaceStore(pool)
-                await store.initialize()
-                return store
-
-            _marketplace_store = run_async(init_postgres_store())
-        except Exception as e:
-            # Fail in multi-instance mode - SQLite won't work
-            if is_multi_instance:
-                raise RuntimeError(
-                    f"MARKETPLACE STORE: ARAGORA_MULTI_INSTANCE=true requires PostgreSQL. "
-                    f"SQLite fallback is not supported for multi-instance deployments. "
-                    f"PostgreSQL error: {e}"
-                ) from e
-            if is_production:
-                logger.warning(
-                    f"MARKETPLACE STORE: PostgreSQL not available in production, "
-                    f"falling back to SQLite. Error: {e}"
-                )
-            else:
-                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-            _marketplace_store = MarketplaceStore()
-    else:  # Default: sqlite
-        # Check multi-instance requirements
-        if is_multi_instance:
-            raise RuntimeError(
-                "MARKETPLACE STORE: ARAGORA_MULTI_INSTANCE=true requires PostgreSQL. "
-                "SQLite is not supported for multi-instance deployments. "
-                "Set ARAGORA_DB_BACKEND=postgres or ARAGORA_MARKETPLACE_STORE_BACKEND=postgres."
-            )
-        if is_production:
-            logger.warning(
-                "MARKETPLACE STORE: Using SQLite in production. "
-                "Consider PostgreSQL for better performance and multi-instance support."
-            )
-        logger.info("Using SQLite marketplace store")
-        _marketplace_store = MarketplaceStore()
+    _marketplace_store = create_persistent_store(
+        store_name="marketplace",
+        sqlite_class=MarketplaceStore,
+        postgres_class=PostgresMarketplaceStore,
+        db_filename="marketplace.db",
+    )
 
     return _marketplace_store
 

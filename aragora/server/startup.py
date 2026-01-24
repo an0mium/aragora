@@ -1642,7 +1642,84 @@ async def run_startup_sequence(
     # Initialize GraphQL API routes (if enabled)
     status["graphql"] = init_graphql_routes(None)
 
+    # Run comprehensive deployment validation and log results
+    status["deployment_validation"] = await init_deployment_validation()
+
     return status
+
+
+async def init_deployment_validation() -> dict:
+    """Run comprehensive deployment validation and log results.
+
+    This validates all production requirements including:
+    - JWT secret strength and uniqueness
+    - AI provider API key configuration
+    - Database connectivity (Supabase/PostgreSQL)
+    - Redis configuration for distributed state
+    - CORS and security settings
+    - Rate limiting configuration
+    - TLS/HTTPS settings
+    - Encryption key configuration
+
+    Returns:
+        Dictionary with validation results summary
+    """
+    try:
+        from aragora.ops.deployment_validator import validate_deployment, Severity
+
+        result = await validate_deployment()
+
+        # Log validation results
+        critical_count = sum(1 for i in result.issues if i.severity == Severity.CRITICAL)
+        warning_count = sum(1 for i in result.issues if i.severity == Severity.WARNING)
+        info_count = sum(1 for i in result.issues if i.severity == Severity.INFO)
+
+        if result.ready:
+            if warning_count > 0:
+                logger.info(
+                    f"[DEPLOYMENT VALIDATION] Passed with {warning_count} warning(s), "
+                    f"{info_count} info message(s). Duration: {result.validation_duration_ms:.1f}ms"
+                )
+            else:
+                logger.info(
+                    f"[DEPLOYMENT VALIDATION] All checks passed. "
+                    f"Duration: {result.validation_duration_ms:.1f}ms"
+                )
+        else:
+            logger.warning(
+                f"[DEPLOYMENT VALIDATION] {critical_count} critical issue(s), "
+                f"{warning_count} warning(s). Server may not function correctly."
+            )
+
+        # Log critical issues
+        for issue in result.issues:
+            if issue.severity == Severity.CRITICAL:
+                logger.error(
+                    f"[DEPLOYMENT VALIDATION] CRITICAL - {issue.component}: {issue.message}"
+                )
+                if issue.suggestion:
+                    logger.error(f"  Suggestion: {issue.suggestion}")
+            elif issue.severity == Severity.WARNING:
+                logger.warning(
+                    f"[DEPLOYMENT VALIDATION] WARNING - {issue.component}: {issue.message}"
+                )
+
+        return {
+            "ready": result.ready,
+            "live": result.live,
+            "critical_issues": critical_count,
+            "warnings": warning_count,
+            "info_messages": info_count,
+            "validation_duration_ms": result.validation_duration_ms,
+            "components_checked": len(result.components),
+        }
+
+    except ImportError as e:
+        logger.debug(f"Deployment validator not available: {e}")
+        return {"available": False, "error": str(e)}
+    except Exception as e:
+        logger.warning(f"Deployment validation failed: {e}")
+        return {"available": True, "error": str(e)}
 
 
 def init_graphql_routes(app: Any) -> bool:
@@ -2058,5 +2135,6 @@ __all__ = [
     "init_approval_gate_recovery",
     "init_notification_worker",
     "init_graphql_routes",
+    "init_deployment_validation",
     "run_startup_sequence",
 ]

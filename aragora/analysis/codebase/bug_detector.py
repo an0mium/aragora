@@ -182,8 +182,20 @@ class BugPattern:
         file_path: str,
         ast_tree: Optional[ast.AST] = None,
     ) -> List[BugFinding]:
-        """Detect bugs in content. Override in subclasses."""
-        raise NotImplementedError
+        """Detect bugs in content. Override in subclasses.
+
+        Base implementation returns empty list - subclasses should override
+        to provide actual bug detection logic.
+
+        Args:
+            content: Source code content to analyze
+            file_path: Path to the file being analyzed
+            ast_tree: Optional pre-parsed AST tree
+
+        Returns:
+            List of BugFinding objects (empty for base class)
+        """
+        return []
 
 
 class NullPointerPattern(BugPattern):
