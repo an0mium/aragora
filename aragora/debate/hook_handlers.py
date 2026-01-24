@@ -82,6 +82,7 @@ class HookHandlerRegistry:
         count += self._register_detection_handlers()
         count += self._register_km_handlers()
         count += self._register_webhook_handlers()
+        count += self._register_receipt_handlers()
 
         self._registered = True
         logger.info(f"HookHandlerRegistry registered {count} handlers")
@@ -839,6 +840,104 @@ class HookHandlerRegistry:
         logger.debug(f"Registered {count} webhook handlers")
         return count
 
+    # =========================================================================
+    # Decision Receipt Handlers
+    # =========================================================================
+
+    def _register_receipt_handlers(self) -> int:
+        """Wire hooks to decision receipt generation.
+
+        Handles:
+        - Auto-generating decision receipts after high-confidence debates
+        - Persisting receipts to configured store
+        - Optional auto-signing with HMAC-SHA256
+        """
+        # Check if receipt generation is enabled in config
+        arena_config = self.subsystems.get("arena_config")
+        if not arena_config:
+            return 0
+
+        enable_receipt = getattr(arena_config, "enable_receipt_generation", False)
+        if not enable_receipt:
+            return 0
+
+        min_confidence = getattr(arena_config, "receipt_min_confidence", 0.6)
+        auto_sign = getattr(arena_config, "receipt_auto_sign", False)
+        receipt_store = getattr(arena_config, "receipt_store", None) or self.subsystems.get(
+            "receipt_store"
+        )
+
+        count = 0
+        from aragora.debate.hooks import HookType, HookPriority
+
+        def handle_receipt_generation(
+            ctx: Any = None,
+            result: Any = None,
+            **kwargs: Any,
+        ) -> None:
+            """Generate decision receipt after debate completion."""
+            try:
+                # Skip if no result or low confidence
+                if not result:
+                    return
+
+                confidence = getattr(result, "confidence", 0.0)
+                if confidence < min_confidence:
+                    logger.debug(
+                        f"Skipping receipt generation: confidence {confidence:.2f} < {min_confidence}"
+                    )
+                    return
+
+                # Import receipt module
+                from aragora.gauntlet.receipt import DecisionReceipt
+
+                # Generate receipt from debate result
+                receipt = DecisionReceipt.from_debate_result(result)
+                logger.info(
+                    f"Generated decision receipt {receipt.receipt_id} for debate "
+                    f"{receipt.gauntlet_id} (confidence: {confidence:.2f})"
+                )
+
+                # Optional signing
+                if auto_sign:
+                    try:
+                        from aragora.gauntlet.signing import sign_receipt
+
+                        signed = sign_receipt(receipt.to_dict())
+                        logger.debug(f"Auto-signed receipt {receipt.receipt_id}")
+
+                        # If we have a store, save the signed version
+                        if receipt_store and hasattr(receipt_store, "save_signed"):
+                            receipt_store.save_signed(signed)
+                            return
+                    except (ImportError, ValueError) as sign_err:
+                        logger.warning(f"Auto-signing failed: {sign_err}")
+
+                # Persist to store if available
+                if receipt_store:
+                    try:
+                        if hasattr(receipt_store, "save"):
+                            receipt_store.save(receipt)
+                            logger.debug(f"Persisted receipt {receipt.receipt_id} to store")
+                    except Exception as store_err:
+                        logger.warning(f"Failed to persist receipt: {store_err}")
+
+            except ImportError as e:
+                logger.debug(f"Receipt generation unavailable: {e}")
+            except Exception as e:
+                logger.warning(f"Receipt generation failed: {e}")
+
+        if self._register(
+            HookType.POST_DEBATE.value,
+            handle_receipt_generation,
+            "receipt_generation",
+            HookPriority.LOW,  # Run after other post-debate handlers
+        ):
+            count += 1
+            logger.debug("Registered decision receipt generation handler")
+
+        return count
+
     @property
     def registered_count(self) -> int:
         """Number of handlers currently registered."""
@@ -865,6 +964,8 @@ def create_hook_handler_registry(
     knowledge_mound: Any = None,
     km_coordinator: Any = None,
     webhook_delivery: Any = None,
+    arena_config: Any = None,
+    receipt_store: Any = None,
     auto_register: bool = True,
 ) -> HookHandlerRegistry:
     """Create and optionally register a HookHandlerRegistry.
@@ -883,6 +984,8 @@ def create_hook_handler_registry(
         knowledge_mound: Knowledge Mound for organizational knowledge
         km_coordinator: BidirectionalCoordinator for KM sync
         webhook_delivery: WebhookDeliveryManager for webhook dispatch
+        arena_config: ArenaConfig for receipt generation settings
+        receipt_store: Receipt store for persisting decision receipts
         auto_register: If True, automatically call register_all()
 
     Returns:
@@ -914,6 +1017,10 @@ def create_hook_handler_registry(
         subsystems["km_coordinator"] = km_coordinator
     if webhook_delivery is not None:
         subsystems["webhook_delivery"] = webhook_delivery
+    if arena_config is not None:
+        subsystems["arena_config"] = arena_config
+    if receipt_store is not None:
+        subsystems["receipt_store"] = receipt_store
 
     registry = HookHandlerRegistry(hook_manager=hook_manager, subsystems=subsystems)
 

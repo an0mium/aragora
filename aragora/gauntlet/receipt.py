@@ -410,6 +410,165 @@ class DecisionReceipt:
             config_used=result.config.to_dict() if result.config else {},
         )
 
+    @classmethod
+    def from_debate_result(
+        cls,
+        result: Any,
+        input_hash: Optional[str] = None,
+    ) -> "DecisionReceipt":
+        """Create receipt from aragora.core_types.DebateResult.
+
+        Used for auto-generating decision receipts after debate completion
+        when receipt generation is enabled in arena config.
+
+        Args:
+            result: A DebateResult from the debate system
+            input_hash: Optional pre-computed hash of input content
+
+        Returns:
+            DecisionReceipt for audit trail
+        """
+        receipt_id = str(uuid.uuid4())
+        timestamp = datetime.now().isoformat()
+
+        # Extract debate ID
+        debate_id = getattr(result, "debate_id", "") or getattr(result, "id", "")
+        if not debate_id:
+            debate_id = f"debate-{receipt_id[:8]}"
+
+        # Build provenance chain from messages and votes
+        provenance: list[ProvenanceRecord] = []
+
+        # Add message events (sample key messages to avoid bloat)
+        messages = list(getattr(result, "messages", []))
+        for msg in messages[:10]:  # Limit to 10 messages
+            provenance.append(
+                ProvenanceRecord(
+                    timestamp=getattr(msg, "timestamp", timestamp),
+                    event_type="message",
+                    agent=getattr(msg, "agent", None),
+                    description=f"[{getattr(msg, 'role', 'participant')}] {str(getattr(msg, 'content', ''))[:50]}",
+                    evidence_hash=hashlib.sha256(
+                        str(getattr(msg, "content", "")).encode()
+                    ).hexdigest()[:16],
+                )
+            )
+
+        # Add vote events
+        votes = list(getattr(result, "votes", []))
+        for vote in votes:
+            provenance.append(
+                ProvenanceRecord(
+                    timestamp=timestamp,
+                    event_type="vote",
+                    agent=getattr(vote, "voter", None),
+                    description=f"Voted for {getattr(vote, 'choice', 'unknown')} (confidence: {getattr(vote, 'confidence', 0):.1%})",
+                )
+            )
+
+        # Add verdict/consensus event
+        provenance.append(
+            ProvenanceRecord(
+                timestamp=timestamp,
+                event_type="verdict",
+                description=f"Consensus: {'reached' if result.consensus_reached else 'not reached'} "
+                f"({result.confidence:.1%} confidence)",
+            )
+        )
+
+        # Build consensus proof
+        participants = list(getattr(result, "participants", []))
+        dissenting_views = list(getattr(result, "dissenting_views", []))
+
+        # Identify dissenting agents from dissenting_views if possible
+        dissenting_agents: list[str] = []
+        for view in dissenting_views:
+            if isinstance(view, str) and ":" in view:
+                agent_name = view.split(":")[0].strip()
+                if agent_name:
+                    dissenting_agents.append(agent_name)
+
+        # Supporting agents = participants minus dissenters
+        supporting_agents = [p for p in participants if p not in dissenting_agents]
+
+        consensus = ConsensusProof(
+            reached=result.consensus_reached,
+            confidence=result.confidence,
+            supporting_agents=supporting_agents,
+            dissenting_agents=dissenting_agents,
+            method=getattr(result, "consensus_strength", "majority") or "majority",
+            evidence_hash=hashlib.sha256(result.final_answer.encode()).hexdigest()[:16]
+            if result.final_answer
+            else "",
+        )
+
+        # Compute input hash from task if not provided
+        task = getattr(result, "task", "")
+        if not input_hash and task:
+            input_hash = hashlib.sha256(task.encode()).hexdigest()
+        elif not input_hash:
+            input_hash = ""
+
+        # Determine verdict from consensus
+        if result.consensus_reached and result.confidence >= 0.7:
+            verdict = "PASS"
+        elif result.consensus_reached:
+            verdict = "CONDITIONAL"
+        else:
+            verdict = "FAIL"
+
+        # Calculate robustness from consensus metrics
+        robustness_score = result.confidence * (0.8 if result.consensus_reached else 0.5)
+        if hasattr(result, "convergence_similarity"):
+            robustness_score = (robustness_score + result.convergence_similarity) / 2
+
+        # Build verdict reasoning
+        reasoning_parts = []
+        if result.consensus_reached:
+            reasoning_parts.append(f"Consensus reached with {result.confidence:.1%} confidence")
+        else:
+            reasoning_parts.append("No consensus reached")
+
+        if hasattr(result, "consensus_strength") and result.consensus_strength:
+            reasoning_parts.append(f"Strength: {result.consensus_strength}")
+
+        if result.winner:
+            reasoning_parts.append(f"Winner: {result.winner}")
+
+        verdict_reasoning = ". ".join(reasoning_parts)
+
+        return cls(
+            receipt_id=receipt_id,
+            gauntlet_id=debate_id,  # Use debate_id for gauntlet_id field
+            timestamp=timestamp,
+            input_summary=task[:500] if task else "",
+            input_hash=input_hash,
+            risk_summary={
+                "critical": 0,  # Debates don't have severity-based findings
+                "high": 0,
+                "medium": 0,
+                "low": 0,
+                "total": len(dissenting_views),  # Use dissenting views as "findings"
+            },
+            attacks_attempted=0,  # Not applicable for debates
+            attacks_successful=0,
+            probes_run=result.rounds_used,  # Map rounds to probes
+            vulnerabilities_found=len(dissenting_views),
+            verdict=verdict,
+            confidence=result.confidence,
+            robustness_score=robustness_score,
+            vulnerability_details=[],  # No vulnerability details for debates
+            verdict_reasoning=verdict_reasoning,
+            dissenting_views=dissenting_views,
+            consensus_proof=consensus,
+            provenance_chain=provenance,
+            config_used={
+                "rounds": result.rounds_used,
+                "participants": participants,
+                "duration_seconds": result.duration_seconds,
+            },
+        )
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON export."""
         return {

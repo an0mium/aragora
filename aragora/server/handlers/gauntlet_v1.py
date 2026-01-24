@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -384,7 +385,7 @@ class GauntletReceiptExportHandler(BaseHandler):
                         from aragora.gauntlet.receipt import DecisionReceipt as DR
 
                         receipt = DR(
-                            receipt_id=f"receipt-{datetime.now().strftime('%Y%m%d%H%M%S')}-{gauntlet_id[-8:]}",
+                            receipt_id=str(uuid.uuid4()),
                             gauntlet_id=gauntlet_id,
                             timestamp=result.get("completed_at", datetime.now().isoformat()),
                             input_summary=result.get("input_summary", ""),

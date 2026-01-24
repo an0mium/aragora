@@ -231,6 +231,12 @@ class ArenaConfig:
     training_export_min_confidence: float = 0.75  # Min confidence to export as SFT
     training_export_path: str = ""  # Output path for training data (default: data/training/)
 
+    # Decision Receipt Generation (audit trail)
+    enable_receipt_generation: bool = False  # Auto-generate decision receipts after debates
+    receipt_min_confidence: float = 0.6  # Min confidence to generate receipt (0.0-1.0)
+    receipt_auto_sign: bool = False  # Auto-sign receipts with HMAC-SHA256
+    receipt_store: Optional[Any] = None  # Pre-configured receipt store for persistence
+
     # ML Integration (local ML models for routing, quality, consensus)
     enable_ml_delegation: bool = False  # Use ML-based agent selection (MLDelegationStrategy)
     ml_delegation_strategy: Optional[Any] = None  # Custom MLDelegationStrategy instance

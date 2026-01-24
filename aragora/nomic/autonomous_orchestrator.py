@@ -59,6 +59,21 @@ class Track(Enum):
     CORE = "core"  # Core debate engine (requires approval)
 
 
+# Agents that have dedicated agentic coding harnesses (can edit files autonomously)
+AGENTS_WITH_CODING_HARNESS = {"claude", "codex"}
+
+# Mapping from model types to their KiloCode provider_id for coding tasks
+# These models don't have dedicated harnesses but can use KiloCode
+KILOCODE_PROVIDER_MAPPING = {
+    "gemini": "gemini-explorer",  # Gemini 3 Pro via KiloCode
+    "gemini-cli": "gemini-explorer",
+    "grok": "grok-explorer",  # Grok via KiloCode
+    "grok-cli": "grok-explorer",
+    "deepseek": "openrouter-deepseek",  # DeepSeek via OpenRouter
+    "qwen": "openrouter-qwen",  # Qwen via OpenRouter
+}
+
+
 @dataclass
 class TrackConfig:
     """Configuration for a development track."""
@@ -68,6 +83,8 @@ class TrackConfig:
     protected_folders: List[str] = field(default_factory=list)  # Cannot modify
     agent_types: List[str] = field(default_factory=list)  # Preferred agents
     max_concurrent_tasks: int = 2
+    # Whether to use KiloCode as coding harness for models without one
+    use_kilocode_harness: bool = True
 
 
 # Default track configurations aligned with AGENT_ASSIGNMENTS.md
