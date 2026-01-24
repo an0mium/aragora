@@ -30503,28 +30503,42 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "Agent name"
+            "description": "Agent name",
+            "example": "claude"
           },
           "elo": {
             "type": "number",
-            "description": "ELO rating"
+            "description": "ELO rating",
+            "example": 1523.5
           },
           "matches": {
             "type": "integer",
-            "description": "Total matches played"
+            "description": "Total matches played",
+            "example": 142
           },
           "wins": {
             "type": "integer",
-            "description": "Total wins"
+            "description": "Total wins",
+            "example": 89
           },
           "losses": {
             "type": "integer",
-            "description": "Total losses"
+            "description": "Total losses",
+            "example": 53
           },
           "calibration_score": {
             "type": "number",
-            "description": "Calibration accuracy (0-1)"
+            "description": "Calibration accuracy (0-1)",
+            "example": 0.82
           }
+        },
+        "example": {
+          "name": "claude",
+          "elo": 1523.5,
+          "matches": 142,
+          "wins": 89,
+          "losses": 53,
+          "calibration_score": 0.82
         }
       },
       "DebateStatus": {
@@ -30548,32 +30562,50 @@
         "type": "object",
         "properties": {
           "reached": {
-            "type": "boolean"
+            "type": "boolean",
+            "example": true
           },
           "agreement": {
-            "type": "number"
+            "type": "number",
+            "description": "Agreement score (0-1)",
+            "example": 0.85
           },
           "confidence": {
-            "type": "number"
+            "type": "number",
+            "description": "Confidence in the consensus (0-1)",
+            "example": 0.92
           },
           "final_answer": {
-            "type": "string"
+            "type": "string",
+            "example": "Microservices architecture is recommended for your scale."
           },
           "conclusion": {
-            "type": "string"
+            "type": "string",
+            "example": "The team reached consensus that microservices provide better scalability and fault isolation for high-traffic applications."
           },
           "supporting_agents": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "example": ["claude", "gpt-4", "gemini"]
           },
           "dissenting_agents": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "example": []
           }
+        },
+        "example": {
+          "reached": true,
+          "agreement": 0.85,
+          "confidence": 0.92,
+          "final_answer": "Microservices architecture is recommended for your scale.",
+          "conclusion": "The team reached consensus that microservices provide better scalability and fault isolation.",
+          "supporting_agents": ["claude", "gpt-4", "gemini"],
+          "dissenting_agents": []
         }
       },
       "DebateCreateRequest": {
@@ -30762,56 +30794,75 @@
         "type": "object",
         "properties": {
           "debate_id": {
-            "type": "string"
+            "type": "string",
+            "example": "deb_abc123xyz"
           },
           "id": {
-            "type": "string"
+            "type": "string",
+            "example": "deb_abc123xyz"
           },
           "slug": {
-            "type": "string"
+            "type": "string",
+            "example": "should-we-adopt-microservices"
           },
           "task": {
-            "type": "string"
+            "type": "string",
+            "example": "Should we adopt microservices architecture?"
           },
           "topic": {
             "type": "string",
-            "description": "Alias for task"
+            "description": "Alias for task",
+            "example": "Should we adopt microservices architecture?"
           },
           "context": {
-            "type": "string"
+            "type": "string",
+            "example": "We have 1M daily active users and need 99.9% uptime."
           },
           "status": {
             "$ref": "#/components/schemas/DebateStatus"
           },
           "outcome": {
-            "type": "string"
+            "type": "string",
+            "example": "consensus_reached"
           },
           "final_answer": {
-            "type": "string"
+            "type": "string",
+            "example": "Based on your scale and uptime requirements, microservices architecture is recommended with a phased migration approach starting with non-critical services."
           },
           "consensus": {
             "$ref": "#/components/schemas/ConsensusResult"
           },
           "consensus_proof": {
-            "type": "object"
+            "type": "object",
+            "example": {
+              "method": "majority",
+              "votes": {"claude": "yes", "gpt-4": "yes", "gemini": "yes"},
+              "threshold": 0.67,
+              "achieved": 1.0
+            }
           },
           "consensus_reached": {
-            "type": "boolean"
+            "type": "boolean",
+            "example": true
           },
           "confidence": {
-            "type": "number"
+            "type": "number",
+            "example": 0.87
           },
           "rounds_used": {
-            "type": "integer"
+            "type": "integer",
+            "example": 3
           },
           "duration_seconds": {
-            "type": "number"
+            "type": "number",
+            "example": 45.2
           },
           "agents": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "example": ["claude", "gpt-4", "gemini"]
           },
           "rounds": {
             "type": "array",
@@ -30821,15 +30872,37 @@
           },
           "created_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2024-01-15T10:30:00Z"
           },
           "completed_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2024-01-15T10:30:45Z"
           },
           "metadata": {
-            "type": "object"
+            "type": "object",
+            "example": {
+              "source": "api",
+              "user_id": "usr_123",
+              "workspace_id": "ws_456"
+            }
           }
+        },
+        "example": {
+          "debate_id": "deb_abc123xyz",
+          "slug": "should-we-adopt-microservices",
+          "task": "Should we adopt microservices architecture?",
+          "context": "We have 1M daily active users and need 99.9% uptime.",
+          "status": "completed",
+          "final_answer": "Based on your scale and uptime requirements, microservices architecture is recommended with a phased migration approach.",
+          "consensus_reached": true,
+          "confidence": 0.87,
+          "rounds_used": 3,
+          "duration_seconds": 45.2,
+          "agents": ["claude", "gpt-4", "gemini"],
+          "created_at": "2024-01-15T10:30:00Z",
+          "completed_at": "2024-01-15T10:30:45Z"
         }
       },
       "Message": {
@@ -30841,24 +30914,38 @@
               "system",
               "user",
               "assistant"
-            ]
+            ],
+            "example": "assistant"
           },
           "content": {
-            "type": "string"
+            "type": "string",
+            "example": "I recommend microservices architecture because it offers better scalability and fault isolation. With 1M daily users, you need the ability to scale components independently."
           },
           "agent": {
-            "type": "string"
+            "type": "string",
+            "example": "claude"
           },
           "agent_id": {
-            "type": "string"
+            "type": "string",
+            "example": "claude-3-opus"
           },
           "round": {
-            "type": "integer"
+            "type": "integer",
+            "example": 2
           },
           "timestamp": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2024-01-15T10:30:15Z"
           }
+        },
+        "example": {
+          "role": "assistant",
+          "content": "I recommend microservices architecture because it offers better scalability and fault isolation.",
+          "agent": "claude",
+          "agent_id": "claude-3-opus",
+          "round": 2,
+          "timestamp": "2024-01-15T10:30:15Z"
         }
       },
       "HealthCheck": {
@@ -30870,68 +30957,117 @@
               "healthy",
               "degraded",
               "unhealthy"
-            ]
+            ],
+            "example": "healthy"
           },
           "version": {
-            "type": "string"
+            "type": "string",
+            "example": "2.1.15"
           },
           "timestamp": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2024-01-15T10:30:00Z"
           },
           "checks": {
             "type": "object",
             "additionalProperties": {
               "type": "object"
+            },
+            "example": {
+              "database": {"status": "healthy", "latency_ms": 2.5},
+              "redis": {"status": "healthy", "latency_ms": 0.8},
+              "agents": {"status": "healthy", "available": 5}
             }
           },
           "response_time_ms": {
-            "type": "number"
+            "type": "number",
+            "example": 5.2
           }
+        },
+        "example": {
+          "status": "healthy",
+          "version": "2.1.15",
+          "timestamp": "2024-01-15T10:30:00Z",
+          "checks": {
+            "database": {"status": "healthy", "latency_ms": 2.5},
+            "redis": {"status": "healthy", "latency_ms": 0.8},
+            "agents": {"status": "healthy", "available": 5}
+          },
+          "response_time_ms": 5.2
         }
       },
       "Consensus": {
         "type": "object",
         "properties": {
           "reached": {
-            "type": "boolean"
+            "type": "boolean",
+            "example": true
           },
           "topic": {
-            "type": "string"
+            "type": "string",
+            "example": "Should we adopt microservices architecture?"
           },
           "verdict": {
-            "type": "string"
+            "type": "string",
+            "example": "Yes, microservices are recommended for this use case."
           },
           "confidence": {
-            "type": "number"
+            "type": "number",
+            "example": 0.89
           },
           "participating_agents": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "example": ["claude", "gpt-4", "gemini"]
           }
+        },
+        "example": {
+          "reached": true,
+          "topic": "Should we adopt microservices architecture?",
+          "verdict": "Yes, microservices are recommended for this use case.",
+          "confidence": 0.89,
+          "participating_agents": ["claude", "gpt-4", "gemini"]
         }
       },
       "Calibration": {
         "type": "object",
         "properties": {
           "agent": {
-            "type": "string"
+            "type": "string",
+            "example": "claude"
           },
           "score": {
             "type": "number",
-            "description": "Calibration score (0-1)"
+            "description": "Calibration score (0-1)",
+            "example": 0.85
           },
           "bucket_stats": {
             "type": "array",
             "items": {
               "type": "object"
-            }
+            },
+            "example": [
+              {"confidence_range": "0.0-0.2", "predictions": 15, "accuracy": 0.13},
+              {"confidence_range": "0.8-1.0", "predictions": 42, "accuracy": 0.88}
+            ]
           },
           "overconfidence_index": {
-            "type": "number"
+            "type": "number",
+            "description": "How overconfident the agent is (negative = underconfident)",
+            "example": 0.03
           }
+        },
+        "example": {
+          "agent": "claude",
+          "score": 0.85,
+          "bucket_stats": [
+            {"confidence_range": "0.0-0.2", "predictions": 15, "accuracy": 0.13},
+            {"confidence_range": "0.8-1.0", "predictions": 42, "accuracy": 0.88}
+          ],
+          "overconfidence_index": 0.03
         }
       },
       "Relationship": {
@@ -30991,7 +31127,8 @@
         "properties": {
           "round_number": {
             "type": "integer",
-            "description": "Round number (1-indexed)"
+            "description": "Round number (1-indexed)",
+            "example": 2
           },
           "messages": {
             "type": "array",
@@ -31001,12 +31138,23 @@
           },
           "votes": {
             "type": "object",
-            "description": "Agent votes for this round"
+            "description": "Agent votes for this round",
+            "example": {
+              "claude": "agree",
+              "gpt-4": "agree",
+              "gemini": "partial"
+            }
           },
           "summary": {
             "type": "string",
-            "description": "Round summary"
+            "description": "Round summary",
+            "example": "In round 2, agents converged on microservices as the preferred architecture with some debate on migration strategy."
           }
+        },
+        "example": {
+          "round_number": 2,
+          "votes": {"claude": "agree", "gpt-4": "agree", "gemini": "partial"},
+          "summary": "Agents converged on microservices as preferred architecture."
         }
       },
       "Workspace": {
