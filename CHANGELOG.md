@@ -1,6 +1,40 @@
 # Changelog
 
 
+## [v2.1.11] - 2026-01-23
+
+### Features
+
+- **km:** add comprehensive resilience patterns and SLO monitoring (75fda39)
+  - ResilientPostgresStore with retry logic and health monitoring
+  - Cache invalidation strategies (TTL, LRU, event-based)
+  - SLO alerting with Prometheus metrics integration
+- **sdk:** bring TypeScript SDK to parity with Python SDK v2.1.13 (fe55070)
+- **knowledge-mound:** add Phase A2 improvements (2c5140d)
+- **redteam:** complete steelman/strawman and defense execution (a69e241)
+
+### Bug Fixes
+
+- **types:** resolve remaining mypy type errors (57496ce, ffcd800, a2cca8a)
+  - Zero mypy errors across 1,792 source files
+  - Fixed MRO issues in OpenAI-compatible agent mixins
+  - Fixed handler signature overrides and ServerContext typing
+  - Fixed Path to str conversions for data_dir parameters
+- **auth:** fix handler paths to use normalized (non-versioned) paths (6847518)
+- **ui:** remove mock data fallbacks from inbox components (4bd4383)
+- **storage:** use run_async for PostgreSQL store initialization (fd2d20b, 1a60cde)
+- **tests:** update SMTP test to expect timeout parameter (377d93f)
+
+### Tests
+
+- Add Playwright e2e tests for auth flow and console error detection (1dd2a87)
+
+### Maintenance
+
+- chore: code quality fixes and type improvements (ffcd800)
+- fix(v2.1.15): production hardening and storage consolidation (9a99537)
+- chore(sdk): consolidate Python SDKs and align versions (b22972d)
+
 ## [v2.1.10] - 2026-01-23
 
 ### Features
