@@ -877,6 +877,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         "/api/v1/workflow-approvals",
         "/api/v1/workflow-approvals/*",
         "/api/v1/workflow-executions",
+        "/api/v1/workflow-executions/*",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -982,6 +983,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         # GET /api/workflow-executions
         if path == "/api/v1/workflow-executions":
             return self._handle_list_executions(query_params, handler)
+
+        # GET /api/workflow-executions/{id}
+        if path.startswith("/api/v1/workflow-executions/"):
+            execution_id = path.split("/")[-1]
+            if execution_id:
+                return self._handle_get_execution(execution_id, query_params, handler)
 
         # GET /api/workflow-templates
         if path == "/api/v1/workflow-templates":
@@ -1432,6 +1439,28 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         except Exception as e:
             logger.exception(f"Failed to list executions: {e}")
             return error_response(safe_error_message(e, "list workflow executions"), 500)
+
+    def _handle_get_execution(
+        self, execution_id: str, query_params: dict, handler: Any
+    ) -> HandlerResult:
+        """Handle GET /api/workflow-executions/{id}.
+
+        Returns a single execution's details and status.
+        Used for polling workflow execution progress.
+        """
+        # RBAC check
+        if error := self._check_permission(handler, "workflows.read", execution_id):
+            return error
+
+        try:
+            execution = _run_async(get_execution(execution_id))
+            if not execution:
+                return error_response(f"Execution not found: {execution_id}", 404)
+
+            return json_response(execution)
+        except Exception as e:
+            logger.exception(f"Failed to get execution: {e}")
+            return error_response(safe_error_message(e, "get workflow execution"), 500)
 
     def _handle_resolve_approval(
         self, request_id: str, body: dict, query_params: dict, handler: Any

@@ -12,9 +12,12 @@ Provides marketplace-style access to workflow templates.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-from typing import Any, Optional
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
 from .base import (
     BaseHandler,
@@ -29,6 +32,131 @@ from .base import (
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Async Workflow Execution Support
+# =============================================================================
+
+
+def _get_workflow_store():
+    """Get the persistent workflow store for execution tracking."""
+    from aragora.workflow.persistent_store import get_workflow_store
+
+    return get_workflow_store()
+
+
+def _get_workflow_engine():
+    """Get the workflow engine instance."""
+    from aragora.workflow.engine import get_workflow_engine
+
+    return get_workflow_engine()
+
+
+async def _execute_workflow_async(
+    workflow: Any,
+    execution_id: str,
+    inputs: Optional[Dict[str, Any]] = None,
+    tenant_id: str = "default",
+) -> None:
+    """
+    Execute a workflow asynchronously in the background.
+
+    This function runs as a background task and updates execution status
+    in the persistent store as it progresses.
+    """
+    store = _get_workflow_store()
+    engine = _get_workflow_engine()
+
+    try:
+        # Execute the workflow
+        result = await engine.execute(workflow, inputs, execution_id)
+
+        # Update execution record with results
+        execution = store.get_execution(execution_id)
+        if execution:
+            execution.update(
+                {
+                    "status": "completed" if result.success else "failed",
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "outputs": result.final_output,
+                    "steps": [
+                        {
+                            "step_id": s.step_id,
+                            "step_name": s.step_name,
+                            "status": s.status.value
+                            if hasattr(s.status, "value")
+                            else str(s.status),
+                            "duration_ms": s.duration_ms,
+                            "error": s.error,
+                        }
+                        for s in result.steps
+                    ],
+                    "error": result.error,
+                    "duration_ms": result.total_duration_ms,
+                }
+            )
+            store.save_execution(execution)
+            logger.info(
+                f"Workflow execution {execution_id} completed: "
+                f"success={result.success}, duration={result.total_duration_ms}ms"
+            )
+
+    except Exception as e:
+        logger.exception(f"Workflow execution {execution_id} failed: {e}")
+        execution = store.get_execution(execution_id)
+        if execution:
+            execution.update(
+                {
+                    "status": "failed",
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "error": str(e),
+                }
+            )
+            store.save_execution(execution)
+
+
+def _start_workflow_execution(
+    workflow: Any,
+    inputs: Optional[Dict[str, Any]] = None,
+    tenant_id: str = "default",
+) -> str:
+    """
+    Start a workflow execution as a background task.
+
+    Returns the execution_id for status polling.
+    """
+    store = _get_workflow_store()
+    execution_id = f"exec_{uuid.uuid4().hex[:12]}"
+
+    # Create initial execution record
+    execution = {
+        "id": execution_id,
+        "workflow_id": workflow.id,
+        "workflow_name": workflow.name,
+        "tenant_id": tenant_id,
+        "status": "running",
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "inputs": inputs or {},
+    }
+    store.save_execution(execution)
+
+    # Start background task
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(
+            _execute_workflow_async(workflow, execution_id, inputs, tenant_id),
+            name=f"workflow_{execution_id}",
+        )
+    except RuntimeError:
+        # No running event loop - create one for sync context
+        asyncio.create_task(
+            _execute_workflow_async(workflow, execution_id, inputs, tenant_id),
+        )
+
+    logger.info(f"Started workflow execution {execution_id} for workflow {workflow.id}")
+    return execution_id
+
 
 # Rate limiter (60 requests per minute)
 _template_limiter = RateLimiter(requests_per_minute=60)
@@ -1018,10 +1146,16 @@ class SMEWorkflowsHandler(BaseHandler):
 
             # Execute if requested
             if execute:
-                # TODO: Implement async workflow execution
-                # For now, mark as accepted and return workflow ID for polling
-                response_data["status"] = "accepted"
-                response_data["message"] = "Workflow queued for execution"
+                # Start async workflow execution
+                execution_id = _start_workflow_execution(
+                    workflow=workflow,
+                    inputs=data,
+                    tenant_id=data.get("tenant_id", "default"),
+                )
+                response_data["status"] = "running"
+                response_data["execution_id"] = execution_id
+                response_data["message"] = "Workflow execution started"
+                response_data["poll_url"] = f"/api/v1/workflow-executions/{execution_id}"
 
             return json_response(response_data, status=201)
 
