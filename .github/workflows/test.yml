@@ -23,6 +23,59 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Version alignment check (fast, runs first)
+  version-check:
+    name: Version Alignment
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check version alignment
+        run: python scripts/check_version_alignment.py
+
+  # Skip marker audit (warns if skip count increases)
+  skip-audit:
+    name: Skip Marker Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run skip audit
+        run: |
+          CURRENT=$(python scripts/audit_test_skips.py --count-only)
+          BASELINE=$(cat tests/.skip_baseline 2>/dev/null || echo 600)
+          echo "Current skip count: $CURRENT"
+          echo "Baseline: $BASELINE"
+          if [ "$CURRENT" -gt "$BASELINE" ]; then
+            echo "::warning::Skip count increased: $CURRENT > $BASELINE baseline"
+            echo "Run 'python scripts/audit_test_skips.py' locally to see details"
+          fi
+          # Store for potential artifact
+          echo "$CURRENT" > skip_count.txt
+
+      - name: Upload skip audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: skip-audit
+          path: skip_count.txt
+          retention-days: 7
+
   # Fast parallel tests by category (Ubuntu only, primary Python)
   test-fast:
     runs-on: ubuntu-latest

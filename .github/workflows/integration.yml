@@ -128,16 +128,28 @@ jobs:
           pip install -e ".[dev]"
           pip install pytest pytest-asyncio pytest-timeout aiohttp redis psycopg2-binary
 
-      - name: Run integration tests
+      - name: Run integration tests with coverage
         run: |
+          pip install pytest-cov
           pytest tests/integration/ -v --tb=short --timeout=120 \
             -m "integration or not slow" \
+            --cov=aragora --cov-report=xml:coverage-integration.xml \
+            --cov-report=term-missing \
             --junit-xml=test-results/integration-results.xml
         env:
           REDIS_URL: redis://localhost:6379
           DATABASE_URL: postgresql://aragora:aragora_test@localhost:5432/aragora_test
           ARAGORA_CI: "true"
           PYTHONUNBUFFERED: "1"
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: coverage-integration.xml
+          flags: integration
+          name: integration-coverage
+          fail_ci_if_error: false
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
