@@ -253,6 +253,12 @@ class ControlPlanePolicy:
     enabled: bool = True
     priority: int = 0  # Higher = evaluated first
 
+    # Versioning
+    version: int = 1
+    updated_at: Optional[datetime] = None
+    updated_by: Optional[str] = None
+    previous_version_id: Optional[str] = None  # Link to previous version
+
     # Metadata
     id: str = field(default_factory=lambda: f"policy_{uuid.uuid4().hex[:12]}")
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -320,6 +326,10 @@ class ControlPlanePolicy:
             "enforcement_level": self.enforcement_level.value,
             "enabled": self.enabled,
             "priority": self.priority,
+            "version": self.version,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "updated_by": self.updated_by,
+            "previous_version_id": self.previous_version_id,
             "created_at": self.created_at.isoformat(),
             "created_by": self.created_by,
             "metadata": self.metadata,
@@ -2314,6 +2324,202 @@ class PolicySyncScheduler:
         return self._last_policy_hash
 
 
+@dataclass
+class PolicyVersion:
+    """A snapshot of a policy at a specific version."""
+
+    policy_id: str
+    version: int
+    policy_data: Dict[str, Any]
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: Optional[str] = None
+    change_description: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dict."""
+        return {
+            "policy_id": self.policy_id,
+            "version": self.version,
+            "policy_data": self.policy_data,
+            "created_at": self.created_at.isoformat(),
+            "created_by": self.created_by,
+            "change_description": self.change_description,
+        }
+
+
+class PolicyHistory:
+    """Tracks policy version history for auditing and rollback.
+
+    Maintains a history of policy versions, enabling:
+    - Viewing historical versions of any policy
+    - Rolling back to previous versions
+    - Audit trail of who changed what and when
+    """
+
+    def __init__(self, max_versions_per_policy: int = 50):
+        """Initialize the policy history tracker.
+
+        Args:
+            max_versions_per_policy: Maximum versions to retain per policy
+        """
+        self._history: Dict[str, List[PolicyVersion]] = {}
+        self._max_versions = max_versions_per_policy
+        self._lock = asyncio.Lock()
+
+    async def record_version(
+        self,
+        policy: ControlPlanePolicy,
+        change_description: str = "",
+        changed_by: Optional[str] = None,
+    ) -> PolicyVersion:
+        """Record a new version of a policy.
+
+        Args:
+            policy: The policy to record
+            change_description: Description of what changed
+            changed_by: User who made the change
+
+        Returns:
+            The recorded PolicyVersion
+        """
+        async with self._lock:
+            policy_id = policy.id
+
+            if policy_id not in self._history:
+                self._history[policy_id] = []
+
+            version = PolicyVersion(
+                policy_id=policy_id,
+                version=policy.version,
+                policy_data=policy.to_dict(),
+                created_by=changed_by,
+                change_description=change_description,
+            )
+
+            self._history[policy_id].append(version)
+
+            # Prune old versions
+            if len(self._history[policy_id]) > self._max_versions:
+                self._history[policy_id] = self._history[policy_id][-self._max_versions :]
+
+            logger.info(
+                f"Policy version recorded: {policy.name} v{policy.version} "
+                f"by {changed_by or 'system'}"
+            )
+
+            return version
+
+    async def get_history(
+        self,
+        policy_id: str,
+        limit: int = 10,
+    ) -> List[PolicyVersion]:
+        """Get version history for a policy.
+
+        Args:
+            policy_id: The policy ID
+            limit: Maximum versions to return
+
+        Returns:
+            List of PolicyVersions, newest first
+        """
+        async with self._lock:
+            versions = self._history.get(policy_id, [])
+            return list(reversed(versions[-limit:]))
+
+    async def get_version(
+        self,
+        policy_id: str,
+        version: int,
+    ) -> Optional[PolicyVersion]:
+        """Get a specific version of a policy.
+
+        Args:
+            policy_id: The policy ID
+            version: The version number
+
+        Returns:
+            PolicyVersion if found, None otherwise
+        """
+        async with self._lock:
+            versions = self._history.get(policy_id, [])
+            for v in versions:
+                if v.version == version:
+                    return v
+            return None
+
+    async def rollback_to_version(
+        self,
+        policy_id: str,
+        version: int,
+        rolled_back_by: Optional[str] = None,
+    ) -> Optional[ControlPlanePolicy]:
+        """Restore a policy to a previous version.
+
+        Args:
+            policy_id: The policy ID
+            version: The version to restore
+            rolled_back_by: User performing the rollback
+
+        Returns:
+            New ControlPlanePolicy instance with restored data, or None if not found
+        """
+        target_version = await self.get_version(policy_id, version)
+        if not target_version:
+            logger.warning(f"Policy version not found: {policy_id} v{version}")
+            return None
+
+        # Get current version number
+        history = self._history.get(policy_id, [])
+        current_version = max((v.version for v in history), default=0)
+
+        # Create new policy from historical data
+        policy_data = target_version.policy_data.copy()
+        policy_data["version"] = current_version + 1
+        policy_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        policy_data["updated_by"] = rolled_back_by
+        policy_data["previous_version_id"] = f"{policy_id}_v{current_version}"
+        policy_data["metadata"]["rolled_back_from_version"] = version
+
+        restored_policy = ControlPlanePolicy.from_dict(policy_data)
+
+        # Record the rollback as a new version
+        await self.record_version(
+            restored_policy,
+            change_description=f"Rollback to version {version}",
+            changed_by=rolled_back_by,
+        )
+
+        logger.info(
+            f"Policy rolled back: {policy_id} from v{current_version} to v{version} "
+            f"(now v{restored_policy.version}) by {rolled_back_by or 'system'}"
+        )
+
+        return restored_policy
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get statistics about policy history."""
+        total_versions = sum(len(v) for v in self._history.values())
+        return {
+            "tracked_policies": len(self._history),
+            "total_versions": total_versions,
+            "max_versions_per_policy": self._max_versions,
+            "policies": {policy_id: len(versions) for policy_id, versions in self._history.items()},
+        }
+
+
+# Global policy history instance
+_policy_history: Optional[PolicyHistory] = None
+
+
+def get_policy_history() -> PolicyHistory:
+    """Get the global policy history instance."""
+    global _policy_history
+    if _policy_history is None:
+        _policy_history = PolicyHistory()
+    return _policy_history
+
+
 __all__ = [
     # Core classes
     "ControlPlanePolicy",
@@ -2339,4 +2545,8 @@ __all__ = [
     "PolicyConflictDetector",
     "RedisPolicyCache",
     "PolicySyncScheduler",
+    # Versioning and rollback
+    "PolicyVersion",
+    "PolicyHistory",
+    "get_policy_history",
 ]
