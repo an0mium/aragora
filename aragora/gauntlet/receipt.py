@@ -594,8 +594,50 @@ class DecisionReceipt:
             "config_used": self.config_used,
         }
 
-    def to_markdown(self) -> str:
-        """Generate markdown report."""
+    @classmethod
+    def from_dict(cls, data: dict) -> "DecisionReceipt":
+        """Reconstruct a DecisionReceipt from a dictionary."""
+        consensus_data = data.get("consensus_proof")
+        consensus = ConsensusProof(**consensus_data) if isinstance(consensus_data, dict) else None
+        provenance_data = data.get("provenance_chain") or []
+        provenance = [
+            ProvenanceRecord(**record) if isinstance(record, dict) else record
+            for record in provenance_data
+        ]
+
+        return cls(
+            receipt_id=data.get("receipt_id", ""),
+            gauntlet_id=data.get("gauntlet_id", ""),
+            timestamp=data.get("timestamp", ""),
+            input_summary=data.get("input_summary", ""),
+            input_hash=data.get("input_hash", ""),
+            risk_summary=data.get("risk_summary", {}),
+            attacks_attempted=data.get("attacks_attempted", 0),
+            attacks_successful=data.get("attacks_successful", 0),
+            probes_run=data.get("probes_run", 0),
+            vulnerabilities_found=data.get("vulnerabilities_found", 0),
+            verdict=data.get("verdict", ""),
+            confidence=float(data.get("confidence", 0.0)),
+            robustness_score=float(data.get("robustness_score", 0.0)),
+            vulnerability_details=data.get("vulnerability_details", []) or [],
+            verdict_reasoning=data.get("verdict_reasoning", ""),
+            dissenting_views=data.get("dissenting_views", []) or [],
+            consensus_proof=consensus,
+            provenance_chain=provenance,
+            artifact_hash=data.get("artifact_hash", ""),
+            config_used=data.get("config_used", {}) or {},
+        )
+
+    def to_markdown(self, include_provenance: bool = True, include_evidence: bool = True) -> str:
+        """Generate markdown report with full provenance and evidence links.
+
+        Args:
+            include_provenance: Include full provenance chain section
+            include_evidence: Include evidence hashes for findings
+
+        Returns:
+            Markdown formatted decision receipt
+        """
         verdict_emoji = {
             "PASS": "✓",
             "CONDITIONAL": "~",
@@ -618,39 +660,87 @@ class DecisionReceipt:
             "",
             f"> {self.verdict_reasoning}",
             "",
-            "---",
-            "",
-            "## Risk Summary",
-            "",
-            "| Severity | Count |",
-            "|----------|-------|",
-            f"| Critical | {self.risk_summary.get('critical', 0)} |",
-            f"| High | {self.risk_summary.get('high', 0)} |",
-            f"| Medium | {self.risk_summary.get('medium', 0)} |",
-            f"| Low | {self.risk_summary.get('low', 0)} |",
-            f"| **Total** | **{self.vulnerabilities_found}** |",
-            "",
-            "---",
-            "",
-            "## Validation Coverage",
-            "",
-            f"- **Attacks Attempted:** {self.attacks_attempted}",
-            f"- **Attacks Successful:** {self.attacks_successful}",
-            f"- **Probes Run:** {self.probes_run}",
-            "",
         ]
+
+        # Consensus proof section
+        if self.consensus_proof:
+            lines.extend(
+                [
+                    "---",
+                    "",
+                    "## Consensus Proof",
+                    "",
+                    f"- **Consensus Reached:** {'Yes' if self.consensus_proof.reached else 'No'}",
+                    f"- **Method:** {self.consensus_proof.method}",
+                    f"- **Confidence:** {self.consensus_proof.confidence:.1%}",
+                ]
+            )
+            if self.consensus_proof.supporting_agents:
+                lines.append(
+                    f"- **Supporting Agents:** {', '.join(self.consensus_proof.supporting_agents)}"
+                )
+            if self.consensus_proof.dissenting_agents:
+                lines.append(
+                    f"- **Dissenting Agents:** {', '.join(self.consensus_proof.dissenting_agents)}"
+                )
+            if self.consensus_proof.evidence_hash:
+                lines.append(f"- **Evidence Hash:** `{self.consensus_proof.evidence_hash}`")
+            lines.append("")
+
+        lines.extend(
+            [
+                "---",
+                "",
+                "## Risk Summary",
+                "",
+                "| Severity | Count |",
+                "|----------|-------|",
+                f"| Critical | {self.risk_summary.get('critical', 0)} |",
+                f"| High | {self.risk_summary.get('high', 0)} |",
+                f"| Medium | {self.risk_summary.get('medium', 0)} |",
+                f"| Low | {self.risk_summary.get('low', 0)} |",
+                f"| **Total** | **{self.vulnerabilities_found}** |",
+                "",
+                "---",
+                "",
+                "## Validation Coverage",
+                "",
+                f"- **Attacks Attempted:** {self.attacks_attempted}",
+                f"- **Attacks Successful:** {self.attacks_successful}",
+                f"- **Probes Run:** {self.probes_run}",
+                "",
+            ]
+        )
 
         if self.vulnerability_details:
             lines.append("---")
             lines.append("")
             lines.append("## Critical Findings")
             lines.append("")
-            for vuln in self.vulnerability_details[:5]:
-                lines.append(f"### {vuln.get('title', 'Unknown')}")
-                lines.append(f"**Severity:** {vuln.get('severity', 'unknown').upper()}")
+            for i, vuln in enumerate(self.vulnerability_details[:10], 1):
+                finding_id = vuln.get("id", f"F-{i:03d}")
+                lines.append(f"### [{finding_id}] {vuln.get('title', 'Unknown')}")
+                lines.append("")
+                lines.append(
+                    f"**Severity:** {vuln.get('severity', vuln.get('severity_level', 'unknown')).upper()}"
+                )
                 lines.append(f"**Category:** {vuln.get('category', 'unknown')}")
+                if vuln.get("verified"):
+                    lines.append("**Verified:** Yes")
+                if vuln.get("source"):
+                    lines.append(f"**Source:** {vuln.get('source')}")
                 lines.append("")
                 lines.append(vuln.get("description", "")[:500])
+                if vuln.get("evidence") and include_evidence:
+                    lines.append("")
+                    evidence = vuln.get("evidence", "")
+                    if isinstance(evidence, str) and len(evidence) > 200:
+                        evidence = evidence[:200] + "..."
+                    lines.append(f"**Evidence:** {evidence}")
+                    # Generate evidence hash for verification
+                    evidence_str = str(vuln.get("evidence", "") or vuln.get("description", ""))
+                    evidence_hash = hashlib.sha256(evidence_str.encode()).hexdigest()[:16]
+                    lines.append(f"**Evidence Hash:** `{evidence_hash}`")
                 if vuln.get("mitigation"):
                     lines.append("")
                     lines.append(f"**Mitigation:** {vuln.get('mitigation')}")
@@ -665,16 +755,48 @@ class DecisionReceipt:
                 lines.append(f"- {view}")
             lines.append("")
 
-        lines.append("---")
-        lines.append("")
-        lines.append("## Integrity")
-        lines.append("")
-        lines.append(f"**Input Hash:** `{self.input_hash[:16]}...`")
-        lines.append(f"**Artifact Hash:** `{self.artifact_hash[:16]}...`")
-        lines.append("")
-        lines.append("---")
-        lines.append("")
-        lines.append("*Generated by Aragora Gauntlet*")
+        # Provenance chain section
+        if include_provenance and self.provenance_chain:
+            lines.append("---")
+            lines.append("")
+            lines.append("## Provenance Chain")
+            lines.append("")
+            lines.append("| # | Timestamp | Event | Agent | Description | Evidence Hash |")
+            lines.append("|---|-----------|-------|-------|-------------|---------------|")
+            for i, record in enumerate(self.provenance_chain, 1):
+                timestamp = record.timestamp[:19] if record.timestamp else "-"
+                event = record.event_type or "-"
+                agent = record.agent or "-"
+                desc = (
+                    (record.description[:40] + "...")
+                    if len(record.description) > 40
+                    else record.description
+                )
+                evidence_hash = f"`{record.evidence_hash}`" if record.evidence_hash else "-"
+                lines.append(
+                    f"| {i} | {timestamp} | {event} | {agent} | {desc} | {evidence_hash} |"
+                )
+            lines.append("")
+
+        lines.extend(
+            [
+                "---",
+                "",
+                "## Integrity Verification",
+                "",
+                "| Field | Hash |",
+                "|-------|------|",
+                f"| Input | `{self.input_hash}` |",
+                f"| Artifact | `{self.artifact_hash}` |",
+                "",
+                "To verify this receipt has not been tampered with, the artifact hash",
+                "can be recomputed from the receipt contents and compared.",
+                "",
+                "---",
+                "",
+                "*Generated by Aragora Gauntlet*",
+            ]
+        )
 
         return "\n".join(lines)
 
