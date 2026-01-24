@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from aragora.core import DebateResult
+    from aragora.core import DebateResult, Environment
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +191,7 @@ class TaskDecomposer:
         if should_decompose:
             result.subtasks = self._generate_subtasks(task_description, debate_result)
             logger.info(
-                f"task_decomposed complexity={complexity_score} " f"subtasks={len(result.subtasks)}"
+                f"task_decomposed complexity={complexity_score} subtasks={len(result.subtasks)}"
             )
         else:
             logger.debug(
@@ -309,8 +309,8 @@ class TaskDecomposer:
                 for i, st in enumerate(extracted[: self.config.max_subtasks]):
                     subtasks.append(
                         SubTask(
-                            id=f"subtask_{i+1}",
-                            title=st.get("title", f"Subtask {i+1}"),
+                            id=f"subtask_{i + 1}",
+                            title=st.get("title", f"Subtask {i + 1}"),
                             description=st.get("description", ""),
                             dependencies=st.get("dependencies", []),
                             estimated_complexity=st.get("complexity", "medium"),
@@ -346,7 +346,7 @@ class TaskDecomposer:
 
         # Create subtasks for each major concept area
         for i, concept in enumerate(unique_concepts[: self.config.max_subtasks]):
-            subtask_id = f"subtask_{i+1}"
+            subtask_id = f"subtask_{i + 1}"
 
             # Extract relevant sentences for this concept
             sentences = task.split(".")
@@ -358,7 +358,7 @@ class TaskDecomposer:
                     id=subtask_id,
                     title=f"{concept.title()} Changes",
                     description=description,
-                    dependencies=[f"subtask_{j+1}" for j in range(i)],
+                    dependencies=[f"subtask_{j + 1}" for j in range(i)],
                     estimated_complexity=self._estimate_concept_complexity(concept),
                     file_scope=self._find_files_for_concept(concept, task),
                 )
@@ -465,7 +465,6 @@ class TaskDecomposer:
                 print(f"  - {subtask.title}: {subtask.description}")
         """
         from aragora.core import Environment
-        from aragora.debate.orchestrator import Arena
         from aragora.debate.protocol import DebateProtocol
 
         # Build the debate task - ask agents to decompose the goal
@@ -493,37 +492,217 @@ class TaskDecomposer:
 
         logger.info(f"debate_decomposition_started goal={goal[:50]}...")
 
+        # Try to run debate, with OpenRouter fallback on API errors
+        result = await self._run_debate_with_fallback(env, agents, protocol, goal, context)
+
+        if result is None:
+            # All attempts failed, fall back to heuristic
+            logger.warning("debate_decomposition_all_failed falling back to heuristic")
+            return self.analyze(goal)
+
+        # Parse subtasks from final answer (consensus text)
+        subtasks = self._parse_debate_subtasks(result.final_answer or "")
+
+        if not subtasks:
+            logger.warning("debate_decomposition_empty falling back to heuristic")
+            subtasks = self._create_generic_phases(goal)
+
+        logger.info(
+            f"debate_decomposition_completed subtasks={len(subtasks)} "
+            f"confidence={result.confidence:.2f}"
+        )
+
+        return TaskDecomposition(
+            original_task=goal,
+            complexity_score=8,  # Debate implies high complexity
+            complexity_level="high",
+            should_decompose=True,
+            subtasks=subtasks[: self.config.max_subtasks],
+            rationale=f"Debate decomposition (confidence={result.confidence:.2f}): "
+            + (result.final_answer or "")[:200],
+        )
+
+    async def _run_debate_with_fallback(
+        self,
+        env: "Environment",
+        agents: List[Any],
+        protocol: Any,
+        goal: str,
+        context: str,
+    ) -> Optional[Any]:
+        """Run debate with OpenRouter fallback on API errors or poor output.
+
+        The fallback triggers when:
+        1. AgentAPIError, AgentRateLimitError, or similar billing errors occur
+        2. The debate returns but the output doesn't contain valid subtasks
+
+        Returns:
+            DebateResult if successful with valid subtasks, None if all attempts failed
+        """
+        from aragora.agents.errors.exceptions import (
+            AgentAPIError,
+            AgentError,
+            AgentRateLimitError,
+        )
+        from aragora.debate.orchestrator import Arena
+
+        result = None
+        should_fallback = False
+        fallback_reason = ""
+
+        # First attempt with provided agents
         try:
-            # Run the debate
             arena = Arena(env, agents, protocol)
             result = await arena.run()
 
-            # Parse subtasks from final answer (consensus text)
-            subtasks = self._parse_debate_subtasks(result.final_answer or "")
+            # Check if the result has valid, parseable subtasks
+            if result and result.final_answer:
+                subtasks = self._parse_debate_subtasks(result.final_answer)
+                if subtasks:
+                    logger.info(
+                        f"debate_primary_succeeded subtasks={len(subtasks)} "
+                        f"confidence={result.confidence:.2f}"
+                    )
+                    return result
+                else:
+                    # Debate completed but output is not useful
+                    should_fallback = True
+                    fallback_reason = "output has no parseable subtasks"
+            else:
+                should_fallback = True
+                fallback_reason = "no final answer"
 
-            if not subtasks:
-                logger.warning("debate_decomposition_empty falling back to heuristic")
-                subtasks = self._create_generic_phases(goal)
+        except AgentRateLimitError as e:
+            should_fallback = True
+            fallback_reason = f"rate limit: {e}"
+        except AgentAPIError as e:
+            error_msg = str(e).lower()
+            # Check for billing/quota errors that warrant fallback
+            if any(
+                keyword in error_msg
+                for keyword in [
+                    "credit",
+                    "balance",
+                    "quota",
+                    "rate limit",
+                    "billing",
+                    "insufficient",
+                ]
+            ):
+                should_fallback = True
+                fallback_reason = f"billing error: {e}"
+            else:
+                # Other API errors might not benefit from fallback
+                logger.exception(f"debate_api_error error={e}")
+                return None
+        except AgentError as e:
+            # Generic agent error - try fallback
+            should_fallback = True
+            fallback_reason = f"agent error: {e}"
+        except Exception as e:
+            # Check if exception message indicates billing/API issues
+            error_msg = str(e).lower()
+            if any(
+                keyword in error_msg
+                for keyword in [
+                    "credit",
+                    "balance",
+                    "quota",
+                    "rate limit",
+                    "billing",
+                    "insufficient",
+                    "401",
+                    "403",
+                ]
+            ):
+                should_fallback = True
+                fallback_reason = f"api error: {e}"
+            else:
+                logger.exception(f"debate_failed error={e}")
+                return None
 
-            logger.info(
-                f"debate_decomposition_completed subtasks={len(subtasks)} "
-                f"confidence={result.confidence:.2f}"
+        if not should_fallback:
+            return result
+
+        # Fallback: try with OpenRouter agents
+        logger.warning(f"debate_fallback_triggered reason={fallback_reason}")
+
+        try:
+            fallback_agents = await self._get_openrouter_agents()
+            if not fallback_agents:
+                logger.warning("debate_no_fallback_agents OpenRouter not available")
+                # Return original result if we have one (better than nothing)
+                return result
+
+            logger.info(f"debate_fallback_started agents={len(fallback_agents)}")
+
+            # Rebuild environment and protocol for fresh debate
+            from aragora.core import Environment
+            from aragora.debate.protocol import DebateProtocol
+
+            fallback_env = Environment(
+                task=self._build_debate_task(goal, context),
+                context=context,
+                max_rounds=self.config.debate_rounds,
+                require_consensus=True,
+                consensus_threshold=0.6,
+            )
+            fallback_protocol = DebateProtocol(
+                rounds=self.config.debate_rounds,
+                consensus="majority",
+                timeout_seconds=self.config.debate_timeout,
             )
 
-            return TaskDecomposition(
-                original_task=goal,
-                complexity_score=8,  # Debate implies high complexity
-                complexity_level="high",
-                should_decompose=True,
-                subtasks=subtasks[: self.config.max_subtasks],
-                rationale=f"Debate decomposition (confidence={result.confidence:.2f}): "
-                + (result.final_answer or "")[:200],
-            )
+            arena = Arena(fallback_env, fallback_agents, fallback_protocol)
+            fallback_result = await arena.run()
+
+            # Check if fallback result is better
+            if fallback_result and fallback_result.final_answer:
+                subtasks = self._parse_debate_subtasks(fallback_result.final_answer)
+                if subtasks:
+                    logger.info(
+                        f"debate_fallback_succeeded subtasks={len(subtasks)} "
+                        f"confidence={fallback_result.confidence:.2f}"
+                    )
+                    return fallback_result
+
+            logger.warning("debate_fallback_no_subtasks returning original result")
+            return result or fallback_result
 
         except Exception as e:
-            logger.exception(f"debate_decomposition_failed error={e}")
-            # Fall back to heuristic analysis
-            return self.analyze(goal)
+            logger.exception(f"debate_fallback_failed error={e}")
+            # Return original result if we have one
+            return result
+
+    async def _get_openrouter_agents(self) -> List[Any]:
+        """Get OpenRouter agents for fallback."""
+        from aragora.config.secrets import get_secret
+
+        openrouter_key = get_secret("OPENROUTER_API_KEY")
+        if not openrouter_key:
+            return []
+
+        try:
+            from aragora.agents.api_agents.openrouter import OpenRouterAgent
+
+            # Set the API key in environment for OpenRouterAgent
+            import os
+
+            os.environ["OPENROUTER_API_KEY"] = openrouter_key
+
+            return [
+                OpenRouterAgent(
+                    name="or-claude",
+                    model="anthropic/claude-3.5-sonnet",
+                ),
+                OpenRouterAgent(
+                    name="or-gpt",
+                    model="openai/gpt-4o",
+                ),
+            ]
+        except Exception as e:
+            logger.warning(f"openrouter_agents_failed error={e}")
+            return []
 
     def _build_debate_task(self, goal: str, context: str = "") -> str:
         """Build the debate task prompt for goal decomposition."""
