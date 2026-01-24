@@ -30,6 +30,39 @@ import type {
   GauntletReceipt,
   TeamSelection,
   SelectionPlugins,
+  // Extended Agent types
+  AgentRating,
+  AgentHistory,
+  AgentCalibration,
+  AgentConsistency,
+  AgentFlipsResponse,
+  AgentNetwork,
+  AgentMoment,
+  AgentPosition,
+  AgentDomains,
+  AgentPerformance,
+  AgentMetadata,
+  AgentIntrospection,
+  HeadToHeadStats,
+  OpponentBriefing,
+  AgentComparison,
+  Leaderboard,
+  AgentHealthStatus,
+  RecentFlipsResponse,
+  FlipSummary,
+  // Calibration types
+  CalibrationCurve,
+  CalibrationSummary,
+  CalibrationLeaderboard,
+  CalibrationVisualization,
+  // Analytics types
+  DisagreementStats,
+  RoleRotationStats,
+  EarlyStopStats,
+  ConsensusQuality,
+  CrossPollinationStats,
+  LearningEfficiency,
+  VotingAccuracy,
 } from './types';
 
 export interface AragoraClientOptions {
@@ -151,16 +184,248 @@ export class AgentsAPI {
   /**
    * List all available agents.
    */
-  async list(): Promise<AgentProfile[]> {
-    const data = await this.client.get<{ agents: AgentProfile[] }>('/api/v1/agents');
+  async list(options: { includeStats?: boolean } = {}): Promise<AgentProfile[]> {
+    const data = await this.client.get<{ agents: AgentProfile[] }>('/api/v1/agents', {
+      include_stats: options.includeStats ?? false,
+    });
     return data.agents ?? [];
   }
 
   /**
-   * Get an agent profile.
+   * Get an agent by name/ID.
    */
   async get(agentId: string): Promise<AgentProfile> {
     return this.client.get<AgentProfile>(`/api/v1/agents/${agentId}`);
+  }
+
+  /**
+   * Get agent profile with rating data.
+   */
+  async profile(agentName: string): Promise<AgentRating> {
+    return this.client.get<AgentRating>(`/api/v1/agent/${agentName}/profile`);
+  }
+
+  /**
+   * Get agent ELO rating history.
+   */
+  async history(agentName: string, options: { limit?: number } = {}): Promise<AgentHistory> {
+    return this.client.get<AgentHistory>(`/api/v1/agent/${agentName}/history`, {
+      limit: options.limit ?? 30,
+    });
+  }
+
+  /**
+   * Get agent calibration scores.
+   */
+  async calibration(agentName: string, options: { domain?: string } = {}): Promise<AgentCalibration> {
+    return this.client.get<AgentCalibration>(`/api/v1/agent/${agentName}/calibration`, {
+      ...(options.domain && { domain: options.domain }),
+    });
+  }
+
+  /**
+   * Get agent consistency score.
+   */
+  async consistency(agentName: string): Promise<AgentConsistency> {
+    return this.client.get<AgentConsistency>(`/api/v1/agent/${agentName}/consistency`);
+  }
+
+  /**
+   * Get agent position flip history.
+   */
+  async flips(agentName: string, options: { limit?: number } = {}): Promise<AgentFlipsResponse> {
+    return this.client.get<AgentFlipsResponse>(`/api/v1/agent/${agentName}/flips`, {
+      limit: options.limit ?? 20,
+    });
+  }
+
+  /**
+   * Get agent relationship network.
+   */
+  async network(agentName: string): Promise<AgentNetwork> {
+    return this.client.get<AgentNetwork>(`/api/v1/agent/${agentName}/network`);
+  }
+
+  /**
+   * Get agent's top rivals.
+   */
+  async rivals(agentName: string, options: { limit?: number } = {}): Promise<{ agent: string; rivals: Array<{ agent: string; matches: number; win_rate: number }> }> {
+    return this.client.get(`/api/v1/agent/${agentName}/rivals`, {
+      limit: options.limit ?? 5,
+    });
+  }
+
+  /**
+   * Get agent's top allies.
+   */
+  async allies(agentName: string, options: { limit?: number } = {}): Promise<{ agent: string; allies: Array<{ agent: string; matches: number; agreement_rate: number }> }> {
+    return this.client.get(`/api/v1/agent/${agentName}/allies`, {
+      limit: options.limit ?? 5,
+    });
+  }
+
+  /**
+   * Get agent's significant moments.
+   */
+  async moments(agentName: string, options: { limit?: number } = {}): Promise<{ agent: string; moments: AgentMoment[] }> {
+    return this.client.get(`/api/v1/agent/${agentName}/moments`, {
+      limit: options.limit ?? 10,
+    });
+  }
+
+  /**
+   * Get agent's position history.
+   */
+  async positions(agentName: string, options: { limit?: number } = {}): Promise<{ agent: string; positions: AgentPosition[] }> {
+    return this.client.get(`/api/v1/agent/${agentName}/positions`, {
+      limit: options.limit ?? 20,
+    });
+  }
+
+  /**
+   * Get agent's domain-specific ELO ratings.
+   */
+  async domains(agentName: string): Promise<AgentDomains> {
+    return this.client.get<AgentDomains>(`/api/v1/agent/${agentName}/domains`);
+  }
+
+  /**
+   * Get detailed agent performance statistics.
+   */
+  async performance(agentName: string): Promise<AgentPerformance> {
+    return this.client.get<AgentPerformance>(`/api/v1/agent/${agentName}/performance`);
+  }
+
+  /**
+   * Get agent metadata (provider, model, capabilities).
+   */
+  async metadata(agentName: string): Promise<AgentMetadata> {
+    return this.client.get<AgentMetadata>(`/api/v1/agent/${agentName}/metadata`);
+  }
+
+  /**
+   * Get agent introspection data for self-awareness and debugging.
+   */
+  async introspect(agentName: string, options: { debateId?: string } = {}): Promise<AgentIntrospection> {
+    return this.client.get<AgentIntrospection>(`/api/v1/agent/${agentName}/introspect`, {
+      ...(options.debateId && { debate_id: options.debateId }),
+    });
+  }
+
+  /**
+   * Get head-to-head statistics between two agents.
+   */
+  async headToHead(agentName: string, opponentName: string): Promise<HeadToHeadStats> {
+    return this.client.get<HeadToHeadStats>(`/api/v1/agent/${agentName}/head-to-head/${opponentName}`);
+  }
+
+  /**
+   * Get strategic briefing about an opponent for an agent.
+   */
+  async opponentBriefing(agentName: string, opponentName: string): Promise<OpponentBriefing> {
+    return this.client.get<OpponentBriefing>(`/api/v1/agent/${agentName}/opponent-briefing/${opponentName}`);
+  }
+
+  /**
+   * Compare multiple agents.
+   */
+  async compare(agents: string[]): Promise<AgentComparison> {
+    return this.client.get<AgentComparison>('/api/v1/agent/compare', {
+      agents: agents.join(','),
+    });
+  }
+
+  /**
+   * Get agent leaderboard/rankings.
+   */
+  async leaderboard(options: { limit?: number; domain?: string } = {}): Promise<Leaderboard> {
+    return this.client.get<Leaderboard>('/api/v1/leaderboard', {
+      limit: options.limit ?? 20,
+      ...(options.domain && { domain: options.domain }),
+    });
+  }
+
+  /**
+   * Get rankings (alias for leaderboard).
+   */
+  async rankings(options: { limit?: number; domain?: string } = {}): Promise<Leaderboard> {
+    return this.leaderboard(options);
+  }
+
+  /**
+   * Get runtime health status for all agents.
+   */
+  async health(): Promise<AgentHealthStatus> {
+    return this.client.get<AgentHealthStatus>('/api/v1/agents/health');
+  }
+
+  /**
+   * Get recent matches.
+   */
+  async recentMatches(options: { limit?: number; loopId?: string } = {}): Promise<{ matches: Array<Record<string, unknown>> }> {
+    return this.client.get('/api/v1/matches/recent', {
+      limit: options.limit ?? 10,
+      ...(options.loopId && { loop_id: options.loopId }),
+    });
+  }
+
+  /**
+   * Get recent flips across all agents.
+   */
+  async recentFlips(options: { limit?: number } = {}): Promise<RecentFlipsResponse> {
+    return this.client.get<RecentFlipsResponse>('/api/v1/flips/recent', {
+      limit: options.limit ?? 20,
+    });
+  }
+
+  /**
+   * Get flip summary for dashboard.
+   */
+  async flipSummary(): Promise<FlipSummary> {
+    return this.client.get<FlipSummary>('/api/v1/flips/summary');
+  }
+
+  // ==========================================================================
+  // Calibration methods
+  // ==========================================================================
+
+  /**
+   * Get calibration curve (confidence vs accuracy per bucket).
+   */
+  async calibrationCurve(agentName: string, options: { buckets?: number; domain?: string } = {}): Promise<CalibrationCurve> {
+    return this.client.get<CalibrationCurve>(`/api/v1/agent/${agentName}/calibration-curve`, {
+      buckets: options.buckets ?? 10,
+      ...(options.domain && { domain: options.domain }),
+    });
+  }
+
+  /**
+   * Get comprehensive calibration summary for an agent.
+   */
+  async calibrationSummary(agentName: string, options: { domain?: string } = {}): Promise<CalibrationSummary> {
+    return this.client.get<CalibrationSummary>(`/api/v1/agent/${agentName}/calibration-summary`, {
+      ...(options.domain && { domain: options.domain }),
+    });
+  }
+
+  /**
+   * Get calibration leaderboard.
+   */
+  async calibrationLeaderboard(options: { limit?: number; metric?: 'brier' | 'ece' | 'accuracy' | 'composite'; minPredictions?: number } = {}): Promise<CalibrationLeaderboard> {
+    return this.client.get<CalibrationLeaderboard>('/api/v1/calibration/leaderboard', {
+      limit: options.limit ?? 20,
+      metric: options.metric ?? 'brier',
+      min_predictions: options.minPredictions ?? 5,
+    });
+  }
+
+  /**
+   * Get comprehensive calibration visualization data.
+   */
+  async calibrationVisualization(options: { limit?: number } = {}): Promise<CalibrationVisualization> {
+    return this.client.get<CalibrationVisualization>('/api/v1/calibration/visualization', {
+      limit: options.limit ?? 5,
+    });
   }
 }
 
@@ -309,6 +574,111 @@ export class GauntletAPI {
   async get(receiptId: string): Promise<GauntletReceipt> {
     return this.client.get<GauntletReceipt>(`/api/v1/gauntlet/${receiptId}`);
   }
+
+  /**
+   * List gauntlet receipts.
+   */
+  async list(options: { limit?: number; agentId?: string } = {}): Promise<{ receipts: GauntletReceipt[]; count: number }> {
+    return this.client.get('/api/v1/gauntlet', {
+      limit: options.limit ?? 50,
+      ...(options.agentId && { agent_id: options.agentId }),
+    });
+  }
+
+  /**
+   * Delete a gauntlet receipt.
+   */
+  async delete(receiptId: string): Promise<void> {
+    return this.client.delete(`/api/v1/gauntlet/${receiptId}`);
+  }
+}
+
+export class AnalyticsAPI {
+  private client: AragoraClient;
+
+  constructor(client: AragoraClient) {
+    this.client = client;
+  }
+
+  /**
+   * Get statistics about debate disagreements.
+   */
+  async disagreements(): Promise<DisagreementStats> {
+    return this.client.get<DisagreementStats>('/api/v1/analytics/disagreements');
+  }
+
+  /**
+   * Get statistics about cognitive role rotation.
+   */
+  async roleRotation(): Promise<RoleRotationStats> {
+    return this.client.get<RoleRotationStats>('/api/v1/analytics/role-rotation');
+  }
+
+  /**
+   * Get statistics about early debate stopping.
+   */
+  async earlyStops(): Promise<EarlyStopStats> {
+    return this.client.get<EarlyStopStats>('/api/v1/analytics/early-stops');
+  }
+
+  /**
+   * Get consensus quality monitoring metrics.
+   */
+  async consensusQuality(): Promise<ConsensusQuality> {
+    return this.client.get<ConsensusQuality>('/api/v1/analytics/consensus-quality');
+  }
+
+  /**
+   * Get ranking system statistics.
+   */
+  async rankingStats(): Promise<{ stats: Record<string, unknown> }> {
+    return this.client.get('/api/v1/ranking/stats');
+  }
+
+  /**
+   * Get memory system statistics.
+   */
+  async memoryStats(): Promise<{ stats: Record<string, unknown> }> {
+    return this.client.get('/api/v1/memory/stats');
+  }
+
+  /**
+   * Get aggregate cross-pollination statistics.
+   */
+  async crossPollination(): Promise<CrossPollinationStats> {
+    return this.client.get<CrossPollinationStats>('/api/v1/analytics/cross-pollination');
+  }
+
+  /**
+   * Get learning efficiency statistics for agents.
+   */
+  async learningEfficiency(options: { agent?: string; domain?: string; limit?: number } = {}): Promise<LearningEfficiency> {
+    return this.client.get<LearningEfficiency>('/api/v1/analytics/learning-efficiency', {
+      ...(options.agent && { agent: options.agent }),
+      ...(options.domain && { domain: options.domain }),
+      limit: options.limit ?? 20,
+    });
+  }
+
+  /**
+   * Get voting accuracy statistics for agents.
+   */
+  async votingAccuracy(options: { agent?: string; limit?: number } = {}): Promise<VotingAccuracy> {
+    return this.client.get<VotingAccuracy>('/api/v1/analytics/voting-accuracy', {
+      ...(options.agent && { agent: options.agent }),
+      limit: options.limit ?? 20,
+    });
+  }
+
+  /**
+   * Get calibration statistics for agents.
+   */
+  async calibration(options: { agent?: string; limit?: number } = {}): Promise<{ agent?: string; agents?: Array<{ agent: string; calibration: Record<string, unknown> | null }> }> {
+    return this.client.get('/api/v1/analytics/calibration', {
+      ...(options.agent && { agent: options.agent }),
+      limit: options.limit ?? 20,
+    });
+  }
 }
 
 export class TeamSelectionAPI {
@@ -353,6 +723,7 @@ export class AragoraClient {
   public readonly gauntlet: GauntletAPI;
   public readonly teamSelection: TeamSelectionAPI;
   public readonly controlPlane: ControlPlaneAPI;
+  public readonly analytics: AnalyticsAPI;
 
   constructor(baseUrl: string = 'http://localhost:8080', options: AragoraClientOptions = {}) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
@@ -374,6 +745,7 @@ export class AragoraClient {
     this.gauntlet = new GauntletAPI(this);
     this.teamSelection = new TeamSelectionAPI(this);
     this.controlPlane = new ControlPlaneAPI(this);
+    this.analytics = new AnalyticsAPI(this);
   }
 
   /**

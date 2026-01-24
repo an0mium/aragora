@@ -381,3 +381,431 @@ export interface SelectTeamRequest {
   exclude_agents?: string[];
   plugins?: SelectionPlugins;
 }
+
+// =============================================================================
+// Extended Agent Types (parity with Python SDK v2.1.13)
+// =============================================================================
+
+export interface AgentRating {
+  name: string;
+  rating: number;
+  rank?: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+}
+
+export interface AgentHistory {
+  agent: string;
+  history: Array<{
+    timestamp: string;
+    elo: number;
+  }>;
+}
+
+export interface AgentCalibration {
+  agent: string;
+  score: number;
+  domain?: string;
+}
+
+export interface AgentConsistency {
+  agent: string;
+  consistency_score: number;
+}
+
+export interface AgentFlip {
+  id: string;
+  agent_name: string;
+  topic: string;
+  old_stance: string;
+  new_stance: string;
+  flip_type: string;
+  timestamp: string;
+  debate_id?: string;
+  reasoning?: string;
+}
+
+export interface AgentFlipsResponse {
+  agent: string;
+  flips: AgentFlip[];
+  consistency: {
+    agent_name: string;
+    total_positions: number;
+    total_flips: number;
+    consistency_score: number;
+  };
+  count: number;
+}
+
+export interface AgentNetwork {
+  agent: string;
+  rivals: Array<{ agent: string; matches: number; win_rate: number }>;
+  allies: Array<{ agent: string; matches: number; agreement_rate: number }>;
+}
+
+export interface AgentMoment {
+  id: string;
+  moment_type: string;
+  agent_name: string;
+  description: string;
+  significance_score: number;
+  timestamp?: string;
+  debate_id?: string;
+}
+
+export interface AgentPosition {
+  topic: string;
+  stance: string;
+  confidence: number;
+  timestamp: string;
+  debate_id?: string;
+}
+
+export interface AgentDomains {
+  agent: string;
+  overall_elo: number;
+  domains: Array<{
+    domain: string;
+    elo: number;
+    relative: number;
+  }>;
+  domain_count: number;
+}
+
+export interface AgentPerformance {
+  agent: string;
+  elo: number;
+  total_games: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  win_rate: number;
+  recent_win_rate: number;
+  elo_trend: number;
+  critiques_accepted: number;
+  critiques_total: number;
+  critique_acceptance_rate: number;
+  calibration: {
+    accuracy: number;
+    brier_score: number;
+    prediction_count: number;
+  };
+}
+
+export interface AgentMetadata {
+  agent: string;
+  metadata: {
+    provider: string;
+    model_id: string;
+    context_window: number;
+    specialties: string[];
+    strengths: string[];
+    release_date?: string;
+    updated_at?: string;
+  } | null;
+  message?: string;
+}
+
+export interface AgentIntrospection {
+  agent_id: string;
+  timestamp: string;
+  identity: {
+    name: string;
+    persona?: {
+      style?: string;
+      temperature?: number;
+      system_prompt_preview?: string;
+    };
+  };
+  calibration: {
+    accuracy?: number;
+    brier_score?: number;
+    prediction_count?: number;
+    confidence_level?: string;
+  };
+  positions: Array<{
+    topic: string;
+    stance: string;
+    confidence: number;
+    timestamp: string;
+  }>;
+  performance: {
+    elo?: number;
+    total_games?: number;
+    wins?: number;
+    losses?: number;
+    win_rate?: number;
+  };
+  memory_summary: {
+    tier_counts?: Record<string, number>;
+    total_memories?: number;
+    red_line_count?: number;
+  };
+  fatigue_indicators: Record<string, unknown> | null;
+  debate_context: {
+    debate_id: string;
+    messages_sent: number;
+    current_round: number;
+    debate_status: string;
+  } | null;
+}
+
+export interface HeadToHeadStats {
+  agent1: string;
+  agent2: string;
+  matches: number;
+  agent1_wins: number;
+  agent2_wins: number;
+  draws?: number;
+}
+
+export interface OpponentBriefing {
+  agent: string;
+  opponent: string;
+  briefing: {
+    strengths: string[];
+    weaknesses: string[];
+    common_strategies: string[];
+    recommendations: string[];
+    historical_summary?: string;
+  } | null;
+  message?: string;
+}
+
+export interface AgentComparison {
+  agents: Array<{
+    name: string;
+    rating: number;
+    wins?: number;
+    losses?: number;
+    win_rate?: number;
+  }>;
+  head_to_head?: HeadToHeadStats | null;
+}
+
+export interface LeaderboardEntry {
+  name: string;
+  elo: number;
+  matches?: number;
+  wins?: number;
+  losses?: number;
+  consistency?: number;
+  consistency_class?: string;
+}
+
+export interface Leaderboard {
+  rankings: LeaderboardEntry[];
+  agents: LeaderboardEntry[];
+}
+
+export interface AgentHealthStatus {
+  timestamp: number;
+  overall_status: 'healthy' | 'degraded' | 'unhealthy';
+  agents: Record<string, {
+    type: string;
+    requires_api_key: boolean;
+    api_key_configured: boolean;
+    available: boolean;
+    circuit_breaker_open?: boolean;
+  }>;
+  circuit_breakers: Record<string, {
+    state: string;
+    failure_count: number;
+    last_failure?: number;
+    available: boolean;
+  }>;
+  fallback: {
+    openrouter_available: boolean;
+    local_llm_available: boolean;
+    local_providers: string[];
+  };
+  summary: {
+    available_agents: number;
+    total_agents: number;
+    availability_rate: number;
+  };
+  cross_pollination?: {
+    total_subscribers: number;
+    healthy_subscribers: number;
+    health_rate: number;
+    total_events_processed: number;
+    total_events_failed: number;
+  };
+}
+
+export interface FlipSummary {
+  total_flips: number;
+  by_type: Record<string, number>;
+  by_agent: Record<string, number>;
+  recent_24h: number;
+}
+
+export interface RecentFlipsResponse {
+  flips: AgentFlip[];
+  summary: FlipSummary;
+  count: number;
+}
+
+// =============================================================================
+// Calibration Types (parity with Python SDK v2.1.13)
+// =============================================================================
+
+export interface CalibrationBucket {
+  range_start: number;
+  range_end: number;
+  total_predictions: number;
+  correct_predictions: number;
+  accuracy: number;
+  expected_accuracy: number;
+  brier_score: number;
+}
+
+export interface CalibrationCurve {
+  agent: string;
+  domain?: string;
+  buckets: CalibrationBucket[];
+  count: number;
+}
+
+export interface CalibrationSummary {
+  agent: string;
+  domain?: string;
+  total_predictions: number;
+  total_correct: number;
+  accuracy: number;
+  brier_score: number;
+  ece: number;
+  is_overconfident: boolean;
+  is_underconfident: boolean;
+}
+
+export interface CalibrationLeaderboardEntry {
+  agent: string;
+  calibration_score: number;
+  brier_score: number;
+  accuracy: number;
+  ece: number;
+  predictions_count: number;
+  correct_count: number;
+  elo: number;
+}
+
+export interface CalibrationLeaderboard {
+  metric: string;
+  min_predictions: number;
+  agents: CalibrationLeaderboardEntry[];
+  count: number;
+}
+
+export interface CalibrationVisualization {
+  calibration_curves: Record<string, {
+    buckets: Array<{
+      x: number;
+      expected: number;
+      actual: number;
+      count: number;
+    }>;
+    perfect_line: Array<{ x: number; y: number }>;
+  }>;
+  scatter_data: Array<{
+    agent: string;
+    accuracy: number;
+    brier_score: number;
+    ece: number;
+    predictions: number;
+    is_overconfident: boolean;
+    is_underconfident: boolean;
+  }>;
+  confidence_histogram: Array<{
+    range: string;
+    count: number;
+  }>;
+  domain_heatmap: Record<string, Record<string, {
+    accuracy: number;
+    brier: number;
+    count: number;
+  }>>;
+  summary: {
+    total_agents: number;
+    avg_brier: number;
+    avg_ece: number;
+    best_calibrated?: string;
+    worst_calibrated?: string;
+  };
+}
+
+// =============================================================================
+// Analytics Types (parity with Python SDK v2.1.13)
+// =============================================================================
+
+export interface DisagreementStats {
+  stats: {
+    total_debates: number;
+    with_disagreements: number;
+    unanimous: number;
+    disagreement_types: Record<string, number>;
+  };
+}
+
+export interface RoleRotationStats {
+  stats: {
+    total_debates: number;
+    with_rotation: number;
+    role_assignments: Record<string, number>;
+  };
+}
+
+export interface EarlyStopStats {
+  stats: {
+    total_debates: number;
+    early_stopped: number;
+    full_rounds: number;
+    average_rounds: number;
+  };
+}
+
+export interface ConsensusQuality {
+  stats: {
+    total_debates: number;
+    confidence_history: Array<{
+      debate_id: string;
+      confidence: number;
+      consensus_reached: boolean;
+      timestamp: string;
+    }>;
+    trend: 'improving' | 'stable' | 'declining' | 'insufficient_data';
+    average_confidence: number;
+    consensus_rate: number;
+    consensus_reached_count: number;
+  };
+  quality_score: number;
+  alert: {
+    level: 'critical' | 'warning' | 'info';
+    message: string;
+  } | null;
+}
+
+export interface CrossPollinationStats {
+  stats: {
+    calibration: { enabled: boolean; adjustments: number };
+    learning: { enabled: boolean; bonuses_applied: number };
+    voting_accuracy: { enabled: boolean; updates: number };
+    adaptive_rounds: { enabled: boolean; changes: number };
+    rlm_cache: { enabled: boolean; hits: number; misses: number; hit_rate: number };
+  };
+  version: string;
+}
+
+export interface LearningEfficiency {
+  agent?: string;
+  domain: string;
+  efficiency?: number;
+  agents?: Array<{ agent: string; efficiency: number }>;
+}
+
+export interface VotingAccuracy {
+  agent?: string;
+  accuracy?: number;
+  agents?: Array<{ agent: string; accuracy: number }>;
+}
