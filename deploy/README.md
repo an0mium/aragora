@@ -27,6 +27,7 @@ docker-compose logs -f backend
 Access points:
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8080
+- WebSocket: ws://localhost:8765/ws
 - Prometheus: http://localhost:9090 (with monitoring profile)
 - Grafana: http://localhost:3001 (with monitoring profile)
 
@@ -91,6 +92,8 @@ deploy/
 | `OPENROUTER_API_KEY` | Fallback for rate limits |
 | `MISTRAL_API_KEY` | Mistral models |
 | `ARAGORA_API_TOKEN` | API authentication token |
+| `NEXT_PUBLIC_API_URL` | Frontend API base URL |
+| `NEXT_PUBLIC_WS_URL` | Frontend WebSocket URL |
 
 ### Production
 | Variable | Description |

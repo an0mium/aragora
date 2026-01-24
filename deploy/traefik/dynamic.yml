@@ -1,0 +1,48 @@
+# Traefik Dynamic Configuration
+# Rate limiting and security middlewares
+
+http:
+  middlewares:
+    # Rate limiting middleware
+    rate-limit:
+      rateLimit:
+        average: 100        # Average requests per second
+        burst: 200          # Maximum burst
+        period: 1s
+        sourceCriterion:
+          ipStrategy:
+            depth: 1        # Use first X-Forwarded-For header
+
+    # Stricter rate limit for auth endpoints
+    auth-rate-limit:
+      rateLimit:
+        average: 10
+        burst: 20
+        period: 1s
+
+    # Security headers
+    security-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        frameDeny: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        customResponseHeaders:
+          X-Content-Type-Options: "nosniff"
+          X-Frame-Options: "DENY"
+          X-XSS-Protection: "1; mode=block"
+
+    # Compress responses
+    compress:
+      compress:
+        excludedContentTypes:
+          - text/event-stream
+
+    # Retry on failure
+    retry:
+      retry:
+        attempts: 3
+        initialInterval: 100ms

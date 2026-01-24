@@ -6,6 +6,10 @@ FROM node:20-alpine as builder
 
 WORKDIR /app
 
+# Build-time public env (injected into Next.js build)
+ARG NEXT_PUBLIC_API_URL=http://localhost:8080
+ARG NEXT_PUBLIC_WS_URL=ws://localhost:8765/ws
+
 # Copy package files
 COPY aragora/live/package*.json ./
 
@@ -18,6 +22,8 @@ COPY aragora/live/ ./
 # Build application with standalone output
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_OUTPUT=standalone
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 RUN npm run build:local
 
 # Production stage
@@ -25,10 +31,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Runtime env defaults (kept for documentation; build-time env is already embedded)
+ARG NEXT_PUBLIC_API_URL=http://localhost:8080
+ARG NEXT_PUBLIC_WS_URL=ws://localhost:8765/ws
+
 # Set environment variables
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 
 # Copy standalone build
 COPY --from=builder /app/.next/standalone ./

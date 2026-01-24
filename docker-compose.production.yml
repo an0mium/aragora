@@ -1,0 +1,448 @@
+# Aragora Production Stack
+# Full production deployment with TLS, HA, observability, and security
+#
+# Prerequisites:
+#   1. Domain name pointing to your server
+#   2. .env.production file with secrets (copy from .env.production.example)
+#   3. Docker 24+ with compose v2
+#   4. At least 8GB RAM, 4 CPU cores for full stack
+#
+# Quick Start:
+#   1. cp .env.production.example .env.production
+#   2. Edit .env.production with your domain and API keys
+#   3. docker compose -f docker-compose.production.yml up -d
+#   4. Access Aragora at https://your-domain.com
+#   5. Access Grafana at https://your-domain.com/grafana
+#
+# TLS:
+#   - Auto-provisioned via Let's Encrypt
+#   - Certificates stored in letsencrypt volume
+#   - Auto-renewal handled by Traefik
+
+services:
+  # ============================================================================
+  # Reverse Proxy (Traefik with TLS)
+  # ============================================================================
+
+  traefik:
+    image: traefik:v3.0
+    container_name: aragora-traefik
+    command:
+      # API Dashboard (secured behind auth)
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+      # Docker provider
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=aragora-network"
+      # Entrypoints
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # HTTP to HTTPS redirect
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      # Let's Encrypt
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@example.com}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      # Rate limiting middleware
+      - "--entrypoints.websecure.http.middlewares=rate-limit@file"
+      # Logging
+      - "--log.level=${TRAEFIK_LOG_LEVEL:-INFO}"
+      - "--accesslog=true"
+      - "--accesslog.filepath=/var/log/traefik/access.log"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+      - traefik-logs:/var/log/traefik
+      - ./deploy/traefik:/etc/traefik:ro
+    networks:
+      - aragora-network
+    restart: unless-stopped
+    labels:
+      # Dashboard
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`${DOMAIN}`) && (PathPrefix(`/traefik`) || PathPrefix(`/api`))"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_DASHBOARD_USERS:-}"
+
+  # ============================================================================
+  # Core Application (Scalable)
+  # ============================================================================
+
+  aragora:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # AI Providers
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      # Database
+      - DATABASE_URL=postgresql://aragora:${POSTGRES_PASSWORD}@postgres:5432/aragora
+      - ARAGORA_DB_BACKEND=postgres
+      - ARAGORA_POSTGRES_DSN=postgresql://aragora:${POSTGRES_PASSWORD}@postgres:5432/aragora
+      # Redis
+      - REDIS_URL=redis://redis:6379
+      # Environment mode
+      - ARAGORA_ENV=${ARAGORA_ENV:-production}
+      - ARAGORA_ENVIRONMENT=${ARAGORA_ENVIRONMENT:-production}
+      # Security
+      - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN}
+      - ARAGORA_JWT_SECRET=${ARAGORA_JWT_SECRET}
+      - ARAGORA_ALLOWED_ORIGINS=https://${DOMAIN}
+      - ARAGORA_TRUSTED_PROXIES=172.16.0.0/12,10.0.0.0/8
+      - ARAGORA_SECURE_COOKIES=true
+      # Performance
+      - ARAGORA_MAX_CONCURRENT_DEBATES=${ARAGORA_MAX_CONCURRENT_DEBATES:-20}
+      # Observability
+      - ARAGORA_METRICS_ENABLED=true
+      - ARAGORA_LOG_LEVEL=${ARAGORA_LOG_LEVEL:-INFO}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      # Stripe (optional)
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+    volumes:
+      - aragora-data:/app/data
+      - aragora-logs:/app/logs
+    networks:
+      - aragora-network
+    restart: unless-stopped
+    deploy:
+      mode: replicated
+      replicas: ${ARAGORA_REPLICAS:-2}
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    labels:
+      - "traefik.enable=true"
+      # Main API
+      - "traefik.http.routers.aragora.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.aragora.tls=true"
+      - "traefik.http.routers.aragora.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.aragora.service=aragora"
+      - "traefik.http.services.aragora.loadbalancer.server.port=8080"
+      - "traefik.http.services.aragora.loadbalancer.healthcheck.path=/api/health"
+      - "traefik.http.services.aragora.loadbalancer.healthcheck.interval=10s"
+      # Sticky sessions for WebSocket
+      - "traefik.http.services.aragora.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.aragora.loadbalancer.sticky.cookie.name=aragora_server"
+      # Security headers
+      - "traefik.http.routers.aragora.middlewares=security-headers"
+      - "traefik.http.middlewares.security-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.security-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.security-headers.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.security-headers.headers.frameDeny=true"
+      # Prometheus scrape
+      - "prometheus.scrape=true"
+      - "prometheus.port=8080"
+      - "prometheus.path=/metrics"
+
+  # ============================================================================
+  # Data Layer (PostgreSQL + Redis)
+  # ============================================================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: aragora-postgres
+    environment:
+      POSTGRES_USER: aragora
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: aragora
+      # Performance tuning
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./aragora/db/schema/postgres_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./deploy/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    networks:
+      - aragora-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aragora"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  redis:
+    image: redis:7-alpine
+    container_name: aragora-redis
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 1gb
+      --maxmemory-policy volatile-lru
+      --tcp-backlog 511
+      --tcp-keepalive 300
+    volumes:
+      - redis-data:/data
+    networks:
+      - aragora-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # ============================================================================
+  # Background Workers
+  # ============================================================================
+
+  debate-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m scripts.queue_worker --concurrency 5
+    depends_on:
+      redis:
+        condition: service_healthy
+      aragora:
+        condition: service_healthy
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://aragora:${POSTGRES_PASSWORD}@postgres:5432/aragora
+      - ARAGORA_QUEUE_RETRY_MAX=3
+    volumes:
+      - aragora-data:/app/data
+    networks:
+      - aragora-network
+    restart: unless-stopped
+    deploy:
+      mode: replicated
+      replicas: ${WORKER_REPLICAS:-2}
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+
+  # ============================================================================
+  # Observability Stack
+  # ============================================================================
+
+  prometheus:
+    image: prom/prometheus:v2.49.0
+    container_name: aragora-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+      - "--web.enable-admin-api"
+    volumes:
+      - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - aragora-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  grafana:
+    image: grafana/grafana:10.3.1
+    container_name: aragora-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=https://${DOMAIN}/grafana
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_STRICT_TRANSPORT_SECURITY=true
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - aragora-network
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`${DOMAIN}`) && PathPrefix(`/grafana`)"
+      - "traefik.http.routers.grafana.tls=true"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: aragora-loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./deploy/observability/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    networks:
+      - aragora-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  promtail:
+    image: grafana/promtail:2.9.4
+    container_name: aragora-promtail
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./deploy/observability/promtail-config.yaml:/etc/promtail/config.yml:ro
+      - aragora-logs:/var/log/aragora:ro
+      - traefik-logs:/var/log/traefik:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - aragora-network
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  # OpenTelemetry Collector (optional - for distributed tracing)
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.93.0
+    container_name: aragora-otel
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./deploy/observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    networks:
+      - aragora-network
+    restart: unless-stopped
+    profiles:
+      - tracing
+
+  # ============================================================================
+  # Backup Service
+  # ============================================================================
+
+  backup:
+    image: postgres:16-alpine
+    container_name: aragora-backup
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: aragora
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: aragora
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
+    volumes:
+      - backups:/backups
+      - ./deploy/scripts/backup.sh:/backup.sh:ro
+    entrypoint: /bin/sh
+    command: /backup.sh
+    networks:
+      - aragora-network
+    restart: unless-stopped
+
+  # ============================================================================
+  # Alertmanager (optional)
+  # ============================================================================
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: aragora-alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    volumes:
+      - ./deploy/observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    networks:
+      - aragora-network
+    restart: unless-stopped
+    profiles:
+      - alerting
+
+# ============================================================================
+# Volumes
+# ============================================================================
+
+volumes:
+  aragora-data:
+    name: aragora-prod-data
+  aragora-logs:
+    name: aragora-prod-logs
+  postgres-data:
+    name: aragora-prod-postgres
+  redis-data:
+    name: aragora-prod-redis
+  letsencrypt:
+    name: aragora-prod-letsencrypt
+  traefik-logs:
+    name: aragora-prod-traefik-logs
+  prometheus-data:
+    name: aragora-prod-prometheus
+  grafana-data:
+    name: aragora-prod-grafana
+  loki-data:
+    name: aragora-prod-loki
+  backups:
+    name: aragora-prod-backups
+  alertmanager-data:
+    name: aragora-prod-alertmanager
+
+# ============================================================================
+# Networks
+# ============================================================================
+
+networks:
+  aragora-network:
+    name: aragora-prod-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

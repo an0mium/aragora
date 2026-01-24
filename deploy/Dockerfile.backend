@@ -52,7 +52,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/api/health || exit 1
 
 # Expose ports
-EXPOSE 8080
+EXPOSE 8080 8765 8766 8767
 
-# Run server
-CMD ["python", "-m", "aragora.server.unified_server", "--host", "0.0.0.0", "--port", "8080"]
+# Run server (HTTP + WebSocket)
+CMD ["python", "-m", "aragora.server", "--host", "0.0.0.0", "--api-port", "8080", "--ws-port", "8765"]

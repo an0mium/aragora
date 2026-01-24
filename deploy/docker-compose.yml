@@ -8,6 +8,9 @@ services:
       dockerfile: deploy/Dockerfile.backend
     ports:
       - "8080:8080"
+      - "8765:8765"
+      - "8766:8766"
+      - "8767:8767"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -15,7 +18,12 @@ services:
       - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
       - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN:-dev-token}
       - ARAGORA_ALLOWED_ORIGINS=http://localhost:3000,http://frontend:3000
+      - ARAGORA_ENV=${ARAGORA_ENV:-development}
+      - ARAGORA_ENVIRONMENT=${ARAGORA_ENVIRONMENT:-development}
       - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-}
+      - ARAGORA_POSTGRES_DSN=${ARAGORA_POSTGRES_DSN:-}
+      - ARAGORA_DB_BACKEND=${ARAGORA_DB_BACKEND:-auto}
     volumes:
       - aragora-data:/app/data
       - aragora-knowledge:/app/knowledge
@@ -35,11 +43,14 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8765/ws}
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8080
-      - NEXT_PUBLIC_WS_URL=ws://localhost:8080
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+      - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL:-ws://localhost:8765/ws}
     depends_on:
       backend:
         condition: service_healthy
