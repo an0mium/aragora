@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -642,7 +643,7 @@ class DecisionReceiptGenerator:
             rounds = max(rounds, len(result.redteam_result.rounds))
 
         return DecisionReceipt(
-            receipt_id=f"receipt-{result.gauntlet_id}",
+            receipt_id=str(uuid.uuid4()),
             gauntlet_id=result.gauntlet_id,
             timestamp=result.created_at,
             input_summary=result.input_summary,
