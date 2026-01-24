@@ -80,6 +80,7 @@ test = [
     "aiosqlite>=0.19,<1.0",  # Async SQLite for persistence tests
     "supabase>=2.0,<3.0",  # Supabase client tests
     "redis>=5.0.0,<8.0",  # Redis store tests
+    "asyncpg>=0.29.0,<1.0",  # Async PostgreSQL for persistence tests
     # Auth and security
     "PyJWT>=2.8,<3.0",  # JWT verification tests
     # Transcription and media

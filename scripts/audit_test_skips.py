@@ -77,6 +77,9 @@ CATEGORY_PATTERNS = {
         r"requires running server",
         r"requires.*server",
         r"API.*KEY",  # "Requires ANTHROPIC_API_KEY"
+        r"ARAGORA_TEST_",  # "ARAGORA_TEST_SERVER_URL not set"
+        r"_URL not set",
+        r"_TOKEN not set",
     ],
     "platform_specific": [
         r"platform",
@@ -86,6 +89,9 @@ CATEGORY_PATTERNS = {
         r"macos",
         r"win32",
         r"symlink",
+        r"GIL",  # Python GIL limitations
+        r"main thread",  # "signal.alarm requires main thread"
+        r"/etc/",  # "Test requires /etc/hostname"
     ],
     "flaky_test": [
         r"flaky",
@@ -94,6 +100,7 @@ CATEGORY_PATTERNS = {
         r"timing",
         r"race.*condition",
         r"sporadic",
+        r"rate.*limited",  # "Rate limited during refresh test"
     ],
     "known_bug": [
         r"bug",
@@ -104,6 +111,13 @@ CATEGORY_PATTERNS = {
         r"regression",
         r"needs.*fix",
         r"investigation",
+        r"API changed",  # "OIDCConfig API changed"
+        r"need.*update",
+        r"does not support",  # "Handler does not support..."
+        r"incompatibility",  # "aiohttp event loop incompatibility"
+        r"complex setup",  # "requires complex setup"
+        r"complex.*mocking",  # "Requires complex httpx mocking"
+        r"import failed",  # "Subprocess import failed"
     ],
     "performance": [
         r"slow",

@@ -183,7 +183,7 @@ async def handle_create_expense(
             try:
                 category = ExpenseCategory(category_str)
             except ValueError:
-                pass  # Will auto-categorize
+                logger.debug(f"Invalid category '{category_str}', will auto-categorize")
 
         # Parse payment method
         payment_method = PaymentMethod.CREDIT_CARD
@@ -192,7 +192,9 @@ async def handle_create_expense(
             try:
                 payment_method = PaymentMethod(payment_method_str)
             except ValueError:
-                pass
+                logger.debug(
+                    f"Invalid payment_method '{payment_method_str}', defaulting to CREDIT_CARD"
+                )
 
         expense = await tracker.create_expense(
             vendor_name=vendor_name,
@@ -248,7 +250,7 @@ async def handle_list_expenses(
             try:
                 category = ExpenseCategory(category_str)
             except ValueError:
-                pass
+                logger.debug(f"Invalid category filter '{category_str}', ignoring")
 
         status = None
         status_str = query_params.get("status")
@@ -256,7 +258,7 @@ async def handle_list_expenses(
             try:
                 status = ExpenseStatus(status_str)
             except ValueError:
-                pass
+                logger.debug(f"Invalid status filter '{status_str}', ignoring")
 
         start_date = None
         start_date_str = query_params.get("start_date")
@@ -264,7 +266,7 @@ async def handle_list_expenses(
             try:
                 start_date = datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
             except ValueError:
-                pass
+                logger.debug(f"Invalid start_date format '{start_date_str}', ignoring")
 
         end_date = None
         end_date_str = query_params.get("end_date")
@@ -272,7 +274,7 @@ async def handle_list_expenses(
             try:
                 end_date = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
             except ValueError:
-                pass
+                logger.debug(f"Invalid end_date format '{end_date_str}', ignoring")
 
         limit = int(query_params.get("limit", 100))
         offset = int(query_params.get("offset", 0))
@@ -356,7 +358,7 @@ async def handle_update_expense(
             try:
                 category = ExpenseCategory(category_str)
             except ValueError:
-                pass
+                logger.debug(f"Invalid category '{category_str}' in update, ignoring")
 
         status = None
         status_str = data.get("status")
@@ -364,7 +366,7 @@ async def handle_update_expense(
             try:
                 status = ExpenseStatus(status_str)
             except ValueError:
-                pass
+                logger.debug(f"Invalid status '{status_str}' in update, ignoring")
 
         expense = await tracker.update_expense(
             expense_id=expense_id,
@@ -619,7 +621,7 @@ async def handle_get_expense_stats(
             try:
                 start_date = datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
             except ValueError:
-                pass
+                logger.debug(f"Invalid start_date format '{start_date_str}' in stats, ignoring")
 
         end_date = None
         end_date_str = query_params.get("end_date")
@@ -627,7 +629,7 @@ async def handle_get_expense_stats(
             try:
                 end_date = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
             except ValueError:
-                pass
+                logger.debug(f"Invalid end_date format '{end_date_str}' in stats, ignoring")
 
         stats = await tracker.get_stats(start_date=start_date, end_date=end_date)
 
@@ -670,7 +672,7 @@ async def handle_export_expenses(
             try:
                 start_date = datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
             except ValueError:
-                pass
+                logger.debug(f"Invalid start_date format '{start_date_str}' in export, ignoring")
 
         end_date = None
         end_date_str = query_params.get("end_date")
@@ -678,7 +680,7 @@ async def handle_export_expenses(
             try:
                 end_date = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
             except ValueError:
-                pass
+                logger.debug(f"Invalid end_date format '{end_date_str}' in export, ignoring")
 
         data = await tracker.export_expenses(
             format=export_format,

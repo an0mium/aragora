@@ -9,13 +9,14 @@
 
 | Category | Count | Percentage |
 |----------|-------|------------|
-| missing_feature | 318 | 52.9% |
-| optional_dependency | 156 | 26.0% |
-| uncategorized | 94 | 15.6% |
-| integration_dependency | 21 | 3.5% |
-| known_bug | 5 | 0.8% |
-| platform_specific | 4 | 0.7% |
+| missing_feature | 327 | 54.4% |
+| optional_dependency | 217 | 36.1% |
+| integration_dependency | 26 | 4.3% |
+| known_bug | 12 | 2.0% |
+| platform_specific | 7 | 1.2% |
+| uncategorized | 7 | 1.2% |
 | performance | 3 | 0.5% |
+| flaky_test | 2 | 0.3% |
 
 ## Summary by Marker Type
 

@@ -163,20 +163,20 @@ await client.controlPlane.submitTask({ ... });  // Same API
 
 ## Implementation Phases
 
-### Phase 1: Analysis (1 week)
+### Phase 1: Analysis (1 week) - COMPLETE
 
-- [ ] Document all methods in both packages
-- [ ] Identify overlapping functionality
-- [ ] Design unified namespace structure
-- [ ] Plan test migration
+- [x] Document all methods in both packages
+- [x] Identify overlapping functionality
+- [x] Design unified namespace structure
+- [x] Plan test migration
 
-### Phase 2: SDK Enhancement (2-3 weeks)
+### Phase 2: SDK Enhancement (2-3 weeks) - COMPLETE
 
-- [ ] Add namespace structure to sdk
-- [ ] Port Control Plane API
-- [ ] Port Graph/Matrix debates
-- [ ] Port Formal Verification
-- [ ] Migrate tests from client
+- [ ] Add namespace structure to sdk (deferred to v3.0.0)
+- [x] Port Control Plane API (registerAgent, unregisterAgent, submitTask, etc.)
+- [x] Port Graph/Matrix debates (createGraphDebate, createMatrixDebate)
+- [x] Port Formal Verification (verifyClaim, verifyDebate, getVerificationStatus)
+- [x] Migrate tests from client
 
 ### Phase 3: Deprecation (1 week)
 
