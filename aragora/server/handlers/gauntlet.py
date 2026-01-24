@@ -249,6 +249,7 @@ class GauntletHandler(BaseHandler):
         "/api/v1/gauntlet/run",
         "/api/v1/gauntlet/personas",
         "/api/v1/gauntlet/results",
+        "/api/v1/gauntlet/*/receipt/verify",
         "/api/v1/gauntlet/*/receipt",
         "/api/v1/gauntlet/*/heatmap",
         "/api/v1/gauntlet/*/export",
@@ -359,6 +360,14 @@ class GauntletHandler(BaseHandler):
         # GET /api/gauntlet/results - List with pagination
         elif path == "/api/v1/gauntlet/results":
             result = self._list_results(query_params)
+
+        # POST /api/gauntlet/{id}/receipt/verify
+        elif path.endswith("/receipt/verify") and method == "POST":
+            gauntlet_id = path.split("/")[-3]
+            is_valid, err = validate_gauntlet_id(gauntlet_id)
+            if not is_valid:
+                return error_response(err, 400)
+            result = await self._verify_receipt(gauntlet_id, handler)
 
         # GET /api/gauntlet/{id}/receipt
         elif path.endswith("/receipt"):
@@ -875,6 +884,7 @@ class GauntletHandler(BaseHandler):
                 gauntlet_id=gauntlet_id,
                 debate_id=getattr(result, "debate_id", None),
                 created_at=time.time(),
+                expires_at=None,  # Receipts don't expire by default
                 verdict=receipt.verdict,
                 confidence=receipt.confidence,
                 risk_level=self._risk_level_from_score(receipt.robustness_score),
@@ -1056,6 +1066,125 @@ class GauntletHandler(BaseHandler):
             )
         else:
             return json_response(receipt_data)
+
+    async def _verify_receipt(self, gauntlet_id: str, handler: Any) -> HandlerResult:
+        """Verify a signed decision receipt.
+
+        Validates:
+        1. Cryptographic signature authenticity
+        2. Artifact hash integrity (content not tampered)
+        3. Receipt ID matches gauntlet ID
+
+        Request body should be a SignedReceipt dict with:
+        - receipt: The receipt data
+        - signature: Base64-encoded signature
+        - signature_metadata: Algorithm, timestamp, key_id
+
+        Returns verification result with detailed status.
+        """
+        from aragora.gauntlet.receipt import DecisionReceipt
+        from aragora.gauntlet.signing import SignedReceipt, verify_receipt
+
+        # Parse request body
+        data = self.read_json_body(handler)
+        if data is None:
+            return error_response("Invalid or missing request body", 400)
+
+        # Validate required fields
+        if "receipt" not in data or "signature" not in data:
+            return error_response("Missing required fields: 'receipt' and 'signature'", 400)
+
+        if "signature_metadata" not in data:
+            return error_response("Missing required field: 'signature_metadata'", 400)
+
+        try:
+            # Parse signed receipt
+            signed_receipt = SignedReceipt.from_dict(data)
+        except (KeyError, TypeError, ValueError) as e:
+            return error_response(f"Invalid signed receipt format: {e}", 400)
+
+        # Initialize verification result
+        verification_result = {
+            "gauntlet_id": gauntlet_id,
+            "receipt_id": signed_receipt.receipt_data.get("receipt_id"),
+            "verified": False,
+            "signature_valid": False,
+            "integrity_valid": False,
+            "id_match": False,
+            "errors": [],
+            "warnings": [],
+            "verified_at": datetime.now().isoformat(),
+        }
+
+        # Check receipt ID matches gauntlet ID
+        receipt_gauntlet_id = signed_receipt.receipt_data.get("gauntlet_id")
+        if receipt_gauntlet_id == gauntlet_id:
+            verification_result["id_match"] = True
+        else:
+            verification_result["errors"].append(
+                f"Receipt gauntlet_id '{receipt_gauntlet_id}' does not match "
+                f"requested gauntlet_id '{gauntlet_id}'"
+            )
+
+        # Verify cryptographic signature
+        try:
+            signature_valid = verify_receipt(signed_receipt)
+            verification_result["signature_valid"] = signature_valid
+            if not signature_valid:
+                verification_result["errors"].append("Cryptographic signature is invalid")
+        except (ImportError, ValueError, RuntimeError) as e:
+            verification_result["errors"].append(f"Signature verification failed: {e}")
+
+        # Verify artifact hash integrity
+        try:
+            receipt_dict = signed_receipt.receipt_data
+            # Reconstruct DecisionReceipt to check integrity
+            receipt = DecisionReceipt(
+                receipt_id=receipt_dict.get("receipt_id", ""),
+                gauntlet_id=receipt_dict.get("gauntlet_id", ""),
+                timestamp=receipt_dict.get("timestamp", ""),
+                input_summary=receipt_dict.get("input_summary", ""),
+                input_hash=receipt_dict.get("input_hash", ""),
+                risk_summary=receipt_dict.get("risk_summary", {}),
+                attacks_attempted=receipt_dict.get("attacks_attempted", 0),
+                attacks_successful=receipt_dict.get("attacks_successful", 0),
+                probes_run=receipt_dict.get("probes_run", 0),
+                vulnerabilities_found=receipt_dict.get("vulnerabilities_found", 0),
+                verdict=receipt_dict.get("verdict", ""),
+                confidence=receipt_dict.get("confidence", 0.0),
+                robustness_score=receipt_dict.get("robustness_score", 0.0),
+                artifact_hash=receipt_dict.get("artifact_hash", ""),
+            )
+
+            integrity_valid = receipt.verify_integrity()
+            verification_result["integrity_valid"] = integrity_valid
+            if not integrity_valid:
+                verification_result["errors"].append(
+                    "Artifact hash mismatch - receipt content may have been tampered"
+                )
+        except (KeyError, TypeError, ValueError) as e:
+            verification_result["errors"].append(f"Integrity verification failed: {e}")
+
+        # Set overall verification status
+        verification_result["verified"] = (
+            verification_result["signature_valid"]
+            and verification_result["integrity_valid"]
+            and verification_result["id_match"]
+        )
+
+        # Add metadata about the verification
+        verification_result["signature_metadata"] = {
+            "algorithm": signed_receipt.signature_metadata.algorithm,
+            "key_id": signed_receipt.signature_metadata.key_id,
+            "signed_at": signed_receipt.signature_metadata.timestamp,
+        }
+
+        # Return appropriate status code
+        if verification_result["verified"]:
+            return json_response(verification_result)
+        else:
+            # Return 200 with verification failure details (not a client error)
+            return json_response(verification_result)
 
     async def _get_heatmap(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Get risk heatmap for gauntlet run."""

@@ -73,7 +73,7 @@ class ReceiptsHandler(BaseHandler):
         return False
 
     @rate_limit(requests_per_minute=60)
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         method: str,
         path: str,
@@ -241,26 +241,29 @@ class ReceiptsHandler(BaseHandler):
 
             if export_format == "json":
                 content = decision_receipt.to_json(indent=2)
+                body = content.encode("utf-8") if isinstance(content, str) else content
                 return HandlerResult(
                     status_code=200,
-                    body=content,
-                    headers={"Content-Type": "application/json"},
+                    content_type="application/json",
+                    body=body,
                 )
 
             elif export_format == "html":
                 content = decision_receipt.to_html()
+                body = content.encode("utf-8") if isinstance(content, str) else content
                 return HandlerResult(
                     status_code=200,
-                    body=content,
-                    headers={"Content-Type": "text/html"},
+                    content_type="text/html",
+                    body=body,
                 )
 
             elif export_format == "md" or export_format == "markdown":
                 content = decision_receipt.to_markdown()
+                body = content.encode("utf-8") if isinstance(content, str) else content
                 return HandlerResult(
                     status_code=200,
-                    body=content,
-                    headers={"Content-Type": "text/markdown"},
+                    content_type="text/markdown",
+                    body=body,
                 )
 
             elif export_format == "pdf":
@@ -268,9 +271,9 @@ class ReceiptsHandler(BaseHandler):
                     pdf_bytes = decision_receipt.to_pdf()
                     return HandlerResult(
                         status_code=200,
+                        content_type="application/pdf",
                         body=pdf_bytes,
                         headers={
-                            "Content-Type": "application/pdf",
                             "Content-Disposition": f"attachment; filename=receipt-{receipt_id}.pdf",
                         },
                     )
@@ -281,19 +284,25 @@ class ReceiptsHandler(BaseHandler):
                 from aragora.gauntlet.api.export import export_receipt
 
                 sarif_content = export_receipt(decision_receipt, "sarif")
+                body = (
+                    sarif_content.encode("utf-8")
+                    if isinstance(sarif_content, str)
+                    else sarif_content
+                )
                 return HandlerResult(
                     status_code=200,
-                    body=sarif_content,
-                    headers={"Content-Type": "application/json"},
+                    content_type="application/json",
+                    body=body,
                 )
 
             elif export_format == "csv":
                 content = decision_receipt.to_csv()
+                body = content.encode("utf-8") if isinstance(content, str) else content
                 return HandlerResult(
                     status_code=200,
-                    body=content,
+                    content_type="text/csv",
+                    body=body,
                     headers={
-                        "Content-Type": "text/csv",
                         "Content-Disposition": f"attachment; filename=receipt-{receipt_id}.csv",
                     },
                 )

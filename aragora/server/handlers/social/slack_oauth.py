@@ -63,7 +63,7 @@ class SlackOAuthHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         method: str,
         path: str,
@@ -146,7 +146,8 @@ class SlackOAuthHandler(BaseHandler):
         # Return redirect response
         return HandlerResult(
             status_code=302,
-            body="",
+            content_type="text/html",
+            body=b"",
             headers={
                 "Location": oauth_url,
                 "Cache-Control": "no-store",
@@ -310,8 +311,8 @@ class SlackOAuthHandler(BaseHandler):
 
         return HandlerResult(
             status_code=200,
-            body=success_html,
-            headers={"Content-Type": "text/html"},
+            content_type="text/html",
+            body=success_html.encode("utf-8"),
         )
 
     async def _handle_uninstall(

@@ -809,56 +809,60 @@ class DiscordConnector(ChatPlatformConnector):
                 except (json.JSONDecodeError, KeyError):
                     logger.error(f"Could not parse Discord response: {data}")
                     return []
-                messages: list[ChatMessage] = []
+            elif not isinstance(data, list):
+                logger.error(f"Unexpected Discord response type: {type(data)}")
+                return []
 
-                channel = ChatChannel(
-                    id=channel_id,
+            messages: list[ChatMessage] = []
+
+            channel = ChatChannel(
+                id=channel_id,
+                platform=self.platform_name,
+            )
+
+            for msg in data:
+                # Skip bot messages if configured
+                if kwargs.get("skip_bots", True) and msg.get("author", {}).get("bot"):
+                    continue
+
+                author_data = msg.get("author", {})
+                user = ChatUser(
+                    id=author_data.get("id", ""),
                     platform=self.platform_name,
+                    username=author_data.get("username"),
+                    display_name=author_data.get("global_name"),
+                    avatar_url=(
+                        f"https://cdn.discordapp.com/avatars/{author_data.get('id')}/{author_data.get('avatar')}.png"
+                        if author_data.get("avatar")
+                        else None
+                    ),
+                    is_bot=author_data.get("bot", False),
                 )
 
-                for msg in data:
-                    # Skip bot messages if configured
-                    if kwargs.get("skip_bots", True) and msg.get("author", {}).get("bot"):
-                        continue
+                # Parse timestamp
+                timestamp_str = msg.get("timestamp", "")
+                try:
+                    timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                except (ValueError, AttributeError):
+                    timestamp = datetime.now(timezone.utc)
 
-                    author_data = msg.get("author", {})
-                    user = ChatUser(
-                        id=author_data.get("id", ""),
-                        platform=self.platform_name,
-                        username=author_data.get("username"),
-                        display_name=author_data.get("global_name"),
-                        avatar_url=(
-                            f"https://cdn.discordapp.com/avatars/{author_data.get('id')}/{author_data.get('avatar')}.png"
-                            if author_data.get("avatar")
-                            else None
-                        ),
-                        is_bot=author_data.get("bot", False),
-                    )
+                chat_msg = ChatMessage(
+                    id=msg.get("id", ""),
+                    platform=self.platform_name,
+                    channel=channel,
+                    author=user,
+                    content=msg.get("content", ""),
+                    thread_id=msg.get("message_reference", {}).get("message_id"),
+                    timestamp=timestamp,
+                    metadata={
+                        "reactions": msg.get("reactions", []),
+                        "attachments": msg.get("attachments", []),
+                        "embeds": msg.get("embeds", []),
+                    },
+                )
+                messages.append(chat_msg)
 
-                    # Parse timestamp
-                    timestamp_str = msg.get("timestamp", "")
-                    try:
-                        timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-                    except (ValueError, AttributeError):
-                        timestamp = datetime.now(timezone.utc)
-
-                    chat_msg = ChatMessage(
-                        id=msg.get("id", ""),
-                        platform=self.platform_name,
-                        channel=channel,
-                        author=user,
-                        content=msg.get("content", ""),
-                        thread_id=msg.get("message_reference", {}).get("message_id"),
-                        timestamp=timestamp,
-                        metadata={
-                            "reactions": msg.get("reactions", []),
-                            "attachments": msg.get("attachments", []),
-                            "embeds": msg.get("embeds", []),
-                        },
-                    )
-                    messages.append(chat_msg)
-
-                return messages
+            return messages
 
         except Exception as e:
             self._record_failure(e)
