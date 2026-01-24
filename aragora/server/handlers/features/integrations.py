@@ -364,7 +364,6 @@ class IntegrationsHandler(SecureHandler):
                 integration = SlackIntegration(
                     SlackConfig(  # type: ignore[call-arg]
                         webhook_url=settings.get("webhook_url", ""),
-                        bot_token=settings.get("bot_token"),
                     )
                 )
                 return await integration.verify_webhook()  # type: ignore[return-value,attr-defined]
@@ -494,13 +493,21 @@ def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
         result = await handler.test_integration(integration_type, user_id)
         return web.json_response(result["body"], status=result["status"])  # type: ignore[index]
 
-    # Register routes
+    # Register versioned routes (v1)
     app.router.add_get("/api/v1/integrations/status", get_status)
     app.router.add_get("/api/v1/integrations/{type}", get_integration)
     app.router.add_put("/api/v1/integrations/{type}", configure_integration)
     app.router.add_patch("/api/v1/integrations/{type}", update_integration)
     app.router.add_delete("/api/v1/integrations/{type}", delete_integration)
     app.router.add_post("/api/v1/integrations/{type}/test", test_integration)
+
+    # Register non-versioned routes (for frontend compatibility)
+    app.router.add_get("/api/integrations/status", get_status)
+    app.router.add_get("/api/integrations/{type}", get_integration)
+    app.router.add_put("/api/integrations/{type}", configure_integration)
+    app.router.add_patch("/api/integrations/{type}", update_integration)
+    app.router.add_delete("/api/integrations/{type}", delete_integration)
+    app.router.add_post("/api/integrations/{type}/test", test_integration)
 
 
 __all__ = [
