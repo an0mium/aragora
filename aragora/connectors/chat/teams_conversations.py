@@ -93,7 +93,7 @@ class TeamsConversationReference:
 
         This format is used by the Bot Framework SDK for proactive messaging.
         """
-        reference = {
+        reference: Dict[str, Any] = {
             "conversation": {
                 "id": self.conversation_id,
                 "tenantId": self.tenant_id,

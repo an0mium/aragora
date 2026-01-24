@@ -424,11 +424,14 @@ def init_slo_webhooks(
 
             # Build webhook event
             operation = violation_data.get("operation", "unknown")
+            percentile = violation_data.get("percentile", "p99")
+            timestamp_ms = int(time.time() * 1000)
             event = {
                 "type": "slo_violation",
+                "idempotency_key": f"{operation}:{percentile}:{timestamp_ms}",
                 "timestamp": datetime.now().isoformat(),
                 "operation": operation,
-                "percentile": violation_data.get("percentile", "p99"),
+                "percentile": percentile,
                 "severity": severity,
                 "latency_ms": violation_data.get("latency_ms", 0),
                 "threshold_ms": violation_data.get("threshold_ms", 0),

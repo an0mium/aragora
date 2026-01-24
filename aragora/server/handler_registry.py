@@ -736,7 +736,11 @@ class RouteIndex:
             "_graph_debates_handler": ["/api/debates/graph"],
             "_matrix_debates_handler": ["/api/debates/matrix"],
             "_gauntlet_handler": ["/api/gauntlet/"],
-            "_organizations_handler": ["/api/organizations/"],
+            "_organizations_handler": [
+                "/api/org/",
+                "/api/user/organizations",
+                "/api/invitations/",
+            ],
             "_oauth_handler": ["/api/auth/oauth/", "/api/v1/auth/oauth/"],
             "_reviews_handler": ["/api/reviews/"],
             "_formal_verification_handler": ["/api/verify/"],

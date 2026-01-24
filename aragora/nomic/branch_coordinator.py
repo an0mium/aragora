@@ -390,10 +390,8 @@ class BranchCoordinator:
 
         for conflict in conflicts:
             logger.warning(
-                "potential_conflict",
-                source=conflict.source_branch,
-                target=conflict.target_branch,
-                files=conflict.conflicting_files,
+                f"potential_conflict source={conflict.source_branch} "
+                f"target={conflict.target_branch} files={conflict.conflicting_files}"
             )
             if self.on_conflict:
                 self.on_conflict(conflict)

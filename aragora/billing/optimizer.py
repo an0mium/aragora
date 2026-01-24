@@ -326,8 +326,8 @@ class CachingRecommender:
                 type=RecommendationType.CACHING,
                 priority=self._calculate_priority(potential_savings),
                 workspace_id=workspace_id,
-                current_cost_usd=total_cost,
-                projected_cost_usd=total_cost - potential_savings,
+                current_cost_usd=Decimal(str(total_cost)),
+                projected_cost_usd=Decimal(str(total_cost - potential_savings)),
                 confidence_score=0.7,
                 affected_operations=[operation],
                 title=f"Enable caching for '{operation}'",
@@ -419,7 +419,9 @@ class BatchingOptimizer:
             if not sample_usages:
                 continue
 
-            avg_cost_per_request = sum(u.cost_usd for u in sample_usages) / len(sample_usages)
+            avg_cost_per_request = sum((u.cost_usd for u in sample_usages), Decimal("0")) / len(
+                sample_usages
+            )
             total_cost = avg_cost_per_request * total_requests
             savings = total_cost * Decimal(str(overhead_reduction))
 
@@ -438,8 +440,8 @@ class BatchingOptimizer:
                 type=RecommendationType.BATCHING,
                 priority=RecommendationPriority.MEDIUM,
                 workspace_id=workspace_id,
-                current_cost_usd=total_cost,
-                projected_cost_usd=total_cost - savings,
+                current_cost_usd=Decimal(str(total_cost)),
+                projected_cost_usd=Decimal(str(total_cost - savings)),
                 confidence_score=0.6,
                 affected_operations=[operation],
                 title=f"Batch '{operation}' requests",

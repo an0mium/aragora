@@ -1496,10 +1496,7 @@ class Arena:
 
             if not allowed:
                 logger.warning(
-                    "budget_check_failed org_id=%s debate_id=%s reason=%s",
-                    self.org_id,
-                    debate_id,
-                    reason,
+                    f"budget_check_failed org_id={self.org_id} debate_id={debate_id} reason={reason}"
                 )
                 # Import here to avoid circular imports
                 from aragora.exceptions import BudgetExceededError
@@ -1508,10 +1505,7 @@ class Arena:
 
             if action == BudgetAction.SOFT_LIMIT:
                 logger.warning(
-                    "budget_soft_limit_warning org_id=%s debate_id=%s reason=%s",
-                    self.org_id,
-                    debate_id,
-                    reason,
+                    f"budget_soft_limit_warning org_id={self.org_id} debate_id={debate_id} reason={reason}"
                 )
 
         except ImportError:
@@ -1563,10 +1557,7 @@ class Arena:
                     user_id=self.user_id or None,
                 )
                 logger.info(
-                    "debate_cost_recorded org_id=%s debate_id=%s cost=$%.4f",
-                    self.org_id,
-                    debate_id,
-                    actual_cost_usd,
+                    f"debate_cost_recorded org_id={self.org_id} debate_id={debate_id} cost=${actual_cost_usd:.4f}"
                 )
 
         except ImportError:

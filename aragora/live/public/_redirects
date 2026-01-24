@@ -1,2 +1,4 @@
 /debate/:id  /debate/  200
 /debates/*  /debates/  200
+/auth  /auth/login  302
+/auth/  /auth/login  302

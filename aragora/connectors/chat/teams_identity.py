@@ -263,13 +263,15 @@ class TeamsUserIdentityBridge:
                 try:
                     from aragora.storage.repositories.users import User
 
+                    # Build name from given_name + surname if display_name not available
+                    full_name = teams_user.display_name
+                    if not full_name and (teams_user.given_name or teams_user.surname):
+                        parts = [teams_user.given_name or "", teams_user.surname or ""]
+                        full_name = " ".join(p for p in parts if p)
                     new_user = User(
                         id=user_id,
                         email=teams_user.email or f"{user_id}@teams.local",
-                        name=teams_user.display_name or "Teams User",
-                        first_name=teams_user.given_name,
-                        last_name=teams_user.surname,
-                        provider="azure_ad",
+                        name=full_name or "Teams User",
                     )
                     user_repo.create(new_user)
                     logger.info(f"Created Aragora user for Teams user: {user_id}")

@@ -993,6 +993,63 @@ asyncio.run(validate())
 
 ---
 
+## Disaster Recovery Testing Schedule
+
+Regular DR testing ensures procedures remain valid and teams stay practiced.
+
+### Testing Cadence
+
+| Test Type | Frequency | Last Tested | Next Scheduled |
+|-----------|-----------|-------------|----------------|
+| Backup restoration | Monthly | - | TBD |
+| Database failover | Quarterly | - | TBD |
+| Full DR drill | Annually | - | TBD |
+| Security incident drill | Quarterly | - | TBD |
+| Communication drill | Quarterly | - | TBD |
+
+### Monthly Backup Restoration Test
+
+```bash
+# 1. Select random backup from past week
+BACKUP=$(ls -t .nomic/backups/ | shuf | head -1)
+
+# 2. Restore to isolated environment
+aragora backup restore $BACKUP --output /tmp/dr-test/aragora.db
+
+# 3. Verify data integrity
+sqlite3 /tmp/dr-test/aragora.db "PRAGMA integrity_check"
+sqlite3 /tmp/dr-test/aragora.db "SELECT COUNT(*) FROM debates"
+
+# 4. Document results
+echo "$(date): Tested $BACKUP - PASSED" >> /var/log/dr-test.log
+
+# 5. Cleanup
+rm -rf /tmp/dr-test/
+```
+
+### Quarterly Failover Drill
+
+1. Announce drill to team (30 min notice)
+2. Simulate primary database failure
+3. Execute failover procedure
+4. Verify service restoration within RTO
+5. Document time to recovery
+6. Fail back to primary
+7. Post-drill review meeting
+
+### Annual Full DR Exercise
+
+1. Schedule 4-hour window
+2. Notify all stakeholders
+3. Simulate complete infrastructure loss
+4. Execute full recovery from backups
+5. Verify all services operational
+6. Measure RTO/RPO compliance
+7. Document lessons learned
+8. Update runbook as needed
+
+---
+
 ## Related Documentation
 
 - [SECURITY.md](../SECURITY.md) - Security policies and incident response

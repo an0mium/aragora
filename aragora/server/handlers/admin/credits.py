@@ -253,12 +253,16 @@ def register_credits_admin_routes(app: web.Application, handler: CreditsAdminHan
         user_id = request.get("user_id", "admin")
         data = await request.json()
         result = await handler.issue_credit(org_id, data, user_id)
-        return web.json_response(result["body"], status=result["status"])
+        return web.Response(
+            body=result.body, status=result.status_code, content_type=result.content_type
+        )
 
     async def get_credit_account(request: web.Request) -> web.Response:
         org_id = request.match_info["org_id"]
         result = await handler.get_credit_account(org_id)
-        return web.json_response(result["body"], status=result["status"])
+        return web.Response(
+            body=result.body, status=result.status_code, content_type=result.content_type
+        )
 
     async def list_transactions(request: web.Request) -> web.Response:
         org_id = request.match_info["org_id"]
@@ -266,20 +270,26 @@ def register_credits_admin_routes(app: web.Application, handler: CreditsAdminHan
         offset = int(request.query.get("offset", "0"))
         tx_type = request.query.get("type")
         result = await handler.list_transactions(org_id, limit, offset, tx_type)
-        return web.json_response(result["body"], status=result["status"])
+        return web.Response(
+            body=result.body, status=result.status_code, content_type=result.content_type
+        )
 
     async def adjust_balance(request: web.Request) -> web.Response:
         org_id = request.match_info["org_id"]
         user_id = request.get("user_id", "admin")
         data = await request.json()
         result = await handler.adjust_balance(org_id, data, user_id)
-        return web.json_response(result["body"], status=result["status"])
+        return web.Response(
+            body=result.body, status=result.status_code, content_type=result.content_type
+        )
 
     async def get_expiring(request: web.Request) -> web.Response:
         org_id = request.match_info["org_id"]
         within_days = int(request.query.get("within_days", "30"))
         result = await handler.get_expiring_credits(org_id, within_days)
-        return web.json_response(result["body"], status=result["status"])
+        return web.Response(
+            body=result.body, status=result.status_code, content_type=result.content_type
+        )
 
     # Register versioned routes
     app.router.add_post("/api/v1/admin/credits/{org_id}/issue", issue_credit)

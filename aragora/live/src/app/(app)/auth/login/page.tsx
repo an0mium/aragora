@@ -41,9 +41,7 @@ export default function LoginPage() {
         {/* Header */}
         <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-            <Link href="/">
-              <AsciiBannerCompact connected={true} />
-            </Link>
+            <AsciiBannerCompact connected={true} />
             <div className="flex items-center gap-4">
               <Link
                 href="/auth/register"

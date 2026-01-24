@@ -169,6 +169,7 @@ def three_agents():
 # =============================================================================
 
 
+@pytest.mark.integration_minimal
 class TestMinimalDebateFlow:
     """Test the minimal code path for a complete debate."""
 

@@ -508,7 +508,7 @@ class FeedbackPhase:
                 from aragora.storage.receipt_store import get_receipt_store
 
                 store = get_receipt_store()
-                await store.save(receipt.to_dict())
+                store.save(receipt.to_dict())
                 logger.info(
                     "[receipt] Generated receipt %s for debate %s",
                     receipt.receipt_id,

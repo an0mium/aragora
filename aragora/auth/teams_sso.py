@@ -98,8 +98,8 @@ class TeamsSSO:
         self.client_secret = client_secret or AZURE_AD_CLIENT_SECRET
         self.tenant_id = tenant_id or AZURE_AD_TENANT_ID
         self._identity_bridge = None
-        self._jwks_cache = None
-        self._jwks_cache_time = 0
+        self._jwks_cache: Optional[Any] = None  # PyJWKClient when available
+        self._jwks_cache_time: float = 0
 
     def _get_identity_bridge(self):
         """Lazy-load the identity bridge."""

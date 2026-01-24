@@ -809,9 +809,10 @@ Prioritize by impact: which improvements would provide the most value?"""
         or environment variables.
         """
         from aragora.config.secrets import get_secret
+        from aragora.agents.api_agents.base import APIAgent
 
-        agents = []
-        errors = []
+        agents: list[APIAgent] = []
+        errors: list[str] = []
 
         # Try Anthropic agents first (pass API key explicitly)
         anthropic_key = get_secret("ANTHROPIC_API_KEY")

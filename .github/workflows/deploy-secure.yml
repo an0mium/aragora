@@ -6,6 +6,7 @@ name: Deploy (Secure)
 # - Temporary, scoped credentials via STS AssumeRoleWithWebIdentity
 # - Audit trail in AWS CloudTrail
 # - Fine-grained IAM permissions
+# - Production deployment approval gates via GitHub Environments
 #
 # Prerequisites:
 # 1. Create OIDC identity provider in AWS IAM (see docs/CI_CD_SECURITY.md)
@@ -13,6 +14,7 @@ name: Deploy (Secure)
 # 3. Attach permissions policy (deploy/aws/deploy-role-policy.json)
 # 4. Install SSM agent on target instances
 # 5. Set repository secrets: AWS_ACCOUNT_ID, AWS_DEPLOY_ROLE_NAME
+# 6. Configure environment protection: Settings > Environments > production > Required reviewers
 
 on:
   push:
@@ -287,6 +289,8 @@ jobs:
   deploy-ec2-production:
     needs: [test, deploy-ec2-staging]
     # Run if: manual dispatch to production OR (staging succeeded AND auto-deploy)
+    # NOTE: The 'environment: production' setting enables GitHub Environment Protection Rules.
+    # Configure required reviewers in: Settings > Environments > production > Required reviewers
     if: |
       always() && (
         (github.event.inputs.environment == 'ec2-production') ||
@@ -294,9 +298,24 @@ jobs:
       )
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: production
+    environment:
+      name: production
+      url: https://api.aragora.ai
 
     steps:
+      - name: Production deployment notice
+        run: |
+          echo "::notice::PRODUCTION DEPLOYMENT - This deployment will affect api.aragora.ai"
+          echo ""
+          echo "## 🚀 Production Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Staging result:** ${{ needs.deploy-ec2-staging.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **This deployment requires approval.** Configure required reviewers in repository settings." >> $GITHUB_STEP_SUMMARY
+
       - name: Checkout
         uses: actions/checkout@v4
 

@@ -522,6 +522,90 @@ class DecisionReceipt:
 </body>
 </html>"""
 
+    def to_pdf(self) -> bytes:
+        """Export as PDF document.
+
+        Requires weasyprint to be installed.
+
+        Returns:
+            PDF bytes
+
+        Raises:
+            ImportError: If weasyprint is not installed
+        """
+        from weasyprint import HTML  # type: ignore[import-untyped]
+
+        html_content = self.to_html()
+        pdf_bytes = HTML(string=html_content).write_pdf()
+        return pdf_bytes
+
+    def to_csv(self) -> str:
+        """Export findings as CSV format.
+
+        Returns:
+            CSV string with findings data
+        """
+        import csv
+        import io
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Header
+        writer.writerow(
+            [
+                "Receipt ID",
+                "Timestamp",
+                "Verdict",
+                "Confidence",
+                "Risk Level",
+                "Finding ID",
+                "Severity",
+                "Title",
+                "Description",
+                "Mitigation",
+                "Category",
+            ]
+        )
+
+        # Write one row per finding
+        for f in self.findings:
+            writer.writerow(
+                [
+                    self.receipt_id,
+                    self.timestamp,
+                    self.verdict,
+                    f"{self.confidence:.2f}",
+                    self.risk_level,
+                    f.id,
+                    f.severity,
+                    f.title,
+                    f.description,
+                    f.mitigation or "",
+                    f.category,
+                ]
+            )
+
+        # If no findings, write a summary row
+        if not self.findings:
+            writer.writerow(
+                [
+                    self.receipt_id,
+                    self.timestamp,
+                    self.verdict,
+                    f"{self.confidence:.2f}",
+                    self.risk_level,
+                    "",
+                    "",
+                    "No findings",
+                    "",
+                    "",
+                    "",
+                ]
+            )
+
+        return output.getvalue()
+
     def save(self, path: Path, format: str = "json") -> Path:
         """
         Save receipt to file.
@@ -551,6 +635,31 @@ class DecisionReceipt:
     def from_json(cls, json_str: str) -> "DecisionReceipt":
         """Load receipt from JSON string."""
         data = json.loads(json_str)
+
+        # Convert nested dicts back to dataclasses
+        findings = [ReceiptFinding(**f) for f in data.pop("findings", [])]
+        dissenting_views = [ReceiptDissent(**d) for d in data.pop("dissenting_views", [])]
+        verified_claims = [ReceiptVerification(**v) for v in data.pop("verified_claims", [])]
+
+        return cls(
+            findings=findings,
+            dissenting_views=dissenting_views,
+            verified_claims=verified_claims,
+            **data,
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "DecisionReceipt":
+        """Load receipt from dictionary.
+
+        Args:
+            data: Dictionary representation of the receipt
+
+        Returns:
+            DecisionReceipt instance
+        """
+        # Make a copy to avoid mutating the input
+        data = dict(data)
 
         # Convert nested dicts back to dataclasses
         findings = [ReceiptFinding(**f) for f in data.pop("findings", [])]

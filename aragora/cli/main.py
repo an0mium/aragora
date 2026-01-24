@@ -1704,6 +1704,11 @@ Production deployment:
     )
     setup_parser.set_defaults(func=cmd_setup)
 
+    # Backup command (database backup and restore)
+    from aragora.cli.backup import add_backup_subparsers
+
+    add_backup_subparsers(subparsers)
+
     # REPL command (interactive mode)
     repl_parser = subparsers.add_parser("repl", help="Interactive debate mode")
     repl_parser.add_argument(

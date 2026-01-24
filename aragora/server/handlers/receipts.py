@@ -281,9 +281,9 @@ class ReceiptsHandler(BaseHandler):
                     return error_response("PDF export requires weasyprint package", 501)
 
             elif export_format == "sarif":
-                from aragora.gauntlet.api.export import export_receipt
+                from aragora.gauntlet.api.export import export_receipt, ReceiptExportFormat
 
-                sarif_content = export_receipt(decision_receipt, "sarif")
+                sarif_content = export_receipt(decision_receipt, ReceiptExportFormat.SARIF)  # type: ignore[arg-type]
                 body = (
                     sarif_content.encode("utf-8")
                     if isinstance(sarif_content, str)

@@ -17,7 +17,7 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 from .base import (
     BaseHandler,
@@ -484,7 +484,7 @@ class GauntletReceiptExportHandler(BaseHandler):
                 validate_schema=options_dict.get("validate_schema", False),
             )
 
-            content: Union[str, bytes] = export_receipt(receipt, export_format, options)  # type: ignore[arg-type]
+            content = export_receipt(receipt, export_format, options)  # type: ignore[arg-type]
 
             # Set appropriate content type
             content_type = {

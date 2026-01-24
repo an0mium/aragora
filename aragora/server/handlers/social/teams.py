@@ -368,9 +368,9 @@ class TeamsIntegrationHandler(BaseHandler):
             protocol = DebateProtocol(rounds=3, consensus="majority")
 
             # Get available agents
-            from aragora.agents.api_agents import get_available_agents
+            from aragora.agents import get_agents_by_names
 
-            agents = get_available_agents()[:3]  # Use top 3 agents
+            agents = get_agents_by_names(["anthropic-api", "openai-api", "gemini"])[:3]
 
             if not agents:
                 await connector.send_message(
@@ -392,9 +392,12 @@ class TeamsIntegrationHandler(BaseHandler):
 
             # Post result
             result_blocks = self._build_result_blocks(topic, result)
+            consensus_text = (
+                result.final_answer if result.consensus_reached else "No consensus reached"
+            )
             await connector.send_message(
                 channel_id=conv_id,
-                text=f"Debate complete: {result.consensus or 'No consensus reached'}",
+                text=f"Debate complete: {consensus_text}",
                 blocks=result_blocks,
                 service_url=service_url,
                 thread_id=thread_ts,
@@ -403,9 +406,9 @@ class TeamsIntegrationHandler(BaseHandler):
             # Generate receipt if available
             receipt_id = None
             try:
-                from aragora.gauntlet.receipt import DecisionReceipt
+                from aragora.export.decision_receipt import DecisionReceipt
 
-                receipt = DecisionReceipt.from_result(result)
+                receipt = DecisionReceipt.from_debate_result(result)
                 receipt_id = receipt.receipt_id
                 if conv_id in self._active_debates:
                     self._active_debates[conv_id]["receipt_id"] = receipt_id
@@ -646,7 +649,7 @@ class TeamsIntegrationHandler(BaseHandler):
         confidence = getattr(result, "confidence", 0.0)
         rounds = getattr(result, "rounds_completed", 0)
 
-        blocks = [
+        blocks: List[Dict[str, Any]] = [
             {
                 "type": "TextBlock",
                 "text": "Debate Complete",

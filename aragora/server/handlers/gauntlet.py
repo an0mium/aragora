@@ -896,7 +896,7 @@ class GauntletHandler(BaseHandler):
 
             # Save to receipt store
             store = get_receipt_store()
-            store.save(stored)
+            store.save(receipt.to_dict())
             logger.info(f"Decision receipt auto-persisted: {receipt.receipt_id}")
 
             # Emit receipt generated webhook
@@ -1257,6 +1257,8 @@ class GauntletHandler(BaseHandler):
                 notifier.notify_receipt_integrity_failed(
                     receipt_id=receipt_id,
                     debate_id=gauntlet_id,
+                    expected_hash=receipt_hash,
+                    computed_hash=computed_hash,
                     error_message="; ".join(verification_result.get("errors", []))
                     or "verification failed",
                 )

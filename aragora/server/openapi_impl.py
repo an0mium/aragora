@@ -33,8 +33,23 @@ from aragora.server.openapi.endpoints import ALL_ENDPOINTS
 API_VERSION = "1.0.0"
 
 
+def _add_v1_aliases(paths: dict[str, Any]) -> dict[str, Any]:
+    """Add /api/v1 aliases for non-versioned /api endpoints."""
+    aliased: dict[str, Any] = dict(paths)
+    for path, spec in paths.items():
+        if not path.startswith("/api/"):
+            continue
+        if path.startswith("/api/v1/") or path.startswith("/api/v2/"):
+            continue
+        v1_path = path.replace("/api/", "/api/v1/", 1)
+        if v1_path not in aliased:
+            aliased[v1_path] = spec
+    return aliased
+
+
 def generate_openapi_schema() -> dict[str, Any]:
     """Generate complete OpenAPI 3.1 schema."""
+    paths = _add_v1_aliases(ALL_ENDPOINTS)
     return {
         "openapi": "3.1.0",
         "info": {
@@ -102,7 +117,7 @@ def generate_openapi_schema() -> dict[str, Any]:
             {"name": "Checkpoints", "description": "Debate checkpoint management"},
             {"name": "Threat Intel", "description": "Threat intelligence lookups"},
         ],
-        "paths": ALL_ENDPOINTS,
+        "paths": paths,
         "components": {
             "schemas": COMMON_SCHEMAS,
             "securitySchemes": {

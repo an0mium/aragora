@@ -153,6 +153,9 @@ See [SKIP_AUDIT.md](SKIP_AUDIT.md) for the full skip marker report.
 # Fast tests (PR checks)
 pytest tests/ -m "not slow and not load and not e2e"
 
+# Minimal integration baseline (PR checks)
+pytest tests/integration/ -m "integration_minimal"
+
 # Integration tests (nightly)
 pytest tests/integration/ -m "integration or not slow"
 

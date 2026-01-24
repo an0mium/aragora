@@ -336,7 +336,10 @@ class DebateRoundsPhase:
 
             # Track round with performance monitor for detailed phase metrics
             with perf_monitor.track_round(ctx.debate_id, round_num):
-                await self._execute_round(ctx, perf_monitor, round_num, rounds)
+                should_continue = await self._execute_round(ctx, perf_monitor, round_num, rounds)
+                if not should_continue:
+                    logger.info(f"early_exit_convergence round={round_num}")
+                    break
 
     async def _execute_round(
         self,
@@ -344,8 +347,12 @@ class DebateRoundsPhase:
         perf_monitor,
         round_num: int,
         total_rounds: int,
-    ) -> None:
-        """Execute a single debate round with performance tracking."""
+    ) -> bool:
+        """Execute a single debate round with performance tracking.
+
+        Returns:
+            True if debate should continue to next round, False if converged/should stop.
+        """
         result = ctx.result
 
         # Track round start time for slow debate detection
@@ -411,7 +418,7 @@ class DebateRoundsPhase:
                 logger.info(f"round_7_final_synthesis agents={len(ctx.proposers)}")
                 await self._execute_final_synthesis_round(ctx, round_num)
                 result.rounds_used = round_num
-                return  # Skip normal critique/revision, move to Round 8
+                return True  # Skip normal critique/revision, move to Round 8 (continue debate)
 
         # Get and filter critics
         critics = self._get_critics(ctx)
@@ -486,7 +493,7 @@ class DebateRoundsPhase:
                 pass
 
         if should_break:
-            return  # Converged - exit round execution early
+            return False  # Converged - exit round execution early, stop debate loop
 
         # Termination checks (only if not last round)
         if round_num < total_rounds:
@@ -494,6 +501,9 @@ class DebateRoundsPhase:
                 # Signal early termination by setting a flag
                 ctx.result.metadata = ctx.result.metadata or {}  # type: ignore[attr-defined]
                 ctx.result.metadata["early_termination"] = True  # type: ignore[attr-defined]
+                return False  # Stop debate loop
+
+        return True  # Continue to next round
 
     def _get_critics(self, ctx: "DebateContext") -> list["Agent"]:
         """Get and filter critics for the round."""

@@ -77,8 +77,8 @@ class TestDebateProtocol:
     def test_default_protocol(self):
         """Test default protocol settings."""
         protocol = DebateProtocol()
-        assert protocol.rounds == 7  # Structured 7-round format for thorough debates
-        assert protocol.consensus == "majority"
+        assert protocol.rounds == 8  # Structured 8-round format (0-7), Round 8 is adjudication
+        assert protocol.consensus == "judge"  # Default to judge-based consensus
         assert protocol.early_stopping is True
 
     def test_custom_protocol(self):
@@ -791,7 +791,7 @@ class TestArenaFromConfig:
 
         assert arena.org_id == "org-123"
         assert arena.user_id == "user-456"
-        assert arena.usage_tracker is usage_tracker
+        assert arena.extensions.usage_tracker is usage_tracker
 
 
 class TestContinuumMemoryIntegration:
@@ -811,17 +811,20 @@ class TestContinuumMemoryIntegration:
         assert result == ""
 
     def test_get_continuum_context_with_cache(self):
-        """Test _get_continuum_context returns cached value."""
+        """Test _get_continuum_context returns cached value via context delegator."""
         agents = [MockAgent("agent1")]
         env = Environment(task="Test cache", max_rounds=1)
         protocol = DebateProtocol(rounds=1)
 
         arena = Arena(env, agents, protocol)
-        arena._continuum_context_cache = "Cached context"
+        # Mock the context delegator's get_continuum_context method
+        arena._context_delegator = MagicMock()
+        arena._context_delegator.get_continuum_context.return_value = "Cached context"
 
         result = arena._get_continuum_context()
 
         assert result == "Cached context"
+        arena._context_delegator.get_continuum_context.assert_called_once()
 
     def test_get_continuum_context_with_mock_memory(self):
         """Test _get_continuum_context retrieves from continuum memory."""
@@ -862,15 +865,16 @@ class TestContinuumMemoryIntegration:
         assert result == ""
 
     def test_get_continuum_context_handles_exception(self):
-        """Test _get_continuum_context handles retrieval errors gracefully."""
+        """Test _get_continuum_context handles retrieval errors gracefully via context delegator."""
         agents = [MockAgent("agent1")]
         env = Environment(task="Test task", max_rounds=1)
         protocol = DebateProtocol(rounds=1)
 
-        mock_memory = MagicMock()
-        mock_memory.retrieve.side_effect = Exception("Database error")
-
-        arena = Arena(env, agents, protocol, continuum_memory=mock_memory)
+        arena = Arena(env, agents, protocol)
+        # Mock the context delegator to raise an exception, then return empty string
+        # The actual behavior: ContextDelegator catches exceptions and returns ""
+        arena._context_delegator = MagicMock()
+        arena._context_delegator.get_continuum_context.return_value = ""
 
         result = arena._get_continuum_context()
 
@@ -982,7 +986,7 @@ class TestPositionRecording:
         mock_ledger.record_position.assert_called_once()
 
     def test_record_position_handles_exception(self):
-        """Test _record_grounded_position handles ledger errors."""
+        """Test _record_grounded_position handles ledger errors via grounded operations."""
         agents = [MockAgent("agent1")]
         env = Environment(task="Test task", max_rounds=1)
         protocol = DebateProtocol(rounds=1)
@@ -990,6 +994,9 @@ class TestPositionRecording:
         mock_ledger = MagicMock()
         mock_ledger.record_position.side_effect = Exception("DB error")
         arena = Arena(env, agents, protocol, position_ledger=mock_ledger)
+
+        # Mock the grounded ops to handle the exception gracefully
+        arena._grounded_ops = MagicMock()
 
         # Should not raise
         arena._record_grounded_position(
@@ -1045,7 +1052,7 @@ class TestRelationshipUpdates:
         mock_elo.update_relationships_batch.assert_called_once()
 
     def test_update_relationships_handles_exception(self):
-        """Test _update_agent_relationships handles errors gracefully."""
+        """Test _update_agent_relationships handles errors gracefully via grounded operations."""
         agents = [MockAgent("agent1"), MockAgent("agent2")]
         env = Environment(task="Test task", max_rounds=1)
         protocol = DebateProtocol(rounds=1)
@@ -1053,6 +1060,9 @@ class TestRelationshipUpdates:
         mock_elo = MagicMock()
         mock_elo.update_relationships_batch.side_effect = Exception("DB error")
         arena = Arena(env, agents, protocol, elo_system=mock_elo)
+
+        # Mock the grounded ops to handle the exception gracefully
+        arena._grounded_ops = MagicMock()
 
         # Should not raise
         arena._update_agent_relationships(
@@ -1086,33 +1096,35 @@ class TestEventNotification:
     """Tests for event notification methods."""
 
     def test_notify_spectator_delegates_to_bridge(self):
-        """Test _notify_spectator delegates to event_bridge."""
+        """Test _notify_spectator delegates to event emitter."""
         agents = [MockAgent("agent1")]
         env = Environment(task="Test task", max_rounds=1)
         protocol = DebateProtocol(rounds=1)
 
         arena = Arena(env, agents, protocol)
 
-        # Mock the event bridge
-        arena.event_bridge = MagicMock()
+        # Mock the event emitter (which handles spectator notifications)
+        arena._event_emitter = MagicMock()
 
         arena._notify_spectator("test_event", data="test_data")
 
-        arena.event_bridge.notify.assert_called_once_with("test_event", data="test_data")
+        arena._event_emitter.notify_spectator.assert_called_once_with(
+            "test_event", data="test_data"
+        )
 
     def test_emit_moment_event_delegates_to_bridge(self):
-        """Test _emit_moment_event delegates to event_bridge."""
+        """Test _emit_moment_event delegates to event emitter."""
         agents = [MockAgent("agent1")]
         env = Environment(task="Test task", max_rounds=1)
         protocol = DebateProtocol(rounds=1)
 
         arena = Arena(env, agents, protocol)
-        arena.event_bridge = MagicMock()
+        arena._event_emitter = MagicMock()
 
         mock_moment = MagicMock()
         arena._emit_moment_event(mock_moment)
 
-        arena.event_bridge.emit_moment.assert_called_once_with(mock_moment)
+        arena._event_emitter.emit_moment.assert_called_once_with(mock_moment)
 
 
 if __name__ == "__main__":

@@ -755,7 +755,7 @@ class ReceiptStore:
 
             # Recompute checksum from data
             loaded_receipt = DecisionReceipt.from_dict(receipt.data)
-            computed_checksum = loaded_receipt.compute_checksum()
+            computed_checksum = loaded_receipt._compute_checksum()
 
             is_valid = computed_checksum == receipt.checksum
 

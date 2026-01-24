@@ -12,6 +12,10 @@ Endpoints:
 - PUT /api/org/{org_id}/members/{user_id}/role - Update member role
 - GET /api/invitations/pending - List pending invitations for current user
 - POST /api/invitations/{token}/accept - Accept an invitation
+- GET /api/user/organizations - List organizations for current user
+- POST /api/user/organizations/switch - Switch active organization
+- POST /api/user/organizations/default - Set default organization
+- DELETE /api/user/organizations/{org_id} - Leave organization
 """
 
 from __future__ import annotations
@@ -71,17 +75,23 @@ class OrganizationsHandler(SecureHandler):
     # Resource type for audit logging
     RESOURCE_TYPE = "organization"
 
-    # Route patterns
-    ORG_PATTERN = re.compile(r"^/api/v1/org/([a-zA-Z0-9_-]+)$")
-    MEMBERS_PATTERN = re.compile(r"^/api/v1/org/([a-zA-Z0-9_-]+)/members$")
-    INVITE_PATTERN = re.compile(r"^/api/v1/org/([a-zA-Z0-9_-]+)/invite$")
-    INVITATIONS_PATTERN = re.compile(r"^/api/v1/org/([a-zA-Z0-9_-]+)/invitations$")
-    INVITATION_PATTERN = re.compile(r"^/api/v1/org/([a-zA-Z0-9_-]+)/invitations/([a-zA-Z0-9_-]+)$")
-    MEMBER_PATTERN = re.compile(r"^/api/v1/org/([a-zA-Z0-9_-]+)/members/([a-zA-Z0-9_-]+)$")
-    ROLE_PATTERN = re.compile(r"^/api/v1/org/([a-zA-Z0-9_-]+)/members/([a-zA-Z0-9_-]+)/role$")
+    # Route patterns (support /api/* and /api/v1/*)
+    ORG_PATTERN = re.compile(r"^/api(?:/v1)?/org/([a-zA-Z0-9_-]+)$")
+    MEMBERS_PATTERN = re.compile(r"^/api(?:/v1)?/org/([a-zA-Z0-9_-]+)/members$")
+    INVITE_PATTERN = re.compile(r"^/api(?:/v1)?/org/([a-zA-Z0-9_-]+)/invite$")
+    INVITATIONS_PATTERN = re.compile(r"^/api(?:/v1)?/org/([a-zA-Z0-9_-]+)/invitations$")
+    INVITATION_PATTERN = re.compile(
+        r"^/api(?:/v1)?/org/([a-zA-Z0-9_-]+)/invitations/([a-zA-Z0-9_-]+)$"
+    )
+    MEMBER_PATTERN = re.compile(r"^/api(?:/v1)?/org/([a-zA-Z0-9_-]+)/members/([a-zA-Z0-9_-]+)$")
+    ROLE_PATTERN = re.compile(r"^/api(?:/v1)?/org/([a-zA-Z0-9_-]+)/members/([a-zA-Z0-9_-]+)/role$")
+    USER_ORGS_PATTERN = re.compile(r"^/api(?:/v1)?/user/organizations$")
+    USER_ORG_SWITCH_PATTERN = re.compile(r"^/api(?:/v1)?/user/organizations/switch$")
+    USER_ORG_DEFAULT_PATTERN = re.compile(r"^/api(?:/v1)?/user/organizations/default$")
+    USER_ORG_LEAVE_PATTERN = re.compile(r"^/api(?:/v1)?/user/organizations/([a-zA-Z0-9_-]+)$")
     # User-facing invitation endpoints
-    PENDING_INVITATIONS_PATTERN = re.compile(r"^/api/v1/invitations/pending$")
-    ACCEPT_INVITATION_PATTERN = re.compile(r"^/api/v1/invitations/([a-zA-Z0-9_-]+)/accept$")
+    PENDING_INVITATIONS_PATTERN = re.compile(r"^/api(?:/v1)?/invitations/pending$")
+    ACCEPT_INVITATION_PATTERN = re.compile(r"^/api(?:/v1)?/invitations/([a-zA-Z0-9_-]+)/accept$")
 
     # Invitations are now stored in user_store (persistent SQLite storage)
 
@@ -95,6 +105,10 @@ class OrganizationsHandler(SecureHandler):
             or self.INVITATION_PATTERN.match(path) is not None
             or self.MEMBER_PATTERN.match(path) is not None
             or self.ROLE_PATTERN.match(path) is not None
+            or self.USER_ORGS_PATTERN.match(path) is not None
+            or self.USER_ORG_SWITCH_PATTERN.match(path) is not None
+            or self.USER_ORG_DEFAULT_PATTERN.match(path) is not None
+            or self.USER_ORG_LEAVE_PATTERN.match(path) is not None
             or self.PENDING_INVITATIONS_PATTERN.match(path) is not None
             or self.ACCEPT_INVITATION_PATTERN.match(path) is not None
         )
@@ -111,6 +125,35 @@ class OrganizationsHandler(SecureHandler):
 
         if hasattr(handler, "command"):
             method = handler.command
+
+        # GET /api/user/organizations
+        match = self.USER_ORGS_PATTERN.match(path)
+        if match:
+            if method == "GET":
+                return self._list_user_organizations(handler)
+            return error_response("Method not allowed", 405)
+
+        # POST /api/user/organizations/switch
+        match = self.USER_ORG_SWITCH_PATTERN.match(path)
+        if match:
+            if method == "POST":
+                return self._switch_user_organization(handler)
+            return error_response("Method not allowed", 405)
+
+        # POST /api/user/organizations/default
+        match = self.USER_ORG_DEFAULT_PATTERN.match(path)
+        if match:
+            if method == "POST":
+                return self._set_default_organization(handler)
+            return error_response("Method not allowed", 405)
+
+        # DELETE /api/user/organizations/{org_id}
+        match = self.USER_ORG_LEAVE_PATTERN.match(path)
+        if match:
+            org_id = match.group(1)
+            if method == "DELETE":
+                return self._leave_organization(handler, org_id)
+            return error_response("Method not allowed", 405)
 
         # GET/PUT /api/org/{org_id}
         match = self.ORG_PATTERN.match(path)
@@ -209,6 +252,112 @@ class OrganizationsHandler(SecureHandler):
 
         user = user_store.get_user_by_id(auth_ctx.user_id)
         return user, auth_ctx
+
+    def _list_user_organizations(self, handler) -> HandlerResult:
+        """List organizations for the current user (single-org fallback)."""
+        user_store = self._get_user_store()
+        if not user_store:
+            return error_response("User service unavailable", 503)
+
+        user, _auth_ctx = self._get_current_user(handler)
+        if not user:
+            return error_response("Authentication required", 401)
+
+        if not user.org_id:
+            return json_response({"organizations": []})
+
+        org = user_store.get_organization_by_id(user.org_id)
+        if not org:
+            return json_response({"organizations": []})
+
+        joined_at = user.created_at.isoformat() if getattr(user, "created_at", None) else None
+
+        return json_response(
+            {
+                "organizations": [
+                    {
+                        "user_id": user.id,
+                        "org_id": org.id,
+                        "organization": org.to_dict(),
+                        "role": user.role or "member",
+                        "is_default": True,
+                        "joined_at": joined_at,
+                    }
+                ]
+            }
+        )
+
+    def _switch_user_organization(self, handler) -> HandlerResult:
+        """Switch the active organization for the current user."""
+        user_store = self._get_user_store()
+        if not user_store:
+            return error_response("User service unavailable", 503)
+
+        user, _auth_ctx = self._get_current_user(handler)
+        if not user:
+            return error_response("Authentication required", 401)
+
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
+
+        org_id = (body.get("org_id") or "").strip()
+        if not org_id:
+            return error_response("Organization ID required", 400)
+
+        if user.org_id != org_id:
+            return error_response("Not a member of this organization", 403)
+
+        org = user_store.get_organization_by_id(org_id)
+        if not org:
+            return error_response("Organization not found", 404)
+
+        return json_response({"organization": org.to_dict()})
+
+    def _set_default_organization(self, handler) -> HandlerResult:
+        """Set the default organization for the current user."""
+        user_store = self._get_user_store()
+        if not user_store:
+            return error_response("User service unavailable", 503)
+
+        user, _auth_ctx = self._get_current_user(handler)
+        if not user:
+            return error_response("Authentication required", 401)
+
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
+
+        org_id = (body.get("org_id") or "").strip()
+        if not org_id:
+            return error_response("Organization ID required", 400)
+
+        if user.org_id != org_id:
+            return error_response("Not a member of this organization", 403)
+
+        return json_response({"success": True})
+
+    def _leave_organization(self, handler, org_id: str) -> HandlerResult:
+        """Leave an organization (single-org fallback)."""
+        user_store = self._get_user_store()
+        if not user_store:
+            return error_response("User service unavailable", 503)
+
+        user, _auth_ctx = self._get_current_user(handler)
+        if not user:
+            return error_response("Authentication required", 401)
+
+        if user.org_id != org_id:
+            return error_response("Not a member of this organization", 403)
+
+        if user.role == "owner":
+            return error_response("Organization owners cannot leave", 400)
+
+        success = user_store.remove_user_from_org(user.id)
+        if not success:
+            return error_response("Failed to leave organization", 500)
+
+        return json_response({"success": True})
 
     def _check_org_access(self, user, org_id: str, min_role: str = "member") -> tuple[bool, str]:
         """Check if user has access to organization with minimum role."""

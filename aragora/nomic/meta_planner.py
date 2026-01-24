@@ -104,9 +104,7 @@ class MetaPlanner:
         context = context or PlanningContext()
 
         logger.info(
-            "meta_planner_started",
-            objective=objective[:100],
-            tracks=[t.value for t in available_tracks],
+            f"meta_planner_started objective={objective[:100]} tracks={[t.value for t in available_tracks]}"
         )
 
         try:
@@ -121,7 +119,7 @@ class MetaPlanner:
             agents = []
             for agent_type in self.config.agents:
                 try:
-                    agent = create_agent(agent_type)
+                    agent = create_agent(agent_type)  # type: ignore[arg-type]
                     agents.append(agent)
                 except Exception as e:
                     logger.warning(f"Could not create agent {agent_type}: {e}")
@@ -134,7 +132,7 @@ class MetaPlanner:
             env = Environment(task=topic)
             protocol = DebateProtocol(
                 rounds=self.config.debate_rounds,
-                consensus_mechanism="weighted",
+                consensus="weighted",
             )
 
             arena = Arena(env, agents, protocol)
@@ -144,9 +142,7 @@ class MetaPlanner:
             goals = self._parse_goals_from_debate(result, available_tracks, objective)
 
             logger.info(
-                "meta_planner_completed",
-                goal_count=len(goals),
-                objectives=[g.description[:50] for g in goals],
+                f"meta_planner_completed goal_count={len(goals)} objectives={[g.description[:50] for g in goals]}"
             )
 
             return goals

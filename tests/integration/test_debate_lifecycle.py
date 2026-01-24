@@ -27,6 +27,7 @@ from aragora.debate.checkpoint import (
 from aragora.core import Message, Vote
 
 
+@pytest.mark.integration_minimal
 class TestDebateContext:
     """Test debate context initialization and state."""
 
@@ -71,6 +72,7 @@ class TestDebateContext:
         assert len(checkpoint.votes) == 1
 
 
+@pytest.mark.integration_minimal
 class TestCheckpointSerialization:
     """Test checkpoint serialization and deserialization."""
 
@@ -256,6 +258,7 @@ class TestFileCheckpointStore:
             assert loaded.messages[0]["content"] == "x" * 1000
 
 
+@pytest.mark.integration_minimal
 class TestResumedDebate:
     """Test debate resumption from checkpoint."""
 
@@ -308,6 +311,7 @@ class TestMergeResult:
         assert winner["branch_id"] == "A"
 
 
+@pytest.mark.integration_minimal
 class TestDebateResultConstruction:
     """Test debate result construction."""
 
@@ -380,6 +384,7 @@ class TestFollowUpSuggestions:
         assert "performance vs readability" in suggestions[0]
 
 
+@pytest.mark.integration_minimal
 class TestInitialMessagesInjection:
     """Test initial message injection for context seeding."""
 
