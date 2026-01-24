@@ -151,6 +151,57 @@ const fastTier = await client.memory.tierStats('fast');
 const snapshot = await client.memory.snapshot();
 ```
 
+### Control Plane API
+
+Manage distributed agent infrastructure.
+
+```typescript
+// List registered agents
+const agents = await client.controlPlane.listAgents();
+const available = await client.controlPlane.listAgents({ onlyAvailable: true });
+
+// Register a new agent
+const agent = await client.controlPlane.registerAgent('my-agent', ['debate', 'analysis'], {
+  model: 'gpt-4',
+  provider: 'openai',
+});
+
+// Get agent health
+const health = await client.controlPlane.getAgentHealth('my-agent');
+console.log('Status:', health.status);
+console.log('Last heartbeat:', health.last_heartbeat);
+
+// Submit tasks to the control plane
+const taskId = await client.controlPlane.submitTask('debate', {
+  topic: 'Should we use microservices?',
+}, {
+  priority: 'high',
+  requiredCapabilities: ['debate'],
+  timeoutSeconds: 300,
+});
+
+// Wait for task completion
+const task = await client.controlPlane.waitForTask(taskId, {
+  pollInterval: 1000,
+  timeout: 60000,
+});
+console.log('Result:', task.result);
+
+// Cancel a task
+await client.controlPlane.cancelTask(taskId);
+
+// Get control plane status
+const status = await client.controlPlane.status();
+console.log('Total agents:', status.total_agents);
+console.log('Available agents:', status.available_agents);
+console.log('Pending tasks:', status.pending_tasks);
+
+// Monitor resource utilization
+const utilization = await client.controlPlane.resourceUtilization();
+console.log('CPU:', utilization.cpu_percent);
+console.log('Memory:', utilization.memory_percent);
+```
+
 ### Agents API
 
 ```typescript
