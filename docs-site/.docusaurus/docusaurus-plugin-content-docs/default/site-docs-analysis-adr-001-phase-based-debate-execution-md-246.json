@@ -11,8 +11,8 @@
   "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/001-phase-based-debate-execution.md",
   "tags": [],
   "version": "current",
-  "lastUpdatedBy": null,
-  "lastUpdatedAt": null,
+  "lastUpdatedBy": "an0mium",
+  "lastUpdatedAt": 1769147442000,
   "sidebarPosition": 1,
   "frontMatter": {
     "slug": "001-phase-based-debate-execution",

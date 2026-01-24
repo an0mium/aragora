@@ -1,0 +1,29 @@
+{
+  "id": "guides/inbox-guide",
+  "title": "Smart Inbox Guide",
+  "description": "Unified inbox setup, prioritization, and vetted decisionmaking workflows.",
+  "source": "@site/docs/guides/inbox-guide.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/inbox-guide",
+  "permalink": "/docs/guides/inbox-guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/inbox-guide.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": "an0mium",
+  "lastUpdatedAt": 1769208129000,
+  "frontMatter": {
+    "title": "Smart Inbox Guide",
+    "description": "Unified inbox setup, prioritization, and vetted decisionmaking workflows."
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "Email Prioritization & Inbox Operations",
+    "permalink": "/docs/guides/email-prioritization"
+  },
+  "next": {
+    "title": "Shared Inbox & Routing Rules",
+    "permalink": "/docs/guides/shared-inbox"
+  }
+}

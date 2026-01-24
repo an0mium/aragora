@@ -144,6 +144,7 @@ class OutlookConnector(EnterpriseConnector):
         """Expose access token expiry (if available)."""
         return self._token_expiry
 
+    @property
     def is_configured(self) -> bool:
         """Check if connector has required configuration."""
         import os

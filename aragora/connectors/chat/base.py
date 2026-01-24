@@ -810,6 +810,7 @@ class ChatPlatformConnector(ABC):
             "webhook_configured": bool(self.webhook_url),
         }
 
+    @property
     def is_configured(self) -> bool:
         """Check if the connector has minimum required configuration."""
         return bool(self.bot_token or self.webhook_url)

@@ -1,0 +1,164 @@
+name: Production Monitoring
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      notify_on_success:
+        description: 'Send notification on success'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  production-health:
+    name: Production Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: aragora/live/package-lock.json
+
+      - name: Install dependencies
+        working-directory: aragora/live
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: aragora/live
+        run: npx playwright install --with-deps chromium
+
+      - name: Run production smoke tests
+        working-directory: aragora/live
+        run: |
+          PLAYWRIGHT_INCLUDE_PROD=1 npx playwright test --project=production \
+            e2e/production/smoke.prod.spec.ts \
+            e2e/production/api-health.prod.spec.ts \
+            --reporter=html,json
+        env:
+          PLAYWRIGHT_BASE_URL: https://aragora.ai
+
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-health-report
+          path: |
+            aragora/live/playwright-report/
+            aragora/live/playwright-results.json
+          retention-days: 30
+
+      - name: Check for failures
+        if: failure()
+        run: |
+          echo "::error::Production health check failed!"
+          echo "Check the Playwright report artifact for details."
+
+  production-auth:
+    name: Production Auth Flow
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: production-health
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: aragora/live/package-lock.json
+
+      - name: Install dependencies
+        working-directory: aragora/live
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: aragora/live
+        run: npx playwright install --with-deps chromium
+
+      - name: Run auth flow tests
+        working-directory: aragora/live
+        run: |
+          PLAYWRIGHT_INCLUDE_PROD=1 npx playwright test --project=production \
+            e2e/production/auth-flow.prod.spec.ts \
+            e2e/production/auth-flow-debug.prod.spec.ts \
+            --reporter=html,json
+        env:
+          PLAYWRIGHT_BASE_URL: https://aragora.ai
+        continue-on-error: true
+
+      - name: Run console error analysis
+        working-directory: aragora/live
+        run: |
+          PLAYWRIGHT_INCLUDE_PROD=1 npx playwright test --project=production \
+            e2e/production/console-errors.prod.spec.ts \
+            --reporter=html
+        env:
+          PLAYWRIGHT_BASE_URL: https://aragora.ai
+        continue-on-error: true
+
+      - name: Upload auth test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-auth-report
+          path: aragora/live/playwright-report/
+          retention-days: 30
+
+  production-full:
+    name: Full Production Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: production-auth
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: aragora/live/package-lock.json
+
+      - name: Install dependencies
+        working-directory: aragora/live
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: aragora/live
+        run: npx playwright install --with-deps chromium
+
+      - name: Run full production test suite
+        working-directory: aragora/live
+        run: |
+          PLAYWRIGHT_INCLUDE_PROD=1 npx playwright test --project=production --reporter=html,json
+        env:
+          PLAYWRIGHT_BASE_URL: https://aragora.ai
+
+      - name: Upload full test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-full-report
+          path: |
+            aragora/live/playwright-report/
+            aragora/live/playwright-results.json
+          retention-days: 30

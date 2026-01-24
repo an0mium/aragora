@@ -409,7 +409,7 @@ class UnifiedInboxHandler(BaseHandler):
 
                 connector = GmailConnector()
 
-                if not connector.is_configured():
+                if not connector.is_configured:
                     return error_response(
                         "Gmail OAuth not configured. Set GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET.",
                         503,
@@ -463,7 +463,7 @@ class UnifiedInboxHandler(BaseHandler):
 
                 connector = OutlookConnector()
 
-                if not connector.is_configured():
+                if not connector.is_configured:
                     return error_response(
                         "Outlook OAuth not configured. Set OUTLOOK_CLIENT_ID and OUTLOOK_CLIENT_SECRET.",
                         503,

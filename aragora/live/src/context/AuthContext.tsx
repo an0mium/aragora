@@ -462,14 +462,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       expires_at: expiresAt,
     };
 
-    // Fetch user profile using the access token FIRST to validate
+    // IMPORTANT: Store tokens IMMEDIATELY (optimistically) before validation
+    // This ensures tokens survive page navigation even if validation is slow
+    console.log('[AuthContext] Storing tokens optimistically...');
+    localStorage.setItem(TOKENS_KEY, JSON.stringify(tokens));
+
+    // Fetch user profile using the access token to validate and get user info
     try {
       console.log('[AuthContext] Fetching user profile to validate tokens...');
-      const response = await fetch(`${API_BASE}/api/v1/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
+
+      // Retry logic for network resilience
+      let response: Response | null = null;
+      let lastError: Error | null = null;
+
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          response = await fetch(`${API_BASE}/api/v1/auth/me`, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+            },
+          });
+          break; // Success, exit retry loop
+        } catch (fetchErr) {
+          lastError = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr));
+          console.warn(`[AuthContext] /me fetch attempt ${attempt} failed:`, lastError.message);
+          if (attempt < 3) {
+            // Exponential backoff: 500ms, 1000ms
+            await new Promise(r => setTimeout(r, 500 * attempt));
+          }
+        }
+      }
+
+      if (!response) {
+        // All retries failed - but tokens are stored, user can retry
+        console.error('[AuthContext] All /me fetch attempts failed:', lastError?.message);
+        throw new Error('Network error: Unable to validate tokens. Please try again.');
+      }
 
       console.log('[AuthContext] /me response:', {
         status: response.status,
@@ -485,13 +513,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         console.log('[AuthContext] User profile fetched successfully:', user?.email);
 
-        // Store tokens, user and orgs - only AFTER validation succeeds
-        localStorage.setItem(TOKENS_KEY, JSON.stringify(tokens));
+        // Store user info alongside already-stored tokens
         localStorage.setItem(USER_KEY, JSON.stringify(user));
         storeActiveOrg(organization);
         storeUserOrgs(organizations);
 
-        // Update state
+        // Update state - use a callback to ensure state is properly merged
         setState({
           user,
           organization,
@@ -501,8 +528,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isAuthenticated: true,
           isLoadingOrganizations: false,
         });
+
+        // Small delay to ensure React state update is processed
+        await new Promise(r => setTimeout(r, 50));
       } else if (response.status === 401) {
-        // 401 means tokens are invalid - DO NOT authenticate
+        // 401 means tokens are invalid - clear optimistically stored tokens
         console.error('[AuthContext] Token validation failed: 401 Unauthorized');
         const contentType = response.headers.get('content-type') || '';
         let errorDetail = '';
@@ -514,14 +544,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         console.error('[AuthContext] Error detail:', errorDetail || '(no detail)');
 
-        // Clear any partial auth data
+        // Clear the optimistically stored tokens
         clearAuth();
         throw new Error('Authentication failed: Invalid tokens');
       } else {
-        // Other error (500, 404, etc.) - log but don't store invalid tokens
+        // Other error (500, 404, etc.) - keep tokens but report error
+        // User may be able to retry or the backend may recover
         console.error('[AuthContext] Unexpected /me response:', response.status);
-        clearAuth();
-        throw new Error(`Authentication failed: ${response.status}`);
+        // Don't clear tokens on server errors - let user retry
+        throw new Error(`Server error (${response.status}). Please try again.`);
       }
     } catch (err) {
       console.error('[AuthContext] setTokens error:', err);

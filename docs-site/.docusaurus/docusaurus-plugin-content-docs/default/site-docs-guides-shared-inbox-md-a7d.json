@@ -16,5 +16,14 @@
   "frontMatter": {
     "title": "Shared Inbox & Routing Rules",
     "description": "Shared Inbox & Routing Rules"
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "Smart Inbox Guide",
+    "permalink": "/docs/guides/inbox-guide"
+  },
+  "next": {
+    "title": "docker",
+    "permalink": "/docs/deployment/docker"
   }
 }

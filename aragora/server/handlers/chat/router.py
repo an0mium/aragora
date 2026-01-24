@@ -796,7 +796,7 @@ if HANDLER_BASE_AVAILABLE:
                 "connectors": {
                     name: {
                         "name": conn.platform_display_name,
-                        "configured": conn.is_configured(),
+                        "configured": conn.is_configured,
                     }
                     for name, conn in registry.all().items()
                 },

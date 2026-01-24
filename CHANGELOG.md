@@ -1,6 +1,28 @@
 # Changelog
 
 
+## [v2.1.15] - 2026-01-24
+
+### Features
+
+- **connectors:** enforce abstract property pattern for connector identification
+- **auth:** improve AuthContext with better error handling and session management
+- **live:** add production-ready Playwright configuration
+
+### Bug Fixes
+
+- **connectors:** remove class-level defaults that shadowed abstract properties
+- **tests:** fix flaky timing test with tolerance for CI variability
+- **tests:** fix circuit breaker test with explicit threshold configuration
+- **chat:** fix router path handling for unified inbox
+
+### Maintenance
+
+- Consolidate E2E test files into single comprehensive spec
+- Update docs-site Docusaurus configuration
+
+---
+
 ## [v2.1.11] - 2026-01-23
 
 ### Features

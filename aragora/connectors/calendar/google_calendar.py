@@ -215,6 +215,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
     def name(self) -> str:
         return "Google Calendar"
 
+    @property
     def is_configured(self) -> bool:
         """Check if connector has required configuration."""
         import os

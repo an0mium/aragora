@@ -180,7 +180,7 @@ def get_all_connectors(**config: Any) -> Dict[str, ChatPlatformConnector]:
 
     for platform in get_configured_platforms():
         connector = get_connector(platform, **config)
-        if connector and connector.is_configured():
+        if connector and connector.is_configured:
             connectors[platform] = connector
 
     return connectors

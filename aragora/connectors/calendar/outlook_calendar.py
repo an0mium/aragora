@@ -244,6 +244,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
 
         return os.environ.get("OUTLOOK_TENANT_ID", "common")
 
+    @property
     def is_configured(self) -> bool:
         """Check if connector has required configuration."""
         import os

@@ -20,8 +20,8 @@
   },
   "sidebar": "guidesSidebar",
   "previous": {
-    "title": "Evidence System Guide",
-    "permalink": "/docs/guides/evidence"
+    "title": "Shared Inbox & Routing Rules",
+    "permalink": "/docs/guides/shared-inbox"
   },
   "next": {
     "title": "Kubernetes Deployment Guide",

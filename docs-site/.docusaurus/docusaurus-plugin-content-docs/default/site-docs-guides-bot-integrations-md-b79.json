@@ -12,9 +12,18 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769133959000,
+  "lastUpdatedAt": 1769188135000,
   "frontMatter": {
     "title": "Bot Integrations Guide",
     "description": "Bot Integrations Guide"
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "Aragora Channels",
+    "permalink": "/docs/guides/channels"
+  },
+  "next": {
+    "title": "Email Prioritization & Inbox Operations",
+    "permalink": "/docs/guides/email-prioritization"
   }
 }

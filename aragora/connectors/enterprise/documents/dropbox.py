@@ -173,6 +173,7 @@ class DropboxConnector(EnterpriseConnector):
         """Get the provenance source type."""
         return SourceType.DROPBOX  # type: ignore[attr-defined]
 
+    @property
     def is_configured(self) -> bool:
         """Check if connector is properly configured."""
         return bool(self.app_key and self.app_secret)

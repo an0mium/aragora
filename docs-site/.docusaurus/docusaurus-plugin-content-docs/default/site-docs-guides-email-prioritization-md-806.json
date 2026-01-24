@@ -12,9 +12,18 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769140033000,
+  "lastUpdatedAt": 1769203083000,
   "frontMatter": {
     "title": "Email Prioritization & Inbox Operations",
     "description": "Email Prioritization & Inbox Operations"
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "Bot Integrations Guide",
+    "permalink": "/docs/guides/bot-integrations"
+  },
+  "next": {
+    "title": "Smart Inbox Guide",
+    "permalink": "/docs/guides/inbox-guide"
   }
 }

@@ -1,0 +1,20 @@
+{
+  "id": "deployment/async-gateway",
+  "title": "Async Gateway Deployment",
+  "description": "Async Gateway Deployment",
+  "source": "@site/docs/deployment/async-gateway.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/async-gateway",
+  "permalink": "/docs/deployment/async-gateway",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/async-gateway.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": "an0mium",
+  "lastUpdatedAt": 1769179945000,
+  "frontMatter": {
+    "title": "Async Gateway Deployment",
+    "description": "Async Gateway Deployment"
+  }
+}

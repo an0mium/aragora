@@ -11,10 +11,19 @@
   "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/channels.md",
   "tags": [],
   "version": "current",
-  "lastUpdatedBy": null,
-  "lastUpdatedAt": null,
+  "lastUpdatedBy": "an0mium",
+  "lastUpdatedAt": 1769188135000,
   "frontMatter": {
     "title": "Aragora Channels",
     "description": "Aragora Channels"
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "Evidence System Guide",
+    "permalink": "/docs/guides/evidence"
+  },
+  "next": {
+    "title": "Bot Integrations Guide",
+    "permalink": "/docs/guides/bot-integrations"
   }
 }

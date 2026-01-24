@@ -422,8 +422,16 @@
               "path": "/docs/core-concepts/workflow-engine"
             },
             {
+              "id": "deployment/async-gateway",
+              "path": "/docs/deployment/async-gateway"
+            },
+            {
               "id": "deployment/capacity-planning",
               "path": "/docs/deployment/capacity-planning"
+            },
+            {
+              "id": "deployment/container-volumes",
+              "path": "/docs/deployment/container-volumes"
             },
             {
               "id": "deployment/database",
@@ -638,6 +646,10 @@
               "sidebar": "gettingStartedSidebar"
             },
             {
+              "id": "guides/accounting",
+              "path": "/docs/guides/accounting"
+            },
+            {
               "id": "guides/api-quickstart",
               "path": "/docs/guides/api-quickstart"
             },
@@ -651,7 +663,8 @@
             },
             {
               "id": "guides/bot-integrations",
-              "path": "/docs/guides/bot-integrations"
+              "path": "/docs/guides/bot-integrations",
+              "sidebar": "guidesSidebar"
             },
             {
               "id": "guides/broadcast",
@@ -659,7 +672,8 @@
             },
             {
               "id": "guides/channels",
-              "path": "/docs/guides/channels"
+              "path": "/docs/guides/channels",
+              "sidebar": "guidesSidebar"
             },
             {
               "id": "guides/chat-connector",
@@ -696,7 +710,8 @@
             },
             {
               "id": "guides/email-prioritization",
-              "path": "/docs/guides/email-prioritization"
+              "path": "/docs/guides/email-prioritization",
+              "sidebar": "guidesSidebar"
             },
             {
               "id": "guides/evidence",
@@ -722,6 +737,11 @@
             {
               "id": "guides/harnesses",
               "path": "/docs/guides/harnesses"
+            },
+            {
+              "id": "guides/inbox-guide",
+              "path": "/docs/guides/inbox-guide",
+              "sidebar": "guidesSidebar"
             },
             {
               "id": "guides/index",
@@ -783,7 +803,12 @@
             },
             {
               "id": "guides/shared-inbox",
-              "path": "/docs/guides/shared-inbox"
+              "path": "/docs/guides/shared-inbox",
+              "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "guides/templates",
+              "path": "/docs/guides/templates"
             },
             {
               "id": "guides/user-onboarding",

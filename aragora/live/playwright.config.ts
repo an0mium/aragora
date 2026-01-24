@@ -8,6 +8,9 @@ export default defineConfig({
   // Test directory
   testDir: './e2e',
 
+  // Exclude production tests from regular CI runs (they test live site)
+  testIgnore: process.env.PLAYWRIGHT_INCLUDE_PROD ? undefined : '**/production/**',
+
   // Run tests in files in parallel
   fullyParallel: true,
 
@@ -24,6 +27,8 @@ export default defineConfig({
   reporter: [
     ['list'],
     ['html', { outputFolder: 'playwright-report' }],
+    // Add JSON reporter for CI parsing
+    ...(process.env.CI ? [['json', { outputFile: 'playwright-results.json' }] as const] : []),
   ],
 
   // Shared settings for all the projects below
@@ -94,6 +99,17 @@ export default defineConfig({
       name: 'visual-regression',
       use: { ...devices['Desktop Chrome'] },
       testMatch: /visual-regression\.spec\.ts/,
+    },
+
+    // Production monitoring tests - run with: PLAYWRIGHT_INCLUDE_PROD=1 npx playwright test --project=production
+    {
+      name: 'production',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: 'https://aragora.ai',
+      },
+      testDir: './e2e/production',
+      testMatch: /\.prod\.spec\.ts/,
     },
   ],
 

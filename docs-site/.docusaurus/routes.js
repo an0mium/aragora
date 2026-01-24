@@ -9,15 +9,15 @@ export default [
   },
   {
     path: '/docs',
-    component: ComponentCreator('/docs', '1e7'),
+    component: ComponentCreator('/docs', 'ca2'),
     routes: [
       {
         path: '/docs',
-        component: ComponentCreator('/docs', 'ba2'),
+        component: ComponentCreator('/docs', '670'),
         routes: [
           {
             path: '/docs',
-            component: ComponentCreator('/docs', '2f1'),
+            component: ComponentCreator('/docs', '5af'),
             routes: [
               {
                 path: '/docs/admin/',
@@ -31,12 +31,12 @@ export default [
               },
               {
                 path: '/docs/admin/nomic-loop',
-                component: ComponentCreator('/docs/admin/nomic-loop', 'ee6'),
+                component: ComponentCreator('/docs/admin/nomic-loop', '995'),
                 exact: true
               },
               {
                 path: '/docs/admin/overview',
-                component: ComponentCreator('/docs/admin/overview', 'fe3'),
+                component: ComponentCreator('/docs/admin/overview', '6dc'),
                 exact: true
               },
               {
@@ -51,7 +51,7 @@ export default [
               },
               {
                 path: '/docs/advanced/cross-pollination',
-                component: ComponentCreator('/docs/advanced/cross-pollination', '041'),
+                component: ComponentCreator('/docs/advanced/cross-pollination', '11b'),
                 exact: true
               },
               {
@@ -61,7 +61,7 @@ export default [
               },
               {
                 path: '/docs/advanced/formal-verification',
-                component: ComponentCreator('/docs/advanced/formal-verification', '06d'),
+                component: ComponentCreator('/docs/advanced/formal-verification', '67e'),
                 exact: true
               },
               {
@@ -71,22 +71,22 @@ export default [
               },
               {
                 path: '/docs/advanced/rlm',
-                component: ComponentCreator('/docs/advanced/rlm', '646'),
+                component: ComponentCreator('/docs/advanced/rlm', '1d3'),
                 exact: true
               },
               {
                 path: '/docs/advanced/rlm-developer',
-                component: ComponentCreator('/docs/advanced/rlm-developer', '8af'),
+                component: ComponentCreator('/docs/advanced/rlm-developer', '47c'),
                 exact: true
               },
               {
                 path: '/docs/advanced/rlm-integration',
-                component: ComponentCreator('/docs/advanced/rlm-integration', 'dec'),
+                component: ComponentCreator('/docs/advanced/rlm-integration', '5a6'),
                 exact: true
               },
               {
                 path: '/docs/advanced/rlm-user',
-                component: ComponentCreator('/docs/advanced/rlm-user', '781'),
+                component: ComponentCreator('/docs/advanced/rlm-user', 'df5'),
                 exact: true
               },
               {
@@ -101,122 +101,122 @@ export default [
               },
               {
                 path: '/docs/analysis/adr/',
-                component: ComponentCreator('/docs/analysis/adr/', '408'),
+                component: ComponentCreator('/docs/analysis/adr/', '52a'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/001-phase-based-debate-execution',
-                component: ComponentCreator('/docs/analysis/adr/001-phase-based-debate-execution', 'bcc'),
+                component: ComponentCreator('/docs/analysis/adr/001-phase-based-debate-execution', 'c9a'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/002-agent-fallback-openrouter',
-                component: ComponentCreator('/docs/analysis/adr/002-agent-fallback-openrouter', '69a'),
+                component: ComponentCreator('/docs/analysis/adr/002-agent-fallback-openrouter', 'e26'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/003-multi-tier-memory-system',
-                component: ComponentCreator('/docs/analysis/adr/003-multi-tier-memory-system', '631'),
+                component: ComponentCreator('/docs/analysis/adr/003-multi-tier-memory-system', '857'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/004-incremental-type-safety',
-                component: ComponentCreator('/docs/analysis/adr/004-incremental-type-safety', '618'),
+                component: ComponentCreator('/docs/analysis/adr/004-incremental-type-safety', '1c5'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/005-composition-over-inheritance',
-                component: ComponentCreator('/docs/analysis/adr/005-composition-over-inheritance', '10d'),
+                component: ComponentCreator('/docs/analysis/adr/005-composition-over-inheritance', '5e7'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/006-api-versioning-strategy',
-                component: ComponentCreator('/docs/analysis/adr/006-api-versioning-strategy', '807'),
+                component: ComponentCreator('/docs/analysis/adr/006-api-versioning-strategy', '214'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/007-selection-plugin-architecture',
-                component: ComponentCreator('/docs/analysis/adr/007-selection-plugin-architecture', '317'),
+                component: ComponentCreator('/docs/analysis/adr/007-selection-plugin-architecture', 'ace'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/008-rlm-semantic-compression',
-                component: ComponentCreator('/docs/analysis/adr/008-rlm-semantic-compression', '386'),
+                component: ComponentCreator('/docs/analysis/adr/008-rlm-semantic-compression', '641'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/009-control-plane-architecture',
-                component: ComponentCreator('/docs/analysis/adr/009-control-plane-architecture', '241'),
+                component: ComponentCreator('/docs/analysis/adr/009-control-plane-architecture', '0be'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/010-debate-orchestration-pattern',
-                component: ComponentCreator('/docs/analysis/adr/010-debate-orchestration-pattern', 'fbc'),
+                component: ComponentCreator('/docs/analysis/adr/010-debate-orchestration-pattern', '125'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/011-multi-tier-memory-comparison',
-                component: ComponentCreator('/docs/analysis/adr/011-multi-tier-memory-comparison', '40e'),
+                component: ComponentCreator('/docs/analysis/adr/011-multi-tier-memory-comparison', 'bc0'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/012-agent-fallback-strategy',
-                component: ComponentCreator('/docs/analysis/adr/012-agent-fallback-strategy', 'f20'),
+                component: ComponentCreator('/docs/analysis/adr/012-agent-fallback-strategy', '3b6'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/013-workflow-dag-design',
-                component: ComponentCreator('/docs/analysis/adr/013-workflow-dag-design', '0de'),
+                component: ComponentCreator('/docs/analysis/adr/013-workflow-dag-design', 'eda'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/014-knowledge-mound-architecture',
-                component: ComponentCreator('/docs/analysis/adr/014-knowledge-mound-architecture', '2bc'),
+                component: ComponentCreator('/docs/analysis/adr/014-knowledge-mound-architecture', 'b24'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/015-lazy-import-patterns',
-                component: ComponentCreator('/docs/analysis/adr/015-lazy-import-patterns', 'c07'),
+                component: ComponentCreator('/docs/analysis/adr/015-lazy-import-patterns', '443'),
                 exact: true
               },
               {
                 path: '/docs/analysis/adr/016-marketplace-architecture',
-                component: ComponentCreator('/docs/analysis/adr/016-marketplace-architecture', '402'),
+                component: ComponentCreator('/docs/analysis/adr/016-marketplace-architecture', '1e4'),
                 exact: true
               },
               {
                 path: '/docs/analysis/benchmarks',
-                component: ComponentCreator('/docs/analysis/benchmarks', '78f'),
+                component: ComponentCreator('/docs/analysis/benchmarks', '106'),
                 exact: true
               },
               {
                 path: '/docs/analysis/case-studies/',
-                component: ComponentCreator('/docs/analysis/case-studies/', 'a3d'),
+                component: ComponentCreator('/docs/analysis/case-studies/', '756'),
                 exact: true
               },
               {
                 path: '/docs/analysis/case-studies/architecture-stress-test',
-                component: ComponentCreator('/docs/analysis/case-studies/architecture-stress-test', '15b'),
+                component: ComponentCreator('/docs/analysis/case-studies/architecture-stress-test', '11c'),
                 exact: true
               },
               {
                 path: '/docs/analysis/case-studies/epic-strategic-debate',
-                component: ComponentCreator('/docs/analysis/case-studies/epic-strategic-debate', '395'),
+                component: ComponentCreator('/docs/analysis/case-studies/epic-strategic-debate', 'f56'),
                 exact: true
               },
               {
                 path: '/docs/analysis/case-studies/gdpr-compliance-audit',
-                component: ComponentCreator('/docs/analysis/case-studies/gdpr-compliance-audit', 'df2'),
+                component: ComponentCreator('/docs/analysis/case-studies/gdpr-compliance-audit', '93e'),
                 exact: true
               },
               {
                 path: '/docs/analysis/case-studies/security-api-review',
-                component: ComponentCreator('/docs/analysis/case-studies/security-api-review', 'db8'),
+                component: ComponentCreator('/docs/analysis/case-studies/security-api-review', '760'),
                 exact: true
               },
               {
                 path: '/docs/analysis/codebase',
-                component: ComponentCreator('/docs/analysis/codebase', '150'),
+                component: ComponentCreator('/docs/analysis/codebase', 'd0c'),
                 exact: true
               },
               {
@@ -226,7 +226,7 @@ export default [
               },
               {
                 path: '/docs/api-reference/',
-                component: ComponentCreator('/docs/api-reference/', '106'),
+                component: ComponentCreator('/docs/api-reference/', 'd75'),
                 exact: true,
                 sidebar: "apiSidebar"
               },
@@ -315,42 +315,42 @@ export default [
               },
               {
                 path: '/docs/api/cli',
-                component: ComponentCreator('/docs/api/cli', '290'),
+                component: ComponentCreator('/docs/api/cli', 'e7b'),
                 exact: true
               },
               {
                 path: '/docs/api/discovery',
-                component: ComponentCreator('/docs/api/discovery', 'd58'),
+                component: ComponentCreator('/docs/api/discovery', 'aea'),
                 exact: true
               },
               {
                 path: '/docs/api/endpoints',
-                component: ComponentCreator('/docs/api/endpoints', '2df'),
+                component: ComponentCreator('/docs/api/endpoints', '281'),
                 exact: true
               },
               {
                 path: '/docs/api/evidence',
-                component: ComponentCreator('/docs/api/evidence', 'a70'),
+                component: ComponentCreator('/docs/api/evidence', '5d0'),
                 exact: true
               },
               {
                 path: '/docs/api/examples',
-                component: ComponentCreator('/docs/api/examples', '8f3'),
+                component: ComponentCreator('/docs/api/examples', 'a20'),
                 exact: true
               },
               {
                 path: '/docs/api/github-pr-review',
-                component: ComponentCreator('/docs/api/github-pr-review', 'aa2'),
+                component: ComponentCreator('/docs/api/github-pr-review', '7ed'),
                 exact: true
               },
               {
                 path: '/docs/api/rate-limits',
-                component: ComponentCreator('/docs/api/rate-limits', 'fbd'),
+                component: ComponentCreator('/docs/api/rate-limits', '99f'),
                 exact: true
               },
               {
                 path: '/docs/api/reference',
-                component: ComponentCreator('/docs/api/reference', '489'),
+                component: ComponentCreator('/docs/api/reference', '690'),
                 exact: true
               },
               {
@@ -360,12 +360,12 @@ export default [
               },
               {
                 path: '/docs/api/versioning',
-                component: ComponentCreator('/docs/api/versioning', '2da'),
+                component: ComponentCreator('/docs/api/versioning', '19d'),
                 exact: true
               },
               {
                 path: '/docs/api/webhooks',
-                component: ComponentCreator('/docs/api/webhooks', '9bf'),
+                component: ComponentCreator('/docs/api/webhooks', '58b'),
                 exact: true
               },
               {
@@ -385,27 +385,27 @@ export default [
               },
               {
                 path: '/docs/contributing/documentation-index',
-                component: ComponentCreator('/docs/contributing/documentation-index', '3ad'),
+                component: ComponentCreator('/docs/contributing/documentation-index', 'be8'),
                 exact: true
               },
               {
                 path: '/docs/contributing/documentation-map',
-                component: ComponentCreator('/docs/contributing/documentation-map', '940'),
+                component: ComponentCreator('/docs/contributing/documentation-map', '630'),
                 exact: true
               },
               {
                 path: '/docs/contributing/first-contribution',
-                component: ComponentCreator('/docs/contributing/first-contribution', '481'),
+                component: ComponentCreator('/docs/contributing/first-contribution', '9b3'),
                 exact: true
               },
               {
                 path: '/docs/contributing/frontend-development',
-                component: ComponentCreator('/docs/contributing/frontend-development', '45d'),
+                component: ComponentCreator('/docs/contributing/frontend-development', 'eab'),
                 exact: true
               },
               {
                 path: '/docs/contributing/frontend-routes',
-                component: ComponentCreator('/docs/contributing/frontend-routes', '07f'),
+                component: ComponentCreator('/docs/contributing/frontend-routes', '64a'),
                 exact: true
               },
               {
@@ -415,22 +415,22 @@ export default [
               },
               {
                 path: '/docs/contributing/handler-development',
-                component: ComponentCreator('/docs/contributing/handler-development', '0e6'),
+                component: ComponentCreator('/docs/contributing/handler-development', '8fe'),
                 exact: true
               },
               {
                 path: '/docs/contributing/handlers',
-                component: ComponentCreator('/docs/contributing/handlers', '97e'),
+                component: ComponentCreator('/docs/contributing/handlers', 'ad2'),
                 exact: true
               },
               {
                 path: '/docs/contributing/status',
-                component: ComponentCreator('/docs/contributing/status', '3ef'),
+                component: ComponentCreator('/docs/contributing/status', 'fa5'),
                 exact: true
               },
               {
                 path: '/docs/contributing/testing',
-                component: ComponentCreator('/docs/contributing/testing', '186'),
+                component: ComponentCreator('/docs/contributing/testing', 'e35'),
                 exact: true
               },
               {
@@ -440,12 +440,12 @@ export default [
               },
               {
                 path: '/docs/core-concepts/agent-catalog',
-                component: ComponentCreator('/docs/core-concepts/agent-catalog', '2de'),
+                component: ComponentCreator('/docs/core-concepts/agent-catalog', '118'),
                 exact: true
               },
               {
                 path: '/docs/core-concepts/agent-development',
-                component: ComponentCreator('/docs/core-concepts/agent-development', '3be'),
+                component: ComponentCreator('/docs/core-concepts/agent-development', 'd5c'),
                 exact: true
               },
               {
@@ -455,13 +455,13 @@ export default [
               },
               {
                 path: '/docs/core-concepts/agents',
-                component: ComponentCreator('/docs/core-concepts/agents', '069'),
+                component: ComponentCreator('/docs/core-concepts/agents', '5e1'),
                 exact: true,
                 sidebar: "gettingStartedSidebar"
               },
               {
                 path: '/docs/core-concepts/architecture',
-                component: ComponentCreator('/docs/core-concepts/architecture', '846'),
+                component: ComponentCreator('/docs/core-concepts/architecture', 'c35'),
                 exact: true
               },
               {
@@ -493,7 +493,7 @@ export default [
               },
               {
                 path: '/docs/core-concepts/knowledge-mound',
-                component: ComponentCreator('/docs/core-concepts/knowledge-mound', '97f'),
+                component: ComponentCreator('/docs/core-concepts/knowledge-mound', '86d'),
                 exact: true,
                 sidebar: "gettingStartedSidebar"
               },
@@ -510,12 +510,12 @@ export default [
               },
               {
                 path: '/docs/core-concepts/memory-overview',
-                component: ComponentCreator('/docs/core-concepts/memory-overview', '550'),
+                component: ComponentCreator('/docs/core-concepts/memory-overview', '426'),
                 exact: true
               },
               {
                 path: '/docs/core-concepts/memory-strategy',
-                component: ComponentCreator('/docs/core-concepts/memory-strategy', '4dc'),
+                component: ComponentCreator('/docs/core-concepts/memory-strategy', '6c8'),
                 exact: true
               },
               {
@@ -525,7 +525,7 @@ export default [
               },
               {
                 path: '/docs/core-concepts/workflow-engine',
-                component: ComponentCreator('/docs/core-concepts/workflow-engine', '707'),
+                component: ComponentCreator('/docs/core-concepts/workflow-engine', '9ad'),
                 exact: true
               },
               {
@@ -534,13 +534,23 @@ export default [
                 exact: true
               },
               {
+                path: '/docs/deployment/async-gateway',
+                component: ComponentCreator('/docs/deployment/async-gateway', 'ea0'),
+                exact: true
+              },
+              {
                 path: '/docs/deployment/capacity-planning',
                 component: ComponentCreator('/docs/deployment/capacity-planning', '40f'),
                 exact: true
               },
               {
+                path: '/docs/deployment/container-volumes',
+                component: ComponentCreator('/docs/deployment/container-volumes', 'c4b'),
+                exact: true
+              },
+              {
                 path: '/docs/deployment/database',
-                component: ComponentCreator('/docs/deployment/database', 'ce4'),
+                component: ComponentCreator('/docs/deployment/database', '9cb'),
                 exact: true
               },
               {
@@ -560,7 +570,7 @@ export default [
               },
               {
                 path: '/docs/deployment/disaster-recovery',
-                component: ComponentCreator('/docs/deployment/disaster-recovery', 'c67'),
+                component: ComponentCreator('/docs/deployment/disaster-recovery', '112'),
                 exact: true
               },
               {
@@ -576,18 +586,18 @@ export default [
               },
               {
                 path: '/docs/deployment/kubernetes',
-                component: ComponentCreator('/docs/deployment/kubernetes', '003'),
+                component: ComponentCreator('/docs/deployment/kubernetes', 'a94'),
                 exact: true,
                 sidebar: "guidesSidebar"
               },
               {
                 path: '/docs/deployment/observability',
-                component: ComponentCreator('/docs/deployment/observability', '684'),
+                component: ComponentCreator('/docs/deployment/observability', 'b0c'),
                 exact: true
               },
               {
                 path: '/docs/deployment/observability-setup',
-                component: ComponentCreator('/docs/deployment/observability-setup', '23e'),
+                component: ComponentCreator('/docs/deployment/observability-setup', '41e'),
                 exact: true
               },
               {
@@ -597,17 +607,17 @@ export default [
               },
               {
                 path: '/docs/deployment/postgresql-migration',
-                component: ComponentCreator('/docs/deployment/postgresql-migration', 'd3c'),
+                component: ComponentCreator('/docs/deployment/postgresql-migration', 'cb0'),
                 exact: true
               },
               {
                 path: '/docs/deployment/production-deployment',
-                component: ComponentCreator('/docs/deployment/production-deployment', 'da1'),
+                component: ComponentCreator('/docs/deployment/production-deployment', '25c'),
                 exact: true
               },
               {
                 path: '/docs/deployment/rate-limiting',
-                component: ComponentCreator('/docs/deployment/rate-limiting', 'e13'),
+                component: ComponentCreator('/docs/deployment/rate-limiting', 'f65'),
                 exact: true
               },
               {
@@ -622,12 +632,12 @@ export default [
               },
               {
                 path: '/docs/deployment/runbook',
-                component: ComponentCreator('/docs/deployment/runbook', '94b'),
+                component: ComponentCreator('/docs/deployment/runbook', 'c8f'),
                 exact: true
               },
               {
                 path: '/docs/deployment/scaling',
-                component: ComponentCreator('/docs/deployment/scaling', '622'),
+                component: ComponentCreator('/docs/deployment/scaling', '68a'),
                 exact: true,
                 sidebar: "guidesSidebar"
               },
@@ -638,7 +648,7 @@ export default [
               },
               {
                 path: '/docs/deployment/secrets-migration',
-                component: ComponentCreator('/docs/deployment/secrets-migration', '4c2'),
+                component: ComponentCreator('/docs/deployment/secrets-migration', '125'),
                 exact: true
               },
               {
@@ -649,12 +659,12 @@ export default [
               },
               {
                 path: '/docs/deployment/streaming',
-                component: ComponentCreator('/docs/deployment/streaming', 'e34'),
+                component: ComponentCreator('/docs/deployment/streaming', 'a2f'),
                 exact: true
               },
               {
                 path: '/docs/deployment/tls',
-                component: ComponentCreator('/docs/deployment/tls', '60d'),
+                component: ComponentCreator('/docs/deployment/tls', '963'),
                 exact: true
               },
               {
@@ -680,18 +690,18 @@ export default [
               },
               {
                 path: '/docs/enterprise/commercial-overview',
-                component: ComponentCreator('/docs/enterprise/commercial-overview', '490'),
+                component: ComponentCreator('/docs/enterprise/commercial-overview', '184'),
                 exact: true
               },
               {
                 path: '/docs/enterprise/compliance',
-                component: ComponentCreator('/docs/enterprise/compliance', 'f75'),
+                component: ComponentCreator('/docs/enterprise/compliance', '731'),
                 exact: true,
                 sidebar: "guidesSidebar"
               },
               {
                 path: '/docs/enterprise/control-plane',
-                component: ComponentCreator('/docs/enterprise/control-plane', '0dd'),
+                component: ComponentCreator('/docs/enterprise/control-plane', '8a3'),
                 exact: true
               },
               {
@@ -701,22 +711,22 @@ export default [
               },
               {
                 path: '/docs/enterprise/control-plane-overview',
-                component: ComponentCreator('/docs/enterprise/control-plane-overview', '622'),
+                component: ComponentCreator('/docs/enterprise/control-plane-overview', '2d6'),
                 exact: true
               },
               {
                 path: '/docs/enterprise/features',
-                component: ComponentCreator('/docs/enterprise/features', 'b0d'),
+                component: ComponentCreator('/docs/enterprise/features', '170'),
                 exact: true
               },
               {
                 path: '/docs/enterprise/governance',
-                component: ComponentCreator('/docs/enterprise/governance', 'eb7'),
+                component: ComponentCreator('/docs/enterprise/governance', '987'),
                 exact: true
               },
               {
                 path: '/docs/enterprise/incident-response',
-                component: ComponentCreator('/docs/enterprise/incident-response', '20a'),
+                component: ComponentCreator('/docs/enterprise/incident-response', '360'),
                 exact: true
               },
               {
@@ -727,23 +737,23 @@ export default [
               },
               {
                 path: '/docs/enterprise/positioning',
-                component: ComponentCreator('/docs/enterprise/positioning', '312'),
+                component: ComponentCreator('/docs/enterprise/positioning', '6ee'),
                 exact: true
               },
               {
                 path: '/docs/enterprise/sla',
-                component: ComponentCreator('/docs/enterprise/sla', '443'),
+                component: ComponentCreator('/docs/enterprise/sla', 'f65'),
                 exact: true
               },
               {
                 path: '/docs/enterprise/sso',
-                component: ComponentCreator('/docs/enterprise/sso', 'b7f'),
+                component: ComponentCreator('/docs/enterprise/sso', '9d0'),
                 exact: true,
                 sidebar: "guidesSidebar"
               },
               {
                 path: '/docs/enterprise/stripe-setup',
-                component: ComponentCreator('/docs/enterprise/stripe-setup', 'd0d'),
+                component: ComponentCreator('/docs/enterprise/stripe-setup', '079'),
                 exact: true
               },
               {
@@ -758,12 +768,12 @@ export default [
               },
               {
                 path: '/docs/getting-started/configuration',
-                component: ComponentCreator('/docs/getting-started/configuration', 'e73'),
+                component: ComponentCreator('/docs/getting-started/configuration', 'cbc'),
                 exact: true
               },
               {
                 path: '/docs/getting-started/environment',
-                component: ComponentCreator('/docs/getting-started/environment', '52b'),
+                component: ComponentCreator('/docs/getting-started/environment', 'fab'),
                 exact: true
               },
               {
@@ -780,18 +790,18 @@ export default [
               },
               {
                 path: '/docs/getting-started/introduction',
-                component: ComponentCreator('/docs/getting-started/introduction', 'b8b'),
+                component: ComponentCreator('/docs/getting-started/introduction', 'a43'),
                 exact: true,
                 sidebar: "gettingStartedSidebar"
               },
               {
                 path: '/docs/getting-started/overview',
-                component: ComponentCreator('/docs/getting-started/overview', '5e0'),
+                component: ComponentCreator('/docs/getting-started/overview', '466'),
                 exact: true
               },
               {
                 path: '/docs/getting-started/quickstart',
-                component: ComponentCreator('/docs/getting-started/quickstart', '1c2'),
+                component: ComponentCreator('/docs/getting-started/quickstart', '5bc'),
                 exact: true,
                 sidebar: "gettingStartedSidebar"
               },
@@ -801,24 +811,30 @@ export default [
                 exact: true
               },
               {
+                path: '/docs/guides/accounting',
+                component: ComponentCreator('/docs/guides/accounting', 'c25'),
+                exact: true
+              },
+              {
                 path: '/docs/guides/api-quickstart',
                 component: ComponentCreator('/docs/guides/api-quickstart', '186'),
                 exact: true
               },
               {
                 path: '/docs/guides/api-usage',
-                component: ComponentCreator('/docs/guides/api-usage', 'e94'),
+                component: ComponentCreator('/docs/guides/api-usage', 'd1e'),
                 exact: true
               },
               {
                 path: '/docs/guides/automation',
-                component: ComponentCreator('/docs/guides/automation', '4b2'),
+                component: ComponentCreator('/docs/guides/automation', '66a'),
                 exact: true
               },
               {
                 path: '/docs/guides/bot-integrations',
-                component: ComponentCreator('/docs/guides/bot-integrations', 'd14'),
-                exact: true
+                component: ComponentCreator('/docs/guides/bot-integrations', '7c1'),
+                exact: true,
+                sidebar: "guidesSidebar"
               },
               {
                 path: '/docs/guides/broadcast',
@@ -827,32 +843,33 @@ export default [
               },
               {
                 path: '/docs/guides/channels',
-                component: ComponentCreator('/docs/guides/channels', 'e84'),
-                exact: true
+                component: ComponentCreator('/docs/guides/channels', '337'),
+                exact: true,
+                sidebar: "guidesSidebar"
               },
               {
                 path: '/docs/guides/chat-connector',
-                component: ComponentCreator('/docs/guides/chat-connector', 'd1a'),
+                component: ComponentCreator('/docs/guides/chat-connector', 'ddd'),
                 exact: true
               },
               {
                 path: '/docs/guides/coding-assistance',
-                component: ComponentCreator('/docs/guides/coding-assistance', '748'),
+                component: ComponentCreator('/docs/guides/coding-assistance', 'ea6'),
                 exact: true
               },
               {
                 path: '/docs/guides/connector-troubleshooting',
-                component: ComponentCreator('/docs/guides/connector-troubleshooting', '6a2'),
+                component: ComponentCreator('/docs/guides/connector-troubleshooting', '4ea'),
                 exact: true
               },
               {
                 path: '/docs/guides/connectors',
-                component: ComponentCreator('/docs/guides/connectors', 'e96'),
+                component: ComponentCreator('/docs/guides/connectors', 'b8f'),
                 exact: true
               },
               {
                 path: '/docs/guides/connectors-setup',
-                component: ComponentCreator('/docs/guides/connectors-setup', '637'),
+                component: ComponentCreator('/docs/guides/connectors-setup', '8c8'),
                 exact: true
               },
               {
@@ -862,39 +879,40 @@ export default [
               },
               {
                 path: '/docs/guides/custom-agents',
-                component: ComponentCreator('/docs/guides/custom-agents', '666'),
+                component: ComponentCreator('/docs/guides/custom-agents', 'fc2'),
                 exact: true,
                 sidebar: "guidesSidebar"
               },
               {
                 path: '/docs/guides/documents',
-                component: ComponentCreator('/docs/guides/documents', '65e'),
+                component: ComponentCreator('/docs/guides/documents', 'fd7'),
                 exact: true
               },
               {
                 path: '/docs/guides/email-prioritization',
-                component: ComponentCreator('/docs/guides/email-prioritization', '4a9'),
-                exact: true
+                component: ComponentCreator('/docs/guides/email-prioritization', '48a'),
+                exact: true,
+                sidebar: "guidesSidebar"
               },
               {
                 path: '/docs/guides/evidence',
-                component: ComponentCreator('/docs/guides/evidence', 'a5c'),
+                component: ComponentCreator('/docs/guides/evidence', '846'),
                 exact: true,
                 sidebar: "guidesSidebar"
               },
               {
                 path: '/docs/guides/features',
-                component: ComponentCreator('/docs/guides/features', '0c9'),
+                component: ComponentCreator('/docs/guides/features', '620'),
                 exact: true
               },
               {
                 path: '/docs/guides/gauntlet',
-                component: ComponentCreator('/docs/guides/gauntlet', '504'),
+                component: ComponentCreator('/docs/guides/gauntlet', '470'),
                 exact: true
               },
               {
                 path: '/docs/guides/gauntlet-architecture',
-                component: ComponentCreator('/docs/guides/gauntlet-architecture', '147'),
+                component: ComponentCreator('/docs/guides/gauntlet-architecture', 'b2d'),
                 exact: true
               },
               {
@@ -904,8 +922,14 @@ export default [
               },
               {
                 path: '/docs/guides/harnesses',
-                component: ComponentCreator('/docs/guides/harnesses', 'cb5'),
+                component: ComponentCreator('/docs/guides/harnesses', 'e5a'),
                 exact: true
+              },
+              {
+                path: '/docs/guides/inbox-guide',
+                component: ComponentCreator('/docs/guides/inbox-guide', '648'),
+                exact: true,
+                sidebar: "guidesSidebar"
               },
               {
                 path: '/docs/guides/integrations',
@@ -915,7 +939,7 @@ export default [
               },
               {
                 path: '/docs/guides/library-usage',
-                component: ComponentCreator('/docs/guides/library-usage', '2a1'),
+                component: ComponentCreator('/docs/guides/library-usage', 'b1a'),
                 exact: true
               },
               {
@@ -935,22 +959,22 @@ export default [
               },
               {
                 path: '/docs/guides/modes',
-                component: ComponentCreator('/docs/guides/modes', 'ff1'),
+                component: ComponentCreator('/docs/guides/modes', '8cc'),
                 exact: true
               },
               {
                 path: '/docs/guides/modes-reference',
-                component: ComponentCreator('/docs/guides/modes-reference', '436'),
+                component: ComponentCreator('/docs/guides/modes-reference', 'cca'),
                 exact: true
               },
               {
                 path: '/docs/guides/plugin-guide',
-                component: ComponentCreator('/docs/guides/plugin-guide', 'e2d'),
+                component: ComponentCreator('/docs/guides/plugin-guide', 'c6f'),
                 exact: true
               },
               {
                 path: '/docs/guides/probe-strategies',
-                component: ComponentCreator('/docs/guides/probe-strategies', 'e3e'),
+                component: ComponentCreator('/docs/guides/probe-strategies', 'bb2'),
                 exact: true
               },
               {
@@ -971,27 +995,33 @@ export default [
               },
               {
                 path: '/docs/guides/sdk-typescript',
-                component: ComponentCreator('/docs/guides/sdk-typescript', '476'),
+                component: ComponentCreator('/docs/guides/sdk-typescript', '7aa'),
                 exact: true
               },
               {
                 path: '/docs/guides/shared-inbox',
-                component: ComponentCreator('/docs/guides/shared-inbox', '113'),
+                component: ComponentCreator('/docs/guides/shared-inbox', 'ade'),
+                exact: true,
+                sidebar: "guidesSidebar"
+              },
+              {
+                path: '/docs/guides/templates',
+                component: ComponentCreator('/docs/guides/templates', 'bc9'),
                 exact: true
               },
               {
                 path: '/docs/guides/user-onboarding',
-                component: ComponentCreator('/docs/guides/user-onboarding', 'f66'),
+                component: ComponentCreator('/docs/guides/user-onboarding', 'fc3'),
                 exact: true
               },
               {
                 path: '/docs/guides/verticals',
-                component: ComponentCreator('/docs/guides/verticals', '5e7'),
+                component: ComponentCreator('/docs/guides/verticals', 'fba'),
                 exact: true
               },
               {
                 path: '/docs/guides/websocket-events',
-                component: ComponentCreator('/docs/guides/websocket-events', 'a95'),
+                component: ComponentCreator('/docs/guides/websocket-events', 'd70'),
                 exact: true
               },
               {
@@ -1007,22 +1037,22 @@ export default [
               },
               {
                 path: '/docs/operations/alert-runbooks',
-                component: ComponentCreator('/docs/operations/alert-runbooks', '1f4'),
+                component: ComponentCreator('/docs/operations/alert-runbooks', 'be6'),
                 exact: true
               },
               {
                 path: '/docs/operations/incident-communication',
-                component: ComponentCreator('/docs/operations/incident-communication', '088'),
+                component: ComponentCreator('/docs/operations/incident-communication', '5d9'),
                 exact: true
               },
               {
                 path: '/docs/operations/incident-response',
-                component: ComponentCreator('/docs/operations/incident-response', '563'),
+                component: ComponentCreator('/docs/operations/incident-response', '3e6'),
                 exact: true
               },
               {
                 path: '/docs/operations/incident-response-playbooks',
-                component: ComponentCreator('/docs/operations/incident-response-playbooks', '4bc'),
+                component: ComponentCreator('/docs/operations/incident-response-playbooks', 'bc5'),
                 exact: true
               },
               {
@@ -1037,17 +1067,17 @@ export default [
               },
               {
                 path: '/docs/operations/production-readiness',
-                component: ComponentCreator('/docs/operations/production-readiness', 'c2d'),
+                component: ComponentCreator('/docs/operations/production-readiness', 'd5e'),
                 exact: true
               },
               {
                 path: '/docs/operations/production-runbook',
-                component: ComponentCreator('/docs/operations/production-runbook', '47e'),
+                component: ComponentCreator('/docs/operations/production-runbook', '5ba'),
                 exact: true
               },
               {
                 path: '/docs/operations/runbook',
-                component: ComponentCreator('/docs/operations/runbook', '915'),
+                component: ComponentCreator('/docs/operations/runbook', '176'),
                 exact: true
               },
               {
@@ -1067,7 +1097,7 @@ export default [
               },
               {
                 path: '/docs/operations/runbook-metrics',
-                component: ComponentCreator('/docs/operations/runbook-metrics', 'd91'),
+                component: ComponentCreator('/docs/operations/runbook-metrics', '8fe'),
                 exact: true
               },
               {
@@ -1087,7 +1117,7 @@ export default [
               },
               {
                 path: '/docs/security/authentication',
-                component: ComponentCreator('/docs/security/authentication', '231'),
+                component: ComponentCreator('/docs/security/authentication', '3ed'),
                 exact: true
               },
               {
@@ -1107,7 +1137,7 @@ export default [
               },
               {
                 path: '/docs/security/compliance-presets',
-                component: ComponentCreator('/docs/security/compliance-presets', 'b7c'),
+                component: ComponentCreator('/docs/security/compliance-presets', 'eea'),
                 exact: true
               },
               {
@@ -1117,7 +1147,7 @@ export default [
               },
               {
                 path: '/docs/security/data-residency',
-                component: ComponentCreator('/docs/security/data-residency', '6ba'),
+                component: ComponentCreator('/docs/security/data-residency', '1cc'),
                 exact: true
               },
               {
@@ -1127,42 +1157,42 @@ export default [
               },
               {
                 path: '/docs/security/oauth-guide',
-                component: ComponentCreator('/docs/security/oauth-guide', '6c7'),
+                component: ComponentCreator('/docs/security/oauth-guide', '1a7'),
                 exact: true
               },
               {
                 path: '/docs/security/oauth-setup',
-                component: ComponentCreator('/docs/security/oauth-setup', 'f08'),
+                component: ComponentCreator('/docs/security/oauth-setup', 'd4b'),
                 exact: true
               },
               {
                 path: '/docs/security/overview',
-                component: ComponentCreator('/docs/security/overview', '771'),
+                component: ComponentCreator('/docs/security/overview', 'e37'),
                 exact: true
               },
               {
                 path: '/docs/security/patterns',
-                component: ComponentCreator('/docs/security/patterns', 'f88'),
+                component: ComponentCreator('/docs/security/patterns', 'f96'),
                 exact: true
               },
               {
                 path: '/docs/security/privacy-policy',
-                component: ComponentCreator('/docs/security/privacy-policy', 'b4c'),
+                component: ComponentCreator('/docs/security/privacy-policy', '085'),
                 exact: true
               },
               {
                 path: '/docs/security/remote-work',
-                component: ComponentCreator('/docs/security/remote-work', '695'),
+                component: ComponentCreator('/docs/security/remote-work', '958'),
                 exact: true
               },
               {
                 path: '/docs/security/runtime',
-                component: ComponentCreator('/docs/security/runtime', 'c7b'),
+                component: ComponentCreator('/docs/security/runtime', '25c'),
                 exact: true
               },
               {
                 path: '/docs/security/session-management',
-                component: ComponentCreator('/docs/security/session-management', '75d'),
+                component: ComponentCreator('/docs/security/session-management', '478'),
                 exact: true
               }
             ]

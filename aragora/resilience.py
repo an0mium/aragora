@@ -1122,3 +1122,93 @@ def cleanup_stale_persisted(max_age_hours: float = 72.0) -> int:
     except (sqlite3.Error, OSError) as e:
         logger.warning(f"Failed to cleanup stale circuit breakers: {type(e).__name__}: {e}")
         return 0
+
+
+# =============================================================================
+# Resilience Metrics API
+# =============================================================================
+
+
+def get_all_circuit_breakers_status() -> dict[str, Any]:
+    """Get status of all registered circuit breakers.
+
+    Returns a dict with overall health and per-circuit-breaker details
+    suitable for HTTP API response.
+
+    Returns:
+        Dict with structure:
+        {
+            "healthy": bool,  # True if no circuits are open
+            "total_circuits": int,
+            "open_circuits": int,
+            "half_open_circuits": int,
+            "closed_circuits": int,
+            "circuits": {
+                "circuit_name": {
+                    "status": "closed" | "open" | "half-open",
+                    "failures": int,
+                    "config": {...},
+                    ...
+                }
+            }
+        }
+    """
+    with _circuit_breakers_lock:
+        circuits = {}
+        open_count = 0
+        half_open_count = 0
+        closed_count = 0
+
+        for name, cb in _circuit_breakers.items():
+            status = cb.get_status()
+            circuit_info = cb.to_dict()
+            circuit_info["status"] = status
+            circuit_info["name"] = name
+            circuits[name] = circuit_info
+
+            if status == "open":
+                open_count += 1
+            elif status == "half-open":
+                half_open_count += 1
+            else:
+                closed_count += 1
+
+        return {
+            "healthy": open_count == 0,
+            "total_circuits": len(circuits),
+            "open_circuits": open_count,
+            "half_open_circuits": half_open_count,
+            "closed_circuits": closed_count,
+            "circuits": circuits,
+        }
+
+
+def get_circuit_breaker_summary() -> dict[str, Any]:
+    """Get a lightweight summary of circuit breaker health.
+
+    Returns:
+        Dict with structure:
+        {
+            "healthy": bool,
+            "total": int,
+            "open": list[str],  # Names of open circuits
+            "half_open": list[str],  # Names of half-open circuits
+        }
+    """
+    with _circuit_breakers_lock:
+        open_names = []
+        half_open_names = []
+
+        for name, cb in _circuit_breakers.items():
+            status = cb.get_status()
+            if status == "open":
+                open_names.append(name)
+            elif status == "half-open":
+                half_open_names.append(name)
+
+        return {
+            "healthy": len(open_names) == 0,
+            "total": len(_circuit_breakers),
+            "open": open_names,
+            "half_open": half_open_names,
+        }

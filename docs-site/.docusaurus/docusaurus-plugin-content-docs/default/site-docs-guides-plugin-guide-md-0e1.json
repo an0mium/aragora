@@ -11,8 +11,8 @@
   "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/plugin-guide.md",
   "tags": [],
   "version": "current",
-  "lastUpdatedBy": null,
-  "lastUpdatedAt": null,
+  "lastUpdatedBy": "an0mium",
+  "lastUpdatedAt": 1769147442000,
   "frontMatter": {
     "title": "Aragora Plugin Development Guide",
     "description": "Aragora Plugin Development Guide"

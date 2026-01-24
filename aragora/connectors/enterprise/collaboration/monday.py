@@ -463,6 +463,7 @@ class MondayConnector(EnterpriseConnector):
     def name(self) -> str:
         return "Monday.com"
 
+    @property
     def is_configured(self) -> bool:
         """Check if connector has required configuration."""
         import os

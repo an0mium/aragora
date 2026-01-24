@@ -179,9 +179,8 @@ class BaseConnector(ABC):
     DEFAULT_MAX_DELAY = 30.0  # seconds
     DEFAULT_JITTER_FACTOR = 0.3  # ±30%
 
-    # Connector identification
-    name: str = "base"  # Override in subclasses
-    source_type: SourceType = SourceType.WEB_SEARCH  # Default source type
+    # Connector identification (defined as abstract properties below)
+    # Subclasses must implement name and source_type properties
 
     @property
     def is_available(self) -> bool:

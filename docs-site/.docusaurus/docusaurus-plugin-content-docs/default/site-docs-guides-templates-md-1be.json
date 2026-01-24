@@ -1,0 +1,20 @@
+{
+  "id": "guides/templates",
+  "title": "Vetted Decisionmaking Templates",
+  "description": "Vetted Decisionmaking Templates",
+  "source": "@site/docs/guides/templates.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/templates",
+  "permalink": "/docs/guides/templates",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/templates.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": "an0mium",
+  "lastUpdatedAt": 1769189229000,
+  "frontMatter": {
+    "title": "Vetted Decisionmaking Templates",
+    "description": "Vetted Decisionmaking Templates"
+  }
+}

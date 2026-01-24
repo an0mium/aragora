@@ -12,7 +12,7 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769115225000,
+  "lastUpdatedAt": 1769147442000,
   "frontMatter": {
     "title": "Evidence System Guide",
     "description": "Evidence System Guide"
@@ -23,7 +23,7 @@
     "permalink": "/docs/guides/integrations"
   },
   "next": {
-    "title": "docker",
-    "permalink": "/docs/deployment/docker"
+    "title": "Aragora Channels",
+    "permalink": "/docs/guides/channels"
   }
 }

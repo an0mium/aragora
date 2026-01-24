@@ -1,0 +1,20 @@
+{
+  "id": "guides/accounting",
+  "title": "Accounting & Financial Automation",
+  "description": "Accounting & Financial Automation",
+  "source": "@site/docs/guides/accounting.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/accounting",
+  "permalink": "/docs/guides/accounting",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/accounting.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": "an0mium",
+  "lastUpdatedAt": 1769152571000,
+  "frontMatter": {
+    "title": "Accounting & Financial Automation",
+    "description": "Accounting & Financial Automation"
+  }
+}

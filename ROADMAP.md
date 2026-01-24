@@ -1,7 +1,7 @@
 # Aragora Product Roadmap
 
 **Last Updated:** January 2026
-**Current Version:** 2.1.10
+**Current Version:** 2.1.15
 
 ---
 
@@ -47,14 +47,15 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 ### SOC 2 Type II Certification
 - [ ] Complete third-party penetration testing
 - [ ] Deploy public status page at status.aragora.ai
-- [ ] Implement quarterly disaster recovery drills
+- [x] Implement quarterly disaster recovery drills (BackupScheduler with DR integration)
 - [ ] Finalize data classification policy
 - [ ] MFA enforcement for admin access
 
 ### Platform Stability
 - [ ] PostgreSQL migration runbook for zero-downtime upgrades
 - [ ] Multi-region deployment support
-- [ ] Enhanced circuit breaker coverage for all connectors
+- [x] Enhanced circuit breaker coverage for all connectors (rate limit circuit breaker, Redis HA)
+- [x] Redis Sentinel/Cluster support (RedisHAClient)
 - [ ] 99.9% uptime target with public SLA
 
 ### Developer Experience
@@ -99,7 +100,7 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 - [ ] Kubernetes Operator for automated scaling
 - [ ] Global edge deployment
 - [ ] Debate sharding for high-throughput workloads
-- [ ] Redis Cluster mode support
+- [x] Redis Cluster mode support (v2.1.14)
 
 ### Cost Optimization
 - [ ] Smart provider routing based on cost/quality

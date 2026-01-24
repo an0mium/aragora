@@ -182,6 +182,7 @@ class OneDriveConnector(EnterpriseConnector):
         """Get the provenance source type."""
         return SourceType.ONEDRIVE  # type: ignore[attr-defined]
 
+    @property
     def is_configured(self) -> bool:
         """Check if connector is properly configured."""
         return bool(self.client_id and self.client_secret)

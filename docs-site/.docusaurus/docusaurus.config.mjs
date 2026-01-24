@@ -5,13 +5,30 @@
  */
 export default {
   "title": "Aragora Documentation",
-  "tagline": "Control plane for multi-agent deliberation across org knowledge and channels",
+  "tagline": "Control plane for multi-agent vetted decisionmaking across org knowledge and channels",
   "favicon": "img/favicon.ico",
   "url": "https://docs.aragora.ai",
   "baseUrl": "/",
   "organizationName": "aragora",
   "projectName": "aragora",
   "onBrokenLinks": "warn",
+  "markdown": {
+    "hooks": {
+      "onBrokenMarkdownLinks": "warn",
+      "onBrokenMarkdownImages": "throw"
+    },
+    "format": "mdx",
+    "mermaid": false,
+    "emoji": true,
+    "mdx1Compat": {
+      "comments": true,
+      "admonitions": true,
+      "headingIds": true
+    },
+    "anchors": {
+      "maintainCase": false
+    }
+  },
   "i18n": {
     "defaultLocale": "en",
     "locales": [
@@ -436,22 +453,5 @@ export default {
   "stylesheets": [],
   "clientModules": [],
   "titleDelimiter": "|",
-  "noIndex": false,
-  "markdown": {
-    "format": "mdx",
-    "mermaid": false,
-    "emoji": true,
-    "mdx1Compat": {
-      "comments": true,
-      "admonitions": true,
-      "headingIds": true
-    },
-    "anchors": {
-      "maintainCase": false
-    },
-    "hooks": {
-      "onBrokenMarkdownLinks": "warn",
-      "onBrokenMarkdownImages": "throw"
-    }
-  }
+  "noIndex": false
 };

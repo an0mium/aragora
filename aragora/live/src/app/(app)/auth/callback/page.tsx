@@ -65,17 +65,28 @@ function OAuthCallbackContent() {
           setMessage('Authentication successful');
           // Clear the hash from URL for security
           window.history.replaceState(null, '', window.location.pathname);
-          // Small delay for user to see success message, then redirect
-          setTimeout(() => router.push('/'), 500);
+
+          // Verify tokens are stored before redirect
+          const storedTokens = localStorage.getItem('aragora_tokens');
+          const storedUser = localStorage.getItem('aragora_user');
+          console.log('[OAuth Callback] Pre-redirect check - tokens:', !!storedTokens, 'user:', !!storedUser);
+
+          // Slightly longer delay to ensure state is settled before navigation
+          setTimeout(() => {
+            console.log('[OAuth Callback] Redirecting to home...');
+            router.push('/');
+          }, 750);
         } catch (err) {
           console.error('[OAuth Callback] Failed to set tokens:', err);
           setStatus('error');
           // Provide more descriptive error messages
           if (err instanceof Error) {
             if (err.message.includes('Invalid tokens')) {
-              setMessage('OAuth tokens were rejected by the server. The backend may not be configured to accept these tokens.');
+              setMessage('OAuth tokens were rejected by the server. Please try logging in again.');
             } else if (err.message.includes('401')) {
               setMessage('Authentication failed. Please try logging in again.');
+            } else if (err.message.includes('Network error') || err.message.includes('Server error')) {
+              setMessage(err.message + ' Your tokens have been saved.');
             } else {
               setMessage(err.message || 'Failed to complete authentication');
             }

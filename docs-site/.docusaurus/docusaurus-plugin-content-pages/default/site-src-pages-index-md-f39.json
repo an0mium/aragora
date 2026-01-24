@@ -3,10 +3,10 @@
   "permalink": "/",
   "source": "@site/src/pages/index.md",
   "title": "Aragora Docs",
-  "description": "Control plane for multi-agent deliberation across org knowledge and channels.",
+  "description": "Control plane for multi-agent vetted decisionmaking across org knowledge and channels.",
   "frontMatter": {
     "title": "Aragora Docs",
-    "description": "Control plane for multi-agent deliberation across org knowledge and channels."
+    "description": "Control plane for multi-agent vetted decisionmaking across org knowledge and channels."
   },
   "unlisted": false
 }
