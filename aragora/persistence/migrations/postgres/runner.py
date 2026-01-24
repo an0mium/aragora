@@ -1,18 +1,21 @@
 """
 PostgreSQL Migration Runner for Aragora.
 
-Provides async migration support for PostgreSQL databases.
+Provides async migration support for PostgreSQL databases with rollback support.
 
 Usage:
     from aragora.persistence.migrations.postgres import PostgresMigrationRunner
 
     runner = PostgresMigrationRunner()
-    await runner.migrate()  # Run pending migrations
-    await runner.status()   # Check migration status
+    await runner.migrate()              # Run pending migrations
+    await runner.rollback(target=1)     # Rollback to version 1
+    await runner.status()               # Check migration status
+    await runner.migrate(dry_run=True)  # Preview migrations without applying
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 from dataclasses import dataclass
@@ -45,6 +48,18 @@ class MigrationRecord:
     checksum: Optional[str] = None
 
 
+@dataclass
+class MigrationResult:
+    """Result of a migration operation."""
+
+    success: bool
+    migrations_applied: int
+    migrations_rolled_back: int
+    current_version: int
+    errors: list[str]
+    dry_run: bool = False
+
+
 class PostgresMigrationRunner:
     """
     Async PostgreSQL migration runner.
@@ -69,9 +84,7 @@ class PostgresMigrationRunner:
             dsn: PostgreSQL DSN (if pool not provided)
         """
         self._pool = pool
-        self._dsn = dsn or os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get(
-            "DATABASE_URL"
-        )
+        self._dsn = dsn or os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
         self._migrations: dict[int, Callable] = {}
 
     async def _get_pool(self) -> "Pool":
@@ -125,6 +138,12 @@ class PostgresMigrationRunner:
             checksum,
         )
 
+    @staticmethod
+    def _compute_checksum(sql: str) -> str:
+        """Compute SHA-256 checksum for migration SQL."""
+        normalized = sql.strip().replace("\r\n", "\n")
+        return hashlib.sha256(normalized.encode()).hexdigest()[:16]
+
     def register_migration(
         self, version: int, name: str, up_sql: str, down_sql: Optional[str] = None
     ) -> None:
@@ -137,41 +156,256 @@ class PostgresMigrationRunner:
             up_sql: SQL to apply migration
             down_sql: SQL to reverse migration (optional)
         """
+        checksum = self._compute_checksum(up_sql)
 
         async def migrate(conn: "Connection") -> None:
             await conn.execute(up_sql)
 
-        self._migrations[version] = (name, migrate, down_sql)
+        async def rollback(conn: "Connection") -> None:
+            if down_sql:
+                await conn.execute(down_sql)
+            else:
+                raise ValueError(f"Migration {version} ({name}) has no rollback SQL defined")
 
-    async def migrate(self) -> int:
+        self._migrations[version] = {
+            "name": name,
+            "up": migrate,
+            "down": rollback,
+            "down_sql": down_sql,
+            "checksum": checksum,
+        }
+
+    async def migrate(self, dry_run: bool = False, target: Optional[int] = None) -> MigrationResult:
         """
-        Run all pending migrations.
+        Run pending migrations.
+
+        Args:
+            dry_run: If True, preview migrations without applying
+            target: Optional target version to migrate to
 
         Returns:
-            Number of migrations applied
+            MigrationResult with details of the operation
         """
         pool = await self._get_pool()
         applied_count = 0
+        errors: list[str] = []
+        current_version = 0
 
         async with pool.acquire() as conn:
             await self._ensure_migrations_table(conn)
             applied = await self._get_applied_versions(conn)
+            current_version = max(applied) if applied else 0
 
             # Get pending migrations in order
             pending = sorted(v for v in self._migrations.keys() if v not in applied)
 
+            # Filter by target if specified
+            if target is not None:
+                pending = [v for v in pending if v <= target]
+
+            if dry_run:
+                logger.info(f"[DRY RUN] Would apply {len(pending)} migrations")
+                for version in pending:
+                    migration = self._migrations[version]
+                    logger.info(
+                        f"  - {version}: {migration['name']} (checksum: {migration['checksum']})"
+                    )
+                return MigrationResult(
+                    success=True,
+                    migrations_applied=len(pending),
+                    migrations_rolled_back=0,
+                    current_version=current_version,
+                    errors=[],
+                    dry_run=True,
+                )
+
             for version in pending:
-                name, migrate_fn, _ = self._migrations[version]
+                migration = self._migrations[version]
+                name = migration["name"]
+                checksum = migration["checksum"]
                 logger.info(f"Applying migration {version}: {name}")
 
-                async with conn.transaction():
-                    await migrate_fn(conn)
-                    await self._record_migration(conn, version, name)
+                try:
+                    async with conn.transaction():
+                        await migration["up"](conn)
+                        await self._record_migration(conn, version, name, checksum)
 
-                applied_count += 1
-                logger.info(f"Migration {version} applied successfully")
+                    applied_count += 1
+                    current_version = version
+                    logger.info(f"Migration {version} applied successfully")
+                except Exception as e:
+                    error_msg = f"Migration {version} failed: {e}"
+                    logger.error(error_msg)
+                    errors.append(error_msg)
+                    break  # Stop on first error
 
-        return applied_count
+        return MigrationResult(
+            success=len(errors) == 0,
+            migrations_applied=applied_count,
+            migrations_rolled_back=0,
+            current_version=current_version,
+            errors=errors,
+            dry_run=False,
+        )
+
+    async def rollback(
+        self, target: Optional[int] = None, steps: int = 1, dry_run: bool = False
+    ) -> MigrationResult:
+        """
+        Rollback migrations.
+
+        Args:
+            target: Target version to rollback to (exclusive)
+            steps: Number of migrations to rollback (ignored if target specified)
+            dry_run: If True, preview rollback without applying
+
+        Returns:
+            MigrationResult with details of the operation
+        """
+        pool = await self._get_pool()
+        rolled_back_count = 0
+        errors: list[str] = []
+
+        async with pool.acquire() as conn:
+            await self._ensure_migrations_table(conn)
+
+            # Get applied migrations in reverse order
+            rows = await conn.fetch(
+                f"SELECT version, name, checksum FROM {self.MIGRATIONS_TABLE} ORDER BY version DESC"
+            )
+            if not rows:
+                return MigrationResult(
+                    success=True,
+                    migrations_applied=0,
+                    migrations_rolled_back=0,
+                    current_version=0,
+                    errors=["No migrations to rollback"],
+                    dry_run=dry_run,
+                )
+
+            current_version = rows[0]["version"]
+
+            # Determine which migrations to rollback
+            if target is not None:
+                to_rollback = [r for r in rows if r["version"] > target]
+            else:
+                to_rollback = rows[:steps]
+
+            if not to_rollback:
+                return MigrationResult(
+                    success=True,
+                    migrations_applied=0,
+                    migrations_rolled_back=0,
+                    current_version=current_version,
+                    errors=["No migrations to rollback"],
+                    dry_run=dry_run,
+                )
+
+            if dry_run:
+                logger.info(f"[DRY RUN] Would rollback {len(to_rollback)} migrations")
+                for row in to_rollback:
+                    logger.info(f"  - {row['version']}: {row['name']}")
+                return MigrationResult(
+                    success=True,
+                    migrations_applied=0,
+                    migrations_rolled_back=len(to_rollback),
+                    current_version=current_version,
+                    errors=[],
+                    dry_run=True,
+                )
+
+            for row in to_rollback:
+                version = row["version"]
+                name = row["name"]
+
+                if version not in self._migrations:
+                    error_msg = f"Migration {version} ({name}) not found in registered migrations"
+                    logger.error(error_msg)
+                    errors.append(error_msg)
+                    break
+
+                migration = self._migrations[version]
+
+                # Verify checksum if available
+                if row["checksum"] and migration["checksum"] != row["checksum"]:
+                    logger.warning(
+                        f"Migration {version} checksum mismatch: "
+                        f"expected {row['checksum']}, got {migration['checksum']}"
+                    )
+
+                if migration["down_sql"] is None:
+                    error_msg = f"Migration {version} ({name}) has no rollback SQL"
+                    logger.error(error_msg)
+                    errors.append(error_msg)
+                    break
+
+                logger.info(f"Rolling back migration {version}: {name}")
+
+                try:
+                    async with conn.transaction():
+                        await migration["down"](conn)
+                        await conn.execute(
+                            f"DELETE FROM {self.MIGRATIONS_TABLE} WHERE version = $1", version
+                        )
+
+                    rolled_back_count += 1
+                    current_version = version - 1
+                    logger.info(f"Migration {version} rolled back successfully")
+                except Exception as e:
+                    error_msg = f"Rollback of migration {version} failed: {e}"
+                    logger.error(error_msg)
+                    errors.append(error_msg)
+                    break
+
+        # Get actual current version after rollback
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(f"SELECT MAX(version) as version FROM {self.MIGRATIONS_TABLE}")
+            current_version = rows[0]["version"] if rows and rows[0]["version"] else 0
+
+        return MigrationResult(
+            success=len(errors) == 0,
+            migrations_applied=0,
+            migrations_rolled_back=rolled_back_count,
+            current_version=current_version,
+            errors=errors,
+            dry_run=False,
+        )
+
+    async def verify_checksums(self) -> dict[int, tuple[bool, str]]:
+        """
+        Verify checksums of applied migrations against registered migrations.
+
+        Returns:
+            Dict mapping version to (is_valid, message) tuple
+        """
+        pool = await self._get_pool()
+        results: dict[int, tuple[bool, str]] = {}
+
+        async with pool.acquire() as conn:
+            await self._ensure_migrations_table(conn)
+            rows = await conn.fetch(f"SELECT version, name, checksum FROM {self.MIGRATIONS_TABLE}")
+
+            for row in rows:
+                version = row["version"]
+                stored_checksum = row["checksum"]
+
+                if version not in self._migrations:
+                    results[version] = (False, f"Migration {version} not registered")
+                    continue
+
+                current_checksum = self._migrations[version]["checksum"]
+
+                if stored_checksum is None:
+                    results[version] = (True, "No checksum stored (legacy migration)")
+                elif stored_checksum == current_checksum:
+                    results[version] = (True, "Checksum matches")
+                else:
+                    results[version] = (
+                        False,
+                        f"Checksum mismatch: stored={stored_checksum}, current={current_checksum}",
+                    )
+
+        return results
 
     async def status(self) -> dict:
         """
