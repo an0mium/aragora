@@ -965,12 +965,17 @@ def get_job_store() -> JobStoreBackend:
         logger.info("Using PostgreSQL job store")
         try:
             from aragora.storage.postgres_store import get_postgres_pool
+            from aragora.utils.async_utils import run_async
 
-            # Initialize PostgreSQL store with connection pool
-            pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
-            store = PostgresJobQueueStore(pool)
-            asyncio.get_event_loop().run_until_complete(store.initialize())
-            _job_store = store
+            # Initialize PostgreSQL store with connection pool using run_async
+            # to safely handle both sync and async contexts
+            async def init_postgres_store():
+                pool = await get_postgres_pool()
+                store = PostgresJobQueueStore(pool)
+                await store.initialize()
+                return store
+
+            _job_store = run_async(init_postgres_store())
         except Exception as e:
             logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
             _job_store = SQLiteJobStore(db_path)

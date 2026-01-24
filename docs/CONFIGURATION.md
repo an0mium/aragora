@@ -343,6 +343,16 @@ print(f"Healthy: {health['healthy']}, Mode: {health['mode']}")
 | `ARAGORA_CONTEXT_TIMEOUT` | `150.0` | Context gathering timeout |
 | `ARAGORA_EVIDENCE_TIMEOUT` | `30.0` | Evidence collection timeout |
 
+### Debate Concurrency
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ARAGORA_MAX_CONCURRENT_PROPOSALS` | `5` | Max parallel proposal generations |
+| `ARAGORA_PROPOSAL_STAGGER_SECONDS` | `0.0` | Stagger delay between proposals (0=disabled) |
+| `ARAGORA_AGENT_TIMEOUT_SECONDS` | `60` | Per-agent timeout |
+
+**Note:** Proposal generation uses bounded semaphores for true parallelism. Set stagger > 0 for legacy sequential behavior.
+
 ---
 
 ## 8. Observability
