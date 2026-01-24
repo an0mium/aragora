@@ -532,7 +532,7 @@ class ControlPlanePolicyManager:
         if isinstance(payload, str):
             try:
                 payload = json.loads(payload)
-            except Exception:
+            except json.JSONDecodeError:
                 logger.warning("policy_payload_parse_failed", policy_id=getattr(policy, "id", ""))
                 return None
 
@@ -559,7 +559,7 @@ class ControlPlanePolicyManager:
 
         try:
             return ControlPlanePolicy.from_dict(data)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.warning(
                 "policy_convert_failed",
                 policy_id=getattr(policy, "id", ""),
@@ -592,7 +592,7 @@ class ControlPlanePolicyManager:
                 from aragora.compliance.policy_store import get_policy_store
 
                 store = get_policy_store()
-        except Exception as e:
+        except ImportError as e:
             logger.warning("policy_store_unavailable", error=str(e))
             return 0
 
@@ -611,7 +611,7 @@ class ControlPlanePolicyManager:
                     limit=limit,
                     offset=offset,
                 )
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError) as e:
                 logger.warning("policy_store_list_failed", error=str(e))
                 break
 
@@ -943,8 +943,12 @@ class ControlPlanePolicyManager:
         if self._violation_callback:
             try:
                 self._violation_callback(violation)
-            except Exception as e:
-                logger.warning("violation_callback_failed", error=str(e))
+            except Exception as e:  # User callback - any exception possible
+                logger.warning(
+                    "violation_callback_failed",
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
 
         logger.warning(
             "policy_violation",
@@ -1009,7 +1013,8 @@ class ControlPlanePolicyManager:
 
         try:
             prometheus_record_policy(decision=decision, policy_type=policy_type)
-        except Exception as e:
+        except (ValueError, RuntimeError) as e:
+            # Prometheus client errors (invalid labels, unregistered metrics)
             logger.debug("prometheus_metric_failed", error=str(e))
 
     def get_violations(
@@ -1083,7 +1088,7 @@ class ControlPlanePolicyManager:
         except ImportError:
             logger.debug("Control plane policy store not available")
             return 0
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.warning(f"Policy store sync failed: {e}")
             return 0
 
@@ -1116,7 +1121,7 @@ class ControlPlanePolicyManager:
         except ImportError:
             logger.debug("Control plane policy store not available")
             return 0
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.warning(f"Policy store sync failed: {e}")
             return 0
 
@@ -1137,8 +1142,8 @@ class ControlPlanePolicyManager:
                 try:
                     store.create_violation(violation)
                     saved += 1
-                except Exception:
-                    pass  # Violation may already exist
+                except (KeyError, ValueError):
+                    pass  # Violation may already exist or have invalid data
 
             logger.info("violations_synced_to_store", saved=saved)
             return saved
@@ -1146,7 +1151,7 @@ class ControlPlanePolicyManager:
         except ImportError:
             logger.debug("Control plane policy store not available")
             return 0
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.warning(f"Violation store sync failed: {e}")
             return 0
 
@@ -1314,7 +1319,7 @@ class PolicyStoreSync:
         except ImportError:
             logger.debug("Compliance policy store not available for sync")
             return 0
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.warning(f"Policy store sync failed: {e}")
             return 0
 
@@ -1348,7 +1353,7 @@ class PolicyStoreSync:
                 self._policy_manager.add_policy(control_policy)
                 self._synced_policy_ids.add(control_policy.id)
                 return True
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.debug(f"Failed to convert policy {compliance_policy.id}: {e}")
 
         return False
@@ -1946,7 +1951,7 @@ class RedisPolicyCache:
             await self._redis.ping()
             logger.info("policy_cache_connected", redis_url=self._redis_url)
             return True
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.warning("policy_cache_connection_failed", error=str(e))
             self._redis = None
             return False
@@ -2024,7 +2029,7 @@ class RedisPolicyCache:
             self._stats["misses"] += 1
             return None
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, json.JSONDecodeError) as e:
             self._stats["errors"] += 1
             logger.debug("policy_cache_get_error", error=str(e))
             return None
@@ -2062,7 +2067,7 @@ class RedisPolicyCache:
             self._stats["sets"] += 1
             return True
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, TypeError) as e:
             self._stats["errors"] += 1
             logger.debug("policy_cache_set_error", error=str(e))
             return False
@@ -2087,7 +2092,7 @@ class RedisPolicyCache:
                 deleted += 1
             logger.info("policy_cache_invalidated", deleted=deleted)
             return deleted
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.warning("policy_cache_invalidate_error", error=str(e))
             return 0
 
@@ -2215,6 +2220,9 @@ class PolicySyncScheduler:
         while self._running:
             try:
                 await self._do_sync()
+            except asyncio.CancelledError:
+                # Don't swallow cancellation - allow graceful shutdown
+                raise
             except Exception as e:
                 self._error_count += 1
                 logger.error("policy_sync_error", error=str(e))
@@ -2235,7 +2243,7 @@ class PolicySyncScheduler:
                     workspace_id=self._workspace_id,
                     replace=False,  # Don't replace, merge
                 )
-            except Exception as e:
+            except (ImportError, OSError, ConnectionError, TimeoutError) as e:
                 logger.warning("compliance_store_sync_failed", error=str(e))
 
         # Sync from control plane policy store
@@ -2244,7 +2252,7 @@ class PolicySyncScheduler:
                 synced_cp_store = self._policy_manager.sync_from_store(
                     workspace=self._workspace_id,
                 )
-            except Exception as e:
+            except (ImportError, OSError, ConnectionError, TimeoutError) as e:
                 logger.warning("control_plane_store_sync_failed", error=str(e))
 
         # Calculate hash after sync (includes manually added policies)
@@ -2276,8 +2284,12 @@ class PolicySyncScheduler:
             if self._conflict_callback:
                 try:
                     self._conflict_callback(self._detected_conflicts)
-                except Exception as e:
-                    logger.warning("conflict_callback_error", error=str(e))
+                except Exception as e:  # User callback - any exception possible
+                    logger.warning(
+                        "conflict_callback_error",
+                        error=str(e),
+                        error_type=type(e).__name__,
+                    )
 
         self._last_sync = datetime.now(timezone.utc)
         self._last_policy_hash = current_hash

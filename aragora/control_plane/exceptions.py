@@ -335,6 +335,108 @@ class PolicyEvaluationError(ControlPlaneError):
 
 
 # =============================================================================
+# Policy Store Errors
+# =============================================================================
+
+
+class PolicyStoreAccessError(ControlPlaneError):
+    """Store read/write failure during policy operations.
+
+    Raised when the policy store (database) is unavailable or
+    operations fail due to connection issues.
+    """
+
+    def __init__(
+        self,
+        operation: str,  # "read", "write", "list", "sync"
+        reason: str,
+        message: Optional[str] = None,
+    ):
+        super().__init__(
+            message or f"Policy store {operation} failed: {reason}",
+            details={"operation": operation, "reason": reason},
+            recoverable=True,
+        )
+        self.operation = operation
+        self.reason = reason
+
+
+class PolicyConversionError(ControlPlaneError):
+    """Policy format conversion failed.
+
+    Raised when converting between compliance and control plane
+    policy formats fails.
+    """
+
+    def __init__(
+        self,
+        policy_id: str,
+        source_format: str,
+        target_format: str,
+        reason: str,
+        message: Optional[str] = None,
+    ):
+        super().__init__(
+            message
+            or f"Failed to convert policy {policy_id} from {source_format} to {target_format}: {reason}",
+            details={
+                "policy_id": policy_id,
+                "source_format": source_format,
+                "target_format": target_format,
+                "reason": reason,
+            },
+            recoverable=False,
+        )
+        self.policy_id = policy_id
+        self.source_format = source_format
+        self.target_format = target_format
+        self.reason = reason
+
+
+class CallbackExecutionError(ControlPlaneError):
+    """User-provided callback raised exception.
+
+    Raised when a violation callback or conflict callback fails.
+    """
+
+    def __init__(
+        self,
+        callback_type: str,  # "violation", "conflict"
+        original_error: str,
+        message: Optional[str] = None,
+    ):
+        super().__init__(
+            message or f"{callback_type.capitalize()} callback failed: {original_error}",
+            details={"callback_type": callback_type, "original_error": original_error},
+            recoverable=True,
+        )
+        self.callback_type = callback_type
+        self.original_error = original_error
+
+
+class MetricsRecordingError(ControlPlaneError):
+    """Prometheus metrics recording failed.
+
+    Raised when recording policy metrics fails. This is typically
+    non-critical and should not interrupt policy evaluation.
+    """
+
+    def __init__(
+        self,
+        metric_name: str,
+        reason: str,
+        message: Optional[str] = None,
+    ):
+        super().__init__(
+            message or f"Failed to record metric {metric_name}: {reason}",
+            details={"metric_name": metric_name, "reason": reason},
+            recoverable=True,
+        )
+        self.metric_name = metric_name
+        self.reason = reason
+
+
+# =============================================================================
 # Serialization Errors
 # =============================================================================
 
@@ -434,6 +536,11 @@ __all__ = [
     "PolicyConflictError",
     "PolicyNotFoundError",
     "PolicyEvaluationError",
+    # Policy store
+    "PolicyStoreAccessError",
+    "PolicyConversionError",
+    "CallbackExecutionError",
+    "MetricsRecordingError",
     # Serialization
     "TaskSerializationError",
     # Region
