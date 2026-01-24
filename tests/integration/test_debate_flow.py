@@ -273,6 +273,7 @@ class TestDebateWithEvents:
         assert isinstance(result, DebateResult)
 
 
+@pytest.mark.integration_minimal
 class TestDebateConsensus:
     """Test consensus mechanisms."""
 
@@ -382,6 +383,7 @@ class TestEarlyStopping:
         assert isinstance(result, DebateResult)
 
 
+@pytest.mark.integration_minimal
 class TestDebateRounds:
     """Test round limits and behavior."""
 
@@ -469,6 +471,7 @@ class TestMultipleAgents:
         assert isinstance(result, DebateResult)
 
 
+@pytest.mark.integration_minimal
 class TestDebateResult:
     """Test DebateResult structure and content."""
 
