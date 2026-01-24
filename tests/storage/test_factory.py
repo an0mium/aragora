@@ -44,11 +44,15 @@ class TestStorageBackendEnum:
     def test_postgres_value(self):
         assert StorageBackend.POSTGRES.value == "postgres"
 
+    def test_supabase_value(self):
+        assert StorageBackend.SUPABASE.value == "supabase"
+
     def test_enum_members(self):
         members = list(StorageBackend)
-        assert len(members) == 2
+        assert len(members) == 3
         assert StorageBackend.SQLITE in members
         assert StorageBackend.POSTGRES in members
+        assert StorageBackend.SUPABASE in members
 
 
 # ===========================================================================
@@ -86,6 +90,11 @@ class TestGetStorageBackend:
             backend = get_storage_backend()
             assert backend == StorageBackend.POSTGRES
 
+    def test_supabase_explicit(self):
+        with patch.dict(os.environ, {"ARAGORA_DB_BACKEND": "supabase"}):
+            backend = get_storage_backend()
+            assert backend == StorageBackend.SUPABASE
+
     def test_unknown_backend_defaults_to_sqlite(self):
         with patch.dict(os.environ, {"ARAGORA_DB_BACKEND": "mysql"}):
             backend = get_storage_backend()
@@ -110,6 +119,13 @@ class TestIsPostgresConfigured:
             os.environ.pop("DATABASE_URL", None)
             assert is_postgres_configured() is False
 
+    def test_not_configured_when_supabase_no_dsn(self):
+        with patch.dict(os.environ, {"ARAGORA_DB_BACKEND": "supabase"}, clear=True):
+            os.environ.pop("SUPABASE_URL", None)
+            os.environ.pop("SUPABASE_DB_PASSWORD", None)
+            os.environ.pop("SUPABASE_POSTGRES_DSN", None)
+            assert is_postgres_configured() is False
+
     def test_configured_with_aragora_dsn(self):
         with patch.dict(
             os.environ,
@@ -124,6 +140,16 @@ class TestIsPostgresConfigured:
         with patch.dict(
             os.environ,
             {"ARAGORA_DB_BACKEND": "postgres", "DATABASE_URL": "postgres://user:pass@localhost/db"},
+        ):
+            assert is_postgres_configured() is True
+
+    def test_configured_with_supabase_dsn(self):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_DB_BACKEND": "supabase",
+                "SUPABASE_POSTGRES_DSN": "postgres://user:pass@localhost/db",
+            },
         ):
             assert is_postgres_configured() is True
 
@@ -267,6 +293,7 @@ class TestStorageInfo:
 
             assert info["backend"] == "sqlite"
             assert info["is_postgres"] is False
+            assert info["is_supabase"] is False
             assert info["postgres_configured"] is False
             assert "default_db_dir" in info
             assert str(tmp_path / "db") == info["default_db_dir"]
@@ -279,6 +306,7 @@ class TestStorageInfo:
 
             assert info["backend"] == "postgres"
             assert info["is_postgres"] is True
+            assert info["is_supabase"] is False
             assert info["postgres_configured"] is False
 
     def test_postgres_info_with_dsn(self):
@@ -293,11 +321,28 @@ class TestStorageInfo:
 
             assert info["backend"] == "postgres"
             assert info["is_postgres"] is True
+            assert info["is_supabase"] is False
             assert info["postgres_configured"] is True
             # Password should be redacted
             assert "dsn_redacted" in info
             assert "secret" not in info["dsn_redacted"]
             assert "***" in info["dsn_redacted"]
+
+    def test_supabase_info_with_dsn(self):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_DB_BACKEND": "supabase",
+                "SUPABASE_POSTGRES_DSN": "postgres://user:secret@localhost:5432/mydb",
+            },
+        ):
+            info = storage_info()
+
+            assert info["backend"] == "supabase"
+            assert info["is_postgres"] is True
+            assert info["is_supabase"] is True
+            assert info["postgres_configured"] is True
+            assert "dsn_redacted" in info
 
     def test_dsn_password_redaction(self):
         with patch.dict(

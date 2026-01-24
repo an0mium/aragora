@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { UsageChart, DataPoint, TimeRange } from '@/components/admin/UsageChart';
 import { useBackend } from '@/components/BackendSelector';

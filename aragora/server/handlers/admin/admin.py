@@ -161,7 +161,7 @@ def admin_secure_endpoint(
                         return error_response(f"Permission denied: {permission}", 403)  # type: ignore[return-value]
 
                 # 5. Call the actual handler
-                result = await func(self, request, auth_context, *args, **kwargs)  # type: ignore[assignment,arg-type]
+                result = await func(self, request, auth_context, *args, **kwargs)  # type: ignore[assignment,arg-type,misc]
 
                 # 6. Audit if requested
                 if audit:

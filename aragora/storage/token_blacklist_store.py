@@ -355,9 +355,7 @@ class PostgresBlacklist(BlacklistBackend):
 
     def add(self, token_jti: str, expires_at: float) -> None:
         """Add token to blacklist (sync wrapper for async)."""
-        asyncio.get_event_loop().run_until_complete(
-            self.add_async(token_jti, expires_at)
-        )
+        asyncio.get_event_loop().run_until_complete(self.add_async(token_jti, expires_at))
 
     async def add_async(self, token_jti: str, expires_at: float) -> None:
         """Add token to blacklist asynchronously."""
@@ -375,9 +373,7 @@ class PostgresBlacklist(BlacklistBackend):
 
     def contains(self, token_jti: str) -> bool:
         """Check if token is blacklisted (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.contains_async(token_jti)
-        )
+        return asyncio.get_event_loop().run_until_complete(self.contains_async(token_jti))
 
     async def contains_async(self, token_jti: str) -> bool:
         """Check if token is blacklisted asynchronously."""
@@ -391,16 +387,12 @@ class PostgresBlacklist(BlacklistBackend):
 
     def cleanup_expired(self) -> int:
         """Remove expired tokens (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.cleanup_expired_async()
-        )
+        return asyncio.get_event_loop().run_until_complete(self.cleanup_expired_async())
 
     async def cleanup_expired_async(self) -> int:
         """Remove expired tokens asynchronously."""
         async with self._pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM token_blacklist WHERE expires_at < NOW()"
-            )
+            result = await conn.execute("DELETE FROM token_blacklist WHERE expires_at < NOW()")
             # Extract count from result string like "DELETE 5"
             removed = 0
             if result and result.startswith("DELETE "):
@@ -445,11 +437,12 @@ def get_blacklist_backend() -> BlacklistBackend:
     Get or create the token blacklist backend.
 
     Uses environment variables to configure:
-    - ARAGORA_BLACKLIST_BACKEND: "memory", "sqlite" (default), "postgres", or "redis"
+    - ARAGORA_BLACKLIST_BACKEND: "memory", "sqlite", "postgres", "supabase", or "redis"
     - ARAGORA_DB_BACKEND: Global database backend (fallback if store-specific not set)
     - ARAGORA_DATA_DIR: Directory for SQLite database (from config)
     - ARAGORA_REDIS_URL: Redis URL for redis backend
-    - ARAGORA_POSTGRES_DSN or DATABASE_URL: PostgreSQL connection string
+    - SUPABASE_URL + SUPABASE_DB_PASSWORD or SUPABASE_POSTGRES_DSN
+    - ARAGORA_POSTGRES_DSN or DATABASE_URL
 
     Returns:
         Configured BlacklistBackend instance
@@ -461,7 +454,7 @@ def get_blacklist_backend() -> BlacklistBackend:
     # Check store-specific backend first, then global database backend
     backend_type = os.environ.get("ARAGORA_BLACKLIST_BACKEND")
     if not backend_type:
-        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite")
+        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "auto")
     backend_type = backend_type.lower()
 
     # Import DATA_DIR from config (handles environment variable)
@@ -472,25 +465,7 @@ def get_blacklist_backend() -> BlacklistBackend:
     except ImportError:
         data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic"))
 
-    if backend_type == "memory":
-        logger.info("Using in-memory token blacklist (not persistent)")
-        _blacklist_backend = InMemoryBlacklist()
-
-    elif backend_type == "postgres" or backend_type == "postgresql":
-        logger.info("Using PostgreSQL token blacklist")
-        try:
-            from aragora.storage.postgres_store import get_postgres_pool
-
-            # Initialize PostgreSQL store with connection pool
-            pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
-            store = PostgresBlacklist(pool)
-            asyncio.get_event_loop().run_until_complete(store.initialize())
-            _blacklist_backend = store
-        except Exception as e:
-            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-            _blacklist_backend = SQLiteBlacklist(data_dir / "token_blacklist.db")
-
-    elif backend_type == "redis":
+    if backend_type == "redis":
         redis_url = os.environ.get("ARAGORA_REDIS_URL", "redis://localhost:6379/0")
         if not HAS_REDIS:
             logger.warning(
@@ -504,9 +479,17 @@ def get_blacklist_backend() -> BlacklistBackend:
             except Exception as e:
                 logger.warning(f"Redis connection failed: {e}. Falling back to SQLite.")
                 _blacklist_backend = SQLiteBlacklist(data_dir / "token_blacklist.db")
+    else:
+        from aragora.storage.connection_factory import create_persistent_store
 
-    else:  # Default: sqlite
-        _blacklist_backend = SQLiteBlacklist(data_dir / "token_blacklist.db")
+        _blacklist_backend = create_persistent_store(
+            store_name="blacklist",
+            sqlite_class=SQLiteBlacklist,
+            postgres_class=PostgresBlacklist,
+            db_filename="token_blacklist.db",
+            memory_class=InMemoryBlacklist,
+            data_dir=data_dir,
+        )
 
     return _blacklist_backend
 

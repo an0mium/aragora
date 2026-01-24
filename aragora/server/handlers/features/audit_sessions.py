@@ -726,7 +726,7 @@ class AuditSessionsHandler(BaseHandler):
                     consensus_verification=True,
                 )
 
-                auditor = DocumentAuditor(
+                auditor = DocumentAuditor(  # type: ignore[arg-type]
                     config=config,
                     on_finding=lambda f: asyncio.create_task(on_finding(f)),
                     on_progress=on_progress,

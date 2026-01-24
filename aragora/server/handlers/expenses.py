@@ -731,8 +731,9 @@ class ExpenseHandler(BaseHandler):
         """Extract expense_id from path."""
         parts = path.split("/")
         # /api/v1/accounting/expenses/{expense_id}/...
-        if len(parts) >= 5:
-            return parts[4]
+        # parts[0]="", [1]="api", [2]="v1", [3]="accounting", [4]="expenses", [5]=expense_id
+        if len(parts) >= 6:
+            return parts[5]
         return None
 
     async def handle_get(

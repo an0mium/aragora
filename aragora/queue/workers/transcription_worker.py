@@ -122,9 +122,7 @@ class TranscriptionWorker:
 
         # Wait for active jobs to complete on shutdown
         if self._active_jobs:
-            logger.info(
-                f"[{self.worker_id}] Waiting for {len(self._active_jobs)} active jobs"
-            )
+            logger.info(f"[{self.worker_id}] Waiting for {len(self._active_jobs)} active jobs")
             await asyncio.gather(*self._active_jobs.values(), return_exceptions=True)
 
         logger.info(f"[{self.worker_id}] Worker stopped")
@@ -136,15 +134,11 @@ class TranscriptionWorker:
 
     def _cleanup_completed_tasks(self) -> None:
         """Remove completed tasks from tracking dict."""
-        completed = [
-            job_id for job_id, task in self._active_jobs.items() if task.done()
-        ]
+        completed = [job_id for job_id, task in self._active_jobs.items() if task.done()]
         for job_id in completed:
             task = self._active_jobs.pop(job_id)
             if task.exception():
-                logger.warning(
-                    f"[{self.worker_id}] Job {job_id} failed: {task.exception()}"
-                )
+                logger.warning(f"[{self.worker_id}] Job {job_id} failed: {task.exception()}")
 
     async def _process_job(self, job: QueuedJob) -> None:
         """Process a single transcription job."""
@@ -174,9 +168,7 @@ class TranscriptionWorker:
                 },
             )
 
-            logger.info(
-                f"[{self.worker_id}] Completed job {job.id} in {duration:.1f}s"
-            )
+            logger.info(f"[{self.worker_id}] Completed job {job.id} in {duration:.1f}s")
 
         except Exception as e:
             logger.error(
@@ -215,6 +207,7 @@ class TranscriptionWorker:
                 audio_path = Path(file_path)
             elif file_data:
                 import base64
+
                 suffix = payload.get("file_extension", ".mp3")
                 temp_path = Path(tempfile.mktemp(suffix=suffix))
                 temp_path.write_bytes(base64.b64decode(file_data))
@@ -235,8 +228,7 @@ class TranscriptionWorker:
                 "language": result.language,
                 "duration": result.duration,
                 "segments": [
-                    {"start": s.start, "end": s.end, "text": s.text}
-                    for s in result.segments
+                    {"start": s.start, "end": s.end, "text": s.text} for s in result.segments
                 ],
                 "backend": result.backend,
                 "processing_time": result.processing_time,
@@ -263,6 +255,7 @@ class TranscriptionWorker:
                 video_path = Path(file_path)
             elif file_data:
                 import base64
+
                 suffix = payload.get("file_extension", ".mp4")
                 temp_path = Path(tempfile.mktemp(suffix=suffix))
                 temp_path.write_bytes(base64.b64decode(file_data))
@@ -282,8 +275,7 @@ class TranscriptionWorker:
                 "language": result.language,
                 "duration": result.duration,
                 "segments": [
-                    {"start": s.start, "end": s.end, "text": s.text}
-                    for s in result.segments
+                    {"start": s.start, "end": s.end, "text": s.text} for s in result.segments
                 ],
                 "backend": result.backend,
                 "processing_time": result.processing_time,
@@ -318,10 +310,7 @@ class TranscriptionWorker:
             "text": result.text,
             "language": result.language,
             "duration": result.duration,
-            "segments": [
-                {"start": s.start, "end": s.end, "text": s.text}
-                for s in result.segments
-            ],
+            "segments": [{"start": s.start, "end": s.end, "text": s.text} for s in result.segments],
             "backend": result.backend,
             "processing_time": result.processing_time,
         }
@@ -385,7 +374,7 @@ async def recover_interrupted_transcriptions() -> int:
         ]
 
         for job_type in job_types:
-            stale_recovered = await store.recover_stale_jobs(
+            stale_recovered = await store.recover_stale_jobs(  # type: ignore[call-arg]
                 stale_threshold_seconds=300.0,
                 job_types=[job_type],
             )

@@ -1381,7 +1381,7 @@ class DebatesHandler(
                     f"confidence={result.confidence:.2f}, "
                     f"reasons={result.reasons[:3]}"
                 )
-                return error_response(
+                return error_response(  # type: ignore[call-arg]
                     "Content blocked by spam filter. Please revise your input.",
                     400,
                     extra={

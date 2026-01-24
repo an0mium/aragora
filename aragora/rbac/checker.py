@@ -26,6 +26,7 @@ from .models import (
 if TYPE_CHECKING:
     from .audit import AuthorizationAuditor
     from .cache import RBACDistributedCache
+    from .delegation import DelegationManager
     from .resource_permissions import ResourcePermissionStore
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,9 @@ class PermissionChecker:
         enable_cache: bool = True,
         cache_backend: Optional["RBACDistributedCache"] = None,
         resource_permission_store: Optional["ResourcePermissionStore"] = None,
+        delegation_manager: Optional["DelegationManager"] = None,
+        enable_delegation: bool = True,
+        enable_workspace_scope: bool = True,
     ) -> None:
         """
         Initialize the permission checker.
@@ -64,12 +68,19 @@ class PermissionChecker:
                           If provided, uses distributed cache instead of local dict.
             resource_permission_store: Optional store for resource-level permissions.
                           If provided, checks resource-level permissions before role-based.
+            delegation_manager: Optional manager for permission delegations.
+                          If provided, checks delegated permissions.
+            enable_delegation: Whether to check delegated permissions (default True)
+            enable_workspace_scope: Whether to enforce workspace-level scoping (default True)
         """
         self._auditor = auditor
         self._cache_ttl = cache_ttl
         self._enable_cache = enable_cache
         self._cache_backend = cache_backend
         self._resource_permission_store = resource_permission_store
+        self._delegation_manager = delegation_manager
+        self._enable_delegation = enable_delegation
+        self._enable_workspace_scope = enable_workspace_scope
 
         # Local cache (used when no distributed backend, or as L1)
         self._decision_cache: dict[str, tuple[AuthorizationDecision, datetime]] = {}
@@ -79,6 +90,9 @@ class PermissionChecker:
 
         # Cache for resource permission checks
         self._resource_permission_cache: dict[str, tuple[bool, datetime]] = {}
+
+        # Workspace-scoped role assignments (workspace_id -> user_id -> roles)
+        self._workspace_roles: dict[str, dict[str, set[str]]] = {}
 
         # If distributed cache provided, register for invalidation callbacks
         if self._cache_backend:
@@ -365,7 +379,7 @@ class PermissionChecker:
     ) -> None:
         """Cache a resource permission decision."""
         cache_key = f"{user_id}:{permission_key}:{resource_type.value}:{resource_id}:{org_id or ''}"
-        self._resource_permission_cache[cache_key] = (decision, datetime.now(timezone.utc))
+        self._resource_permission_cache[cache_key] = (decision, datetime.now(timezone.utc))  # type: ignore[assignment]
 
     def has_role(self, context: AuthorizationContext, role_name: str) -> bool:
         """Check if context has a specific role."""
@@ -523,6 +537,35 @@ class PermissionChecker:
                 context=context,
             )
 
+        # Check workspace-scoped permissions if enabled
+        if self._enable_workspace_scope and context.workspace_id:
+            workspace_perms = self._get_workspace_permissions(context.user_id, context.workspace_id)
+            if permission_key in workspace_perms:
+                return AuthorizationDecision(
+                    allowed=True,
+                    reason=f"Workspace-scoped permission '{permission_key}' granted",
+                    permission_key=permission_key,
+                    resource_id=resource_id,
+                    context=context,
+                )
+
+        # Check delegated permissions if enabled
+        if self._enable_delegation and self._delegation_manager:
+            delegation = self._delegation_manager.check_delegation(
+                user_id=context.user_id,
+                permission_id=permission_key,
+                org_id=context.org_id,
+                workspace_id=context.workspace_id,
+            )
+            if delegation:
+                return AuthorizationDecision(
+                    allowed=True,
+                    reason=f"Permission '{permission_key}' granted via delegation from {delegation.delegator_id}",
+                    permission_key=permission_key,
+                    resource_id=resource_id,
+                    context=context,
+                )
+
         # Permission denied
         return AuthorizationDecision(
             allowed=False,
@@ -531,6 +574,62 @@ class PermissionChecker:
             resource_id=resource_id,
             context=context,
         )
+
+    def _get_workspace_permissions(self, user_id: str, workspace_id: str) -> set[str]:
+        """Get permissions for a user in a specific workspace."""
+        workspace_roles = self._workspace_roles.get(workspace_id, {})
+        user_roles = workspace_roles.get(user_id, set())
+
+        all_permissions: set[str] = set()
+        for role_name in user_roles:
+            permissions = get_role_permissions(role_name, include_inherited=True)
+            all_permissions |= permissions
+
+        return all_permissions
+
+    def assign_workspace_role(
+        self,
+        user_id: str,
+        workspace_id: str,
+        role_name: str,
+    ) -> None:
+        """Assign a role to a user within a specific workspace."""
+        if workspace_id not in self._workspace_roles:
+            self._workspace_roles[workspace_id] = {}
+        if user_id not in self._workspace_roles[workspace_id]:
+            self._workspace_roles[workspace_id][user_id] = set()
+
+        self._workspace_roles[workspace_id][user_id].add(role_name)
+        logger.info(f"Assigned role {role_name} to user {user_id} in workspace {workspace_id}")
+
+    def remove_workspace_role(
+        self,
+        user_id: str,
+        workspace_id: str,
+        role_name: str,
+    ) -> bool:
+        """Remove a role from a user within a specific workspace."""
+        if workspace_id not in self._workspace_roles:
+            return False
+        if user_id not in self._workspace_roles[workspace_id]:
+            return False
+
+        self._workspace_roles[workspace_id][user_id].discard(role_name)
+        logger.info(f"Removed role {role_name} from user {user_id} in workspace {workspace_id}")
+        return True
+
+    def get_workspace_roles(self, user_id: str, workspace_id: str) -> set[str]:
+        """Get all roles for a user in a specific workspace."""
+        workspace_roles = self._workspace_roles.get(workspace_id, {})
+        return workspace_roles.get(user_id, set()).copy()
+
+    def set_delegation_manager(self, manager: Optional["DelegationManager"]) -> None:
+        """Set the delegation manager."""
+        self._delegation_manager = manager
+
+    def get_delegation_manager(self) -> Optional["DelegationManager"]:
+        """Get the current delegation manager."""
+        return self._delegation_manager
 
     def _roles_hash(self, roles: set[str]) -> str:
         """Generate hash for a set of roles."""
@@ -670,6 +769,10 @@ class PermissionChecker:
             "cache_enabled": self._enable_cache,
             "cache_ttl": self._cache_ttl,
             "resource_permission_store_enabled": self._resource_permission_store is not None,
+            "delegation_enabled": self._enable_delegation,
+            "delegation_manager_enabled": self._delegation_manager is not None,
+            "workspace_scope_enabled": self._enable_workspace_scope,
+            "workspace_count": len(self._workspace_roles),
         }
 
         if self._cache_backend:
@@ -680,6 +783,9 @@ class PermissionChecker:
 
         if self._resource_permission_store:
             stats["resource_permission_store_stats"] = self._resource_permission_store.get_stats()
+
+        if self._delegation_manager:
+            stats["delegation_stats"] = self._delegation_manager.get_stats()
 
         return stats
 

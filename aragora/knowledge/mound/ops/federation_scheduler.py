@@ -586,7 +586,7 @@ class FederationScheduler:
             if config.sync_mode in (SyncMode.PUSH, SyncMode.BIDIRECTIONAL):
                 # Push to remote
                 if hasattr(mound, "sync_to_region"):
-                    result = await mound.sync_to_region(
+                    result = await mound.sync_to_region(  # type: ignore[call-arg]
                         region_id=config.region_id,
                         workspace_id=config.workspace_id,
                         scope=config.sync_scope.value,

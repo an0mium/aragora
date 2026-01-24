@@ -594,7 +594,7 @@ class FeaturesHandler(BaseHandler):
 
     def __init__(self, server_context: dict):
         """Initialize with server context."""
-        super().__init__(server_context)
+        super().__init__(server_context)  # type: ignore[arg-type]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""

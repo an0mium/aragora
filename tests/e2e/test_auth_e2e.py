@@ -466,7 +466,6 @@ class TestAccountLockout:
         assert status in (200, 429), f"Expected 200 or 429, got {status}"
 
 
-@pytest.mark.skip(reason="OAuthHandler.can_handle returns False for OAuth routes in CI")
 class TestOAuthFlow:
     """
     Tests OAuth authentication flows.

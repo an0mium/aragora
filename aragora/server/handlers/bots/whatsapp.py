@@ -495,7 +495,7 @@ class WhatsAppHandler(BaseHandler):
                 # No event loop, create one
                 asyncio.run(enqueue_job())
 
-            return job.job_id
+            return job.job_id  # type: ignore[attr-defined]
 
         except ImportError:
             logger.warning("Queue system not available, using direct execution")

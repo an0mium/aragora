@@ -755,7 +755,7 @@ class IncrementalAuditResult:
                     "severity": f.severity.value,
                     "title": f.title,
                     "description": f.description,
-                    "location": f.location,
+                    "location": f.location,  # type: ignore[attr-defined]
                     "confidence": f.confidence,
                 }
                 for f in self.findings

@@ -171,6 +171,7 @@ export function useFeatures(
       setState({ features: null, loading: false, error: errorMessage });
       fetchedRef.current = true;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Auth state accessed via closure, stable reference
   }, [apiBase]);
 
   return {

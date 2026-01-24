@@ -16,11 +16,15 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, AsyncIterator, List, Optional
 
 import httpx
+
+from aragora.connectors.base import Evidence
+from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
+from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
@@ -342,20 +346,31 @@ class LinearError(Exception):
         self.errors = errors or []
 
 
-class LinearConnector:
+class LinearConnector(EnterpriseConnector):
     """
     Linear API connector.
 
-    Provides integration with Linear for:
+    Extends EnterpriseConnector to provide integration with Linear for:
     - Issue management (create, update, search)
     - Project and cycle tracking
     - Team and user management
     - Labels and workflow states
     """
 
-    def __init__(self, credentials: LinearCredentials):
+    def __init__(self, credentials: LinearCredentials, tenant_id: str = "default"):
+        super().__init__(connector_id="linear", tenant_id=tenant_id)
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
+
+    @property
+    def name(self) -> str:
+        """Human-readable name for this connector."""
+        return "Linear"
+
+    @property
+    def source_type(self) -> SourceType:
+        """The source type for this connector."""
+        return SourceType.EXTERNAL_API
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -1002,6 +1017,270 @@ class LinearConnector:
 
         data = await self._graphql(query)
         return LinearUser.from_api(data.get("viewer", {}))
+
+    # =========================================================================
+    # EnterpriseConnector Implementation
+    # =========================================================================
+
+    async def connect(self) -> bool:
+        """Establish connection to Linear API."""
+        try:
+            await self._get_client()
+            # Test connection by fetching current user
+            await self.get_viewer()
+            logger.info("Connected to Linear API")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to connect to Linear: {e}")
+            return False
+
+    async def disconnect(self) -> None:
+        """Close Linear connection."""
+        await self.close()
+
+    async def search(
+        self,
+        query: str,
+        limit: int = 10,
+        **kwargs,
+    ) -> List[Evidence]:
+        """Search Linear for issues matching query.
+
+        Args:
+            query: Search query string
+            limit: Maximum results
+            **kwargs: Additional options (team_id: str)
+
+        Returns:
+            List of Evidence objects
+        """
+        results: List[Evidence] = []
+
+        try:
+            team_id = kwargs.get("team_id")
+            issues = await self.search_issues(query, team_id=team_id, limit=limit)
+
+            for issue in issues:
+                results.append(
+                    Evidence(
+                        id=f"linear-issue-{issue.id}",
+                        source_type=self.source_type,
+                        source_id=issue.identifier,
+                        content=f"{issue.title}\n\n{issue.description or ''}",
+                        title=f"[{issue.identifier}] {issue.title}",
+                        url=issue.url,
+                        metadata={
+                            "type": "issue",
+                            "priority": issue.priority.name,
+                            "state": issue.state_name,
+                            "team": issue.team_key,
+                        },
+                    )
+                )
+
+        except Exception as e:
+            logger.error(f"Search failed: {e}")
+
+        return results[:limit]
+
+    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+        """Fetch a specific piece of evidence by ID.
+
+        Args:
+            evidence_id: Evidence ID (format: linear-{type}-{id})
+
+        Returns:
+            Evidence object or None if not found
+        """
+        try:
+            parts = evidence_id.split("-")
+            if len(parts) < 3 or parts[0] != "linear":
+                return None
+
+            entity_type = parts[1]
+            entity_id = "-".join(parts[2:])  # Handle IDs with dashes
+
+            if entity_type == "issue":
+                issue = await self.get_issue(entity_id)
+                if issue:
+                    return Evidence(
+                        id=evidence_id,
+                        source_type=self.source_type,
+                        source_id=issue.identifier,
+                        content=f"{issue.title}\n\n{issue.description or ''}",
+                        title=f"[{issue.identifier}] {issue.title}",
+                        url=issue.url,
+                        metadata={
+                            "type": "issue",
+                            "priority": issue.priority.name,
+                            "state": issue.state_name,
+                            "team": issue.team_key,
+                        },
+                    )
+
+            elif entity_type == "project":
+                project = await self.get_project(entity_id)
+                if project:
+                    return Evidence(
+                        id=evidence_id,
+                        source_type=self.source_type,
+                        source_id=project.slug_id,
+                        content=f"{project.name}\n\n{project.description or ''}",
+                        title=project.name,
+                        url=project.url,
+                        metadata={"type": "project", "state": project.state},
+                    )
+
+        except Exception as e:
+            logger.error(f"Failed to fetch {evidence_id}: {e}")
+
+        return None
+
+    async def sync_items(
+        self,
+        state: SyncState,
+        batch_size: int = 100,
+    ) -> AsyncIterator[SyncItem]:
+        """Sync items from Linear for Knowledge Mound.
+
+        Args:
+            state: Sync state with cursor/timestamp
+            batch_size: Number of items per batch
+
+        Yields:
+            SyncItem objects for issues and projects
+        """
+        since = state.last_sync_at
+
+        # Sync issues
+        async for issue in self._paginate_issues(since=since, limit=batch_size):
+            yield SyncItem(
+                id=f"linear-issue-{issue.id}",
+                content=f"[{issue.identifier}] {issue.title}\n\n{issue.description or ''}",
+                metadata={
+                    "type": "issue",
+                    "identifier": issue.identifier,
+                    "priority": issue.priority.value,
+                    "state": issue.state_name,
+                    "team": issue.team_key,
+                    "url": issue.url,
+                },
+                timestamp=issue.updated_at or issue.created_at,
+            )
+
+        # Sync projects
+        async for project in self._paginate_projects(limit=batch_size):
+            yield SyncItem(
+                id=f"linear-project-{project.id}",
+                content=f"{project.name}\n\n{project.description or ''}",
+                metadata={
+                    "type": "project",
+                    "slug": project.slug_id,
+                    "state": project.state,
+                    "url": project.url,
+                },
+                timestamp=project.updated_at or project.created_at,
+            )
+
+    async def _paginate_issues(
+        self,
+        since: Optional[datetime] = None,
+        limit: int = 100,
+    ) -> AsyncIterator[LinearIssue]:
+        """Paginate through issues.
+
+        Args:
+            since: Only issues updated after this time
+            limit: Items per page
+
+        Yields:
+            LinearIssue objects
+        """
+        cursor = None
+        while True:
+            issues, page_info = await self.list_issues(
+                limit=limit,
+                cursor=cursor,
+                updated_since=since,
+            )
+
+            for issue in issues:
+                yield issue
+
+            if not page_info.get("hasNextPage"):
+                break
+            cursor = page_info.get("endCursor")
+
+    async def _paginate_projects(
+        self,
+        limit: int = 100,
+    ) -> AsyncIterator[Project]:
+        """Paginate through projects.
+
+        Args:
+            limit: Items per page
+
+        Yields:
+            Project objects
+        """
+        cursor = None
+        while True:
+            projects, page_info = await self.list_projects(limit=limit, cursor=cursor)
+
+            for project in projects:
+                yield project
+
+            if not page_info.get("hasNextPage"):
+                break
+            cursor = page_info.get("endCursor")
+
+    async def incremental_sync(
+        self,
+        state: Optional[SyncState] = None,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Perform incremental sync of Linear data.
+
+        Args:
+            state: Previous sync state
+
+        Yields:
+            Data items as dictionaries
+        """
+        sync_state = state or SyncState(connector_id=self.name)
+
+        async for item in self.sync_items(sync_state, batch_size=100):
+            yield {
+                "type": item.metadata.get("type", "unknown"),
+                "id": item.id,
+                "data": item.metadata,
+                "content": item.content,
+            }
+
+    async def full_sync(self) -> SyncResult:
+        """Perform full sync of Linear data."""
+        start_time = datetime.now(timezone.utc)
+        items_synced = 0
+        errors: List[str] = []
+
+        try:
+            sync_state = SyncState(connector_id=self.name)
+            async for _ in self.incremental_sync(sync_state):
+                items_synced += 1
+        except Exception as e:
+            errors.append(str(e))
+
+        duration = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+
+        return SyncResult(
+            connector_id=self.name,
+            success=len(errors) == 0,
+            items_synced=items_synced,
+            items_updated=0,
+            items_skipped=0,
+            items_failed=len(errors),
+            duration_ms=duration,
+            errors=errors,
+        )
 
     # =========================================================================
     # Cleanup

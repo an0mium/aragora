@@ -33,9 +33,129 @@
     {
       "name": "Webhooks",
       "description": "Webhook registration and event delivery"
+    },
+    {
+      "name": "Expenses",
+      "description": "Expense tracking, receipt processing, and QBO sync"
     }
   ],
   "paths": {
+    "/api/v1/accounting/expenses": {
+      "get": {
+        "tags": ["Expenses"],
+        "summary": "List expenses",
+        "description": "Get a list of expenses with optional filters",
+        "parameters": [
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["pending", "approved", "rejected", "synced"] } },
+          { "name": "start_date", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "end_date", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } }
+        ],
+        "responses": {
+          "200": { "description": "List of expenses", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExpenseListResponse" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Expenses"],
+        "summary": "Create expense",
+        "description": "Create a new expense manually",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateExpenseRequest" } } } },
+        "responses": {
+          "200": { "description": "Expense created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExpenseResponse" } } } },
+          "400": { "description": "Invalid request" }
+        }
+      }
+    },
+    "/api/v1/accounting/expenses/upload": {
+      "post": {
+        "tags": ["Expenses"],
+        "summary": "Upload receipt",
+        "description": "Upload and process a receipt image",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UploadReceiptRequest" } } } },
+        "responses": {
+          "200": { "description": "Receipt processed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExpenseResponse" } } } },
+          "400": { "description": "Invalid receipt data" }
+        }
+      }
+    },
+    "/api/v1/accounting/expenses/{expense_id}": {
+      "get": {
+        "tags": ["Expenses"],
+        "summary": "Get expense",
+        "parameters": [{ "name": "expense_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Expense details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExpenseResponse" } } } },
+          "404": { "description": "Expense not found" }
+        }
+      },
+      "put": {
+        "tags": ["Expenses"],
+        "summary": "Update expense",
+        "parameters": [{ "name": "expense_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateExpenseRequest" } } } },
+        "responses": {
+          "200": { "description": "Expense updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExpenseResponse" } } } },
+          "404": { "description": "Expense not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Expenses"],
+        "summary": "Delete expense",
+        "parameters": [{ "name": "expense_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Expense deleted" },
+          "404": { "description": "Expense not found" }
+        }
+      }
+    },
+    "/api/v1/accounting/expenses/{expense_id}/approve": {
+      "post": {
+        "tags": ["Expenses"],
+        "summary": "Approve expense",
+        "parameters": [{ "name": "expense_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Expense approved", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExpenseResponse" } } } },
+          "404": { "description": "Expense not found" }
+        }
+      }
+    },
+    "/api/v1/accounting/expenses/{expense_id}/reject": {
+      "post": {
+        "tags": ["Expenses"],
+        "summary": "Reject expense",
+        "parameters": [{ "name": "expense_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "reason": { "type": "string" } } } } } },
+        "responses": {
+          "200": { "description": "Expense rejected", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExpenseResponse" } } } },
+          "404": { "description": "Expense not found" }
+        }
+      }
+    },
+    "/api/v1/accounting/expenses/sync": {
+      "post": {
+        "tags": ["Expenses"],
+        "summary": "Sync to QBO",
+        "description": "Sync approved expenses to QuickBooks Online",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "expense_ids": { "type": "array", "items": { "type": "string" } } } } } } },
+        "responses": {
+          "200": { "description": "Sync result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SyncResult" } } } }
+        }
+      }
+    },
+    "/api/v1/accounting/expenses/stats": {
+      "get": {
+        "tags": ["Expenses"],
+        "summary": "Get expense stats",
+        "parameters": [
+          { "name": "start_date", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "end_date", "in": "query", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": {
+          "200": { "description": "Expense statistics", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExpenseStatsResponse" } } } }
+        }
+      }
+    },
     "/api/marketplace/templates": {
       "get": {
         "tags": ["Marketplace"],
@@ -1007,6 +1127,96 @@
           "status_code": { "type": "integer" },
           "message": { "type": "string" },
           "error": { "type": "string" }
+        }
+      },
+      "Expense": {
+        "type": "object",
+        "properties": {
+          "expense_id": { "type": "string" },
+          "vendor_name": { "type": "string" },
+          "amount": { "type": "string" },
+          "currency": { "type": "string", "default": "USD" },
+          "expense_date": { "type": "string", "format": "date" },
+          "category": { "type": "string" },
+          "status": { "type": "string", "enum": ["pending", "approved", "rejected", "synced"] },
+          "payment_method": { "type": "string" },
+          "description": { "type": "string" },
+          "employee_id": { "type": "string" },
+          "is_reimbursable": { "type": "boolean" },
+          "receipt_url": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "qbo_id": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ExpenseResponse": {
+        "type": "object",
+        "properties": {
+          "expense": { "$ref": "#/components/schemas/Expense" },
+          "message": { "type": "string" }
+        }
+      },
+      "ExpenseListResponse": {
+        "type": "object",
+        "properties": {
+          "expenses": { "type": "array", "items": { "$ref": "#/components/schemas/Expense" } },
+          "total": { "type": "integer" },
+          "page": { "type": "integer" },
+          "limit": { "type": "integer" }
+        }
+      },
+      "CreateExpenseRequest": {
+        "type": "object",
+        "required": ["vendor_name", "amount"],
+        "properties": {
+          "vendor_name": { "type": "string" },
+          "amount": { "type": "number" },
+          "date": { "type": "string", "format": "date" },
+          "category": { "type": "string" },
+          "payment_method": { "type": "string" },
+          "description": { "type": "string" },
+          "employee_id": { "type": "string" },
+          "is_reimbursable": { "type": "boolean" },
+          "tags": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "UpdateExpenseRequest": {
+        "type": "object",
+        "properties": {
+          "vendor_name": { "type": "string" },
+          "amount": { "type": "number" },
+          "date": { "type": "string", "format": "date" },
+          "category": { "type": "string" },
+          "description": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "UploadReceiptRequest": {
+        "type": "object",
+        "required": ["receipt_data"],
+        "properties": {
+          "receipt_data": { "type": "string", "description": "Base64-encoded receipt image" },
+          "content_type": { "type": "string" },
+          "employee_id": { "type": "string" },
+          "payment_method": { "type": "string" }
+        }
+      },
+      "SyncResult": {
+        "type": "object",
+        "properties": {
+          "synced": { "type": "integer" },
+          "failed": { "type": "integer" },
+          "errors": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "ExpenseStatsResponse": {
+        "type": "object",
+        "properties": {
+          "total_expenses": { "type": "integer" },
+          "total_amount": { "type": "string" },
+          "by_category": { "type": "object", "additionalProperties": { "type": "string" } },
+          "by_status": { "type": "object", "additionalProperties": { "type": "integer" } },
+          "pending_approval_count": { "type": "integer" }
         }
       }
     }

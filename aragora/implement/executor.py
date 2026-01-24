@@ -464,7 +464,7 @@ Make only the changes specified. Follow existing code style."""
                         duration_seconds=0,
                     )
 
-                results.append(result)
+                results.append(result)  # type: ignore[arg-type]
                 remaining.remove(task)
 
                 if getattr(result, "success", False):  # type: ignore[union-attr]

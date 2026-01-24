@@ -246,7 +246,7 @@ def main() -> int:
 
         try:
             agent = create_agent(
-                model_type=spec.provider,
+                model_type=spec.provider,  # type: ignore[arg-type]
                 name=f"{spec.provider}_{role}",
                 role=role,
             )

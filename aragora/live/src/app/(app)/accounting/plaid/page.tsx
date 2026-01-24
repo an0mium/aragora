@@ -71,6 +71,7 @@ function PlaidLinkContent() {
       // Fetch new link token
       fetchLinkToken();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchLinkToken is stable, only run on mount
   }, [searchParams]);
 
   const fetchLinkToken = async () => {

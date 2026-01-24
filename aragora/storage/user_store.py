@@ -25,7 +25,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import os
 import sqlite3
 import threading
 import uuid
@@ -2373,62 +2372,46 @@ def get_user_store() -> Optional[UserStore | PostgresUserStore]:
     Get or create the user store.
 
     Uses environment variables to configure:
-    - ARAGORA_DB_BACKEND: "sqlite" or "postgres" (selects database backend)
+    - ARAGORA_DB_BACKEND: "sqlite", "postgres", or "supabase"
+    - ARAGORA_USER_STORE_BACKEND: Per-store override ("sqlite", "postgres", "supabase")
     - ARAGORA_DATA_DIR: Directory for SQLite database
-    - ARAGORA_POSTGRES_DSN or DATABASE_URL: PostgreSQL connection string
+    - SUPABASE_URL + SUPABASE_DB_PASSWORD or SUPABASE_POSTGRES_DSN
+    - ARAGORA_POSTGRES_DSN or DATABASE_URL
 
     Returns:
         Configured UserStore or PostgresUserStore instance
     """
     global _user_store_instance, _postgres_user_store_instance
-
-    # Check if PostgreSQL backend is requested
-    backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
-
-    if backend_type in ("postgres", "postgresql"):
-        if _postgres_user_store_instance is not None:
-            return _postgres_user_store_instance
-
-        logger.info("Using PostgreSQL user store")
-        try:
-            from aragora.storage.postgres_store import get_postgres_pool
-
-            pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
-            store = PostgresUserStore(pool)
-            asyncio.get_event_loop().run_until_complete(store.initialize())
-            _postgres_user_store_instance = store
-            return store
-        except Exception as e:
-            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-            # Fall through to SQLite
-
-    # Default: SQLite
+    if _postgres_user_store_instance is not None:
+        return _postgres_user_store_instance
     if _user_store_instance is not None:
         return _user_store_instance
 
-    # Get data directory for SQLite
+    # Preserve legacy data directory if configured
+    data_dir = None
     try:
         from aragora.config.legacy import DATA_DIR
 
         data_dir = DATA_DIR
     except ImportError:
-        env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-        data_dir = Path(env_dir or ".nomic")
+        data_dir = None
 
-    # SECURITY: Enforce distributed storage in production for critical user data
-    from aragora.storage.production_guards import require_distributed_store, StorageMode
+    from aragora.storage.connection_factory import create_persistent_store
 
-    require_distributed_store(
-        "user_store",
-        StorageMode.SQLITE,
-        "PostgreSQL connection failed or ARAGORA_DB_BACKEND=sqlite. "
-        "User data must use PostgreSQL in production for multi-instance consistency.",
+    store = create_persistent_store(
+        store_name="user",
+        sqlite_class=UserStore,
+        postgres_class=PostgresUserStore,
+        db_filename="users.db",
+        data_dir=str(data_dir) if data_dir else None,
     )
 
-    db_path = data_dir / "users.db"
-    logger.info(f"Using SQLite user store: {db_path}")
-    _user_store_instance = UserStore(db_path)
-    return _user_store_instance
+    if isinstance(store, PostgresUserStore):
+        _postgres_user_store_instance = store
+    else:
+        _user_store_instance = store
+
+    return store
 
 
 def set_user_store(store: UserStore | PostgresUserStore) -> None:

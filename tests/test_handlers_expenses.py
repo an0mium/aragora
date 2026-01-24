@@ -1,26 +1,28 @@
 """Tests for expense handler."""
 
 import base64
-from datetime import datetime, date
+import json
+from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 from aragora.server.handlers.expenses import (
     ExpenseHandler,
-    handle_upload_receipt,
-    handle_create_expense,
-    handle_list_expenses,
-    handle_get_expense,
-    handle_update_expense,
-    handle_delete_expense,
     handle_approve_expense,
-    handle_reject_expense,
     handle_categorize_expenses,
-    handle_sync_to_qbo,
+    handle_create_expense,
+    handle_delete_expense,
+    handle_export_expenses,
+    handle_get_expense,
     handle_get_expense_stats,
     handle_get_pending_approvals,
-    handle_export_expenses,
+    handle_list_expenses,
+    handle_reject_expense,
+    handle_sync_to_qbo,
+    handle_update_expense,
+    handle_upload_receipt,
 )
 
 
@@ -70,6 +72,10 @@ def mock_tracker(mock_expense):
     )
     tracker.get_pending_approvals = AsyncMock(return_value=[mock_expense])
     tracker.detect_duplicates = AsyncMock(return_value=[])
+    tracker.export_expenses = AsyncMock(
+        return_value=b"expense_id,vendor,amount\nexp-123,Test,99.99"
+    )
+    tracker.categorize_expense = AsyncMock(return_value="Office Supplies")
     return tracker
 
 
@@ -79,12 +85,16 @@ def handler():
     return ExpenseHandler(server_context={})
 
 
+def parse_body(result):
+    """Parse JSON body from HandlerResult."""
+    return json.loads(result.body.decode())
+
+
 class TestExpenseHandler:
     """Tests for ExpenseHandler class."""
 
     def test_can_handle_static_routes(self, handler):
         """Test can_handle for static routes."""
-
         assert handler.can_handle("/api/v1/accounting/expenses") is True
         assert handler.can_handle("/api/v1/accounting/expenses/upload") is True
         assert handler.can_handle("/api/v1/accounting/expenses/stats") is True
@@ -136,28 +146,31 @@ class TestExpenseHandler:
     async def test_handle_get_list(self, handler, mock_tracker):
         """Test GET request for listing expenses."""
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handler.handle_get("/api/v1/accounting/expenses")
-            assert result["status"] == 200
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_handle_get_single(self, handler, mock_tracker):
         """Test GET request for single expense."""
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handler.handle_get("/api/v1/accounting/expenses/exp-123")
-            assert result["status"] == 200
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_handle_get_stats(self, handler, mock_tracker):
         """Test GET request for expense stats."""
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handler.handle_get("/api/v1/accounting/expenses/stats")
-            assert result["status"] == 200
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_handle_post_create(self, handler, mock_tracker):
@@ -169,10 +182,11 @@ class TestExpenseHandler:
         }
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handler.handle_post("/api/v1/accounting/expenses", data)
-            assert result["status"] == 200
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_handle_post_upload(self, handler, mock_tracker):
@@ -183,19 +197,21 @@ class TestExpenseHandler:
         }
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handler.handle_post("/api/v1/accounting/expenses/upload", data)
-            assert result["status"] == 200
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_handle_post_approve(self, handler, mock_tracker):
         """Test POST request for approving expense."""
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handler.handle_post("/api/v1/accounting/expenses/exp-123/approve")
-            assert result["status"] == 200
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_handle_put_update(self, handler, mock_tracker):
@@ -203,19 +219,21 @@ class TestExpenseHandler:
         data = {"category": "Updated Category"}
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handler.handle_put("/api/v1/accounting/expenses/exp-123", data)
-            assert result["status"] == 200
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_handle_delete(self, handler, mock_tracker):
         """Test DELETE request."""
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handler.handle_delete("/api/v1/accounting/expenses/exp-123")
-            assert result["status"] == 200
+            assert result.status_code == 200
 
 
 class TestUploadReceipt:
@@ -230,25 +248,29 @@ class TestUploadReceipt:
         }
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_upload_receipt(data)
-            assert result["status"] == 200
-            assert "expense" in result["data"]
+            assert result.status_code == 200
+            body = parse_body(result)
+            assert "expense" in body
 
     @pytest.mark.asyncio
     async def test_upload_missing_receipt_data(self):
         """Test upload with missing receipt data."""
         result = await handle_upload_receipt({})
-        assert result["status"] == 400
-        assert "receipt_data is required" in result["data"]["error"]
+        assert result.status_code == 400
+        body = parse_body(result)
+        assert "receipt_data is required" in body.get("error", "")
 
     @pytest.mark.asyncio
     async def test_upload_invalid_base64(self):
         """Test upload with invalid base64."""
         result = await handle_upload_receipt({"receipt_data": "not-valid-base64!!!"})
-        assert result["status"] == 400
-        assert "Invalid base64" in result["data"]["error"]
+        assert result.status_code == 400
+        body = parse_body(result)
+        assert "Invalid base64" in body.get("error", "")
 
 
 class TestCreateExpense:
@@ -264,11 +286,13 @@ class TestCreateExpense:
         }
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_create_expense(data)
-            assert result["status"] == 200
-            assert "expense" in result["data"]
+            assert result.status_code == 200
+            body = parse_body(result)
+            assert "expense" in body
 
     @pytest.mark.asyncio
     async def test_create_missing_vendor(self, mock_tracker):
@@ -276,11 +300,13 @@ class TestCreateExpense:
         data = {"amount": 99.99}
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_create_expense(data)
-            assert result["status"] == 400
-            assert "vendor_name" in result["data"]["error"]
+            assert result.status_code == 400
+            body = parse_body(result)
+            assert "vendor_name" in body.get("error", "")
 
     @pytest.mark.asyncio
     async def test_create_missing_amount(self, mock_tracker):
@@ -288,11 +314,13 @@ class TestCreateExpense:
         data = {"vendor_name": "Test"}
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_create_expense(data)
-            assert result["status"] == 400
-            assert "amount" in result["data"]["error"]
+            assert result.status_code == 400
+            body = parse_body(result)
+            assert "amount" in body.get("error", "")
 
 
 class TestListExpenses:
@@ -302,11 +330,13 @@ class TestListExpenses:
     async def test_list_success(self, mock_tracker, mock_expense):
         """Test successful expense listing."""
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_list_expenses({})
-            assert result["status"] == 200
-            assert "expenses" in result["data"]
+            assert result.status_code == 200
+            body = parse_body(result)
+            assert "expenses" in body
 
     @pytest.mark.asyncio
     async def test_list_with_filters(self, mock_tracker, mock_expense):
@@ -318,10 +348,11 @@ class TestListExpenses:
         }
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_list_expenses(query_params)
-            assert result["status"] == 200
+            assert result.status_code == 200
 
 
 class TestGetExpense:
@@ -331,11 +362,13 @@ class TestGetExpense:
     async def test_get_success(self, mock_tracker, mock_expense):
         """Test successful expense retrieval."""
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_get_expense("exp-123")
-            assert result["status"] == 200
-            assert "expense" in result["data"]
+            assert result.status_code == 200
+            body = parse_body(result)
+            assert "expense" in body
 
     @pytest.mark.asyncio
     async def test_get_not_found(self, mock_tracker):
@@ -343,10 +376,11 @@ class TestGetExpense:
         mock_tracker.get_expense = AsyncMock(return_value=None)
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_get_expense("exp-nonexistent")
-            assert result["status"] == 404
+            assert result.status_code == 404
 
 
 class TestUpdateExpense:
@@ -358,10 +392,11 @@ class TestUpdateExpense:
         data = {"category": "New Category"}
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_update_expense("exp-123", data)
-            assert result["status"] == 200
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_update_not_found(self, mock_tracker):
@@ -369,10 +404,11 @@ class TestUpdateExpense:
         mock_tracker.update_expense = AsyncMock(return_value=None)
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_update_expense("exp-nonexistent", {})
-            assert result["status"] == 404
+            assert result.status_code == 404
 
 
 class TestDeleteExpense:
@@ -382,10 +418,11 @@ class TestDeleteExpense:
     async def test_delete_success(self, mock_tracker):
         """Test successful expense deletion."""
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_delete_expense("exp-123")
-            assert result["status"] == 200
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_delete_not_found(self, mock_tracker):
@@ -393,10 +430,11 @@ class TestDeleteExpense:
         mock_tracker.delete_expense = AsyncMock(return_value=False)
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_delete_expense("exp-nonexistent")
-            assert result["status"] == 404
+            assert result.status_code == 404
 
 
 class TestApproveExpense:
@@ -406,10 +444,11 @@ class TestApproveExpense:
     async def test_approve_success(self, mock_tracker, mock_expense):
         """Test successful expense approval."""
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_approve_expense("exp-123")
-            assert result["status"] == 200
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_approve_not_found(self, mock_tracker):
@@ -417,10 +456,11 @@ class TestApproveExpense:
         mock_tracker.approve_expense = AsyncMock(return_value=None)
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_approve_expense("exp-nonexistent")
-            assert result["status"] == 404
+            assert result.status_code == 404
 
 
 class TestRejectExpense:
@@ -432,10 +472,11 @@ class TestRejectExpense:
         data = {"reason": "Invalid receipt"}
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_reject_expense("exp-123", data)
-            assert result["status"] == 200
+            assert result.status_code == 200
 
 
 class TestCategorizeExpenses:
@@ -447,11 +488,13 @@ class TestCategorizeExpenses:
         data = {"expense_ids": ["exp-123", "exp-456"]}
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_categorize_expenses(data)
-            assert result["status"] == 200
-            assert "categorized" in result["data"]
+            assert result.status_code == 200
+            body = parse_body(result)
+            assert "categorized" in body
 
 
 class TestSyncToQBO:
@@ -463,10 +506,11 @@ class TestSyncToQBO:
         data = {"expense_ids": ["exp-123"]}
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_sync_to_qbo(data)
-            assert result["status"] == 200
+            assert result.status_code == 200
 
 
 class TestGetExpenseStats:
@@ -476,11 +520,13 @@ class TestGetExpenseStats:
     async def test_stats_success(self, mock_tracker):
         """Test successful stats retrieval."""
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_get_expense_stats({})
-            assert result["status"] == 200
-            assert "total_expenses" in result["data"]
+            assert result.status_code == 200
+            body = parse_body(result)
+            assert "total_expenses" in body
 
 
 class TestGetPendingApprovals:
@@ -490,11 +536,13 @@ class TestGetPendingApprovals:
     async def test_pending_success(self, mock_tracker, mock_expense):
         """Test successful pending approvals retrieval."""
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_get_pending_approvals()
-            assert result["status"] == 200
-            assert "expenses" in result["data"]
+            assert result.status_code == 200
+            body = parse_body(result)
+            assert "expenses" in body
 
 
 class TestExportExpenses:
@@ -506,7 +554,8 @@ class TestExportExpenses:
         query_params = {"format": "csv"}
 
         with patch(
-            "aragora.server.handlers.expenses.get_expense_tracker", return_value=mock_tracker
+            "aragora.server.handlers.expenses.get_expense_tracker",
+            return_value=mock_tracker,
         ):
             result = await handle_export_expenses(query_params)
-            assert result["status"] == 200
+            assert result.status_code == 200

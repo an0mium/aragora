@@ -89,25 +89,19 @@ class OrganizationStore:
         self._external_update_user = update_user
         self._external_row_to_user = row_to_user
 
-        # Determine backend type
-        env_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_DATABASE_URL")
-        actual_url = database_url or env_url
-
-        if backend is None:
-            env_backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
-            backend = "postgresql" if (actual_url and env_backend == "postgresql") else "sqlite"
-
-        self.backend_type = backend
+        # Backend selection is now handled by get_organization_store() using resolve_database_config().
+        # This __init__ just accepts explicit parameters from the factory function.
+        self.backend_type = backend or "sqlite"
         self._backend: Optional[DatabaseBackend] = None
 
         # Only create backend if not using external connection
         if get_connection is None:
-            if backend == "postgresql":
-                if not actual_url:
-                    raise ValueError("PostgreSQL backend requires DATABASE_URL")
+            if self.backend_type == "postgresql":
+                if not database_url:
+                    raise ValueError("PostgreSQL backend requires database_url parameter")
                 if not POSTGRESQL_AVAILABLE:
                     raise ImportError("psycopg2 required for PostgreSQL")
-                self._backend = PostgreSQLBackend(actual_url)
+                self._backend = PostgreSQLBackend(database_url)
                 logger.info("OrganizationStore using PostgreSQL backend")
             else:
                 self._backend = SQLiteBackend(str(db_path))
@@ -779,3 +773,90 @@ class OrganizationStore:
         elif self._external_get_connection is None and hasattr(self._local, "connection"):
             self._local.connection.close()
             del self._local.connection
+
+
+# =============================================================================
+# Singleton Instance
+# =============================================================================
+
+_organization_store: Optional[OrganizationStore] = None
+_store_lock = threading.Lock()
+
+
+def get_organization_store(
+    db_path: str = "organizations.db",
+    backend: Optional[str] = None,
+    database_url: Optional[str] = None,
+) -> OrganizationStore:
+    """
+    Get the singleton organization store instance.
+
+    Uses unified preference order: Supabase → PostgreSQL → SQLite.
+
+    Args:
+        db_path: Path to SQLite database file (used when backend="sqlite")
+        backend: Database backend ("sqlite", "postgresql", or "supabase")
+        database_url: PostgreSQL connection URL (optional, auto-detected)
+
+    Returns:
+        Configured OrganizationStore instance
+    """
+    global _organization_store
+    if _organization_store is None:
+        with _store_lock:
+            if _organization_store is None:
+                # Use connection factory to determine backend and DSN
+                from aragora.storage.connection_factory import (
+                    resolve_database_config,
+                    StorageBackendType,
+                )
+
+                # Check for explicit backend override, else use preference order
+                store_backend = os.environ.get("ARAGORA_ORGANIZATION_STORE_BACKEND")
+                if not store_backend and backend is None:
+                    config = resolve_database_config("organization", allow_sqlite=True)
+                    if config.backend_type in (
+                        StorageBackendType.SUPABASE,
+                        StorageBackendType.POSTGRES,
+                    ):
+                        backend = "postgresql"
+                        database_url = database_url or config.dsn
+                    else:
+                        backend = "sqlite"
+                elif store_backend:
+                    backend = store_backend.lower()
+                    if backend in ("postgres", "postgresql", "supabase"):
+                        # Get DSN from connection factory
+                        config = resolve_database_config("organization", allow_sqlite=True)
+                        database_url = database_url or config.dsn
+                        backend = "postgresql"
+
+                _organization_store = OrganizationStore(
+                    db_path=db_path,
+                    backend=backend,
+                    database_url=database_url,
+                )
+
+                # Enforce distributed storage in production
+                if _organization_store.backend_type == "sqlite":
+                    from aragora.storage.production_guards import (
+                        require_distributed_store,
+                        StorageMode,
+                    )
+
+                    require_distributed_store(
+                        "organization_store",
+                        StorageMode.SQLITE,
+                        "Organization data must use distributed storage in production. "
+                        "Configure Supabase or PostgreSQL.",
+                    )
+    return _organization_store
+
+
+def reset_organization_store() -> None:
+    """Reset the singleton store (for testing)."""
+    global _organization_store
+    with _store_lock:
+        if _organization_store is not None:
+            _organization_store.close()
+            _organization_store = None

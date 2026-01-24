@@ -921,7 +921,7 @@ async def init_postgres_stores() -> dict[str, bool]:
     from aragora.storage.factory import get_storage_backend, StorageBackend
 
     backend = get_storage_backend()
-    if backend != StorageBackend.POSTGRES:
+    if backend not in (StorageBackend.POSTGRES, StorageBackend.SUPABASE):
         logger.debug("[init] PostgreSQL backend not configured, skipping store initialization")
         return {}
 
@@ -941,13 +941,25 @@ async def init_postgres_stores() -> dict[str, bool]:
         ("webhook_configs", "aragora.storage.webhook_config_store", "PostgresWebhookConfigStore"),
         ("integrations", "aragora.storage.integration_store", "PostgresIntegrationStore"),
         ("gmail_tokens", "aragora.storage.gmail_token_store", "PostgresGmailTokenStore"),
-        ("finding_workflows", "aragora.storage.finding_workflow_store", "PostgresFindingWorkflowStore"),
+        (
+            "finding_workflows",
+            "aragora.storage.finding_workflow_store",
+            "PostgresFindingWorkflowStore",
+        ),
         ("gauntlet_runs", "aragora.storage.gauntlet_run_store", "PostgresGauntletRunStore"),
         ("job_queue", "aragora.storage.job_queue_store", "PostgresJobQueueStore"),
         ("governance", "aragora.storage.governance_store", "PostgresGovernanceStore"),
         ("marketplace", "aragora.storage.marketplace_store", "PostgresMarketplaceStore"),
-        ("federation_registry", "aragora.storage.federation_registry_store", "PostgresFederationRegistryStore"),
-        ("approval_requests", "aragora.storage.approval_request_store", "PostgresApprovalRequestStore"),
+        (
+            "federation_registry",
+            "aragora.storage.federation_registry_store",
+            "PostgresFederationRegistryStore",
+        ),
+        (
+            "approval_requests",
+            "aragora.storage.approval_request_store",
+            "PostgresApprovalRequestStore",
+        ),
         ("token_blacklist", "aragora.storage.token_blacklist_store", "PostgresBlacklist"),
         ("users", "aragora.storage.user_store", "PostgresUserStore"),
         ("webhooks", "aragora.storage.webhook_store", "PostgresWebhookStore"),
@@ -989,6 +1001,7 @@ def init_postgres_stores_sync() -> dict[str, bool]:
         if loop.is_running():
             # If we're in an async context, create a new task
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, init_postgres_stores())
                 return future.result(timeout=60)

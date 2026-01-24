@@ -131,7 +131,9 @@ class ScheduledDebateStore(SQLiteStore):
                     (
                         1
                         if record.consensus_reached
-                        else 0 if record.consensus_reached is not None else None
+                        else 0
+                        if record.consensus_reached is not None
+                        else None
                     ),
                     record.confidence,
                     record.rounds_used,
@@ -305,6 +307,81 @@ class ScheduledDebateStore(SQLiteStore):
         analytics["daily_counts"] = {row[0]: row[1] for row in rows}
 
         return analytics
+
+    def finalize_debate_outcome(
+        self,
+        debate_id: str,
+        consensus_reached: bool,
+        confidence: float,
+        rounds_used: int,
+    ) -> bool:
+        """
+        Update a scheduled debate with its final outcome.
+
+        Called after a debate completes to persist the results.
+
+        Args:
+            debate_id: The ID of the debate that completed
+            consensus_reached: Whether consensus was achieved
+            confidence: Confidence level of the consensus (0.0-1.0)
+            rounds_used: Number of rounds the debate ran
+
+        Returns:
+            True if a record was updated, False if debate_id not found
+        """
+        with self.connection() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE scheduled_debates
+                SET consensus_reached = ?,
+                    confidence = ?,
+                    rounds_used = ?
+                WHERE debate_id = ?
+                """,
+                (
+                    1 if consensus_reached else 0,
+                    confidence,
+                    rounds_used,
+                    debate_id,
+                ),
+            )
+            updated = cursor.rowcount > 0
+
+        if updated:
+            logger.info(
+                f"Finalized debate outcome: {debate_id} "
+                f"(consensus={consensus_reached}, confidence={confidence:.2f})"
+            )
+        else:
+            logger.warning(f"No scheduled debate found for debate_id: {debate_id}")
+
+        return updated
+
+    def get_pending_outcomes(self, limit: int = 100) -> List[ScheduledDebateRecord]:
+        """
+        Get debates that have a debate_id but no outcome recorded.
+
+        Useful for background sync to check debate completion status.
+
+        Args:
+            limit: Maximum number of records to return
+
+        Returns:
+            List of ScheduledDebateRecord with pending outcomes
+        """
+        rows = self.fetch_all(
+            """
+            SELECT id, topic_hash, topic_text, platform, category, volume,
+                   debate_id, created_at, consensus_reached, confidence,
+                   rounds_used, scheduler_run_id
+            FROM scheduled_debates
+            WHERE debate_id IS NOT NULL AND consensus_reached IS NULL
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        return [self._row_to_record(row) for row in rows]
 
     def cleanup_old(self, days: int = 30) -> int:
         """

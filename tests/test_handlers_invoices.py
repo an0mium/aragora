@@ -398,7 +398,8 @@ class TestApproveInvoice:
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
-        assert body["message"] == "Invoice approved successfully"
+        data = get_data(body)
+        assert data["message"] == "Invoice approved successfully"
         mock_processor.approve_invoice.assert_called_once_with("inv_test123", "user123")
 
     @pytest.mark.asyncio
@@ -429,7 +430,8 @@ class TestRejectInvoice:
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
-        assert body["message"] == "Invoice rejected"
+        data = get_data(body)
+        assert data["message"] == "Invoice rejected"
         mock_processor.reject_invoice.assert_called_once_with("inv_test123", "Invalid")
 
     @pytest.mark.asyncio
@@ -461,8 +463,9 @@ class TestMatchToPO:
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
-        assert "match" in body
-        assert "invoice" in body
+        data = get_data(body)
+        assert "match" in data
+        assert "invoice" in data
 
     @pytest.mark.asyncio
     async def test_match_to_po_invoice_not_found(self, mock_processor):
@@ -499,8 +502,9 @@ class TestSchedulePayment:
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
-        assert "schedule" in body
-        assert body["message"] == "Payment scheduled successfully"
+        data = get_data(body)
+        assert "schedule" in data
+        assert data["message"] == "Payment scheduled successfully"
 
     @pytest.mark.asyncio
     async def test_schedule_payment_invoice_not_found(self, mock_processor):

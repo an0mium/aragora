@@ -159,10 +159,7 @@ def cmd_template_list(args: argparse.Namespace) -> int:
 
             if args.tags:
                 tag_set = set(args.tags)
-                packages = [
-                    p for p in packages
-                    if any(t in p.metadata.tags for t in tag_set)
-                ]
+                packages = [p for p in packages if any(t in p.metadata.tags for t in tag_set)]
 
         if args.format == "json":
             output = [
@@ -192,7 +189,7 @@ def cmd_template_list(args: argparse.Namespace) -> int:
         # Group by category
         categories: dict[str, list] = {}
         for p in packages:
-            cat = p.metadata.category.value
+            cat: str = p.metadata.category.value
             if cat not in categories:
                 categories[cat] = []
             categories[cat].append(p)
@@ -251,6 +248,7 @@ def cmd_template_show(args: argparse.Namespace) -> int:
         if args.format == "yaml":
             try:
                 import yaml
+
                 print(yaml.safe_dump(package.to_dict(), default_flow_style=False))
             except ImportError:
                 print("YAML output requires PyYAML: pip install pyyaml", file=sys.stderr)
@@ -400,6 +398,7 @@ def cmd_template_validate(args: argparse.Namespace) -> int:
         if path.suffix in (".yaml", ".yml"):
             try:
                 import yaml
+
                 template = yaml.safe_load(content)
             except ImportError:
                 print("YAML validation requires PyYAML: pip install pyyaml", file=sys.stderr)
@@ -485,6 +484,7 @@ def cmd_template_package(args: argparse.Namespace) -> int:
         if path.suffix in (".yaml", ".yml"):
             try:
                 import yaml
+
                 template = yaml.safe_load(content)
             except ImportError:
                 print("YAML requires PyYAML: pip install pyyaml", file=sys.stderr)

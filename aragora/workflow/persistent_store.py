@@ -752,8 +752,7 @@ def get_workflow_store(
     """
     Get or create workflow store with automatic backend selection.
 
-    Uses PostgreSQL if DATABASE_URL or ARAGORA_POSTGRES_DSN is set,
-    otherwise falls back to SQLite.
+    Uses Supabase/PostgreSQL if configured, otherwise falls back to SQLite.
 
     Args:
         db_path: Optional database path (only used for SQLite backend)
@@ -776,7 +775,7 @@ def get_workflow_store(
 
     backend = get_storage_backend()
 
-    if backend == StorageBackend.POSTGRES:
+    if backend in (StorageBackend.POSTGRES, StorageBackend.SUPABASE):
         from aragora.storage.postgres_store import ASYNCPG_AVAILABLE
 
         if not ASYNCPG_AVAILABLE:
@@ -808,8 +807,7 @@ async def get_async_workflow_store(
     """
     Get or create workflow store asynchronously with automatic backend selection.
 
-    Uses PostgreSQL if DATABASE_URL or ARAGORA_POSTGRES_DSN is set,
-    otherwise falls back to SQLite.
+    Uses Supabase/PostgreSQL if configured, otherwise falls back to SQLite.
 
     This is the preferred method for getting the workflow store in async contexts.
 
@@ -829,7 +827,7 @@ async def get_async_workflow_store(
 
     backend = get_storage_backend()
 
-    if backend == StorageBackend.POSTGRES:
+    if backend in (StorageBackend.POSTGRES, StorageBackend.SUPABASE):
         from aragora.storage.postgres_store import ASYNCPG_AVAILABLE
 
         if ASYNCPG_AVAILABLE:

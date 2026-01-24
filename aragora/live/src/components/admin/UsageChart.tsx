@@ -90,7 +90,7 @@ export function UsageChart({
   const colors = colorClasses[color as keyof typeof colorClasses] || colorClasses['acid-green'];
 
   const padding = { top: 20, right: 20, bottom: 30, left: 60 };
-  const chartWidth = 100; // percentage
+  const _chartWidth = 100; // percentage - reserved for future responsive sizing
   const chartHeight = height - padding.top - padding.bottom;
 
   const getY = (value: number) => {
@@ -208,7 +208,7 @@ export function UsageChart({
     if (chartData.length === 0) return null;
 
     const step = Math.max(1, Math.floor(chartData.length / 6));
-    return chartData.filter((_, i) => i % step === 0 || i === chartData.length - 1).map((d, i, arr) => {
+    return chartData.filter((_, i) => i % step === 0 || i === chartData.length - 1).map((d, _i, _arr) => {
       const originalIndex = chartData.indexOf(d);
       const x = (originalIndex / Math.max(chartData.length - 1, 1)) * 100;
       return (

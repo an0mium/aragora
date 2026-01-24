@@ -125,6 +125,7 @@ export function DocumentUpload({
     }, 2000);
 
     return () => clearInterval(pollInterval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Token is stable during polling
   }, [mediaFiles, apiBase, onTranscriptionsChange]);
 
   // Upload document file

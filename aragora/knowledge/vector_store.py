@@ -168,7 +168,7 @@ class KnowledgeVectorStore:
         try:
             # Create client
             if self.config.api_key:
-                self._client = weaviate.connect_to_custom(
+                self._client = weaviate.connect_to_custom(  # type: ignore[call-arg]
                     http_host=self.config.url.replace("http://", "").replace("https://", ""),
                     http_port=8080,
                     http_secure=self.config.url.startswith("https"),

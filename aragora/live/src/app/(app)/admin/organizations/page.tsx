@@ -135,6 +135,7 @@ function OrgDetailModal({
     } else if (activeTab === 'api-keys' && apiKeys.length === 0) {
       loadAPIKeys();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Load data only on tab change, not on data updates
   }, [activeTab]);
 
   if (!isOpen || !organization) return null;
@@ -423,7 +424,7 @@ function OrganizationsAdminPageContent() {
     setShowDetailModal(true);
   };
 
-  const isAdmin = isAuthenticated && (user?.role === 'admin' || user?.role === 'owner');
+  const _isAdmin = isAuthenticated && (user?.role === 'admin' || user?.role === 'owner');
 
   // Calculate tier stats
   const tierStats = organizations.reduce((acc, org) => {

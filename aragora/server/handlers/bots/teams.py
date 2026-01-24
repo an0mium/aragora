@@ -152,7 +152,7 @@ class TeamsHandler(BaseHandler):
                     "error": "Teams bot not configured",
                     "details": "Set TEAMS_APP_ID and TEAMS_APP_PASSWORD environment variables",
                 },
-                status_code=503,
+                status=503,
             )
 
         try:

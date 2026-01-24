@@ -141,6 +141,19 @@ from .resource_permissions import (
     check_resource_permission as check_resource_permission_func,
 )
 
+# Permission delegation (enterprise RBAC v2)
+from .delegation import (
+    DelegationStatus,
+    DelegationConstraint,
+    PermissionDelegation,
+    DelegationManager,
+    get_delegation_manager,
+    set_delegation_manager,
+    delegate_permission,
+    check_delegated_permission,
+    revoke_delegation,
+)
+
 
 __all__ = [
     # Legacy Types (backward compatible)
@@ -228,4 +241,14 @@ __all__ = [
     "grant_resource_permission",
     "revoke_resource_permission",
     "check_resource_permission_func",
+    # Permission Delegation (Enterprise RBAC v2)
+    "DelegationStatus",
+    "DelegationConstraint",
+    "PermissionDelegation",
+    "DelegationManager",
+    "get_delegation_manager",
+    "set_delegation_manager",
+    "delegate_permission",
+    "check_delegated_permission",
+    "revoke_delegation",
 ]

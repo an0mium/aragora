@@ -651,7 +651,7 @@ class ChatWebhookRouter:
         )
 
         # Build request context
-        context = RequestContext(
+        context = RequestContext(  # type: ignore[call-arg]
             user_id=command.user.id if command and command.user else None,
             user_name=command.user.name if command and command.user else None,
             org_id=getattr(command, "team_id", None) if command else None,

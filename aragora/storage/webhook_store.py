@@ -461,7 +461,7 @@ def get_webhook_store() -> WebhookStoreBackend:
             postgres_class=PostgresWebhookStore,
             db_filename="webhook_events.db",
             memory_class=InMemoryWebhookStore,
-            data_dir=data_dir,
+            data_dir=str(data_dir) if data_dir else None,
         )
         if isinstance(_webhook_store, SQLiteWebhookStore):
             require_distributed_store(

@@ -360,6 +360,64 @@ class PulseAdapter:
         logger.info(f"Stored outcome: {outcome_id} (consensus={outcome.consensus_reached})")
         return outcome_id
 
+    def store_debate_outcome(
+        self,
+        debate_id: str,
+        topic: str,
+        platform: str,
+        consensus_reached: bool,
+        confidence: float,
+        rounds_used: int,
+        category: str = "",
+        volume: int = 0,
+    ) -> str:
+        """
+        Store a debate outcome from the scheduler (convenience method).
+
+        This is called by the PulseDebateScheduler after a debate completes.
+        It creates a TrendingTopicOutcome and stores it.
+
+        Args:
+            debate_id: ID of the completed debate
+            topic: The topic text
+            platform: Source platform (hackernews, reddit, etc.)
+            consensus_reached: Whether consensus was achieved
+            confidence: Confidence score (0.0-1.0)
+            rounds_used: Number of debate rounds used
+            category: Topic category
+            volume: Engagement volume
+
+        Returns:
+            The outcome ID
+        """
+        from aragora.pulse.ingestor import TrendingTopicOutcome
+
+        outcome = TrendingTopicOutcome(
+            topic=topic,
+            platform=platform,
+            debate_id=debate_id,
+            consensus_reached=consensus_reached,
+            confidence=confidence,
+            rounds_used=rounds_used,
+            timestamp=time.time(),
+            category=category,
+            volume=volume,
+        )
+
+        outcome_id = self.store_outcome(outcome)
+
+        # Also record for KM reverse flow analysis
+        self.record_outcome_for_km(
+            topic_id=f"{self.ID_PREFIX}topic_{debate_id}",
+            debate_id=debate_id,
+            outcome_success=consensus_reached,
+            confidence=confidence,
+            rounds_used=rounds_used,
+            category=category,
+        )
+
+        return outcome_id
+
     def get_topic(self, topic_id: str) -> Optional[Dict[str, Any]]:
         """
         Get a specific topic by ID.

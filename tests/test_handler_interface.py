@@ -305,7 +305,7 @@ class TestHandlerRegistration:
             "routes": [{"path_pattern": "/test"}],
             "lazy": True,
         }
-        assert registration["handler_class"] == object
+        assert registration["handler_class"] is object
         assert len(registration["routes"]) == 1
         assert registration["lazy"] is True
 

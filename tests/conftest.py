@@ -390,6 +390,39 @@ def mock_elo_system() -> Mock:
     return elo
 
 
+@pytest.fixture
+def mock_calibration_tracker() -> Mock:
+    """Create a mock CalibrationTracker.
+
+    Returns a Mock object with calibration methods that return
+    fast, deterministic values suitable for testing.
+    """
+    tracker = Mock()
+
+    # Mock calibration summary
+    mock_summary = Mock()
+    mock_summary.agent = "test_agent"
+    mock_summary.total_predictions = 100
+    mock_summary.total_correct = 75
+    mock_summary.brier_score = 0.15
+    mock_summary.ece = 0.08
+    mock_summary.adjust_confidence = Mock(side_effect=lambda c, domain=None: c)
+
+    # Configure methods
+    tracker.get_calibration_summary.return_value = mock_summary
+    tracker.get_brier_score.return_value = 0.15
+    tracker.get_expected_calibration_error.return_value = 0.08
+    tracker.get_calibration_curve.return_value = []
+    tracker.get_all_agents.return_value = ["test_agent"]
+    tracker.record_prediction = Mock()
+    tracker.record_outcome = Mock()
+    tracker.get_temperature_params.return_value = Mock(
+        temperature=1.0, get_temperature=Mock(return_value=1.0)
+    )
+
+    return tracker
+
+
 # ============================================================================
 # Mock Agent Fixtures
 # ============================================================================

@@ -144,7 +144,7 @@ Follow testing best practices:
         # Return empty string - use suggest_tests() for test generation
         return ""
 
-    async def critique(
+    async def critique(  # type: ignore[override]
         self,
         proposal: str,
         task: str,

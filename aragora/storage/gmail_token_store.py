@@ -1036,7 +1036,7 @@ def get_gmail_token_store() -> GmailTokenStoreBackend:
             postgres_class=PostgresGmailTokenStore,
             db_filename="gmail_tokens.db",
             memory_class=InMemoryGmailTokenStore,
-            data_dir=data_dir,
+            data_dir=str(data_dir) if data_dir else None,
         )
 
         return _gmail_token_store

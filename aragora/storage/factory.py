@@ -2,13 +2,13 @@
 Storage Factory for Aragora.
 
 Provides a unified interface for creating storage backends based on configuration.
-Supports PostgreSQL (default for production) and SQLite (development fallback).
+Supports Supabase PostgreSQL (preferred), self-hosted PostgreSQL, and SQLite fallback.
 
 Backend Selection:
-1. Explicit: Set ARAGORA_DB_BACKEND=postgres or ARAGORA_DB_BACKEND=sqlite
-2. Auto: If ARAGORA_POSTGRES_DSN or DATABASE_URL is set, uses PostgreSQL
-3. Production: In production mode (ARAGORA_ENV=production), PostgreSQL is required
-4. Fallback: If no PostgreSQL DSN is configured in development, falls back to SQLite
+1. Explicit: ARAGORA_DB_BACKEND=supabase|postgres|sqlite
+2. Auto: Supabase if configured, else ARAGORA_POSTGRES_DSN/DATABASE_URL
+3. Production: Distributed storage required by default
+4. Fallback: SQLite for local development
 
 Usage:
     from aragora.storage.factory import get_storage_backend, StorageBackend
@@ -34,6 +34,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 
+from aragora.storage.connection_factory import (
+    get_selfhosted_postgres_dsn,
+    get_supabase_postgres_dsn,
+)
+
 logger = logging.getLogger(__name__)
 
 # Production environment indicators
@@ -45,6 +50,7 @@ class StorageBackend(Enum):
 
     SQLITE = "sqlite"
     POSTGRES = "postgres"
+    SUPABASE = "supabase"
 
 
 def is_production_environment() -> bool:
@@ -58,9 +64,9 @@ def get_storage_backend() -> StorageBackend:
     Determine which storage backend to use based on configuration.
 
     Priority order:
-    1. Explicit ARAGORA_DB_BACKEND environment variable ("postgres" or "sqlite")
-    2. Auto-detect: If ARAGORA_POSTGRES_DSN or DATABASE_URL is set, use PostgreSQL
-    3. Production enforcement: In production, PostgreSQL is strongly preferred
+    1. Explicit ARAGORA_DB_BACKEND environment variable ("supabase", "postgres", "sqlite")
+    2. Auto-detect: Supabase if configured, else PostgreSQL DSN
+    3. Production enforcement: In production, distributed storage is preferred
     4. Fallback: SQLite for local development
 
     Returns:
@@ -72,14 +78,22 @@ def get_storage_backend() -> StorageBackend:
     explicit_backend = os.environ.get("ARAGORA_DB_BACKEND")
     if explicit_backend:
         backend = explicit_backend.lower()
-        if backend == "postgres" or backend == "postgresql":
+        if backend == "supabase":
+            if not get_supabase_postgres_dsn():
+                logger.warning("ARAGORA_DB_BACKEND=supabase set but Supabase is not configured.")
+            return StorageBackend.SUPABASE
+        elif backend == "postgres" or backend == "postgresql":
+            if not get_selfhosted_postgres_dsn():
+                logger.warning("ARAGORA_DB_BACKEND=postgres set but no PostgreSQL DSN configured.")
             return StorageBackend.POSTGRES
+        elif backend == "auto":
+            pass
         elif backend == "sqlite":
             if is_prod:
                 logger.warning(
                     "SQLite explicitly configured in production environment. "
                     "This is not recommended for multi-user deployments. "
-                    "Set ARAGORA_DB_BACKEND=postgres and configure ARAGORA_POSTGRES_DSN."
+                    "Configure Supabase or PostgreSQL for distributed storage."
                 )
             return StorageBackend.SQLITE
         else:
@@ -87,38 +101,43 @@ def get_storage_backend() -> StorageBackend:
                 f"Unknown ARAGORA_DB_BACKEND value: {backend}, falling back to auto-detect"
             )
 
-    # Auto-detect: use PostgreSQL if DSN is configured
-    dsn = os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
-    if dsn:
+    # Auto-detect: prefer Supabase, then self-hosted PostgreSQL
+    supabase_dsn = get_supabase_postgres_dsn()
+    if supabase_dsn:
+        logger.debug("Supabase configuration detected, using Supabase backend")
+        return StorageBackend.SUPABASE
+
+    postgres_dsn = get_selfhosted_postgres_dsn()
+    if postgres_dsn:
         logger.debug("PostgreSQL DSN detected, using PostgreSQL backend")
         return StorageBackend.POSTGRES
 
-    # Production warning if no PostgreSQL configured
+    # Production warning if no distributed storage configured
     if is_prod:
         logger.warning(
-            "No PostgreSQL DSN configured in production environment. "
+            "No Supabase or PostgreSQL DSN configured in production environment. "
             "SQLite is being used as fallback, which is NOT safe for multi-user deployments. "
-            "Set ARAGORA_POSTGRES_DSN or DATABASE_URL to configure PostgreSQL."
+            "Configure SUPABASE_URL + SUPABASE_DB_PASSWORD or ARAGORA_POSTGRES_DSN."
         )
 
     # Fallback: SQLite for local development
-    logger.debug("No PostgreSQL DSN configured, using SQLite backend")
+    logger.debug("No Supabase or PostgreSQL DSN configured, using SQLite backend")
     return StorageBackend.SQLITE
 
 
 def is_postgres_configured() -> bool:
     """
-    Check if PostgreSQL connection is configured.
+    Check if a PostgreSQL connection is configured (Supabase or self-hosted).
 
     Returns:
-        True if PostgreSQL DSN is available and backend is set to postgres
+        True if a PostgreSQL DSN is available and backend is Postgres-based
     """
     backend = get_storage_backend()
-    if backend != StorageBackend.POSTGRES:
-        return False
-
-    dsn = os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
-    return bool(dsn)
+    if backend == StorageBackend.SUPABASE:
+        return bool(get_supabase_postgres_dsn())
+    if backend == StorageBackend.POSTGRES:
+        return bool(get_selfhosted_postgres_dsn())
+    return False
 
 
 def get_default_db_path(name: str, nomic_dir: Optional[Union[str, Path]] = None) -> Path:
@@ -193,13 +212,19 @@ def storage_info() -> dict[str, object]:
     backend = get_storage_backend()
     info: dict[str, object] = {
         "backend": backend.value,
-        "is_postgres": backend == StorageBackend.POSTGRES,
+        "is_postgres": backend in (StorageBackend.POSTGRES, StorageBackend.SUPABASE),
+        "is_supabase": backend == StorageBackend.SUPABASE,
         "postgres_configured": is_postgres_configured(),
         "is_production": is_production_environment(),
     }
 
-    if backend == StorageBackend.POSTGRES:
-        dsn: str = os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL") or ""
+    if backend in (StorageBackend.POSTGRES, StorageBackend.SUPABASE):
+        dsn = (
+            get_supabase_postgres_dsn()
+            if backend == StorageBackend.SUPABASE
+            else get_selfhosted_postgres_dsn()
+        )
+        dsn = dsn or ""
         # Redact password from DSN for logging
         if dsn and "@" in dsn:
             parts = dsn.split("@")
@@ -219,7 +244,7 @@ def validate_storage_config(strict: bool = False) -> dict:
     Validate storage configuration at startup.
 
     Call this at server startup to ensure storage is properly configured.
-    In production, this will error if PostgreSQL is not configured.
+    In production, this will error if distributed storage is not configured.
 
     Args:
         strict: If True, raise an error on critical misconfigurations
@@ -235,25 +260,37 @@ def validate_storage_config(strict: bool = False) -> dict:
 
     is_prod = is_production_environment()
     backend = get_storage_backend()
-    dsn = os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
+    supabase_dsn = get_supabase_postgres_dsn()
+    postgres_dsn = get_selfhosted_postgres_dsn()
 
-    # Check PostgreSQL configuration in production
-    if is_prod and backend != StorageBackend.POSTGRES:
+    # Check distributed configuration in production
+    if is_prod and backend == StorageBackend.SQLITE:
         errors.append(
-            "Production environment requires PostgreSQL. "
-            "Set ARAGORA_DB_BACKEND=postgres and ARAGORA_POSTGRES_DSN."
+            "Production environment requires distributed storage. "
+            "Configure Supabase (SUPABASE_URL + SUPABASE_DB_PASSWORD) or "
+            "set ARAGORA_DB_BACKEND=postgres with ARAGORA_POSTGRES_DSN."
         )
-    elif is_prod and backend == StorageBackend.POSTGRES and not dsn:
+    elif is_prod and backend == StorageBackend.POSTGRES and not postgres_dsn:
         errors.append(
             "PostgreSQL backend selected but no DSN configured. "
             "Set ARAGORA_POSTGRES_DSN or DATABASE_URL."
         )
+    elif is_prod and backend == StorageBackend.SUPABASE and not supabase_dsn:
+        errors.append(
+            "Supabase backend selected but no Supabase DSN configured. "
+            "Set SUPABASE_URL + SUPABASE_DB_PASSWORD or SUPABASE_POSTGRES_DSN."
+        )
 
-    # Check for DSN without backend being set to postgres
-    if dsn and backend != StorageBackend.POSTGRES:
+    # Check for DSN without backend being set to the matching backend
+    if postgres_dsn and backend not in (StorageBackend.POSTGRES, StorageBackend.SUPABASE):
         warnings_list.append(
             f"PostgreSQL DSN is configured but backend is set to {backend.value}. "
             "Consider setting ARAGORA_DB_BACKEND=postgres."
+        )
+    if supabase_dsn and backend != StorageBackend.SUPABASE:
+        warnings_list.append(
+            f"Supabase is configured but backend is set to {backend.value}. "
+            "Consider setting ARAGORA_DB_BACKEND=supabase."
         )
 
     # Warn about SQLite in non-development environments
@@ -282,7 +319,8 @@ def validate_storage_config(strict: bool = False) -> dict:
         "warnings": warnings_list,
         "backend": backend.value,
         "is_production": is_prod,
-        "postgres_dsn_configured": bool(dsn),
+        "postgres_dsn_configured": bool(postgres_dsn or supabase_dsn),
+        "supabase_dsn_configured": bool(supabase_dsn),
     }
 
 
