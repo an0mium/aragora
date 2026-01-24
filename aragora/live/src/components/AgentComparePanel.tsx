@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '@/context/AuthContext';
 
@@ -39,16 +39,18 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [agents, setAgents] = useState<string[]>(availableAgents);
+  const initialFetchDone = useRef(false);
 
   // Use centralized config
   const apiBase = API_BASE_URL;
 
-  // Fetch available agents if not provided (only when authenticated)
+  // Fetch available agents if not provided (only when authenticated) - fetch once only
   useEffect(() => {
     // Skip if auth is loading or user is not authenticated
     if (authLoading) return;
     if (!isAuthenticated) return;
     if (availableAgents.length > 0) return;
+    if (initialFetchDone.current) return;
 
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
     if (tokens?.access_token) {
@@ -56,15 +58,21 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
     }
 
     fetch(`${apiBase}/api/rankings`, { headers })
-      .then(res => res.json())
+      .then(res => {
+        // Don't retry on rate limit - gracefully handle
+        if (res.status === 429) return { rankings: [] };
+        return res.json();
+      })
       .then(data => {
         const agentNames = (data.rankings || []).map((r: { name: string }) => r.name);
         setAgents(agentNames);
-        if (!agent1 && agentNames.length > 0) setAgent1(agentNames[0]);
-        if (!agent2 && agentNames.length > 1) setAgent2(agentNames[1]);
+        // Set defaults only on initial fetch
+        if (agentNames.length > 0) setAgent1(agentNames[0]);
+        if (agentNames.length > 1) setAgent2(agentNames[1]);
+        initialFetchDone.current = true;
       })
       .catch(() => {});
-  }, [apiBase, availableAgents, agent1, agent2, authLoading, isAuthenticated, tokens?.access_token]);
+  }, [apiBase, availableAgents, authLoading, isAuthenticated, tokens?.access_token]); // Remove agent1, agent2 from deps
 
   const fetchComparison = useCallback(async () => {
     if (!agent1 || !agent2 || agent1 === agent2) return;

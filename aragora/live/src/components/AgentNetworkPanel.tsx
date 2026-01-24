@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { withErrorBoundary } from './PanelErrorBoundary';
 import { API_BASE_URL } from '@/config';
 
@@ -238,20 +238,28 @@ function AgentNetworkPanelComponent({
   const [error, setError] = useState<string | null>(null);
   const [agentInput, setAgentInput] = useState(selectedAgent || '');
   const [availableAgents, setAvailableAgents] = useState<string[]>([]);
+  const initialFetchDone = useRef(false);
 
-  // Fetch available agents from leaderboard
+  // Fetch available agents from leaderboard - only once on mount
   useEffect(() => {
+    if (initialFetchDone.current) return;
+    initialFetchDone.current = true;
+
     fetch(`${apiBase}/api/leaderboard?limit=20`)
-      .then((res) => res.json())
+      .then((res) => {
+        // Don't retry on rate limit - gracefully handle
+        if (res.status === 429) return { agents: [] };
+        return res.json();
+      })
       .then((data: { agents?: Array<{ name: string }> }) => {
         const agents = (data.agents || []).map((a) => a.name);
         setAvailableAgents(agents);
-        if (!agentInput && agents.length > 0) {
+        if (agents.length > 0 && !agentInput) {
           setAgentInput(agents[0]);
         }
       })
       .catch(() => {});
-  }, [apiBase, agentInput]);
+  }, [apiBase]); // Remove agentInput from deps to prevent re-fetching on selection
 
   const fetchNetwork = useCallback(async (agent: string) => {
     if (!agent) return;

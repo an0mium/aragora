@@ -45,8 +45,10 @@ const DEFAULT_CONFIG: Required<RetryConfig> = {
       message.includes('502') ||
       message.includes('503') ||
       message.includes('504');
+    // Don't retry on 429 rate limit errors - let rate limiting work as intended
+    // Retrying on 429 creates thundering herd effects and amplifies the problem
     const isRateLimited = message.includes('429');
-    return isNetworkError || isServerError || isRateLimited;
+    return (isNetworkError || isServerError) && !isRateLimited;
   },
   onRetry: () => {},
 };

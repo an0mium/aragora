@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { withErrorBoundary } from './PanelErrorBoundary';
 import { fetchWithRetry } from '@/utils/retry';
 import { API_BASE_URL } from '@/config';
@@ -91,20 +91,28 @@ function CapabilityProbePanelComponent({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<ProbeReport | null>(null);
+  const initialFetchDone = useRef(false);
 
-  // Fetch available agents
+  // Fetch available agents - only once on mount
   useEffect(() => {
-    fetchWithRetry(`${apiBase}/api/leaderboard?limit=20`, undefined, { maxRetries: 2 })
-      .then((res) => res.json())
+    if (initialFetchDone.current) return;
+    initialFetchDone.current = true;
+
+    fetch(`${apiBase}/api/leaderboard?limit=20`)
+      .then((res) => {
+        // Don't retry on rate limit - gracefully handle
+        if (res.status === 429) return { agents: [] };
+        return res.json();
+      })
       .then((data: { agents?: Array<{ name: string }> }) => {
         const agents = (data.agents || []).map((a) => a.name);
         setAvailableAgents(agents);
-        if (!selectedAgent && agents.length > 0) {
+        if (agents.length > 0 && !selectedAgent) {
           setSelectedAgent(agents[0]);
         }
       })
       .catch(() => {});
-  }, [apiBase, selectedAgent]);
+  }, [apiBase]); // Remove selectedAgent from deps to prevent re-fetching on selection
 
   const toggleProbeType = (type: string) => {
     setSelectedProbes((prev) =>
