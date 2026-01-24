@@ -498,8 +498,8 @@ class TaskDecomposer:
             arena = Arena(env, agents, protocol)
             result = await arena.run()
 
-            # Parse subtasks from consensus
-            subtasks = self._parse_debate_subtasks(result.consensus_text or "")
+            # Parse subtasks from final answer (consensus text)
+            subtasks = self._parse_debate_subtasks(result.final_answer or "")
 
             if not subtasks:
                 logger.warning("debate_decomposition_empty falling back to heuristic")
@@ -517,7 +517,7 @@ class TaskDecomposer:
                 should_decompose=True,
                 subtasks=subtasks[: self.config.max_subtasks],
                 rationale=f"Debate decomposition (confidence={result.confidence:.2f}): "
-                + (result.consensus_text or "")[:200],
+                + (result.final_answer or "")[:200],
             )
 
         except Exception as e:
@@ -657,17 +657,16 @@ Prioritize by impact: which improvements would provide the most value?"""
             try:
                 from aragora.agents.api_agents.openrouter import OpenRouterAgent
 
+                # OpenRouterAgent uses OPENROUTER_API_KEY from environment
                 agents.extend(
                     [
                         OpenRouterAgent(
                             name="or-claude",
                             model="anthropic/claude-3.5-sonnet",
-                            api_key=openrouter_key,
                         ),
                         OpenRouterAgent(
                             name="or-gpt",
                             model="openai/gpt-4o",
-                            api_key=openrouter_key,
                         ),
                     ]
                 )

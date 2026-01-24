@@ -653,12 +653,55 @@ class SlackHandler(BaseHandler):
         response_url: str,
         user_id: str,
         channel_id: str,
+        workspace_id: Optional[str] = None,
     ) -> None:
-        """Create debate asynchronously and POST result to Slack response_url."""
+        """Create debate asynchronously with thread-based progress updates.
+
+        Posts an initial message to start a thread, then posts progress
+        updates and final result to that thread.
+        """
+        import uuid
+
+        debate_id = f"debate-{uuid.uuid4().hex[:8]}"
+        thread_ts: Optional[str] = None
 
         try:
             from aragora import Arena, DebateProtocol, Environment
             from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
+
+            # Post initial "starting" message to create thread
+            starting_blocks = self._build_starting_blocks(topic, user_id, debate_id)
+            await self._post_to_response_url(
+                response_url,
+                {
+                    "response_type": "in_channel",
+                    "text": f"Starting debate: {topic}",
+                    "blocks": starting_blocks,
+                    "replace_original": False,
+                },
+            )
+
+            # Store active debate for tracking (if workspace_id available)
+            if workspace_id:
+                try:
+                    from aragora.storage.slack_debate_store import (
+                        SlackActiveDebate,
+                        get_slack_debate_store,
+                    )
+
+                    active_debate = SlackActiveDebate(
+                        debate_id=debate_id,
+                        workspace_id=workspace_id,
+                        channel_id=channel_id,
+                        thread_ts=thread_ts,
+                        topic=topic,
+                        user_id=user_id,
+                        status="running",
+                    )
+                    store = get_slack_debate_store()
+                    store.save(active_debate)
+                except ImportError:
+                    logger.debug("Slack debate store not available")
 
             # Create debate
             env = Environment(task=f"Debate: {topic}")
@@ -671,7 +714,6 @@ class SlackHandler(BaseHandler):
             )
 
             if not agents:
-                # Post error to Slack
                 await self._post_to_response_url(
                     response_url,
                     {
@@ -680,107 +722,80 @@ class SlackHandler(BaseHandler):
                         "replace_original": False,
                     },
                 )
+                self._update_debate_status(debate_id, "failed", error="No agents available")
                 return
+
+            # Track progress for thread updates
+            last_round = 0
+
+            def on_round_complete(round_num: int, agent: str, response: str) -> None:
+                nonlocal last_round
+                if round_num > last_round:
+                    last_round = round_num
+                    # Post round update to thread (fire-and-forget)
+                    create_tracked_task(
+                        self._post_round_update(
+                            response_url, topic, round_num, protocol.rounds, agent
+                        ),
+                        name=f"slack-round-{debate_id}-{round_num}",
+                    )
 
             arena = Arena.from_env(env, agents, protocol)
             result = await arena.run()
 
-            # Build result blocks
-            consensus_emoji = "" if result.consensus_reached else ""
-            confidence_bar = "" * int(result.confidence * 5)
+            # Generate decision receipt if enabled
+            receipt_id: Optional[str] = None
+            receipt_url: Optional[str] = None
+            try:
+                from aragora.gauntlet.receipt import DecisionReceipt
 
-            blocks = [
-                {
-                    "type": "header",
-                    "text": {
-                        "type": "plain_text",
-                        "text": f"Debate Complete: {topic[:50]}...",
-                        "emoji": True,
-                    },
-                },
-                {
-                    "type": "section",
-                    "fields": [
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*Consensus:* {consensus_emoji} {'Yes' if result.consensus_reached else 'No'}",
-                        },
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*Confidence:* {confidence_bar} {result.confidence:.1%}",
-                        },
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*Rounds:* {result.rounds_used}",
-                        },
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*Agents:* {len(agents)}",
-                        },
-                    ],
-                },
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"*Conclusion:*\n{result.final_answer[:500] if result.final_answer else 'No conclusion reached'}...",
-                    },
-                },
-                {
-                    "type": "actions",
-                    "elements": [
-                        {
-                            "type": "button",
-                            "text": {
-                                "type": "plain_text",
-                                "text": " Agree",
-                                "emoji": True,
-                            },
-                            "action_id": f"vote_{result.id}_agree",
-                            "value": result.id,
-                        },
-                        {
-                            "type": "button",
-                            "text": {
-                                "type": "plain_text",
-                                "text": " Disagree",
-                                "emoji": True,
-                            },
-                            "action_id": f"vote_{result.id}_disagree",
-                            "value": result.id,
-                        },
-                        {
-                            "type": "button",
-                            "text": {
-                                "type": "plain_text",
-                                "text": " Details",
-                                "emoji": True,
-                            },
-                            "action_id": "view_details",
-                            "value": result.id,
-                        },
-                    ],
-                },
-                {
-                    "type": "context",
-                    "elements": [
-                        {
-                            "type": "mrkdwn",
-                            "text": f"Debate ID: `{result.id}` | Requested by <@{user_id}>",
-                        },
-                    ],
-                },
-            ]
+                receipt = DecisionReceipt.from_debate_result(result)
+                receipt_id = receipt.receipt_id
+
+                # Build receipt URL
+                base_url = os.environ.get("ARAGORA_PUBLIC_URL", "https://aragora.ai")
+                receipt_url = f"{base_url}/receipts/{receipt_id}"
+
+                # Persist receipt
+                try:
+                    from aragora.storage.receipt_store import StoredReceipt, get_receipt_store
+                    import hashlib
+
+                    stored = StoredReceipt(
+                        receipt_id=receipt.receipt_id,
+                        gauntlet_id=None,
+                        debate_id=result.id,
+                        created_at=time.time(),
+                        expires_at=None,  # Receipts don't expire by default
+                        verdict=receipt.verdict,
+                        confidence=receipt.confidence,
+                        risk_level="LOW" if receipt.confidence >= 0.7 else "MEDIUM",
+                        risk_score=1.0 - receipt.confidence,
+                        checksum=hashlib.sha256(str(receipt.to_dict()).encode()).hexdigest(),
+                        data=receipt.to_dict(),
+                    )
+                    receipt_store = get_receipt_store()
+                    receipt_store.save(stored)
+                except ImportError:
+                    logger.debug("Receipt store not available")
+            except ImportError:
+                logger.debug("Receipt generation not available")
+
+            # Build and post result blocks
+            result_blocks = self._build_result_blocks(topic, result, user_id, receipt_url)
 
             await self._post_to_response_url(
                 response_url,
                 {
                     "response_type": "in_channel",
                     "text": f"Debate complete: {topic}",
-                    "blocks": blocks,
+                    "blocks": result_blocks,
                     "replace_original": False,
                 },
             )
+
+            # Update debate status to completed
+            self._update_debate_status(debate_id, "completed", receipt_id=receipt_id)
 
         except Exception as e:
             logger.error(f"Async debate creation failed: {e}", exc_info=True)
@@ -792,6 +807,186 @@ class SlackHandler(BaseHandler):
                     "replace_original": False,
                 },
             )
+            self._update_debate_status(debate_id, "failed", error=str(e)[:200])
+
+    def _build_starting_blocks(
+        self, topic: str, user_id: str, debate_id: str
+    ) -> List[Dict[str, Any]]:
+        """Build Slack blocks for debate start message."""
+        return [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "Debate Starting...",
+                    "emoji": True,
+                },
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Topic:* {topic}",
+                },
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"Requested by <@{user_id}> | ID: `{debate_id}`",
+                    },
+                ],
+            },
+        ]
+
+    async def _post_round_update(
+        self,
+        response_url: str,
+        topic: str,
+        round_num: int,
+        total_rounds: int,
+        agent: str,
+    ) -> None:
+        """Post a round progress update to the thread."""
+        progress = round_num / total_rounds
+        progress_bar = "" * int(progress * 10) + "" * (10 - int(progress * 10))
+
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Round {round_num}/{total_rounds}* {progress_bar}\n_{agent} responded_",
+                },
+            },
+        ]
+
+        await self._post_to_response_url(
+            response_url,
+            {
+                "response_type": "in_channel",
+                "text": f"Round {round_num} complete",
+                "blocks": blocks,
+                "replace_original": False,
+            },
+        )
+
+    def _build_result_blocks(
+        self,
+        topic: str,
+        result: Any,
+        user_id: str,
+        receipt_url: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Build Slack blocks for debate result message."""
+        consensus_emoji = "" if result.consensus_reached else ""
+        confidence_bar = "" * int(result.confidence * 5)
+
+        blocks: List[Dict[str, Any]] = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": f"Debate Complete: {topic[:50]}",
+                    "emoji": True,
+                },
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Consensus:* {consensus_emoji} {'Yes' if result.consensus_reached else 'No'}",
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Confidence:* {confidence_bar} {result.confidence:.1%}",
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Rounds:* {result.rounds_used}",
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Participants:* {len(result.participants)}",
+                    },
+                ],
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Conclusion:*\n{result.final_answer[:500] if result.final_answer else 'No conclusion reached'}",
+                },
+            },
+        ]
+
+        # Add action buttons
+        action_elements: List[Dict[str, Any]] = [
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Agree", "emoji": True},
+                "action_id": f"vote_{result.id}_agree",
+                "value": result.id,
+                "style": "primary",
+            },
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Disagree", "emoji": True},
+                "action_id": f"vote_{result.id}_disagree",
+                "value": result.id,
+            },
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Details", "emoji": True},
+                "action_id": "view_details",
+                "value": result.id,
+            },
+        ]
+
+        # Add receipt link button if available
+        if receipt_url:
+            action_elements.append(
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "View Receipt", "emoji": True},
+                    "url": receipt_url,
+                    "action_id": f"receipt_{result.id}",
+                }
+            )
+
+        blocks.append({"type": "actions", "elements": action_elements})
+
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"Debate ID: `{result.id}` | Requested by <@{user_id}>",
+                    },
+                ],
+            }
+        )
+
+        return blocks
+
+    def _update_debate_status(
+        self,
+        debate_id: str,
+        status: str,
+        receipt_id: Optional[str] = None,
+        error: Optional[str] = None,
+    ) -> None:
+        """Update debate status in the store."""
+        try:
+            from aragora.storage.slack_debate_store import get_slack_debate_store
+
+            store = get_slack_debate_store()
+            store.update_status(debate_id, status, receipt_id=receipt_id, error_message=error)
+        except ImportError:
+            pass  # Store not available
 
     async def _post_to_response_url(self, url: str, payload: Dict[str, Any]) -> None:
         """POST a message to Slack's response_url."""
