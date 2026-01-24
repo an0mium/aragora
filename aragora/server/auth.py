@@ -634,6 +634,7 @@ def check_auth(
         rate_limit_remaining is -1 if rate limiting not applicable.
     """
     # Always check IP rate limit for DoS protection (even without auth)
+    ip_remaining = -1
     if ip_address:
         ip_allowed, ip_remaining = auth_config.check_rate_limit_by_ip(ip_address)
         if not ip_allowed:
@@ -645,6 +646,33 @@ def check_auth(
 
     # Only extract token from Authorization header (not query params for security)
     token = auth_config.extract_token_from_request(headers)
+
+    # Allow JWT access tokens and API keys to pass the API-token gate.
+    # RBAC will enforce user permissions; this avoids blocking browser sessions
+    # when ARAGORA_API_TOKEN is enabled.
+    if token:
+        if token.startswith("ara_"):
+            allowed, remaining = auth_config.check_rate_limit(token)
+            if not allowed:
+                return False, 0
+            if ip_address:
+                return True, min(remaining, ip_remaining)
+            return True, remaining
+
+        if token.count(".") == 2:
+            try:
+                from aragora.billing.auth import validate_access_token
+
+                if validate_access_token(token):
+                    allowed, remaining = auth_config.check_rate_limit(token)
+                    if not allowed:
+                        return False, 0
+                    if ip_address:
+                        return True, min(remaining, ip_remaining)
+                    return True, remaining
+            except Exception:
+                # Fall through to API-token validation on errors.
+                pass
 
     if not auth_config.validate_token(token or "", loop_id):
         return False, -1
