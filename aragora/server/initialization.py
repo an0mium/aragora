@@ -216,6 +216,31 @@ def init_persistence(enable: bool = True) -> Optional[Any]:
 
 def init_insight_store(nomic_dir: Path) -> Optional[Any]:
     """Initialize InsightStore for debate insights with KM adapter."""
+    # Check if we should use PostgreSQL backend
+    try:
+        from aragora.storage.factory import get_storage_backend, StorageBackend
+
+        backend = get_storage_backend()
+        if backend in (StorageBackend.POSTGRES, StorageBackend.SUPABASE):
+            # Use PostgresInsightStore for distributed deployments
+            import asyncio
+
+            from aragora.insights.postgres_store import PostgresInsightStore
+            from aragora.storage.postgres_store import get_postgres_pool
+
+            try:
+                loop = asyncio.get_event_loop()
+                pool = loop.run_until_complete(get_postgres_pool())
+                store = PostgresInsightStore(pool)
+                loop.run_until_complete(store.initialize())
+                logger.info("[init] PostgresInsightStore initialized for API access")
+                return store
+            except Exception as e:
+                logger.warning(f"[init] PostgresInsightStore failed, falling back: {e}")
+    except ImportError:
+        pass
+
+    # Fall back to SQLite InsightStore
     if not INSIGHTS_AVAILABLE or not InsightStore:
         return None
 
@@ -237,7 +262,7 @@ def init_insight_store(nomic_dir: Path) -> Optional[Any]:
         except Exception as e:
             logger.warning(f"[init] InsightsAdapter wiring failed: {e}")
 
-        logger.info("[init] InsightStore loaded/created for API access")
+        logger.info("[init] SQLite InsightStore loaded/created for API access")
         return store
     except Exception as e:
         logger.warning(f"[init] InsightStore initialization failed: {e}")
@@ -983,6 +1008,20 @@ async def init_postgres_stores() -> dict[str, bool]:
         ("token_blacklist", "aragora.storage.token_blacklist_store", "PostgresBlacklist"),
         ("users", "aragora.storage.user_store", "PostgresUserStore"),
         ("webhooks", "aragora.storage.webhook_store", "PostgresWebhookStore"),
+        # Phase 2 migration stores
+        ("facts", "aragora.knowledge.postgres_fact_store", "PostgresFactStore"),
+        ("insights", "aragora.insights.postgres_store", "PostgresInsightStore"),
+        ("debates", "aragora.server.postgres_storage", "PostgresDebateStorage"),
+        (
+            "scheduled_debates",
+            "aragora.pulse.postgres_store",
+            "PostgresScheduledDebateStore",
+        ),
+        (
+            "cycle_learning",
+            "aragora.nomic.postgres_cycle_store",
+            "PostgresCycleLearningStore",
+        ),
     ]
 
     for name, module_path, class_name in stores_to_init:
