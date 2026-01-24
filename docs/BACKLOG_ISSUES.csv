@@ -1,0 +1,212 @@
+title,body,labels,milestone
+"Audit Test Skip Markers","Several test files use `@pytest.mark.skip` with reasons referencing tickets or dates. Audit all skip markers and either fix the underlying issue, document why the skip is permanent, or create tracking issues.
+
+**Acceptance Criteria:**
+- [ ] All `@pytest.mark.skip` markers audited
+- [ ] Stale skips (>6 months) resolved or documented
+- [ ] New skips require issue reference
+- [ ] CI warns on skip count increase","tech-debt,testing,priority:high","Sprint 1"
+"Consolidate TypeScript SDK Packages","Currently two TypeScript packages exist: `@aragora/sdk` and `@aragora/client`. Clarify purposes and ensure version parity.
+
+**Acceptance Criteria:**
+- [ ] Update README in both packages explaining differences
+- [ ] Ensure version parity (both at 2.1.14)
+- [ ] Cross-reference in documentation","tech-debt,sdk,priority:high","Sprint 1"
+"Python Package Naming Consistency","Clarify Python package naming: PyPI name `aragora`, module import `import aragora`.
+
+**Acceptance Criteria:**
+- [ ] Verify PyPI ownership
+- [ ] Update pyproject.toml metadata
+- [ ] Add package naming to CONTRIBUTING.md","tech-debt,packaging,priority:medium","Sprint 1"
+"Establish Integration Test Baseline","Create baseline integration test suite that runs with minimal dependencies.
+
+**Acceptance Criteria:**
+- [ ] Integration tests run without API keys
+- [ ] Mock providers for offline testing
+- [ ] CI runs integration tests on every PR
+- [ ] Test coverage report generated","testing,ci,priority:high","Sprint 1"
+"Slack Integration - Production Ready","Make Slack integration production-ready for SMEs with OAuth flow, slash commands, thread-based debates.
+
+**Acceptance Criteria:**
+- [ ] OAuth installation flow works
+- [ ] `/aragora debate` starts debate
+- [ ] Responses appear in thread
+- [ ] Final decision posted with receipt link
+- [ ] Rate limiting respects Slack API limits","feature,integration,sme,priority:critical","Sprint 2"
+"Microsoft Teams Integration","Add Microsoft Teams connector with Azure AD app registration, Bot Framework integration, Adaptive Cards.
+
+**Acceptance Criteria:**
+- [ ] Teams app manifest created
+- [ ] Bot responds to mentions
+- [ ] Debates run in channel threads
+- [ ] Decision receipts as Adaptive Cards","feature,integration,sme,priority:high","Sprint 2"
+"Decision Receipts v1","Implement cryptographically-signed decision receipts with SHA-256 hash, timestamps, participant list, PDF/JSON export.
+
+**Acceptance Criteria:**
+- [ ] Receipt generated after each debate
+- [ ] Unique receipt ID (UUID)
+- [ ] Cryptographic signature (HMAC-SHA256)
+- [ ] PDF and JSON export endpoints
+- [ ] Receipt verification endpoint","feature,audit,sme,priority:critical","Sprint 2"
+"Receipt Storage Adapter","Create Knowledge Mound adapter for storing decision receipts with immutable storage and efficient retrieval.
+
+**Acceptance Criteria:**
+- [ ] ReceiptAdapter implements KM interface
+- [ ] Query by date range, topic, participant
+- [ ] Export all receipts for compliance","feature,storage,priority:high","Sprint 2"
+"OpenAPI 3.1 Specification","Generate comprehensive OpenAPI 3.1 spec covering all 275+ endpoints with schemas, examples, error responses.
+
+**Acceptance Criteria:**
+- [ ] All endpoints documented
+- [ ] Schemas match actual API responses
+- [ ] Examples for every endpoint
+- [ ] Auto-generation from code","feature,api,docs,priority:critical","Sprint 3"
+"TypeScript SDK Feature Parity","Ensure @aragora/sdk has feature parity with Python SDK: all endpoints, WebSocket, types, error handling.
+
+**Acceptance Criteria:**
+- [ ] SDK methods for all major endpoints
+- [ ] WebSocket client for real-time events
+- [ ] Types auto-generated from OpenAPI
+- [ ] npm package published","feature,sdk,priority:critical","Sprint 3"
+"SDK Code Generation Pipeline","Create automated pipeline to generate SDK clients from OpenAPI for TypeScript, Python, and optionally Go.
+
+**Acceptance Criteria:**
+- [ ] `npm run generate:types` works
+- [ ] Types match API exactly
+- [ ] CI validates types are current","tooling,sdk,priority:high","Sprint 3"
+"Interactive API Explorer","Deploy Swagger UI or Redoc for interactive API exploration at docs.aragora.ai/api.
+
+**Acceptance Criteria:**
+- [ ] API explorer deployed
+- [ ] Works with API key auth
+- [ ] Code samples for curl, Python, TypeScript, Go","feature,docs,priority:medium","Sprint 3"
+"Docker Compose Production Stack","Create production-ready docker-compose.yml for SME deployment with PostgreSQL, Redis, Nginx, auto HTTPS.
+
+**Acceptance Criteria:**
+- [ ] `docker compose up` starts all services
+- [ ] Data persisted in volumes
+- [ ] Health checks for all services
+- [ ] Works on 4GB RAM minimum","feature,deployment,sme,priority:critical","Sprint 4"
+"Guided Setup CLI","Create interactive setup wizard: collects API keys, configures integrations, tests connectivity, generates .env.
+
+**Acceptance Criteria:**
+- [ ] `aragora setup` launches wizard
+- [ ] Prompts for required API keys
+- [ ] Connectivity tests
+- [ ] Generates valid .env","feature,cli,sme,priority:high","Sprint 4"
+"Minimal Dependency Mode","Allow Aragora to run with SQLite instead of PostgreSQL, in-memory cache instead of Redis.
+
+**Acceptance Criteria:**
+- [ ] `ARAGORA_MODE=minimal` uses SQLite
+- [ ] No Redis required in minimal mode
+- [ ] Clear upgrade path to full mode","feature,deployment,priority:medium","Sprint 4"
+"Backup & Restore CLI","Simple backup and restore commands for self-hosted: full database backup, KM export, one-command restore.
+
+**Acceptance Criteria:**
+- [ ] `aragora backup create` generates backup
+- [ ] `aragora backup restore <file>` restores
+- [ ] Backups are encrypted
+- [ ] S3/GCS upload option","feature,cli,ops,priority:high","Sprint 4"
+"Budget Controls","Implement budget controls: monthly/weekly limits, per-workspace budgets, hard/soft limits, email alerts.
+
+**Acceptance Criteria:**
+- [ ] Budget settings in workspace config
+- [ ] Real-time spend tracking
+- [ ] Soft limit at 80%, hard limit at 100%
+- [ ] Email notifications","feature,sme,billing,priority:critical","Sprint 5"
+"Cost Tracking Per Debate","Track token usage per agent, calculate cost per provider, display in receipts.
+
+**Acceptance Criteria:**
+- [ ] Token counts tracked per API call
+- [ ] Cost calculated from provider pricing
+- [ ] Cost included in debate result and receipt","feature,sme,billing,priority:high","Sprint 5"
+"Usage Dashboard","Dashboard showing debates this period, token usage, cost breakdown, budget status, top topics.
+
+**Acceptance Criteria:**
+- [ ] Dashboard page in live app
+- [ ] Real-time data updates
+- [ ] Filter by date range
+- [ ] Export as CSV","feature,sme,dashboard,priority:high","Sprint 5"
+"Provider Cost Configuration","Make provider costs configurable with defaults and custom override for negotiated rates.
+
+**Acceptance Criteria:**
+- [ ] Default costs for all providers
+- [ ] Custom cost override per workspace
+- [ ] Cost history preserved","feature,billing,priority:medium","Sprint 5"
+"Example App: Slack Code Review Bot","Complete example showing Slack bot for code review debates with GitHub PR webhook trigger.
+
+**Acceptance Criteria:**
+- [ ] Full working example in examples/
+- [ ] README with setup instructions
+- [ ] Architecture diagram
+- [ ] Deployable to Heroku/Railway","example,integration,priority:high","Sprint 6"
+"Example App: Document Analysis","Example showing document upload, multi-agent analysis, summary generation.
+
+**Acceptance Criteria:**
+- [ ] Working document upload
+- [ ] Analysis debate runs
+- [ ] Results displayed nicely
+- [ ] Export as report","example,sme,priority:high","Sprint 6"
+"Getting Started Tutorial","Comprehensive guide: account setup, first debate (5 min), Slack integration (10 min), custom agents (15 min).
+
+**Acceptance Criteria:**
+- [ ] Step-by-step with screenshots
+- [ ] Copy-paste code snippets
+- [ ] Available at docs.aragora.ai","docs,tutorial,priority:critical","Sprint 6"
+"SDK Quickstart Guides","Quickstart guides for Python, TypeScript, and REST API - each under 5 minutes.
+
+**Acceptance Criteria:**
+- [ ] Python quickstart < 5 minutes
+- [ ] TypeScript quickstart < 5 minutes
+- [ ] Each with working code","docs,sdk,priority:high","Sprint 6"
+"E2E Test Suite","Comprehensive E2E tests: user signup, Slack flow, receipt generation, self-hosted deployment.
+
+**Acceptance Criteria:**
+- [ ] E2E tests pass in CI
+- [ ] Coverage of critical paths
+- [ ] < 10 minute test runtime","testing,qa,priority:critical","Sprint 7"
+"Performance Benchmarks","Establish baselines: debate start time, time to first token, receipt generation, API response times.
+
+**Acceptance Criteria:**
+- [ ] Benchmark suite created
+- [ ] Baselines documented
+- [ ] CI tracks regressions","testing,performance,priority:high","Sprint 7"
+"Security Audit","Security review: receipt signing, budget control bypass, webhook security, self-hosted defaults.
+
+**Acceptance Criteria:**
+- [ ] No critical vulnerabilities
+- [ ] OWASP top 10 addressed
+- [ ] Penetration test passed","security,audit,priority:critical","Sprint 7"
+"Load Testing","Load test: 100 concurrent debates, 1000 API requests, WebSocket limits, connection pooling.
+
+**Acceptance Criteria:**
+- [ ] Load test scripts created
+- [ ] Targets met
+- [ ] Scaling recommendations","testing,performance,priority:high","Sprint 7"
+"Release Notes v2.2.0","Feature highlights, migration guide, breaking changes, known issues.
+
+**Acceptance Criteria:**
+- [ ] All features documented
+- [ ] Migration guide complete
+- [ ] Changelog updated","docs,release,priority:critical","Sprint 8"
+"Landing Page Updates","Update aragora.ai: SME pricing tier, self-hosted option, integration logos, testimonials.
+
+**Acceptance Criteria:**
+- [ ] Pricing page updated
+- [ ] Self-hosted section added
+- [ ] Performance < 3s load","marketing,website,priority:high","Sprint 8"
+"Launch Checklist","Pre-launch checklist: tests passing, docs complete, security audit passed, support ready, rollback plan.
+
+**Acceptance Criteria:**
+- [ ] All items checked
+- [ ] Documented in LAUNCH_CHECKLIST.md","release,ops,priority:critical","Sprint 8"
+"Post-Launch Monitoring","Error rate dashboards, user tracking, feature adoption, support volume.
+
+**Acceptance Criteria:**
+- [ ] Dashboards created
+- [ ] Alerts configured
+- [ ] On-call rotation set","ops,monitoring,priority:high","Sprint 8"
+"Helm Chart for Kubernetes","Deploy Aragora on Kubernetes clusters with Helm chart.","stretch,deployment,priority:low","Stretch"
+"CLI for Power Users","Full-featured CLI: aragora debate, aragora receipts list, etc.","stretch,cli,priority:low","Stretch"
+"GitHub App","Native GitHub App for code review debates on PRs.","stretch,integration,priority:low","Stretch"
+"Mobile App (React Native)","iOS/Android app for monitoring debates.","stretch,mobile,priority:low","Stretch"

@@ -42,49 +42,41 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 
 ---
 
-## Q1 2026: Enterprise Readiness
+## Q1-Q2 2026: SME & Developer Focus
 
-### SOC 2 Type II Certification
+> **Detailed Backlog:** See [docs/BACKLOG_Q1_Q2_2026.md](docs/BACKLOG_Q1_Q2_2026.md) for 36 issues across 8 sprints (16 weeks).
+> **GitHub Issues:** Import from [docs/BACKLOG_ISSUES.csv](docs/BACKLOG_ISSUES.csv)
+
+### Track 1: SME Starter Pack
+- [ ] Slack integration (OAuth, slash commands, thread debates)
+- [ ] Microsoft Teams integration (Bot Framework, Adaptive Cards)
+- [ ] Decision Receipts v1 (cryptographic signatures, PDF/JSON export)
+- [ ] Budget controls and cost tracking per debate
+- [ ] Usage dashboard with spend analytics
+
+### Track 2: Developer Platform
+- [ ] OpenAPI 3.1 specification (275+ endpoints)
+- [ ] TypeScript SDK feature parity with Python
+- [ ] SDK code generation pipeline
+- [ ] Interactive API explorer at docs.aragora.ai/api
+- [ ] Example apps (Slack code review, document analysis)
+
+### Track 3: Self-Hosted Deployment
+- [ ] Docker Compose production stack
+- [ ] Guided setup CLI (`aragora setup`)
+- [ ] Minimal dependency mode (SQLite + in-memory)
+- [ ] Backup & restore CLI
+- [ ] Helm chart for Kubernetes (stretch)
+
+### Enterprise Readiness (Ongoing)
 - [ ] Complete third-party penetration testing
 - [ ] Deploy public status page at status.aragora.ai
 - [x] Implement quarterly disaster recovery drills (BackupScheduler with DR integration)
 - [ ] Finalize data classification policy
 - [ ] MFA enforcement for admin access
-
-### Platform Stability
-- [ ] PostgreSQL migration runbook for zero-downtime upgrades
-- [ ] Multi-region deployment support
-- [x] Enhanced circuit breaker coverage for all connectors (rate limit circuit breaker, Redis HA)
+- [x] Enhanced circuit breaker coverage for all connectors
 - [x] Redis Sentinel/Cluster support (RedisHAClient)
 - [ ] 99.9% uptime target with public SLA
-
-### Developer Experience
-- [ ] Launch documentation portal at docs.aragora.ai
-- [ ] TypeScript SDK for browser/Node.js
-- [ ] Python SDK improvements
-- [ ] OpenAPI spec auto-generation with examples
-
----
-
-## Q2 2026: Intelligence Amplification
-
-### Advanced Reasoning
-- [ ] Chain-of-thought debate protocols
-- [ ] Multi-step verification with tool use
-- [ ] Debate branching and exploration
-- [ ] Counterfactual reasoning support
-
-### Knowledge Enhancement
-- [ ] PubMed and Google Scholar connectors
-- [ ] Confluence and Notion integrations
-- [ ] Improved source reliability scoring
-- [ ] Knowledge graph visualization
-
-### Agent Evolution
-- [ ] Genesis agent breeding with trait inheritance
-- [ ] User feedback loop for agent performance
-- [ ] Specialized domain agents (legal, medical, technical)
-- [ ] Custom agent training pipelines
 
 ---
 
@@ -160,7 +152,7 @@ We actively track feature requests from customers. Top requested features:
 
 | Feature | Votes | Status |
 |---------|-------|--------|
-| Dark mode for live dashboard | 89 | Planned Q1 |
+| Dark mode for live dashboard | 89 | **Shipped v2.1** |
 | Mobile app | 67 | Under consideration |
 | Offline debate mode | 45 | Researching |
 | Voice input for debates | 38 | Planned Q3 |
