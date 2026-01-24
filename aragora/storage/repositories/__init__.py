@@ -24,6 +24,7 @@ Example:
 """
 
 from .audit import AuditRepository
+from .external_identity import ExternalIdentityRepository, get_external_identity_repository
 from .invitations import InvitationRepository
 from .oauth import OAuthRepository
 from .organizations import OrganizationRepository
@@ -33,6 +34,8 @@ from .users import UserRepository
 
 __all__ = [
     "AuditRepository",
+    "ExternalIdentityRepository",
+    "get_external_identity_repository",
     "InvitationRepository",
     "OAuthRepository",
     "OrganizationRepository",

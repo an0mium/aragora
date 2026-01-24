@@ -88,6 +88,10 @@ class SSOUser:
     organization_name: Optional[str] = None
     tenant_id: Optional[str] = None
 
+    # Azure AD / Microsoft Entra ID specific
+    azure_object_id: Optional[str] = None  # AAD object ID (aadObjectId from Teams)
+    azure_tenant_id: Optional[str] = None  # AAD tenant ID
+
     # Roles and groups
     roles: List[str] = field(default_factory=list)
     groups: List[str] = field(default_factory=list)
@@ -123,7 +127,7 @@ class SSOUser:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API responses."""
-        return {
+        result = {
             "id": self.id,
             "email": self.email,
             "name": self.full_name,
@@ -136,6 +140,12 @@ class SSOUser:
             "is_admin": self.is_admin,
             "authenticated_at": self.authenticated_at,
         }
+        # Include Azure AD fields if present
+        if self.azure_object_id:
+            result["azure_object_id"] = self.azure_object_id
+        if self.azure_tenant_id:
+            result["azure_tenant_id"] = self.azure_tenant_id
+        return result
 
 
 @dataclass
