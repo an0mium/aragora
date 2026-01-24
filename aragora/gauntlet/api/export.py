@@ -572,8 +572,12 @@ def export_receipts_bundle(
         return output.getvalue()
 
     else:
-        # Concatenate individual exports
-        return "\n\n---\n\n".join(export_receipt(receipt, format, opts) for receipt in receipts)
+        # Concatenate individual exports (handle str | bytes return type)
+        exports = []
+        for receipt in receipts:
+            result = export_receipt(receipt, format, opts)
+            exports.append(result if isinstance(result, str) else result.decode("utf-8"))
+        return "\n\n---\n\n".join(exports)
 
 
 # =============================================================================

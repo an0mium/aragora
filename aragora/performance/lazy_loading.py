@@ -201,7 +201,7 @@ class LazyDescriptor(Generic[T]):
         self._name = func.__name__
         self._prefetch_key = prefetch_key or self._name
         self._cache: weakref.WeakKeyDictionary[Any, LazyValue[T]] = weakref.WeakKeyDictionary()
-        functools.update_wrapper(self, func)
+        functools.update_wrapper(self, func)  # type: ignore[arg-type]
 
     def __get__(self, obj: Any, objtype: Any = None) -> Union[LazyValue[T], "LazyDescriptor[T]"]:
         """Get LazyValue for the object."""
@@ -219,8 +219,12 @@ class LazyDescriptor(Generic[T]):
     def __set__(self, obj: Any, value: T) -> None:
         """Set value directly."""
         if obj not in self._cache:
+
+            async def _immediate_loader() -> T:
+                return value
+
             self._cache[obj] = LazyValue(
-                loader=lambda: asyncio.coroutine(lambda: value)(),
+                loader=_immediate_loader,
                 property_name=self._name,
             )
         self._cache[obj].set(value)
@@ -343,7 +347,12 @@ class LazyLoader:
             else:
                 # Fall back to individual loads (still benefits from N+1 warning)
                 logger.debug(f"No prefetch function for '{prefetch_key}', " f"loading individually")
-                await asyncio.gather(*[descriptor.__get__(obj, obj_type).get() for obj in objects])
+                lazy_values = [
+                    lv
+                    for obj in objects
+                    if isinstance(lv := descriptor.__get__(obj, obj_type), LazyValue)
+                ]
+                await asyncio.gather(*[lv.get() for lv in lazy_values])
 
 
 # Global lazy loader instance

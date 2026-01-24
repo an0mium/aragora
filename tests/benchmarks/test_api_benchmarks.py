@@ -51,7 +51,10 @@ class TestHealthEndpointBenchmarks:
         app.router.add_get("/api/health", health_handler)
         return app
 
-    @pytest.mark.skip(reason="aiohttp event loop incompatibility with benchmark iterations")
+    @pytest.mark.skipif(
+        HAS_BENCHMARK,
+        reason="aiohttp event loop incompatibility with benchmark iterations",
+    )
     def test_health_endpoint_latency(self, benchmark, mock_app):
         """Benchmark health endpoint latency.
 

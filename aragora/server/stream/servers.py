@@ -1430,7 +1430,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             register_payment_routes(app)
             logger.info("Registered payment routes")
         if INTEGRATIONS_HANDLER_AVAILABLE:
-            integrations_handler = IntegrationsHandler()
+            integrations_handler = IntegrationsHandler({})  # type: ignore[arg-type]
             register_integration_routes(app, integrations_handler)
             logger.info("Registered integration status routes")
 

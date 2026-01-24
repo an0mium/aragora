@@ -187,7 +187,10 @@ class TestExecWithTimeout:
         with pytest.raises(Exception):  # Could be NameError or similar
             _exec_with_timeout("import os", ns)
 
-    @pytest.mark.skip(reason="Timeout behavior depends on system performance")
+    @pytest.mark.skipif(
+        __import__("os").environ.get("RUN_SLOW_TESTS") != "1",
+        reason="Timeout behavior depends on system performance (set RUN_SLOW_TESTS=1 to run)",
+    )
     def test_timeout_raises_timeout_error(self):
         """Timeout raises TimeoutError."""
         ns = {}
@@ -533,7 +536,10 @@ class TestProofExecutor:
         assert result.status == ProofStatus.ERROR
         assert "ValueError" in result.error
 
-    @pytest.mark.skip(reason="Timeout behavior depends on system performance")
+    @pytest.mark.skipif(
+        __import__("os").environ.get("RUN_SLOW_TESTS") != "1",
+        reason="Timeout behavior depends on system performance (set RUN_SLOW_TESTS=1 to run)",
+    )
     @pytest.mark.asyncio
     async def test_execute_handles_timeout(self, executor):
         """execute handles timeout."""

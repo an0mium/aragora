@@ -205,7 +205,7 @@ def cmd_backup_restore(args: argparse.Namespace) -> int:
         if not args.skip_verify:
             print("\nVerifying restored backup...")
             result = manager.verify_backup(backup.id)
-            if not result.get("valid", False):
+            if not result.verified:
                 print("  Warning: Verification found issues")
         print("\nRestore completed successfully!")
         print(f"  Restored to: {target_path}")

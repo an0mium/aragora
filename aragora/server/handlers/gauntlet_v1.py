@@ -484,7 +484,7 @@ class GauntletReceiptExportHandler(BaseHandler):
                 validate_schema=options_dict.get("validate_schema", False),
             )
 
-            content = export_receipt(receipt, export_format, options)  # type: ignore[arg-type]
+            content = export_receipt(receipt, export_format, options)  # type: ignore[arg-type,assignment]
 
             # Set appropriate content type
             content_type = {

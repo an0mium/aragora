@@ -49,11 +49,12 @@ class BudgetHandler(BaseHandler):
         return False
 
     @rate_limit(rpm=60)
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         path: str,
         method: str,
         handler: Any = None,
+        query_params: Optional[dict[str, Any]] = None,
     ) -> Optional[HandlerResult]:
         """Route budget requests to appropriate methods."""
         # Extract org_id from auth context

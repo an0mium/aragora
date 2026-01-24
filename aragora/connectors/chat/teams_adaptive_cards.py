@@ -104,7 +104,7 @@ class TeamsAdaptiveCards:
         debate_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create a card for when a debate is starting."""
-        body = [
+        body: List[Dict[str, Any]] = [
             {
                 "type": "Container",
                 "style": "accent",
@@ -229,7 +229,7 @@ class TeamsAdaptiveCards:
         """Create a card showing debate progress."""
         progress_pct = int((progress.round_number / progress.total_rounds) * 100)
 
-        body = [
+        body: List[Dict[str, Any]] = [
             {
                 "type": "Container",
                 "style": "emphasis",
@@ -361,7 +361,7 @@ class TeamsAdaptiveCards:
         if options is None:
             options = ["Agree", "Disagree", "Abstain"]
 
-        body = [
+        body: List[Dict[str, Any]] = [
             {
                 "type": "Container",
                 "style": "emphasis",
@@ -405,7 +405,7 @@ class TeamsAdaptiveCards:
             },
         ]
 
-        actions = []
+        actions: List[Dict[str, Any]] = []
         for option in options:
             vote_value = option.lower().replace(" ", "_")
             style = "positive" if option.lower() == "agree" else "default"
@@ -442,7 +442,7 @@ class TeamsAdaptiveCards:
             "Good" if confidence >= 0.7 else ("Warning" if confidence >= 0.5 else "Attention")
         )
 
-        body = [
+        body: List[Dict[str, Any]] = [
             {
                 "type": "Container",
                 "style": "good",
@@ -611,7 +611,7 @@ class TeamsAdaptiveCards:
                 }
             )
 
-        actions = []
+        actions: List[Dict[str, Any]] = []
         if receipt_id:
             actions.append(
                 {
@@ -648,7 +648,7 @@ class TeamsAdaptiveCards:
         retry_action: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Create an error card with troubleshooting suggestions."""
-        body = [
+        body: List[Dict[str, Any]] = [
             {
                 "type": "Container",
                 "style": "attention",
@@ -690,7 +690,7 @@ class TeamsAdaptiveCards:
                     }
                 )
 
-        actions = []
+        actions: List[Dict[str, Any]] = []
         if retry_action:
             actions.append(
                 {

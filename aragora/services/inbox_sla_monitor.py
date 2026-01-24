@@ -613,6 +613,25 @@ class InboxSLAMonitor:
             return datetime.fromtimestamp(value, tz=timezone.utc)
         return None
 
+    def _parse_timestamp(self, value: Optional[str]) -> Optional[datetime]:
+        """Parse timestamp from string (ISO date or unix timestamp)."""
+        if not value:
+            return None
+
+        try:
+            # Try as unix timestamp
+            return datetime.fromtimestamp(float(value), tz=timezone.utc)
+        except ValueError:
+            pass
+
+        try:
+            # Try as ISO date
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except (ValueError, AttributeError):
+            pass
+
+        return None
+
     async def _get_inbox_messages(
         self,
         inbox_id: str,
