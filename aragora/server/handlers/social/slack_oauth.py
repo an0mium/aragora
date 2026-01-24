@@ -393,9 +393,44 @@ class SlackOAuthHandler(BaseHandler):
         Handle app uninstallation webhook from Slack.
 
         This is called by Slack when a user uninstalls the app.
+        Verifies the request signature using the Slack signing secret.
         """
-        # Verify this is from Slack (in production, verify signing secret)
-        # For now, just process the uninstall
+        # Verify signature in production
+        signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
+        if signing_secret:
+            timestamp = headers.get("x-slack-request-timestamp", "")
+            signature = headers.get("x-slack-signature", "")
+
+            if not timestamp or not signature:
+                logger.warning("Missing Slack signature headers")
+                return error_response("Missing signature", 401)
+
+            # Check timestamp is recent (within 5 minutes)
+            try:
+                request_time = int(timestamp)
+                if abs(time.time() - request_time) > 300:
+                    logger.warning("Slack request timestamp too old")
+                    return error_response("Request expired", 401)
+            except ValueError:
+                return error_response("Invalid timestamp", 401)
+
+            # Verify signature
+            import hmac
+            import hashlib
+
+            sig_basestring = f"v0:{timestamp}:{json.dumps(body, separators=(',', ':'))}"
+            computed_sig = (
+                "v0="
+                + hmac.new(
+                    signing_secret.encode(),
+                    sig_basestring.encode(),
+                    hashlib.sha256,
+                ).hexdigest()
+            )
+
+            if not hmac.compare_digest(signature, computed_sig):
+                logger.warning("Invalid Slack signature")
+                return error_response("Invalid signature", 401)
 
         event = body.get("event", {})
         event_type = event.get("type")
