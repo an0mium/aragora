@@ -63,11 +63,11 @@ async def _get_queue() -> Optional[Any]:
         except ImportError:
             logger.warning("Redis package not available for queue")
             return None
-        except (ConnectionError, OSError) as e:
+        except (ConnectionError, OSError, TimeoutError) as e:
             logger.warning(f"Failed to connect to Redis for queue: {e}")
             return None
-        except Exception as e:
-            logger.exception(f"Unexpected error creating queue: {e}")
+        except RuntimeError as e:
+            logger.warning(f"Runtime error creating queue: {e}")
             return None
 
 
@@ -212,9 +212,9 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to get queue stats due to connection error: {e}")
             return error_response(safe_error_message(e, "get queue stats"), 503)
-        except Exception as e:
-            logger.exception(f"Unexpected error getting queue stats: {e}")
-            return error_response(safe_error_message(e, "get queue stats"), 500)
+        except (AttributeError, KeyError) as e:
+            logger.error(f"Data structure error getting queue stats: {e}")
+            return error_response("Internal data error", 500)
 
     async def _get_workers(self) -> HandlerResult:
         """Get worker status.
@@ -259,8 +259,8 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                                 )
                     except (ConnectionError, OSError, TimeoutError) as ce:
                         logger.debug(f"Could not get consumers due to connection error: {ce}")
-                    except Exception as ce:
-                        logger.warning(f"Unexpected error getting consumers: {ce}")
+                    except (KeyError, TypeError, AttributeError) as ce:
+                        logger.debug(f"Consumer data parsing error: {ce}")
 
             return json_response(
                 {
@@ -278,13 +278,13 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                     "error": str(e),
                 }
             )
-        except Exception as e:
-            logger.exception(f"Unexpected error getting worker status: {e}")
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data structure error getting worker status: {e}")
             return json_response(
                 {
                     "workers": [],
                     "total": 0,
-                    "error": "Internal error",
+                    "error": "Internal data error",
                 }
             )
 
@@ -341,9 +341,9 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to submit job due to connection error: {e}")
             return error_response(safe_error_message(e, "submit job"), 503)
-        except Exception as e:
-            logger.exception(f"Unexpected error submitting job: {e}")
-            return error_response(safe_error_message(e, "submit job"), 500)
+        except AttributeError as e:
+            logger.error(f"Queue interface error: {e}")
+            return error_response("Queue configuration error", 500)
 
     async def _list_jobs(self, query_params: Dict[str, Any]) -> HandlerResult:
         """List jobs with optional filtering."""
@@ -433,9 +433,9 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to list jobs due to connection error: {e}")
             return error_response(safe_error_message(e, "list jobs"), 503)
-        except Exception as e:
-            logger.exception(f"Unexpected error listing jobs: {e}")
-            return error_response(safe_error_message(e, "list jobs"), 500)
+        except (AttributeError, KeyError, TypeError) as e:
+            logger.error(f"Data structure error listing jobs: {e}")
+            return error_response("Internal data error", 500)
 
     async def _get_job(self, job_id: str) -> HandlerResult:
         """Get a specific job's status."""
@@ -477,9 +477,9 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to get job {job_id} due to connection error: {e}")
             return error_response(safe_error_message(e, "get job"), 503)
-        except Exception as e:
-            logger.exception(f"Unexpected error getting job {job_id}: {e}")
-            return error_response(safe_error_message(e, "get job"), 500)
+        except (AttributeError, KeyError, TypeError) as e:
+            logger.error(f"Data structure error getting job {job_id}: {e}")
+            return error_response("Internal data error", 500)
 
     async def _retry_job(self, job_id: str) -> HandlerResult:
         """Retry a failed job."""
@@ -525,9 +525,9 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to retry job {job_id} due to connection error: {e}")
             return error_response(safe_error_message(e, "retry job"), 503)
-        except Exception as e:
-            logger.exception(f"Unexpected error retrying job {job_id}: {e}")
-            return error_response(safe_error_message(e, "retry job"), 500)
+        except (AttributeError, KeyError) as e:
+            logger.error(f"Data structure error retrying job {job_id}: {e}")
+            return error_response("Internal data error", 500)
 
     async def _cancel_job(self, job_id: str) -> HandlerResult:
         """Cancel a pending job."""
@@ -560,9 +560,9 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to cancel job {job_id} due to connection error: {e}")
             return error_response(safe_error_message(e, "cancel job"), 503)
-        except Exception as e:
-            logger.exception(f"Unexpected error cancelling job {job_id}: {e}")
-            return error_response(safe_error_message(e, "cancel job"), 500)
+        except (AttributeError, KeyError) as e:
+            logger.error(f"Data structure error cancelling job {job_id}: {e}")
+            return error_response("Internal data error", 500)
 
     async def _list_dlq(self, query_params: Dict[str, Any]) -> HandlerResult:
         """
@@ -647,9 +647,9 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to list DLQ due to connection error: {e}")
             return error_response(safe_error_message(e, "list DLQ"), 503)
-        except Exception as e:
-            logger.exception(f"Unexpected error listing DLQ: {e}")
-            return error_response(safe_error_message(e, "list DLQ"), 500)
+        except (AttributeError, KeyError, TypeError) as e:
+            logger.error(f"Data structure error listing DLQ: {e}")
+            return error_response("Internal data error", 500)
 
     async def _requeue_dlq_job(self, job_id: str) -> HandlerResult:
         """Requeue a specific job from the DLQ."""
@@ -693,9 +693,9 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to requeue DLQ job {job_id}: {e}")
             return error_response(safe_error_message(e, "requeue DLQ job"), 503)
-        except Exception as e:
-            logger.exception(f"Unexpected error requeuing DLQ job {job_id}: {e}")
-            return error_response(safe_error_message(e, "requeue DLQ job"), 500)
+        except (AttributeError, KeyError) as e:
+            logger.error(f"Data structure error requeuing DLQ job {job_id}: {e}")
+            return error_response("Internal data error", 500)
 
     async def _requeue_all_dlq(self) -> HandlerResult:
         """Requeue all jobs from the DLQ."""
@@ -726,7 +726,7 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
 
                         await queue.enqueue(job, priority=job.priority)
                         requeued += 1
-                    except Exception as e:
+                    except (ConnectionError, OSError, TimeoutError, AttributeError) as e:
                         errors.append({"job_id": job.id, "error": str(e)})
 
             return json_response(
@@ -741,9 +741,9 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to requeue all DLQ: {e}")
             return error_response(safe_error_message(e, "requeue all DLQ"), 503)
-        except Exception as e:
-            logger.exception(f"Unexpected error requeuing all DLQ: {e}")
-            return error_response(safe_error_message(e, "requeue all DLQ"), 500)
+        except (AttributeError, KeyError) as e:
+            logger.error(f"Data structure error requeuing all DLQ: {e}")
+            return error_response("Internal data error", 500)
 
     async def _cleanup_jobs(self, query_params: Dict[str, Any]) -> HandlerResult:
         """
@@ -789,7 +789,7 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                             try:
                                 await queue.delete(job.id)
                                 deleted += 1
-                            except Exception as e:
+                            except (ConnectionError, OSError, TimeoutError) as e:
                                 logger.warning(f"Failed to delete job {job.id}: {e}")
                         else:
                             deleted += 1
@@ -808,9 +808,9 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to cleanup jobs: {e}")
             return error_response(safe_error_message(e, "cleanup jobs"), 503)
-        except Exception as e:
-            logger.exception(f"Unexpected error cleaning up jobs: {e}")
-            return error_response(safe_error_message(e, "cleanup jobs"), 500)
+        except (AttributeError, KeyError, TypeError) as e:
+            logger.error(f"Data structure error cleaning up jobs: {e}")
+            return error_response("Internal data error", 500)
 
     async def _list_stale_jobs(self, query_params: Dict[str, Any]) -> HandlerResult:
         """
@@ -865,6 +865,6 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to list stale jobs: {e}")
             return error_response(safe_error_message(e, "list stale jobs"), 503)
-        except Exception as e:
-            logger.exception(f"Unexpected error listing stale jobs: {e}")
-            return error_response(safe_error_message(e, "list stale jobs"), 500)
+        except (AttributeError, KeyError, TypeError) as e:
+            logger.error(f"Data structure error listing stale jobs: {e}")
+            return error_response("Internal data error", 500)
