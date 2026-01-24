@@ -8,18 +8,37 @@ import type {
   AragoraConfig,
   Agent,
   AgentProfile,
+  AgentScore,
   Debate,
   DebateCreateRequest,
   DebateCreateResponse,
+  GraphDebate,
+  GraphDebateCreateRequest,
   HealthCheck,
+  MatrixConclusion,
+  MatrixDebate,
+  MatrixDebateCreateRequest,
+  MemoryAnalytics,
+  MemoryTier,
+  MemoryTierStats,
   PaginationParams,
+  Replay,
+  ReplayFormat,
+  ScoreAgentsRequest,
+  SelectionPlugin,
+  TeamSelection,
+  TeamSelectionRequest,
+  VerificationBackend,
+  VerificationResult,
+  VerificationStatus,
+  VerifyClaimRequest,
+  WebSocketEvent,
   Workflow,
   WorkflowTemplate,
   DecisionReceipt,
   RiskHeatmap,
   ExplainabilityResult,
   MarketplaceTemplate,
-  WebSocketEvent,
 } from './types';
 import { AragoraError } from './types';
 import { AragoraWebSocket, createWebSocket, streamDebate, type WebSocketOptions, type StreamOptions } from './websocket';
@@ -891,6 +910,294 @@ export class AragoraClient {
 
   async getSystemMetrics(): Promise<unknown> {
     return this.request<unknown>('GET', '/api/metrics/system');
+  }
+
+  // ===========================================================================
+  // Graph Debates
+  // ===========================================================================
+
+  /**
+   * Create a new graph (branching) debate.
+   */
+  async createGraphDebate(request: GraphDebateCreateRequest): Promise<{ id: string }> {
+    return this.request<{ id: string }>('POST', '/api/v1/graph-debates', { body: request });
+  }
+
+  /**
+   * Get a graph debate by ID.
+   */
+  async getGraphDebate(debateId: string): Promise<GraphDebate> {
+    return this.request<GraphDebate>('GET', `/api/v1/graph-debates/${encodeURIComponent(debateId)}`);
+  }
+
+  /**
+   * List all branches in a graph debate.
+   */
+  async getGraphDebateBranches(debateId: string): Promise<{ branches: GraphDebate['branches'] }> {
+    return this.request<{ branches: GraphDebate['branches'] }>(
+      'GET',
+      `/api/v1/graph-debates/${encodeURIComponent(debateId)}/branches`
+    );
+  }
+
+  /**
+   * Create a new branch in a graph debate.
+   */
+  async createGraphDebateBranch(debateId: string, body: {
+    parent_branch_id?: string;
+    divergence_point: number;
+    hypothesis: string;
+  }): Promise<{ branch_id: string }> {
+    return this.request<{ branch_id: string }>(
+      'POST',
+      `/api/v1/graph-debates/${encodeURIComponent(debateId)}/branches`,
+      { body }
+    );
+  }
+
+  // ===========================================================================
+  // Matrix Debates
+  // ===========================================================================
+
+  /**
+   * Create a new matrix debate across multiple scenarios.
+   */
+  async createMatrixDebate(request: MatrixDebateCreateRequest): Promise<{ id: string }> {
+    return this.request<{ id: string }>('POST', '/api/v1/matrix-debates', { body: request });
+  }
+
+  /**
+   * Get a matrix debate by ID.
+   */
+  async getMatrixDebate(debateId: string): Promise<MatrixDebate> {
+    return this.request<MatrixDebate>('GET', `/api/v1/matrix-debates/${encodeURIComponent(debateId)}`);
+  }
+
+  /**
+   * Get conclusions for all scenarios in a matrix debate.
+   */
+  async getMatrixDebateConclusions(debateId: string): Promise<{ conclusions: Record<string, MatrixConclusion> }> {
+    return this.request<{ conclusions: Record<string, MatrixConclusion> }>(
+      'GET',
+      `/api/v1/matrix-debates/${encodeURIComponent(debateId)}/conclusions`
+    );
+  }
+
+  /**
+   * List matrix debates with optional filtering.
+   */
+  async listMatrixDebates(params?: {
+    status?: string;
+  } & PaginationParams): Promise<{ debates: MatrixDebate[] }> {
+    return this.request<{ debates: MatrixDebate[] }>('GET', '/api/v1/matrix-debates', { params });
+  }
+
+  // ===========================================================================
+  // Verification (Z3/Lean)
+  // ===========================================================================
+
+  /**
+   * Verify a claim using formal verification (Z3 or Lean).
+   */
+  async verifyClaim(request: VerifyClaimRequest): Promise<VerificationResult> {
+    return this.request<VerificationResult>('POST', '/api/v1/verification/verify', { body: request });
+  }
+
+  /**
+   * Get verification backend status.
+   */
+  async getVerificationStatus(): Promise<VerificationStatus> {
+    return this.request<VerificationStatus>('GET', '/api/v1/verification/status');
+  }
+
+  /**
+   * Verify a debate conclusion.
+   */
+  async verifyDebateConclusion(debateId: string, options?: {
+    backend?: VerificationBackend;
+    include_assumptions?: boolean;
+  }): Promise<VerificationResult> {
+    return this.request<VerificationResult>(
+      'POST',
+      `/api/v1/verification/debate/${encodeURIComponent(debateId)}`,
+      { body: options }
+    );
+  }
+
+  // ===========================================================================
+  // Agent Selection & Scoring
+  // ===========================================================================
+
+  /**
+   * List available selection plugins.
+   */
+  async listSelectionPlugins(): Promise<{ plugins: SelectionPlugin[] }> {
+    return this.request<{ plugins: SelectionPlugin[] }>('GET', '/api/v1/selection/plugins');
+  }
+
+  /**
+   * Get default selection configuration.
+   */
+  async getSelectionDefaults(): Promise<{
+    default_plugin: string;
+    team_size: number;
+    diversity_weight: number;
+    quality_weight: number;
+  }> {
+    return this.request<{
+      default_plugin: string;
+      team_size: number;
+      diversity_weight: number;
+      quality_weight: number;
+    }>('GET', '/api/v1/selection/defaults');
+  }
+
+  /**
+   * Score agents for a specific task.
+   */
+  async scoreAgents(request: ScoreAgentsRequest): Promise<{ scores: AgentScore[] }> {
+    return this.request<{ scores: AgentScore[] }>('POST', '/api/v1/selection/score', { body: request });
+  }
+
+  /**
+   * Select an optimal team of agents for a task.
+   */
+  async selectTeam(request: TeamSelectionRequest): Promise<TeamSelection> {
+    return this.request<TeamSelection>('POST', '/api/v1/selection/team', { body: request });
+  }
+
+  // ===========================================================================
+  // Replays
+  // ===========================================================================
+
+  /**
+   * List debate replays.
+   */
+  async listReplays(params?: {
+    debate_id?: string;
+  } & PaginationParams): Promise<{ replays: Replay[] }> {
+    return this.request<{ replays: Replay[] }>('GET', '/api/v1/replays', { params });
+  }
+
+  /**
+   * Get a specific replay.
+   */
+  async getReplay(replayId: string): Promise<Replay> {
+    return this.request<Replay>('GET', `/api/v1/replays/${encodeURIComponent(replayId)}`);
+  }
+
+  /**
+   * Export a replay in a specific format.
+   */
+  async exportReplay(replayId: string, format: ReplayFormat): Promise<{ content: string; filename: string }> {
+    return this.request<{ content: string; filename: string }>(
+      'GET',
+      `/api/v1/replays/${encodeURIComponent(replayId)}/export`,
+      { params: { format } }
+    );
+  }
+
+  /**
+   * Delete a replay.
+   */
+  async deleteReplay(replayId: string): Promise<{ deleted: boolean }> {
+    return this.request<{ deleted: boolean }>('DELETE', `/api/v1/replays/${encodeURIComponent(replayId)}`);
+  }
+
+  /**
+   * Create a replay from a debate.
+   */
+  async createReplay(debateId: string, options?: {
+    name?: string;
+    include_metadata?: boolean;
+  }): Promise<{ replay_id: string }> {
+    return this.request<{ replay_id: string }>(
+      'POST',
+      `/api/v1/replays`,
+      { body: { debate_id: debateId, ...options } }
+    );
+  }
+
+  // ===========================================================================
+  // Memory Analytics
+  // ===========================================================================
+
+  /**
+   * Get memory system analytics for a time period.
+   */
+  async getMemoryAnalytics(options?: {
+    period_hours?: number;
+    start_time?: string;
+    end_time?: string;
+  }): Promise<MemoryAnalytics> {
+    return this.request<MemoryAnalytics>('GET', '/api/v1/memory/analytics', { params: options });
+  }
+
+  /**
+   * Get statistics for a specific memory tier.
+   */
+  async getMemoryTierStats(tier: MemoryTier): Promise<MemoryTierStats> {
+    return this.request<MemoryTierStats>('GET', `/api/v1/memory/tiers/${tier}/stats`);
+  }
+
+  /**
+   * Create a manual memory snapshot.
+   */
+  async createMemorySnapshot(options?: {
+    tiers?: MemoryTier[];
+    include_entries?: boolean;
+  }): Promise<{ snapshot_id: string; created_at: string }> {
+    return this.request<{ snapshot_id: string; created_at: string }>(
+      'POST',
+      '/api/v1/memory/snapshot',
+      { body: options }
+    );
+  }
+
+  /**
+   * Get glacial tier insights for cross-session learning.
+   */
+  async getGlacialInsights(options?: {
+    topic?: string;
+    min_importance?: number;
+    limit?: number;
+  }): Promise<{ insights: Array<{ content: string; importance: number; tags: string[] }> }> {
+    return this.request<{ insights: Array<{ content: string; importance: number; tags: string[] }> }>(
+      'GET',
+      '/api/v1/memory/glacial/insights',
+      { params: options }
+    );
+  }
+
+  /**
+   * Run a debate and wait for completion.
+   * Convenience method that creates a debate and polls until complete.
+   */
+  async runDebate(
+    request: DebateCreateRequest,
+    options?: {
+      pollIntervalMs?: number;
+      timeoutMs?: number;
+    }
+  ): Promise<Debate> {
+    const response = await this.createDebate(request);
+    const debateId = response.debate_id;
+    const pollInterval = options?.pollIntervalMs ?? 1000;
+    const timeout = options?.timeoutMs ?? 300000;
+
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeout) {
+      const debate = await this.getDebate(debateId);
+      if (['completed', 'failed', 'cancelled'].includes(debate.status)) {
+        return debate;
+      }
+      await this.sleep(pollInterval);
+    }
+
+    throw new AragoraError(
+      `Debate ${debateId} did not complete within ${timeout}ms`,
+      'AGENT_TIMEOUT'
+    );
   }
 }
 

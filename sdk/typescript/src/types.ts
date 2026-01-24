@@ -538,3 +538,189 @@ export interface TemplateReview {
   content: string;
   created_at: string;
 }
+
+// =============================================================================
+// Matrix Debate Types
+// =============================================================================
+
+export interface MatrixDebateCreateRequest {
+  task: string;
+  scenarios: string[];
+  agents?: string[];
+  max_rounds?: number;
+  consensus_threshold?: number;
+  parallel?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export interface MatrixDebate {
+  id: string;
+  task: string;
+  scenarios: string[];
+  status: DebateStatus;
+  created_at: string;
+  completed_at?: string;
+  conclusions?: Record<string, MatrixConclusion>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface MatrixConclusion {
+  scenario: string;
+  conclusion: string;
+  confidence: number;
+  supporting_agents: string[];
+  dissenting_agents?: string[];
+}
+
+// =============================================================================
+// Graph Debate Types
+// =============================================================================
+
+export interface GraphDebateCreateRequest {
+  task: string;
+  agents?: string[];
+  max_rounds?: number;
+  branch_threshold?: number;
+  max_branches?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface GraphDebate {
+  id: string;
+  task: string;
+  status: DebateStatus;
+  branches: GraphBranch[];
+  created_at: string;
+  completed_at?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface GraphBranch {
+  branch_id: string;
+  parent_id?: string;
+  divergence_point: number;
+  hypothesis: string;
+  messages: Message[];
+  conclusion?: string;
+  confidence?: number;
+}
+
+// =============================================================================
+// Verification Types
+// =============================================================================
+
+export type VerificationBackend = 'z3' | 'lean' | 'auto';
+
+export interface VerifyClaimRequest {
+  claim: string;
+  context?: string;
+  backend?: VerificationBackend;
+  timeout_seconds?: number;
+}
+
+export interface VerificationResult {
+  verified: boolean;
+  backend: VerificationBackend;
+  proof?: string;
+  counterexample?: string;
+  assumptions?: string[];
+  duration_ms: number;
+  trace_id?: string;
+}
+
+export interface VerificationStatus {
+  z3_available: boolean;
+  lean_available: boolean;
+  default_backend: VerificationBackend;
+}
+
+// =============================================================================
+// Selection API Types
+// =============================================================================
+
+export interface SelectionPlugin {
+  name: string;
+  description: string;
+  version: string;
+  capabilities: string[];
+}
+
+export interface AgentScore {
+  agent_id: string;
+  score: number;
+  factors: Record<string, number>;
+  confidence: number;
+}
+
+export interface ScoreAgentsRequest {
+  task_type: string;
+  required_capabilities?: string[];
+  context?: string;
+  limit?: number;
+}
+
+export interface TeamSelectionRequest {
+  task_type: string;
+  team_size: number;
+  required_capabilities?: string[];
+  diversity_weight?: number;
+  quality_weight?: number;
+  context?: string;
+}
+
+export interface TeamSelection {
+  agents: AgentScore[];
+  total_score: number;
+  diversity_score: number;
+  coverage: Record<string, string[]>;
+}
+
+// =============================================================================
+// Replay Types
+// =============================================================================
+
+export type ReplayFormat = 'json' | 'markdown' | 'html';
+
+export interface Replay {
+  id: string;
+  debate_id: string;
+  name?: string;
+  duration_ms: number;
+  message_count: number;
+  created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ReplayExport {
+  format: ReplayFormat;
+  content: string;
+  filename: string;
+}
+
+// =============================================================================
+// Memory Analytics Types
+// =============================================================================
+
+export type MemoryTier = 'fast' | 'medium' | 'slow' | 'glacial';
+
+export interface MemoryAnalytics {
+  period_start: string;
+  period_end: string;
+  total_entries: number;
+  entries_by_tier: Record<MemoryTier, number>;
+  consolidation_events: number;
+  promotions: number;
+  demotions: number;
+  avg_importance: number;
+  storage_bytes: number;
+}
+
+export interface MemoryTierStats {
+  tier: MemoryTier;
+  entry_count: number;
+  avg_importance: number;
+  avg_consolidation: number;
+  oldest_entry?: string;
+  newest_entry?: string;
+  utilization_pct: number;
+}

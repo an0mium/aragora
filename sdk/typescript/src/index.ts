@@ -125,6 +125,38 @@ export type {
   // Marketplace
   MarketplaceTemplate,
   TemplateReview,
+
+  // Matrix Debates
+  MatrixDebateCreateRequest,
+  MatrixDebate,
+  MatrixConclusion,
+
+  // Graph Debates
+  GraphDebateCreateRequest,
+  GraphDebate,
+  GraphBranch,
+
+  // Verification
+  VerificationBackend,
+  VerifyClaimRequest,
+  VerificationResult,
+  VerificationStatus,
+
+  // Selection
+  SelectionPlugin,
+  AgentScore,
+  ScoreAgentsRequest,
+  TeamSelectionRequest,
+  TeamSelection,
+
+  // Replays
+  ReplayFormat,
+  Replay,
+
+  // Memory Analytics
+  MemoryTier,
+  MemoryAnalytics,
+  MemoryTierStats,
 } from './types';
 
 export { AragoraError } from './types';
