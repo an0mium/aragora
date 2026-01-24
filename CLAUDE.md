@@ -2,6 +2,10 @@
 
 Context for Claude Code when working with the Aragora codebase.
 
+> **Multi-Agent Coordination:** If multiple AI agents are working on this codebase,
+> check `docs/COORDINATION.md` before starting. See `docs/AGENT_ASSIGNMENTS.md`
+> for recommended focus areas by track.
+
 ## Quick Reference
 
 | What | Where | Key Files |
