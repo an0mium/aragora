@@ -325,6 +325,7 @@ export type WebSocketEventType =
 export interface WebSocketEvent<T = unknown> {
   type: WebSocketEventType;
   debate_id?: string;
+  loop_id?: string;
   timestamp: string;
   data: T;
 }

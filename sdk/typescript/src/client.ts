@@ -19,9 +19,10 @@ import type {
   RiskHeatmap,
   ExplainabilityResult,
   MarketplaceTemplate,
+  WebSocketEvent,
 } from './types';
 import { AragoraError } from './types';
-import { AragoraWebSocket, createWebSocket, type WebSocketOptions } from './websocket';
+import { AragoraWebSocket, createWebSocket, streamDebate, type WebSocketOptions, type StreamOptions } from './websocket';
 
 interface RequestOptions {
   body?: unknown;
@@ -145,6 +146,102 @@ export class AragoraClient {
    */
   createWebSocket(options?: WebSocketOptions): AragoraWebSocket {
     return createWebSocket(this.config, options);
+  }
+
+  // ===========================================================================
+  // Streaming Convenience Methods
+  // ===========================================================================
+
+  /**
+   * Create a debate and return an async generator for streaming its events.
+   *
+   * This is a convenience method that combines debate creation with streaming.
+   * It creates the debate via the API and returns both the debate response and
+   * an async generator that yields WebSocket events for the debate.
+   *
+   * @param request - Debate creation parameters
+   * @param streamOptions - Optional WebSocket/streaming options
+   * @returns Object with debate response and stream generator
+   *
+   * @example
+   * ```typescript
+   * const { debate, stream } = await client.createDebateAndStream({
+   *   task: 'Should we use microservices?',
+   *   agents: ['claude', 'gpt-4'],
+   *   rounds: 3
+   * });
+   *
+   * console.log(`Started debate: ${debate.debate_id}`);
+   *
+   * for await (const event of stream) {
+   *   if (event.type === 'agent_message') {
+   *     console.log(`${event.data.agent}: ${event.data.content}`);
+   *   }
+   *   if (event.type === 'debate_end') {
+   *     break;
+   *   }
+   * }
+   * ```
+   */
+  async createDebateAndStream(
+    request: DebateCreateRequest,
+    streamOptions?: Omit<StreamOptions, 'debateId'>
+  ): Promise<{
+    debate: DebateCreateResponse;
+    stream: AsyncGenerator<WebSocketEvent, void, unknown>;
+  }> {
+    // Create the debate first
+    const debate = await this.createDebate(request);
+
+    // Create a stream for the debate
+    const stream = streamDebate(this.config, {
+      ...streamOptions,
+      debateId: debate.debate_id,
+    });
+
+    return { debate, stream };
+  }
+
+  /**
+   * Create a stream for an existing debate.
+   *
+   * @param debateId - The ID of the debate to stream
+   * @param options - Optional WebSocket/streaming options
+   * @returns AsyncGenerator that yields debate events
+   *
+   * @example
+   * ```typescript
+   * const stream = client.streamDebate('debate-123');
+   *
+   * for await (const event of stream) {
+   *   console.log(event.type, event.data);
+   * }
+   * ```
+   */
+  streamDebate(
+    debateId: string,
+    options?: Omit<StreamOptions, 'debateId'>
+  ): AsyncGenerator<WebSocketEvent, void, unknown> {
+    return streamDebate(this.config, { ...options, debateId });
+  }
+
+  /**
+   * Create a stream for all debate events (no filter).
+   *
+   * @param options - Optional WebSocket/streaming options
+   * @returns AsyncGenerator that yields all debate events
+   *
+   * @example
+   * ```typescript
+   * const stream = client.streamAllDebates();
+   *
+   * for await (const event of stream) {
+   *   console.log(`[${event.debate_id}] ${event.type}`);
+   * }
+   * ```
+   */
+  streamAllDebates(options?: StreamOptions): AsyncGenerator<WebSocketEvent, void, unknown> {
+    return streamDebate(this.config, options);
   }
 
   // ===========================================================================

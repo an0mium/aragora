@@ -197,6 +197,11 @@ class DebateResult:
     export_links: Optional[dict[str, str]] = None  # Format -> URL mapping
     # Final synthesis from Claude Opus 4.5 (1200-word comprehensive summary)
     synthesis: str = ""
+    # Cost/usage data (populated by extensions if cost tracking enabled)
+    total_cost_usd: float = 0.0
+    total_tokens: int = 0
+    per_agent_cost: dict[str, float] = field(default_factory=dict)
+    budget_limit_usd: Optional[float] = None
 
     def __post_init__(self) -> None:
         if self.debate_id:
@@ -221,7 +226,7 @@ class DebateResult:
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize core fields for JSON export."""
-        return {
+        result = {
             "debate_id": self.debate_id,
             "task": self.task,
             "status": self.status,
@@ -234,6 +239,14 @@ class DebateResult:
             "duration_seconds": self.duration_seconds,
             "winner": self.winner,
         }
+        # Include cost data if present
+        if self.total_cost_usd > 0 or self.total_tokens > 0:
+            result["total_cost_usd"] = self.total_cost_usd
+            result["total_tokens"] = self.total_tokens
+            result["per_agent_cost"] = dict(self.per_agent_cost)
+            if self.budget_limit_usd is not None:
+                result["budget_limit_usd"] = self.budget_limit_usd
+        return result
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DebateResult":

@@ -508,6 +508,8 @@ async def route_debate_result(
     debate_id: str,
     result: Dict[str, Any],
     include_voice: bool = False,
+    receipt: Optional[Any] = None,
+    receipt_url: Optional[str] = None,
 ) -> bool:
     """Route a debate result back to its originating channel.
 
@@ -563,11 +565,281 @@ async def route_debate_result(
 
         if success:
             mark_result_sent(debate_id)
+            # Post receipt if provided
+            if receipt and receipt_url:
+                try:
+                    await post_receipt_to_channel(origin, receipt, receipt_url)
+                except Exception as e:
+                    logger.warning(f"Failed to post receipt for {debate_id}: {e}")
 
         return success
 
     except Exception as e:
         logger.error(f"Failed to route result for {debate_id}: {e}")
+        return False
+
+
+async def post_receipt_to_channel(
+    origin: DebateOrigin,
+    receipt: Any,
+    receipt_url: str,
+) -> bool:
+    """Post receipt summary with link to originating channel.
+
+    Args:
+        origin: The debate origin containing platform/channel info
+        receipt: DecisionReceipt object
+        receipt_url: URL to view full receipt
+
+    Returns:
+        True if receipt was posted successfully
+    """
+    summary = _format_receipt_summary(receipt, receipt_url)
+    platform = origin.platform.lower()
+
+    logger.info(f"Posting receipt to {platform}:{origin.channel_id}")
+
+    try:
+        if platform == "slack":
+            return await _send_slack_receipt(origin, summary, receipt_url)
+        elif platform == "teams":
+            return await _send_teams_receipt(origin, summary, receipt_url)
+        elif platform == "telegram":
+            return await _send_telegram_receipt(origin, summary)
+        elif platform == "discord":
+            return await _send_discord_receipt(origin, summary)
+        elif platform in ("google_chat", "gchat"):
+            return await _send_google_chat_receipt(origin, summary)
+        else:
+            logger.debug(f"Receipt posting not supported for {platform}")
+            return False
+    except Exception as e:
+        logger.error(f"Receipt post error for {platform}: {e}")
+        return False
+
+
+def _format_receipt_summary(receipt: Any, url: str) -> str:
+    """Create compact receipt summary for chat platforms.
+
+    Args:
+        receipt: DecisionReceipt object
+        url: URL to view full receipt
+
+    Returns:
+        Formatted summary string
+    """
+    emoji_map = {
+        "APPROVED": "✅",
+        "APPROVED_WITH_CONDITIONS": "⚠️",
+        "NEEDS_REVIEW": "🔍",
+        "REJECTED": "❌",
+    }
+    emoji = emoji_map.get(receipt.verdict, "📋")
+
+    cost_line = ""
+    if hasattr(receipt, "cost_usd") and receipt.cost_usd > 0:
+        cost_line = f"\n• Cost: ${receipt.cost_usd:.4f}"
+        if hasattr(receipt, "budget_limit_usd") and receipt.budget_limit_usd:
+            pct = (receipt.cost_usd / receipt.budget_limit_usd) * 100
+            cost_line += f" ({pct:.0f}% of budget)"
+
+    return f"""{emoji} **Decision Receipt**
+• Verdict: {receipt.verdict}
+• Confidence: {receipt.confidence:.0%}
+• Findings: {receipt.critical_count} critical, {receipt.high_count} high{cost_line}
+• [View Full Receipt]({url})"""
+
+
+async def _send_slack_receipt(origin: DebateOrigin, summary: str, receipt_url: str) -> bool:
+    """Post receipt to Slack with button to view full receipt."""
+    token = os.environ.get("SLACK_BOT_TOKEN", "")
+    if not token:
+        return False
+
+    try:
+        import httpx
+
+        url = "https://slack.com/api/chat.postMessage"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+        data = {
+            "channel": origin.channel_id,
+            "text": summary,
+            "mrkdwn": True,
+            "attachments": [
+                {
+                    "fallback": "View Receipt",
+                    "actions": [
+                        {
+                            "type": "button",
+                            "text": "View Full Receipt",
+                            "url": receipt_url,
+                            "style": "primary",
+                        }
+                    ],
+                }
+            ],
+        }
+
+        if origin.thread_id:
+            data["thread_ts"] = origin.thread_id
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=data, headers=headers)
+            if response.is_success:
+                resp_data = response.json()
+                if resp_data.get("ok"):
+                    logger.info(f"Slack receipt posted to {origin.channel_id}")
+                    return True
+            return False
+
+    except Exception as e:
+        logger.error(f"Slack receipt post error: {e}")
+        return False
+
+
+async def _send_teams_receipt(origin: DebateOrigin, summary: str, receipt_url: str) -> bool:
+    """Post receipt to Teams with link button."""
+    webhook_url = origin.metadata.get("webhook_url")
+    if not webhook_url:
+        return False
+
+    try:
+        import httpx
+
+        card = {
+            "type": "message",
+            "attachments": [
+                {
+                    "contentType": "application/vnd.microsoft.card.adaptive",
+                    "content": {
+                        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                        "type": "AdaptiveCard",
+                        "version": "1.4",
+                        "body": [
+                            {
+                                "type": "TextBlock",
+                                "text": "Decision Receipt",
+                                "weight": "Bolder",
+                                "size": "Large",
+                            },
+                            {"type": "TextBlock", "text": summary, "wrap": True},
+                        ],
+                        "actions": [
+                            {
+                                "type": "Action.OpenUrl",
+                                "title": "View Full Receipt",
+                                "url": receipt_url,
+                            }
+                        ],
+                    },
+                }
+            ],
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(webhook_url, json=card)
+            if response.is_success:
+                logger.info("Teams receipt posted via webhook")
+                return True
+            return False
+
+    except Exception as e:
+        logger.error(f"Teams receipt post error: {e}")
+        return False
+
+
+async def _send_telegram_receipt(origin: DebateOrigin, summary: str) -> bool:
+    """Post receipt summary to Telegram."""
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        return False
+
+    try:
+        import httpx
+
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        data = {
+            "chat_id": origin.channel_id,
+            "text": summary,
+            "parse_mode": "Markdown",
+        }
+
+        if origin.message_id:
+            data["reply_to_message_id"] = origin.message_id
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=data)
+            if response.is_success:
+                logger.info(f"Telegram receipt posted to {origin.channel_id}")
+                return True
+            return False
+
+    except Exception as e:
+        logger.error(f"Telegram receipt post error: {e}")
+        return False
+
+
+async def _send_discord_receipt(origin: DebateOrigin, summary: str) -> bool:
+    """Post receipt summary to Discord."""
+    token = os.environ.get("DISCORD_BOT_TOKEN", "")
+    if not token:
+        return False
+
+    try:
+        import httpx
+
+        url = f"https://discord.com/api/v10/channels/{origin.channel_id}/messages"
+        headers = {
+            "Authorization": f"Bot {token}",
+            "Content-Type": "application/json",
+        }
+        data = {"content": summary}
+
+        if origin.message_id:
+            data["message_reference"] = {"message_id": origin.message_id}  # type: ignore[assignment]
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=data, headers=headers)
+            if response.is_success:
+                logger.info(f"Discord receipt posted to {origin.channel_id}")
+                return True
+            return False
+
+    except Exception as e:
+        logger.error(f"Discord receipt post error: {e}")
+        return False
+
+
+async def _send_google_chat_receipt(origin: DebateOrigin, summary: str) -> bool:
+    """Post receipt summary to Google Chat."""
+    try:
+        from aragora.server.handlers.bots.google_chat import get_google_chat_connector
+
+        connector = get_google_chat_connector()
+        if not connector:
+            return False
+
+        space_name = origin.channel_id
+        thread_name = origin.thread_id or origin.metadata.get("thread_name")
+
+        response = await connector.send_message(
+            space_name,
+            summary,
+            thread_id=thread_name,
+        )
+
+        if response.success:
+            logger.info(f"Google Chat receipt posted to {space_name}")
+            return True
+        return False
+
+    except ImportError:
+        return False
+    except Exception as e:
+        logger.error(f"Google Chat receipt post error: {e}")
         return False
 
 
@@ -1185,6 +1457,232 @@ Conclusion:
 """
 
 
+def format_error_for_chat(error: str, debate_id: str) -> str:
+    """Map technical errors to user-friendly messages for chat platforms.
+
+    Converts internal error messages into helpful, non-technical messages
+    that guide users on what to do next.
+
+    Args:
+        error: The technical error message
+        debate_id: The debate ID for reference
+
+    Returns:
+        User-friendly error message string
+    """
+    # Map technical patterns to friendly messages
+    error_map = {
+        "rate limit": ("Your request is being processed. Results will arrive shortly."),
+        "429": (
+            "Our AI agents are experiencing high demand. "
+            "Your request is queued and will complete shortly."
+        ),
+        "timeout": ("There was a delay processing your request. Please wait a moment."),
+        "timed out": (
+            "The analysis is taking longer than expected. " "Results will be sent when ready."
+        ),
+        "not found": ("We couldn't find that debate. Please start a new one."),
+        "404": ("The requested resource wasn't found. Please try again."),
+        "unauthorized": ("Please reconnect the Aragora app to continue."),
+        "401": ("Authentication required. Please reconnect the Aragora app."),
+        "forbidden": (
+            "You don't have permission for this action. " "Please check with your workspace admin."
+        ),
+        "403": ("Access denied. Please verify your permissions."),
+        "connection": ("We're experiencing connectivity issues. Please try again in a moment."),
+        "service unavailable": ("Our service is temporarily busy. Please try again shortly."),
+        "503": ("Service temporarily unavailable. Please retry in a few moments."),
+        "internal": ("Something went wrong on our end. We're looking into it."),
+        "500": ("An unexpected error occurred. Please try again."),
+        "budget": (
+            "This request would exceed your organization's budget limit. "
+            "Please contact your admin to increase the limit."
+        ),
+        "quota": (
+            "You've reached your usage quota for this period. "
+            "Usage resets at the start of the next billing cycle."
+        ),
+        "invalid": ("The request couldn't be processed. Please check your input and try again."),
+    }
+
+    error_lower = error.lower()
+    for tech_pattern, friendly_msg in error_map.items():
+        if tech_pattern in error_lower:
+            return f"message: {friendly_msg}\n\n_Debate ID: {debate_id}_"
+
+    # Default fallback
+    return (
+        f"We encountered an issue processing your request. Please try again.\n\n"
+        f"_Debate ID: {debate_id}_"
+    )
+
+
+async def send_error_to_channel(
+    origin: DebateOrigin,
+    error: str,
+    debate_id: str,
+) -> bool:
+    """Send a user-friendly error message to the originating channel.
+
+    Args:
+        origin: The debate origin with platform/channel info
+        error: The technical error message
+        debate_id: The debate ID for reference
+
+    Returns:
+        True if the message was sent successfully
+    """
+    friendly_message = format_error_for_chat(error, debate_id)
+    platform = origin.platform.lower()
+
+    logger.info(f"Sending error to {platform}:{origin.channel_id}")
+
+    try:
+        if platform == "slack":
+            return await _send_slack_error(origin, friendly_message)
+        elif platform == "teams":
+            return await _send_teams_error(origin, friendly_message)
+        elif platform == "telegram":
+            return await _send_telegram_error(origin, friendly_message)
+        elif platform == "discord":
+            return await _send_discord_error(origin, friendly_message)
+        else:
+            logger.debug(f"Error notification not supported for {platform}")
+            return False
+    except Exception as e:
+        logger.error(f"Failed to send error to {platform}: {e}")
+        return False
+
+
+async def _send_slack_error(origin: DebateOrigin, message: str) -> bool:
+    """Send error message to Slack."""
+    token = os.environ.get("SLACK_BOT_TOKEN", "")
+    if not token:
+        return False
+
+    try:
+        import httpx
+
+        url = "https://slack.com/api/chat.postMessage"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+        data = {
+            "channel": origin.channel_id,
+            "text": message,
+            "mrkdwn": True,
+        }
+
+        if origin.thread_id:
+            data["thread_ts"] = origin.thread_id
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=data, headers=headers)
+            return response.is_success and response.json().get("ok", False)
+
+    except Exception as e:
+        logger.error(f"Slack error send failed: {e}")
+        return False
+
+
+async def _send_teams_error(origin: DebateOrigin, message: str) -> bool:
+    """Send error message to Teams."""
+    webhook_url = origin.metadata.get("webhook_url")
+    if not webhook_url:
+        return False
+
+    try:
+        import httpx
+
+        card = {
+            "type": "message",
+            "attachments": [
+                {
+                    "contentType": "application/vnd.microsoft.card.adaptive",
+                    "content": {
+                        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                        "type": "AdaptiveCard",
+                        "version": "1.4",
+                        "body": [
+                            {
+                                "type": "TextBlock",
+                                "text": "Aragora Notice",
+                                "weight": "Bolder",
+                                "color": "Attention",
+                            },
+                            {"type": "TextBlock", "text": message, "wrap": True},
+                        ],
+                    },
+                }
+            ],
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(webhook_url, json=card)
+            return response.is_success
+
+    except Exception as e:
+        logger.error(f"Teams error send failed: {e}")
+        return False
+
+
+async def _send_telegram_error(origin: DebateOrigin, message: str) -> bool:
+    """Send error message to Telegram."""
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        return False
+
+    try:
+        import httpx
+
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        data = {
+            "chat_id": origin.channel_id,
+            "text": message,
+            "parse_mode": "Markdown",
+        }
+
+        if origin.message_id:
+            data["reply_to_message_id"] = origin.message_id
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=data)
+            return response.is_success
+
+    except Exception as e:
+        logger.error(f"Telegram error send failed: {e}")
+        return False
+
+
+async def _send_discord_error(origin: DebateOrigin, message: str) -> bool:
+    """Send error message to Discord."""
+    token = os.environ.get("DISCORD_BOT_TOKEN", "")
+    if not token:
+        return False
+
+    try:
+        import httpx
+
+        url = f"https://discord.com/api/v10/channels/{origin.channel_id}/messages"
+        headers = {
+            "Authorization": f"Bot {token}",
+            "Content-Type": "application/json",
+        }
+        data = {"content": message}
+
+        if origin.message_id:
+            data["message_reference"] = {"message_id": origin.message_id}  # type: ignore[assignment]
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=data, headers=headers)
+            return response.is_success
+
+    except Exception as e:
+        logger.error(f"Discord error send failed: {e}")
+        return False
+
+
 # Redis backend functions
 
 
@@ -1285,5 +1783,8 @@ __all__ = [
     "get_debate_origin",
     "mark_result_sent",
     "route_debate_result",
+    "post_receipt_to_channel",
+    "format_error_for_chat",
+    "send_error_to_channel",
     "cleanup_expired_origins",
 ]

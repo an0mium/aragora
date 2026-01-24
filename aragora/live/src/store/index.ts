@@ -187,3 +187,24 @@ export {
   selectAgentCount,
   selectTaskCount,
 } from './controlPlaneStore';
+
+// Onboarding store - new user onboarding flow
+export {
+  useOnboardingStore,
+  // Types
+  type OnboardingStep,
+  type TeamMember,
+  type SelectedTemplate,
+  type OnboardingProgress,
+  // Selectors
+  selectIsOnboardingNeeded,
+  selectCurrentStepIndex,
+  selectTotalSteps,
+  selectIsFirstStep,
+  selectIsLastStep,
+  selectCanProceed,
+  selectProgressPercentage,
+  // Hooks
+  useOnboardingStep,
+  useOnboardingProgress,
+} from './onboardingStore';

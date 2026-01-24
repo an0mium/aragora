@@ -340,3 +340,180 @@ export function createWebSocket(
 ): AragoraWebSocket {
   return new AragoraWebSocket(config, options);
 }
+
+// =============================================================================
+// Async Iterator Support
+// =============================================================================
+
+export interface StreamOptions extends WebSocketOptions {
+  /** Filter events to only this debate ID */
+  debateId?: string;
+}
+
+/**
+ * Helper to extract loop/debate ID from an event.
+ */
+function getEventDebateId(event: WebSocketEvent): string | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = event.data as Record<string, any> | undefined;
+  return (
+    event.debate_id ||
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (event as any).loop_id ||
+    data?.debate_id ||
+    data?.loop_id
+  );
+}
+
+/**
+ * Create an async iterable stream for debate events.
+ *
+ * This provides a convenient way to consume debate events using async iteration.
+ * The stream will automatically handle WebSocket connection, reconnection, and cleanup.
+ *
+ * @param config - Aragora configuration (baseUrl, apiKey, etc.)
+ * @param options - Stream options including optional debateId filter
+ * @returns AsyncGenerator that yields WebSocket events
+ *
+ * @example
+ * ```typescript
+ * import { streamDebate } from '@aragora/sdk';
+ *
+ * const config = { baseUrl: 'http://localhost:8080' };
+ * const stream = streamDebate(config, { debateId: 'my-debate-id' });
+ *
+ * for await (const event of stream) {
+ *   console.log(`${event.type}:`, event.data);
+ *
+ *   if (event.type === 'debate_end') {
+ *     break;
+ *   }
+ * }
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Stream all events (no filter)
+ * const stream = streamDebate({ baseUrl: 'http://localhost:8080' });
+ *
+ * for await (const event of stream) {
+ *   console.log(event);
+ * }
+ * ```
+ */
+export async function* streamDebate(
+  config: AragoraConfig,
+  options: StreamOptions = {}
+): AsyncGenerator<WebSocketEvent, void, unknown> {
+  const ws = new AragoraWebSocket(config, options);
+  const eventQueue: WebSocketEvent[] = [];
+  let resolveNext: ((event: WebSocketEvent) => void) | null = null;
+  let rejectNext: ((error: Error) => void) | null = null;
+  let ended = false;
+  const { debateId } = options;
+
+  // Filter events by debate ID if specified
+  const shouldEmit = (event: WebSocketEvent): boolean => {
+    if (!debateId) {
+      return true;
+    }
+    const eventDebateId = getEventDebateId(event);
+    return !eventDebateId || eventDebateId === debateId;
+  };
+
+  // Handle incoming messages
+  const unsubMessage = ws.on('message', (event) => {
+    if (!shouldEmit(event)) {
+      return;
+    }
+
+    if (resolveNext) {
+      resolveNext(event);
+      resolveNext = null;
+    } else {
+      eventQueue.push(event);
+    }
+
+    // Check for terminal events
+    if (event.type === 'debate_end' || event.type === 'error') {
+      ended = true;
+    }
+  });
+
+  // Handle errors
+  const unsubError = ws.on('error', (error) => {
+    if (rejectNext) {
+      rejectNext(error);
+      rejectNext = null;
+    }
+    ended = true;
+  });
+
+  // Handle disconnection
+  const unsubDisconnect = ws.on('disconnected', ({ code, reason }) => {
+    ended = true;
+    if (resolveNext) {
+      // Create a synthetic end event
+      resolveNext({
+        type: 'debate_end',
+        debate_id: debateId,
+        timestamp: new Date().toISOString(),
+        data: { reason: 'connection_closed', code, close_reason: reason },
+      });
+      resolveNext = null;
+    }
+  });
+
+  // Connect to the WebSocket
+  await ws.connect(debateId);
+
+  try {
+    while (!ended) {
+      if (eventQueue.length > 0) {
+        yield eventQueue.shift()!;
+      } else {
+        const event = await new Promise<WebSocketEvent>((resolve, reject) => {
+          resolveNext = resolve;
+          rejectNext = reject;
+        });
+        yield event;
+      }
+    }
+  } finally {
+    // Cleanup
+    unsubMessage();
+    unsubError();
+    unsubDisconnect();
+    ws.disconnect();
+  }
+}
+
+/**
+ * Create a stream that automatically connects and yields events for a specific debate.
+ *
+ * This is a convenience wrapper around streamDebate that connects to a specific debate.
+ *
+ * @param config - Aragora configuration
+ * @param debateId - The debate ID to stream events for
+ * @param options - Additional WebSocket options
+ * @returns AsyncGenerator yielding events for the specified debate
+ *
+ * @example
+ * ```typescript
+ * const config = { baseUrl: 'http://localhost:8080' };
+ * const stream = streamDebateById(config, 'debate-123');
+ *
+ * for await (const event of stream) {
+ *   if (event.type === 'agent_message') {
+ *     console.log(`${event.data.agent}: ${event.data.content}`);
+ *   }
+ * }
+ * ```
+ */
+export function streamDebateById(
+  config: AragoraConfig,
+  debateId: string,
+  options?: WebSocketOptions
+): AsyncGenerator<WebSocketEvent, void, unknown> {
+  return streamDebate(config, { ...options, debateId });
+}

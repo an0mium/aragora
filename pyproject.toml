@@ -124,6 +124,7 @@ documents = [
     "ebooklib>=0.18,<1.0",  # EPUB e-book parsing
     "beautifulsoup4>=4.12,<5.0",  # HTML parsing for EPUB
     "mobi>=0.3,<1.0",  # Kindle MOBI parsing
+    "weasyprint>=60.0,<63.0",  # HTML to PDF conversion for receipts
 ]
 broadcast = [
     "edge-tts>=6.1.0,<7.0",

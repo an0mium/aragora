@@ -35,6 +35,7 @@ class ReceiptExportFormat(Enum):
     HTML = "html"
     CSV = "csv"
     SARIF = "sarif"  # Static Analysis Results Interchange Format
+    PDF = "pdf"  # HTML-to-PDF conversion (requires weasyprint)
 
 
 class HeatmapExportFormat(Enum):
@@ -95,6 +96,8 @@ def export_receipt(
         return _export_receipt_csv(receipt, opts)
     elif format == ReceiptExportFormat.SARIF:
         return _export_receipt_sarif(receipt, opts)
+    elif format == ReceiptExportFormat.PDF:
+        return _export_receipt_pdf(receipt, opts)
     else:
         raise ValueError(f"Unsupported format: {format}")
 
@@ -430,6 +433,80 @@ def _heatmap_row_html(heatmap: "RiskHeatmap", category: str) -> str:
 
 
 # =============================================================================
+# PDF Export
+# =============================================================================
+
+
+def is_pdf_export_available() -> bool:
+    """Check if WeasyPrint is available for PDF export."""
+    try:
+        import weasyprint  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+def _export_receipt_pdf(receipt: "DecisionReceipt", opts: ExportOptions) -> bytes:
+    """
+    Export receipt as PDF using WeasyPrint.
+
+    Converts the HTML representation to PDF format. Requires weasyprint
+    to be installed: pip install aragora[documents]
+
+    Args:
+        receipt: The DecisionReceipt to export
+        opts: Export options
+
+    Returns:
+        PDF file contents as bytes
+
+    Raises:
+        ImportError: If weasyprint is not installed
+    """
+    try:
+        from weasyprint import HTML
+    except ImportError:
+        raise ImportError(
+            "PDF export requires weasyprint. Install with: pip install aragora[documents]"
+        )
+
+    # Get HTML representation
+    html_content = receipt.to_html()
+
+    # Convert HTML to PDF
+    html_doc = HTML(string=html_content)
+    pdf_bytes = html_doc.write_pdf()
+
+    return pdf_bytes
+
+
+def export_receipt_pdf_to_file(
+    receipt: "DecisionReceipt",
+    output_path: str,
+    options: Optional[ExportOptions] = None,
+) -> str:
+    """
+    Export receipt as PDF directly to a file.
+
+    Args:
+        receipt: The DecisionReceipt to export
+        output_path: Path to write the PDF file
+        options: Export options
+
+    Returns:
+        The output path on success
+    """
+    opts = options or ExportOptions()
+    pdf_bytes = _export_receipt_pdf(receipt, opts)
+
+    with open(output_path, "wb") as f:
+        f.write(pdf_bytes)
+
+    return output_path
+
+
+# =============================================================================
 # Batch Export
 # =============================================================================
 
@@ -536,4 +613,7 @@ __all__ = [
     "export_heatmap",
     "export_receipts_bundle",
     "stream_receipt_json",
+    # PDF Export
+    "is_pdf_export_available",
+    "export_receipt_pdf_to_file",
 ]

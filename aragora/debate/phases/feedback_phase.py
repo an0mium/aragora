@@ -145,6 +145,11 @@ class FeedbackPhase:
         enable_knowledge_extraction: bool = False,  # Extract structured knowledge from debates
         extraction_min_confidence: float = 0.3,  # Min debate confidence to trigger extraction
         extraction_promote_threshold: float = 0.6,  # Min claim confidence to promote to mound
+        # Auto-receipt generation for SME starter pack
+        enable_auto_receipt: bool = False,  # Generate DecisionReceipt after debate
+        auto_post_receipt: bool = False,  # Post receipt summary to originating channel
+        cost_tracker: Optional[Any] = None,  # CostTracker for populating cost data in receipt
+        receipt_base_url: str = "/api/v2/receipts",  # Base URL for receipt links
     ):
         """
         Initialize the feedback phase.
@@ -225,6 +230,12 @@ class FeedbackPhase:
         self.enable_knowledge_extraction = enable_knowledge_extraction
         self.extraction_min_confidence = extraction_min_confidence
         self.extraction_promote_threshold = extraction_promote_threshold
+
+        # Auto-receipt generation
+        self.enable_auto_receipt = enable_auto_receipt
+        self.auto_post_receipt = auto_post_receipt
+        self.cost_tracker = cost_tracker
+        self.receipt_base_url = receipt_base_url
 
         # Callbacks
         self._emit_moment_event = emit_moment_event
@@ -363,6 +374,9 @@ class FeedbackPhase:
         # 28. Trigger post-debate workflow for high-quality debates
         await self._maybe_trigger_workflow(ctx)
 
+        # 29. Generate and optionally post decision receipt
+        await self._generate_and_post_receipt(ctx)
+
     async def _maybe_trigger_workflow(self, ctx: "DebateContext") -> None:
         """Trigger post-debate workflow for high-quality debates.
 
@@ -444,6 +458,99 @@ class FeedbackPhase:
             logger.debug("[workflow] WorkflowEngine not available")
         except Exception as e:
             logger.warning("[workflow] Post-debate workflow failed: %s", e)
+
+    async def _generate_and_post_receipt(self, ctx: "DebateContext") -> Optional[Any]:
+        """Generate decision receipt and optionally post to originating channel.
+
+        When enabled via enable_auto_receipt, this method:
+        1. Creates a DecisionReceipt from the DebateResult
+        2. Includes cost data if cost_tracker is available
+        3. Stores the receipt in the receipt store
+        4. Optionally posts a summary to the originating chat channel
+
+        Args:
+            ctx: The DebateContext with completed debate
+
+        Returns:
+            DecisionReceipt if generated, None otherwise
+        """
+        if not self.enable_auto_receipt:
+            return None
+
+        result = ctx.result
+        if not result:
+            return None
+
+        try:
+            from aragora.export.decision_receipt import DecisionReceipt
+
+            # Gather cost data if available
+            cost_data = None
+            if self.cost_tracker:
+                try:
+                    cost_data = {
+                        "cost_usd": self.cost_tracker.get_debate_cost(ctx.debate_id),
+                        "tokens_used": self.cost_tracker.get_total_tokens(ctx.debate_id),
+                        "budget_limit_usd": getattr(self.cost_tracker, "budget_limit", None),
+                    }
+                except (TypeError, ValueError, AttributeError) as e:
+                    logger.debug("[receipt] Cost data extraction failed: %s", e)
+
+            # Generate receipt from debate result
+            receipt = DecisionReceipt.from_debate_result(
+                result=result,
+                include_cost=True,
+                cost_data=cost_data,
+            )
+
+            # Store receipt in receipt store
+            try:
+                from aragora.storage.receipt_store import get_receipt_store
+
+                store = get_receipt_store()
+                await store.save(receipt.to_dict())
+                logger.info(
+                    "[receipt] Generated receipt %s for debate %s",
+                    receipt.receipt_id,
+                    ctx.debate_id,
+                )
+            except ImportError:
+                logger.debug("[receipt] Receipt store not available")
+            except Exception as e:
+                logger.warning("[receipt] Failed to store receipt: %s", e)
+
+            # Post to originating channel if enabled
+            if self.auto_post_receipt:
+                try:
+                    from aragora.server.debate_origin import (
+                        get_debate_origin,
+                        post_receipt_to_channel,
+                    )
+
+                    origin = get_debate_origin(ctx.debate_id)
+                    if origin:
+                        receipt_url = f"{self.receipt_base_url}/{receipt.receipt_id}"
+                        await post_receipt_to_channel(origin, receipt, receipt_url)
+                        logger.info(
+                            "[receipt] Posted receipt to %s:%s",
+                            origin.platform,
+                            origin.channel_id,
+                        )
+                except ImportError:
+                    logger.debug("[receipt] Debate origin module not available")
+                except Exception as e:
+                    logger.warning("[receipt] Failed to post receipt: %s", e)
+
+            # Store receipt reference in context
+            setattr(ctx, "_last_receipt", receipt)
+            return receipt
+
+        except ImportError:
+            logger.debug("[receipt] DecisionReceipt module not available")
+            return None
+        except Exception as e:
+            logger.warning("[receipt] Receipt generation failed: %s", e)
+            return None
 
     async def _execute_coordinated_writes(self, ctx: "DebateContext") -> None:
         """Execute coordinated atomic writes to all memory systems.

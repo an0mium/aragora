@@ -6,12 +6,14 @@
  *
  * @example
  * ```typescript
- * import { createClient } from '@aragora/sdk';
+ * import { createClient, streamDebate } from '@aragora/sdk';
  *
- * const client = createClient({
+ * const config = {
  *   baseUrl: 'https://api.aragora.ai',
  *   apiKey: 'your-api-key'
- * });
+ * };
+ *
+ * const client = createClient(config);
  *
  * // Create a debate
  * const debate = await client.createDebate({
@@ -20,7 +22,16 @@
  *   rounds: 3
  * });
  *
- * // Stream debate events
+ * // Stream events using async iterator (recommended)
+ * for await (const event of streamDebate(config, { debateId: debate.debate_id })) {
+ *   console.log(`${event.type}:`, event.data);
+ *
+ *   if (event.type === 'debate_end') {
+ *     break;
+ *   }
+ * }
+ *
+ * // Or use the callback-based WebSocket API
  * const ws = client.createWebSocket();
  * await ws.connect();
  * ws.subscribe(debate.debate_id);
@@ -107,8 +118,13 @@ export { AragoraClient, createClient } from './client';
 export { AragoraClientSync, createSyncClient } from './sync';
 
 // Re-export WebSocket
-export type { WebSocketState, WebSocketOptions } from './websocket';
-export { AragoraWebSocket, createWebSocket } from './websocket';
+export type { WebSocketState, WebSocketOptions, StreamOptions } from './websocket';
+export {
+  AragoraWebSocket,
+  createWebSocket,
+  streamDebate,
+  streamDebateById,
+} from './websocket';
 
 // Default export for convenience
 export { createClient as default } from './client';

@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
+    from aragora.core_types import DebateResult
     from aragora.export.audit_trail import AuditTrail
     from aragora.modes.gauntlet import GauntletResult
 
@@ -142,6 +143,11 @@ class DecisionReceipt:
     # Integrity
     checksum: str = ""
 
+    # Cost/usage data (optional, populated if cost tracking enabled)
+    cost_usd: float = 0.0
+    tokens_used: int = 0
+    budget_limit_usd: Optional[float] = None
+
     def __post_init__(self):
         if not self.checksum:
             self.checksum = self._compute_checksum()
@@ -196,6 +202,9 @@ class DecisionReceipt:
             "duration_seconds": self.duration_seconds,
             "audit_trail_id": self.audit_trail_id,
             "checksum": self.checksum,
+            "cost_usd": self.cost_usd,
+            "tokens_used": self.tokens_used,
+            "budget_limit_usd": self.budget_limit_usd,
         }
 
     def to_json(self, indent: int = 2) -> str:
@@ -559,6 +568,145 @@ class DecisionReceipt:
     def load(cls, path: Path) -> "DecisionReceipt":
         """Load receipt from file."""
         return cls.from_json(path.read_text())
+
+    @classmethod
+    def from_debate_result(
+        cls,
+        result: "DebateResult",
+        include_cost: bool = True,
+        cost_data: Optional[dict[str, Any]] = None,
+    ) -> "DecisionReceipt":
+        """
+        Generate a DecisionReceipt from a standard DebateResult.
+
+        Unlike from_gauntlet_result which uses full Gauntlet stress-test data,
+        this creates a receipt from a regular debate for audit purposes.
+
+        Args:
+            result: The DebateResult from a completed debate
+            include_cost: Whether to include cost data in the receipt
+            cost_data: Optional dict with cost_usd, tokens_used, budget_limit_usd
+
+        Returns:
+            DecisionReceipt suitable for audit trail
+
+        Example:
+            result = await arena.run()
+            receipt = DecisionReceipt.from_debate_result(result)
+            receipt.save(Path("./receipts/debate.json"), format="json")
+        """
+        from datetime import timezone
+
+        receipt_id = f"rcpt_{uuid.uuid4().hex[:12]}"
+
+        # Map confidence to verdict
+        if result.confidence >= 0.9:
+            verdict = "APPROVED"
+        elif result.confidence >= 0.7:
+            verdict = "APPROVED_WITH_CONDITIONS"
+        elif result.confidence >= 0.5:
+            verdict = "NEEDS_REVIEW"
+        else:
+            verdict = "REJECTED"
+
+        # Map confidence to risk (inverse relationship)
+        risk_score = 1.0 - result.confidence
+        if risk_score < 0.3:
+            risk_level = "LOW"
+        elif risk_score < 0.6:
+            risk_level = "MEDIUM"
+        elif risk_score < 0.8:
+            risk_level = "HIGH"
+        else:
+            risk_level = "CRITICAL"
+
+        # Extract cost data from result or provided cost_data
+        cost_usd = 0.0
+        tokens_used = 0
+        budget_limit_usd = None
+
+        if include_cost:
+            if cost_data:
+                cost_usd = cost_data.get("cost_usd", 0.0)
+                tokens_used = cost_data.get("tokens_used", 0)
+                budget_limit_usd = cost_data.get("budget_limit_usd")
+            elif hasattr(result, "total_cost_usd"):
+                cost_usd = result.total_cost_usd
+                tokens_used = result.total_tokens
+                budget_limit_usd = result.budget_limit_usd
+
+        # Convert critiques to findings (high severity by default)
+        findings = []
+        for critique in result.critiques:
+            for idx, issue in enumerate(critique.issues):
+                findings.append(
+                    ReceiptFinding(
+                        id=f"crit_{critique.agent}_{idx}",
+                        severity="HIGH"
+                        if critique.severity >= 7
+                        else "MEDIUM"
+                        if critique.severity >= 4
+                        else "LOW",
+                        category="critique",
+                        title=f"Critique from {critique.agent}",
+                        description=issue,
+                        mitigation=critique.suggestions[idx]
+                        if idx < len(critique.suggestions)
+                        else None,
+                        source=critique.agent,
+                        verified=False,
+                    )
+                )
+
+        # Count findings by severity
+        critical_count = len([f for f in findings if f.severity == "CRITICAL"])
+        high_count = len([f for f in findings if f.severity == "HIGH"])
+        medium_count = len([f for f in findings if f.severity == "MEDIUM"])
+        low_count = len([f for f in findings if f.severity == "LOW"])
+
+        # Convert dissenting views
+        dissents = []
+        for view in result.dissenting_views:
+            dissents.append(
+                ReceiptDissent(
+                    agent="unknown",  # Dissenting views are strings in DebateResult
+                    type="dissent",
+                    severity=0.5,
+                    reasons=[view],
+                    alternative=None,
+                )
+            )
+
+        return cls(
+            receipt_id=receipt_id,
+            gauntlet_id=result.debate_id or result.id,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            input_summary=result.task[:500] if result.task else "",
+            input_type="debate",
+            verdict=verdict,
+            confidence=result.confidence,
+            risk_level=risk_level,
+            risk_score=risk_score,
+            robustness_score=result.confidence,  # Use confidence as proxy
+            coverage_score=1.0 if result.consensus_reached else 0.5,
+            verification_coverage=0.0,  # No formal verification in regular debates
+            findings=findings,
+            critical_count=critical_count,
+            high_count=high_count,
+            medium_count=medium_count,
+            low_count=low_count,
+            mitigations=[],  # No structured mitigations in regular debates
+            dissenting_views=dissents,
+            unresolved_tensions=[],
+            verified_claims=[],
+            unverified_claims=[],
+            agents_involved=result.participants,
+            rounds_completed=result.rounds_completed,
+            duration_seconds=result.duration_seconds,
+            cost_usd=cost_usd,
+            tokens_used=tokens_used,
+            budget_limit_usd=budget_limit_usd,
+        )
 
 
 class DecisionReceiptGenerator:

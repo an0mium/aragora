@@ -585,6 +585,106 @@ async def handle_accept_invite(
 
 
 # =============================================================================
+# Onboarding Completion
+# =============================================================================
+
+# In-memory onboarding state (replace with DB in production)
+_onboarding_status: Dict[str, Dict[str, Any]] = {}
+_onboarding_lock = threading.Lock()
+
+
+async def handle_onboarding_complete(
+    data: Dict[str, Any],
+    user_id: str = "default",
+    organization_id: str = "default",
+) -> HandlerResult:
+    """
+    Mark onboarding as complete for an organization.
+
+    POST /api/v1/onboarding/complete
+    Body: {
+        first_debate_id: str (optional) - ID of the first debate created
+        template_used: str (optional) - Template ID used for first debate
+    }
+    """
+    try:
+        first_debate_id = data.get("first_debate_id")
+        template_used = data.get("template_used")
+
+        with _onboarding_lock:
+            _onboarding_status[organization_id] = {
+                "completed": True,
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "completed_by": user_id,
+                "first_debate_id": first_debate_id,
+                "template_used": template_used,
+            }
+
+        logger.info(f"Onboarding completed for org {organization_id} by {user_id}")
+
+        return success_response(
+            {
+                "completed": True,
+                "organization_id": organization_id,
+                "completed_at": _onboarding_status[organization_id]["completed_at"],
+            }
+        )
+
+    except Exception as e:
+        logger.exception("Onboarding completion failed")
+        return error_response(f"Completion failed: {str(e)}", status=500)
+
+
+async def handle_onboarding_status(
+    organization_id: str = "default",
+) -> HandlerResult:
+    """
+    Get onboarding status for an organization.
+
+    GET /api/v1/onboarding/status
+    """
+    try:
+        with _onboarding_lock:
+            status = _onboarding_status.get(organization_id, {})
+
+        if not status:
+            return success_response(
+                {
+                    "completed": False,
+                    "organization_id": organization_id,
+                    "steps": {
+                        "signup": True,  # Must be true to reach this endpoint
+                        "organization_created": True,  # Must be true to have org_id
+                        "first_debate": False,
+                        "first_receipt": False,
+                    },
+                }
+            )
+
+        return success_response(
+            {
+                "completed": status.get("completed", False),
+                "organization_id": organization_id,
+                "completed_at": status.get("completed_at"),
+                "first_debate_id": status.get("first_debate_id"),
+                "template_used": status.get("template_used"),
+                "steps": {
+                    "signup": True,
+                    "organization_created": True,
+                    "first_debate": bool(status.get("first_debate_id")),
+                    "first_receipt": bool(
+                        status.get("first_debate_id")
+                    ),  # Receipt is auto-generated
+                },
+            }
+        )
+
+    except Exception as e:
+        logger.exception("Onboarding status check failed")
+        return error_response(f"Status check failed: {str(e)}", status=500)
+
+
+# =============================================================================
 # Handler Registration
 # =============================================================================
 
@@ -599,6 +699,8 @@ def get_signup_handlers() -> Dict[str, Any]:
         "invite": handle_invite,
         "check_invite": handle_check_invite,
         "accept_invite": handle_accept_invite,
+        "onboarding_complete": handle_onboarding_complete,
+        "onboarding_status": handle_onboarding_status,
     }
 
 
@@ -610,5 +712,7 @@ __all__ = [
     "handle_invite",
     "handle_check_invite",
     "handle_accept_invite",
+    "handle_onboarding_complete",
+    "handle_onboarding_status",
     "get_signup_handlers",
 ]
