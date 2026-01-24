@@ -171,3 +171,213 @@ export interface WebSocketOptions {
   maxReconnectAttempts?: number;
   heartbeatInterval?: number;
 }
+
+// =============================================================================
+// Graph Debate Types (parity with Python SDK)
+// =============================================================================
+
+export interface GraphBranch {
+  branch_id: string;
+  parent_branch_id?: string;
+  path: string[];
+  conclusion?: string;
+  confidence: number;
+  depth: number;
+  is_terminal: boolean;
+  agents: string[];
+  messages: AgentMessage[];
+  created_at: string;
+}
+
+export interface GraphDebate {
+  id: string;
+  task: string;
+  status: DebateStatus;
+  agents: string[];
+  branches: GraphBranch[];
+  root_branch_id: string;
+  max_branches: number;
+  branch_threshold: number;
+  created_at: string;
+  updated_at: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface CreateGraphDebateRequest {
+  task: string;
+  agents?: string[];
+  max_rounds?: number;
+  branch_threshold?: number;
+  max_branches?: number;
+}
+
+// =============================================================================
+// Matrix Debate Types (parity with Python SDK)
+// =============================================================================
+
+export interface MatrixScenario {
+  scenario_id: string;
+  name: string;
+  parameters: Record<string, unknown>;
+  weight: number;
+}
+
+export interface MatrixCell {
+  scenario_id: string;
+  conclusion?: string;
+  confidence: number;
+  supporting_agents: string[];
+  reasoning?: string;
+}
+
+export interface MatrixConclusion {
+  overall_conclusion?: string;
+  overall_confidence: number;
+  cells: MatrixCell[];
+  pattern_analysis?: string;
+  recommendations?: string[];
+}
+
+export interface MatrixDebate {
+  id: string;
+  task: string;
+  status: DebateStatus;
+  agents: string[];
+  scenarios: MatrixScenario[];
+  cells: MatrixCell[];
+  conclusion?: MatrixConclusion;
+  created_at: string;
+  updated_at: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface CreateMatrixDebateRequest {
+  task: string;
+  scenarios: MatrixScenario[];
+  agents?: string[];
+  max_rounds?: number;
+}
+
+// =============================================================================
+// Verification Types (parity with Python SDK)
+// =============================================================================
+
+export type VerificationStatus = 'pending' | 'verified' | 'refuted' | 'uncertain' | 'failed';
+
+export interface VerificationResult {
+  claim_id: string;
+  claim: string;
+  status: VerificationStatus;
+  confidence: number;
+  supporting_evidence: string[];
+  refuting_evidence: string[];
+  reasoning?: string;
+  verified_at: string;
+  verifier_agents: string[];
+}
+
+export interface VerifyClaimRequest {
+  claim: string;
+  context?: string;
+  evidence_sources?: string[];
+  min_confidence?: number;
+}
+
+// =============================================================================
+// Gauntlet Types (parity with Python SDK)
+// =============================================================================
+
+export interface GauntletChallenge {
+  challenge_id: string;
+  challenge_type: string;
+  prompt: string;
+  expected_capabilities: string[];
+  difficulty: number;
+  time_limit_seconds?: number;
+}
+
+export interface GauntletResult {
+  challenge_id: string;
+  passed: boolean;
+  score: number;
+  response?: string;
+  reasoning?: string;
+  time_taken_ms: number;
+}
+
+export interface GauntletReceipt {
+  receipt_id: string;
+  agent_id: string;
+  challenges: GauntletChallenge[];
+  results: GauntletResult[];
+  overall_score: number;
+  passed: boolean;
+  capabilities_verified: string[];
+  capabilities_failed: string[];
+  completed_at: string;
+}
+
+export interface RunGauntletRequest {
+  agent_id: string;
+  challenges?: GauntletChallenge[];
+  challenge_types?: string[];
+  min_pass_score?: number;
+}
+
+// =============================================================================
+// Memory Analytics Types (parity with Python SDK)
+// =============================================================================
+
+export interface MemoryTierStats {
+  tier: string;
+  item_count: number;
+  total_size_bytes: number;
+  avg_age_seconds: number;
+  hit_rate: number;
+}
+
+export interface MemoryAnalytics {
+  total_items: number;
+  total_size_bytes: number;
+  tiers: MemoryTierStats[];
+  cache_hit_rate: number;
+  avg_retrieval_ms: number;
+  most_accessed_topics: string[];
+}
+
+// =============================================================================
+// Team Selection Types (parity with Python SDK)
+// =============================================================================
+
+export interface AgentScore {
+  agent_id: string;
+  elo_rating: number;
+  specialty_match: number;
+  recent_performance: number;
+  availability_score: number;
+  composite_score: number;
+}
+
+export interface TeamSelection {
+  selected_agents: string[];
+  scores: AgentScore[];
+  selection_reasoning?: string;
+  diversity_score: number;
+  predicted_performance: number;
+}
+
+export interface SelectionPlugins {
+  elo_weight?: number;
+  specialty_weight?: number;
+  diversity_weight?: number;
+  recency_weight?: number;
+  custom_scorer?: string;
+}
+
+export interface SelectTeamRequest {
+  task: string;
+  team_size?: number;
+  required_capabilities?: string[];
+  exclude_agents?: string[];
+  plugins?: SelectionPlugins;
+}

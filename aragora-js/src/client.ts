@@ -22,6 +22,14 @@ import type {
   Debate,
   HealthStatus,
   AgentProfile,
+  GraphDebate,
+  GraphBranch,
+  MatrixDebate,
+  MatrixConclusion,
+  VerificationResult,
+  GauntletReceipt,
+  TeamSelection,
+  SelectionPlugins,
 } from './types';
 
 export interface AragoraClientOptions {
@@ -156,6 +164,180 @@ export class AgentsAPI {
   }
 }
 
+export class GraphDebatesAPI {
+  private client: AragoraClient;
+
+  constructor(client: AragoraClient) {
+    this.client = client;
+  }
+
+  /**
+   * Create a new graph debate.
+   */
+  async create(options: {
+    task: string;
+    agents?: string[];
+    maxRounds?: number;
+    branchThreshold?: number;
+    maxBranches?: number;
+  }): Promise<{ id: string }> {
+    return this.client.post<{ id: string }>('/api/v1/graph-debates', {
+      task: options.task,
+      agents: options.agents,
+      max_rounds: options.maxRounds ?? 5,
+      branch_threshold: options.branchThreshold ?? 0.5,
+      max_branches: options.maxBranches ?? 10,
+    });
+  }
+
+  /**
+   * Get a graph debate by ID.
+   */
+  async get(debateId: string): Promise<GraphDebate> {
+    return this.client.get<GraphDebate>(`/api/v1/graph-debates/${debateId}`);
+  }
+
+  /**
+   * Get branches for a graph debate.
+   */
+  async getBranches(debateId: string): Promise<GraphBranch[]> {
+    const data = await this.client.get<{ branches: GraphBranch[] }>(
+      `/api/v1/graph-debates/${debateId}/branches`
+    );
+    return data.branches ?? [];
+  }
+}
+
+export class MatrixDebatesAPI {
+  private client: AragoraClient;
+
+  constructor(client: AragoraClient) {
+    this.client = client;
+  }
+
+  /**
+   * Create a new matrix debate.
+   */
+  async create(options: {
+    task: string;
+    scenarios: Array<{ name: string; parameters: Record<string, unknown>; weight?: number }>;
+    agents?: string[];
+    maxRounds?: number;
+  }): Promise<{ id: string }> {
+    return this.client.post<{ id: string }>('/api/v1/matrix-debates', {
+      task: options.task,
+      scenarios: options.scenarios,
+      agents: options.agents,
+      max_rounds: options.maxRounds ?? 3,
+    });
+  }
+
+  /**
+   * Get a matrix debate by ID.
+   */
+  async get(debateId: string): Promise<MatrixDebate> {
+    return this.client.get<MatrixDebate>(`/api/v1/matrix-debates/${debateId}`);
+  }
+
+  /**
+   * Get conclusions for a matrix debate.
+   */
+  async getConclusions(debateId: string): Promise<MatrixConclusion> {
+    return this.client.get<MatrixConclusion>(
+      `/api/v1/matrix-debates/${debateId}/conclusions`
+    );
+  }
+}
+
+export class VerificationAPI {
+  private client: AragoraClient;
+
+  constructor(client: AragoraClient) {
+    this.client = client;
+  }
+
+  /**
+   * Verify a claim using multi-agent deliberation.
+   */
+  async verifyClaim(options: {
+    claim: string;
+    context?: string;
+    evidenceSources?: string[];
+    minConfidence?: number;
+  }): Promise<VerificationResult> {
+    return this.client.post<VerificationResult>('/api/v1/verification/claim', {
+      claim: options.claim,
+      context: options.context,
+      evidence_sources: options.evidenceSources,
+      min_confidence: options.minConfidence ?? 0.7,
+    });
+  }
+
+  /**
+   * Get a verification result by claim ID.
+   */
+  async get(claimId: string): Promise<VerificationResult> {
+    return this.client.get<VerificationResult>(`/api/v1/verification/${claimId}`);
+  }
+}
+
+export class GauntletAPI {
+  private client: AragoraClient;
+
+  constructor(client: AragoraClient) {
+    this.client = client;
+  }
+
+  /**
+   * Run an agent through the gauntlet certification process.
+   */
+  async run(options: {
+    agentId: string;
+    challengeTypes?: string[];
+    minPassScore?: number;
+  }): Promise<GauntletReceipt> {
+    return this.client.post<GauntletReceipt>('/api/v1/gauntlet/run', {
+      agent_id: options.agentId,
+      challenge_types: options.challengeTypes,
+      min_pass_score: options.minPassScore ?? 0.7,
+    });
+  }
+
+  /**
+   * Get a gauntlet receipt by ID.
+   */
+  async get(receiptId: string): Promise<GauntletReceipt> {
+    return this.client.get<GauntletReceipt>(`/api/v1/gauntlet/${receiptId}`);
+  }
+}
+
+export class TeamSelectionAPI {
+  private client: AragoraClient;
+
+  constructor(client: AragoraClient) {
+    this.client = client;
+  }
+
+  /**
+   * Select an optimal team of agents for a task.
+   */
+  async selectTeam(options: {
+    task: string;
+    teamSize?: number;
+    requiredCapabilities?: string[];
+    excludeAgents?: string[];
+    plugins?: SelectionPlugins;
+  }): Promise<TeamSelection> {
+    return this.client.post<TeamSelection>('/api/v1/team-selection', {
+      task: options.task,
+      team_size: options.teamSize ?? 3,
+      required_capabilities: options.requiredCapabilities,
+      exclude_agents: options.excludeAgents,
+      plugins: options.plugins,
+    });
+  }
+}
+
 export class AragoraClient {
   public readonly baseUrl: string;
   private apiKey?: string;
@@ -164,7 +346,12 @@ export class AragoraClient {
 
   // API namespaces
   public readonly debates: DebatesAPI;
+  public readonly graphDebates: GraphDebatesAPI;
+  public readonly matrixDebates: MatrixDebatesAPI;
   public readonly agents: AgentsAPI;
+  public readonly verification: VerificationAPI;
+  public readonly gauntlet: GauntletAPI;
+  public readonly teamSelection: TeamSelectionAPI;
   public readonly controlPlane: ControlPlaneAPI;
 
   constructor(baseUrl: string = 'http://localhost:8080', options: AragoraClientOptions = {}) {
@@ -173,14 +360,19 @@ export class AragoraClient {
     this.timeout = options.timeout ?? 30000;
     this.headers = {
       'Content-Type': 'application/json',
-      'User-Agent': 'aragora-client-js/2.0.0',
+      'User-Agent': 'aragora-client-js/2.1.13',
       ...(options.apiKey && { Authorization: `Bearer ${options.apiKey}` }),
       ...options.headers,
     };
 
     // Initialize API namespaces
     this.debates = new DebatesAPI(this);
+    this.graphDebates = new GraphDebatesAPI(this);
+    this.matrixDebates = new MatrixDebatesAPI(this);
     this.agents = new AgentsAPI(this);
+    this.verification = new VerificationAPI(this);
+    this.gauntlet = new GauntletAPI(this);
+    this.teamSelection = new TeamSelectionAPI(this);
     this.controlPlane = new ControlPlaneAPI(this);
   }
 

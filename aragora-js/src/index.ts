@@ -21,7 +21,17 @@
  */
 
 // Client
-export { AragoraClient, AragoraError, DebatesAPI, AgentsAPI } from './client';
+export {
+  AragoraClient,
+  AragoraError,
+  DebatesAPI,
+  AgentsAPI,
+  GraphDebatesAPI,
+  MatrixDebatesAPI,
+  VerificationAPI,
+  GauntletAPI,
+  TeamSelectionAPI,
+} from './client';
 export type { AragoraClientOptions } from './client';
 
 // Control Plane
@@ -56,4 +66,31 @@ export type {
   DebateEvent,
   DebateEventType,
   WebSocketOptions,
+  // Graph debate types
+  GraphDebate,
+  GraphBranch,
+  CreateGraphDebateRequest,
+  // Matrix debate types
+  MatrixDebate,
+  MatrixScenario,
+  MatrixCell,
+  MatrixConclusion,
+  CreateMatrixDebateRequest,
+  // Verification types
+  VerificationStatus,
+  VerificationResult,
+  VerifyClaimRequest,
+  // Gauntlet types
+  GauntletChallenge,
+  GauntletResult,
+  GauntletReceipt,
+  RunGauntletRequest,
+  // Memory types
+  MemoryTierStats,
+  MemoryAnalytics,
+  // Team selection types
+  AgentScore,
+  TeamSelection,
+  SelectionPlugins,
+  SelectTeamRequest,
 } from './types';
