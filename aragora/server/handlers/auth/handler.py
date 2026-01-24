@@ -560,29 +560,44 @@ class AuthHandler(SecureHandler):
             }
         )
 
+    # Cache-control headers to prevent CDN caching of auth responses
+    AUTH_NO_CACHE_HEADERS = {
+        "Cache-Control": "no-store, no-cache, must-revalidate, private",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
+
     @rate_limit(rpm=30, limiter_name="auth_get_me")
     @handle_errors("get user info")
     def _handle_get_me(self, handler) -> HandlerResult:
         """Get current user information."""
         # Get current user
         user_store = self._get_user_store()
-        logger.info(f"[AUTH_ME_DEBUG] user_store available: {user_store is not None}")
+
+        # Enhanced debug logging for storage backend
+        store_type = type(user_store).__name__ if user_store else "None"
+        logger.info(f"[AUTH_ME_DEBUG] user_store type: {store_type}")
+
         auth_ctx = extract_user_from_request(handler, user_store)
         logger.info(
             f"[AUTH_ME_DEBUG] auth_ctx: authenticated={auth_ctx.is_authenticated}, "
             f"user_id={auth_ctx.user_id}, error_reason={auth_ctx.error_reason}"
         )
         if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
+            return error_response("Not authenticated", 401, headers=self.AUTH_NO_CACHE_HEADERS)
 
         # Get user store
         if not user_store:
-            return error_response("Authentication service unavailable", 503)
+            return error_response(
+                "Authentication service unavailable", 503, headers=self.AUTH_NO_CACHE_HEADERS
+            )
 
         # Get full user data
+        logger.info(f"[AUTH_ME_DEBUG] Looking up user_id={auth_ctx.user_id} in {store_type}")
         user = user_store.get_user_by_id(auth_ctx.user_id)
+        logger.info(f"[AUTH_ME_DEBUG] User lookup result: {'found' if user else 'NOT FOUND'}")
         if not user:
-            return error_response("User not found", 404)
+            return error_response("User not found", 404, headers=self.AUTH_NO_CACHE_HEADERS)
 
         # Get organization if user belongs to one
         org_data = None
@@ -595,7 +610,8 @@ class AuthHandler(SecureHandler):
             {
                 "user": user.to_dict(),
                 "organization": org_data,
-            }
+            },
+            headers=self.AUTH_NO_CACHE_HEADERS,
         )
 
     @rate_limit(rpm=5, limiter_name="auth_update_me")

@@ -1623,6 +1623,10 @@ class OAuthHandler(SecureHandler):
         """Create a new user from OAuth info."""
         from aragora.billing.models import hash_password
 
+        # Debug: Log which user store is being used
+        store_type = type(user_store).__name__ if user_store else "None"
+        logger.info(f"[OAUTH_DEBUG] Creating user in {store_type} for {user_info.email}")
+
         # Generate random password (user will use OAuth to login)
         random_password = secrets.token_urlsafe(32)
         password_hash, password_salt = hash_password(random_password)
@@ -1634,6 +1638,8 @@ class OAuthHandler(SecureHandler):
                 password_salt=password_salt,
                 name=user_info.name,
             )
+
+            logger.info(f"[OAUTH_DEBUG] User created with id={user.id} in {store_type}")
 
             # Link OAuth provider
             self._link_oauth_to_user(user_store, user.id, user_info)
@@ -1678,6 +1684,13 @@ class OAuthHandler(SecureHandler):
             headers={"Location": f"{redirect_url}?linked={user_info.provider}"},
         )
 
+    # Cache-control headers to prevent CDN caching of OAuth redirects
+    OAUTH_NO_CACHE_HEADERS = {
+        "Cache-Control": "no-store, no-cache, must-revalidate, private",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
+
     def _redirect_with_tokens(self, redirect_url: str, tokens) -> HandlerResult:
         """Redirect to frontend with tokens in URL query parameters.
 
@@ -1699,7 +1712,7 @@ class OAuthHandler(SecureHandler):
             status_code=302,
             content_type="text/html",
             body=f'<html><head><meta http-equiv="refresh" content="0;url={url}"></head></html>'.encode(),
-            headers={"Location": url},
+            headers={"Location": url, **self.OAUTH_NO_CACHE_HEADERS},
         )
 
     def _redirect_with_error(self, error: str) -> HandlerResult:
@@ -1712,7 +1725,7 @@ class OAuthHandler(SecureHandler):
             status_code=302,
             content_type="text/html",
             body=f'<html><head><meta http-equiv="refresh" content="0;url={url}"></head></html>'.encode(),
-            headers={"Location": url},
+            headers={"Location": url, **self.OAUTH_NO_CACHE_HEADERS},
         )
 
     @handle_errors("list OAuth providers")
