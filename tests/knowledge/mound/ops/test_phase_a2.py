@@ -469,7 +469,8 @@ class TestGovernance:
         """Test querying audit entries."""
         from aragora.knowledge.mound.ops.governance import AuditAction, AuditTrail
 
-        trail = AuditTrail()
+        # Use in-memory trail for tests to avoid database state leakage
+        trail = AuditTrail(enable_persistence=False)
 
         # Log multiple entries
         await trail.log(AuditAction.ITEM_CREATE, "user1", "item", "i1")

@@ -469,17 +469,119 @@ class AuditEntry:
 
 
 class AuditTrail:
-    """Manages audit trail logging."""
+    """Manages audit trail logging with optional persistent storage."""
 
-    def __init__(self, max_entries: int = 100000):
+    def __init__(
+        self,
+        max_entries: int = 100000,
+        enable_persistence: bool = True,
+        db_path: Optional[str] = None,
+    ):
         """Initialize audit trail.
 
         Args:
             max_entries: Maximum entries to keep in memory
+            enable_persistence: Enable SQLite persistence (default True)
+            db_path: Optional custom database path
         """
         self._entries: List[AuditEntry] = []
         self._max_entries = max_entries
         self._lock = asyncio.Lock()
+        self._enable_persistence = enable_persistence
+        self._db_path = db_path
+        self._db_initialized = False
+
+    async def _ensure_db(self) -> None:
+        """Initialize the database if persistence is enabled."""
+        if not self._enable_persistence or self._db_initialized:
+            return
+
+        try:
+            import aiosqlite
+            from pathlib import Path
+
+            # Default path in user's home directory
+            if self._db_path is None:
+                import os
+
+                data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora")))
+                data_dir.mkdir(parents=True, exist_ok=True)
+                self._db_path = str(data_dir / "km_audit.db")
+
+            async with aiosqlite.connect(self._db_path) as db:
+                await db.execute("""
+                    CREATE TABLE IF NOT EXISTS audit_entries (
+                        id TEXT PRIMARY KEY,
+                        action TEXT NOT NULL,
+                        actor_id TEXT NOT NULL,
+                        resource_type TEXT NOT NULL,
+                        resource_id TEXT NOT NULL,
+                        workspace_id TEXT,
+                        timestamp REAL NOT NULL,
+                        details TEXT,
+                        ip_address TEXT,
+                        user_agent TEXT,
+                        success INTEGER NOT NULL DEFAULT 1,
+                        error_message TEXT
+                    )
+                """)
+                await db.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_entries(actor_id)
+                """)
+                await db.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_entries(action)
+                """)
+                await db.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_entries(timestamp DESC)
+                """)
+                await db.commit()
+
+            self._db_initialized = True
+            logger.debug(f"Initialized KM audit database at {self._db_path}")
+        except ImportError:
+            logger.warning("aiosqlite not available, falling back to in-memory audit storage")
+            self._enable_persistence = False
+        except Exception as e:
+            logger.warning(f"Failed to initialize audit database: {e}")
+            self._enable_persistence = False
+
+    async def _persist_entry(self, entry: AuditEntry) -> None:
+        """Persist an entry to the database."""
+        if not self._enable_persistence:
+            return
+
+        await self._ensure_db()
+
+        try:
+            import aiosqlite
+            import json
+
+            async with aiosqlite.connect(self._db_path) as db:
+                await db.execute(
+                    """
+                    INSERT INTO audit_entries
+                    (id, action, actor_id, resource_type, resource_id, workspace_id,
+                     timestamp, details, ip_address, user_agent, success, error_message)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        entry.id,
+                        entry.action.value,
+                        entry.actor_id,
+                        entry.resource_type,
+                        entry.resource_id,
+                        entry.workspace_id,
+                        entry.timestamp.timestamp(),
+                        json.dumps(entry.details),
+                        entry.ip_address,
+                        entry.user_agent,
+                        1 if entry.success else 0,
+                        entry.error_message,
+                    ),
+                )
+                await db.commit()
+        except Exception as e:
+            logger.warning(f"Failed to persist audit entry: {e}")
 
     async def log(
         self,
@@ -536,6 +638,9 @@ class AuditTrail:
 
         logger.debug(f"Audit: {action.value} by {actor_id} on {resource_type}/{resource_id}")
 
+        # Persist to database asynchronously
+        await self._persist_entry(entry)
+
         return entry
 
     async def query(
@@ -550,6 +655,7 @@ class AuditTrail:
         success_only: bool = False,
         limit: int = 100,
         offset: int = 0,
+        from_database: bool = True,
     ) -> List[AuditEntry]:
         """Query audit entries.
 
@@ -564,10 +670,29 @@ class AuditTrail:
             success_only: Only successful actions
             limit: Maximum results
             offset: Result offset
+            from_database: Query from database if persistence is enabled
 
         Returns:
             List of matching entries
         """
+        # Try database query first if enabled
+        if from_database and self._enable_persistence:
+            db_results = await self._query_from_db(
+                actor_id=actor_id,
+                action=action,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                workspace_id=workspace_id,
+                start_time=start_time,
+                end_time=end_time,
+                success_only=success_only,
+                limit=limit,
+                offset=offset,
+            )
+            if db_results is not None:
+                return db_results
+
+        # Fall back to in-memory query
         async with self._lock:
             results = self._entries
 
@@ -599,6 +724,92 @@ class AuditTrail:
             results = sorted(results, key=lambda e: e.timestamp, reverse=True)
 
             return results[offset : offset + limit]
+
+    async def _query_from_db(
+        self,
+        actor_id: Optional[str] = None,
+        action: Optional[AuditAction] = None,
+        resource_type: Optional[str] = None,
+        resource_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        success_only: bool = False,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Optional[List[AuditEntry]]:
+        """Query entries from the database."""
+        await self._ensure_db()
+        if not self._db_initialized:
+            return None
+
+        try:
+            import aiosqlite
+            import json
+
+            conditions = []
+            params: List[Any] = []
+
+            if actor_id:
+                conditions.append("actor_id = ?")
+                params.append(actor_id)
+            if action:
+                conditions.append("action = ?")
+                params.append(action.value)
+            if resource_type:
+                conditions.append("resource_type = ?")
+                params.append(resource_type)
+            if resource_id:
+                conditions.append("resource_id = ?")
+                params.append(resource_id)
+            if workspace_id:
+                conditions.append("workspace_id = ?")
+                params.append(workspace_id)
+            if start_time:
+                conditions.append("timestamp >= ?")
+                params.append(start_time.timestamp())
+            if end_time:
+                conditions.append("timestamp <= ?")
+                params.append(end_time.timestamp())
+            if success_only:
+                conditions.append("success = 1")
+
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
+            query = f"""
+                SELECT id, action, actor_id, resource_type, resource_id,
+                       workspace_id, timestamp, details, ip_address,
+                       user_agent, success, error_message
+                FROM audit_entries
+                WHERE {where_clause}
+                ORDER BY timestamp DESC
+                LIMIT ? OFFSET ?
+            """
+            params.extend([limit, offset])
+
+            entries = []
+            async with aiosqlite.connect(self._db_path) as db:
+                async with db.execute(query, params) as cursor:
+                    async for row in cursor:
+                        entry = AuditEntry(
+                            id=row[0],
+                            action=AuditAction(row[1]),
+                            actor_id=row[2],
+                            resource_type=row[3],
+                            resource_id=row[4],
+                            workspace_id=row[5],
+                            timestamp=datetime.fromtimestamp(row[6]),
+                            details=json.loads(row[7]) if row[7] else {},
+                            ip_address=row[8],
+                            user_agent=row[9],
+                            success=bool(row[10]),
+                            error_message=row[11],
+                        )
+                        entries.append(entry)
+
+            return entries
+        except Exception as e:
+            logger.warning(f"Database query failed, falling back to in-memory: {e}")
+            return None
 
     async def get_user_activity(
         self,
