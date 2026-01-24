@@ -2531,7 +2531,7 @@ class HealthHandler(BaseHandler):
         """
         # Build component lookup
         components = {c.name: c for c in result.components}
-        issues_by_component = {}
+        issues_by_component: dict[str, list] = {}
         for issue in result.issues:
             if issue.component not in issues_by_component:
                 issues_by_component[issue.component] = []

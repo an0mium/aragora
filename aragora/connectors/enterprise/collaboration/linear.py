@@ -1124,10 +1124,10 @@ class LinearConnector(EnterpriseConnector):
                     return Evidence(
                         id=evidence_id,
                         source_type=self.source_type,
-                        source_id=project.slug_id,
+                        source_id=project.slug_id,  # type: ignore[attr-defined]
                         content=f"{project.name}\n\n{project.description or ''}",
                         title=project.name,
-                        url=project.url,
+                        url=project.url,  # type: ignore[attr-defined]
                         metadata={"type": "project", "state": project.state},
                     )
 
@@ -1157,15 +1157,19 @@ class LinearConnector(EnterpriseConnector):
             yield SyncItem(
                 id=f"linear-issue-{issue.id}",
                 content=f"[{issue.identifier}] {issue.title}\n\n{issue.description or ''}",
+                source_type="linear_issue",
+                source_id=issue.id,
+                title=issue.title,
+                url=issue.url or "",
+                updated_at=issue.updated_at,
+                created_at=issue.created_at,
                 metadata={
                     "type": "issue",
                     "identifier": issue.identifier,
                     "priority": issue.priority.value,
                     "state": issue.state_name,
                     "team": issue.team_key,
-                    "url": issue.url,
                 },
-                timestamp=issue.updated_at or issue.created_at,
             )
 
         # Sync projects
@@ -1173,13 +1177,15 @@ class LinearConnector(EnterpriseConnector):
             yield SyncItem(
                 id=f"linear-project-{project.id}",
                 content=f"{project.name}\n\n{project.description or ''}",
+                source_type="linear_project",
+                source_id=project.id,
+                title=project.name,
+                updated_at=project.updated_at,
+                created_at=project.created_at,
                 metadata={
                     "type": "project",
-                    "slug": project.slug_id,
                     "state": project.state,
-                    "url": project.url,
                 },
-                timestamp=project.updated_at or project.created_at,
             )
 
     async def _paginate_issues(
@@ -1196,20 +1202,19 @@ class LinearConnector(EnterpriseConnector):
         Yields:
             LinearIssue objects
         """
-        cursor = None
+        cursor: str | None = None
         while True:
-            issues, page_info = await self.list_issues(
-                limit=limit,
-                cursor=cursor,
-                updated_since=since,
+            issues, end_cursor = await self.get_issues(
+                first=limit,
+                after=cursor,
             )
 
             for issue in issues:
                 yield issue
 
-            if not page_info.get("hasNextPage"):
+            if not end_cursor:
                 break
-            cursor = page_info.get("endCursor")
+            cursor = end_cursor
 
     async def _paginate_projects(
         self,
@@ -1217,22 +1222,19 @@ class LinearConnector(EnterpriseConnector):
     ) -> AsyncIterator[Project]:
         """Paginate through projects.
 
+        Note: get_projects doesn't support pagination cursor,
+        so this yields all projects in one batch.
+
         Args:
             limit: Items per page
 
         Yields:
             Project objects
         """
-        cursor = None
-        while True:
-            projects, page_info = await self.list_projects(limit=limit, cursor=cursor)
+        projects = await self.get_projects(first=limit)
 
-            for project in projects:
-                yield project
-
-            if not page_info.get("hasNextPage"):
-                break
-            cursor = page_info.get("endCursor")
+        for project in projects:
+            yield project
 
     async def incremental_sync(
         self,

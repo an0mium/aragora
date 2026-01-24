@@ -173,7 +173,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
 
     @property
     def source_type(self) -> SourceType:
-        return SourceType.MESSAGE
+        return SourceType.EXTERNAL_API
 
     @property
     def name(self) -> str:

@@ -3,6 +3,13 @@ Redis-backed rate limiter implementation.
 
 Provides RedisRateLimiter for distributed rate limiting across multiple
 server instances.
+
+Features:
+- Distributed rate limiting via Redis sorted sets and Lua scripts
+- Circuit breaker integration for fault tolerance
+- Redis HA support (Sentinel/Cluster via config)
+- Distributed metrics aggregation
+- Coordinated degraded mode across instances
 """
 
 from __future__ import annotations
@@ -10,6 +17,8 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from .base import (
@@ -41,6 +50,16 @@ except ImportError:
 RATE_LIMIT_FAIL_OPEN = os.environ.get("ARAGORA_RATE_LIMIT_FAIL_OPEN", "false").lower() == "true"
 # Number of consecutive Redis failures before falling back to in-memory limiting
 REDIS_FAILURE_THRESHOLD = int(os.environ.get("ARAGORA_REDIS_FAILURE_THRESHOLD", "3"))
+# Enable circuit breaker for Redis connection resilience
+ENABLE_CIRCUIT_BREAKER = (
+    os.environ.get("ARAGORA_RATE_LIMIT_CIRCUIT_BREAKER", "true").lower() == "true"
+)
+# Enable distributed metrics aggregation via Redis
+ENABLE_DISTRIBUTED_METRICS = (
+    os.environ.get("ARAGORA_RATE_LIMIT_DISTRIBUTED_METRICS", "true").lower() == "true"
+)
+# Metrics aggregation interval in seconds
+METRICS_AGGREGATION_INTERVAL = int(os.environ.get("ARAGORA_RATE_LIMIT_METRICS_INTERVAL", "60"))
 
 # Global Redis client (lazy-initialized)
 _redis_client: Optional["redis.Redis"] = None
@@ -119,6 +138,117 @@ def reset_redis_client() -> None:
     _redis_init_attempted = False
 
 
+class RateLimitCircuitBreaker:
+    """
+    Circuit breaker for Redis rate limiting operations.
+
+    Provides fault tolerance by tracking failures and temporarily
+    disabling Redis operations when the error rate exceeds thresholds.
+
+    States:
+    - CLOSED: Normal operation, requests go to Redis
+    - OPEN: Redis disabled, all requests use fallback
+    - HALF_OPEN: Testing if Redis has recovered
+    """
+
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        recovery_timeout: float = 30.0,
+        half_open_max_calls: int = 3,
+    ):
+        """
+        Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            recovery_timeout: Seconds to wait before testing recovery
+            half_open_max_calls: Max calls to allow in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: Optional[float] = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            # Check if we should transition from OPEN to HALF_OPEN
+            if self._state == self.OPEN and self._last_failure_time:
+                if time.time() - self._last_failure_time >= self.recovery_timeout:
+                    self._state = self.HALF_OPEN
+                    self._half_open_calls = 0
+                    logger.info("Rate limit circuit breaker entering HALF_OPEN state")
+            return self._state
+
+    def allow_request(self) -> bool:
+        """Check if a request should be allowed through to Redis."""
+        state = self.state  # This may trigger state transition
+
+        with self._lock:
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:  # OPEN
+                return False
+
+    def record_success(self) -> None:
+        """Record a successful Redis operation."""
+        with self._lock:
+            self._success_count += 1
+            if self._state == self.HALF_OPEN:
+                # Successful calls in half-open close the circuit
+                if self._success_count >= self.half_open_max_calls:
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info("Rate limit circuit breaker CLOSED (Redis recovered)")
+
+    def record_failure(self) -> None:
+        """Record a failed Redis operation."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                # Any failure in half-open reopens the circuit
+                self._state = self.OPEN
+                logger.warning("Rate limit circuit breaker reopened due to failure in HALF_OPEN")
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    self._state = self.OPEN
+                    logger.warning(
+                        f"Rate limit circuit breaker OPEN after {self._failure_count} failures"
+                    )
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get circuit breaker statistics."""
+        with self._lock:
+            return {
+                "state": self._state,
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "recovery_timeout": self.recovery_timeout,
+                "last_failure_time": self._last_failure_time,
+            }
+
+
 class RedisRateLimiter:
     """
     Rate limiter using Redis for persistent storage.
@@ -134,6 +264,9 @@ class RedisRateLimiter:
         ip_limit: int = IP_RATE_LIMIT,
         key_prefix: str = "aragora:ratelimit:",
         ttl_seconds: int = 120,
+        enable_circuit_breaker: bool = ENABLE_CIRCUIT_BREAKER,
+        enable_distributed_metrics: bool = ENABLE_DISTRIBUTED_METRICS,
+        instance_id: Optional[str] = None,
     ):
         """
         Initialize Redis rate limiter.
@@ -144,12 +277,26 @@ class RedisRateLimiter:
             ip_limit: Requests per minute per IP.
             key_prefix: Redis key prefix.
             ttl_seconds: TTL for Redis keys.
+            enable_circuit_breaker: Enable circuit breaker for fault tolerance.
+            enable_distributed_metrics: Enable distributed metrics aggregation.
+            instance_id: Unique identifier for this server instance.
         """
         self.redis = redis_client
         self.default_limit = default_limit
         self.ip_limit = ip_limit
         self.key_prefix = key_prefix
         self.ttl_seconds = ttl_seconds
+        self.instance_id = instance_id or os.environ.get(
+            "ARAGORA_INSTANCE_ID", f"instance-{os.getpid()}"
+        )
+
+        # Circuit breaker for fault tolerance
+        self._circuit_breaker: Optional[RateLimitCircuitBreaker] = None
+        if enable_circuit_breaker:
+            self._circuit_breaker = RateLimitCircuitBreaker(
+                failure_threshold=REDIS_FAILURE_THRESHOLD,
+                recovery_timeout=30.0,
+            )
 
         # In-memory fallback for when Redis fails
         self._fallback = RateLimiter(default_limit, ip_limit)
@@ -161,10 +308,17 @@ class RedisRateLimiter:
         self._buckets: Dict[str, RedisTokenBucket] = {}
         self._lock = threading.Lock()
 
-        # Observability metrics (in-memory, not persisted to Redis)
+        # Local observability metrics
         self._requests_allowed: int = 0
         self._requests_rejected: int = 0
         self._rejections_by_endpoint: Dict[str, int] = {}
+        self._redis_failures: int = 0
+        self._fallback_requests: int = 0
+
+        # Distributed metrics
+        self._enable_distributed_metrics = enable_distributed_metrics
+        self._metrics_key = f"{key_prefix}metrics:"
+        self._last_metrics_sync: float = 0.0
 
     def configure_endpoint(
         self,
@@ -240,6 +394,15 @@ class RedisRateLimiter:
         else:
             key = f"ip:{safe_ip}"
 
+        # Check circuit breaker if enabled
+        use_redis = True
+        if self._circuit_breaker:
+            use_redis = self._circuit_breaker.allow_request()
+            if not use_redis:
+                with self._lock:
+                    self._fallback_requests += 1
+                return self._fallback.allow(client_ip, endpoint, token)
+
         try:
             bucket = self._get_bucket(key, config)
             allowed = bucket.consume(1)
@@ -255,6 +418,14 @@ class RedisRateLimiter:
                             self._rejections_by_endpoint.get(safe_endpoint, 0) + 1
                         )
 
+            # Record success for circuit breaker
+            if self._circuit_breaker:
+                self._circuit_breaker.record_success()
+
+            # Sync distributed metrics periodically
+            if self._enable_distributed_metrics:
+                self._maybe_sync_distributed_metrics()
+
             return RateLimitResult(
                 allowed=allowed,
                 remaining=bucket.remaining,
@@ -264,11 +435,98 @@ class RedisRateLimiter:
             )
         except Exception as e:
             logger.warning(f"Redis rate limit failed, using fallback: {e}")
+
+            # Record failure for circuit breaker
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure()
+
+            with self._lock:
+                self._redis_failures += 1
+                self._fallback_requests += 1
+
             return self._fallback.allow(client_ip, endpoint, token)
 
     def get_client_key(self, handler: Any) -> str:
         """Extract client key from request handler."""
         return self._fallback.get_client_key(handler)
+
+    def _maybe_sync_distributed_metrics(self) -> None:
+        """Sync local metrics to Redis for aggregation (called periodically)."""
+        now = time.time()
+        if now - self._last_metrics_sync < METRICS_AGGREGATION_INTERVAL:
+            return
+
+        self._last_metrics_sync = now
+
+        try:
+            # Use Redis hash to store per-instance metrics
+            instance_key = f"{self._metrics_key}{self.instance_id}"
+            with self._lock:
+                metrics_data = {
+                    "requests_allowed": str(self._requests_allowed),
+                    "requests_rejected": str(self._requests_rejected),
+                    "redis_failures": str(self._redis_failures),
+                    "fallback_requests": str(self._fallback_requests),
+                    "last_sync": datetime.now(timezone.utc).isoformat(),
+                }
+
+            pipe = self.redis.pipeline()
+            pipe.hset(instance_key, mapping=metrics_data)
+            pipe.expire(instance_key, METRICS_AGGREGATION_INTERVAL * 3)  # TTL 3x interval
+            pipe.execute()
+
+        except Exception as e:
+            logger.debug(f"Failed to sync distributed metrics: {e}")
+
+    def get_distributed_metrics(self) -> Dict[str, Any]:
+        """Get aggregated metrics from all instances."""
+        aggregated: Dict[str, Any] = {
+            "total_requests_allowed": 0,
+            "total_requests_rejected": 0,
+            "total_redis_failures": 0,
+            "total_fallback_requests": 0,
+            "instances": {},
+            "aggregation_time": datetime.now(timezone.utc).isoformat(),
+        }
+
+        try:
+            # Scan for all instance metric keys
+            instance_keys = list(self.redis.scan_iter(f"{self._metrics_key}*", count=100))
+
+            for key in instance_keys:
+                instance_id = key.replace(self._metrics_key, "")
+                # Sync redis returns dict directly, async redis returns Awaitable
+                metrics: Dict[str, Any] = self.redis.hgetall(key)  # type: ignore[assignment]
+
+                if metrics:
+                    allowed = int(metrics.get("requests_allowed", 0))
+                    rejected = int(metrics.get("requests_rejected", 0))
+                    failures = int(metrics.get("redis_failures", 0))
+                    fallback = int(metrics.get("fallback_requests", 0))
+
+                    aggregated["total_requests_allowed"] += allowed
+                    aggregated["total_requests_rejected"] += rejected
+                    aggregated["total_redis_failures"] += failures
+                    aggregated["total_fallback_requests"] += fallback
+
+                    aggregated["instances"][instance_id] = {
+                        "requests_allowed": allowed,
+                        "requests_rejected": rejected,
+                        "redis_failures": failures,
+                        "fallback_requests": fallback,
+                        "last_sync": metrics.get("last_sync"),
+                    }
+
+            total = aggregated["total_requests_allowed"] + aggregated["total_requests_rejected"]
+            aggregated["total_rejection_rate"] = (
+                aggregated["total_requests_rejected"] / total if total > 0 else 0.0
+            )
+            aggregated["instance_count"] = len(aggregated["instances"])
+
+        except Exception as e:
+            aggregated["error"] = str(e)
+
+        return aggregated
 
     def get_stats(self) -> Dict[str, Any]:
         """Get rate limiter statistics including observability metrics."""
@@ -277,21 +535,33 @@ class RedisRateLimiter:
             rejection_rate = self._requests_rejected / total_requests if total_requests > 0 else 0.0
             base_stats = {
                 "backend": "redis",
+                "instance_id": self.instance_id,
                 "configured_endpoints": list(self._endpoint_configs.keys()),
                 "default_limit": self.default_limit,
                 "ip_limit": self.ip_limit,
-                # Observability metrics
+                # Local observability metrics
                 "requests_allowed": self._requests_allowed,
                 "requests_rejected": self._requests_rejected,
                 "total_requests": total_requests,
                 "rejection_rate": rejection_rate,
                 "rejections_by_endpoint": dict(self._rejections_by_endpoint),
+                "redis_failures": self._redis_failures,
+                "fallback_requests": self._fallback_requests,
             }
+
+        # Add circuit breaker stats if enabled
+        if self._circuit_breaker:
+            base_stats["circuit_breaker"] = self._circuit_breaker.get_stats()
 
         try:
             # Count Redis keys with our prefix
             keys = list(self.redis.scan_iter(f"{self.key_prefix}*", count=1000))
             base_stats["redis_keys"] = len(keys)
+
+            # Include distributed metrics if enabled
+            if self._enable_distributed_metrics:
+                base_stats["distributed"] = self.get_distributed_metrics()
+
             return base_stats
         except Exception as e:
             base_stats["error"] = str(e)
@@ -328,7 +598,10 @@ __all__ = [
     "REDIS_AVAILABLE",
     "RATE_LIMIT_FAIL_OPEN",
     "REDIS_FAILURE_THRESHOLD",
+    "ENABLE_CIRCUIT_BREAKER",
+    "ENABLE_DISTRIBUTED_METRICS",
     "get_redis_client",
     "reset_redis_client",
+    "RateLimitCircuitBreaker",
     "RedisRateLimiter",
 ]

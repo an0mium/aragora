@@ -1219,7 +1219,7 @@ class WooCommerceConnector(EnterpriseConnector):
             logger.error(f"Failed to delete webhook {webhook_id}: {e}")
             return False
 
-    def verify_webhook_signature(
+    def verify_webhook_signature(  # type: ignore[override]
         self,
         payload: bytes,
         signature: str,
@@ -1519,7 +1519,9 @@ class WooCommerceConnector(EnterpriseConnector):
                 id=f"woo-order-{order.id}",
                 content=f"Order #{order.number} - {order.status.value} - ${order.total}",
                 metadata=order.to_dict(),
-                timestamp=order.date_modified,
+                updated_at=order.date_modified,  # type: ignore[call-arg]
+                source_type="woocommerce",
+                source_id=str(order.id),
             )
 
         # Sync products
@@ -1528,7 +1530,9 @@ class WooCommerceConnector(EnterpriseConnector):
                 id=f"woo-product-{product.id}",
                 content=f"{product.name}: {product.short_description or ''}",
                 metadata=product.to_dict(),
-                timestamp=product.date_modified,
+                updated_at=product.date_modified,  # type: ignore[call-arg]
+                source_type="woocommerce",
+                source_id=str(product.id),
             )
 
         # Sync customers
@@ -1537,7 +1541,9 @@ class WooCommerceConnector(EnterpriseConnector):
                 id=f"woo-customer-{customer.id}",
                 content=f"{customer.first_name} {customer.last_name} - {customer.email}",
                 metadata=customer.to_dict(),
-                timestamp=customer.date_modified,
+                updated_at=customer.date_modified,  # type: ignore[call-arg]
+                source_type="woocommerce",
+                source_id=str(customer.id),
             )
 
     # =========================================================================

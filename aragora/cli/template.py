@@ -189,10 +189,10 @@ def cmd_template_list(args: argparse.Namespace) -> int:
         # Group by category
         categories: dict[str, list] = {}
         for p in packages:
-            cat: str = p.metadata.category.value
-            if cat not in categories:
-                categories[cat] = []
-            categories[cat].append(p)
+            cat_name: str = p.metadata.category.value
+            if cat_name not in categories:
+                categories[cat_name] = []
+            categories[cat_name].append(p)
 
         for cat_name, cat_packages in sorted(categories.items()):
             print(f"\n[{cat_name.upper()}]")

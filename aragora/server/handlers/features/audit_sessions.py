@@ -719,16 +719,24 @@ class AuditSessionsHandler(BaseHandler):
 
             # Try to use DocumentAuditor
             try:
-                from aragora.audit.document_auditor import DocumentAuditor, AuditConfig
+                from aragora.audit.document_auditor import (
+                    AuditConfig,
+                    AuditFinding,
+                    DocumentAuditor,
+                )
 
                 config = AuditConfig(
                     use_hive_mind=len(document_ids) > 1,  # Enable Hive-Mind for multi-doc
                     consensus_verification=True,
                 )
 
-                auditor = DocumentAuditor(  # type: ignore[arg-type]
+                def on_finding_sync(f: AuditFinding) -> None:
+                    """Sync wrapper that fires and forgets the async callback."""
+                    asyncio.create_task(on_finding(f))
+
+                auditor = DocumentAuditor(
                     config=config,
-                    on_finding=lambda f: asyncio.create_task(on_finding(f)),
+                    on_finding=on_finding_sync,
                     on_progress=on_progress,
                 )
 

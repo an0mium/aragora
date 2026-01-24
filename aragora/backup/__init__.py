@@ -6,6 +6,7 @@ Provides automated backup with verification:
 - Integrity verification (checksums, restore tests)
 - Retention policy enforcement
 - Prometheus metrics for monitoring
+- Automated scheduling with DR drill integration
 
 Quick Start:
     from aragora.backup import BackupManager, get_backup_manager
@@ -21,6 +22,18 @@ Quick Start:
 
     # Restore (dry run first)
     manager.restore_backup(backup.id, "/path/to/restore.db", dry_run=True)
+
+Automated Scheduling:
+    from aragora.backup import BackupScheduler, BackupSchedule, start_backup_scheduler
+
+    # Create schedule
+    schedule = BackupSchedule(
+        daily=datetime.time(2, 0),  # 2 AM daily backups
+        enable_dr_drills=True,       # Monthly DR drills
+    )
+
+    # Start scheduler
+    scheduler = await start_backup_scheduler(manager, schedule)
 """
 
 from .manager import (
@@ -34,7 +47,21 @@ from .manager import (
     set_backup_manager,
 )
 
+from .scheduler import (
+    BackupScheduler,
+    BackupSchedule,
+    BackupJob,
+    ScheduleType,
+    SchedulerStatus,
+    SchedulerStats,
+    get_backup_scheduler,
+    set_backup_scheduler,
+    start_backup_scheduler,
+    stop_backup_scheduler,
+)
+
 __all__ = [
+    # Manager
     "BackupManager",
     "BackupMetadata",
     "BackupStatus",
@@ -43,4 +70,15 @@ __all__ = [
     "VerificationResult",
     "get_backup_manager",
     "set_backup_manager",
+    # Scheduler
+    "BackupScheduler",
+    "BackupSchedule",
+    "BackupJob",
+    "ScheduleType",
+    "SchedulerStatus",
+    "SchedulerStats",
+    "get_backup_scheduler",
+    "set_backup_scheduler",
+    "start_backup_scheduler",
+    "stop_backup_scheduler",
 ]

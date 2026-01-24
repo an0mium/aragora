@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypedDict, Union
 
 if TYPE_CHECKING:
     from aragora.memory.consensus import (
@@ -27,6 +27,25 @@ if TYPE_CHECKING:
 
 # Type alias for event callback
 EventCallback = Callable[[str, Dict[str, Any]], None]
+
+
+class SyncResult(TypedDict):
+    """Type for forward sync result."""
+
+    records_synced: int
+    records_skipped: int
+    records_failed: int
+    errors: List[str]
+    duration_ms: float
+
+
+class ValidationSyncResult(TypedDict):
+    """Type for reverse validation sync result."""
+
+    records_analyzed: int
+    records_updated: int
+    errors: List[str]
+
 
 logger = logging.getLogger(__name__)
 
@@ -638,7 +657,7 @@ class ConsensusAdapter:
         from datetime import datetime
 
         start = time.time()
-        result = {
+        result: SyncResult = {
             "records_synced": 0,
             "records_skipped": 0,
             "records_failed": 0,
@@ -648,7 +667,7 @@ class ConsensusAdapter:
 
         # Find all pending records
         pending_records = []
-        for record in self._consensus.get_all_consensus():
+        for record in self._consensus.get_all_consensus():  # type: ignore[attr-defined]
             if record.metadata.get("km_sync_pending") and record.confidence >= min_confidence:
                 pending_records.append(record)
             elif record.confidence < min_confidence:
@@ -657,7 +676,7 @@ class ConsensusAdapter:
         if not pending_records:
             logger.debug("No pending consensus records to sync to KM")
             result["duration_ms"] = (time.time() - start) * 1000
-            return result
+            return result  # type: ignore[return-value]
 
         logger.info(f"Syncing {len(pending_records[:batch_size])} consensus records to KM")
 
@@ -721,7 +740,7 @@ class ConsensusAdapter:
             f"failed={result['records_failed']}"
         )
 
-        return result
+        return result  # type: ignore[return-value]
 
     async def sync_validations_from_km(
         self,
@@ -743,7 +762,7 @@ class ConsensusAdapter:
         """
         from datetime import datetime
 
-        result = {
+        result: ValidationSyncResult = {
             "records_analyzed": 0,
             "records_updated": 0,
             "errors": [],
@@ -806,4 +825,4 @@ class ConsensusAdapter:
             f"updated={result['records_updated']}"
         )
 
-        return result
+        return result  # type: ignore[return-value]
