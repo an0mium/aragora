@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta, timezone
 from enum import Enum
@@ -703,16 +704,20 @@ class BackupScheduler:
                 return result
 
             # Step 4: Test restore (dry run)
-            restore_result = self._manager.restore_backup(
-                latest_backup.id,
-                dry_run=True,
-            )
+            # Create a temp directory for test restore path
+            with tempfile.TemporaryDirectory(prefix="dr_drill_") as temp_dir:
+                temp_restore_path = Path(temp_dir) / "test_restore.db"
+                restore_success = self._manager.restore_backup(
+                    latest_backup.id,
+                    target_path=temp_restore_path,
+                    dry_run=True,
+                )
             result["steps"].append(
                 {
                     "step": "test_restore",
                     "dry_run": True,
-                    "success": restore_result.get("success", False),
-                    "status": "completed" if restore_result.get("success") else "failed",
+                    "success": restore_success,
+                    "status": "completed" if restore_success else "failed",
                 }
             )
 
