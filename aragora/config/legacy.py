@@ -170,10 +170,14 @@ def _env_bool(key: str, default: bool) -> bool:
 
 
 def get_api_key(*env_vars: str, required: bool = True) -> Optional[str]:
-    """Get and validate API key from environment variables.
+    """Get and validate API key from environment variables or AWS Secrets Manager.
 
-    Checks each environment variable in order, returning the first valid
+    Checks each variable in order, returning the first valid
     (non-empty, non-whitespace) value found. Strips whitespace from the result.
+
+    Priority order:
+    1. AWS Secrets Manager (if ARAGORA_USE_SECRETS_MANAGER=true)
+    2. Environment variables
 
     Args:
         *env_vars: Environment variable names to check (in order of preference)
@@ -189,6 +193,18 @@ def get_api_key(*env_vars: str, required: bool = True) -> Optional[str]:
         >>> api_key = get_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY")
         >>> optional_key = get_api_key("BACKUP_KEY", required=False)
     """
+    # Try AWS Secrets Manager first (if enabled)
+    try:
+        from aragora.config.secrets import get_secret
+
+        for var in env_vars:
+            value = get_secret(var)
+            if value and value.strip():
+                return value.strip()
+    except ImportError:
+        pass  # secrets module not available, fall through to env vars
+
+    # Fall back to environment variables
     for var in env_vars:
         value = os.getenv(var)
         if value and value.strip():

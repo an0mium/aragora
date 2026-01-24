@@ -7,6 +7,7 @@ suitable for compliance, audit trails, and decision documentation.
 
 import hashlib
 import json
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from html import escape
@@ -132,7 +133,7 @@ class DecisionReceipt:
     @classmethod
     def from_result(cls, result: GauntletResult) -> "DecisionReceipt":
         """Create receipt from GauntletResult."""
-        receipt_id = f"receipt-{datetime.now().strftime('%Y%m%d%H%M%S')}-{result.gauntlet_id[-8:]}"
+        receipt_id = str(uuid.uuid4())
 
         # Build provenance chain
         provenance = []
@@ -682,12 +683,8 @@ class DecisionReceipt:
                     {
                         "id": rule_id,
                         "name": category.replace("_", " ").title(),
-                        "shortDescription": {
-                            "text": f"Aragora Gauntlet: {category}"
-                        },
-                        "fullDescription": {
-                            "text": f"Security finding in category: {category}"
-                        },
+                        "shortDescription": {"text": f"Aragora Gauntlet: {category}"},
+                        "fullDescription": {"text": f"Security finding in category: {category}"},
                         "helpUri": "https://aragora.ai/docs/gauntlet",
                         "properties": {
                             "security-severity": sarif_severity_map.get(
@@ -710,9 +707,7 @@ class DecisionReceipt:
                 "ruleId": rule_id,
                 "ruleIndex": rule_idx,
                 "level": sarif_level_map.get(severity, "warning"),
-                "message": {
-                    "text": vuln.get("description", vuln.get("title", "Finding"))
-                },
+                "message": {"text": vuln.get("description", vuln.get("title", "Finding"))},
                 "locations": [
                     {
                         "physicalLocation": {
@@ -745,13 +740,7 @@ class DecisionReceipt:
 
             # Add fix suggestions if mitigation is present
             if vuln.get("mitigation"):
-                result["fixes"] = [
-                    {
-                        "description": {
-                            "text": vuln.get("mitigation", "")
-                        }
-                    }
-                ]
+                result["fixes"] = [{"description": {"text": vuln.get("mitigation", "")}}]
 
             results.append(result)
 
@@ -835,8 +824,7 @@ class DecisionReceipt:
             from weasyprint import HTML
         except ImportError as e:
             raise ImportError(
-                "weasyprint is required for PDF export. "
-                "Install with: pip install weasyprint"
+                "weasyprint is required for PDF export. " "Install with: pip install weasyprint"
             ) from e
 
         html_content = self.to_html()

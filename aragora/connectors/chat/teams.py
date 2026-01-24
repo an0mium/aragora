@@ -10,6 +10,8 @@ Environment Variables:
 - TEAMS_APP_ID: Bot application ID
 - TEAMS_APP_PASSWORD: Bot application password
 - TEAMS_TENANT_ID: Optional tenant ID for single-tenant apps
+- TEAMS_REQUEST_TIMEOUT: HTTP request timeout in seconds (default: 30)
+- TEAMS_UPLOAD_TIMEOUT: File upload/download timeout in seconds (default: 120)
 """
 
 from __future__ import annotations
@@ -50,6 +52,10 @@ TEAMS_APP_ID = os.environ.get("TEAMS_APP_ID", "")
 TEAMS_APP_PASSWORD = os.environ.get("TEAMS_APP_PASSWORD", "")
 TEAMS_TENANT_ID = os.environ.get("TEAMS_TENANT_ID", "")
 
+# Timeout configuration (in seconds)
+TEAMS_REQUEST_TIMEOUT = float(os.environ.get("TEAMS_REQUEST_TIMEOUT", "30"))
+TEAMS_UPLOAD_TIMEOUT = float(os.environ.get("TEAMS_UPLOAD_TIMEOUT", "120"))
+
 # Bot Framework API endpoints
 BOT_FRAMEWORK_AUTH_URL = "https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token"
 BOT_FRAMEWORK_API_BASE = "https://smba.trafficmanager.net"
@@ -81,6 +87,8 @@ class TeamsConnector(ChatPlatformConnector):
         app_id: Optional[str] = None,
         app_password: Optional[str] = None,
         tenant_id: Optional[str] = None,
+        request_timeout: Optional[float] = None,
+        upload_timeout: Optional[float] = None,
         **config: Any,
     ):
         """
@@ -90,16 +98,20 @@ class TeamsConnector(ChatPlatformConnector):
             app_id: Bot application ID (defaults to TEAMS_APP_ID env var)
             app_password: Bot application password (defaults to TEAMS_APP_PASSWORD)
             tenant_id: Optional tenant ID for single-tenant apps
+            request_timeout: HTTP request timeout in seconds (default from TEAMS_REQUEST_TIMEOUT env var or 30s)
+            upload_timeout: File upload/download timeout in seconds (default from TEAMS_UPLOAD_TIMEOUT env var or 120s)
             **config: Additional configuration
         """
         super().__init__(
             bot_token=app_password or TEAMS_APP_PASSWORD,
             signing_secret=None,  # Teams uses JWT validation
+            request_timeout=request_timeout or TEAMS_REQUEST_TIMEOUT,
             **config,
         )
         self.app_id = app_id or TEAMS_APP_ID
         self.app_password = app_password or TEAMS_APP_PASSWORD
         self.tenant_id = tenant_id or TEAMS_TENANT_ID
+        self._upload_timeout = upload_timeout or TEAMS_UPLOAD_TIMEOUT
         self._access_token: Optional[str] = None
         self._token_expires: float = 0
         # Separate token cache for Microsoft Graph API
@@ -721,7 +733,7 @@ class TeamsConnector(ChatPlatformConnector):
                 upload_url = session_data.get("uploadUrl")
                 if upload_url:
                     try:
-                        async with httpx.AsyncClient(timeout=120.0) as client:
+                        async with httpx.AsyncClient(timeout=self._upload_timeout) as client:
                             response = await client.put(
                                 upload_url,
                                 content=content,
@@ -841,7 +853,7 @@ class TeamsConnector(ChatPlatformConnector):
             # Download the content
             if download_url:
                 try:
-                    async with httpx.AsyncClient(timeout=120.0) as client:
+                    async with httpx.AsyncClient(timeout=self._upload_timeout) as client:
                         response = await client.get(download_url)
                         response.raise_for_status()
                         content = response.content

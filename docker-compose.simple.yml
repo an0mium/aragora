@@ -1,0 +1,62 @@
+# Aragora Simplified Docker Compose
+# For quick self-hosted startup (<5 minutes to running)
+#
+# Prerequisites:
+#   1. Docker installed
+#   2. At least one AI provider API key
+#
+# Quick Start:
+#   cp .env.example .env
+#   # Edit .env and add your API key(s)
+#   docker compose -f docker-compose.simple.yml up -d
+#   # Open http://localhost:8080/api/health
+
+services:
+  aragora:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aragora
+    ports:
+      - "8080:8080"
+    environment:
+      # AI Provider Keys (at least one required)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - XAI_API_KEY=${XAI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+
+      # Server settings
+      - ARAGORA_ENVIRONMENT=development
+      - ARAGORA_DB_BACKEND=sqlite
+      - ARAGORA_DATA_DIR=/app/data
+
+      # CORS (adjust for your frontend URL)
+      - ARAGORA_ALLOWED_ORIGINS=${ARAGORA_ALLOWED_ORIGINS:-http://localhost:3000}
+
+      # Optional: API token for authentication
+      - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN:-}
+
+      # Debate defaults
+      - ARAGORA_DEFAULT_ROUNDS=3
+      - ARAGORA_DEBATE_TIMEOUT=900
+
+    volumes:
+      # Persist data (debates, ELO ratings, memory)
+      - aragora-data:/app/data
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  aragora-data:
+
+# For production with PostgreSQL, use docker-compose.yml instead:
+#   docker compose --profile postgres up -d
