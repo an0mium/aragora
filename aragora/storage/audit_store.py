@@ -78,38 +78,19 @@ class AuditStore:
         self._local = threading.local()
         self._external_get_connection = get_connection
 
-        # Determine backend type with Supabase preference
-        from aragora.storage.connection_factory import (
-            get_supabase_postgres_dsn,
-            get_selfhosted_postgres_dsn,
-        )
-
-        # Preference order: Supabase → self-hosted PostgreSQL → DATABASE_URL → SQLite
-        supabase_dsn = get_supabase_postgres_dsn()
-        postgres_dsn = get_selfhosted_postgres_dsn()
-        env_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_DATABASE_URL")
-        actual_url = database_url or supabase_dsn or postgres_dsn or env_url
-
-        if backend is None:
-            env_backend = os.environ.get("ARAGORA_DB_BACKEND", "auto").lower()
-            if env_backend in ("supabase", "postgres", "postgresql") and actual_url:
-                backend = "postgresql"
-            elif env_backend == "auto" and actual_url:
-                backend = "postgresql"
-            else:
-                backend = "sqlite"
-
-        self.backend_type = backend
+        # Backend selection is now handled by get_audit_store() using resolve_database_config().
+        # This __init__ just accepts explicit parameters from the factory function.
+        self.backend_type = backend or "sqlite"
         self._backend: Optional[DatabaseBackend] = None
 
         # Only create backend if not using external connection
         if get_connection is None:
-            if backend == "postgresql":
-                if not actual_url:
-                    raise ValueError("PostgreSQL backend requires DATABASE_URL")
+            if self.backend_type == "postgresql":
+                if not database_url:
+                    raise ValueError("PostgreSQL backend requires database_url parameter")
                 if not POSTGRESQL_AVAILABLE:
                     raise ImportError("psycopg2 required for PostgreSQL")
-                self._backend = PostgreSQLBackend(actual_url)
+                self._backend = PostgreSQLBackend(database_url)
                 logger.info("AuditStore using PostgreSQL backend")
             else:
                 self._backend = SQLiteBackend(str(db_path))

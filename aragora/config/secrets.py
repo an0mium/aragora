@@ -57,6 +57,8 @@ MANAGED_SECRETS = frozenset(
         "ARAGORA_POSTGRES_DSN",
         "SUPABASE_URL",
         "SUPABASE_KEY",
+        "SUPABASE_DB_PASSWORD",
+        "SUPABASE_POSTGRES_DSN",
         "SUPABASE_SERVICE_ROLE_KEY",
         # Redis
         "REDIS_URL",

@@ -93,26 +93,51 @@ def _get_backend_override(
     return None
 
 
+def _get_secret(name: str) -> Optional[str]:
+    """Get a secret from env or secrets manager.
+
+    Args:
+        name: Secret name (e.g., "SUPABASE_DB_PASSWORD")
+
+    Returns:
+        Secret value or None if not found
+    """
+    # First check environment
+    value = os.environ.get(name)
+    if value:
+        return value
+
+    # Try secrets manager as fallback
+    try:
+        from aragora.config.secrets import get_secret
+
+        return get_secret(name)
+    except ImportError:
+        return None
+    except Exception:  # noqa: BLE001 - Secret fetch fallback
+        return None
+
+
 def get_supabase_postgres_dsn() -> Optional[str]:
     """
     Get Supabase PostgreSQL connection string.
 
     Supabase provides direct PostgreSQL access. The DSN can be:
-    1. Explicitly set via SUPABASE_POSTGRES_DSN
-    2. Derived from SUPABASE_URL + SUPABASE_DB_PASSWORD
+    1. Explicitly set via SUPABASE_POSTGRES_DSN (env or secrets manager)
+    2. Derived from SUPABASE_URL + SUPABASE_DB_PASSWORD (env or secrets manager)
 
     Returns:
         PostgreSQL DSN for Supabase, or None if not configured
     """
-    # Explicit DSN takes precedence
-    explicit_dsn = os.environ.get("SUPABASE_POSTGRES_DSN")
+    # Explicit DSN takes precedence (env or secrets manager)
+    explicit_dsn = _get_secret("SUPABASE_POSTGRES_DSN")
     if explicit_dsn:
         logger.debug("Using explicit SUPABASE_POSTGRES_DSN")
         return explicit_dsn
 
     # Check if Supabase is configured for direct DB access
-    supabase_url = os.environ.get("SUPABASE_URL")
-    db_password = os.environ.get("SUPABASE_DB_PASSWORD")
+    supabase_url = _get_secret("SUPABASE_URL")
+    db_password = _get_secret("SUPABASE_DB_PASSWORD")
 
     if not supabase_url or not db_password:
         return None
@@ -136,14 +161,14 @@ def get_selfhosted_postgres_dsn() -> Optional[str]:
     """
     Get self-hosted PostgreSQL connection string.
 
-    Checks in order:
+    Checks in order (env then secrets manager):
     1. ARAGORA_POSTGRES_DSN (preferred)
     2. DATABASE_URL (common convention in PaaS environments)
 
     Returns:
         PostgreSQL DSN, or None if not configured
     """
-    return os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
+    return _get_secret("ARAGORA_POSTGRES_DSN") or _get_secret("DATABASE_URL")
 
 
 def resolve_database_config(
