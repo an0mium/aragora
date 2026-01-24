@@ -1766,3 +1766,30 @@ def mock_websocket():
     ws.send_json.side_effect = track_send
 
     return ws
+
+
+# ============================================================================
+# Skip Count Monitoring
+# ============================================================================
+# Track skip counts to warn when threshold is exceeded.
+# See tests/SKIP_AUDIT.md for skip marker inventory.
+
+SKIP_THRESHOLD = 650  # Maximum allowed skips (conditional + unconditional)
+UNCONDITIONAL_SKIP_THRESHOLD = 35  # Maximum unconditional @pytest.mark.skip
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """Warn if skip count exceeds threshold."""
+    skipped = len(terminalreporter.stats.get("skipped", []))
+
+    if skipped > SKIP_THRESHOLD:
+        terminalreporter.write_line("")
+        terminalreporter.write_line(
+            f"WARNING: Skip count ({skipped}) exceeds threshold ({SKIP_THRESHOLD})",
+            yellow=True,
+            bold=True,
+        )
+        terminalreporter.write_line(
+            "  Review tests/SKIP_AUDIT.md and reduce skipped tests.", yellow=True
+        )
+        terminalreporter.write_line("")

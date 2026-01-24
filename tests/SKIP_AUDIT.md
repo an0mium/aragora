@@ -1,158 +1,76 @@
-# Test Skip Audit
+# Test Skip Marker Audit
 
-This document tracks skipped tests and provides a remediation plan.
+**Generated**: 2026-01-24
+**Total Skip Markers**: 592
 
-## Summary
+---
 
-- **Total skip markers:** ~620
-- **Categories identified:** 12
-- **Audit date:** January 2026
+## Summary by Category
 
-## Skip Categories
+| Category | Count | Percentage |
+|----------|-------|------------|
+| missing_feature | 317 | 53.5% |
+| optional_dependency | 154 | 26.0% |
+| uncategorized | 85 | 14.4% |
+| integration_dependency | 23 | 3.9% |
+| known_bug | 6 | 1.0% |
+| platform_specific | 4 | 0.7% |
+| performance | 3 | 0.5% |
 
-### 1. Optional External Dependencies (can mock or add to CI)
+## Summary by Marker Type
 
-| Dependency | Count | Fix Strategy |
-|------------|-------|--------------|
-| z3-solver | ~48 | Add to CI optional deps, use skipif marker |
-| httpx | 31 | Required - should be in main deps |
-| redis | varies | Mock in tests, real in integration |
-| asyncpg | 13 | Mock in unit tests |
-| supabase | 13 | Mock in unit tests |
-| websockets | 11 | Add to dev deps |
-| PyJWT | 7 | Required for auth - add to deps |
-| scikit-learn | varies | Add to optional ML deps |
+| Type | Count |
+|------|-------|
+| `pytest.skip` | 348 |
+| `skipif` | 215 |
+| `skip` | 29 |
 
-### 2. Module Not Available (import failures)
+## High-Skip Files (Top 10)
 
-| Module | Count | Fix Strategy |
-|--------|-------|--------------|
-| RLM | 24 | Fix import paths, ensure __init__.py exports |
-| MatrixDebatesHandler | 24 | Fix handler registration |
-| TournamentManager | 22 | Fix module exports |
-| RBAC | 30 | Ensure RBAC module loads correctly |
-| Calibration | 11 | Fix lazy loading |
-| Graph orchestrator | 10 | Fix import chain |
-| RhetoricalObserver | 9 | Fix module structure |
-| Plugins | 9 | Fix plugin loader |
-| Trickster | 7 | Fix import |
+| File | Skip Count |
+|------|------------|
+| `tests/test_mcp_server.py` | 29 |
+| `tests/test_matrix_debates_integration.py` | 24 |
+| `tests/test_formal.py` | 24 |
+| `tests/server/handlers/test_workflows_handler.py` | 22 |
+| `tests/test_handlers_tournaments_extended.py` | 20 |
+| `tests/test_formal_verification_backends.py` | 20 |
+| `tests/test_broadcast_pipeline_e2e.py` | 20 |
+| `tests/rlm/test_compressor.py` | 18 |
+| `tests/e2e/test_security_api_e2e.py` | 18 |
+| `tests/test_connectors_twitter.py` | 15 |
 
-### 3. MCP Tests (29 skips)
+---
 
-These require MCP server running. Strategy:
-- Mark as `@pytest.mark.integration`
-- Run in nightly CI with MCP server
+## Category Definitions
 
-### 4. Embedding Service (xfail)
+| Category | Description |
+|----------|-------------|
+| optional_dependency | Missing optional Python package |
+| missing_feature | Feature not yet implemented |
+| integration_dependency | Requires external service (Redis, Postgres) |
+| platform_specific | OS-specific limitation |
+| flaky_test | Test has intermittent failures |
+| known_bug | Known issue being tracked |
+| performance | Too slow or resource-intensive |
+| uncategorized | Reason did not match any pattern |
 
-Tests that require real embedding service:
-- Use mock embeddings for unit tests
-- Real embeddings in integration tests only
+---
 
-## Centralized Skip Markers
+## Remediation Guidelines
 
-Added to `tests/conftest.py`:
+1. **optional_dependency**: Add to `[project.optional-dependencies.test]` in pyproject.toml
+2. **missing_feature**: Create GitHub issue and link in skip reason
+3. **integration_dependency**: Ensure CI runs integration tests with services
+4. **flaky_test**: Fix root cause or add retry mechanism
+5. **known_bug**: Link to GitHub issue in skip reason
+6. **uncategorized**: Review and add appropriate category pattern
 
-```python
-from tests.conftest import (
-    requires_z3, REQUIRES_Z3,
-    requires_redis, REQUIRES_REDIS,
-    requires_asyncpg, REQUIRES_ASYNCPG,
-    requires_supabase, REQUIRES_SUPABASE,
-    requires_httpx, REQUIRES_HTTPX,
-    requires_websockets, REQUIRES_WEBSOCKETS,
-    requires_pyjwt, REQUIRES_PYJWT,
-    requires_sklearn, REQUIRES_SKLEARN,
-    requires_mcp, REQUIRES_MCP,
-    requires_rlm, REQUIRES_RLM,
-    requires_rbac, REQUIRES_RBAC,
-    requires_trickster, REQUIRES_TRICKSTER,
-    requires_plugins, REQUIRES_PLUGINS,
-)
-```
+---
 
-## Usage Pattern
+## Skip Count Baseline
 
-### Before (scattered skips):
-```python
-def test_something(self):
-    try:
-        import z3
-    except ImportError:
-        pytest.skip("Z3 not installed")
-    # test code
-```
+Current baseline: **592** skips
 
-### After (centralized):
-```python
-from tests.conftest import requires_z3, REQUIRES_Z3
-
-@pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
-class TestZ3Features:
-    def test_something(self):
-        # test code - no skip needed
-```
-
-## CI Configuration
-
-### pyproject.toml additions:
-```toml
-[project.optional-dependencies]
-test-full = [
-    "z3-solver",
-    "httpx",
-    "websockets",
-    "PyJWT",
-    "scikit-learn",
-    "mcp",
-]
-```
-
-### GitHub Actions:
-```yaml
-# Fast CI (PRs)
-- run: pytest -m "not slow and not integration"
-
-# Full CI (nightly)
-- run: pip install ".[test-full]"
-- run: pytest
-```
-
-## Remediation Priority
-
-1. **HIGH:** Fix module import issues (RLM, RBAC, etc.)
-   - These indicate broken code paths, not just missing deps
-
-2. **MEDIUM:** Add missing deps to requirements
-   - httpx, websockets, PyJWT should be in main deps
-
-3. **LOW:** Keep optional deps as skipif
-   - z3-solver, scikit-learn are truly optional
-
-## Progress Tracking
-
-- [x] Created centralized skip markers in conftest.py
-- [x] Updated test_formal_verification_backends.py (Z3 tests)
-- [ ] Update MCP tests
-- [ ] Update RLM tests
-- [ ] Update RBAC tests
-- [ ] Verify module imports work
-- [ ] Add missing deps to pyproject.toml
-- [ ] Update CI workflow
-
-## Files Updated
-
-| File | Status |
-|------|--------|
-| tests/conftest.py | Added skip markers |
-| tests/test_formal_verification_backends.py | Using skipif |
-
-## Verification Command
-
-```bash
-# Count remaining inline skips
-grep -r "pytest.skip(" tests/ --include="*.py" | grep -v conftest | wc -l
-
-# Run tests with skip summary
-pytest --tb=no -q 2>&1 | tail -5
-```
+CI will warn if skip count exceeds this baseline.
+Update `tests/.skip_baseline` when intentionally adding skips.
