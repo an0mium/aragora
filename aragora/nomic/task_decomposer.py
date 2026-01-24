@@ -706,18 +706,36 @@ class TaskDecomposer:
 
     def _build_debate_task(self, goal: str, context: str = "") -> str:
         """Build the debate task prompt for goal decomposition."""
-        context_section = f"\n\nContext:\n{context}" if context else ""
+        # Always include aragora codebase structure
+        codebase_context = """
+CODEBASE STRUCTURE (Aragora project):
+- aragora/workflow/templates/ - Workflow template definitions
+- aragora/workflow/engine.py - Workflow execution engine
+- aragora/workflow/types.py - WorkflowDefinition, StepDefinition types
+- aragora/server/handlers/ - HTTP API handlers
+- aragora/live/ - Next.js frontend (in aragora/live/src/)
+- aragora/nomic/ - Nomic loop and autonomous orchestration
+- tests/ - Test files (tests/workflow/, tests/nomic/, etc.)
+- docs/ - Documentation
+
+FILE PATH CONVENTIONS:
+- Python backend: aragora/module/file.py (NOT src/)
+- TypeScript frontend: aragora/live/src/components/, aragora/live/src/app/
+- Tests: tests/module/test_file.py
+- Workflows: aragora/workflow/templates/category/template.py
+"""
+        user_context = f"\n\nAdditional Context:\n{context}" if context else ""
 
         return f"""Decompose this high-level goal into 3-5 concrete, actionable subtasks.
 
 GOAL: {goal}
-{context_section}
+{codebase_context}{user_context}
 
 For each subtask, provide:
 1. A clear title (2-5 words)
 2. A specific description of what needs to be done
 3. Estimated complexity (low/medium/high)
-4. Files or areas likely affected
+4. Files or areas likely affected (use ACTUAL aragora paths, NOT src/)
 5. Dependencies on other subtasks (if any)
 
 Format your response as a JSON array:
@@ -727,7 +745,7 @@ Format your response as a JSON array:
     "title": "Subtask Title",
     "description": "Specific description of what to implement",
     "complexity": "medium",
-    "files": ["path/to/file.py", "another/file.tsx"],
+    "files": ["aragora/path/to/file.py", "aragora/live/src/file.tsx"],
     "dependencies": []
   }},
   ...
@@ -738,7 +756,7 @@ Focus on:
 - Concrete, implementable tasks (not abstract goals)
 - Clear boundaries between subtasks
 - Parallelizable work where possible
-- Practical files and areas in a typical codebase
+- Use the ACTUAL aragora file paths shown above
 
 Prioritize by impact: which improvements would provide the most value?"""
 

@@ -406,6 +406,7 @@ class AutonomousOrchestrator:
         require_human_approval: bool = False,
         max_parallel_tasks: int = 4,
         on_checkpoint: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+        use_debate_decomposition: bool = False,
     ):
         """
         Initialize the orchestrator.
@@ -418,6 +419,8 @@ class AutonomousOrchestrator:
             require_human_approval: Whether to require approval at gates
             max_parallel_tasks: Maximum concurrent tasks across all tracks
             on_checkpoint: Callback for checkpoint events
+            use_debate_decomposition: Use multi-agent debate for goal decomposition
+                (slower but better for abstract goals)
         """
         self.aragora_path = aragora_path or Path.cwd()
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
@@ -428,6 +431,7 @@ class AutonomousOrchestrator:
         self.require_human_approval = require_human_approval
         self.max_parallel_tasks = max_parallel_tasks
         self.on_checkpoint = on_checkpoint
+        self.use_debate_decomposition = use_debate_decomposition
 
         self.router = AgentRouter(self.track_configs)
         self.feedback_loop = FeedbackLoop()
@@ -555,6 +559,11 @@ class AutonomousOrchestrator:
             enriched_goal = f"{goal}{track_context}"
         else:
             enriched_goal = goal
+
+        # Use debate-based decomposition for abstract goals
+        if self.use_debate_decomposition:
+            logger.info("Using debate-based decomposition for goal")
+            return await self.task_decomposer.analyze_with_debate(enriched_goal)
 
         return self.task_decomposer.analyze(enriched_goal)
 

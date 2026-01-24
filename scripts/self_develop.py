@@ -145,12 +145,14 @@ async def run_orchestration(
     max_cycles: int,
     max_parallel: int,
     require_approval: bool,
+    use_debate: bool = False,
 ) -> OrchestrationResult:
     """Run the autonomous orchestration."""
     orchestrator = AutonomousOrchestrator(
         require_human_approval=require_approval,
         max_parallel_tasks=max_parallel,
         on_checkpoint=create_checkpoint_handler(require_approval),
+        use_debate_decomposition=use_debate,
     )
 
     print_header("STARTING ORCHESTRATION")
@@ -266,6 +268,7 @@ Examples:
                 max_cycles=args.max_cycles,
                 max_parallel=args.max_parallel,
                 require_approval=args.require_approval,
+                use_debate=args.debate,
             )
         )
         print_result(result)

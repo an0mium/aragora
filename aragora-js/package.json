@@ -1,6 +1,6 @@
 {
   "name": "@aragora/client",
-  "version": "2.1.15",
+  "version": "2.2.0",
   "deprecated": "This package is deprecated. Please migrate to @aragora/sdk for the unified TypeScript SDK. See docs/SDK_CONSOLIDATION.md for migration guide.",
   "description": "TypeScript client for the Aragora control plane for multi-agent vetted decisionmaking",
   "main": "dist/index.js",
