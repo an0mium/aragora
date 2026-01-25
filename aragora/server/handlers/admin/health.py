@@ -1177,6 +1177,22 @@ class HealthHandler(BaseHandler):
             }
             all_healthy = False
 
+        # 12. Stripe API connectivity
+        from .health_utils import check_stripe_health
+
+        checks["stripe"] = check_stripe_health()
+        if checks["stripe"].get("configured") and not checks["stripe"].get("healthy", True):
+            all_healthy = False
+            warnings.append("Stripe API connectivity issue")
+
+        # 13. Slack API connectivity
+        from .health_utils import check_slack_health
+
+        checks["slack"] = check_slack_health()
+        if checks["slack"].get("configured") and not checks["slack"].get("healthy", True):
+            all_healthy = False
+            warnings.append("Slack API connectivity issue")
+
         # Calculate response time
         response_time_ms = round((time.time() - start_time) * 1000, 2)
 
