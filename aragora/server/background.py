@@ -5,6 +5,9 @@ Provides periodic task execution for maintenance operations like:
 - Memory tier cleanup (TTL enforcement)
 - Stale debate cleanup
 - Cache pruning
+
+Task callbacks are organized as module-level factory functions for better
+testability and reduced complexity in setup_default_tasks().
 """
 
 from __future__ import annotations
@@ -18,6 +21,347 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Task Callback Factories
+# =============================================================================
+# Each factory returns a callback function. Factories that need shared state
+# (like memory_instance) accept it as a parameter and close over it.
+
+
+def create_memory_cleanup_callback(
+    nomic_dir: Optional[str],
+    memory_instance: Optional[Any],
+    pressure_threshold: float,
+) -> Callable[[], None]:
+    """Create a memory tier cleanup callback.
+
+    Cleans up expired memories when pressure exceeds threshold.
+    """
+    _shared_memory = memory_instance
+
+    def memory_cleanup_task() -> None:
+        nonlocal _shared_memory
+        try:
+            if _shared_memory is not None:
+                memory = _shared_memory
+            else:
+                from aragora.memory.continuum import ContinuumMemory
+                from aragora.persistence.db_config import DatabaseType, get_db_path
+
+                db_path = get_db_path(
+                    DatabaseType.CONTINUUM_MEMORY,
+                    nomic_dir=Path(nomic_dir) if nomic_dir else None,
+                )
+                memory = ContinuumMemory(db_path=db_path)
+
+            pressure = memory.get_memory_pressure()
+            if pressure < pressure_threshold:
+                logger.debug(
+                    "Memory pressure %.1f%% below threshold %.1f%%, skipping cleanup",
+                    pressure * 100,
+                    pressure_threshold * 100,
+                )
+                return
+
+            logger.info(
+                "Memory pressure %.1f%% exceeds threshold, running cleanup",
+                pressure * 100,
+            )
+            result = memory.cleanup_expired_memories(archive=True)
+
+            if result["deleted"] > 0 or result["archived"] > 0:
+                logger.info(
+                    "Memory cleanup: archived=%d, deleted=%d",
+                    result["archived"],
+                    result["deleted"],
+                )
+        except ImportError:
+            logger.debug("ContinuumMemory not available, skipping cleanup")
+        except (sqlite3.Error, OSError, IOError) as e:
+            logger.warning("Memory cleanup failed: %s", e)
+
+    return memory_cleanup_task
+
+
+def create_memory_consolidation_callback(
+    nomic_dir: Optional[str],
+    memory_instance: Optional[Any],
+) -> Callable[[], None]:
+    """Create a memory consolidation callback.
+
+    Promotes/demotes memories between tiers based on access patterns.
+    """
+    _shared_memory = memory_instance
+
+    def memory_consolidation_task() -> None:
+        nonlocal _shared_memory
+        try:
+            if _shared_memory is not None:
+                memory = _shared_memory
+            else:
+                from aragora.memory.continuum import ContinuumMemory
+                from aragora.persistence.db_config import DatabaseType, get_db_path
+
+                db_path = get_db_path(
+                    DatabaseType.CONTINUUM_MEMORY,
+                    nomic_dir=Path(nomic_dir) if nomic_dir else None,
+                )
+                memory = ContinuumMemory(db_path=db_path)
+
+            result = memory.consolidate()
+            logger.info(
+                "Memory consolidation: promoted=%d, demoted=%d, evaluated=%d",
+                result.get("promoted", 0),
+                result.get("demoted", 0),
+                result.get("evaluated", 0),
+            )
+        except ImportError:
+            logger.debug("ContinuumMemory not available, skipping consolidation")
+        except (sqlite3.Error, OSError, IOError) as e:
+            logger.warning("Memory consolidation failed: %s", e)
+
+    return memory_consolidation_task
+
+
+def stale_debate_cleanup() -> None:
+    """Clean up stale debates from state manager."""
+    try:
+        from aragora.server.state import get_state_manager
+
+        state_mgr = get_state_manager()
+        cleaned = state_mgr.cleanup_stale_debates(max_age_seconds=3600)
+        if cleaned > 0:
+            logger.info("Cleaned up %d stale debates", cleaned)
+    except (ImportError, AttributeError) as e:
+        logger.debug("Stale debate cleanup skipped: %s", e)
+    except (sqlite3.Error, OSError, IOError) as e:
+        logger.warning("Stale debate cleanup failed: %s", e)
+
+
+def circuit_breaker_cleanup() -> None:
+    """Clean up and persist circuit breakers."""
+    try:
+        from aragora.resilience import (
+            cleanup_stale_persisted,
+            persist_all_circuit_breakers,
+            prune_circuit_breakers,
+        )
+
+        cleaned = prune_circuit_breakers()
+        if cleaned > 0:
+            logger.info("Cleaned up %d stale circuit breakers", cleaned)
+
+        persisted = persist_all_circuit_breakers()
+        if persisted > 0:
+            logger.debug("Persisted %d circuit breakers to disk", persisted)
+
+        cleanup_stale_persisted(max_age_hours=72.0)
+    except ImportError:
+        pass  # resilience module may not be available
+    except (sqlite3.Error, OSError, IOError) as e:
+        logger.warning("Circuit breaker cleanup failed: %s", e)
+
+
+def circuit_breaker_metrics_export() -> None:
+    """Export circuit breaker states to Prometheus."""
+    try:
+        from aragora.server.prometheus import export_circuit_breaker_metrics
+
+        export_circuit_breaker_metrics()
+    except ImportError:
+        pass  # prometheus module may not be available
+    except (ValueError, TypeError) as e:
+        logger.debug("Circuit breaker metrics export failed: %s", e)
+
+
+def consensus_cleanup_task() -> None:
+    """Clean up old consensus memory records."""
+    try:
+        from aragora.memory.consensus import ConsensusMemory
+
+        consensus = ConsensusMemory()
+        result = consensus.cleanup_old_records(max_age_days=90, archive=True)
+
+        if result.get("archived", 0) > 0 or result.get("deleted", 0) > 0:
+            logger.info(
+                "Consensus cleanup: archived=%d, deleted=%d",
+                result.get("archived", 0),
+                result.get("deleted", 0),
+            )
+    except ImportError:
+        logger.debug("ConsensusMemory not available, skipping cleanup")
+    except sqlite3.Error as e:
+        logger.warning("Consensus cleanup database error: %s", e)
+    except (OSError, IOError) as e:
+        logger.warning("Consensus cleanup I/O error: %s", e)
+
+
+def lru_cache_cleanup_task() -> None:
+    """Clear module-level @lru_cache functions to prevent memory accumulation."""
+    try:
+        from aragora.utils.cache_registry import (
+            clear_all_lru_caches,
+            get_registered_cache_count,
+        )
+
+        cache_count = get_registered_cache_count()
+        if cache_count > 0:
+            cleared = clear_all_lru_caches()
+            if cleared > 0:
+                logger.info(
+                    "LRU cache cleanup: cleared %d entries from %d caches",
+                    cleared,
+                    cache_count,
+                )
+    except ImportError:
+        logger.debug("cache_registry not available, skipping LRU cleanup")
+    except (TypeError, AttributeError) as e:
+        logger.warning("LRU cache cleanup failed: %s", e)
+
+
+def km_staleness_check_task() -> None:
+    """Check for stale knowledge in the Knowledge Mound and emit events."""
+    try:
+        import asyncio
+
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def check_staleness() -> None:
+            workspace_id = "default"
+            try:
+                from aragora.knowledge.mound.facade import get_knowledge_mound
+
+                mound = get_knowledge_mound()
+                if mound is None:
+                    logger.debug("Knowledge Mound not available, skipping staleness check")
+                    _record_km_staleness_metric(workspace_id, "skipped", 0)
+                    return
+
+                from aragora.events.cross_subscribers import get_cross_subscriber_manager
+                from aragora.knowledge.mound.staleness import (
+                    StalenessConfig,
+                    StalenessDetector,
+                )
+
+                manager = get_cross_subscriber_manager()
+                detector = StalenessDetector(
+                    mound=mound,
+                    config=StalenessConfig(auto_revalidation_threshold=0.7),
+                    event_emitter=manager,
+                )
+
+                stale_nodes = await detector.get_stale_nodes(
+                    workspace_id=workspace_id,
+                    threshold=0.7,
+                    limit=50,
+                )
+                stale_count = len(stale_nodes) if stale_nodes else 0
+
+                if stale_nodes:
+                    logger.info(
+                        "Knowledge staleness check: found %d stale nodes",
+                        stale_count,
+                    )
+
+                _record_km_staleness_metric(workspace_id, "completed", stale_count)
+
+            except ImportError as e:
+                logger.debug("Knowledge Mound staleness check skipped: %s", e)
+                _record_km_staleness_metric(workspace_id, "skipped", 0)
+
+        if loop.is_running():
+            asyncio.create_task(check_staleness())
+        else:
+            loop.run_until_complete(check_staleness())
+
+    except (RuntimeError, ValueError) as e:
+        logger.warning("KM staleness check failed: %s", e)
+        _record_km_staleness_metric("default", "failed", 0)
+
+
+def _record_km_staleness_metric(workspace_id: str, status: str, stale_count: int) -> None:
+    """Record KM staleness check metric (helper to reduce code duplication)."""
+    try:
+        from aragora.server.prometheus_cross_pollination import record_km_staleness_check
+
+        record_km_staleness_check(workspace_id, status, stale_count)
+    except ImportError:
+        pass
+
+
+def snooze_processor_task() -> None:
+    """Process due snoozed emails and return them to inbox."""
+    try:
+        import asyncio
+
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def process_snoozes() -> None:
+            try:
+                from aragora.server.handlers.email_services import (
+                    handle_process_due_snoozes,
+                )
+
+                result = await handle_process_due_snoozes()
+                if result.get("success") and result.get("data", {}).get("processed", 0) > 0:
+                    logger.info(
+                        "Snooze processor: woke up %d emails",
+                        result["data"]["processed"],
+                    )
+            except ImportError:
+                logger.debug("Email services not available, skipping snooze processing")
+
+        if loop.is_running():
+            asyncio.create_task(process_snoozes())
+        else:
+            loop.run_until_complete(process_snoozes())
+
+    except (RuntimeError, ValueError) as e:
+        logger.warning("Snooze processing failed: %s", e)
+
+
+def followup_checker_task() -> None:
+    """Check for overdue follow-ups and send reminders."""
+    try:
+        import asyncio
+
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def check_followups() -> None:
+            try:
+                from aragora.services.followup_tracker import FollowUpTracker
+
+                tracker = FollowUpTracker()
+                overdue = await tracker.get_overdue_followups()
+                if overdue:
+                    logger.info(
+                        "Follow-up checker: %d emails overdue for follow-up",
+                        len(overdue),
+                    )
+            except ImportError:
+                logger.debug("Follow-up tracker not available, skipping check")
+
+        if loop.is_running():
+            asyncio.create_task(check_followups())
+        else:
+            loop.run_until_complete(check_followups())
+
+    except (RuntimeError, ValueError) as e:
+        logger.warning("Follow-up check failed: %s", e)
 
 
 @dataclass
