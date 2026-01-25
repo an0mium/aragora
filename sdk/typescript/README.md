@@ -323,6 +323,92 @@ const { marketplace_id } = await client.publishTemplate({
 const { templates } = await client.getFeaturedTemplates();
 ```
 
+## Namespace APIs (Advanced)
+
+For more granular control, you can access the namespace APIs directly. These provide
+access to full CRUD operations and are useful for building admin dashboards or
+complex integrations.
+
+```typescript
+import { createClient } from '@aragora/sdk';
+
+const client = createClient({ baseUrl: '...', apiKey: '...' });
+
+// Access namespace APIs via client.namespaces
+const { DebatesAPI, AgentsAPI, WorkflowsAPI, ControlPlaneAPI } = client.namespaces;
+
+// Debates namespace - full CRUD operations
+const debates = new DebatesAPI(client);
+const allDebates = await debates.list({ limit: 100, status: 'completed' });
+const debate = await debates.get('debate-123');
+await debates.delete('debate-123');
+
+// Agents namespace - registry and stats
+const agents = new AgentsAPI(client);
+const agentList = await agents.list();
+const stats = await agents.getStats('anthropic-api');
+
+// Workflows namespace - template management
+const workflows = new WorkflowsAPI(client);
+const templates = await workflows.listTemplates({ category: 'security' });
+const execution = await workflows.execute('template-id', { inputs: {...} });
+
+// Control Plane namespace - enterprise orchestration
+const controlPlane = new ControlPlaneAPI(client);
+
+// Agent registry
+await controlPlane.registerAgent({
+  agentId: 'custom-agent',
+  capabilities: ['reasoning', 'code_review'],
+  metadata: { version: '1.0.0' }
+});
+
+const registeredAgents = await controlPlane.listAgents();
+const health = await controlPlane.getAgentHealth('anthropic-api');
+
+// Task scheduling
+const task = await controlPlane.submitTask({
+  taskType: 'debate',
+  payload: { question: 'Should we use GraphQL?' },
+  priority: 8,
+  requiredCapabilities: ['reasoning']
+});
+
+const result = await controlPlane.waitForTask(task.taskId, { timeout: 300000 });
+
+// Resource monitoring
+const status = await controlPlane.getStatus();
+console.log(`Active agents: ${status.activeAgents}`);
+console.log(`Pending tasks: ${status.pendingTasks}`);
+```
+
+### SME Namespace (Small/Medium Enterprise)
+
+Simplified APIs for common business use cases:
+
+```typescript
+const { SMEAPI } = client.namespaces;
+const sme = new SMEAPI(client);
+
+// Quick decision making
+const decision = await sme.quickDecision({
+  question: 'Should we expand to European markets?',
+  context: { revenue: 5000000, employees: 50 }
+});
+
+// Risk assessment
+const risks = await sme.assessRisks({
+  proposal: 'Launch new product line',
+  budget: 100000
+});
+
+// Compliance check
+const compliance = await sme.checkCompliance({
+  domain: 'gdpr',
+  operations: ['user_data_collection', 'third_party_sharing']
+});
+```
+
 ## Error Handling
 
 ```typescript
