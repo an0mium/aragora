@@ -39,6 +39,14 @@ logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
 
+# Global rate limit disable for testing/load tests
+# When set, ALL rate limiters (both local and Redis-based) are bypassed
+RATE_LIMITING_DISABLED = os.environ.get("ARAGORA_DISABLE_ALL_RATE_LIMITS", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
 TRUSTED_PROXIES = frozenset(
     p.strip()
     for p in os.getenv("ARAGORA_TRUSTED_PROXIES", "127.0.0.1,::1,localhost").split(",")
@@ -145,6 +153,10 @@ class RateLimiter:
         Returns:
             True if request is allowed, False if rate limited
         """
+        # Bypass rate limiting if globally disabled (for load tests)
+        if RATE_LIMITING_DISABLED:
+            return True
+
         now = time.time()
 
         with self._lock:
