@@ -13,17 +13,24 @@ Extracted from system.py for better modularity.
 
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import json
 import logging
 import time
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 from ..base import (
     BaseHandler,
     HandlerResult,
     json_response,
+)
+from .health_utils import (
+    check_ai_providers_health,
+    check_filesystem_health,
+    check_redis_health,
+    check_security_services,
 )
 
 logger = logging.getLogger(__name__)
@@ -141,7 +148,6 @@ class HealthHandler(BaseHandler):
         - Redis connectivity (if distributed state required)
         - PostgreSQL connectivity (if required)
         """
-        import asyncio
         import os
 
         ready = True
@@ -234,6 +240,23 @@ class HealthHandler(BaseHandler):
         except ImportError:
             # Modules not available - skip check
             checks["redis"] = {"status": "check_skipped"}
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"Redis connectivity failed: {type(e).__name__}: {e}")
+            checks["redis"] = {"error": str(e)[:80], "error_type": "connectivity"}
+            # Fail readiness for connectivity errors when distributed required
+            try:
+                if is_distributed_state_required():
+                    ready = False
+            except (ImportError, RuntimeError):
+                pass
+        except (asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
+            logger.warning(f"Redis check timed out: {type(e).__name__}: {e}")
+            checks["redis"] = {"error": "timeout", "error_type": "timeout"}
+            try:
+                if is_distributed_state_required():
+                    ready = False
+            except (ImportError, RuntimeError):
+                pass
         except Exception as e:
             logger.warning(f"Redis readiness check failed: {type(e).__name__}: {e}")
             checks["redis"] = {"error": str(e)[:80]}
@@ -241,7 +264,7 @@ class HealthHandler(BaseHandler):
             try:
                 if is_distributed_state_required():
                     ready = False
-            except Exception as e:
+            except (ImportError, RuntimeError, AttributeError) as e:
                 logger.debug(f"Error checking distributed state requirement: {e}")
 
         # Check PostgreSQL connectivity (if required)
@@ -282,6 +305,16 @@ class HealthHandler(BaseHandler):
 
         except ImportError:
             checks["postgresql"] = {"status": "check_skipped"}
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"PostgreSQL connectivity failed: {type(e).__name__}: {e}")
+            checks["postgresql"] = {"error": str(e)[:80], "error_type": "connectivity"}
+            if require_database:
+                ready = False
+        except (asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
+            logger.warning(f"PostgreSQL check timed out: {type(e).__name__}: {e}")
+            checks["postgresql"] = {"error": "timeout", "error_type": "timeout"}
+            if require_database:
+                ready = False
         except Exception as e:
             logger.warning(f"PostgreSQL readiness check failed: {type(e).__name__}: {e}")
             checks["postgresql"] = {"error": str(e)[:80]}
@@ -436,6 +469,9 @@ class HealthHandler(BaseHandler):
                 all_healthy = False
         except ImportError:
             checks["circuit_breakers"] = {"healthy": True, "status": "module_not_available"}
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.debug(f"Circuit breaker metrics access error: {type(e).__name__}: {e}")
+            checks["circuit_breakers"] = {"healthy": True, "error": str(e)[:80]}
         except Exception as e:
             checks["circuit_breakers"] = {"healthy": True, "error": str(e)[:80]}
 
@@ -452,6 +488,9 @@ class HealthHandler(BaseHandler):
             }
         except ImportError:
             checks["rate_limiters"] = {"healthy": True, "status": "module_not_available"}
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.debug(f"Rate limiter stats access error: {type(e).__name__}: {e}")
+            checks["rate_limiters"] = {"healthy": True, "error": str(e)[:80]}
         except Exception as e:
             checks["rate_limiters"] = {"healthy": True, "error": str(e)[:80]}
 
@@ -491,163 +530,20 @@ class HealthHandler(BaseHandler):
 
     def _check_filesystem_health(self) -> Dict[str, Any]:
         """Check filesystem write access to data directory."""
-        import os
-        import tempfile
-
-        try:
-            # Try to use nomic_dir first, then fall back to temp dir
-            nomic_dir = self.get_nomic_dir()
-            test_dir = (
-                nomic_dir if nomic_dir and nomic_dir.exists() else Path(tempfile.gettempdir())
-            )
-
-            test_file = test_dir / f".health_check_{os.getpid()}"
-            try:
-                # Write test
-                test_file.write_text("health_check")
-                # Read verify
-                content = test_file.read_text()
-                if content != "health_check":
-                    return {"healthy": False, "error": "Read verification failed"}
-                return {"healthy": True, "path": str(test_dir)}
-            finally:
-                # Cleanup
-                if test_file.exists():
-                    test_file.unlink()
-
-        except PermissionError as e:
-            return {"healthy": False, "error": f"Permission denied: {e}"}
-        except OSError as e:
-            return {"healthy": False, "error": f"Filesystem error: {e}"}
+        nomic_dir = self.get_nomic_dir()
+        return check_filesystem_health(nomic_dir)
 
     def _check_redis_health(self) -> Dict[str, Any]:
         """Check Redis connectivity if configured."""
-        import os
-
-        redis_url = os.environ.get("REDIS_URL") or os.environ.get("CACHE_REDIS_URL")
-
-        if not redis_url:
-            return {"healthy": True, "configured": False, "note": "Redis not configured"}
-
-        try:
-            import redis
-
-            client = redis.from_url(redis_url, socket_timeout=2.0)
-            ping_start = time.time()
-            pong = client.ping()
-            ping_latency = round((time.time() - ping_start) * 1000, 2)
-
-            if pong:
-                return {"healthy": True, "configured": True, "latency_ms": ping_latency}
-            else:
-                return {"healthy": False, "configured": True, "error": "Ping returned False"}
-
-        except ImportError:
-            return {"healthy": True, "configured": True, "warning": "redis package not installed"}
-        except Exception as e:
-            return {
-                "healthy": False,
-                "configured": True,
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
-            }
+        return check_redis_health()
 
     def _check_ai_providers_health(self) -> Dict[str, Any]:
         """Check AI provider API key availability."""
-        import os
-
-        providers = {
-            "anthropic": "ANTHROPIC_API_KEY",
-            "openai": "OPENAI_API_KEY",
-            "gemini": "GEMINI_API_KEY",
-            "grok": "GROK_API_KEY",
-            "xai": "XAI_API_KEY",
-            "deepseek": "DEEPSEEK_API_KEY",
-            "openrouter": "OPENROUTER_API_KEY",
-        }
-
-        available = {}
-        for name, env_var in providers.items():
-            key = os.environ.get(env_var)
-            available[name] = key is not None and len(key) > 10
-
-        any_available = any(available.values())
-        available_count = sum(1 for v in available.values() if v)
-
-        return {
-            "healthy": True,
-            "any_available": any_available,
-            "available_count": available_count,
-            "providers": available,
-        }
+        return check_ai_providers_health()
 
     def _check_security_services(self) -> Dict[str, Any]:
-        """Check security services health.
-
-        Verifies:
-        - Encryption service is available and functional
-        - RBAC module is available
-        - Audit logger is configured
-        - Production encryption key is set (in production mode)
-        """
-        import os
-
-        from aragora.config.secrets import get_secret
-
-        result: Dict[str, Any] = {"healthy": True}
-        is_production = os.environ.get("ARAGORA_ENV") == "production"
-
-        # Check encryption service
-        try:
-            from aragora.security.encryption import get_encryption_service
-
-            service = get_encryption_service()
-            result["encryption_available"] = service is not None
-            result["encryption_configured"] = bool(get_secret("ARAGORA_ENCRYPTION_KEY"))
-
-            if is_production and not result["encryption_configured"]:
-                result["healthy"] = False
-                result["encryption_warning"] = (
-                    "ARAGORA_ENCRYPTION_KEY not set - secrets may be unencrypted"
-                )
-        except ImportError:
-            result["encryption_available"] = False
-            result["encryption_warning"] = "Encryption module not available"
-        except Exception as e:
-            result["encryption_available"] = False
-            result["encryption_error"] = f"{type(e).__name__}: {str(e)[:80]}"
-
-        # Check RBAC module
-        try:
-            from aragora.rbac import AuthorizationContext, check_permission  # noqa: F401
-
-            result["rbac_available"] = True
-        except ImportError:
-            result["rbac_available"] = False
-            result["rbac_warning"] = "RBAC module not available"
-
-        # Check audit logger
-        try:
-            from aragora.server.middleware.audit_logger import get_audit_logger
-
-            audit_logger = get_audit_logger()
-            result["audit_logger_configured"] = audit_logger is not None
-        except ImportError:
-            result["audit_logger_configured"] = False
-            result["audit_warning"] = "Audit logger module not available"
-        except Exception as e:
-            result["audit_logger_configured"] = False
-            result["audit_error"] = f"{type(e).__name__}: {str(e)[:80]}"
-
-        # Check JWT auth module
-        try:
-            from aragora.billing.jwt_auth import extract_user_from_request  # noqa: F401
-
-            result["jwt_auth_available"] = True
-        except ImportError:
-            result["jwt_auth_available"] = False
-            result["jwt_warning"] = "JWT auth module not available"
-
-        return result
+        """Check security services health."""
+        return check_security_services()
 
     def _detailed_health_check(self) -> HandlerResult:
         """Return detailed health status with system observer metrics.
@@ -843,6 +739,8 @@ class HealthHandler(BaseHandler):
 
         # 1. Debate Storage
         try:
+            import sqlite3
+
             storage = self.get_storage()
             if storage is not None:
                 count = len(storage.list_recent(limit=1))
@@ -857,6 +755,22 @@ class HealthHandler(BaseHandler):
                     "status": "not_initialized",
                     "hint": "Will auto-create on first debate",
                 }
+        except (sqlite3.Error, OSError, IOError) as e:
+            logger.warning(f"Debate storage database error: {type(e).__name__}: {e}")
+            stores["debate_storage"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error_type": "database",
+            }
+            all_healthy = False
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.debug(f"Debate storage data access error: {type(e).__name__}: {e}")
+            stores["debate_storage"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error_type": "data_access",
+            }
+            all_healthy = False
         except Exception as e:
             stores["debate_storage"] = {
                 "healthy": False,
@@ -880,6 +794,22 @@ class HealthHandler(BaseHandler):
                     "status": "not_initialized",
                     "hint": "Run: python scripts/seed_agents.py",
                 }
+        except (sqlite3.Error, OSError, IOError) as e:
+            logger.warning(f"ELO system database error: {type(e).__name__}: {e}")
+            stores["elo_system"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error_type": "database",
+            }
+            all_healthy = False
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.debug(f"ELO system data access error: {type(e).__name__}: {e}")
+            stores["elo_system"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error_type": "data_access",
+            }
+            all_healthy = False
         except Exception as e:
             stores["elo_system"] = {
                 "healthy": False,
@@ -2423,8 +2353,6 @@ class HealthHandler(BaseHandler):
         Returns:
             JSON response with comprehensive deployment validation results
         """
-        import asyncio
-        import concurrent.futures
 
         start_time = time.time()
 
