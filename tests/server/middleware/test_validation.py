@@ -474,6 +474,72 @@ class TestUtilityFunctions:
 # ===========================================================================
 
 
+class TestTier1Schemas:
+    """Tests for Tier 1 validation schemas (auth, org, billing)."""
+
+    def test_auth_register_schema_registered(self):
+        """POST /api/auth/register should have body schema."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [r for r in VALIDATION_REGISTRY if r.matches("/api/auth/register", "POST")]
+        assert len(matches) >= 1
+        rule = matches[0]
+        assert rule.body_schema is not None
+        assert rule.max_body_size == 10_000
+
+    def test_auth_login_schema_registered(self):
+        """POST /api/auth/login should have body schema."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [r for r in VALIDATION_REGISTRY if r.matches("/api/auth/login", "POST")]
+        assert len(matches) >= 1
+        assert matches[0].body_schema is not None
+
+    def test_auth_mfa_verify_schema_registered(self):
+        """POST /api/auth/mfa/verify should have body schema."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [r for r in VALIDATION_REGISTRY if r.matches("/api/auth/mfa/verify", "POST")]
+        assert len(matches) >= 1
+        assert matches[0].body_schema is not None
+
+    def test_org_invite_schema_registered(self):
+        """POST /api/org/{id}/invite should have body schema."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [r for r in VALIDATION_REGISTRY if r.matches("/api/org/test-org/invite", "POST")]
+        assert len(matches) >= 1
+        assert matches[0].body_schema is not None
+
+    def test_billing_checkout_schema_registered(self):
+        """POST /api/billing/checkout should have body schema."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [r for r in VALIDATION_REGISTRY if r.matches("/api/billing/checkout", "POST")]
+        assert len(matches) >= 1
+        assert matches[0].body_schema is not None
+
+    def test_billing_portal_schema_registered(self):
+        """POST /api/billing/portal should have body schema."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [r for r in VALIDATION_REGISTRY if r.matches("/api/billing/portal", "POST")]
+        assert len(matches) >= 1
+        assert matches[0].body_schema is not None
+
+    def test_v1_routes_also_match(self):
+        """v1 routes should also match the patterns."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        # Check v1 auth routes
+        matches = [r for r in VALIDATION_REGISTRY if r.matches("/api/v1/auth/login", "POST")]
+        assert len(matches) >= 1
+
+        # Check v1 billing routes
+        matches = [r for r in VALIDATION_REGISTRY if r.matches("/api/v1/billing/checkout", "POST")]
+        assert len(matches) >= 1
+
+
 class TestValidationRegistry:
     """Tests for built-in validation registry."""
 
