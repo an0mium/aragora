@@ -1,5 +1,7 @@
 """Integration tests for Calibration scoring in debate workflows."""
 
+import os
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 from dataclasses import dataclass
@@ -320,8 +322,9 @@ class TestCalibrationLeaderboardEndpoint:
         """Test ROUTES includes leaderboard endpoint."""
         assert "/api/v1/calibration/leaderboard" in handler.ROUTES
 
-    @pytest.mark.skip(
-        reason="Handler patching requires complex setup; tested via integration tests"
+    @pytest.mark.skipif(
+        not os.environ.get("RUN_COMPLEX_TESTS"),
+        reason="Handler patching requires complex setup; tested via integration tests",
     )
     @patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", True)
     @patch("aragora.server.handlers.agents.calibration.EloSystem")
@@ -352,8 +355,9 @@ class TestCalibrationLeaderboardEndpoint:
         assert "agents" in body
         assert "metric" in body
 
-    @pytest.mark.skip(
-        reason="Handler patching requires complex setup; tested via integration tests"
+    @pytest.mark.skipif(
+        not os.environ.get("RUN_COMPLEX_TESTS"),
+        reason="Handler patching requires complex setup; tested via integration tests",
     )
     @patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", False)
     def test_leaderboard_unavailable_without_elo(self, handler):
@@ -414,8 +418,9 @@ class TestCalibrationEdgeCases:
         agent.role = "proposer"
         return agent
 
-    @pytest.mark.skip(
-        reason="Arena initialization calls get_rating during setup; need isolated unit test"
+    @pytest.mark.skipif(
+        not os.environ.get("RUN_COMPLEX_TESTS"),
+        reason="Arena initialization calls get_rating during setup; need isolated unit test",
     )
     def test_calibration_weight_exception_handling(self, mock_agent):
         """Test calibration weight handles exceptions gracefully."""
@@ -430,8 +435,9 @@ class TestCalibrationEdgeCases:
         weight = arena._get_calibration_weight("any")
         assert weight == 1.0
 
-    @pytest.mark.skip(
-        reason="Arena initialization calls get_rating during setup; need isolated unit test"
+    @pytest.mark.skipif(
+        not os.environ.get("RUN_COMPLEX_TESTS"),
+        reason="Arena initialization calls get_rating during setup; need isolated unit test",
     )
     def test_composite_score_exception_handling(self, mock_agent):
         """Test composite score handles exceptions gracefully."""

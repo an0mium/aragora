@@ -1795,7 +1795,7 @@ def mock_websocket():
 # See tests/SKIP_AUDIT.md for skip marker inventory.
 
 SKIP_THRESHOLD = 650  # Maximum allowed skips (conditional + unconditional)
-UNCONDITIONAL_SKIP_THRESHOLD = 35  # Maximum unconditional @pytest.mark.skip
+UNCONDITIONAL_SKIP_THRESHOLD = 5  # Maximum unconditional @pytest.mark.skip (reduced from 35)
 
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config):

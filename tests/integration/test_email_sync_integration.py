@@ -7,6 +7,8 @@ Tests the full flow:
 3. Results are stored and available via unified inbox handler
 """
 
+import os
+
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -239,7 +241,10 @@ class TestUnifiedInboxIntegration:
         assert any("inbox" in r for r in routes)
 
 
-@pytest.mark.skip(reason="aragora.prioritization module not yet implemented")
+@pytest.mark.skipif(
+    not os.environ.get("RUN_FUTURE_API_TESTS"),
+    reason="aragora.prioritization module not yet implemented",
+)
 class TestEmailPrioritizationPipeline:
     """Test the full prioritization pipeline."""
 

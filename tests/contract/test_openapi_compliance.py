@@ -7,6 +7,7 @@ Tests endpoint paths, methods, and response schemas.
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Any
 
@@ -97,9 +98,47 @@ class TestOpenAPIPaths:
             found = any(path.startswith(prefix) for path in spec_paths)
             assert found, f"No paths starting with {prefix} in OpenAPI spec"
 
+    def test_legacy_paths_are_deprecated_and_aliased(self, openapi_spec: dict) -> None:
+        """Legacy /api paths should be deprecated with matching /api/v1 aliases."""
+        http_methods = {"get", "post", "put", "patch", "delete", "options", "head"}
+        spec_paths = openapi_spec["paths"]
+        legacy_paths = [
+            path
+            for path in spec_paths
+            if path.startswith("/api/")
+            and not path.startswith("/api/v1/")
+            and not path.startswith("/api/v2/")
+        ]
 
-@pytest.mark.skip(
-    reason="OpenAPI spec has 200+ paths not covered by handlers - spec vs handler sync issue"
+        assert legacy_paths, "Expected legacy /api paths to validate aliasing"
+
+        for path in legacy_paths:
+            v1_path = path.replace("/api/", "/api/v1/", 1)
+            assert v1_path in spec_paths, f"Missing /api/v1 alias for {path}"
+            legacy_methods = {
+                method for method in spec_paths[path] if method.lower() in http_methods
+            }
+            v1_methods = {
+                method for method in spec_paths[v1_path] if method.lower() in http_methods
+            }
+            assert legacy_methods == v1_methods, (
+                f"Method mismatch for {path} vs {v1_path}: "
+                f"{sorted(legacy_methods)} != {sorted(v1_methods)}"
+            )
+            for method in legacy_methods:
+                operation = spec_paths[path][method]
+                assert isinstance(operation, dict), f"Invalid operation for {method} {path}"
+                assert (
+                    operation.get("deprecated") is True
+                ), f"Legacy operation not deprecated: {method.upper()} {path}"
+                assert not operation.get(
+                    "operationId"
+                ), f"Legacy operation should not expose operationId: {method.upper()} {path}"
+
+
+@pytest.mark.skipif(
+    not os.environ.get("RUN_OPENAPI_COVERAGE_TESTS"),
+    reason="OpenAPI spec has 200+ paths not covered by handlers - spec vs handler sync issue",
 )
 class TestHandlerPathCoverage:
     """Tests that handlers cover OpenAPI-defined paths."""

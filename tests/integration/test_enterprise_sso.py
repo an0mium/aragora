@@ -8,6 +8,7 @@ import asyncio
 import base64
 import hashlib
 import json
+import os
 import secrets
 import time
 from dataclasses import dataclass
@@ -16,8 +17,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Skip all tests - OIDCConfig API changed
-pytest.skip("OIDCConfig API changed, tests need update", allow_module_level=True)
+# Skip all tests unless RUN_SSO_API_UPDATE_TESTS is set
+if not os.environ.get("RUN_SSO_API_UPDATE_TESTS"):
+    pytest.skip(
+        "OIDCConfig API changed, tests need update (set RUN_SSO_API_UPDATE_TESTS=1)",
+        allow_module_level=True,
+    )
 
 
 @dataclass
@@ -119,7 +124,10 @@ class TestOIDCAuthorizationFlow:
         )
         assert challenge == expected_challenge
 
-    @pytest.mark.skip(reason="Requires complex httpx mocking - see integration tests with real IdP")
+    @pytest.mark.skipif(
+        not os.environ.get("RUN_COMPLEX_TESTS"),
+        reason="Requires complex httpx mocking - see integration tests with real IdP",
+    )
     @pytest.mark.asyncio
     async def test_token_exchange(self):
         """Test exchanging authorization code for tokens."""

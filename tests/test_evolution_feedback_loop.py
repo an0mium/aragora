@@ -9,6 +9,8 @@ Tests cover the debate → evolution → improved debate cycle:
 """
 
 import json
+import os
+
 import pytest
 from unittest.mock import Mock, MagicMock, AsyncMock, patch
 
@@ -177,8 +179,9 @@ class TestPopulationManagement:
         except ImportError:
             pytest.skip("Selection function not available")
 
-    @pytest.mark.skip(
-        reason="PopulationManager elitism param and evolve_generation not implemented - future API"
+    @pytest.mark.skipif(
+        not os.environ.get("RUN_FUTURE_API_TESTS"),
+        reason="PopulationManager elitism param and evolve_generation not implemented - future API",
     )
     def test_elitism_preserves_best(self, mock_population):
         """Test elitism preserves best performers."""
@@ -280,8 +283,9 @@ class TestPerformanceTracking:
 class TestEvolutionFeedbackLoop:
     """Integration tests for the complete evolution feedback loop."""
 
-    @pytest.mark.skip(
-        reason="PopulationManager.record_debate_result() and evolve_generation() not implemented - future API"
+    @pytest.mark.skipif(
+        not os.environ.get("RUN_FUTURE_API_TESTS"),
+        reason="PopulationManager.record_debate_result() and evolve_generation() not implemented - future API",
     )
     @pytest.mark.asyncio
     async def test_full_evolution_cycle(self, mock_debate_outcome):
@@ -309,8 +313,9 @@ class TestEvolutionFeedbackLoop:
         assert new_generation is not None
         assert len(new_generation) > 0
 
-    @pytest.mark.skip(
-        reason="PopulationManager.record_debate_result() and evolve_generation() not implemented - future API"
+    @pytest.mark.skipif(
+        not os.environ.get("RUN_FUTURE_API_TESTS"),
+        reason="PopulationManager.record_debate_result() and evolve_generation() not implemented - future API",
     )
     @pytest.mark.asyncio
     async def test_multiple_generations(self, mock_debate_outcome):
@@ -407,8 +412,9 @@ class TestGenesisLedger:
         except ImportError:
             pytest.skip("GenesisLedger not available")
 
-    @pytest.mark.skip(
-        reason="GenesisLedger.record_generation() renamed to record_mutation() - API changed"
+    @pytest.mark.skipif(
+        not os.environ.get("RUN_FUTURE_API_TESTS"),
+        reason="GenesisLedger.record_generation() renamed to record_mutation() - API changed",
     )
     def test_record_generation(self):
         """Test recording a generation in the ledger."""

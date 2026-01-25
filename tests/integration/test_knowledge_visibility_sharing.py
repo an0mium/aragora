@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import tempfile
 from datetime import datetime, timezone, timedelta
 from io import BytesIO
@@ -954,7 +955,10 @@ class TestFullStackIntegration:
         return token
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Requires running server")
+    @pytest.mark.skipif(
+        not os.environ.get("ARAGORA_E2E_LIVE_SERVER"),
+        reason="Requires running server (set ARAGORA_E2E_LIVE_SERVER=1)",
+    )
     async def test_visibility_workflow_e2e(self, server_url, auth_token):
         """Test complete visibility workflow against live server."""
         import httpx
@@ -982,7 +986,10 @@ class TestFullStackIntegration:
             assert response.status_code in (200, 404)
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Requires running server")
+    @pytest.mark.skipif(
+        not os.environ.get("ARAGORA_E2E_LIVE_SERVER"),
+        reason="Requires running server (set ARAGORA_E2E_LIVE_SERVER=1)",
+    )
     async def test_sharing_workflow_e2e(self, server_url, auth_token):
         """Test complete sharing workflow against live server."""
         import httpx
@@ -1011,7 +1018,10 @@ class TestFullStackIntegration:
             assert response.status_code == 200
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Requires running server")
+    @pytest.mark.skipif(
+        not os.environ.get("ARAGORA_E2E_LIVE_SERVER"),
+        reason="Requires running server (set ARAGORA_E2E_LIVE_SERVER=1)",
+    )
     async def test_global_knowledge_workflow_e2e(self, server_url, auth_token):
         """Test global knowledge workflow against live server."""
         import httpx
@@ -1037,7 +1047,10 @@ class TestFullStackIntegration:
             assert "system_workspace_id" in data
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Requires running server")
+    @pytest.mark.skipif(
+        not os.environ.get("ARAGORA_E2E_LIVE_SERVER"),
+        reason="Requires running server (set ARAGORA_E2E_LIVE_SERVER=1)",
+    )
     async def test_federation_workflow_e2e(self, server_url, auth_token):
         """Test federation workflow against live server."""
         import httpx

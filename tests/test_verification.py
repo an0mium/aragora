@@ -10,6 +10,7 @@ Tests:
 """
 
 import asyncio
+import os
 from unittest.mock import Mock, patch, AsyncMock
 
 import pytest
@@ -95,7 +96,10 @@ class TestExecWithTimeout:
         _exec_with_timeout("x = 1 + 1", namespace)
         assert namespace["x"] == 2
 
-    @pytest.mark.skip(reason="Infinite loops can't be interrupted in CPython due to GIL")
+    @pytest.mark.skipif(
+        not os.environ.get("RUN_GIL_TIMEOUT_TESTS"),
+        reason="Infinite loops can't be interrupted in CPython due to GIL",
+    )
     def test_timeout_raises(self):
         """Long-running code should timeout."""
         with pytest.raises(TimeoutError):

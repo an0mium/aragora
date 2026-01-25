@@ -11,6 +11,7 @@ Tests tenant isolation including:
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any, Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -267,8 +268,9 @@ class TestBillingIntegrationE2E:
 # ============================================================================
 
 
-@pytest.mark.skip(
-    reason="Requires TenantDataIsolation.register_resource() - use TenantFilter.register_resource() from stream module instead"
+@pytest.mark.skipif(
+    not os.environ.get("RUN_FUTURE_API_TESTS"),
+    reason="Requires TenantDataIsolation.register_resource() - use TenantFilter.register_resource() from stream module instead",
 )
 class TestResourceRegistration:
     """Tests for resource registration - requires API additions."""
