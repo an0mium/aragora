@@ -308,16 +308,29 @@ def snooze_processor_task() -> None:
 
         async def process_snoozes() -> None:
             try:
+                import json
+
                 from aragora.server.handlers.email_services import (
                     handle_process_due_snoozes,
                 )
 
                 result = await handle_process_due_snoozes()
-                if result.get("success") and result.get("data", {}).get("processed", 0) > 0:
-                    logger.info(
-                        "Snooze processor: woke up %d emails",
-                        result["data"]["processed"],
-                    )
+                # Handle both dict and HandlerResult responses
+                if hasattr(result, "body"):
+                    # HandlerResult - parse the JSON body
+                    try:
+                        data = json.loads(result.body) if result.body else {}
+                    except (json.JSONDecodeError, TypeError):
+                        data = {}
+                    success = result.status_code == 200
+                else:
+                    # Dict response (legacy)
+                    data = result if isinstance(result, dict) else {}
+                    success = data.get("success", False)
+
+                processed = data.get("data", {}).get("processed", 0)
+                if success and processed > 0:
+                    logger.info("Snooze processor: woke up %d emails", processed)
             except ImportError:
                 logger.debug("Email services not available, skipping snooze processing")
 
