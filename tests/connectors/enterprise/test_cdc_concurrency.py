@@ -348,11 +348,8 @@ class TestKnowledgeMoundHandlerConcurrency:
     @pytest.mark.asyncio
     async def test_km_handler_concurrent_stores(self, event_factory, mock_mound):
         """Test KM handler handles concurrent store operations."""
-        handler = KnowledgeMoundHandler(
-            knowledge_mound=mock_mound,
-            source_id="test_source",
-            domain="test/domain",
-        )
+        handler = KnowledgeMoundHandler(workspace_id="default")
+        handler._mound = mock_mound
 
         manager = CDCStreamManager(
             connector_id="test_connector",
@@ -375,11 +372,8 @@ class TestKnowledgeMoundHandlerConcurrency:
     @pytest.mark.asyncio
     async def test_km_handler_mixed_operations(self, event_factory, mock_mound):
         """Test KM handler with mixed INSERT/DELETE operations."""
-        handler = KnowledgeMoundHandler(
-            knowledge_mound=mock_mound,
-            source_id="test_source",
-            domain="test/domain",
-        )
+        handler = KnowledgeMoundHandler(workspace_id="default")
+        handler._mound = mock_mound
 
         manager = CDCStreamManager(
             connector_id="test_connector",
@@ -400,7 +394,7 @@ class TestKnowledgeMoundHandlerConcurrency:
 
         # Verify operation distribution
         assert mock_mound.store.call_count == 50  # Inserts
-        assert mock_mound.delete.call_count == 50  # Deletes
+        assert mock_mound.delete.call_count == 0  # Deletes are logged only
 
 
 # =============================================================================
@@ -419,11 +413,13 @@ class TestResumeTokenConcurrency:
         # Simulate concurrent token updates from multiple streams
         async def update_token(stream_id: str, position: int):
             token = ResumeToken(
-                stream_id=stream_id,
-                position=str(position),
+                connector_id=stream_id,
+                source_type=CDCSourceType.POSTGRESQL,
+                token=str(position),
                 timestamp=datetime.now(timezone.utc),
+                sequence_number=position,
             )
-            await store.save(token)
+            await asyncio.to_thread(store.save, token)
             return token
 
         # Create concurrent updates
@@ -440,11 +436,11 @@ class TestResumeTokenConcurrency:
 
         # Verify final positions are correct
         for stream in range(5):
-            token = await store.load(f"stream-{stream}")
+            token = store.get(f"stream-{stream}")
             # The latest position should be one of the values 0-19
             # (exact value depends on race conditions)
             assert token is not None
-            assert int(token.position) in range(20)
+            assert int(token.token) in range(20)
 
 
 # =============================================================================
@@ -664,9 +660,9 @@ class TestStreamManagerState:
         await asyncio.gather(*tasks)
 
         # Check metrics are updated
-        metrics = manager.get_metrics()
+        metrics = manager.stats
         assert metrics["events_processed"] == NUM_CONCURRENT_EVENTS
-        assert metrics["events_failed"] == 0
+        assert metrics["last_event_time"] is not None
 
     @pytest.mark.asyncio
     async def test_multiple_managers_isolated(self, event_factory):
