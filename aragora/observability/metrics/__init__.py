@@ -129,6 +129,4 @@ from _aragora_metrics_impl import (  # noqa: F401, E402
     record_task_queue_operation,
     record_task_queue_recovery,
     record_task_queue_cleanup,
-    # Backup metrics
-    BACKUP_RESTORE_SUCCESS,
 )

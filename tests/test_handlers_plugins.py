@@ -8,7 +8,7 @@ Endpoints tested:
 
 import json
 import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 
 from aragora.server.handlers.features import PluginsHandler
 from aragora.server.handlers.base import clear_cache
@@ -365,3 +365,157 @@ class TestPluginsEdgeCases:
             # Should return manifest without requirements info
             assert data["name"] == "test-plugin-1"
             assert "requirements_satisfied" not in data
+
+
+# ============================================================================
+# Path Variant Tests (Legacy vs Versioned)
+# ============================================================================
+
+
+class TestPluginPathVariants:
+    """Tests for legacy and versioned path variants.
+
+    Both /api/plugins/* (legacy) and /api/v1/plugins/* (versioned) should work
+    identically, but legacy paths should include Sunset/Deprecation headers.
+    """
+
+    def test_can_handle_legacy_plugins_list(self, plugins_handler):
+        """Legacy /api/plugins path should be handled."""
+        assert plugins_handler.can_handle("/api/plugins") is True
+
+    def test_can_handle_versioned_plugins_list(self, plugins_handler):
+        """Versioned /api/v1/plugins path should be handled."""
+        assert plugins_handler.can_handle("/api/v1/plugins") is True
+
+    def test_can_handle_legacy_plugin_details(self, plugins_handler):
+        """Legacy /api/plugins/{name} path should be handled."""
+        assert plugins_handler.can_handle("/api/plugins/test-plugin") is True
+
+    def test_can_handle_legacy_plugin_run(self, plugins_handler):
+        """Legacy /api/plugins/{name}/run path should be handled."""
+        assert plugins_handler.can_handle("/api/plugins/test/run") is True
+
+    def test_can_handle_legacy_plugin_install(self, plugins_handler):
+        """Legacy /api/plugins/{name}/install path should be handled."""
+        assert plugins_handler.can_handle("/api/plugins/test/install") is True
+
+    @pytest.mark.parametrize("path_prefix", ["/api/plugins", "/api/v1/plugins"])
+    def test_list_plugins_both_paths(self, plugins_handler, mock_registry, path_prefix):
+        """Both path variants return identical plugin list."""
+        import aragora.server.handlers.features.plugins as mod
+
+        if not mod.PLUGINS_AVAILABLE:
+            pytest.skip("Plugins module not available")
+
+        with patch.object(mod, "get_registry", return_value=mock_registry):
+            result = plugins_handler.handle(path_prefix, {}, None)
+
+            assert result is not None
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert "plugins" in data
+            assert data["count"] == 2
+
+    @pytest.mark.parametrize("path_prefix", ["/api/plugins", "/api/v1/plugins"])
+    def test_get_plugin_both_paths(self, plugins_handler, mock_registry, path_prefix):
+        """Both path variants return identical plugin details."""
+        import aragora.server.handlers.features.plugins as mod
+
+        if not mod.PLUGINS_AVAILABLE:
+            pytest.skip("Plugins module not available")
+
+        with patch.object(mod, "get_registry", return_value=mock_registry):
+            result = plugins_handler.handle(f"{path_prefix}/test-plugin-1", {}, None)
+
+            assert result is not None
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert data["name"] == "test-plugin-1"
+
+
+# ============================================================================
+# Sunset Header Tests
+# ============================================================================
+
+
+class TestSunsetHeaders:
+    """Tests for HTTP Sunset and Deprecation headers on legacy paths.
+
+    Per RFC 8594, the Sunset header indicates when an API endpoint will be retired.
+    Legacy /api/plugins/* paths should include these headers.
+    """
+
+    def test_legacy_path_has_sunset_header(self, plugins_handler, mock_registry):
+        """Legacy paths should include Sunset header."""
+        import aragora.server.handlers.features.plugins as mod
+
+        if not mod.PLUGINS_AVAILABLE:
+            pytest.skip("Plugins module not available")
+
+        with patch.object(mod, "get_registry", return_value=mock_registry):
+            result = plugins_handler.handle("/api/plugins", {}, None)
+
+            assert result is not None
+            assert result.status_code == 200
+            assert result.headers is not None
+            assert "Sunset" in result.headers
+            assert "2026" in result.headers["Sunset"]
+
+    def test_legacy_path_has_deprecation_header(self, plugins_handler, mock_registry):
+        """Legacy paths should include Deprecation header."""
+        import aragora.server.handlers.features.plugins as mod
+
+        if not mod.PLUGINS_AVAILABLE:
+            pytest.skip("Plugins module not available")
+
+        with patch.object(mod, "get_registry", return_value=mock_registry):
+            result = plugins_handler.handle("/api/plugins", {}, None)
+
+            assert result is not None
+            assert result.headers is not None
+            assert "Deprecation" in result.headers
+            assert result.headers["Deprecation"] == "true"
+
+    def test_versioned_path_no_sunset_header(self, plugins_handler, mock_registry):
+        """Versioned paths should NOT include Sunset header."""
+        import aragora.server.handlers.features.plugins as mod
+
+        if not mod.PLUGINS_AVAILABLE:
+            pytest.skip("Plugins module not available")
+
+        with patch.object(mod, "get_registry", return_value=mock_registry):
+            result = plugins_handler.handle("/api/v1/plugins", {}, None)
+
+            assert result is not None
+            assert result.status_code == 200
+            # Headers may be None or not contain Sunset
+            if result.headers:
+                assert "Sunset" not in result.headers
+
+    def test_legacy_plugin_details_has_sunset(self, plugins_handler, mock_registry):
+        """Legacy plugin details path should include Sunset header."""
+        import aragora.server.handlers.features.plugins as mod
+
+        if not mod.PLUGINS_AVAILABLE:
+            pytest.skip("Plugins module not available")
+
+        with patch.object(mod, "get_registry", return_value=mock_registry):
+            result = plugins_handler.handle("/api/plugins/test-plugin-1", {}, None)
+
+            assert result is not None
+            assert result.headers is not None
+            assert "Sunset" in result.headers
+
+    def test_versioned_plugin_details_no_sunset(self, plugins_handler, mock_registry):
+        """Versioned plugin details path should NOT include Sunset header."""
+        import aragora.server.handlers.features.plugins as mod
+
+        if not mod.PLUGINS_AVAILABLE:
+            pytest.skip("Plugins module not available")
+
+        with patch.object(mod, "get_registry", return_value=mock_registry):
+            result = plugins_handler.handle("/api/v1/plugins/test-plugin-1", {}, None)
+
+            assert result is not None
+            if result.headers:
+                assert "Sunset" not in result.headers

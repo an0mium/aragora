@@ -51,6 +51,11 @@ except ImportError:
 
 pytestmark = pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP package not installed")
 
+# Import orchestrator module to make it available for patching
+# This is required because aragora.debate uses lazy imports via __getattr__
+# and patch() needs the submodule to be loaded first
+import aragora.debate.orchestrator  # noqa: F401
+
 
 async def _get_tools(server):
     """Helper to get tools using the correct MCP API."""

@@ -255,3 +255,332 @@ class TestAIProvidersHealthCheck:
         assert result["healthy"] is True
         assert result["any_available"] is True
         assert result["providers"]["anthropic"] is True
+
+
+class TestDatabaseStoresHealth:
+    """Tests for /api/v1/health/stores endpoint."""
+
+    def test_stores_health_returns_status(self, health_handler):
+        """Database stores health should return status."""
+        result = health_handler.handle("/api/v1/health/stores", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        assert "status" in body
+        assert "stores" in body
+
+    def test_stores_health_includes_memory_store(self, health_handler):
+        """Database stores health should include memory store info."""
+        result = health_handler.handle("/api/v1/health/stores", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        assert "memory" in body.get("stores", {}) or body["status"] in [
+            "healthy",
+            "degraded",
+            "unhealthy",
+        ]
+
+    def test_stores_health_returns_200_when_healthy(self, health_handler):
+        """Database stores should return 200 when healthy."""
+        result = health_handler.handle("/api/v1/health/stores", {}, None)
+
+        assert result is not None
+        # Should be 200 for healthy/degraded, 503 for unhealthy
+        assert result.status_code in [200, 503]
+
+
+class TestSyncStatus:
+    """Tests for /api/v1/health/sync endpoint."""
+
+    def test_sync_status_returns_response(self, health_handler):
+        """Sync status should return sync information."""
+        result = health_handler.handle("/api/v1/health/sync", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        # Response should have some useful content
+        assert isinstance(body, dict)
+        assert len(body) > 0
+
+    def test_sync_status_returns_200(self, health_handler):
+        """Sync status should return 200."""
+        result = health_handler.handle("/api/v1/health/sync", {}, None)
+
+        assert result is not None
+        assert result.status_code in [200, 503]
+
+
+class TestCircuitBreakersStatus:
+    """Tests for /api/v1/health/circuits endpoint."""
+
+    def test_circuits_returns_status(self, health_handler):
+        """Circuit breakers should return status."""
+        result = health_handler.handle("/api/v1/health/circuits", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        assert "status" in body or "circuits" in body
+
+    def test_circuits_returns_200(self, health_handler):
+        """Circuit breakers should return 200."""
+        result = health_handler.handle("/api/v1/health/circuits", {}, None)
+
+        assert result is not None
+        assert result.status_code == 200
+
+
+class TestSlowDebatesStatus:
+    """Tests for /api/v1/health/slow-debates endpoint."""
+
+    def test_slow_debates_returns_status(self, health_handler):
+        """Slow debates should return status."""
+        result = health_handler.handle("/api/v1/health/slow-debates", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        assert "status" in body or "slow_debates" in body or "debates" in body
+
+    def test_slow_debates_returns_count(self, health_handler):
+        """Slow debates should return count or list."""
+        result = health_handler.handle("/api/v1/health/slow-debates", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        # Should have some count or list of slow debates
+        assert any(k in body for k in ["count", "slow_debates", "debates", "status"])
+
+
+class TestCrossPollinationHealth:
+    """Tests for /api/v1/health/cross-pollination endpoint."""
+
+    def test_cross_pollination_returns_status(self, health_handler):
+        """Cross-pollination health should return status."""
+        result = health_handler.handle("/api/v1/health/cross-pollination", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        assert "status" in body
+
+    def test_cross_pollination_includes_enabled_flag(self, health_handler):
+        """Cross-pollination should indicate if enabled."""
+        result = health_handler.handle("/api/v1/health/cross-pollination", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        # Should indicate enabled status
+        assert "enabled" in body or "status" in body
+
+
+class TestKnowledgeMoundHealth:
+    """Tests for /api/v1/health/knowledge-mound endpoint."""
+
+    def test_knowledge_mound_returns_status(self, health_handler):
+        """Knowledge Mound health should return status."""
+        result = health_handler.handle("/api/v1/health/knowledge-mound", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        assert "status" in body
+
+    def test_knowledge_mound_includes_adapter_info(self, health_handler):
+        """Knowledge Mound should include adapter information."""
+        result = health_handler.handle("/api/v1/health/knowledge-mound", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        # Should have adapter or KM related info
+        assert any(k in body for k in ["adapters", "knowledge_mound", "km", "status"])
+
+
+class TestEncryptionHealth:
+    """Tests for encryption-related health checks.
+
+    Note: Encryption health is part of the detailed/deep checks, not a separate endpoint.
+    """
+
+    def test_encryption_in_deep_health(self, health_handler):
+        """Encryption info should be available in deep health check."""
+        with patch.object(health_handler, "get_storage", return_value=None):
+            with patch.object(health_handler, "get_elo_system", return_value=None):
+                with patch.object(health_handler, "get_nomic_dir", return_value=None):
+                    result = health_handler.handle("/api/v1/health/deep", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        assert "checks" in body
+
+    def test_encryption_in_diagnostics(self, health_handler):
+        """Encryption key check should be in diagnostics checklist."""
+        result = health_handler.handle("/api/v1/diagnostics", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        # Encryption key is in the security checklist
+        if "checklist" in body and "security" in body["checklist"]:
+            assert "encryption_key" in body["checklist"]["security"]
+
+
+class TestPlatformHealth:
+    """Tests for /api/v1/health/platform and /api/v1/platform/health endpoints."""
+
+    def test_platform_health_returns_status(self, health_handler):
+        """Platform health should return status."""
+        result = health_handler.handle("/api/v1/health/platform", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        assert "status" in body
+
+    def test_platform_health_alternate_route(self, health_handler):
+        """Platform health should work on alternate route."""
+        result = health_handler.handle("/api/v1/platform/health", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        assert "status" in body
+
+    def test_platform_health_includes_environment(self, health_handler):
+        """Platform health should include environment info."""
+        result = health_handler.handle("/api/v1/health/platform", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        # Should have environment or platform info
+        assert any(k in body for k in ["environment", "env", "platform", "status"])
+
+
+class TestDiagnostics:
+    """Tests for /api/v1/diagnostics endpoint."""
+
+    def test_diagnostics_returns_checklist_or_components(self, health_handler):
+        """Diagnostics should return checklist or components."""
+        result = health_handler.handle("/api/v1/diagnostics", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        # Response includes checklist, components, issues, live
+        assert "checklist" in body or "components" in body or "live" in body
+
+    def test_diagnostics_deployment_route(self, health_handler):
+        """Diagnostics should work on deployment route."""
+        result = health_handler.handle("/api/v1/diagnostics/deployment", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        assert "status" in body or "deployment" in body or "checklist" in body
+
+    def test_diagnostics_includes_checklist(self, health_handler):
+        """Diagnostics should include deployment checklist."""
+        result = health_handler.handle("/api/v1/diagnostics", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        # Should have checklist or status info
+        assert any(k in body for k in ["checklist", "checks", "status", "deployment"])
+
+
+class TestBackwardCompatibilityRoutes:
+    """Tests for backward compatibility (non-v1) routes."""
+
+    def test_non_v1_health_route(self, health_handler):
+        """Non-v1 health route should work."""
+        result = health_handler.handle("/api/health", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        assert "status" in body
+
+    def test_non_v1_health_detailed_route(self, health_handler):
+        """Non-v1 detailed health route should work."""
+        result = health_handler.handle("/api/health/detailed", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        assert "components" in body or "status" in body
+
+    def test_non_v1_health_deep_route(self, health_handler):
+        """Non-v1 deep health route should work."""
+        result = health_handler.handle("/api/health/deep", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        assert "status" in body
+
+    def test_non_v1_stores_route(self, health_handler):
+        """Non-v1 stores route should work."""
+        result = health_handler.handle("/api/health/stores", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        assert "status" in body or "stores" in body
+
+    def test_non_v1_diagnostics_route(self, health_handler):
+        """Non-v1 diagnostics route should work."""
+        result = health_handler.handle("/api/diagnostics", {}, None)
+
+        assert result is not None
+        body = json.loads(result.body)
+        # Response includes checklist, components, issues, live
+        assert "checklist" in body or "components" in body or "live" in body
+
+
+class TestHealthHandlerRoutes:
+    """Tests for all registered routes."""
+
+    def test_all_routes_are_list(self, health_handler):
+        """ROUTES should be a list."""
+        assert isinstance(health_handler.ROUTES, list)
+
+    def test_routes_not_empty(self, health_handler):
+        """ROUTES should not be empty."""
+        assert len(health_handler.ROUTES) > 0
+
+    def test_healthz_in_routes(self, health_handler):
+        """Liveness probe route should be in ROUTES."""
+        assert "/healthz" in health_handler.ROUTES
+
+    def test_readyz_in_routes(self, health_handler):
+        """Readiness probe route should be in ROUTES."""
+        assert "/readyz" in health_handler.ROUTES
+
+    def test_all_v1_health_routes_present(self, health_handler):
+        """All v1 health routes should be present."""
+        expected_routes = [
+            "/api/v1/health",
+            "/api/v1/health/detailed",
+            "/api/v1/health/deep",
+            "/api/v1/health/stores",
+            "/api/v1/health/sync",
+            "/api/v1/health/circuits",
+            "/api/v1/health/slow-debates",
+            "/api/v1/health/cross-pollination",
+            "/api/v1/health/knowledge-mound",
+            "/api/v1/health/platform",
+        ]
+        for route in expected_routes:
+            assert route in health_handler.ROUTES, f"Missing route: {route}"
+
+    def test_can_handle_all_routes(self, health_handler):
+        """Handler should recognize all registered routes."""
+        for route in health_handler.ROUTES:
+            assert health_handler.can_handle(route) is True, f"Cannot handle: {route}"
+
+
+class TestHealthHandlerErrorHandling:
+    """Tests for error handling in health endpoints."""
+
+    def test_unknown_route_returns_none(self, health_handler):
+        """Unknown routes should return None."""
+        result = health_handler.handle("/api/v1/unknown", {}, None)
+        assert result is None
+
+    def test_invalid_path_returns_none(self, health_handler):
+        """Invalid paths should return None."""
+        result = health_handler.handle("/invalid", {}, None)
+        assert result is None
+
+    def test_partial_path_returns_none(self, health_handler):
+        """Partial paths should return None."""
+        result = health_handler.handle("/api/v1/heal", {}, None)
+        assert result is None

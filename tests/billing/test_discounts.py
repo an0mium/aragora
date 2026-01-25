@@ -12,6 +12,7 @@ Tests cover:
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from decimal import Decimal
 import tempfile
 import pytest
@@ -31,8 +32,9 @@ from aragora.billing.discounts import (
 @pytest.fixture
 def discount_manager():
     """Create a discount manager with temp database."""
-    with tempfile.NamedTemporaryFile(suffix=".db") as f:
-        manager = DiscountManager(db_path=f.name)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        db_path = Path(temp_dir) / "discounts.db"
+        manager = DiscountManager(db_path=str(db_path))
         yield manager
 
 
