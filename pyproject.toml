@@ -93,6 +93,8 @@ test = [
     "langchain>=0.1,<1.0",  # LangChain integration tests
     # Document processing
     "weaviate-client>=4.0,<5.0",  # Weaviate indexing tests
+    # Formal verification
+    "z3-solver>=4.12,<5.0",  # Z3 theorem prover for formal verification tests
 ]
 monitoring = [
     "prometheus-client>=0.19,<1.0",
