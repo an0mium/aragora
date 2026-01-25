@@ -14,6 +14,7 @@ from typing import Any, Optional
 
 from aragora.agents.cli_agents import CLIAgent
 from aragora.core import Message
+from aragora.core_types import AgentRole
 from aragora.documents.models import DocumentChunk
 
 from aragora.audit.exploration.session import (
@@ -198,7 +199,7 @@ Return JSON:
         self,
         name: str,
         model: str = "claude-sonnet-4",
-        role: str = "explorer",
+        role: AgentRole = "analyst",
         timeout: int = 120,
         config: Optional[ExplorationConfig] = None,
         **kwargs,

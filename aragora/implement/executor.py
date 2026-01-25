@@ -524,7 +524,7 @@ Be concise and actionable."""
             self._codex = CodexAgent(
                 name="codex-reviewer",
                 model="o3",
-                role="reviewer",
+                role="critic",
                 timeout=timeout,
             )
             self._codex.system_prompt = """You are a senior code reviewer.
