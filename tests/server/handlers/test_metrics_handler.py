@@ -73,24 +73,24 @@ class TestMetricsHandlerRoutesAttribute:
         return MetricsHandler(mock_server_context)
 
     def test_routes_contains_metrics(self, handler):
-        """ROUTES contains metrics base."""
-        assert "/api/v1/metrics" in handler.ROUTES
+        """ROUTES contains metrics base (unversioned, version stripped by can_handle)."""
+        assert "/api/metrics" in handler.ROUTES
 
     def test_routes_contains_health(self, handler):
         """ROUTES contains health."""
-        assert "/api/v1/metrics/health" in handler.ROUTES
+        assert "/api/metrics/health" in handler.ROUTES
 
     def test_routes_contains_cache(self, handler):
         """ROUTES contains cache."""
-        assert "/api/v1/metrics/cache" in handler.ROUTES
+        assert "/api/metrics/cache" in handler.ROUTES
 
     def test_routes_contains_verification(self, handler):
         """ROUTES contains verification."""
-        assert "/api/v1/metrics/verification" in handler.ROUTES
+        assert "/api/metrics/verification" in handler.ROUTES
 
     def test_routes_contains_system(self, handler):
         """ROUTES contains system."""
-        assert "/api/v1/metrics/system" in handler.ROUTES
+        assert "/api/metrics/system" in handler.ROUTES
 
     def test_routes_contains_prometheus(self, handler):
         """ROUTES contains Prometheus endpoint."""
