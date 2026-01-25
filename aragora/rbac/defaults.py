@@ -623,6 +623,188 @@ PERM_CONNECTOR_TEST = _permission(
     "Test Connectors",
     "Verify connector health and connectivity",
 )
+PERM_CONNECTOR_UPDATE = _permission(
+    ResourceType.CONNECTOR,
+    Action.UPDATE,
+    "Update Connectors",
+    "Modify connector configurations",
+)
+PERM_CONNECTOR_ROLLBACK = _permission(
+    ResourceType.CONNECTOR,
+    Action.ROLLBACK,
+    "Rollback Connectors",
+    "Revert failed connector operations",
+)
+
+# Enterprise sensitive operations - Audit
+PERM_AUDIT_LOG_DELETE = _permission(
+    ResourceType.AUDIT_LOG,
+    Action.DELETE,
+    "Delete Audit Logs",
+    "Permanently delete audit trail records (compliance-critical)",
+)
+
+# Enterprise sensitive operations - Evidence
+PERM_EVIDENCE_DELETE = _permission(
+    ResourceType.EVIDENCE,
+    Action.DELETE,
+    "Delete Evidence",
+    "Permanently remove evidence records",
+)
+
+# Enterprise sensitive operations - Template
+PERM_TEMPLATE_CREATE = _permission(
+    ResourceType.TEMPLATE,
+    Action.CREATE,
+    "Create Templates",
+    "Create workflow templates",
+)
+PERM_TEMPLATE_READ = _permission(
+    ResourceType.TEMPLATE,
+    Action.READ,
+    "Read Templates",
+    "View workflow templates",
+)
+PERM_TEMPLATE_UPDATE = _permission(
+    ResourceType.TEMPLATE,
+    Action.UPDATE,
+    "Update Templates",
+    "Modify workflow templates",
+)
+PERM_TEMPLATE_DELETE = _permission(
+    ResourceType.TEMPLATE,
+    Action.DELETE,
+    "Delete Templates",
+    "Permanently delete workflow templates",
+)
+
+# Enterprise sensitive operations - Quota
+PERM_QUOTA_OVERRIDE = _permission(
+    ResourceType.QUOTA,
+    Action.OVERRIDE,
+    "Override Quotas",
+    "Emergency quota overrides",
+)
+
+# Enterprise sensitive operations - Budget
+PERM_BUDGET_OVERRIDE = _permission(
+    ResourceType.BUDGET,
+    Action.OVERRIDE,
+    "Override Budget",
+    "Emergency budget increases",
+)
+
+# Enterprise sensitive operations - Session
+PERM_SESSION_CREATE = _permission(
+    ResourceType.SESSION,
+    Action.CREATE,
+    "Create Sessions",
+    "Create sessions on behalf of users",
+)
+
+# Enterprise sensitive operations - Organization
+PERM_ORG_DELETE = _permission(
+    ResourceType.ORGANIZATION,
+    Action.DELETE,
+    "Delete Organization",
+    "Permanently delete an organization (irreversible)",
+)
+
+# Enterprise sensitive operations - Team
+PERM_TEAM_DISSOLVE = _permission(
+    ResourceType.TEAM,
+    Action.DISSOLVE,
+    "Dissolve Teams",
+    "Dissolve teams with resource reallocation",
+)
+
+# Enterprise sensitive operations - Role
+PERM_ROLE_CREATE = _permission(
+    ResourceType.ROLE,
+    Action.CREATE,
+    "Create Roles",
+    "Create custom roles",
+)
+PERM_ROLE_READ = _permission(
+    ResourceType.ROLE,
+    Action.READ,
+    "Read Roles",
+    "View custom role definitions",
+)
+PERM_ROLE_UPDATE = _permission(
+    ResourceType.ROLE,
+    Action.UPDATE,
+    "Update Roles",
+    "Modify custom role permissions",
+)
+PERM_ROLE_DELETE = _permission(
+    ResourceType.ROLE,
+    Action.DELETE,
+    "Delete Roles",
+    "Permanently delete custom roles",
+)
+
+# Enterprise sensitive operations - API Key
+PERM_API_KEY_LIST_ALL = _permission(
+    ResourceType.API_KEY,
+    Action.LIST_ALL,
+    "List All API Keys",
+    "View all API keys in organization",
+)
+PERM_API_KEY_EXPORT_SECRET = _permission(
+    ResourceType.API_KEY,
+    Action.EXPORT_SECRET,
+    "Export API Key Secrets",
+    "Export API key secrets after creation",
+)
+
+# Enterprise sensitive operations - Billing
+PERM_BILLING_EXPORT_HISTORY = _permission(
+    ResourceType.BILLING,
+    Action.EXPORT_HISTORY,
+    "Export Billing History",
+    "Export historical billing data",
+)
+
+# Enterprise sensitive operations - Backup
+PERM_BACKUP_CREATE = _permission(
+    ResourceType.BACKUP,
+    Action.CREATE,
+    "Create Backups",
+    "Create system backups",
+)
+PERM_BACKUP_READ = _permission(
+    ResourceType.BACKUP,
+    Action.READ,
+    "Read Backups",
+    "View backup status and metadata",
+)
+PERM_BACKUP_RESTORE = _permission(
+    ResourceType.BACKUP,
+    Action.RESTORE,
+    "Restore Backups",
+    "Restore system from backup (irreversible)",
+)
+PERM_BACKUP_DELETE = _permission(
+    ResourceType.BACKUP,
+    Action.DELETE,
+    "Delete Backups",
+    "Remove backup archives",
+)
+
+# Enterprise sensitive operations - Disaster Recovery
+PERM_DR_READ = _permission(
+    ResourceType.DISASTER_RECOVERY,
+    Action.READ,
+    "Read DR Status",
+    "View disaster recovery configuration and status",
+)
+PERM_DR_EXECUTE = _permission(
+    ResourceType.DISASTER_RECOVERY,
+    Action.EXECUTE,
+    "Execute DR Procedures",
+    "Execute disaster recovery procedures",
+)
 
 
 # All permissions as a dictionary for easy lookup
@@ -787,6 +969,34 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_CONNECTOR_AUTHORIZE,
         PERM_CONNECTOR_ROTATE,
         PERM_CONNECTOR_TEST,
+        PERM_CONNECTOR_UPDATE,
+        PERM_CONNECTOR_ROLLBACK,
+        # Enterprise - Sensitive Operations
+        PERM_AUDIT_LOG_DELETE,
+        PERM_EVIDENCE_DELETE,
+        PERM_TEMPLATE_CREATE,
+        PERM_TEMPLATE_READ,
+        PERM_TEMPLATE_UPDATE,
+        PERM_TEMPLATE_DELETE,
+        PERM_QUOTA_OVERRIDE,
+        PERM_BUDGET_OVERRIDE,
+        PERM_SESSION_CREATE,
+        PERM_ORG_DELETE,
+        PERM_TEAM_DISSOLVE,
+        PERM_ROLE_CREATE,
+        PERM_ROLE_READ,
+        PERM_ROLE_UPDATE,
+        PERM_ROLE_DELETE,
+        PERM_API_KEY_LIST_ALL,
+        PERM_API_KEY_EXPORT_SECRET,
+        PERM_BILLING_EXPORT_HISTORY,
+        # Enterprise - Backup & DR
+        PERM_BACKUP_CREATE,
+        PERM_BACKUP_READ,
+        PERM_BACKUP_RESTORE,
+        PERM_BACKUP_DELETE,
+        PERM_DR_READ,
+        PERM_DR_EXECUTE,
     ]
 }
 
