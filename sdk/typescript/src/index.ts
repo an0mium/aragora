@@ -286,5 +286,8 @@ export {
   streamDebateById,
 } from './websocket';
 
+// Re-export namespace APIs (for advanced use cases)
+export { DebatesAPI, AgentsAPI, WorkflowsAPI, SMEAPI } from './namespaces';
+
 // Default export for convenience
 export { createClient as default } from './client';

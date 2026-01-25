@@ -7,3 +7,4 @@
 export { DebatesAPI } from './debates';
 export { AgentsAPI } from './agents';
 export { WorkflowsAPI } from './workflows';
+export { SMEAPI } from './sme';

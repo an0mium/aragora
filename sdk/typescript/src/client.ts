@@ -144,7 +144,7 @@ import type {
 } from './types';
 import { AragoraError } from './types';
 import { AragoraWebSocket, createWebSocket, streamDebate, type WebSocketOptions, type StreamOptions } from './websocket';
-import { DebatesAPI, AgentsAPI, WorkflowsAPI } from './namespaces';
+import { DebatesAPI, AgentsAPI, WorkflowsAPI, SMEAPI } from './namespaces';
 
 interface RequestOptions {
   body?: unknown;
@@ -201,6 +201,12 @@ export class AragoraClient {
    */
   readonly workflows: WorkflowsAPI;
 
+  /**
+   * SME API namespace.
+   * Provides pre-built workflows and onboarding for small/medium enterprises.
+   */
+  readonly sme: SMEAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -216,6 +222,7 @@ export class AragoraClient {
     this.debates = new DebatesAPI(this);
     this.agents = new AgentsAPI(this);
     this.workflows = new WorkflowsAPI(this);
+    this.sme = new SMEAPI(this);
   }
 
   // ===========================================================================

@@ -249,6 +249,133 @@ describe('Namespace APIs', () => {
     });
   });
 
+  describe('sme namespace', () => {
+    it('should expose sme namespace', () => {
+      const client = createClient({ baseUrl: 'https://api.example.com' });
+      expect(client.sme).toBeDefined();
+      expect(typeof client.sme.listWorkflows).toBe('function');
+      expect(typeof client.sme.executeWorkflow).toBe('function');
+      expect(typeof client.sme.getOnboardingStatus).toBe('function');
+    });
+
+    it('should list SME workflows via namespace', async () => {
+      const client = createClient({ baseUrl: 'https://api.example.com' });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ workflows: [{ id: 'invoice', name: 'Invoice Generation' }] })),
+      });
+
+      const result = await client.sme.listWorkflows();
+      expect(result.workflows).toHaveLength(1);
+      expect(result.workflows[0].id).toBe('invoice');
+    });
+
+    it('should execute SME workflow via namespace', async () => {
+      const client = createClient({ baseUrl: 'https://api.example.com' });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ execution_id: 'exec-sme-123', status: 'pending' })),
+      });
+
+      const result = await client.sme.executeWorkflow('invoice', {
+        inputs: { customer_email: 'test@example.com' }
+      });
+      expect(result.execution_id).toBe('exec-sme-123');
+    });
+
+    it('should get onboarding status via namespace', async () => {
+      const client = createClient({ baseUrl: 'https://api.example.com' });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ completed: false, step: 3, total_steps: 8 })),
+      });
+
+      const status = await client.sme.getOnboardingStatus();
+      expect(status.completed).toBe(false);
+      expect(status.step).toBe(3);
+    });
+
+    it('should complete onboarding via namespace', async () => {
+      const client = createClient({ baseUrl: 'https://api.example.com' });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ completed: true, organization_id: 'org-123', completed_at: '2024-01-15' })),
+      });
+
+      const result = await client.sme.completeOnboarding({ first_debate_id: 'debate-1' });
+      expect(result.completed).toBe(true);
+      expect(result.organization_id).toBe('org-123');
+    });
+
+    it('should provide quick invoice helper', async () => {
+      const client = createClient({ baseUrl: 'https://api.example.com' });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ execution_id: 'exec-inv-123' })),
+      });
+
+      const result = await client.sme.quickInvoice({
+        customerEmail: 'billing@client.com',
+        customerName: 'Client Corp',
+        items: [{ name: 'Service', price: 1000 }]
+      });
+      expect(result.execution_id).toBe('exec-inv-123');
+    });
+
+    it('should provide quick inventory check helper', async () => {
+      const client = createClient({ baseUrl: 'https://api.example.com' });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ execution_id: 'exec-inv-check-123' })),
+      });
+
+      const result = await client.sme.quickInventoryCheck({
+        productId: 'SKU-001',
+        minThreshold: 10,
+        notificationEmail: 'ops@company.com'
+      });
+      expect(result.execution_id).toBe('exec-inv-check-123');
+    });
+
+    it('should provide quick report helper', async () => {
+      const client = createClient({ baseUrl: 'https://api.example.com' });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ execution_id: 'exec-report-123' })),
+      });
+
+      const result = await client.sme.quickReport({
+        type: 'sales',
+        period: 'weekly',
+        format: 'pdf'
+      });
+      expect(result.execution_id).toBe('exec-report-123');
+    });
+
+    it('should provide quick followup helper', async () => {
+      const client = createClient({ baseUrl: 'https://api.example.com' });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ execution_id: 'exec-followup-123' })),
+      });
+
+      const result = await client.sme.quickFollowup({
+        customerId: 'cust-123',
+        type: 'renewal',
+        message: 'Your subscription is expiring!'
+      });
+      expect(result.execution_id).toBe('exec-followup-123');
+    });
+  });
+
   describe('backward compatibility', () => {
     it('should still support flat API methods', async () => {
       const client = createClient({ baseUrl: 'https://api.example.com' });
