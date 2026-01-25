@@ -396,14 +396,114 @@ docker compose exec aragora alembic upgrade head
 
 ---
 
-## Related Documentation
+## Kubernetes Deployment
 
-- [ENVIRONMENT.md](ENVIRONMENT.md) - Full environment variable reference
-- [SUPABASE_SETUP.md](SUPABASE_SETUP.md) - Supabase configuration
-- [API_REFERENCE.md](API_REFERENCE.md) - API documentation
-- [BACKLOG_Q1_2026.md](BACKLOG_Q1_2026.md) - Roadmap
+### Quick Start with Kustomize
+
+```bash
+# Apply all resources
+kubectl apply -k deploy/kubernetes/
+
+# Check deployment
+kubectl -n aragora get pods
+
+# View logs
+kubectl -n aragora logs -f deployment/aragora
+```
+
+### Helm Chart
+
+```bash
+# Add values
+cat > values.yaml <<EOF
+replicaCount: 3
+env:
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  ARAGORA_ENV: production
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+EOF
+
+# Install
+helm install aragora deploy/helm/aragora -f values.yaml
+```
+
+### Scaling Guidelines
+
+| Concurrent Debates | Replicas | CPU | Memory |
+|---|---|---|---|
+| 1-5 | 1 | 0.5 core | 1GB |
+| 5-20 | 2-3 | 2 cores | 2GB |
+| 20-50 | 3-5 | 4 cores | 4GB |
+| 50+ | 5-10 | 8+ cores | 8GB+ |
 
 ---
 
-*Created: 2026-01-24*
-*Version: 2.1.15*
+## Observability Stack
+
+### Start Full Monitoring
+
+```bash
+cd deploy/observability
+docker compose up -d
+```
+
+**Access:**
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000 (admin/admin)
+- Jaeger: http://localhost:16686
+- AlertManager: http://localhost:9093
+
+### Pre-built Dashboards
+
+Grafana dashboards included:
+- API performance and latency
+- Debate throughput and success rates
+- Agent response times
+- Memory and resource utilization
+- Error rates and alerting
+
+---
+
+## Security Checklist
+
+### Production Hardening
+
+- [ ] Set `ARAGORA_ENV=production`
+- [ ] Generate unique `ARAGORA_JWT_SECRET` (32+ chars)
+- [ ] Generate unique `ARAGORA_ENCRYPTION_KEY` (Fernet key)
+- [ ] Configure `ARAGORA_ALLOWED_ORIGINS` (no wildcards)
+- [ ] Enable TLS/HTTPS with valid certificates
+- [ ] Configure rate limiting
+- [ ] Set up RBAC roles
+- [ ] Enable audit logging
+- [ ] Configure backup schedule
+- [ ] Set resource limits on containers
+
+### Network Security
+
+```bash
+# Firewall rules (example for ufw)
+ufw allow 443/tcp   # HTTPS
+ufw allow 80/tcp    # HTTP (redirect to HTTPS)
+ufw deny 8080/tcp   # Block direct API access
+ufw deny 5432/tcp   # Block PostgreSQL
+ufw deny 6379/tcp   # Block Redis
+```
+
+---
+
+## Related Documentation
+
+- [ENVIRONMENT.md](ENVIRONMENT.md) - Full environment variable reference (70+ variables)
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Detailed deployment guide
+- [SUPABASE_SETUP.md](SUPABASE_SETUP.md) - Supabase configuration
+- [API_REFERENCE.md](API_REFERENCE.md) - API documentation
+- [TEST_COVERAGE_SLOS.md](TEST_COVERAGE_SLOS.md) - Test coverage targets
+
+---
+
+*Updated: 2026-01-25*
+*Version: 2.2.0*
