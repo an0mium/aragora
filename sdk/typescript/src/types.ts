@@ -1208,3 +1208,767 @@ export interface CritiqueEntry {
   timestamp: string;
   impact_score?: number;
 }
+
+// =============================================================================
+// Auth Types
+// =============================================================================
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  name?: string;
+  organization?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface RegisterResponse {
+  user_id: string;
+  email: string;
+  name?: string;
+  requires_verification: boolean;
+  created_at: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+  mfa_code?: string;
+}
+
+export interface AuthToken {
+  access_token: string;
+  refresh_token?: string;
+  token_type: string;
+  expires_in: number;
+  expires_at?: string;
+  scope?: string;
+}
+
+export interface RefreshRequest {
+  refresh_token: string;
+}
+
+export interface VerifyEmailRequest {
+  token: string;
+}
+
+export interface VerifyResponse {
+  verified: boolean;
+  email: string;
+  user_id: string;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+  organization?: string;
+  avatar_url?: string;
+  roles?: string[];
+  permissions?: string[];
+  mfa_enabled: boolean;
+  email_verified: boolean;
+  created_at: string;
+  updated_at?: string;
+  last_login?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateProfileRequest {
+  name?: string;
+  organization?: string;
+  avatar_url?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateProfileResponse {
+  updated: boolean;
+  user: User;
+}
+
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  new_password: string;
+}
+
+export interface OAuthUrlParams {
+  provider: 'google' | 'github' | 'microsoft' | 'okta' | 'saml';
+  redirect_uri?: string;
+  state?: string;
+  scope?: string;
+}
+
+export interface OAuthUrl {
+  url: string;
+  state: string;
+  provider: string;
+}
+
+export interface OAuthCallbackRequest {
+  code: string;
+  state: string;
+  provider: string;
+}
+
+export interface MFASetupRequest {
+  type: 'totp' | 'sms' | 'email';
+  phone_number?: string;
+}
+
+export interface MFASetupResponse {
+  secret?: string;
+  qr_code_url?: string;
+  backup_codes?: string[];
+  verification_required: boolean;
+}
+
+export interface MFAVerifyRequest {
+  code: string;
+  type: 'totp' | 'sms' | 'email';
+}
+
+export interface MFAVerifyResponse {
+  verified: boolean;
+  mfa_enabled: boolean;
+}
+
+// =============================================================================
+// Tenancy Types
+// =============================================================================
+
+export interface Tenant {
+  id: string;
+  name: string;
+  slug?: string;
+  description?: string;
+  owner_id: string;
+  plan?: string;
+  status: 'active' | 'suspended' | 'pending' | 'deleted';
+  settings?: Record<string, unknown>;
+  created_at: string;
+  updated_at?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateTenantRequest {
+  name: string;
+  slug?: string;
+  description?: string;
+  plan?: string;
+  settings?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateTenantRequest {
+  name?: string;
+  description?: string;
+  plan?: string;
+  status?: 'active' | 'suspended';
+  settings?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TenantList {
+  tenants: Tenant[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface QuotaStatus {
+  tenant_id: string;
+  quotas: {
+    debates_per_month: { used: number; limit: number };
+    agents_per_debate: { used: number; limit: number };
+    storage_bytes: { used: number; limit: number };
+    api_calls_per_minute: { used: number; limit: number };
+    members: { used: number; limit: number };
+  };
+  period_start: string;
+  period_end: string;
+  overage_allowed: boolean;
+}
+
+export interface QuotaUpdate {
+  debates_per_month?: number;
+  agents_per_debate?: number;
+  storage_bytes?: number;
+  api_calls_per_minute?: number;
+  members?: number;
+  overage_allowed?: boolean;
+}
+
+export interface TenantMember {
+  user_id: string;
+  email: string;
+  name?: string;
+  role: string;
+  joined_at: string;
+  invited_by?: string;
+  status: 'active' | 'invited' | 'suspended';
+}
+
+export interface MemberList {
+  members: TenantMember[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface AddMemberRequest {
+  email: string;
+  role: string;
+  send_invitation?: boolean;
+}
+
+// =============================================================================
+// RBAC Types
+// =============================================================================
+
+export interface Permission {
+  id: string;
+  name: string;
+  description?: string;
+  resource: string;
+  action: string;
+  conditions?: Record<string, unknown>;
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  description?: string;
+  permissions: string[];
+  inherits_from?: string[];
+  is_system: boolean;
+  tenant_id?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface RoleList {
+  roles: Role[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface CreateRoleRequest {
+  name: string;
+  description?: string;
+  permissions: string[];
+  inherits_from?: string[];
+}
+
+export interface UpdateRoleRequest {
+  name?: string;
+  description?: string;
+  permissions?: string[];
+  inherits_from?: string[];
+}
+
+export interface PermissionList {
+  permissions: Permission[];
+  total: number;
+}
+
+export interface PermissionCheck {
+  allowed: boolean;
+  permission: string;
+  user_id: string;
+  matched_role?: string;
+  conditions_met?: boolean;
+  reason?: string;
+}
+
+export interface RoleAssignment {
+  user_id: string;
+  role_id: string;
+  tenant_id?: string;
+  assigned_at: string;
+  assigned_by?: string;
+  expires_at?: string;
+}
+
+export interface AssignmentList {
+  assignments: RoleAssignment[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface BulkAssignRequest {
+  assignments: Array<{
+    user_id: string;
+    role_id: string;
+    tenant_id?: string;
+    expires_at?: string;
+  }>;
+}
+
+export interface BulkAssignResponse {
+  assigned: number;
+  failed: number;
+  errors?: Array<{ user_id: string; error: string }>;
+}
+
+// =============================================================================
+// Tournament Types
+// =============================================================================
+
+export interface Tournament {
+  id: string;
+  name: string;
+  description?: string;
+  status: 'pending' | 'active' | 'completed' | 'cancelled';
+  format: 'single_elimination' | 'double_elimination' | 'round_robin' | 'swiss';
+  participants: string[];
+  current_round: number;
+  total_rounds: number;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  winner?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateTournamentRequest {
+  name: string;
+  description?: string;
+  format?: 'single_elimination' | 'double_elimination' | 'round_robin' | 'swiss';
+  participants: string[];
+  config?: {
+    debate_rounds?: number;
+    consensus_type?: string;
+    auto_advance?: boolean;
+  };
+  metadata?: Record<string, unknown>;
+}
+
+export interface TournamentStandings {
+  tournament_id: string;
+  standings: Array<{
+    rank: number;
+    agent: string;
+    wins: number;
+    losses: number;
+    draws: number;
+    points: number;
+    elo_change: number;
+  }>;
+  updated_at: string;
+}
+
+export interface TournamentBracket {
+  tournament_id: string;
+  rounds: Array<{
+    round_number: number;
+    matches: TournamentMatch[];
+  }>;
+}
+
+export interface TournamentMatch {
+  id: string;
+  tournament_id: string;
+  round: number;
+  participant_a: string;
+  participant_b: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'bye';
+  winner?: string;
+  debate_id?: string;
+  scheduled_at?: string;
+  completed_at?: string;
+  notes?: string;
+}
+
+// =============================================================================
+// Audit Types
+// =============================================================================
+
+export interface AuditEvent {
+  id: string;
+  timestamp: string;
+  actor_id: string;
+  actor_type: 'user' | 'system' | 'api_key' | 'service';
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  tenant_id?: string;
+  ip_address?: string;
+  user_agent?: string;
+  changes?: Record<string, { old: unknown; new: unknown }>;
+  metadata?: Record<string, unknown>;
+  success: boolean;
+  error_message?: string;
+}
+
+export interface AuditStats {
+  period: string;
+  total_events: number;
+  events_by_action: Record<string, number>;
+  events_by_resource: Record<string, number>;
+  events_by_actor: Record<string, number>;
+  failed_events: number;
+  unique_actors: number;
+}
+
+export interface AuditSession {
+  id: string;
+  name: string;
+  description?: string;
+  status: 'pending' | 'running' | 'paused' | 'completed' | 'cancelled' | 'failed';
+  target_type: 'codebase' | 'debate' | 'system' | 'custom';
+  target_id?: string;
+  config?: Record<string, unknown>;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  created_by: string;
+  findings_count?: number;
+  severity_breakdown?: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    info: number;
+  };
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateAuditSessionRequest {
+  name: string;
+  description?: string;
+  target_type: 'codebase' | 'debate' | 'system' | 'custom';
+  target_id?: string;
+  config?: {
+    probes?: string[];
+    depth?: 'shallow' | 'standard' | 'deep';
+    timeout_seconds?: number;
+    parallel?: boolean;
+  };
+  metadata?: Record<string, unknown>;
+}
+
+export interface AuditFinding {
+  id: string;
+  session_id: string;
+  type: string;
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  title: string;
+  description: string;
+  location?: {
+    file?: string;
+    line?: number;
+    column?: number;
+    context?: string;
+  };
+  evidence?: string[];
+  recommendations?: string[];
+  status: 'open' | 'acknowledged' | 'resolved' | 'false_positive';
+  assigned_to?: string;
+  created_at: string;
+  resolved_at?: string;
+  metadata?: Record<string, unknown>;
+}
+
+// =============================================================================
+// Onboarding Types
+// =============================================================================
+
+export interface OnboardingStatus {
+  completed: boolean;
+  organization_id: string;
+  completed_at?: string;
+  first_debate_id?: string;
+  template_used?: string;
+  steps: {
+    signup: boolean;
+    organization_created: boolean;
+    first_debate: boolean;
+    first_receipt: boolean;
+  };
+}
+
+// =============================================================================
+// Billing Types
+// =============================================================================
+
+export interface BillingPlan {
+  id: string;
+  name: string;
+  tier: 'free' | 'starter' | 'professional' | 'enterprise';
+  price_monthly: number;
+  price_yearly: number;
+  features: string[];
+  limits: {
+    debates_per_month: number;
+    agents_per_debate: number;
+    storage_gb: number;
+    api_calls_per_minute: number;
+  };
+}
+
+export interface BillingPlanList {
+  plans: BillingPlan[];
+}
+
+export interface BillingUsage {
+  period_start: string;
+  period_end: string;
+  debates_used: number;
+  debates_limit: number;
+  tokens_used: number;
+  cost_usd: number;
+  by_provider: Record<string, { tokens: number; cost: number }>;
+  by_feature: Record<string, { count: number; cost: number }>;
+}
+
+export interface Subscription {
+  id: string;
+  plan_id: string;
+  plan_name: string;
+  status: 'active' | 'cancelled' | 'past_due' | 'trialing' | 'incomplete';
+  current_period_start: string;
+  current_period_end: string;
+  cancel_at_period_end: boolean;
+  created_at: string;
+  stripe_subscription_id?: string;
+}
+
+export interface Invoice {
+  id: string;
+  number: string;
+  status: 'draft' | 'open' | 'paid' | 'void' | 'uncollectible';
+  amount_due: number;
+  amount_paid: number;
+  currency: string;
+  created_at: string;
+  due_date?: string;
+  paid_at?: string;
+  pdf_url?: string;
+  hosted_invoice_url?: string;
+}
+
+export interface InvoiceList {
+  invoices: Invoice[];
+  total: number;
+  has_more: boolean;
+}
+
+export interface UsageForecast {
+  projected_monthly_cost: number;
+  projected_debates: number;
+  projected_tokens: number;
+  recommended_tier: string;
+  savings_with_upgrade?: number;
+  days_until_limit?: number;
+}
+
+// =============================================================================
+// Notification Types
+// =============================================================================
+
+export interface NotificationStatus {
+  email_configured: boolean;
+  telegram_configured: boolean;
+  slack_configured: boolean;
+  last_notification_sent?: string;
+  notifications_sent_today: number;
+}
+
+export interface EmailNotificationConfig {
+  provider: 'smtp' | 'sendgrid' | 'ses';
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_username?: string;
+  smtp_password?: string;
+  use_tls?: boolean;
+  from_email: string;
+  from_name?: string;
+  notify_on_consensus?: boolean;
+  notify_on_debate_end?: boolean;
+  notify_on_error?: boolean;
+  enable_digest?: boolean;
+  digest_frequency?: 'daily' | 'weekly';
+}
+
+export interface TelegramNotificationConfig {
+  bot_token: string;
+  chat_id: string;
+  notify_on_consensus?: boolean;
+  notify_on_debate_end?: boolean;
+  notify_on_error?: boolean;
+}
+
+export interface NotificationRecipient {
+  email: string;
+  name?: string;
+  preferences: {
+    consensus: boolean;
+    debate_end: boolean;
+    errors: boolean;
+    digest: boolean;
+  };
+  added_at: string;
+}
+
+// =============================================================================
+// Budget Types
+// =============================================================================
+
+export interface Budget {
+  id: string;
+  name: string;
+  description?: string;
+  limit_amount: number;
+  spent_amount: number;
+  currency: string;
+  period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  period_start: string;
+  period_end: string;
+  status: 'active' | 'exceeded' | 'warning' | 'inactive';
+  alert_threshold: number;
+  created_at: string;
+  updated_at?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface BudgetList {
+  budgets: Budget[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface CreateBudgetRequest {
+  name: string;
+  description?: string;
+  limit_amount: number;
+  currency?: string;
+  period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  alert_threshold?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateBudgetRequest {
+  name?: string;
+  description?: string;
+  limit_amount?: number;
+  alert_threshold?: number;
+  status?: 'active' | 'inactive';
+  metadata?: Record<string, unknown>;
+}
+
+export interface BudgetAlert {
+  id: string;
+  budget_id: string;
+  type: 'budget_warning' | 'spike_detected' | 'limit_reached' | 'anomaly';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  message: string;
+  threshold_pct: number;
+  current_pct: number;
+  acknowledged: boolean;
+  acknowledged_at?: string;
+  acknowledged_by?: string;
+  created_at: string;
+}
+
+export interface BudgetAlertList {
+  alerts: BudgetAlert[];
+  total: number;
+}
+
+export interface BudgetSummary {
+  total_budget: number;
+  total_spent: number;
+  total_remaining: number;
+  active_budgets: number;
+  exceeded_budgets: number;
+  warning_budgets: number;
+  currency: string;
+}
+
+// =============================================================================
+// Cost Types
+// =============================================================================
+
+export interface CostDashboard {
+  period: string;
+  total_cost: number;
+  cost_change_pct: number;
+  debates_run: number;
+  tokens_used: number;
+  avg_cost_per_debate: number;
+  top_providers: Array<{ provider: string; cost: number; percentage: number }>;
+  budget_status: {
+    limit: number;
+    spent: number;
+    remaining: number;
+    pct_used: number;
+  };
+}
+
+export interface CostBreakdown {
+  period: string;
+  by_provider: Record<string, { cost: number; tokens: number; debates: number }>;
+  by_feature: Record<string, { cost: number; count: number }>;
+  by_model: Record<string, { cost: number; tokens: number }>;
+  by_user?: Record<string, { cost: number; debates: number }>;
+}
+
+export interface CostTimeline {
+  period: string;
+  granularity: 'hourly' | 'daily' | 'weekly' | 'monthly';
+  data_points: Array<{
+    timestamp: string;
+    cost: number;
+    tokens: number;
+    debates: number;
+  }>;
+}
+
+export interface CostAlert {
+  id: string;
+  type: 'budget_exceeded' | 'spike_detected' | 'anomaly' | 'forecast_warning';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  message: string;
+  details?: Record<string, unknown>;
+  dismissed: boolean;
+  created_at: string;
+}
+
+// =============================================================================
+// Audit Trail Types
+// =============================================================================
+
+export interface AuditTrail {
+  id: string;
+  debate_id?: string;
+  gauntlet_id?: string;
+  created_at: string;
+  verdict: string;
+  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  checksum: string;
+  findings: Array<{
+    type: string;
+    severity: string;
+    description: string;
+  }>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AuditTrailList {
+  trails: AuditTrail[];
+  total: number;
+  offset: number;
+  limit: number;
+}

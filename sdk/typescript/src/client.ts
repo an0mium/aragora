@@ -16,7 +16,13 @@ import type {
   AgentPosition,
   AgentProfile,
   AgentScore,
+  AuditEvent,
+  AuditFinding,
+  AuditSession,
+  AuditStats,
   ConsensusQualityAnalytics,
+  CreateAuditSessionRequest,
+  CreateTournamentRequest,
   CritiqueEntry,
   Debate,
   DebateCreateRequest,
@@ -50,6 +56,7 @@ import type {
   MemoryStats,
   MemoryTier,
   MemoryTierStats,
+  OnboardingStatus,
   OpponentBriefing,
   PaginationParams,
   RankingStats,
@@ -61,8 +68,13 @@ import type {
   ScoreAgentsRequest,
   SearchResponse,
   SelectionPlugin,
+  Tenant,
   TeamSelection,
   TeamSelectionRequest,
+  Tournament,
+  TournamentBracket,
+  TournamentMatch,
+  TournamentStandings,
   VerificationBackend,
   VerificationReport,
   VerificationResult,
@@ -1516,6 +1528,1086 @@ export class AragoraClient {
       'GET',
       '/api/v1/memory/glacial/insights',
       { params: options }
+    );
+  }
+
+  // ===========================================================================
+  // Authentication
+  // ===========================================================================
+
+  /**
+   * Register a new user account.
+   */
+  async registerUser(body: import('./types').RegisterRequest): Promise<import('./types').RegisterResponse> {
+    return this.request<import('./types').RegisterResponse>('POST', '/api/v1/auth/register', { body });
+  }
+
+  /**
+   * Login with email and password.
+   */
+  async login(body: import('./types').LoginRequest): Promise<import('./types').AuthToken> {
+    return this.request<import('./types').AuthToken>('POST', '/api/v1/auth/login', { body });
+  }
+
+  /**
+   * Refresh an access token using a refresh token.
+   */
+  async refreshToken(body: import('./types').RefreshRequest): Promise<import('./types').AuthToken> {
+    return this.request<import('./types').AuthToken>('POST', '/api/v1/auth/refresh', { body });
+  }
+
+  /**
+   * Logout and invalidate the current session.
+   */
+  async logout(): Promise<void> {
+    await this.request<void>('POST', '/api/v1/auth/logout');
+  }
+
+  /**
+   * Verify email address with a verification token.
+   */
+  async verifyEmail(body: import('./types').VerifyEmailRequest): Promise<import('./types').VerifyResponse> {
+    return this.request<import('./types').VerifyResponse>('POST', '/api/v1/auth/verify-email', { body });
+  }
+
+  /**
+   * Get the current authenticated user's profile.
+   */
+  async getCurrentUser(): Promise<import('./types').User> {
+    return this.request<import('./types').User>('GET', '/api/v1/auth/me');
+  }
+
+  /**
+   * Update the current user's profile.
+   */
+  async updateProfile(body: import('./types').UpdateProfileRequest): Promise<import('./types').UpdateProfileResponse> {
+    return this.request<import('./types').UpdateProfileResponse>('PATCH', '/api/v1/auth/me', { body });
+  }
+
+  /**
+   * Change the current user's password.
+   */
+  async changePassword(body: import('./types').ChangePasswordRequest): Promise<void> {
+    await this.request<void>('POST', '/api/v1/auth/change-password', { body });
+  }
+
+  /**
+   * Request a password reset email.
+   */
+  async requestPasswordReset(body: import('./types').ForgotPasswordRequest): Promise<void> {
+    await this.request<void>('POST', '/api/v1/auth/forgot-password', { body });
+  }
+
+  /**
+   * Reset password using a reset token.
+   */
+  async resetPassword(body: import('./types').ResetPasswordRequest): Promise<void> {
+    await this.request<void>('POST', '/api/v1/auth/reset-password', { body });
+  }
+
+  /**
+   * Get an OAuth authorization URL for a provider.
+   */
+  async getOAuthUrl(params: import('./types').OAuthUrlParams): Promise<import('./types').OAuthUrl> {
+    return this.request<import('./types').OAuthUrl>('GET', '/api/v1/auth/oauth/authorize', {
+      params: {
+        provider: params.provider,
+        redirect_uri: params.redirect_uri,
+        state: params.state,
+        scope: params.scope,
+      },
+    });
+  }
+
+  /**
+   * Complete OAuth flow with authorization code.
+   */
+  async completeOAuth(body: import('./types').OAuthCallbackRequest): Promise<import('./types').AuthToken> {
+    return this.request<import('./types').AuthToken>('POST', '/api/v1/auth/oauth/callback', { body });
+  }
+
+  /**
+   * Setup multi-factor authentication.
+   */
+  async setupMFA(body: import('./types').MFASetupRequest): Promise<import('./types').MFASetupResponse> {
+    return this.request<import('./types').MFASetupResponse>('POST', '/api/v1/auth/mfa/setup', { body });
+  }
+
+  /**
+   * Verify MFA setup with a code.
+   */
+  async verifyMFASetup(body: import('./types').MFAVerifyRequest): Promise<import('./types').MFAVerifyResponse> {
+    return this.request<import('./types').MFAVerifyResponse>('POST', '/api/v1/auth/mfa/verify', { body });
+  }
+
+  /**
+   * Disable multi-factor authentication.
+   */
+  async disableMFA(): Promise<void> {
+    await this.request<void>('DELETE', '/api/v1/auth/mfa');
+  }
+
+  // ===========================================================================
+  // Tenancy
+  // ===========================================================================
+
+  /**
+   * List all tenants the current user has access to.
+   */
+  async listTenants(params?: PaginationParams): Promise<import('./types').TenantList> {
+    return this.request<import('./types').TenantList>('GET', '/api/v1/tenants', { params });
+  }
+
+  /**
+   * Get a tenant by ID.
+   */
+  async getTenant(tenantId: string): Promise<import('./types').Tenant> {
+    return this.request<import('./types').Tenant>('GET', `/api/v1/tenants/${encodeURIComponent(tenantId)}`);
+  }
+
+  /**
+   * Create a new tenant.
+   */
+  async createTenant(body: import('./types').CreateTenantRequest): Promise<import('./types').Tenant> {
+    return this.request<import('./types').Tenant>('POST', '/api/v1/tenants', { body });
+  }
+
+  /**
+   * Update a tenant.
+   */
+  async updateTenant(tenantId: string, body: import('./types').UpdateTenantRequest): Promise<import('./types').Tenant> {
+    return this.request<import('./types').Tenant>('PATCH', `/api/v1/tenants/${encodeURIComponent(tenantId)}`, { body });
+  }
+
+  /**
+   * Delete a tenant.
+   */
+  async deleteTenant(tenantId: string): Promise<void> {
+    await this.request<void>('DELETE', `/api/v1/tenants/${encodeURIComponent(tenantId)}`);
+  }
+
+  /**
+   * Get quota status for a tenant.
+   */
+  async getTenantQuotas(tenantId: string): Promise<import('./types').QuotaStatus> {
+    return this.request<import('./types').QuotaStatus>('GET', `/api/v1/tenants/${encodeURIComponent(tenantId)}/quotas`);
+  }
+
+  /**
+   * Update quota limits for a tenant.
+   */
+  async updateTenantQuotas(tenantId: string, body: import('./types').QuotaUpdate): Promise<import('./types').QuotaStatus> {
+    return this.request<import('./types').QuotaStatus>('PATCH', `/api/v1/tenants/${encodeURIComponent(tenantId)}/quotas`, { body });
+  }
+
+  /**
+   * List members of a tenant.
+   */
+  async listTenantMembers(tenantId: string, params?: PaginationParams): Promise<import('./types').MemberList> {
+    return this.request<import('./types').MemberList>('GET', `/api/v1/tenants/${encodeURIComponent(tenantId)}/members`, { params });
+  }
+
+  /**
+   * Add a member to a tenant.
+   */
+  async addTenantMember(tenantId: string, body: import('./types').AddMemberRequest): Promise<import('./types').TenantMember> {
+    return this.request<import('./types').TenantMember>('POST', `/api/v1/tenants/${encodeURIComponent(tenantId)}/members`, { body });
+  }
+
+  /**
+   * Remove a member from a tenant.
+   */
+  async removeTenantMember(tenantId: string, userId: string): Promise<void> {
+    await this.request<void>('DELETE', `/api/v1/tenants/${encodeURIComponent(tenantId)}/members/${encodeURIComponent(userId)}`);
+  }
+
+  // ===========================================================================
+  // RBAC (Role-Based Access Control)
+  // ===========================================================================
+
+  /**
+   * List all roles.
+   */
+  async listRoles(params?: PaginationParams): Promise<import('./types').RoleList> {
+    return this.request<import('./types').RoleList>('GET', '/api/v1/rbac/roles', { params });
+  }
+
+  /**
+   * Get a role by ID.
+   */
+  async getRole(roleId: string): Promise<import('./types').Role> {
+    return this.request<import('./types').Role>('GET', `/api/v1/rbac/roles/${encodeURIComponent(roleId)}`);
+  }
+
+  /**
+   * Create a new role.
+   */
+  async createRole(body: import('./types').CreateRoleRequest): Promise<import('./types').Role> {
+    return this.request<import('./types').Role>('POST', '/api/v1/rbac/roles', { body });
+  }
+
+  /**
+   * Update a role.
+   */
+  async updateRole(roleId: string, body: import('./types').UpdateRoleRequest): Promise<import('./types').Role> {
+    return this.request<import('./types').Role>('PATCH', `/api/v1/rbac/roles/${encodeURIComponent(roleId)}`, { body });
+  }
+
+  /**
+   * Delete a role.
+   */
+  async deleteRole(roleId: string): Promise<void> {
+    await this.request<void>('DELETE', `/api/v1/rbac/roles/${encodeURIComponent(roleId)}`);
+  }
+
+  /**
+   * List all available permissions.
+   */
+  async listPermissions(): Promise<import('./types').PermissionList> {
+    return this.request<import('./types').PermissionList>('GET', '/api/v1/rbac/permissions');
+  }
+
+  /**
+   * Assign a role to a user.
+   */
+  async assignRole(userId: string, roleId: string, tenantId?: string): Promise<void> {
+    await this.request<void>('POST', '/api/v1/rbac/assignments', {
+      body: { user_id: userId, role_id: roleId, tenant_id: tenantId },
+    });
+  }
+
+  /**
+   * Revoke a role from a user.
+   */
+  async revokeRole(userId: string, roleId: string, tenantId?: string): Promise<void> {
+    await this.request<void>('DELETE', '/api/v1/rbac/assignments', {
+      body: { user_id: userId, role_id: roleId, tenant_id: tenantId },
+    });
+  }
+
+  /**
+   * Get all roles assigned to a user.
+   */
+  async getUserRoles(userId: string): Promise<import('./types').RoleList> {
+    return this.request<import('./types').RoleList>('GET', `/api/v1/rbac/users/${encodeURIComponent(userId)}/roles`);
+  }
+
+  /**
+   * Check if a user has a specific permission.
+   */
+  async checkPermission(userId: string, permission: string, resource?: string): Promise<import('./types').PermissionCheck> {
+    return this.request<import('./types').PermissionCheck>('GET', '/api/v1/rbac/check', {
+      params: { user_id: userId, permission, resource },
+    });
+  }
+
+  /**
+   * List all users assigned to a role.
+   */
+  async listRoleAssignments(roleId: string, params?: PaginationParams): Promise<import('./types').AssignmentList> {
+    return this.request<import('./types').AssignmentList>('GET', `/api/v1/rbac/roles/${encodeURIComponent(roleId)}/assignments`, { params });
+  }
+
+  /**
+   * Bulk assign roles to multiple users.
+   */
+  async bulkAssignRoles(body: import('./types').BulkAssignRequest): Promise<import('./types').BulkAssignResponse> {
+    return this.request<import('./types').BulkAssignResponse>('POST', '/api/v1/rbac/assignments/bulk', { body });
+  }
+
+  // ===========================================================================
+  // Tournaments
+  // ===========================================================================
+
+  /**
+   * List tournaments.
+   */
+  async listTournaments(params?: { status?: string } & PaginationParams): Promise<{ tournaments: Tournament[] }> {
+    return this.request<{ tournaments: Tournament[] }>('GET', '/api/tournaments', { params });
+  }
+
+  /**
+   * Get a tournament by ID.
+   */
+  async getTournament(tournamentId: string): Promise<Tournament> {
+    return this.request<Tournament>('GET', `/api/tournaments/${encodeURIComponent(tournamentId)}`);
+  }
+
+  /**
+   * Create a new tournament.
+   */
+  async createTournament(request: CreateTournamentRequest): Promise<Tournament> {
+    return this.request<Tournament>('POST', '/api/tournaments', { body: request });
+  }
+
+  /**
+   * Get tournament standings.
+   */
+  async getTournamentStandings(tournamentId: string): Promise<TournamentStandings> {
+    return this.request<TournamentStandings>('GET', `/api/tournaments/${encodeURIComponent(tournamentId)}/standings`);
+  }
+
+  /**
+   * Get tournament bracket.
+   */
+  async getTournamentBracket(tournamentId: string): Promise<TournamentBracket> {
+    return this.request<TournamentBracket>('GET', `/api/tournaments/${encodeURIComponent(tournamentId)}/bracket`);
+  }
+
+  /**
+   * List tournament matches.
+   */
+  async listTournamentMatches(tournamentId: string, params?: { round?: number; status?: string }): Promise<{ matches: TournamentMatch[] }> {
+    return this.request<{ matches: TournamentMatch[] }>(
+      'GET',
+      `/api/tournaments/${encodeURIComponent(tournamentId)}/matches`,
+      { params }
+    );
+  }
+
+  /**
+   * Submit match result.
+   */
+  async submitMatchResult(tournamentId: string, matchId: string, result: {
+    winner: string;
+    debate_id: string;
+    notes?: string;
+  }): Promise<{ recorded: boolean }> {
+    return this.request<{ recorded: boolean }>(
+      'POST',
+      `/api/tournaments/${encodeURIComponent(tournamentId)}/matches/${encodeURIComponent(matchId)}/result`,
+      { body: result }
+    );
+  }
+
+  /**
+   * Advance tournament to next round.
+   */
+  async advanceTournament(tournamentId: string): Promise<{ advanced: boolean; next_round: number }> {
+    return this.request<{ advanced: boolean; next_round: number }>(
+      'POST',
+      `/api/tournaments/${encodeURIComponent(tournamentId)}/advance`
+    );
+  }
+
+  // ===========================================================================
+  // Audit
+  // ===========================================================================
+
+  /**
+   * List audit events.
+   */
+  async listAuditEvents(params?: {
+    start_date?: string;
+    end_date?: string;
+    actor_id?: string;
+    resource_type?: string;
+    action?: string;
+  } & PaginationParams): Promise<{ events: AuditEvent[]; total: number }> {
+    return this.request<{ events: AuditEvent[]; total: number }>('GET', '/api/v1/audit/events', { params });
+  }
+
+  /**
+   * Get audit statistics.
+   */
+  async getAuditStats(params?: { period?: string }): Promise<AuditStats> {
+    return this.request<AuditStats>('GET', '/api/v1/audit/stats', { params });
+  }
+
+  /**
+   * Export audit logs.
+   */
+  async exportAuditLogs(request: {
+    start_date: string;
+    end_date: string;
+    format: 'json' | 'csv' | 'pdf';
+    filters?: Record<string, string>;
+  }): Promise<{ export_id: string; download_url?: string }> {
+    return this.request<{ export_id: string; download_url?: string }>('POST', '/api/v1/audit/export', { body: request });
+  }
+
+  /**
+   * Verify audit log integrity.
+   */
+  async verifyAuditIntegrity(params?: { start_date?: string; end_date?: string }): Promise<{
+    verified: boolean;
+    entries_checked: number;
+    tampered_entries: number;
+  }> {
+    return this.request<{ verified: boolean; entries_checked: number; tampered_entries: number }>(
+      'GET',
+      '/api/v1/audit/verify',
+      { params }
+    );
+  }
+
+  /**
+   * List audit sessions.
+   */
+  async listAuditSessions(params?: { status?: string } & PaginationParams): Promise<{ sessions: AuditSession[]; total: number }> {
+    return this.request<{ sessions: AuditSession[]; total: number }>('GET', '/api/v1/audit/sessions', { params });
+  }
+
+  /**
+   * Get an audit session.
+   */
+  async getAuditSession(sessionId: string): Promise<AuditSession> {
+    return this.request<AuditSession>('GET', `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}`);
+  }
+
+  /**
+   * Create an audit session.
+   */
+  async createAuditSession(request: CreateAuditSessionRequest): Promise<AuditSession> {
+    return this.request<AuditSession>('POST', '/api/v1/audit/sessions', { body: request });
+  }
+
+  /**
+   * Start an audit session.
+   */
+  async startAuditSession(sessionId: string): Promise<{ started: boolean }> {
+    return this.request<{ started: boolean }>('POST', `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/start`);
+  }
+
+  /**
+   * Pause an audit session.
+   */
+  async pauseAuditSession(sessionId: string): Promise<{ paused: boolean }> {
+    return this.request<{ paused: boolean }>('POST', `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/pause`);
+  }
+
+  /**
+   * Resume an audit session.
+   */
+  async resumeAuditSession(sessionId: string): Promise<{ resumed: boolean }> {
+    return this.request<{ resumed: boolean }>('POST', `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/resume`);
+  }
+
+  /**
+   * Cancel an audit session.
+   */
+  async cancelAuditSession(sessionId: string): Promise<{ cancelled: boolean }> {
+    return this.request<{ cancelled: boolean }>('POST', `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/cancel`);
+  }
+
+  /**
+   * Get audit session findings.
+   */
+  async getAuditSessionFindings(sessionId: string, params?: PaginationParams): Promise<{ findings: AuditFinding[] }> {
+    return this.request<{ findings: AuditFinding[] }>(
+      'GET',
+      `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/findings`,
+      { params }
+    );
+  }
+
+  /**
+   * Generate audit session report.
+   */
+  async generateAuditReport(sessionId: string, format?: 'json' | 'pdf' | 'markdown'): Promise<{ report_url: string }> {
+    return this.request<{ report_url: string }>(
+      'GET',
+      `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/report`,
+      { params: { format } }
+    );
+  }
+
+  // ===========================================================================
+  // Extended Auth (Sessions, API Keys, SSO)
+  // ===========================================================================
+
+  /**
+   * Logout from all sessions.
+   */
+  async logoutAll(): Promise<{ logged_out: boolean; sessions_revoked: number }> {
+    return this.request<{ logged_out: boolean; sessions_revoked: number }>('POST', '/api/v1/auth/logout-all');
+  }
+
+  /**
+   * Resend email verification.
+   */
+  async resendVerification(email: string): Promise<{ sent: boolean }> {
+    return this.request<{ sent: boolean }>('POST', '/api/v1/auth/resend-verification', { body: { email } });
+  }
+
+  /**
+   * List active sessions.
+   */
+  async listSessions(): Promise<{ sessions: Array<{
+    id: string;
+    device: string;
+    ip_address: string;
+    last_active: string;
+    is_current: boolean;
+  }> }> {
+    return this.request<{ sessions: Array<{
+      id: string;
+      device: string;
+      ip_address: string;
+      last_active: string;
+      is_current: boolean;
+    }> }>('GET', '/api/v1/auth/sessions');
+  }
+
+  /**
+   * Revoke a session.
+   */
+  async revokeSession(sessionId: string): Promise<{ revoked: boolean }> {
+    return this.request<{ revoked: boolean }>('DELETE', `/api/v1/auth/sessions/${encodeURIComponent(sessionId)}`);
+  }
+
+  /**
+   * List API keys.
+   */
+  async listApiKeys(): Promise<{ keys: Array<{ id: string; name: string; prefix: string; created_at: string; last_used?: string }> }> {
+    return this.request<{ keys: Array<{ id: string; name: string; prefix: string; created_at: string; last_used?: string }> }>(
+      'GET',
+      '/api/v1/auth/api-keys'
+    );
+  }
+
+  /**
+   * Create a new API key.
+   */
+  async createApiKey(name: string, expiresIn?: number): Promise<{ id: string; key: string; prefix: string }> {
+    return this.request<{ id: string; key: string; prefix: string }>('POST', '/api/v1/auth/api-keys', {
+      body: { name, expires_in: expiresIn },
+    });
+  }
+
+  /**
+   * Revoke an API key.
+   */
+  async revokeApiKey(keyId: string): Promise<{ revoked: boolean }> {
+    return this.request<{ revoked: boolean }>('DELETE', `/api/v1/auth/api-keys/${encodeURIComponent(keyId)}`);
+  }
+
+  /**
+   * List available OAuth providers.
+   */
+  async listOAuthProviders(): Promise<{ providers: Array<{ type: string; name: string; enabled: boolean; auth_url: string }> }> {
+    return this.request<{ providers: Array<{ type: string; name: string; enabled: boolean; auth_url: string }> }>(
+      'GET',
+      '/api/v1/auth/oauth/providers'
+    );
+  }
+
+  /**
+   * Link OAuth provider to account.
+   */
+  async linkOAuthProvider(provider: string, code: string): Promise<{ linked: boolean }> {
+    return this.request<{ linked: boolean }>('POST', '/api/v1/auth/oauth/link', {
+      body: { provider, code },
+    });
+  }
+
+  /**
+   * Unlink OAuth provider from account.
+   */
+  async unlinkOAuthProvider(provider: string): Promise<{ unlinked: boolean }> {
+    return this.request<{ unlinked: boolean }>('DELETE', '/api/v1/auth/oauth/unlink', {
+      params: { provider },
+    });
+  }
+
+  /**
+   * Initiate SSO login.
+   */
+  async initiateSSOLogin(provider?: string, redirectUrl?: string): Promise<{
+    authorization_url: string;
+    state: string;
+    provider: string;
+    expires_in: number;
+  }> {
+    return this.request<{
+      authorization_url: string;
+      state: string;
+      provider: string;
+      expires_in: number;
+    }>('GET', '/api/v1/auth/sso/login', {
+      params: { provider, redirect_url: redirectUrl },
+    });
+  }
+
+  /**
+   * List available SSO providers.
+   */
+  async listSSOProviders(): Promise<{
+    providers: Array<{ type: string; name: string; enabled: boolean }>;
+    sso_enabled: boolean;
+  }> {
+    return this.request<{
+      providers: Array<{ type: string; name: string; enabled: boolean }>;
+      sso_enabled: boolean;
+    }>('GET', '/api/v1/auth/sso/providers');
+  }
+
+  /**
+   * Enable MFA after setup.
+   */
+  async enableMFA(code: string): Promise<{ enabled: boolean }> {
+    return this.request<{ enabled: boolean }>('POST', '/api/v1/auth/mfa/enable', { body: { code } });
+  }
+
+  /**
+   * Generate new backup codes.
+   */
+  async generateBackupCodes(): Promise<{ codes: string[] }> {
+    return this.request<{ codes: string[] }>('POST', '/api/v1/auth/mfa/backup-codes');
+  }
+
+  // ===========================================================================
+  // Onboarding
+  // ===========================================================================
+
+  /**
+   * Get onboarding status.
+   */
+  async getOnboardingStatus(): Promise<OnboardingStatus> {
+    return this.request<OnboardingStatus>('GET', '/api/v1/onboarding/status');
+  }
+
+  /**
+   * Complete onboarding.
+   */
+  async completeOnboarding(request?: { first_debate_id?: string; template_used?: string }): Promise<{
+    completed: boolean;
+    organization_id: string;
+    completed_at: string;
+  }> {
+    return this.request<{ completed: boolean; organization_id: string; completed_at: string }>(
+      'POST',
+      '/api/v1/onboarding/complete',
+      { body: request }
+    );
+  }
+
+  /**
+   * Setup organization after signup.
+   */
+  async setupOrganization(request: {
+    name: string;
+    slug?: string;
+    plan?: string;
+    billing_email?: string;
+  }): Promise<{ organization: Tenant }> {
+    return this.request<{ organization: Tenant }>('POST', '/api/v1/auth/setup-organization', { body: request });
+  }
+
+  /**
+   * Send team invitation.
+   */
+  async inviteTeamMember(request: {
+    email: string;
+    organization_id: string;
+    role?: string;
+  }): Promise<{ invite_token: string; invite_url: string; expires_in: number }> {
+    return this.request<{ invite_token: string; invite_url: string; expires_in: number }>(
+      'POST',
+      '/api/v1/auth/invite',
+      { body: request }
+    );
+  }
+
+  /**
+   * Check invitation validity.
+   */
+  async checkInvite(token: string): Promise<{
+    valid: boolean;
+    email: string;
+    organization_id: string;
+    role: string;
+    expires_at: number;
+  }> {
+    return this.request<{
+      valid: boolean;
+      email: string;
+      organization_id: string;
+      role: string;
+      expires_at: number;
+    }>('GET', '/api/v1/auth/check-invite', { params: { token } });
+  }
+
+  /**
+   * Accept team invitation.
+   */
+  async acceptInvite(token: string): Promise<{ organization_id: string; role: string }> {
+    return this.request<{ organization_id: string; role: string }>('POST', '/api/v1/auth/accept-invite', {
+      body: { token },
+    });
+  }
+
+  // ===========================================================================
+  // Billing
+  // ===========================================================================
+
+  /**
+   * List available subscription plans.
+   */
+  async listBillingPlans(): Promise<import('./types').BillingPlanList> {
+    return this.request<import('./types').BillingPlanList>('GET', '/api/v1/billing/plans');
+  }
+
+  /**
+   * Get current usage statistics.
+   */
+  async getBillingUsage(params?: { period?: string }): Promise<import('./types').BillingUsage> {
+    return this.request<import('./types').BillingUsage>('GET', '/api/v1/billing/usage', { params });
+  }
+
+  /**
+   * Get current subscription status.
+   */
+  async getSubscription(): Promise<import('./types').Subscription> {
+    return this.request<import('./types').Subscription>('GET', '/api/v1/billing/subscription');
+  }
+
+  /**
+   * Create a Stripe checkout session.
+   */
+  async createCheckoutSession(body: {
+    plan_id: string;
+    success_url: string;
+    cancel_url: string;
+  }): Promise<{ session_id: string; checkout_url: string }> {
+    return this.request<{ session_id: string; checkout_url: string }>('POST', '/api/v1/billing/checkout', { body });
+  }
+
+  /**
+   * Create a billing portal session.
+   */
+  async createBillingPortalSession(returnUrl?: string): Promise<{ url: string }> {
+    return this.request<{ url: string }>('POST', '/api/v1/billing/portal', {
+      body: { return_url: returnUrl },
+    });
+  }
+
+  /**
+   * Cancel subscription at period end.
+   */
+  async cancelSubscription(): Promise<{ cancelled: boolean; effective_date: string }> {
+    return this.request<{ cancelled: boolean; effective_date: string }>('POST', '/api/v1/billing/cancel');
+  }
+
+  /**
+   * Resume a cancelled subscription.
+   */
+  async resumeSubscription(): Promise<{ resumed: boolean }> {
+    return this.request<{ resumed: boolean }>('POST', '/api/v1/billing/resume');
+  }
+
+  /**
+   * Get invoice history.
+   */
+  async getInvoiceHistory(params?: PaginationParams): Promise<import('./types').InvoiceList> {
+    return this.request<import('./types').InvoiceList>('GET', '/api/v1/billing/invoices', { params });
+  }
+
+  /**
+   * Get usage forecast and tier recommendation.
+   */
+  async getUsageForecast(): Promise<import('./types').UsageForecast> {
+    return this.request<import('./types').UsageForecast>('GET', '/api/v1/billing/usage/forecast');
+  }
+
+  /**
+   * Export usage data as CSV.
+   */
+  async exportUsageData(params?: { start_date?: string; end_date?: string }): Promise<{ download_url: string }> {
+    return this.request<{ download_url: string }>('GET', '/api/v1/billing/usage/export', { params });
+  }
+
+  // ===========================================================================
+  // Notifications
+  // ===========================================================================
+
+  /**
+   * Get notification integration status.
+   */
+  async getNotificationStatus(): Promise<import('./types').NotificationStatus> {
+    return this.request<import('./types').NotificationStatus>('GET', '/api/v1/notifications/status');
+  }
+
+  /**
+   * Configure email notifications.
+   */
+  async configureEmailNotifications(body: import('./types').EmailNotificationConfig): Promise<{ configured: boolean }> {
+    return this.request<{ configured: boolean }>('POST', '/api/v1/notifications/email/config', { body });
+  }
+
+  /**
+   * Configure Telegram notifications.
+   */
+  async configureTelegramNotifications(body: import('./types').TelegramNotificationConfig): Promise<{ configured: boolean }> {
+    return this.request<{ configured: boolean }>('POST', '/api/v1/notifications/telegram/config', { body });
+  }
+
+  /**
+   * Get email recipients.
+   */
+  async getEmailRecipients(): Promise<{ recipients: import('./types').NotificationRecipient[] }> {
+    return this.request<{ recipients: import('./types').NotificationRecipient[] }>('GET', '/api/v1/notifications/email/recipients');
+  }
+
+  /**
+   * Add email recipient.
+   */
+  async addEmailRecipient(body: { email: string; name?: string; preferences?: Record<string, boolean> }): Promise<{ added: boolean }> {
+    return this.request<{ added: boolean }>('POST', '/api/v1/notifications/email/recipient', { body });
+  }
+
+  /**
+   * Remove email recipient.
+   */
+  async removeEmailRecipient(email: string): Promise<{ removed: boolean }> {
+    return this.request<{ removed: boolean }>('DELETE', '/api/v1/notifications/email/recipient', {
+      params: { email },
+    });
+  }
+
+  /**
+   * Send a test notification.
+   */
+  async sendTestNotification(channel: 'email' | 'telegram' | 'slack'): Promise<{ sent: boolean }> {
+    return this.request<{ sent: boolean }>('POST', '/api/v1/notifications/test', {
+      body: { channel },
+    });
+  }
+
+  /**
+   * Send a custom notification.
+   */
+  async sendNotification(body: {
+    channel: 'email' | 'telegram' | 'slack';
+    subject?: string;
+    message: string;
+    recipients?: string[];
+  }): Promise<{ sent: boolean; delivered_to: number }> {
+    return this.request<{ sent: boolean; delivered_to: number }>('POST', '/api/v1/notifications/send', { body });
+  }
+
+  // ===========================================================================
+  // Budgets
+  // ===========================================================================
+
+  /**
+   * List budgets for the organization.
+   */
+  async listBudgets(params?: PaginationParams): Promise<import('./types').BudgetList> {
+    return this.request<import('./types').BudgetList>('GET', '/api/v1/budgets', { params });
+  }
+
+  /**
+   * Create a new budget.
+   */
+  async createBudget(body: import('./types').CreateBudgetRequest): Promise<import('./types').Budget> {
+    return this.request<import('./types').Budget>('POST', '/api/v1/budgets', { body });
+  }
+
+  /**
+   * Get a budget by ID.
+   */
+  async getBudget(budgetId: string): Promise<import('./types').Budget> {
+    return this.request<import('./types').Budget>('GET', `/api/v1/budgets/${encodeURIComponent(budgetId)}`);
+  }
+
+  /**
+   * Update a budget.
+   */
+  async updateBudget(budgetId: string, body: import('./types').UpdateBudgetRequest): Promise<import('./types').Budget> {
+    return this.request<import('./types').Budget>('PATCH', `/api/v1/budgets/${encodeURIComponent(budgetId)}`, { body });
+  }
+
+  /**
+   * Delete a budget.
+   */
+  async deleteBudget(budgetId: string): Promise<{ deleted: boolean }> {
+    return this.request<{ deleted: boolean }>('DELETE', `/api/v1/budgets/${encodeURIComponent(budgetId)}`);
+  }
+
+  /**
+   * Get budget alerts.
+   */
+  async getBudgetAlerts(budgetId: string, params?: PaginationParams): Promise<import('./types').BudgetAlertList> {
+    return this.request<import('./types').BudgetAlertList>('GET', `/api/v1/budgets/${encodeURIComponent(budgetId)}/alerts`, { params });
+  }
+
+  /**
+   * Acknowledge a budget alert.
+   */
+  async acknowledgeBudgetAlert(budgetId: string, alertId: string): Promise<{ acknowledged: boolean }> {
+    return this.request<{ acknowledged: boolean }>(
+      'POST',
+      `/api/v1/budgets/${encodeURIComponent(budgetId)}/alerts/${encodeURIComponent(alertId)}/acknowledge`
+    );
+  }
+
+  /**
+   * Add a user override to a budget.
+   */
+  async addBudgetOverride(budgetId: string, body: { user_id: string; limit: number; reason?: string }): Promise<{ added: boolean }> {
+    return this.request<{ added: boolean }>('POST', `/api/v1/budgets/${encodeURIComponent(budgetId)}/override`, { body });
+  }
+
+  /**
+   * Remove a user override from a budget.
+   */
+  async removeBudgetOverride(budgetId: string, userId: string): Promise<{ removed: boolean }> {
+    return this.request<{ removed: boolean }>(
+      'DELETE',
+      `/api/v1/budgets/${encodeURIComponent(budgetId)}/override/${encodeURIComponent(userId)}`
+    );
+  }
+
+  /**
+   * Reset a budget period.
+   */
+  async resetBudget(budgetId: string): Promise<{ reset: boolean; new_period_start: string }> {
+    return this.request<{ reset: boolean; new_period_start: string }>(
+      'POST',
+      `/api/v1/budgets/${encodeURIComponent(budgetId)}/reset`
+    );
+  }
+
+  /**
+   * Get organization budget summary.
+   */
+  async getBudgetSummary(): Promise<import('./types').BudgetSummary> {
+    return this.request<import('./types').BudgetSummary>('GET', '/api/v1/budgets/summary');
+  }
+
+  /**
+   * Pre-flight cost check.
+   */
+  async checkBudget(body: {
+    operation: string;
+    estimated_cost: number;
+    user_id?: string;
+  }): Promise<{ allowed: boolean; remaining_budget: number; warnings?: string[] }> {
+    return this.request<{ allowed: boolean; remaining_budget: number; warnings?: string[] }>(
+      'POST',
+      '/api/v1/budgets/check',
+      { body }
+    );
+  }
+
+  // ===========================================================================
+  // Costs
+  // ===========================================================================
+
+  /**
+   * Get cost dashboard data.
+   */
+  async getCostDashboard(params?: { period?: string }): Promise<import('./types').CostDashboard> {
+    return this.request<import('./types').CostDashboard>('GET', '/api/v1/costs', { params });
+  }
+
+  /**
+   * Get detailed cost breakdown.
+   */
+  async getCostBreakdown(params?: { period?: string; group_by?: string }): Promise<import('./types').CostBreakdown> {
+    return this.request<import('./types').CostBreakdown>('GET', '/api/v1/costs/breakdown', { params });
+  }
+
+  /**
+   * Get cost timeline.
+   */
+  async getCostTimeline(params?: { period?: string; granularity?: string }): Promise<import('./types').CostTimeline> {
+    return this.request<import('./types').CostTimeline>('GET', '/api/v1/costs/timeline', { params });
+  }
+
+  /**
+   * Get cost alerts.
+   */
+  async getCostAlerts(): Promise<{ alerts: import('./types').CostAlert[] }> {
+    return this.request<{ alerts: import('./types').CostAlert[] }>('GET', '/api/v1/costs/alerts');
+  }
+
+  /**
+   * Set budget limits.
+   */
+  async setCostBudget(body: {
+    daily_limit?: number;
+    monthly_limit?: number;
+    alert_threshold?: number;
+  }): Promise<{ set: boolean }> {
+    return this.request<{ set: boolean }>('POST', '/api/v1/costs/budget', { body });
+  }
+
+  /**
+   * Dismiss a cost alert.
+   */
+  async dismissCostAlert(alertId: string): Promise<{ dismissed: boolean }> {
+    return this.request<{ dismissed: boolean }>('POST', `/api/v1/costs/alerts/${encodeURIComponent(alertId)}/dismiss`);
+  }
+
+  // ===========================================================================
+  // Audit Trails
+  // ===========================================================================
+
+  /**
+   * List audit trails.
+   */
+  async listAuditTrails(params?: {
+    verdict?: string;
+    risk_level?: string;
+  } & PaginationParams): Promise<import('./types').AuditTrailList> {
+    return this.request<import('./types').AuditTrailList>('GET', '/api/v1/audit-trails', { params });
+  }
+
+  /**
+   * Get an audit trail by ID.
+   */
+  async getAuditTrail(trailId: string): Promise<import('./types').AuditTrail> {
+    return this.request<import('./types').AuditTrail>('GET', `/api/v1/audit-trails/${encodeURIComponent(trailId)}`);
+  }
+
+  /**
+   * Export an audit trail.
+   */
+  async exportAuditTrail(trailId: string, format: 'json' | 'csv' | 'markdown'): Promise<{ content: string; filename: string }> {
+    return this.request<{ content: string; filename: string }>(
+      'GET',
+      `/api/v1/audit-trails/${encodeURIComponent(trailId)}/export`,
+      { params: { format } }
+    );
+  }
+
+  /**
+   * Verify audit trail integrity.
+   */
+  async verifyAuditTrail(trailId: string): Promise<{ valid: boolean; checksum: string; verified_at: string }> {
+    return this.request<{ valid: boolean; checksum: string; verified_at: string }>(
+      'POST',
+      `/api/v1/audit-trails/${encodeURIComponent(trailId)}/verify`
+    );
+  }
+
+  // ===========================================================================
+  // Decision Receipts (extended)
+  // ===========================================================================
+
+  /**
+   * List decision receipts.
+   */
+  async listDecisionReceipts(params?: { verdict?: string } & PaginationParams): Promise<{ receipts: DecisionReceipt[] }> {
+    return this.request<{ receipts: DecisionReceipt[] }>('GET', '/api/v1/receipts', { params });
+  }
+
+  /**
+   * Get a decision receipt.
+   */
+  async getDecisionReceipt(receiptId: string): Promise<DecisionReceipt> {
+    return this.request<DecisionReceipt>('GET', `/api/v1/receipts/${encodeURIComponent(receiptId)}`);
+  }
+
+  /**
+   * Verify a decision receipt's integrity.
+   */
+  async verifyDecisionReceipt(receiptId: string): Promise<{ valid: boolean; hash: string; verified_at: string }> {
+    return this.request<{ valid: boolean; hash: string; verified_at: string }>(
+      'POST',
+      `/api/v1/receipts/${encodeURIComponent(receiptId)}/verify`
     );
   }
 

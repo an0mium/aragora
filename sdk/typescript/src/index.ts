@@ -157,6 +157,103 @@ export type {
   MemoryTier,
   MemoryAnalytics,
   MemoryTierStats,
+
+  // Auth
+  RegisterRequest,
+  RegisterResponse,
+  LoginRequest,
+  AuthToken,
+  RefreshRequest,
+  VerifyEmailRequest,
+  VerifyResponse,
+  User,
+  UpdateProfileRequest,
+  UpdateProfileResponse,
+  ChangePasswordRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+  OAuthUrlParams,
+  OAuthUrl,
+  OAuthCallbackRequest,
+  MFASetupRequest,
+  MFASetupResponse,
+  MFAVerifyRequest,
+  MFAVerifyResponse,
+
+  // Tenancy
+  Tenant,
+  CreateTenantRequest,
+  UpdateTenantRequest,
+  TenantList,
+  QuotaStatus,
+  QuotaUpdate,
+  TenantMember,
+  MemberList,
+  AddMemberRequest,
+
+  // RBAC
+  Permission,
+  Role,
+  RoleList,
+  CreateRoleRequest,
+  UpdateRoleRequest,
+  PermissionList,
+  PermissionCheck,
+  RoleAssignment,
+  AssignmentList,
+  BulkAssignRequest,
+  BulkAssignResponse,
+
+  // Tournaments
+  Tournament,
+  CreateTournamentRequest,
+  TournamentStandings,
+  TournamentBracket,
+  TournamentMatch,
+
+  // Audit
+  AuditEvent,
+  AuditStats,
+  AuditSession,
+  CreateAuditSessionRequest,
+  AuditFinding,
+
+  // Onboarding
+  OnboardingStatus,
+
+  // Billing
+  BillingPlan,
+  BillingPlanList,
+  BillingUsage,
+  Subscription,
+  Invoice,
+  InvoiceList,
+  UsageForecast,
+
+  // Notifications
+  NotificationStatus,
+  EmailNotificationConfig,
+  TelegramNotificationConfig,
+  NotificationRecipient,
+
+  // Budgets
+  Budget,
+  BudgetList,
+  CreateBudgetRequest,
+  UpdateBudgetRequest,
+  BudgetAlert,
+  BudgetAlertList,
+  BudgetSummary,
+
+  // Costs
+  CostDashboard,
+  CostBreakdown,
+  CostTimeline,
+  CostAlert,
+
+  // Audit Trails
+  AuditTrail,
+  AuditTrailList,
 } from './types';
 
 export { AragoraError } from './types';
