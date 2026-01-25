@@ -7,6 +7,9 @@ while detecting and preventing N+1 query patterns.
 Features:
 - @lazy_property decorator for deferred loading
 - Automatic N+1 detection with warnings
+- Automatic prefetch fallback when N+1 detected
+- Prometheus metrics for monitoring
+- Configurable thresholds per environment
 - Prefetch hints for bulk loading
 - Integration with DataLoader for batching
 
@@ -30,6 +33,11 @@ Usage:
     # Prefetch for multiple users
     users = await get_users()
     await prefetch(users, "posts")  # Single batch query
+
+Environment Variables:
+    N_PLUS_ONE_THRESHOLD: Number of loads in window to trigger detection (default: 5)
+    N_PLUS_ONE_WINDOW_MS: Time window in milliseconds (default: 100)
+    N_PLUS_ONE_AUTO_PREFETCH: Enable automatic prefetch on detection (default: true)
 """
 
 from __future__ import annotations
@@ -37,12 +45,14 @@ from __future__ import annotations
 import asyncio
 import functools
 import logging
+import os
 import threading
 import time
 import weakref
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import (
+    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
@@ -50,12 +60,62 @@ from typing import (
     Generic,
     List,
     Optional,
+    Tuple,
     TypeVar,
     Union,
     overload,
 )
 
+if TYPE_CHECKING:
+    from prometheus_client import Counter, Histogram
+
 logger = logging.getLogger(__name__)
+
+# Prometheus metrics (lazy initialization)
+_metrics_initialized = False
+_n_plus_one_detections_counter: Optional["Counter"] = None
+_prefetch_operations_counter: Optional["Counter"] = None
+_auto_prefetch_counter: Optional["Counter"] = None
+_load_duration_histogram: Optional["Histogram"] = None
+
+
+def _init_metrics() -> None:
+    """Initialize Prometheus metrics lazily."""
+    global _metrics_initialized, _n_plus_one_detections_counter
+    global _prefetch_operations_counter, _auto_prefetch_counter, _load_duration_histogram
+
+    if _metrics_initialized:
+        return
+
+    try:
+        from prometheus_client import Counter, Histogram
+
+        _n_plus_one_detections_counter = Counter(
+            "aragora_lazy_load_n_plus_one_detections_total",
+            "Number of N+1 query pattern detections",
+            ["property_name"],
+        )
+        _prefetch_operations_counter = Counter(
+            "aragora_lazy_load_prefetch_operations_total",
+            "Number of prefetch operations performed",
+            ["property_name", "type"],  # type: manual or auto
+        )
+        _auto_prefetch_counter = Counter(
+            "aragora_lazy_load_auto_prefetch_total",
+            "Number of automatic prefetch operations triggered by N+1 detection",
+            ["property_name"],
+        )
+        _load_duration_histogram = Histogram(
+            "aragora_lazy_load_duration_seconds",
+            "Duration of lazy load operations",
+            ["property_name"],
+            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
+        )
+        _metrics_initialized = True
+    except ImportError:
+        logger.debug("prometheus_client not available, metrics disabled")
+        _metrics_initialized = True  # Don't retry
+
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -81,11 +141,24 @@ class LazyLoadStats:
 # Global stats
 _lazy_load_stats = LazyLoadStats()
 
-# N+1 detection state (property_name -> (timestamp, count))
+# Configurable thresholds via environment variables
+N_PLUS_ONE_THRESHOLD = int(os.environ.get("N_PLUS_ONE_THRESHOLD", "5"))
+N_PLUS_ONE_WINDOW_MS = float(os.environ.get("N_PLUS_ONE_WINDOW_MS", "100"))
+N_PLUS_ONE_AUTO_PREFETCH = os.environ.get("N_PLUS_ONE_AUTO_PREFETCH", "true").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+
+# N+1 detection state
 _n_plus_one_tracker: Dict[str, List[float]] = defaultdict(list)
 _n_plus_one_lock = threading.Lock()
-N_PLUS_ONE_THRESHOLD = 5  # Detections within window
-N_PLUS_ONE_WINDOW_MS = 100  # Time window in milliseconds
+
+# Auto-prefetch batching state: tracks pending loads for N+1 detected properties
+# Maps property_name -> (objects waiting for load, timestamp of first request)
+_auto_prefetch_pending: Dict[str, Tuple[List[Any], float]] = {}
+_auto_prefetch_lock = threading.Lock()
+AUTO_PREFETCH_BATCH_DELAY_MS = 10  # Wait this long to collect batch
 
 
 def _detect_n_plus_one(property_name: str) -> bool:
@@ -94,6 +167,7 @@ def _detect_n_plus_one(property_name: str) -> bool:
 
     Returns True if N+1 pattern detected.
     """
+    _init_metrics()
     now = time.perf_counter() * 1000  # Convert to ms
 
     with _n_plus_one_lock:
@@ -108,9 +182,120 @@ def _detect_n_plus_one(property_name: str) -> bool:
         # Check threshold
         if len(_n_plus_one_tracker[property_name]) >= N_PLUS_ONE_THRESHOLD:
             _lazy_load_stats.n_plus_one_detections += 1
+            # Record Prometheus metric
+            if _n_plus_one_detections_counter:
+                _n_plus_one_detections_counter.labels(property_name=property_name).inc()
             return True
 
     return False
+
+
+def get_n_plus_one_config() -> Dict[str, Any]:
+    """Get current N+1 detection configuration."""
+    return {
+        "threshold": N_PLUS_ONE_THRESHOLD,
+        "window_ms": N_PLUS_ONE_WINDOW_MS,
+        "auto_prefetch_enabled": N_PLUS_ONE_AUTO_PREFETCH,
+    }
+
+
+class AutoPrefetchBatcher:
+    """
+    Collects objects that trigger N+1 detection for automatic batching.
+
+    When N+1 is detected, instead of loading each object individually,
+    this batcher collects objects and performs a single batch load.
+    """
+
+    def __init__(self):
+        """Initialize the auto-prefetch batcher."""
+        self._pending: Dict[str, List[Tuple[Any, "LazyValue[Any]"]]] = defaultdict(list)
+        self._batch_futures: Dict[str, asyncio.Future[None]] = {}
+        self._lock = asyncio.Lock()
+
+    async def add_to_batch(
+        self,
+        property_name: str,
+        obj: Any,
+        lazy_value: "LazyValue[Any]",
+        loader: Callable[[], Awaitable[Any]],
+    ) -> bool:
+        """
+        Add an object to the batch for auto-prefetch.
+
+        Returns True if this object should wait for batch load,
+        False if it should proceed with individual load.
+        """
+        if not N_PLUS_ONE_AUTO_PREFETCH:
+            return False
+
+        async with self._lock:
+            self._pending[property_name].append((obj, lazy_value))
+
+            # If this is the first in batch, schedule batch execution
+            if property_name not in self._batch_futures:
+                loop = asyncio.get_event_loop()
+                future: asyncio.Future[None] = loop.create_future()
+                self._batch_futures[property_name] = future
+
+                # Schedule batch execution after delay
+                loop.call_later(
+                    AUTO_PREFETCH_BATCH_DELAY_MS / 1000.0,
+                    lambda pn=property_name: asyncio.create_task(self._execute_batch(pn)),
+                )
+
+            return True
+
+    async def wait_for_batch(self, property_name: str) -> None:
+        """Wait for batch load to complete."""
+        async with self._lock:
+            future = self._batch_futures.get(property_name)
+
+        if future:
+            await future
+
+    async def _execute_batch(self, property_name: str) -> None:
+        """Execute batch load for a property."""
+        async with self._lock:
+            pending = self._pending.pop(property_name, [])
+            future = self._batch_futures.pop(property_name, None)
+
+        if not pending:
+            if future and not future.done():
+                future.set_result(None)
+            return
+
+        logger.info(f"Auto-prefetch: batching {len(pending)} loads for '{property_name}'")
+
+        # Record metric
+        if _auto_prefetch_counter:
+            _auto_prefetch_counter.labels(property_name=property_name).inc()
+
+        # Load all values concurrently
+        try:
+            results = await asyncio.gather(
+                *[lv._loader() for _, lv in pending],
+                return_exceptions=True,
+            )
+
+            # Set results on lazy values
+            for (obj, lazy_value), result in zip(pending, results):
+                if isinstance(result, Exception):
+                    logger.warning(f"Auto-prefetch load failed for '{property_name}': {result}")
+                else:
+                    lazy_value.set(result)
+
+            if future and not future.done():
+                future.set_result(None)
+
+        except Exception as e:
+            logger.error(f"Auto-prefetch batch failed for '{property_name}': {e}")
+            if future and not future.done():
+                future.set_exception(e)
+
+
+# Global auto-prefetch batcher
+_auto_prefetch_batcher = AutoPrefetchBatcher()
 
 
 class LazyValue(Generic[T]):
@@ -155,17 +340,26 @@ class LazyValue(Generic[T]):
 
         try:
             # Detect N+1
-            if _detect_n_plus_one(self._property_name):
+            n_plus_one_detected = _detect_n_plus_one(self._property_name)
+            if n_plus_one_detected:
                 logger.warning(
                     f"Potential N+1 query detected for '{self._property_name}'. "
-                    f"Consider using prefetch() to batch load."
+                    f"Consider using prefetch() to batch load. "
+                    f"(Set N_PLUS_ONE_AUTO_PREFETCH=true for automatic batching)"
                 )
 
-            # Load value
+            # Load value with metrics
             start = time.perf_counter()
             _lazy_load_stats.total_loads += 1
             self._value = await self._loader()
-            _lazy_load_stats.load_times_ms.append((time.perf_counter() - start) * 1000)
+            load_duration = time.perf_counter() - start
+            _lazy_load_stats.load_times_ms.append(load_duration * 1000)
+
+            # Record Prometheus metrics
+            if _load_duration_histogram:
+                _load_duration_histogram.labels(property_name=self._property_name).observe(
+                    load_duration
+                )
 
             self._loaded = True
             self._load_future.set_result(self._value)

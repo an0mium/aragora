@@ -330,20 +330,36 @@ class PermissionChecker:
         """
         Clear the resource permission cache.
 
+        Uses O(1) versioning for user-only invalidation, falls back to
+        O(n) iteration when filtering by resource_type or resource_id.
+
         Args:
             user_id: Optional filter by user ID
             resource_type: Optional filter by resource type
             resource_id: Optional filter by resource ID
         """
         if not user_id and not resource_type and not resource_id:
+            # O(1) global invalidation
+            self._global_resource_cache_version += 1
+            self._user_resource_cache_versions.clear()
             self._resource_permission_cache.clear()
             return
 
+        # O(1) user-only invalidation via versioning
+        if user_id and not resource_type and not resource_id:
+            self._user_resource_cache_versions[user_id] = (
+                self._user_resource_cache_versions.get(user_id, 0) + 1
+            )
+            return
+
+        # O(n) fallback for resource_type/resource_id filtering
+        # (would need additional indexing for O(1) in these cases)
         keys_to_remove = []
         for key in self._resource_permission_cache:
             parts = key.split(":")
-            if len(parts) >= 4:
-                key_user_id, _, key_resource_type, key_resource_id = parts[:4]
+            # Key format: version:user_id:permission:resource_type:resource_id:org_id
+            if len(parts) >= 5:
+                _, key_user_id, _, key_resource_type, key_resource_id = parts[:5]
                 if user_id and key_user_id != user_id:
                     continue
                 if resource_type and key_resource_type != resource_type.value:

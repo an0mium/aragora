@@ -1506,6 +1506,685 @@ export class AragoraClient {
   }
 
   // ===========================================================================
+  // Codebase
+  // ===========================================================================
+
+  /**
+   * Trigger a dependency vulnerability scan.
+   */
+  async startCodebaseScan(
+    repo: string,
+    body: { repo_path: string; branch?: string; commit_sha?: string; workspace_id?: string }
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan`,
+      { body }
+    );
+  }
+
+  /**
+   * Get the latest dependency scan for a repo.
+   */
+  async getLatestCodebaseScan(repo: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan/latest`
+    );
+  }
+
+  /**
+   * Get a dependency scan by ID.
+   */
+  async getCodebaseScan(repo: string, scanId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan/${encodeURIComponent(scanId)}`
+    );
+  }
+
+  /**
+   * List dependency scans for a repo.
+   */
+  async listCodebaseScans(
+    repo: string,
+    params?: { status?: string; limit?: number; offset?: number }
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scans`,
+      { params }
+    );
+  }
+
+  /**
+   * List vulnerabilities from the latest scan.
+   */
+  async listCodebaseVulnerabilities(
+    repo: string,
+    params?: { severity?: string; package?: string; ecosystem?: string; limit?: number; offset?: number }
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/vulnerabilities`,
+      { params }
+    );
+  }
+
+  /**
+   * Query package vulnerabilities by ecosystem.
+   */
+  async getPackageVulnerabilities(
+    ecosystem: string,
+    packageName: string,
+    params?: { version?: string }
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/package/${encodeURIComponent(ecosystem)}/${encodeURIComponent(packageName)}/vulnerabilities`,
+      { params }
+    );
+  }
+
+  /**
+   * Get CVE details.
+   */
+  async getCveDetails(cveId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/cve/${encodeURIComponent(cveId)}`
+    );
+  }
+
+  /**
+   * Analyze dependencies for a repository.
+   */
+  async analyzeDependencies(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', '/api/v1/codebase/analyze-dependencies', { body });
+  }
+
+  /**
+   * Run a vulnerability scan for a repository.
+   */
+  async scanVulnerabilities(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', '/api/v1/codebase/scan-vulnerabilities', { body });
+  }
+
+  /**
+   * Check license compatibility.
+   */
+  async checkCodebaseLicenses(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', '/api/v1/codebase/check-licenses', { body });
+  }
+
+  /**
+   * Generate a software bill of materials (SBOM).
+   */
+  async generateCodebaseSbom(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', '/api/v1/codebase/sbom', { body });
+  }
+
+  /**
+   * Clear dependency analysis cache.
+   */
+  async clearCodebaseCache(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', '/api/v1/codebase/clear-cache');
+  }
+
+  /**
+   * Trigger a secrets scan.
+   */
+  async startSecretsScan(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan/secrets`,
+      { body }
+    );
+  }
+
+  /**
+   * Get the latest secrets scan.
+   */
+  async getLatestSecretsScan(repo: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan/secrets/latest`
+    );
+  }
+
+  /**
+   * Get a secrets scan by ID.
+   */
+  async getSecretsScan(repo: string, scanId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan/secrets/${encodeURIComponent(scanId)}`
+    );
+  }
+
+  /**
+   * List secrets from the latest scan.
+   */
+  async listSecrets(repo: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/secrets`
+    );
+  }
+
+  /**
+   * List secrets scans.
+   */
+  async listSecretsScans(repo: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scans/secrets`
+    );
+  }
+
+  /**
+   * Trigger a SAST scan.
+   */
+  async startSastScan(repo: string, body: { repo_path: string; rule_sets?: string[]; workspace_id?: string }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan/sast`,
+      { body }
+    );
+  }
+
+  /**
+   * Get a SAST scan by ID.
+   */
+  async getSastScan(repo: string, scanId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan/sast/${encodeURIComponent(scanId)}`
+    );
+  }
+
+  /**
+   * List SAST findings.
+   */
+  async listSastFindings(
+    repo: string,
+    params?: { severity?: string; owasp_category?: string; limit?: number; offset?: number }
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/sast/findings`,
+      { params }
+    );
+  }
+
+  /**
+   * Get OWASP summary for SAST findings.
+   */
+  async getSastOwaspSummary(repo: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/sast/owasp-summary`
+    );
+  }
+
+  /**
+   * Run codebase metrics analysis.
+   */
+  async runCodebaseMetricsAnalysis(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/metrics/analyze`,
+      { body }
+    );
+  }
+
+  /**
+   * Get latest metrics report.
+   */
+  async getLatestCodebaseMetrics(repo: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/metrics`
+    );
+  }
+
+  /**
+   * Get metrics report by ID.
+   */
+  async getCodebaseMetrics(repo: string, analysisId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/metrics/${encodeURIComponent(analysisId)}`
+    );
+  }
+
+  /**
+   * List metrics history.
+   */
+  async listCodebaseMetricsHistory(
+    repo: string,
+    params?: { limit?: number; offset?: number }
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/metrics/history`,
+      { params }
+    );
+  }
+
+  /**
+   * Get hotspots for a repository.
+   */
+  async getCodebaseHotspots(
+    repo: string,
+    params?: { limit?: number; offset?: number }
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/hotspots`,
+      { params }
+    );
+  }
+
+  /**
+   * Get duplicate blocks for a repository.
+   */
+  async getCodebaseDuplicates(
+    repo: string,
+    params?: { limit?: number; offset?: number }
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/duplicates`,
+      { params }
+    );
+  }
+
+  /**
+   * Get metrics for a specific file.
+   */
+  async getCodebaseFileMetrics(
+    repo: string,
+    filePath: string
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/metrics/file/${encodeURIComponent(filePath)}`
+    );
+  }
+
+  /**
+   * Run code intelligence analysis.
+   */
+  async analyzeCodebase(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/analyze`,
+      { body }
+    );
+  }
+
+  /**
+   * Get codebase symbols.
+   */
+  async getCodebaseSymbols(repo: string, params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/symbols`,
+      { params }
+    );
+  }
+
+  /**
+   * Get codebase call graph.
+   */
+  async getCodebaseCallgraph(repo: string, params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/callgraph`,
+      { params }
+    );
+  }
+
+  /**
+   * Get dead code report.
+   */
+  async getCodebaseDeadcode(repo: string, params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/deadcode`,
+      { params }
+    );
+  }
+
+  /**
+   * Analyze impact for a change.
+   */
+  async analyzeCodebaseImpact(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/impact`,
+      { body }
+    );
+  }
+
+  /**
+   * Explain codebase components.
+   */
+  async understandCodebase(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/understand`,
+      { body }
+    );
+  }
+
+  /**
+   * Start a codebase audit.
+   */
+  async startCodebaseAudit(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/audit`,
+      { body }
+    );
+  }
+
+  /**
+   * Get codebase audit results.
+   */
+  async getCodebaseAudit(repo: string, auditId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/audit/${encodeURIComponent(auditId)}`
+    );
+  }
+
+  /**
+   * Run a quick security scan.
+   */
+  async startQuickScan(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', '/api/v1/codebase/quick-scan', { body });
+  }
+
+  /**
+   * Get quick scan result.
+   */
+  async getQuickScan(scanId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/codebase/quick-scan/${encodeURIComponent(scanId)}`
+    );
+  }
+
+  /**
+   * List recent quick scans.
+   */
+  async listQuickScans(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', '/api/v1/codebase/quick-scans');
+  }
+
+  // ===========================================================================
+  // Gmail
+  // ===========================================================================
+
+  /**
+   * List Gmail labels.
+   */
+  async listGmailLabels(params?: { user_id?: string }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', '/api/v1/gmail/labels', { params });
+  }
+
+  /**
+   * Create a Gmail label.
+   */
+  async createGmailLabel(body: {
+    name: string;
+    user_id?: string;
+    message_list_visibility?: string;
+    label_list_visibility?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', '/api/v1/gmail/labels', { body });
+  }
+
+  /**
+   * Update a Gmail label.
+   */
+  async updateGmailLabel(
+    labelId: string,
+    body: {
+      name?: string;
+      user_id?: string;
+      message_list_visibility?: string;
+      label_list_visibility?: string;
+    }
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'PATCH',
+      `/api/v1/gmail/labels/${encodeURIComponent(labelId)}`,
+      { body }
+    );
+  }
+
+  /**
+   * Delete a Gmail label.
+   */
+  async deleteGmailLabel(labelId: string, params?: { user_id?: string }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'DELETE',
+      `/api/v1/gmail/labels/${encodeURIComponent(labelId)}`,
+      { params }
+    );
+  }
+
+  /**
+   * List Gmail filters.
+   */
+  async listGmailFilters(params?: { user_id?: string }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', '/api/v1/gmail/filters', { params });
+  }
+
+  /**
+   * Create a Gmail filter.
+   */
+  async createGmailFilter(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', '/api/v1/gmail/filters', { body });
+  }
+
+  /**
+   * Delete a Gmail filter.
+   */
+  async deleteGmailFilter(filterId: string, params?: { user_id?: string }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'DELETE',
+      `/api/v1/gmail/filters/${encodeURIComponent(filterId)}`,
+      { params }
+    );
+  }
+
+  /**
+   * Modify labels for a Gmail message.
+   */
+  async modifyGmailMessageLabels(messageId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/gmail/messages/${encodeURIComponent(messageId)}/labels`,
+      { body }
+    );
+  }
+
+  /**
+   * Mark a Gmail message read/unread.
+   */
+  async setGmailMessageReadState(messageId: string, body?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/gmail/messages/${encodeURIComponent(messageId)}/read`,
+      { body }
+    );
+  }
+
+  /**
+   * Star or unstar a Gmail message.
+   */
+  async setGmailMessageStarState(messageId: string, body?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/gmail/messages/${encodeURIComponent(messageId)}/star`,
+      { body }
+    );
+  }
+
+  /**
+   * Archive a Gmail message.
+   */
+  async archiveGmailMessage(messageId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/gmail/messages/${encodeURIComponent(messageId)}/archive`
+    );
+  }
+
+  /**
+   * Trash or untrash a Gmail message.
+   */
+  async trashGmailMessage(messageId: string, body?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/gmail/messages/${encodeURIComponent(messageId)}/trash`,
+      { body }
+    );
+  }
+
+  /**
+   * Get a Gmail attachment.
+   */
+  async getGmailAttachment(
+    messageId: string,
+    attachmentId: string,
+    params?: { user_id?: string }
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/gmail/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`,
+      { params }
+    );
+  }
+
+  /**
+   * List Gmail threads.
+   */
+  async listGmailThreads(params?: {
+    user_id?: string;
+    q?: string;
+    label_ids?: string;
+    limit?: number;
+    page_token?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', '/api/v1/gmail/threads', { params });
+  }
+
+  /**
+   * Get a Gmail thread.
+   */
+  async getGmailThread(threadId: string, params?: { user_id?: string }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/gmail/threads/${encodeURIComponent(threadId)}`,
+      { params }
+    );
+  }
+
+  /**
+   * Archive a Gmail thread.
+   */
+  async archiveGmailThread(threadId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/gmail/threads/${encodeURIComponent(threadId)}/archive`
+    );
+  }
+
+  /**
+   * Trash or untrash a Gmail thread.
+   */
+  async trashGmailThread(threadId: string, body?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/gmail/threads/${encodeURIComponent(threadId)}/trash`,
+      { body }
+    );
+  }
+
+  /**
+   * Modify labels for a Gmail thread.
+   */
+  async modifyGmailThreadLabels(threadId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/gmail/threads/${encodeURIComponent(threadId)}/labels`,
+      { body }
+    );
+  }
+
+  /**
+   * List Gmail drafts.
+   */
+  async listGmailDrafts(params?: { user_id?: string; limit?: number; page_token?: string }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', '/api/v1/gmail/drafts', { params });
+  }
+
+  /**
+   * Create a Gmail draft.
+   */
+  async createGmailDraft(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', '/api/v1/gmail/drafts', { body });
+  }
+
+  /**
+   * Get a Gmail draft.
+   */
+  async getGmailDraft(draftId: string, params?: { user_id?: string }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/gmail/drafts/${encodeURIComponent(draftId)}`,
+      { params }
+    );
+  }
+
+  /**
+   * Update a Gmail draft.
+   */
+  async updateGmailDraft(draftId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'PUT',
+      `/api/v1/gmail/drafts/${encodeURIComponent(draftId)}`,
+      { body }
+    );
+  }
+
+  /**
+   * Delete a Gmail draft.
+   */
+  async deleteGmailDraft(draftId: string, params?: { user_id?: string }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'DELETE',
+      `/api/v1/gmail/drafts/${encodeURIComponent(draftId)}`,
+      { params }
+    );
+  }
+
+  /**
+   * Send a Gmail draft.
+   */
+  async sendGmailDraft(draftId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/gmail/drafts/${encodeURIComponent(draftId)}/send`
+    );
+  }
+
+  // ===========================================================================
   // Graph Debates
   // ===========================================================================
 
