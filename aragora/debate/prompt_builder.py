@@ -7,14 +7,14 @@ Handles construction of prompts for proposals, revisions, and judgments.
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional, Type
 
 # Import QuestionClassifier for LLM-based classification
 try:
     from aragora.server.question_classifier import QuestionClassifier, QuestionClassification
 except ImportError:
-    QuestionClassifier = None  # type: ignore[misc,assignment]
-    QuestionClassification = None  # type: ignore[misc,assignment]
+    QuestionClassifier: Optional[Type[Any]] = None
+    QuestionClassification: Optional[Type[Any]] = None
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
@@ -39,8 +39,8 @@ try:
 except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
-    AbstractionLevel = None  # type: ignore[misc,assignment]
-    RLMContextAdapter = None  # type: ignore[misc,assignment]
+    AbstractionLevel: Optional[Type[Any]] = None
+    RLMContextAdapter: Optional[Type[Any]] = None
 
 logger = logging.getLogger(__name__)
 

@@ -47,7 +47,7 @@ import time
 from abc import ABC
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, Optional
+from typing import Any, AsyncGenerator, Callable, Optional, Type
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +71,9 @@ try:
     RESILIENCE_AVAILABLE = True
 except ImportError:
     RESILIENCE_AVAILABLE = False
-    CircuitBreaker = None  # type: ignore[misc,assignment]
-    CircuitOpenError = Exception  # type: ignore[misc,assignment]
-    get_circuit_breaker = None
+    CircuitBreaker: Optional[Type[Any]] = None
+    CircuitOpenError: Type[Exception] = Exception
+    get_circuit_breaker: Optional[Callable[..., Any]] = None
     logger.debug("resilience module not available, circuit breaker disabled")
 
 

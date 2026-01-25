@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional
+from typing import Any, Optional, Type
 
 from ..base import (
     BaseHandler,
@@ -47,8 +47,8 @@ try:
     CONTINUUM_AVAILABLE = True
 except ImportError:
     CONTINUUM_AVAILABLE = False
-    ContinuumMemory = None  # type: ignore[misc,assignment]
-    MemoryTier = None  # type: ignore[misc,assignment]
+    ContinuumMemory: Optional[Type[Any]] = None
+    MemoryTier: Optional[Type[Any]] = None
 
 # Optional import for critique store
 try:
@@ -57,7 +57,7 @@ try:
     CRITIQUE_STORE_AVAILABLE = True
 except ImportError:
     CRITIQUE_STORE_AVAILABLE = False
-    CritiqueStore = None  # type: ignore[misc,assignment]
+    CritiqueStore: Optional[Type[Any]] = None
 
 
 class MemoryHandler(BaseHandler):

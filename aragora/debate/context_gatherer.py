@@ -20,7 +20,7 @@ import hashlib
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, Type
 
 if TYPE_CHECKING:
     from aragora.rlm.compressor import HierarchicalCompressor
@@ -33,8 +33,8 @@ try:
 except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
-    get_rlm = None  # type: ignore[misc,assignment]
-    get_compressor = None  # type: ignore[misc,assignment]
+    get_rlm: Optional[Callable[..., Any]] = None
+    get_compressor: Optional[Callable[..., Any]] = None
 
 # Check for Knowledge Mound availability
 try:
@@ -43,7 +43,7 @@ try:
     HAS_KNOWLEDGE_MOUND = True
 except ImportError:
     HAS_KNOWLEDGE_MOUND = False
-    KnowledgeMound = None  # type: ignore[misc,assignment]
+    KnowledgeMound: Optional[Type[Any]] = None
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ try:
 except ImportError:
     HAS_THREAT_INTEL = False
     THREAT_INTEL_ENABLED = False
-    ThreatIntelEnrichment = None  # type: ignore[misc,assignment]
+    ThreatIntelEnrichment: Optional[Type[Any]] = None
 
 
 class ContextGatherer:

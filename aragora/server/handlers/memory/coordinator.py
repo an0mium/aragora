@@ -9,7 +9,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Any, Optional, Type
 
 from ..base import (
     BaseHandler,
@@ -32,8 +32,8 @@ try:
     COORDINATOR_AVAILABLE = True
 except ImportError:
     COORDINATOR_AVAILABLE = False
-    MemoryCoordinator = None  # type: ignore[misc,assignment]
-    CoordinatorOptions = None  # type: ignore[misc,assignment]
+    MemoryCoordinator: Optional[Type[Any]] = None
+    CoordinatorOptions: Optional[Type[Any]] = None
 
 
 class CoordinatorHandler(BaseHandler):

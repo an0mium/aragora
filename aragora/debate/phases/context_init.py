@@ -17,7 +17,7 @@ import asyncio
 import hashlib
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple, Type
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
@@ -36,9 +36,9 @@ try:
 except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
-    get_rlm = None  # type: ignore[misc,assignment]
-    RLMConfig = None  # type: ignore[misc,assignment]
-    _RLMContext = None  # type: ignore[misc,assignment]
+    get_rlm: Optional[Callable[..., Any]] = None
+    RLMConfig: Optional[Type[Any]] = None
+    _RLMContext: Optional[Type[Any]] = None
 
 
 class ContextInitializer:

@@ -28,7 +28,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Literal, Optional
+from typing import Any, Callable, Literal, Optional, Type
 
 from aragora.documents.chunking.token_counter import get_token_counter
 from aragora.documents.models import ChunkType, DocumentChunk
@@ -737,9 +737,9 @@ try:
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
-    get_compressor = None  # type: ignore[misc,assignment]
-    RLMConfig = None  # type: ignore[misc,assignment]
-    AbstractionLevel = None  # type: ignore[misc,assignment]
+    get_compressor: Optional[Callable[..., Any]] = None
+    RLMConfig: Optional[Type[Any]] = None
+    AbstractionLevel: Optional[Type[Any]] = None
 
 
 class RLMChunking(ChunkingStrategy):

@@ -37,7 +37,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Type
 
 from aragora.core import Agent
 from aragora.debate.consensus import (
@@ -76,8 +76,8 @@ try:
     PERSONAS_AVAILABLE = True
 except ImportError:
     PERSONAS_AVAILABLE = False
-    RegulatoryPersona = None  # type: ignore[misc,assignment]
-    PersonaAttack = None  # type: ignore[misc,assignment]
+    RegulatoryPersona: Optional[Type[Any]] = None
+    PersonaAttack: Optional[Type[Any]] = None
 
 logger = logging.getLogger(__name__)
 

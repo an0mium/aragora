@@ -14,7 +14,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Type
 
 from aragora.server.versioning.compat import strip_version_prefix
 
@@ -38,7 +38,7 @@ try:
     AB_TESTING_AVAILABLE = True
 except ImportError as e:
     AB_TESTING_AVAILABLE = False
-    ABTestManager = None  # type: ignore[misc,assignment]
+    ABTestManager: Optional[Type[Any]] = None
     logger.debug(f"A/B testing module not available: {e}")
 
 

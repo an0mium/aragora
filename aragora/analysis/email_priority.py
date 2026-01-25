@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 
 # Check for AragoraRLM (routes to TRUE RLM when available)
 try:
@@ -27,7 +27,7 @@ try:
 except ImportError:
     HAS_ARAGORA_RLM = False
     HAS_OFFICIAL_RLM = False
-    AragoraRLM = None  # type: ignore[misc,assignment]
+    AragoraRLM: Optional[Type[Any]] = None
 
 logger = logging.getLogger(__name__)
 

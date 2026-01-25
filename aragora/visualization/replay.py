@@ -9,7 +9,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 
 from aragora.core import DebateResult, Message, Vote
 
@@ -20,7 +20,8 @@ try:
     HAS_TRACE_SUPPORT = True
 except ImportError:
     HAS_TRACE_SUPPORT = False
-    DebateTrace = None  # type: ignore[misc,assignment]
+    DebateTrace: Optional[Type[Any]] = None
+    EventType: Optional[Type[Any]] = None
 
 
 @dataclass

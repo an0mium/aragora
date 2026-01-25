@@ -17,7 +17,7 @@ Install TRUE RLM: pip install aragora[rlm]
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Protocol, Type
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import KnowledgeItem, MoundConfig
@@ -37,10 +37,10 @@ try:
 except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
-    get_rlm = None  # type: ignore[misc,assignment]
-    RLMConfig = None  # type: ignore[misc,assignment]
-    RLMMode = None  # type: ignore[misc,assignment]
-    AbstractionLevel = None  # type: ignore[misc,assignment]
+    get_rlm: Optional[Callable[..., Any]] = None
+    RLMConfig: Optional[Type[Any]] = None
+    RLMMode: Optional[Type[Any]] = None
+    AbstractionLevel: Optional[Type[Any]] = None
 
 logger = logging.getLogger(__name__)
 

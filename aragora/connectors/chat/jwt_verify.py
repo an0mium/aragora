@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +26,8 @@ try:
     HAS_JWT = True
 except ImportError:
     jwt = None
-    PyJWKClient = None  # type: ignore[misc,assignment]
-    PyJWTError = Exception  # type: ignore[misc,assignment]
+    PyJWKClient: Optional[Type[Any]] = None
+    PyJWTError: Type[Exception] = Exception
     HAS_JWT = False
 
 # Microsoft Bot Framework OpenID configuration

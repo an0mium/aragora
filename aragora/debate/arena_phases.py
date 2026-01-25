@@ -8,7 +8,7 @@ orchestrator size and improve testability.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional, Type
 
 from aragora.debate.context_gatherer import ContextGatherer
 from aragora.debate.disagreement import DisagreementReporter
@@ -35,7 +35,7 @@ try:
 
     GENESIS_AVAILABLE = True
 except ImportError:
-    PopulationManager = None  # type: ignore[misc,assignment]
+    PopulationManager: Optional[Type[Any]] = None
     GENESIS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
@@ -455,7 +455,6 @@ def create_phase_executor(arena: "Arena") -> PhaseExecutor:
         Configured PhaseExecutor instance
     """
     from aragora.config import AGENT_TIMEOUT_SECONDS, MAX_CONCURRENT_CRITIQUES
-    from typing import Any
 
     # Calculate dynamic timeout based on agents and rounds
     # This prevents timeout issues with slow agents (e.g., kimi taking 30-85s/critique)
