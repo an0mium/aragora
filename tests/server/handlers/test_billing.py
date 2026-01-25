@@ -357,7 +357,7 @@ class TestBillingHandlerGetUsage:
     """Tests for get usage endpoint."""
 
     @patch("aragora.server.handlers.admin.billing._billing_limiter")
-    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_get_usage_success(self, mock_auth, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext()
@@ -393,7 +393,7 @@ class TestBillingHandlerGetSubscription:
     """Tests for get subscription endpoint."""
 
     @patch("aragora.server.handlers.admin.billing._billing_limiter")
-    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
     @patch("aragora.server.handlers.admin.billing.get_stripe_client")
     def test_get_subscription_with_stripe(
         self, mock_stripe, mock_auth, mock_limiter, billing_handler
@@ -427,7 +427,7 @@ class TestBillingHandlerCheckout:
     """Tests for checkout endpoint."""
 
     @patch("aragora.server.handlers.admin.billing._billing_limiter")
-    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
     @patch("aragora.server.handlers.admin.billing.get_stripe_client")
     @patch("aragora.server.handlers.admin.billing.validate_against_schema")
     def test_create_checkout_success(
@@ -532,7 +532,7 @@ class TestBillingHandlerUsageExport:
     """Tests for usage export endpoint."""
 
     @patch("aragora.server.handlers.admin.billing._billing_limiter")
-    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_export_usage_not_authenticated(self, mock_auth, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext(is_authenticated=False)
@@ -554,7 +554,7 @@ class TestBillingHandlerUsageForecast:
     """Tests for usage forecast endpoint."""
 
     @patch("aragora.server.handlers.admin.billing._billing_limiter")
-    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_forecast_success(self, mock_auth, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext()
@@ -570,7 +570,7 @@ class TestBillingHandlerUsageForecast:
         assert "projection" in data["forecast"]
 
     @patch("aragora.server.handlers.admin.billing._billing_limiter")
-    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_forecast_not_authenticated(self, mock_auth, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext(is_authenticated=False)
@@ -592,7 +592,7 @@ class TestBillingHandlerInvoices:
     """Tests for invoices endpoint."""
 
     @patch("aragora.server.handlers.admin.billing._billing_limiter")
-    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_invoices_not_authenticated(self, mock_auth, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext(is_authenticated=False)
@@ -605,7 +605,7 @@ class TestBillingHandlerInvoices:
         assert result.status_code == 401
 
     @patch("aragora.server.handlers.admin.billing._billing_limiter")
-    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_invoices_no_org(self, mock_auth, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext()
