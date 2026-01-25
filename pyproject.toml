@@ -264,6 +264,7 @@ markers = [
     "new_features: marks tests for new feature E2E testing",
     "experimental: marks tests for experimental/unstable features",
     "external: marks tests requiring external services (APIs, databases)",
+    "benchmark: marks benchmark tests (run separately from unit suite)",
     "flaky: marks tests with known intermittent failures",
     "requires_server: marks tests that need a running Aragora server",
 ]
