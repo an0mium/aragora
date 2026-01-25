@@ -240,7 +240,7 @@ export function VerticalSelector({
         if (tokens?.access_token) {
           headers['Authorization'] = `Bearer ${tokens.access_token}`;
         }
-        const response = await fetch(`${apiBase}/api/v1/verticals`, {
+        const response = await fetch(`${apiBase}/api/verticals`, {
           method: 'GET',
           headers,
         });
