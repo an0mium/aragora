@@ -10,6 +10,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
+from aragora.audit.unified import audit_admin, audit_data
+
 from aragora.connectors.enterprise import (
     SyncScheduler,
     SyncSchedule,
@@ -211,6 +213,15 @@ async def handle_create_connector(
     )
 
     logger.info(f"Created connector: {connector.connector_id} ({connector_type})")
+    user_id = auth_context.user_id if auth_context else "system"
+    audit_data(
+        user_id=user_id,
+        resource_type="connector",
+        resource_id=connector.connector_id,
+        action="create",
+        connector_type=connector_type,
+        tenant_id=tenant_id,
+    )
 
     return {
         "id": job.connector_id,
@@ -251,6 +262,16 @@ async def handle_update_connector(
         job.schedule = SyncSchedule.from_dict(updates["schedule"])
         job._calculate_next_run()
 
+    user_id = auth_context.user_id if auth_context else "system"
+    audit_data(
+        user_id=user_id,
+        resource_type="connector",
+        resource_id=connector_id,
+        action="update",
+        changes=list(updates.keys()),
+        tenant_id=tenant_id,
+    )
+
     return {
         "id": job.connector_id,
         "status": "updated",
@@ -275,6 +296,15 @@ async def handle_delete_connector(
 
     scheduler = get_scheduler()
     scheduler.unregister_connector(connector_id, tenant_id)
+
+    user_id = auth_context.user_id if auth_context else "system"
+    audit_data(
+        user_id=user_id,
+        resource_type="connector",
+        resource_id=connector_id,
+        action="delete",
+        tenant_id=tenant_id,
+    )
     return True
 
 
@@ -372,6 +402,17 @@ async def handle_trigger_sync(
 
     if not run_id:
         return None
+
+    user_id = auth_context.user_id if auth_context else "system"
+    audit_data(
+        user_id=user_id,
+        resource_type="connector_sync",
+        resource_id=run_id,
+        action="execute",
+        connector_id=connector_id,
+        full_sync=full_sync,
+        tenant_id=tenant_id,
+    )
 
     return {
         "run_id": run_id,
@@ -505,6 +546,14 @@ async def handle_start_scheduler(
     scheduler = get_scheduler()
     await scheduler.start()
 
+    user_id = auth_context.user_id if auth_context else "system"
+    audit_admin(
+        admin_id=user_id,
+        action="start_scheduler",
+        target_type="scheduler",
+        target_id="sync_scheduler",
+    )
+
     return {
         "status": "started",
     }
@@ -527,6 +576,14 @@ async def handle_stop_scheduler(
 
     scheduler = get_scheduler()
     await scheduler.stop()
+
+    user_id = auth_context.user_id if auth_context else "system"
+    audit_admin(
+        admin_id=user_id,
+        action="stop_scheduler",
+        target_type="scheduler",
+        target_id="sync_scheduler",
+    )
 
     return {
         "status": "stopped",

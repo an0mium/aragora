@@ -355,6 +355,16 @@ async def execute_workflow(
         )
         store.save_execution(execution)
 
+        audit_data(
+            user_id="system",
+            resource_type="workflow_execution",
+            resource_id=execution_id,
+            action="execute",
+            workflow_id=workflow_id,
+            status=execution["status"],
+            tenant_id=tenant_id,
+        )
+
         return execution
 
     except (ValueError, KeyError, TypeError) as e:

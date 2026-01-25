@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional
 
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
 from aragora.server.versioning.compat import strip_version_prefix
+from aragora.audit.unified import audit_admin, audit_data
 
 from .base import (
     BaseHandler,
@@ -341,6 +342,15 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
             # Enqueue
             job_id = await queue.enqueue(job, priority=data.get("priority", 0))
 
+            audit_data(
+                user_id=data.get("user_id", "system"),
+                resource_type="queue_job",
+                resource_id=job_id,
+                action="create",
+                job_type="debate",
+                priority=data.get("priority", 0),
+            )
+
             return json_response(
                 {
                     "job_id": job_id,
@@ -529,6 +539,13 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
             # Re-enqueue
             await queue.enqueue(job, priority=job.priority)
 
+            audit_admin(
+                admin_id="system",
+                action="retry_job",
+                target_type="queue_job",
+                target_id=job_id,
+            )
+
             return json_response(
                 {
                     "job_id": job_id,
@@ -563,6 +580,13 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                         "Only pending or retrying jobs can be cancelled.",
                         400,
                     )
+
+            audit_admin(
+                admin_id="system",
+                action="cancel_job",
+                target_type="queue_job",
+                target_id=job_id,
+            )
 
             return json_response(
                 {
@@ -697,6 +721,13 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
 
             await queue.enqueue(job, priority=job.priority)
 
+            audit_admin(
+                admin_id="system",
+                action="requeue_dlq_job",
+                target_type="queue_job",
+                target_id=job_id,
+            )
+
             return json_response(
                 {
                     "job_id": job_id,
@@ -743,6 +774,16 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                         requeued += 1
                     except (ConnectionError, OSError, TimeoutError, AttributeError) as e:
                         errors.append({"job_id": job.id, "error": str(e)})
+
+            if requeued > 0:
+                audit_admin(
+                    admin_id="system",
+                    action="requeue_all_dlq",
+                    target_type="queue",
+                    target_id="dlq",
+                    requeued_count=requeued,
+                    error_count=len(errors),
+                )
 
             return json_response(
                 {

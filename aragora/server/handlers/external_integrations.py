@@ -32,6 +32,8 @@ Endpoints:
 import logging
 from typing import Any, Optional
 
+from aragora.audit.unified import audit_data
+
 from aragora.integrations.zapier import ZapierIntegration, get_zapier_integration
 from aragora.integrations.make import MakeIntegration, get_make_integration
 from aragora.integrations.n8n import N8nIntegration, get_n8n_integration
@@ -433,6 +435,16 @@ class ExternalIntegrationsHandler(SecureHandler):
         zapier = self._get_zapier()
         app = zapier.create_app(workspace_id)
 
+        auth_ctx = self._get_auth_context(handler)
+        user_id = auth_ctx.user_id if auth_ctx else "system"
+        audit_data(
+            user_id=user_id,
+            resource_type="zapier_app",
+            resource_id=app.id,
+            action="create",
+            workspace_id=workspace_id,
+        )
+
         return json_response(
             {
                 "app": {
@@ -457,6 +469,14 @@ class ExternalIntegrationsHandler(SecureHandler):
         zapier = self._get_zapier()
 
         if zapier.delete_app(app_id):
+            auth_ctx = self._get_auth_context(handler)
+            user_id = auth_ctx.user_id if auth_ctx else "system"
+            audit_data(
+                user_id=user_id,
+                resource_type="zapier_app",
+                resource_id=app_id,
+                action="delete",
+            )
             return json_response({"deleted": True, "app_id": app_id})
         else:
             return error_response(f"Zapier app not found: {app_id}", 404)
@@ -570,6 +590,16 @@ class ExternalIntegrationsHandler(SecureHandler):
         make = self._get_make()
         connection = make.create_connection(workspace_id)
 
+        auth_ctx = self._get_auth_context(handler)
+        user_id = auth_ctx.user_id if auth_ctx else "system"
+        audit_data(
+            user_id=user_id,
+            resource_type="make_connection",
+            resource_id=connection.id,
+            action="create",
+            workspace_id=workspace_id,
+        )
+
         return json_response(
             {
                 "connection": {
@@ -593,6 +623,14 @@ class ExternalIntegrationsHandler(SecureHandler):
         make = self._get_make()
 
         if make.delete_connection(conn_id):
+            auth_ctx = self._get_auth_context(handler)
+            user_id = auth_ctx.user_id if auth_ctx else "system"
+            audit_data(
+                user_id=user_id,
+                resource_type="make_connection",
+                resource_id=conn_id,
+                action="delete",
+            )
             return json_response({"deleted": True, "connection_id": conn_id})
         else:
             return error_response(f"Make connection not found: {conn_id}", 404)
@@ -712,6 +750,16 @@ class ExternalIntegrationsHandler(SecureHandler):
             api_url=body.get("api_url"),
         )
 
+        auth_ctx = self._get_auth_context(handler)
+        user_id = auth_ctx.user_id if auth_ctx else "system"
+        audit_data(
+            user_id=user_id,
+            resource_type="n8n_credential",
+            resource_id=credential.id,
+            action="create",
+            workspace_id=workspace_id,
+        )
+
         return json_response(
             {
                 "credential": {
@@ -736,6 +784,14 @@ class ExternalIntegrationsHandler(SecureHandler):
         n8n = self._get_n8n()
 
         if n8n.delete_credential(cred_id):
+            auth_ctx = self._get_auth_context(handler)
+            user_id = auth_ctx.user_id if auth_ctx else "system"
+            audit_data(
+                user_id=user_id,
+                resource_type="n8n_credential",
+                resource_id=cred_id,
+                action="delete",
+            )
             return json_response({"deleted": True, "credential_id": cred_id})
         else:
             return error_response(f"n8n credential not found: {cred_id}", 404)
