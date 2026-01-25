@@ -23,6 +23,7 @@ Both SDKs provide complete coverage of all API endpoints including:
 | Document | Purpose | When to Use |
 |----------|---------|-------------|
 | **API_REFERENCE.md** (this) | Complete endpoint catalog | Primary reference for all endpoints |
+| [API_ENDPOINTS.md](./API_ENDPOINTS.md) | Auto-generated endpoint list | Cross-check handler coverage |
 | [API_EXAMPLES.md](./API_EXAMPLES.md) | Runnable code examples | Learning API patterns |
 | [API_RATE_LIMITS.md](./API_RATE_LIMITS.md) | Rate limiting details | Understanding throttling |
 | [API_VERSIONING.md](./API_VERSIONING.md) | Version strategy | API migration planning |

@@ -1,6 +1,6 @@
 # Knowledge Mound Operations Guide
 
-> **Last Updated:** 2026-01-23
+> **Last Updated:** 2026-01-25
 
 The Knowledge Mound is Aragora's unified knowledge storage system that accumulates insights from debates, documents, and external sources. It provides semantic querying, contradiction detection, and knowledge quality management.
 

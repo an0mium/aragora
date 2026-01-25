@@ -38,6 +38,13 @@ from aragora_client.control_plane import (
     Task,
 )
 from aragora_client.cross_pollination import CrossPollinationAPI
+from aragora_client.decisions import (
+    DecisionResult,
+    DecisionsAPI,
+    DecisionStatus,
+    DecisionStatusInfo,
+    DecisionType,
+)
 from aragora_client.exceptions import (
     AragoraAuthenticationError,
     AragoraConnectionError,
@@ -249,4 +256,10 @@ __all__ = [
     "IPReputation",
     "HashReputation",
     "EmailScanResult",
+    # Decisions
+    "DecisionsAPI",
+    "DecisionResult",
+    "DecisionStatus",
+    "DecisionStatusInfo",
+    "DecisionType",
 ]

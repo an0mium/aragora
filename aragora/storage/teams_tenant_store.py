@@ -193,7 +193,7 @@ class TeamsTenantStore:
         except ImportError:
             logger.warning("cryptography not installed, storing token unencrypted")
             return token
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
             logger.error(f"Token encryption failed: {e}")
             return token
 
@@ -216,7 +216,7 @@ class TeamsTenantStore:
             return f.decrypt(encrypted.encode()).decode()
         except ImportError:
             return encrypted
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
             logger.error(f"Token decryption failed: {e}")
             return encrypted
 
@@ -262,7 +262,7 @@ class TeamsTenantStore:
             logger.info(f"Saved Teams tenant: {tenant.tenant_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to save tenant: {e}")
             return False
 
@@ -292,7 +292,7 @@ class TeamsTenantStore:
 
             return None
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to get tenant {tenant_id}: {e}")
             return None
 
@@ -326,7 +326,7 @@ class TeamsTenantStore:
 
             return tenants
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to get tenants for org {aragora_org_id}: {e}")
             return []
 
@@ -362,7 +362,7 @@ class TeamsTenantStore:
 
             return tenants
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to list tenants: {e}")
             return []
 
@@ -399,7 +399,7 @@ class TeamsTenantStore:
 
             return tenants
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to list expiring tenants: {e}")
             return []
 
@@ -449,7 +449,7 @@ class TeamsTenantStore:
             logger.info(f"Updated tokens for Teams tenant: {tenant_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to update tokens for tenant {tenant_id}: {e}")
             return False
 
@@ -472,7 +472,7 @@ class TeamsTenantStore:
             logger.info(f"Deactivated Teams tenant: {tenant_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to deactivate tenant {tenant_id}: {e}")
             return False
 
@@ -495,7 +495,7 @@ class TeamsTenantStore:
             logger.info(f"Deleted Teams tenant: {tenant_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to delete tenant {tenant_id}: {e}")
             return False
 
@@ -517,7 +517,7 @@ class TeamsTenantStore:
 
             return cursor.fetchone()[0]
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to count tenants: {e}")
             return 0
 
@@ -550,7 +550,7 @@ class TeamsTenantStore:
                 "expiring_tokens": expiring,
             }
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to get stats: {e}")
             return {"total_tenants": 0, "active_tenants": 0}
 
@@ -583,7 +583,7 @@ class SupabaseTeamsTenantStore:
             self._client = get_supabase_client()
         except ImportError:
             logger.warning("Supabase client not available")
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             logger.error(f"Failed to initialize Supabase client: {e}")
 
     @property
@@ -607,7 +607,7 @@ class SupabaseTeamsTenantStore:
         except ImportError:
             logger.warning("cryptography not installed, storing token unencrypted")
             return token
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
             logger.error(f"Token encryption failed: {e}")
             return token
 
@@ -630,7 +630,7 @@ class SupabaseTeamsTenantStore:
             return f.decrypt(encrypted.encode()).decode()
         except ImportError:
             return encrypted
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
             logger.error(f"Token decryption failed: {e}")
             return encrypted
 
@@ -671,7 +671,7 @@ class SupabaseTeamsTenantStore:
             logger.info(f"Saved Teams tenant to Supabase: {tenant.tenant_id}")
             return True
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to save tenant to Supabase: {e}")
             return False
 
@@ -691,7 +691,7 @@ class SupabaseTeamsTenantStore:
 
             return None
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to get tenant {tenant_id} from Supabase: {e}")
             return None
 

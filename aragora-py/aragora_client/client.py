@@ -12,6 +12,7 @@ from aragora_client.audit import AuditAPI
 from aragora_client.auth import AuthAPI
 from aragora_client.control_plane import ControlPlaneAPI
 from aragora_client.cross_pollination import CrossPollinationAPI
+from aragora_client.decisions import DecisionsAPI
 from aragora_client.exceptions import (
     AragoraAuthenticationError,
     AragoraConnectionError,
@@ -1549,6 +1550,7 @@ class AragoraClient:
         self.marketplace = MarketplaceAPI(self)
         self.cross_pollination = CrossPollinationAPI(self)
         self.threat_intel = ThreatIntelAPI(self)
+        self.decisions = DecisionsAPI(self)
 
     async def __aenter__(self) -> AragoraClient:
         """Enter async context."""
