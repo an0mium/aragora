@@ -136,30 +136,56 @@ class TestOpenAPIPaths:
                 ), f"Legacy operation should not expose operationId: {method.upper()} {path}"
 
 
-@pytest.mark.skipif(
-    not os.environ.get("RUN_OPENAPI_COVERAGE_TESTS"),
-    reason="OpenAPI spec has 200+ paths not covered by handlers - spec vs handler sync issue",
-)
 class TestHandlerPathCoverage:
     """Tests that handlers cover OpenAPI-defined paths."""
 
+    @staticmethod
+    def _normalize_route(route: str) -> str:
+        return route.rstrip("*").rstrip("/")
+
+    @staticmethod
+    def _pattern_prefix(pattern: str) -> str:
+        cleaned = pattern.lstrip("^")
+        escaped = False
+        for idx, ch in enumerate(cleaned):
+            if escaped:
+                escaped = False
+                continue
+            if ch == "\\":
+                escaped = True
+                continue
+            if ch in ".^$*+?{}[]()|":
+                return cleaned[:idx].rstrip("/")
+        return cleaned.rstrip("/")
+
     def test_handlers_cover_spec_paths(self, openapi_spec: dict, handler_instances) -> None:
         """Each OpenAPI path should be handled by at least one handler."""
+        from aragora.server.versioning.compat import strip_version_prefix
+
         # Collect all paths handlers claim to handle
         handled_paths: set[str] = set()
 
         for instance in handler_instances:
             if hasattr(instance, "ROUTES"):
                 for route in instance.ROUTES:
-                    # Normalize route pattern
-                    handled_paths.add(route.rstrip("*").rstrip("/"))
+                    handled_paths.add(self._normalize_route(route))
+            if hasattr(instance, "ROUTE_PREFIXES"):
+                for route in instance.ROUTE_PREFIXES:
+                    handled_paths.add(self._normalize_route(route))
+            if hasattr(instance, "ROUTE_PATTERNS"):
+                for pattern in instance.ROUTE_PATTERNS:
+                    prefix = self._pattern_prefix(pattern)
+                    if prefix:
+                        handled_paths.add(prefix)
+        handled_legacy_paths = {strip_version_prefix(path) for path in handled_paths}
 
         # Check coverage (allow some flexibility for path parameters)
         uncovered_paths = []
         for spec_path in openapi_spec["paths"].keys():
-            # Convert OpenAPI path params to regex pattern
             normalized = re.sub(r"\{[^}]+\}", "*", spec_path)
             base_path = normalized.split("*")[0].rstrip("/")
+            legacy_path = strip_version_prefix(spec_path)
+            legacy_base = re.sub(r"\{[^}]+\}", "*", legacy_path).split("*")[0].rstrip("/")
 
             # Check if any handler covers this path
             covered = False
@@ -167,6 +193,11 @@ class TestHandlerPathCoverage:
                 if spec_path.startswith(handled) or handled.startswith(base_path):
                     covered = True
                     break
+            if not covered:
+                for handled in handled_legacy_paths:
+                    if legacy_path.startswith(handled) or handled.startswith(legacy_base):
+                        covered = True
+                        break
 
             if not covered:
                 uncovered_paths.append(spec_path)

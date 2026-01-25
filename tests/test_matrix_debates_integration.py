@@ -137,9 +137,9 @@ class TestMatrixDebatesHandlerRoutes:
 
             handler = MatrixDebatesHandler({})
 
-            # Test route recognition
-            assert "/api/debates/matrix" in handler.ROUTES
-            assert "/api/debates/matrix/" in handler.ROUTES
+            # Test route recognition (versioned routes)
+            assert "/api/v1/debates/matrix" in handler.ROUTES
+            assert "/api/v1/debates/matrix/" in handler.ROUTES
         except ImportError:
             pytest.skip("MatrixDebatesHandler not available")
 
@@ -150,7 +150,7 @@ class TestMatrixDebatesHandlerRoutes:
 
             handler = MatrixDebatesHandler({})
 
-            assert "/api/debates/matrix" in handler.AUTH_REQUIRED_ENDPOINTS
+            assert "/api/v1/debates/matrix" in handler.AUTH_REQUIRED_ENDPOINTS
         except ImportError:
             pytest.skip("MatrixDebatesHandler not available")
 
@@ -469,8 +469,9 @@ class TestAgentLoading:
 
             handler = MatrixDebatesHandler({})
 
+            # Patch at the correct module path
             with patch(
-                "aragora.server.handlers.matrix_debates.MatrixDebatesHandler._load_agents"
+                "aragora.server.handlers.debates.matrix_debates.MatrixDebatesHandler._load_agents"
             ) as mock_load:
                 mock_agent1 = Mock()
                 mock_agent1.name = "claude"

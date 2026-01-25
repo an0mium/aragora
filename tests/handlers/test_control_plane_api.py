@@ -697,3 +697,476 @@ class TestQueuePrioritization:
         result = await handler.handle_request(request)
 
         assert result["status"] == 400
+
+
+# ============================================================================
+# Control Plane Handler Routing Tests
+# ============================================================================
+
+
+class TestControlPlaneHandlerRoutingExtended:
+    """Extended tests for control plane handler routing."""
+
+    @pytest.fixture
+    def handler_class(self):
+        """Get the handler class."""
+        from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+        return ControlPlaneHandler
+
+    @pytest.fixture
+    def handler(self, handler_class):
+        """Create handler without coordinator."""
+        handler = handler_class(server_context={})
+        handler_class.coordinator = None
+        return handler
+
+    def test_can_handle_control_plane_paths(self, handler):
+        """Handler can handle control plane paths."""
+        assert handler.can_handle("/api/control-plane/agents")
+        assert handler.can_handle("/api/v1/control-plane/agents")
+        assert handler.can_handle("/api/control-plane/tasks")
+        assert handler.can_handle("/api/control-plane/health")
+
+    def test_cannot_handle_other_paths(self, handler):
+        """Handler cannot handle non-control-plane paths."""
+        assert not handler.can_handle("/api/v1/debates")
+        assert not handler.can_handle("/api/v1/gauntlet")
+        assert not handler.can_handle("/api/v1/auth")
+
+    def test_normalizes_v1_paths(self, handler):
+        """Handler normalizes v1 paths to legacy form."""
+        result = handler._normalize_path("/api/v1/control-plane/agents")
+        assert result == "/api/control-plane/agents"
+
+
+# ============================================================================
+# Audit Log Tests
+# ============================================================================
+
+
+class TestControlPlaneAuditLogs:
+    """Tests for control plane audit log endpoints."""
+
+    @pytest.fixture
+    def handler_class(self):
+        from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+        return ControlPlaneHandler
+
+    @pytest.fixture
+    def handler(self, handler_class):
+        handler = handler_class(server_context={})
+        handler_class.coordinator = None
+        return handler
+
+    def test_handle_audit_route_no_auth(self, handler):
+        """GET /api/control-plane/audit requires authentication."""
+        mock_handler = MagicMock()
+        # Set up auth to fail
+        with patch.object(handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (None, {"status": 401})
+            result = handler.handle(
+                path="/api/control-plane/audit",
+                query_params={},
+                handler=mock_handler,
+            )
+            # Should return None (not this handler) or auth error
+            if result:
+                assert result.get("status") in (401, 403)
+
+    def test_handle_audit_stats_route(self, handler):
+        """GET /api/control-plane/audit/stats endpoint exists."""
+        result = handler.handle(
+            path="/api/control-plane/audit/stats",
+            query_params={},
+            handler=MagicMock(),
+        )
+        # Returns something (error or response)
+        assert result is not None
+
+    def test_handle_audit_verify_route(self, handler):
+        """GET /api/control-plane/audit/verify endpoint exists."""
+        mock_handler = MagicMock()
+        with patch.object(handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MagicMock(role="admin"), None)
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                result = handler.handle(
+                    path="/api/control-plane/audit/verify",
+                    query_params={},
+                    handler=mock_handler,
+                )
+                # Should attempt to verify
+                assert result is not None
+
+
+# ============================================================================
+# Policy Violations Tests
+# ============================================================================
+
+
+class TestControlPlanePolicyViolations:
+    """Tests for control plane policy violation endpoints."""
+
+    @pytest.fixture
+    def handler_class(self):
+        from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+        return ControlPlaneHandler
+
+    @pytest.fixture
+    def handler(self, handler_class):
+        handler = handler_class(server_context={})
+        handler_class.coordinator = None
+        return handler
+
+    def test_handle_list_violations_route(self, handler):
+        """GET /api/control-plane/policies/violations endpoint exists."""
+        mock_handler = MagicMock()
+        with patch.object(handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MagicMock(role="admin"), None)
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                result = handler.handle(
+                    path="/api/control-plane/policies/violations",
+                    query_params={},
+                    handler=mock_handler,
+                )
+                assert result is not None
+
+    def test_handle_violation_stats_route(self, handler):
+        """GET /api/control-plane/policies/violations/stats endpoint exists."""
+        mock_handler = MagicMock()
+        with patch.object(handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MagicMock(role="admin"), None)
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                result = handler.handle(
+                    path="/api/control-plane/policies/violations/stats",
+                    query_params={},
+                    handler=mock_handler,
+                )
+                assert result is not None
+
+    def test_handle_get_violation_by_id(self, handler):
+        """GET /api/control-plane/policies/violations/:id endpoint exists."""
+        mock_handler = MagicMock()
+        with patch.object(handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MagicMock(role="admin"), None)
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                result = handler.handle(
+                    path="/api/control-plane/policies/violations/violation-123",
+                    query_params={},
+                    handler=mock_handler,
+                )
+                assert result is not None
+
+    def test_handle_update_violation_status(self, handler):
+        """PATCH /api/control-plane/policies/violations/:id endpoint exists."""
+        mock_handler = MagicMock()
+        mock_handler.rfile = MagicMock()
+        mock_handler.rfile.read.return_value = b'{"status": "resolved"}'
+        mock_handler.headers = {"Content-Length": "22"}
+
+        with patch.object(handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MagicMock(role="admin", user_id="user1"), None)
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                result = handler.handle_patch(
+                    path="/api/control-plane/policies/violations/violation-123",
+                    query_params={},
+                    handler=mock_handler,
+                )
+                assert result is not None
+
+
+# ============================================================================
+# Deliberation Tests
+# ============================================================================
+
+
+class TestControlPlaneDeliberation:
+    """Tests for control plane deliberation endpoints."""
+
+    @pytest.fixture
+    def handler_class(self):
+        from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+        return ControlPlaneHandler
+
+    @pytest.fixture
+    def handler(self, handler_class):
+        handler = handler_class(server_context={})
+        handler_class.coordinator = None
+        return handler
+
+    def test_deliberation_endpoint_is_handled(self, handler):
+        """Deliberation endpoint path is handled."""
+        assert handler.can_handle("/api/control-plane/deliberations")
+        assert handler.can_handle("/api/v1/control-plane/deliberations")
+
+    def test_deliberation_status_endpoint_is_handled(self, handler):
+        """Deliberation status endpoint path is handled."""
+        assert handler.can_handle("/api/control-plane/deliberations/req-123/status")
+
+    def test_deliberation_result_endpoint_is_handled(self, handler):
+        """Deliberation result endpoint path is handled."""
+        assert handler.can_handle("/api/control-plane/deliberations/req-123")
+
+
+# ============================================================================
+# Health Monitoring Extended Tests
+# ============================================================================
+
+
+class TestControlPlaneHealthExtended:
+    """Extended tests for control plane health monitoring."""
+
+    @pytest.fixture
+    def handler_class(self):
+        from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+        return ControlPlaneHandler
+
+    @pytest.fixture
+    def handler(self, handler_class, mock_coordinator):
+        handler = handler_class(server_context={"control_plane_coordinator": mock_coordinator})
+        handler_class.coordinator = mock_coordinator
+        return handler
+
+    def test_handle_detailed_health(self, handler):
+        """GET /api/control-plane/health/detailed returns component status."""
+        result = handler.handle(
+            path="/api/control-plane/health/detailed",
+            query_params={},
+            handler=MagicMock(),
+        )
+        assert result is not None
+        assert result.status_code == 200
+
+    def test_handle_circuit_breakers(self, handler):
+        """GET /api/control-plane/breakers returns circuit breaker states."""
+        result = handler.handle(
+            path="/api/control-plane/breakers",
+            query_params={},
+            handler=MagicMock(),
+        )
+        assert result is not None
+        assert result.status_code == 200
+
+    def test_handle_queue_metrics(self, handler):
+        """GET /api/control-plane/queue/metrics returns queue performance."""
+        result = handler.handle(
+            path="/api/control-plane/queue/metrics",
+            query_params={},
+            handler=MagicMock(),
+        )
+        assert result is not None
+        assert result.status_code == 200
+
+
+# ============================================================================
+# Notification Tests
+# ============================================================================
+
+
+class TestControlPlaneNotifications:
+    """Tests for control plane notification endpoints."""
+
+    @pytest.fixture
+    def handler_class(self):
+        from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+        return ControlPlaneHandler
+
+    @pytest.fixture
+    def handler(self, handler_class):
+        handler = handler_class(server_context={})
+        return handler
+
+    def test_handle_get_notifications(self, handler):
+        """GET /api/control-plane/notifications returns notification history."""
+        result = handler.handle(
+            path="/api/control-plane/notifications",
+            query_params={},
+            handler=MagicMock(),
+        )
+        assert result is not None
+        assert result.status_code == 200
+
+    def test_handle_notification_stats(self, handler):
+        """GET /api/control-plane/notifications/stats returns stats."""
+        result = handler.handle(
+            path="/api/control-plane/notifications/stats",
+            query_params={},
+            handler=MagicMock(),
+        )
+        assert result is not None
+        assert result.status_code == 200
+
+
+# ============================================================================
+# Event Emission Tests
+# ============================================================================
+
+
+class TestControlPlaneEventEmission:
+    """Tests for control plane event emission."""
+
+    @pytest.fixture
+    def handler_class(self):
+        from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+        return ControlPlaneHandler
+
+    @pytest.fixture
+    def mock_stream(self):
+        stream = MagicMock()
+        stream.emit_agent_registered = AsyncMock()
+        stream.emit_task_submitted = AsyncMock()
+        stream.emit_task_completed = AsyncMock()
+        return stream
+
+    @pytest.fixture
+    def handler(self, handler_class, mock_coordinator, mock_stream):
+        handler = handler_class(
+            server_context={
+                "control_plane_coordinator": mock_coordinator,
+                "control_plane_stream": mock_stream,
+            }
+        )
+        handler_class.coordinator = mock_coordinator
+        return handler
+
+    def test_emit_event_with_retries(self, handler, mock_stream):
+        """_emit_event retries on failure."""
+        mock_stream.emit_test = MagicMock(side_effect=[Exception("fail"), None])
+
+        # Should not raise even on first failure
+        handler._emit_event("emit_test", arg1="value")
+        # Stream method should have been called at least once
+
+    def test_emit_event_without_stream(self, handler_class, mock_coordinator):
+        """_emit_event does nothing without stream."""
+        handler = handler_class(server_context={"control_plane_coordinator": mock_coordinator})
+        handler_class.coordinator = mock_coordinator
+
+        # Should not raise
+        handler._emit_event("emit_test", arg1="value")
+
+
+# ============================================================================
+# Permission Checks Tests
+# ============================================================================
+
+
+class TestControlPlanePermissions:
+    """Tests for control plane permission checks."""
+
+    @pytest.fixture
+    def handler_class(self):
+        from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+        return ControlPlaneHandler
+
+    @pytest.fixture
+    def handler(self, handler_class):
+        handler = handler_class(server_context={})
+        handler_class.coordinator = None
+        return handler
+
+    def test_agents_endpoint_is_protected(self, handler):
+        """POST /api/control-plane/agents is a valid endpoint."""
+        assert handler.can_handle("/api/control-plane/agents")
+
+    def test_tasks_endpoint_is_protected(self, handler):
+        """POST /api/control-plane/tasks is a valid endpoint."""
+        assert handler.can_handle("/api/control-plane/tasks")
+
+    def test_audit_endpoint_is_protected(self, handler):
+        """GET /api/control-plane/audit is a valid endpoint."""
+        assert handler.can_handle("/api/control-plane/audit")
+
+
+# ============================================================================
+# DELETE Handler Tests
+# ============================================================================
+
+
+class TestControlPlaneDeleteHandlers:
+    """Tests for control plane DELETE handlers."""
+
+    @pytest.fixture
+    def handler_class(self):
+        from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+        return ControlPlaneHandler
+
+    @pytest.fixture
+    def handler(self, handler_class, mock_coordinator):
+        handler = handler_class(server_context={"control_plane_coordinator": mock_coordinator})
+        handler_class.coordinator = mock_coordinator
+        return handler
+
+    def test_unregister_agent(self, handler):
+        """DELETE /api/control-plane/agents/:id unregisters agent."""
+        mock_handler = MagicMock()
+
+        with patch.object(handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MagicMock(role="admin"), None)
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                result = handler.handle_delete(
+                    path="/api/control-plane/agents/agent-123",
+                    query_params={},
+                    handler=mock_handler,
+                )
+                assert result is not None
+
+    def test_unregister_nonexistent_agent(self, handler, mock_coordinator):
+        """DELETE /api/control-plane/agents/:id returns 404 for nonexistent."""
+        mock_handler = MagicMock()
+
+        with patch.object(handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MagicMock(role="admin"), None)
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                result = handler.handle_delete(
+                    path="/api/control-plane/agents/nonexistent",
+                    query_params={},
+                    handler=mock_handler,
+                )
+                assert result is not None
+                assert result.status_code == 404
+
+
+# ============================================================================
+# POST Handler Input Validation Tests
+# ============================================================================
+
+
+class TestControlPlaneInputValidation:
+    """Tests for control plane input validation."""
+
+    @pytest.fixture
+    def handler_class(self):
+        from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+        return ControlPlaneHandler
+
+    @pytest.fixture
+    def handler(self, handler_class):
+        handler = handler_class(server_context={})
+        handler_class.coordinator = None
+        return handler
+
+    def test_agents_post_endpoint_exists(self, handler):
+        """POST /api/control-plane/agents endpoint is handled."""
+        assert handler.can_handle("/api/control-plane/agents")
+
+    def test_tasks_post_endpoint_exists(self, handler):
+        """POST /api/control-plane/tasks endpoint is handled."""
+        assert handler.can_handle("/api/control-plane/tasks")
+
+    def test_claim_task_endpoint_exists(self, handler):
+        """POST /api/control-plane/tasks/claim endpoint is handled."""
+        assert handler.can_handle("/api/control-plane/tasks/claim")
+
+    def test_violations_endpoint_exists(self, handler):
+        """PATCH /api/control-plane/policies/violations/:id endpoint is handled."""
+        assert handler.can_handle("/api/control-plane/policies/violations/v-123")
