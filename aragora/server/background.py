@@ -621,48 +621,11 @@ def setup_default_tasks(
     except ImportError:
         pass  # prometheus module may not be available
 
-    # Store shared memory reference
-    _shared_memory = memory_instance
-
-    # Memory tier cleanup - runs every 6 hours
-    def memory_cleanup_task():
-        nonlocal _shared_memory
-        try:
-            # Use shared instance if provided
-            if _shared_memory is not None:
-                memory = _shared_memory
-            else:
-                from aragora.memory.continuum import ContinuumMemory
-                from aragora.persistence.db_config import DatabaseType, get_db_path
-
-                # Use provided path or default
-                db_path = get_db_path(
-                    DatabaseType.CONTINUUM_MEMORY, nomic_dir=Path(nomic_dir) if nomic_dir else None
-                )
-                memory = ContinuumMemory(db_path=db_path)
-
-            # Check memory pressure before cleanup
-            pressure = memory.get_memory_pressure()
-            if pressure < pressure_threshold:
-                logger.debug(
-                    "Memory pressure %.1f%% below threshold %.1f%%, skipping cleanup",
-                    pressure * 100,
-                    pressure_threshold * 100,
-                )
-                return
-
-            logger.info("Memory pressure %.1f%% exceeds threshold, running cleanup", pressure * 100)
-
-            result = memory.cleanup_expired_memories(archive=True)
-
-            if result["deleted"] > 0 or result["archived"] > 0:
-                logger.info(
-                    "Memory cleanup: archived=%d, deleted=%d", result["archived"], result["deleted"]
-                )
-        except ImportError:
-            logger.debug("ContinuumMemory not available, skipping cleanup")
-        except Exception as e:
-            logger.warning("Memory cleanup failed: %s", e)
+    memory_cleanup_task = create_memory_cleanup_callback(
+        nomic_dir=nomic_dir,
+        memory_instance=memory_instance,
+        pressure_threshold=pressure_threshold,
+    )
 
     manager.register_task(
         name="memory_tier_cleanup",
@@ -672,18 +635,6 @@ def setup_default_tasks(
         run_on_startup=False,  # Don't run on startup (let things settle first)
     )
 
-    # Stale debate cleanup - runs every 30 minutes
-    def stale_debate_cleanup():
-        try:
-            from aragora.server.state import get_state_manager
-
-            state_mgr = get_state_manager()
-            cleaned = state_mgr.cleanup_stale_debates(max_age_seconds=3600)  # 1 hour max
-            if cleaned > 0:
-                logger.info("Cleaned up %d stale debates", cleaned)
-        except Exception as e:
-            logger.warning("Stale debate cleanup failed: %s", e)
-
     manager.register_task(
         name="stale_debate_cleanup",
         interval_seconds=30 * 60,  # 30 minutes
@@ -691,30 +642,6 @@ def setup_default_tasks(
         enabled=True,
         run_on_startup=False,
     )
-
-    # Circuit breaker cleanup and persistence - runs every hour
-    def circuit_breaker_cleanup():
-        try:
-            from aragora.resilience import (
-                cleanup_stale_persisted,
-                persist_all_circuit_breakers,
-                prune_circuit_breakers,
-            )
-
-            # Prune in-memory stale circuit breakers
-            cleaned = prune_circuit_breakers()
-            if cleaned > 0:
-                logger.info("Cleaned up %d stale circuit breakers", cleaned)
-            # Persist current state to SQLite
-            persisted = persist_all_circuit_breakers()
-            if persisted > 0:
-                logger.debug("Persisted %d circuit breakers to disk", persisted)
-            # Cleanup old persisted entries
-            cleanup_stale_persisted(max_age_hours=72.0)
-        except ImportError:
-            pass  # resilience module may not be available
-        except Exception as e:
-            logger.warning("Circuit breaker cleanup failed: %s", e)
 
     manager.register_task(
         name="circuit_breaker_cleanup",
@@ -724,18 +651,6 @@ def setup_default_tasks(
         run_on_startup=False,
     )
 
-    # Circuit breaker metrics export - runs every 30 seconds
-    def circuit_breaker_metrics_export():
-        """Export circuit breaker states to Prometheus."""
-        try:
-            from aragora.server.prometheus import export_circuit_breaker_metrics
-
-            export_circuit_breaker_metrics()
-        except ImportError:
-            pass  # prometheus module may not be available
-        except Exception as e:
-            logger.debug("Circuit breaker metrics export failed: %s", e)
-
     manager.register_task(
         name="circuit_breaker_metrics_export",
         interval_seconds=30,  # 30 seconds
@@ -744,34 +659,10 @@ def setup_default_tasks(
         run_on_startup=True,  # Export immediately on startup
     )
 
-    # Memory consolidation - runs every 24 hours
-    def memory_consolidation_task():
-        nonlocal _shared_memory
-        try:
-            # Use shared instance if provided
-            if _shared_memory is not None:
-                memory = _shared_memory
-            else:
-                from aragora.memory.continuum import ContinuumMemory
-                from aragora.persistence.db_config import DatabaseType, get_db_path
-
-                db_path = get_db_path(
-                    DatabaseType.CONTINUUM_MEMORY, nomic_dir=Path(nomic_dir) if nomic_dir else None
-                )
-                memory = ContinuumMemory(db_path=db_path)
-
-            result = memory.consolidate()
-
-            logger.info(
-                "Memory consolidation: promoted=%d, demoted=%d, evaluated=%d",
-                result.get("promoted", 0),
-                result.get("demoted", 0),
-                result.get("evaluated", 0),
-            )
-        except ImportError:
-            logger.debug("ContinuumMemory not available, skipping consolidation")
-        except Exception as e:
-            logger.warning("Memory consolidation failed: %s", e)
+    memory_consolidation_task = create_memory_consolidation_callback(
+        nomic_dir=nomic_dir,
+        memory_instance=memory_instance,
+    )
 
     manager.register_task(
         name="memory_consolidation",
@@ -781,29 +672,6 @@ def setup_default_tasks(
         run_on_startup=False,
     )
 
-    # Consensus memory cleanup - runs every 24 hours
-    def consensus_cleanup_task():
-        try:
-            from aragora.memory.consensus import ConsensusMemory
-
-            consensus = ConsensusMemory()
-
-            # Archive records older than 90 days
-            result = consensus.cleanup_old_records(max_age_days=90, archive=True)
-
-            if result.get("archived", 0) > 0 or result.get("deleted", 0) > 0:
-                logger.info(
-                    "Consensus cleanup: archived=%d, deleted=%d",
-                    result.get("archived", 0),
-                    result.get("deleted", 0),
-                )
-        except ImportError:
-            logger.debug("ConsensusMemory not available, skipping cleanup")
-        except sqlite3.Error as e:
-            logger.warning("Consensus cleanup database error: %s", e)
-        except (OSError, IOError) as e:
-            logger.warning("Consensus cleanup I/O error: %s", e)
-
     manager.register_task(
         name="consensus_cleanup",
         interval_seconds=24 * 3600,  # 24 hours
@@ -811,27 +679,6 @@ def setup_default_tasks(
         enabled=True,
         run_on_startup=False,
     )
-
-    # LRU cache cleanup - runs every 12 hours
-    # Clears module-level @lru_cache functions to prevent memory accumulation
-    def lru_cache_cleanup_task():
-        try:
-            from aragora.utils.cache_registry import (
-                clear_all_lru_caches,
-                get_registered_cache_count,
-            )
-
-            cache_count = get_registered_cache_count()
-            if cache_count > 0:
-                cleared = clear_all_lru_caches()
-                if cleared > 0:
-                    logger.info(
-                        "LRU cache cleanup: cleared %d entries from %d caches", cleared, cache_count
-                    )
-        except ImportError:
-            logger.debug("cache_registry not available, skipping LRU cleanup")
-        except Exception as e:
-            logger.warning("LRU cache cleanup failed: %s", e)
 
     manager.register_task(
         name="lru_cache_cleanup",
@@ -841,104 +688,6 @@ def setup_default_tasks(
         run_on_startup=False,
     )
 
-    # Knowledge Mound staleness checker - runs every 6 hours
-    def km_staleness_check_task():
-        """Check for stale knowledge in the Knowledge Mound and emit events."""
-        try:
-            import asyncio
-            from aragora.knowledge.mound.staleness import StalenessDetector, StalenessConfig
-
-            # Get or create event loop
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            async def check_staleness():
-                workspace_id = "default"
-                try:
-                    from aragora.knowledge.mound.facade import get_knowledge_mound
-
-                    mound = get_knowledge_mound()
-                    if mound is None:
-                        logger.debug("Knowledge Mound not available, skipping staleness check")
-                        # Record skipped metric
-                        try:
-                            from aragora.server.prometheus_cross_pollination import (
-                                record_km_staleness_check,
-                            )
-
-                            record_km_staleness_check(workspace_id, "skipped", 0)
-                        except ImportError:
-                            pass
-                        return
-
-                    # Create detector with event emitter for cross-subsystem notification
-                    from aragora.events.cross_subscribers import get_cross_subscriber_manager
-
-                    manager = get_cross_subscriber_manager()
-
-                    detector = StalenessDetector(
-                        mound=mound,
-                        config=StalenessConfig(
-                            auto_revalidation_threshold=0.7,
-                        ),
-                        event_emitter=manager,
-                    )
-
-                    # Check staleness for default workspace
-                    stale_nodes = await detector.get_stale_nodes(
-                        workspace_id=workspace_id,
-                        threshold=0.7,
-                        limit=50,
-                    )
-
-                    stale_count = len(stale_nodes) if stale_nodes else 0
-
-                    if stale_nodes:
-                        logger.info(
-                            "Knowledge staleness check: found %d stale nodes",
-                            stale_count,
-                        )
-                        # Events are emitted by the detector for each stale node
-
-                    # Record completion metric
-                    try:
-                        from aragora.server.prometheus_cross_pollination import (
-                            record_km_staleness_check,
-                        )
-
-                        record_km_staleness_check(workspace_id, "completed", stale_count)
-                    except ImportError:
-                        pass
-
-                except ImportError as e:
-                    logger.debug("Knowledge Mound staleness check skipped: %s", e)
-                    try:
-                        from aragora.server.prometheus_cross_pollination import (
-                            record_km_staleness_check,
-                        )
-
-                        record_km_staleness_check(workspace_id, "skipped", 0)
-                    except ImportError:
-                        pass
-
-            if loop.is_running():
-                asyncio.create_task(check_staleness())
-            else:
-                loop.run_until_complete(check_staleness())
-
-        except Exception as e:
-            logger.warning("KM staleness check failed: %s", e)
-            # Record failure metric
-            try:
-                from aragora.server.prometheus_cross_pollination import record_km_staleness_check
-
-                record_km_staleness_check("default", "failed", 0)
-            except ImportError:
-                pass
-
     manager.register_task(
         name="km_staleness_check",
         interval_seconds=6 * 3600,  # 6 hours
@@ -947,42 +696,6 @@ def setup_default_tasks(
         run_on_startup=False,  # Don't run on startup (let KM settle first)
     )
 
-    # Snooze processor - runs every 5 minutes to wake up snoozed emails
-    def snooze_processor_task():
-        """Process due snoozed emails and return them to inbox."""
-        try:
-            import asyncio
-
-            # Get or create event loop
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            async def process_snoozes():
-                try:
-                    from aragora.server.handlers.email_services import (
-                        handle_process_due_snoozes,
-                    )
-
-                    result = await handle_process_due_snoozes()
-                    if result.get("success") and result.get("data", {}).get("processed", 0) > 0:
-                        logger.info(
-                            "Snooze processor: woke up %d emails",
-                            result["data"]["processed"],
-                        )
-                except ImportError:
-                    logger.debug("Email services not available, skipping snooze processing")
-
-            if loop.is_running():
-                asyncio.create_task(process_snoozes())
-            else:
-                loop.run_until_complete(process_snoozes())
-
-        except Exception as e:
-            logger.warning("Snooze processing failed: %s", e)
-
     manager.register_task(
         name="snooze_processor",
         interval_seconds=5 * 60,  # 5 minutes
@@ -990,41 +703,6 @@ def setup_default_tasks(
         enabled=True,
         run_on_startup=False,
     )
-
-    # Follow-up checker - runs every 30 minutes to check for overdue follow-ups
-    def followup_checker_task():
-        """Check for overdue follow-ups and send reminders."""
-        try:
-            import asyncio
-
-            # Get or create event loop
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            async def check_followups():
-                try:
-                    from aragora.services.followup_tracker import FollowUpTracker
-
-                    tracker = FollowUpTracker()
-                    overdue = await tracker.get_overdue_followups()
-                    if overdue:
-                        logger.info(
-                            "Follow-up checker: %d emails overdue for follow-up",
-                            len(overdue),
-                        )
-                except ImportError:
-                    logger.debug("Follow-up tracker not available, skipping check")
-
-            if loop.is_running():
-                asyncio.create_task(check_followups())
-            else:
-                loop.run_until_complete(check_followups())
-
-        except Exception as e:
-            logger.warning("Follow-up check failed: %s", e)
 
     manager.register_task(
         name="followup_checker",
