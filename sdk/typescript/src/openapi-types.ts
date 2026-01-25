@@ -8620,43 +8620,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/plugins": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List plugins
-         * @deprecated
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Plugin list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/plugins": {
         parameters: {
             query?: never;
@@ -8691,29 +8654,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/plugins/{name}": {
+    "/api/v1/plugins/installed": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get plugin details
-         * @deprecated
-         */
+        /** List installed plugins */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
-                path: {
-                    name: string;
-                };
+                path?: never;
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
-                /** @description Plugin details */
+                /** @description Installed plugins list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/marketplace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get marketplace listings */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Marketplace data with categories */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit plugin for review */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Submission confirmation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List user's plugin submissions */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Submissions list */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -8743,6 +8807,345 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Plugin name (lowercase alphanumeric with hyphens) */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Plugin details */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/{name}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run plugin */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Plugin name (lowercase alphanumeric with hyphens) */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Plugin result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/{name}/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Install plugin */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Plugin name (lowercase alphanumeric with hyphens) */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Installation result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Uninstall plugin */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Plugin name (lowercase alphanumeric with hyphens) */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Uninstallation result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plugins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List plugins
+         * @deprecated
+         * @description Deprecated: Use /api/v1/plugins instead. Sunset: 2026-12-31.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Plugin list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plugins/installed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List installed plugins
+         * @deprecated
+         * @description Deprecated: Use /api/v1/plugins/installed instead. Sunset: 2026-12-31.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Installed plugins list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plugins/marketplace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get marketplace listings
+         * @deprecated
+         * @description Deprecated: Use /api/v1/plugins/marketplace instead. Sunset: 2026-12-31.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Marketplace data with categories */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plugins/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit plugin for review
+         * @deprecated
+         * @description Deprecated: Use /api/v1/plugins/submit instead. Sunset: 2026-12-31.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Submission confirmation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plugins/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List user's plugin submissions
+         * @deprecated
+         * @description Deprecated: Use /api/v1/plugins/submissions instead. Sunset: 2026-12-31.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Submissions list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plugins/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get plugin details
+         * @deprecated
+         * @description Deprecated: Use /api/v1/plugins/{name} instead. Sunset: 2026-12-31.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Plugin name (lowercase alphanumeric with hyphens) */
                     name: string;
                 };
                 cookie?: never;
@@ -8778,12 +9181,14 @@ export interface paths {
         /**
          * Run plugin
          * @deprecated
+         * @description Deprecated: Use /api/v1/plugins/{name}/run instead. Sunset: 2026-12-31.
          */
         post: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Plugin name (lowercase alphanumeric with hyphens) */
                     name: string;
                 };
                 cookie?: never;
@@ -8809,7 +9214,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/plugins/{name}/run": {
+    "/api/plugins/{name}/install": {
         parameters: {
             query?: never;
             header?: never;
@@ -8818,12 +9223,17 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Run plugin */
+        /**
+         * Install plugin
+         * @deprecated
+         * @description Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset: 2026-12-31.
+         */
         post: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Plugin name (lowercase alphanumeric with hyphens) */
                     name: string;
                 };
                 cookie?: never;
@@ -8834,7 +9244,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Plugin result */
+                /** @description Installation result */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -8843,7 +9253,32 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /**
+         * Uninstall plugin
+         * @deprecated
+         * @description Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset: 2026-12-31.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Plugin name (lowercase alphanumeric with hyphens) */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Uninstallation result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -22362,6 +22797,506 @@ export interface paths {
         get: operations["getTeamsBotStatus"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List webhooks
+         * @description List all webhooks for the authenticated user/organization.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of webhooks */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            webhooks?: {
+                                /**
+                                 * Format: uuid
+                                 * @description Unique webhook ID
+                                 */
+                                id: string;
+                                /** @description Human-readable webhook name */
+                                name: string;
+                                /**
+                                 * Format: uri
+                                 * @description Webhook delivery URL
+                                 */
+                                url: string;
+                                /** @description List of event types to subscribe to */
+                                events: string[];
+                                /** @description Whether webhook is active */
+                                enabled: boolean;
+                                /** Format: date-time */
+                                created_at?: string;
+                                /** Format: date-time */
+                                updated_at?: string;
+                                /** @description HMAC secret for signature verification (only shown on creation) */
+                                secret?: string;
+                            }[];
+                            total?: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create webhook
+         * @description Register a new webhook to receive event notifications.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Human-readable webhook name */
+                        name: string;
+                        /**
+                         * Format: uri
+                         * @description Webhook delivery URL
+                         */
+                        url: string;
+                        /** @description List of event types to subscribe to */
+                        events: string[];
+                        /** @default true */
+                        enabled?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Webhook created successfully */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /**
+                             * Format: uuid
+                             * @description Unique webhook ID
+                             */
+                            id: string;
+                            /** @description Human-readable webhook name */
+                            name: string;
+                            /**
+                             * Format: uri
+                             * @description Webhook delivery URL
+                             */
+                            url: string;
+                            /** @description List of event types to subscribe to */
+                            events: string[];
+                            /** @description Whether webhook is active */
+                            enabled: boolean;
+                            /** Format: date-time */
+                            created_at?: string;
+                            /** Format: date-time */
+                            updated_at?: string;
+                            /** @description HMAC secret for signature verification (only shown on creation) */
+                            secret?: string;
+                        };
+                    };
+                };
+                /** @description Invalid webhook configuration */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List available event types
+         * @description Get all event types that can be subscribed to via webhooks.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of event types */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            events?: {
+                                /** @description Event type name */
+                                name?: string;
+                                /** @description Event description */
+                                description?: string;
+                                /** @description Event category */
+                                category?: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get webhook
+         * @description Get details of a specific webhook.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Webhook ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Webhook details */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /**
+                             * Format: uuid
+                             * @description Unique webhook ID
+                             */
+                            id: string;
+                            /** @description Human-readable webhook name */
+                            name: string;
+                            /**
+                             * Format: uri
+                             * @description Webhook delivery URL
+                             */
+                            url: string;
+                            /** @description List of event types to subscribe to */
+                            events: string[];
+                            /** @description Whether webhook is active */
+                            enabled: boolean;
+                            /** Format: date-time */
+                            created_at?: string;
+                            /** Format: date-time */
+                            updated_at?: string;
+                            /** @description HMAC secret for signature verification (only shown on creation) */
+                            secret?: string;
+                        };
+                    };
+                };
+                /** @description Webhook not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Delete webhook
+         * @description Delete a webhook subscription.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Webhook ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Webhook deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Webhook not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update webhook
+         * @description Update webhook configuration.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Webhook ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        /** Format: uri */
+                        url?: string;
+                        events?: string[];
+                        enabled?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Webhook updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /**
+                             * Format: uuid
+                             * @description Unique webhook ID
+                             */
+                            id: string;
+                            /** @description Human-readable webhook name */
+                            name: string;
+                            /**
+                             * Format: uri
+                             * @description Webhook delivery URL
+                             */
+                            url: string;
+                            /** @description List of event types to subscribe to */
+                            events: string[];
+                            /** @description Whether webhook is active */
+                            enabled: boolean;
+                            /** Format: date-time */
+                            created_at?: string;
+                            /** Format: date-time */
+                            updated_at?: string;
+                            /** @description HMAC secret for signature verification (only shown on creation) */
+                            secret?: string;
+                        };
+                    };
+                };
+                /** @description Webhook not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test webhook
+         * @description Send a test event to verify webhook configuration.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Webhook ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @description Event type to simulate (default: test) */
+                        event_type?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Test delivery result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            status_code?: number;
+                            response_time_ms?: number;
+                            error?: string;
+                        };
+                    };
+                };
+                /** @description Webhook not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/slo/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get SLO webhook status
+         * @description Get status of SLO (Service Level Objective) webhook notifications.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description SLO webhook status */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            enabled?: boolean;
+                            /** Format: uri */
+                            url?: string;
+                            /** Format: date-time */
+                            last_delivery?: string;
+                            delivery_success_rate?: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/slo/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test SLO webhook
+         * @description Send a test SLO violation notification.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Test delivery result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
