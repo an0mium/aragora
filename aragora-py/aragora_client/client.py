@@ -19,7 +19,9 @@ from aragora_client.exceptions import (
     AragoraTimeoutError,
     AragoraValidationError,
 )
+from aragora_client.explainability import ExplainabilityAPI
 from aragora_client.knowledge import KnowledgeAPI
+from aragora_client.marketplace import MarketplaceAPI
 from aragora_client.onboarding import OnboardingAPI
 from aragora_client.rbac import RBACAPI
 from aragora_client.tenancy import TenancyAPI
@@ -127,6 +129,342 @@ class DebatesAPI:
             f"Debate {debate_id} did not complete within {timeout}s"
         )
 
+    async def update(
+        self,
+        debate_id: str,
+        *,
+        title: str | None = None,
+        status: str | None = None,
+        tags: list[str] | None = None,
+    ) -> Debate:
+        """Update debate metadata.
+
+        Args:
+            debate_id: Debate ID
+            title: New title
+            status: New status (active, paused, concluded, archived)
+            tags: Updated tags
+
+        Returns:
+            Updated debate
+        """
+        body: dict[str, Any] = {}
+        if title is not None:
+            body["title"] = title
+        if status is not None:
+            body["status"] = status
+        if tags is not None:
+            body["tags"] = tags
+
+        data = await self._client._patch(f"/api/v1/debates/{debate_id}", body)
+        return Debate.model_validate(data)
+
+    async def cancel(self, debate_id: str) -> dict[str, Any]:
+        """Cancel a running debate.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            Cancellation result
+        """
+        return await self._client._post(f"/api/v1/debates/{debate_id}/cancel", {})
+
+    async def get_messages(
+        self,
+        debate_id: str,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """Get paginated message history for a debate.
+
+        Args:
+            debate_id: Debate ID
+            limit: Maximum messages to return
+            offset: Pagination offset
+
+        Returns:
+            List of debate messages
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        data = await self._client._get(
+            f"/api/v1/debates/{debate_id}/messages", params=params
+        )
+        return data.get("messages", [])
+
+    async def get_convergence(self, debate_id: str) -> dict[str, Any]:
+        """Get convergence status for a debate.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            Convergence analysis
+        """
+        return await self._client._get(f"/api/v1/debates/{debate_id}/convergence")
+
+    async def get_citations(self, debate_id: str) -> list[dict[str, Any]]:
+        """Get evidence citations for a debate.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            List of citations
+        """
+        data = await self._client._get(f"/api/v1/debates/{debate_id}/citations")
+        return data.get("citations", [])
+
+    async def get_evidence(self, debate_id: str) -> dict[str, Any]:
+        """Get comprehensive evidence trail for a debate.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            Evidence chain
+        """
+        return await self._client._get(f"/api/v1/debates/{debate_id}/evidence")
+
+    async def get_impasse(self, debate_id: str) -> dict[str, Any]:
+        """Detect debate impasse.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            Impasse analysis
+        """
+        return await self._client._get(f"/api/v1/debates/{debate_id}/impasse")
+
+    async def get_summary(self, debate_id: str) -> dict[str, Any]:
+        """Get human-readable summary of a debate.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            Debate summary
+        """
+        return await self._client._get(f"/api/v1/debates/{debate_id}/summary")
+
+    async def get_verification_report(self, debate_id: str) -> dict[str, Any]:
+        """Get verification feedback for a debate.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            Verification report
+        """
+        return await self._client._get(
+            f"/api/v1/debates/{debate_id}/verification-report"
+        )
+
+    async def fork(
+        self,
+        debate_id: str,
+        *,
+        branch_point: int,
+        modified_context: str | None = None,
+    ) -> dict[str, Any]:
+        """Fork a debate at a specific branch point.
+
+        Args:
+            debate_id: Debate ID
+            branch_point: Round number to fork at
+            modified_context: Alternative context for the fork
+
+        Returns:
+            Forked debate info
+        """
+        body: dict[str, Any] = {"branch_point": branch_point}
+        if modified_context:
+            body["modified_context"] = modified_context
+
+        return await self._client._post(f"/api/v1/debates/{debate_id}/fork", body)
+
+    async def list_forks(self, debate_id: str) -> list[dict[str, Any]]:
+        """List all forks of a debate.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            List of forked debates
+        """
+        data = await self._client._get(f"/api/v1/debates/{debate_id}/forks")
+        return data.get("forks", [])
+
+    async def create_followup(
+        self,
+        debate_id: str,
+        *,
+        crux: str,
+        question: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a crux-driven follow-up debate.
+
+        Args:
+            debate_id: Parent debate ID
+            crux: The crux point to explore
+            question: Optional alternative question
+
+        Returns:
+            Follow-up debate info
+        """
+        body: dict[str, Any] = {"crux": crux}
+        if question:
+            body["question"] = question
+
+        return await self._client._post(f"/api/v1/debates/{debate_id}/followup", body)
+
+    async def get_followup_suggestions(self, debate_id: str) -> list[dict[str, Any]]:
+        """Get follow-up debate suggestions.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            List of suggested follow-up topics
+        """
+        data = await self._client._get(f"/api/v1/debates/{debate_id}/followups")
+        return data.get("suggestions", [])
+
+    async def export(
+        self,
+        debate_id: str,
+        format: str = "json",
+        *,
+        tables: list[str] | None = None,
+    ) -> bytes:
+        """Export debate in various formats.
+
+        Args:
+            debate_id: Debate ID
+            format: Export format (json, csv, html, txt, md)
+            tables: Tables to include (summary, messages, critiques, votes)
+
+        Returns:
+            Exported data
+        """
+        params: dict[str, Any] = {}
+        if tables:
+            params["tables"] = ",".join(tables)
+
+        return await self._client._get_raw(
+            f"/api/v1/debates/{debate_id}/export/{format}",
+            params=params or None,
+        )
+
+    async def get_rhetorical(self, debate_id: str) -> dict[str, Any]:
+        """Get rhetorical pattern observations for a debate.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            Rhetorical analysis
+        """
+        return await self._client._get(f"/api/v1/debates/{debate_id}/rhetorical")
+
+    async def get_trickster(self, debate_id: str) -> dict[str, Any]:
+        """Get trickster hollow consensus status for a debate.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            Trickster status
+        """
+        return await self._client._get(f"/api/v1/debates/{debate_id}/trickster")
+
+    async def get_meta_critique(self, debate_id: str) -> dict[str, Any]:
+        """Get meta-level debate analysis.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            Meta-critique analysis
+        """
+        return await self._client._get(f"/api/v1/debates/{debate_id}/meta-critique")
+
+    async def get_graph_stats(self, debate_id: str) -> dict[str, Any]:
+        """Get argument graph statistics.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            Graph statistics
+        """
+        return await self._client._get(f"/api/v1/debates/{debate_id}/graph/stats")
+
+    async def search(
+        self,
+        query: str,
+        *,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """Search across debates.
+
+        Args:
+            query: Search query
+            limit: Maximum results
+            offset: Pagination offset
+
+        Returns:
+            Search results
+        """
+        params: dict[str, Any] = {"query": query, "limit": limit, "offset": offset}
+        data = await self._client._get("/api/v1/search", params=params)
+        return data.get("results", [])
+
+    async def batch_submit(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        webhook_url: str | None = None,
+        max_parallel: int = 10,
+    ) -> dict[str, Any]:
+        """Submit a batch of debates.
+
+        Args:
+            items: List of debate specifications
+            webhook_url: URL to notify on completion
+            max_parallel: Maximum parallel debates
+
+        Returns:
+            Batch submission info with status URL
+        """
+        body: dict[str, Any] = {"items": items, "max_parallel": max_parallel}
+        if webhook_url:
+            body["webhook_url"] = webhook_url
+
+        return await self._client._post("/api/v1/debates/batch", body)
+
+    async def get_batch_status(self, batch_id: str) -> dict[str, Any]:
+        """Get status of a batch debate submission.
+
+        Args:
+            batch_id: Batch ID
+
+        Returns:
+            Batch status
+        """
+        return await self._client._get(f"/api/v1/debates/batch/{batch_id}/status")
+
+    async def get_queue_status(self) -> dict[str, Any]:
+        """Get debate queue status.
+
+        Returns:
+            Queue status and metrics
+        """
+        return await self._client._get("/api/v1/debates/queue/status")
+
 
 class GraphDebatesAPI:
     """API for graph debate operations."""
@@ -233,6 +571,109 @@ class AgentsAPI:
         data = await self._client._get(f"/api/v1/agents/{agent_id}/allies")
         return data.get("allies", [])
 
+    async def get_calibration(self, agent_id: str) -> dict[str, Any]:
+        """Get calibration data for an agent."""
+        return await self._client._get(f"/api/v1/agents/{agent_id}/calibration")
+
+    async def get_performance(self, agent_id: str) -> dict[str, Any]:
+        """Get performance metrics for an agent."""
+        return await self._client._get(f"/api/v1/agents/{agent_id}/performance")
+
+    async def get_head_to_head(self, agent_id: str, opponent: str) -> dict[str, Any]:
+        """Get head-to-head statistics against an opponent."""
+        return await self._client._get(
+            f"/api/v1/agents/{agent_id}/head-to-head/{opponent}"
+        )
+
+    async def get_opponent_briefing(
+        self, agent_id: str, opponent: str
+    ) -> dict[str, Any]:
+        """Get opponent briefing for strategic planning."""
+        return await self._client._get(
+            f"/api/v1/agents/{agent_id}/opponent-briefing/{opponent}"
+        )
+
+    async def get_consistency(self, agent_id: str) -> dict[str, Any]:
+        """Get consistency metrics for an agent."""
+        return await self._client._get(f"/api/v1/agents/{agent_id}/consistency")
+
+    async def get_flips(
+        self,
+        agent_id: str,
+        *,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """Get position flips for an agent."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        data = await self._client._get(
+            f"/api/v1/agents/{agent_id}/flips", params=params
+        )
+        return data.get("flips", [])
+
+    async def get_network(self, agent_id: str) -> dict[str, Any]:
+        """Get agent network graph."""
+        return await self._client._get(f"/api/v1/agents/{agent_id}/network")
+
+    async def get_moments(
+        self,
+        agent_id: str,
+        *,
+        type: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """Get notable moments for an agent."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if type:
+            params["type"] = type
+        data = await self._client._get(
+            f"/api/v1/agents/{agent_id}/moments", params=params
+        )
+        return data.get("moments", [])
+
+    async def get_positions(
+        self,
+        agent_id: str,
+        *,
+        topic: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """Get positions held by an agent."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if topic:
+            params["topic"] = topic
+        data = await self._client._get(
+            f"/api/v1/agents/{agent_id}/positions", params=params
+        )
+        return data.get("positions", [])
+
+    async def get_domains(self, agent_id: str) -> list[dict[str, Any]]:
+        """Get domain expertise ratings for an agent."""
+        data = await self._client._get(f"/api/v1/agents/{agent_id}/domains")
+        return data.get("domains", [])
+
+    async def get_elo(self, agent_id: str) -> dict[str, Any]:
+        """Get ELO rating and history for an agent."""
+        return await self._client._get(f"/api/v1/agents/{agent_id}/elo")
+
+    async def get_leaderboard(self) -> list[AgentProfile]:
+        """Get the agent leaderboard."""
+        data = await self._client._get("/api/v1/leaderboard")
+        return [AgentProfile.model_validate(a) for a in data.get("agents", [])]
+
+    async def compare(self, agents: list[str]) -> dict[str, Any]:
+        """Compare multiple agents."""
+        params = {"agents": ",".join(agents)}
+        return await self._client._get("/api/v1/agents/compare", params=params)
+
+    async def get_relationship(self, agent_a: str, agent_b: str) -> dict[str, Any]:
+        """Get relationship analysis between two agents."""
+        return await self._client._get(
+            f"/api/v1/agents/{agent_a}/relationship/{agent_b}"
+        )
+
 
 class VerificationAPI:
     """API for formal verification."""
@@ -309,6 +750,114 @@ class GauntletAPI:
         raise AragoraTimeoutError(
             f"Gauntlet {gauntlet_id} did not complete within {timeout}s"
         )
+
+    async def get(self, gauntlet_id: str) -> dict[str, Any]:
+        """Get gauntlet run details."""
+        return await self._client._get(f"/api/v1/gauntlet/{gauntlet_id}")
+
+    async def delete(self, gauntlet_id: str) -> dict[str, bool]:
+        """Delete a gauntlet run."""
+        await self._client._delete(f"/api/v1/gauntlet/{gauntlet_id}")
+        return {"deleted": True}
+
+    async def list_receipts(
+        self,
+        *,
+        verdict: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[GauntletReceipt]:
+        """List gauntlet receipts."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if verdict:
+            params["verdict"] = verdict
+        data = await self._client._get("/api/v1/gauntlet/receipts", params=params)
+        return [GauntletReceipt.model_validate(r) for r in data.get("receipts", [])]
+
+    async def verify_receipt(self, receipt_id: str) -> dict[str, Any]:
+        """Verify a gauntlet receipt's integrity."""
+        return await self._client._get(f"/api/v1/gauntlet/receipts/{receipt_id}/verify")
+
+    async def export_receipt(
+        self,
+        receipt_id: str,
+        format: str = "json",
+    ) -> bytes:
+        """Export a gauntlet receipt."""
+        return await self._client._get_raw(
+            f"/api/v1/gauntlet/receipts/{receipt_id}/export",
+            params={"format": format},
+        )
+
+    async def list_personas(
+        self,
+        *,
+        category: str | None = None,
+        enabled: bool | None = None,
+    ) -> list[dict[str, Any]]:
+        """List available gauntlet personas."""
+        params: dict[str, Any] = {}
+        if category:
+            params["category"] = category
+        if enabled is not None:
+            params["enabled"] = enabled
+        data = await self._client._get(
+            "/api/v1/gauntlet/personas", params=params or None
+        )
+        return data.get("personas", [])
+
+    async def list_results(
+        self,
+        *,
+        gauntlet_id: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """List gauntlet results."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if gauntlet_id:
+            params["gauntlet_id"] = gauntlet_id
+        if status:
+            params["status"] = status
+        data = await self._client._get("/api/v1/gauntlet/results", params=params)
+        return data.get("results", [])
+
+    async def get_heatmap(
+        self,
+        gauntlet_id: str,
+        format: str = "json",
+    ) -> dict[str, Any]:
+        """Get gauntlet risk heatmap."""
+        params: dict[str, Any] = {"format": format}
+        return await self._client._get(
+            f"/api/v1/gauntlet/{gauntlet_id}/heatmap", params=params
+        )
+
+    async def compare(
+        self,
+        gauntlet_id_1: str,
+        gauntlet_id_2: str,
+    ) -> dict[str, Any]:
+        """Compare two gauntlet runs."""
+        return await self._client._get(
+            f"/api/v1/gauntlet/compare/{gauntlet_id_1}/{gauntlet_id_2}"
+        )
+
+    async def list_heatmaps(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """List risk heatmaps."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        data = await self._client._get("/api/v1/gauntlet/heatmaps", params=params)
+        return data.get("heatmaps", [])
+
+    async def get_risk_heatmap(self, heatmap_id: str) -> dict[str, Any]:
+        """Get a specific risk heatmap."""
+        return await self._client._get(f"/api/v1/gauntlet/heatmaps/{heatmap_id}")
 
 
 class MemoryAPI:
@@ -994,6 +1543,8 @@ class AragoraClient:
         self.onboarding = OnboardingAPI(self)
         self.knowledge = KnowledgeAPI(self)
         self.workflows = WorkflowsAPI(self)
+        self.explainability = ExplainabilityAPI(self)
+        self.marketplace = MarketplaceAPI(self)
 
     async def __aenter__(self) -> AragoraClient:
         """Enter async context."""

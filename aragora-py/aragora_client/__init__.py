@@ -45,12 +45,28 @@ from aragora_client.exceptions import (
     AragoraTimeoutError,
     AragoraValidationError,
 )
+from aragora_client.explainability import (
+    BatchExplanationJob,
+    Counterfactual,
+    ExplainabilityAPI,
+    Explanation,
+    ExplanationFactor,
+    Narrative,
+    ProvenanceEntry,
+)
 from aragora_client.knowledge import (
     Fact,
     KnowledgeAPI,
     KnowledgeEntry,
     KnowledgeSearchResult,
     KnowledgeStats,
+)
+from aragora_client.marketplace import (
+    MarketplaceAPI,
+    MarketplaceAuthor,
+    MarketplacePurchase,
+    MarketplaceReview,
+    MarketplaceTemplate,
 )
 from aragora_client.onboarding import (
     OnboardingAPI,
@@ -203,4 +219,18 @@ __all__ = [
     "WorkflowTemplate",
     "WorkflowExecution",
     "WorkflowCheckpoint",
+    # Explainability
+    "ExplainabilityAPI",
+    "Explanation",
+    "ExplanationFactor",
+    "Counterfactual",
+    "ProvenanceEntry",
+    "Narrative",
+    "BatchExplanationJob",
+    # Marketplace
+    "MarketplaceAPI",
+    "MarketplaceTemplate",
+    "MarketplaceAuthor",
+    "MarketplaceReview",
+    "MarketplacePurchase",
 ]
