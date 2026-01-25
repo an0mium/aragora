@@ -196,7 +196,8 @@ jobs:
           echo "=== End status ==="
         env:
           ARAGORA_REDIS_URL: redis://localhost:6379/0
-          ARAGORA_ENABLE_REDIS_RATE_LIMIT: "1"
+          # Disable rate limiting for load tests - all requests come from same IP (localhost)
+          ARAGORA_ENABLE_REDIS_RATE_LIMIT: "0"
           # AI provider keys are set via GITHUB_ENV in "Fetch AI provider credentials" step
 
       - name: Run API load tests
