@@ -1101,6 +1101,14 @@ class AdminHandler(SecureHandler):
             return error_response(f"Failed to pause nomic: {e}", 500)
 
         logger.info(f"Admin {auth_ctx.user_id} paused nomic: {reason}")
+        audit_admin(
+            admin_id=auth_ctx.user_id,
+            action="pause_nomic",
+            target_type="nomic",
+            target_id=current_state.get("cycle_id", "unknown"),
+            previous_phase=current_state.get("phase"),
+            reason=reason,
+        )
 
         return json_response(
             {
@@ -1180,6 +1188,13 @@ class AdminHandler(SecureHandler):
             return error_response(f"Failed to resume nomic: {e}", 500)
 
         logger.info(f"Admin {auth_ctx.user_id} resumed nomic to phase {resume_phase}")
+        audit_admin(
+            admin_id=auth_ctx.user_id,
+            action="resume_nomic",
+            target_type="nomic",
+            target_id=new_state.get("cycle_id", "unknown"),
+            resume_phase=resume_phase,
+        )
 
         return json_response(
             {
@@ -1222,6 +1237,13 @@ class AdminHandler(SecureHandler):
 
             logger.info(
                 f"Admin {auth_ctx.user_id} reset circuit breakers. Previously open: {open_before}"
+            )
+            audit_admin(
+                admin_id=auth_ctx.user_id,
+                action="reset_circuit_breakers",
+                target_type="nomic",
+                target_id="circuit_breakers",
+                previously_open=open_before,
             )
 
             return json_response(
