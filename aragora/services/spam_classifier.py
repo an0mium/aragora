@@ -812,8 +812,9 @@ class SpamFeatures:
                     features.ip_address_urls += 1
                     features.suspicious_domain_urls.append(url)
 
-            except Exception:
-                pass
+            except (ValueError, AttributeError):
+                # Skip malformed URLs
+                continue
 
         # Check for mismatched anchor URLs (phishing indicator)
         anchors = self._anchor_pattern.findall(body)

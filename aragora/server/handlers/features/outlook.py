@@ -715,7 +715,7 @@ async def handle_get_status(
                 "email": email,
                 "display_name": profile.get("displayName"),
             }
-        except Exception:
+        except (ConnectionError, TimeoutError, PermissionError, ValueError):
             return {
                 "success": True,
                 "connected": False,

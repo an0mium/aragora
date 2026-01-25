@@ -745,8 +745,9 @@ class SupportHandler(SecureHandler):
                         if platform == "zendesk":
                             ticket = await connector.get_ticket(int(tid))
                             tickets_to_triage.append(self._normalize_zendesk_ticket(ticket))
-                    except Exception:
-                        pass
+                    except (ValueError, ConnectionError, TimeoutError) as e:
+                        logger.debug(f"Failed to fetch ticket {tid}: {e}")
+                        continue
 
         # Perform triage analysis
         triage_results = []

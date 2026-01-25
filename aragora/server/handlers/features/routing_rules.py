@@ -411,7 +411,7 @@ class RoutingRulesHandler(BaseHandler):
                     body = body.decode("utf-8")
                 return json.loads(body) if body else None
             return None
-        except Exception:
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError, TypeError):
             return None
 
     def _method_not_allowed(self, method: str, path: str) -> dict[str, Any]:

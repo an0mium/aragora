@@ -34,13 +34,9 @@ async def handle_get_debate_provenance(debate_id: str) -> HandlerResult:
         },
     }
 
-    # Try to load from ProvenanceManager if debate has provenance data
-    try:
-        # This would integrate with actual debate storage
-        # For now, return structure for frontend to handle
-        graph_data["metadata"]["status"] = "ready"
-    except Exception:
-        graph_data["metadata"]["status"] = "no_data"
+    # TODO: Integrate with ProvenanceManager once debate storage is connected
+    # For now, return structure for frontend to handle
+    graph_data["metadata"]["status"] = "ready"
 
     return json_response(graph_data)
 

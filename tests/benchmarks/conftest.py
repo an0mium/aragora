@@ -21,6 +21,14 @@ import pytest
 
 from aragora.core import Agent, Vote, Critique, Environment
 
+pytestmark = pytest.mark.benchmark
+
+
+def pytest_collection_modifyitems(config, items):
+    for item in items:
+        if "tests/benchmarks" in str(item.fspath):
+            item.add_marker(pytest.mark.benchmark)
+
 
 # =============================================================================
 # Simple Timing Decorator (works without pytest-benchmark)
