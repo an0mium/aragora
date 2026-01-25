@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor, act, renderHook } from '@testing-library/react';
+import { waitFor, act, renderHook } from '@testing-library/react';
 import { AuthProvider, useAuth, useRequireAuth } from '../AuthContext';
 
 // Mock localStorage
@@ -70,8 +70,8 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
   <AuthProvider>{children}</AuthProvider>
 );
 
-// Test consumer component
-function TestConsumer() {
+// Test consumer component (prefixed with _ as currently unused, kept for reference)
+function _TestConsumer() {
   const auth = useAuth();
   return (
     <div>

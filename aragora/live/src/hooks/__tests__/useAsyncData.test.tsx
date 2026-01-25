@@ -8,7 +8,6 @@
  * - All hooks: Abort controller, unmount cleanup, reset functionality
  */
 
-import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useAsyncData, useFetch, useMutation } from '../useAsyncData';
 
@@ -98,10 +97,8 @@ describe('useAsyncData', () => {
 
     it('cancels previous request on new refetch', async () => {
       let resolveFirst: (value: unknown) => void;
-      let rejectFirst: (reason?: unknown) => void;
-      const firstPromise = new Promise((resolve, reject) => {
+      const firstPromise = new Promise((resolve, _reject) => {
         resolveFirst = resolve;
-        rejectFirst = reject;
       });
 
       const fetcher = jest

@@ -14,10 +14,8 @@
  * - 401 silent handling
  */
 
-import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { useAuthenticatedFetch, useAuthFetch } from '../useAuthenticatedFetch';
-import { AuthProvider } from '@/context/AuthContext';
 
 // Mock the AuthContext
 jest.mock('@/context/AuthContext', () => ({

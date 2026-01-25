@@ -22,7 +22,6 @@ import {
   selectIsLastStep,
   selectCanProceed,
   selectProgressPercentage,
-  OnboardingStep,
   SelectedTemplate,
 } from '../onboardingStore';
 

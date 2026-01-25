@@ -40,10 +40,10 @@ Object.defineProperty(window, 'matchMedia', {
   value: mockMatchMedia,
 });
 
-// Mock document methods
-const mockSetAttribute = jest.fn();
-const mockRemoveAttribute = jest.fn();
-const originalDocumentElement = document.documentElement;
+// Mock document methods (prefixed with _ as currently unused, kept for future test expansion)
+const _mockSetAttribute = jest.fn();
+const _mockRemoveAttribute = jest.fn();
+const _originalDocumentElement = document.documentElement;
 
 describe('ThemeContext', () => {
   const wrapper = ({ children }: { children: React.ReactNode }) => (
