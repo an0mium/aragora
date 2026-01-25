@@ -173,14 +173,21 @@ class TextFormatter(logging.Formatter):
         """Format log record as text."""
         ctx = _log_context.get()
 
+        # Get trace context from tracing middleware (fallback if not in local context)
+        trace_ctx = _get_trace_context()
+
         log_record = LogRecord(
             timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
             level=record.levelname,
             logger=record.name.split(".")[-1],  # Short name
             message=record.getMessage(),
             fields=getattr(record, "structured_fields", {}),
-            trace_id=ctx.get("trace_id") or getattr(record, "trace_id", None),
-            span_id=ctx.get("span_id") or getattr(record, "span_id", None),
+            trace_id=ctx.get("trace_id")
+            or trace_ctx.get("trace_id")
+            or getattr(record, "trace_id", None),
+            span_id=ctx.get("span_id")
+            or trace_ctx.get("span_id")
+            or getattr(record, "span_id", None),
             debate_id=ctx.get("debate_id") or getattr(record, "debate_id", None),
         )
 
