@@ -81,6 +81,10 @@ async def _get_redis_client() -> Optional[Any]:
         return await get_async_redis_client()
     except ImportError:
         return None
+    except Exception as e:
+        # Handle connection errors, etc.
+        logger.debug(f"Redis client unavailable: {e}")
+        return None
 
 
 async def _store_oauth_state(state: str, data: Dict[str, Any]) -> bool:
@@ -329,6 +333,13 @@ class SlackOAuthHandler(BaseHandler):
         authed_user = data.get("authed_user", {})
         scope = data.get("scope", "")
 
+        # Extract token refresh data (if available)
+        refresh_token = data.get("refresh_token")
+        expires_in = data.get("expires_in")  # Seconds until expiration
+        token_expires_at = None
+        if expires_in:
+            token_expires_at = time.time() + expires_in
+
         workspace_id = team.get("id", "")
         workspace_name = team.get("name", "Unknown")
         installed_by = authed_user.get("id")
@@ -353,6 +364,8 @@ class SlackOAuthHandler(BaseHandler):
                 scopes=scope.split(",") if scope else [],
                 tenant_id=tenant_id,
                 is_active=True,
+                refresh_token=refresh_token,
+                token_expires_at=token_expires_at,
             )
 
             store = get_slack_workspace_store()

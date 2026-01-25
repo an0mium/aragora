@@ -151,6 +151,8 @@ class SlackConnector(ChatPlatformConnector):
         timeout: float = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_RETRIES,
         use_circuit_breaker: bool = True,
+        workspace_id: Optional[str] = None,
+        enable_token_refresh: bool = True,
         **config: Any,
     ):
         """
@@ -163,6 +165,8 @@ class SlackConnector(ChatPlatformConnector):
             timeout: Request timeout in seconds (default 30)
             max_retries: Maximum retry attempts for transient errors (default 3)
             use_circuit_breaker: Whether to use circuit breaker (default True)
+            workspace_id: Slack workspace ID for multi-workspace token management
+            enable_token_refresh: Whether to auto-refresh expired tokens (default True)
             **config: Additional configuration
         """
         super().__init__(
@@ -174,6 +178,9 @@ class SlackConnector(ChatPlatformConnector):
         self._timeout = timeout
         self._max_retries = max_retries
         self._use_circuit_breaker = use_circuit_breaker
+        self._workspace_id = workspace_id
+        self._enable_token_refresh = enable_token_refresh
+        self._workspace_store: Any = None  # Lazy-loaded
 
         # Initialize circuit breaker
         if use_circuit_breaker:
@@ -230,6 +237,82 @@ class SlackConnector(ChatPlatformConnector):
         # Add trace context headers for distributed tracing
         headers.update(build_trace_headers())
         return headers
+
+    def _get_workspace_store(self) -> Any:
+        """Get or create workspace store for token management."""
+        if self._workspace_store is None:
+            try:
+                from aragora.storage.slack_workspace_store import get_slack_workspace_store
+
+                self._workspace_store = get_slack_workspace_store()
+            except ImportError:
+                logger.debug("Slack workspace store not available")
+        return self._workspace_store
+
+    async def _validate_token(self) -> bool:
+        """Validate the current token using Slack auth.test API.
+
+        Returns:
+            True if token is valid, False otherwise
+        """
+        return await self._perform_health_check(self._timeout)
+
+    async def _attempt_token_refresh(self) -> bool:
+        """Attempt to refresh the token for the current workspace.
+
+        Returns:
+            True if token was refreshed successfully, False otherwise
+        """
+        if not self._enable_token_refresh or not self._workspace_id:
+            return False
+
+        store = self._get_workspace_store()
+        if not store:
+            logger.debug("No workspace store available for token refresh")
+            return False
+
+        # Check if token needs refresh
+        if not store.is_token_expired(self._workspace_id):
+            logger.debug(f"Token for workspace {self._workspace_id} not expired, skipping refresh")
+            return False
+
+        # Get OAuth credentials from environment
+        client_id = os.environ.get("SLACK_CLIENT_ID", "")
+        client_secret = os.environ.get("SLACK_CLIENT_SECRET", "")
+
+        if not client_id or not client_secret:
+            logger.warning("SLACK_CLIENT_ID or SLACK_CLIENT_SECRET not set, cannot refresh token")
+            return False
+
+        # Attempt refresh
+        logger.info(f"Attempting token refresh for workspace: {self._workspace_id}")
+        workspace = store.refresh_workspace_token(
+            self._workspace_id,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        if workspace:
+            # Update connector's token with refreshed token
+            self.bot_token = workspace.access_token
+            logger.info(f"Token refreshed successfully for workspace: {self._workspace_id}")
+            return True
+
+        logger.error(f"Token refresh failed for workspace: {self._workspace_id}")
+        return False
+
+    def _is_auth_error(self, error: Optional[str]) -> bool:
+        """Check if error indicates an authentication/token issue."""
+        if not error:
+            return False
+        auth_errors = {
+            "invalid_auth",
+            "token_revoked",
+            "token_expired",
+            "account_inactive",
+            "not_authed",
+        }
+        return error.lower() in auth_errors
 
     async def _slack_api_request(
         self,
@@ -292,6 +375,17 @@ class SlackConnector(ChatPlatformConnector):
                                 else:
                                     await _exponential_backoff(attempt)
                                 continue
+
+                        # Check for auth errors - attempt token refresh
+                        if self._is_auth_error(error) and attempt < self._max_retries - 1:
+                            logger.warning(
+                                f"Slack {operation} auth error: {error}, "
+                                f"attempting token refresh"
+                            )
+                            if await self._attempt_token_refresh():
+                                # Token refreshed, retry immediately
+                                continue
+                            # Token refresh failed, fall through to non-retryable
 
                         # Non-retryable error
                         if self._circuit_breaker:
