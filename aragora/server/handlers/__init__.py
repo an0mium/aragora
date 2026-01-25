@@ -436,7 +436,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "LeaderboardViewHandler": Stability.STABLE,
     "ReplaysHandler": Stability.STABLE,
     "FeaturesHandler": Stability.STABLE,
-    "ConnectorsHandler": Stability.EXPERIMENTAL,  # Unified connectors registry
+    "ConnectorsHandler": Stability.STABLE,  # Unified connectors registry - 36 tests
     "IntegrationsHandler": Stability.EXPERIMENTAL,  # Integration config API
     "TeamsIntegrationHandler": Stability.EXPERIMENTAL,  # Teams bot integration endpoints
     "AuthHandler": Stability.STABLE,
@@ -515,7 +515,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "EvidenceHandler": Stability.STABLE,  # Evidence collection and storage
     "WebhookHandler": Stability.STABLE,  # Webhook registration and delivery
     "AdminHandler": Stability.STABLE,  # Admin panel backend API
-    "PolicyHandler": Stability.EXPERIMENTAL,  # Policy and compliance management - new
+    "PolicyHandler": Stability.STABLE,  # Policy and compliance management - 44 tests
     "PrivacyHandler": Stability.STABLE,  # GDPR/CCPA data export and deletion
     "WorkspaceHandler": Stability.EXPERIMENTAL,  # Enterprise workspace/privacy management
     "WorkflowHandler": Stability.STABLE,  # Enterprise workflow engine API - 48 tests
@@ -538,7 +538,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "WhatsAppHandler": Stability.STABLE,  # WhatsApp Cloud API - 48 tests
     "ZoomHandler": Stability.STABLE,  # Zoom webhooks and chat - 19 tests
     # Explainability
-    "ExplainabilityHandler": Stability.EXPERIMENTAL,  # Decision explainability API - new
+    "ExplainabilityHandler": Stability.STABLE,  # Decision explainability API - 44 tests
     # Protocols
     "A2AHandler": Stability.EXPERIMENTAL,  # A2A protocol handler - new
     # Autonomous operations handlers (Phase 5)
