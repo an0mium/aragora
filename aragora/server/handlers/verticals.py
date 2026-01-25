@@ -62,16 +62,12 @@ class VerticalsHandler(BaseHandler):
 
     @rate_limit(rpm=60)
     async def handle(  # type: ignore[override]
-        self, path: str, method: str, handler: Any = None
+        self, path: str, query_params: dict, handler: Any = None
     ) -> Optional[HandlerResult]:
         """Route request to appropriate handler method."""
         path = strip_version_prefix(path)
-        query_params: Dict[str, Any] = {}
-        if handler:
-            query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
-            from urllib.parse import parse_qs
-
-            query_params = parse_qs(query_str)
+        # Get HTTP method from handler
+        method = getattr(handler, "command", "GET") if handler else "GET"
 
         # GET /api/verticals - List all verticals
         if path == "/api/verticals" and method == "GET":

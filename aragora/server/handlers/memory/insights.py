@@ -58,6 +58,10 @@ class InsightsHandler(BaseHandler):
         normalized = strip_version_prefix(path)
         return normalized.startswith("/api/insights/") or normalized == "/api/flips/recent"
 
+    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+        """Handle GET requests - routes to handle_get with context."""
+        return self.handle_get(path, query_params, handler, self.ctx)
+
     def handle_get(self, path: str, query: dict, handler, ctx: dict) -> Optional[HandlerResult]:
         """Handle GET requests for insights endpoints."""
         # Normalize path to handle both /api/... and /api/v1/... paths

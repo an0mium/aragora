@@ -84,9 +84,9 @@ class ChannelHealthHandler:
 
         # Check for email integration
         try:
-            from aragora.integrations.email import EmailIntegration
+            from aragora.integrations.email import EmailConfig, EmailIntegration
 
-            self._connectors["email"] = EmailIntegration()
+            self._connectors["email"] = EmailIntegration(EmailConfig())
         except Exception as e:
             logger.debug(f"Email integration not available: {e}")
 

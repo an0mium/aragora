@@ -77,7 +77,9 @@ class RouteValidation:
         """Check if this rule matches the request."""
         if self.method != "*" and self.method.upper() != method.upper():
             return False
-        return bool(self.pattern.match(path))
+        # Pattern is always compiled in __post_init__
+        pattern: Pattern[str] = self.pattern  # type: ignore[assignment]
+        return bool(pattern.match(path))
 
 
 # =============================================================================
