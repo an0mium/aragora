@@ -110,8 +110,10 @@ jobs:
 
       - name: Start Aragora server
         run: |
-          # Create nomic directory for storage (optional but helps)
-          mkdir -p .nomic
+          # Create nomic directory for storage with absolute path
+          export ARAGORA_DATA_DIR="${GITHUB_WORKSPACE}/.nomic"
+          mkdir -p "$ARAGORA_DATA_DIR"
+          echo "Using data directory: $ARAGORA_DATA_DIR"
 
           # Verify server can at least import
           echo "Verifying server imports..."
@@ -125,7 +127,11 @@ jobs:
           print('Demo data initialized')
           "
 
-          aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
+          # Show what was created
+          echo "Database files created:"
+          ls -la "$ARAGORA_DATA_DIR" || true
+
+          ARAGORA_DATA_DIR="$ARAGORA_DATA_DIR" aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
 

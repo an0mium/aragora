@@ -183,12 +183,11 @@ def ensure_demo_agents() -> int:
         Number of demo agents initialized.
     """
     try:
-        import os
-
-        from aragora.persistence.db_config import DatabaseType, get_db_path
+        from aragora.persistence.db_config import DatabaseType, get_db_path, get_nomic_dir
         from aragora.ranking.elo import EloSystem
 
-        nomic_dir = Path(os.environ.get("NOMIC_DIR", ".nomic"))
+        # Use the same nomic_dir resolution as the server (ARAGORA_DATA_DIR, ARAGORA_NOMIC_DIR, or .nomic)
+        nomic_dir = get_nomic_dir()
         nomic_dir.mkdir(exist_ok=True)
 
         # Use the correct database path (matches server initialization)
