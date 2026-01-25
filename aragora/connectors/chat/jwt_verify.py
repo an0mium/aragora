@@ -20,14 +20,16 @@ logger = logging.getLogger(__name__)
 # Optional: PyJWT for token validation
 try:
     import jwt
-    from jwt import PyJWKClient
-    from jwt.exceptions import PyJWTError
+    from jwt import PyJWKClient as _PyJWKClient
+    from jwt.exceptions import PyJWTError as _PyJWTError
 
     HAS_JWT = True
+    PyJWKClient: Optional[Type[Any]] = _PyJWKClient
+    PyJWTError: Type[Exception] = _PyJWTError
 except ImportError:
     jwt = None
-    PyJWKClient: Optional[Type[Any]] = None
-    PyJWTError: Type[Exception] = Exception
+    PyJWKClient = None
+    PyJWTError = Exception
     HAS_JWT = False
 
 # Microsoft Bot Framework OpenID configuration

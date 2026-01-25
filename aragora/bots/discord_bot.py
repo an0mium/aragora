@@ -37,14 +37,10 @@ logger = logging.getLogger(__name__)
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 DISCORD_APPLICATION_ID = os.environ.get("DISCORD_APPLICATION_ID", "")
 
-# API base for Aragora backend (required in production)
-_api_base_env = os.environ.get("ARAGORA_API_BASE", "")
-_env_mode = os.environ.get("ARAGORA_ENV", "development").lower()
-if not _api_base_env:
-    if _env_mode in ("production", "prod", "live"):
-        raise EnvironmentError("ARAGORA_API_BASE is required in production")
-    _api_base_env = "http://localhost:8080"  # Development fallback
-API_BASE = _api_base_env
+# API base for Aragora backend (validated at bot initialization, not import time)
+# The BotClient base class validates api_base in __init__ and provides appropriate
+# error messages for production environments.
+API_BASE = os.environ.get("ARAGORA_API_BASE", "")
 
 
 def _check_discord_available() -> tuple[bool, Optional[str]]:

@@ -149,7 +149,7 @@ class RBACAPI:
             body["inherits_from"] = inherits_from
         if tenant_id:
             body["tenant_id"] = tenant_id
-        response = self._client._post("/api/v1/rbac/roles", json=body)
+        response = self._client._post("/api/v1/rbac/roles", data=body)
         return Role(**response)
 
     async def create_role_async(
@@ -170,7 +170,7 @@ class RBACAPI:
             body["inherits_from"] = inherits_from
         if tenant_id:
             body["tenant_id"] = tenant_id
-        response = await self._client._post_async("/api/v1/rbac/roles", json=body)
+        response = await self._client._post_async("/api/v1/rbac/roles", data=body)
         return Role(**response)
 
     def update_role(
@@ -203,7 +203,7 @@ class RBACAPI:
             body["permissions"] = permissions
         if inherits_from is not None:
             body["inherits_from"] = inherits_from
-        response = self._client._patch(f"/api/v1/rbac/roles/{role_id}", json=body)
+        response = self._client._patch(f"/api/v1/rbac/roles/{role_id}", data=body)
         return Role(**response)
 
     async def update_role_async(
@@ -224,7 +224,7 @@ class RBACAPI:
             body["permissions"] = permissions
         if inherits_from is not None:
             body["inherits_from"] = inherits_from
-        response = await self._client._patch_async(f"/api/v1/rbac/roles/{role_id}", json=body)
+        response = await self._client._patch_async(f"/api/v1/rbac/roles/{role_id}", data=body)
         return Role(**response)
 
     def delete_role(self, role_id: str) -> None:
@@ -285,7 +285,7 @@ class RBACAPI:
             body["resource"] = resource
         if resource_id:
             body["resource_id"] = resource_id
-        response = self._client._post("/api/v1/rbac/check", json=body)
+        response = self._client._post("/api/v1/rbac/check", data=body)
         return PermissionCheck(**response)
 
     async def check_permission_async(
@@ -303,7 +303,7 @@ class RBACAPI:
             body["resource"] = resource
         if resource_id:
             body["resource_id"] = resource_id
-        response = await self._client._post_async("/api/v1/rbac/check", json=body)
+        response = await self._client._post_async("/api/v1/rbac/check", data=body)
         return PermissionCheck(**response)
 
     # -------------------------------------------------------------------------
@@ -379,7 +379,7 @@ class RBACAPI:
         body: dict[str, Any] = {"user_id": user_id, "role_id": role_id}
         if tenant_id:
             body["tenant_id"] = tenant_id
-        response = self._client._post("/api/v1/rbac/assignments", json=body)
+        response = self._client._post("/api/v1/rbac/assignments", data=body)
         return RoleAssignment(**response)
 
     async def assign_role_async(
@@ -389,7 +389,7 @@ class RBACAPI:
         body: dict[str, Any] = {"user_id": user_id, "role_id": role_id}
         if tenant_id:
             body["tenant_id"] = tenant_id
-        response = await self._client._post_async("/api/v1/rbac/assignments", json=body)
+        response = await self._client._post_async("/api/v1/rbac/assignments", data=body)
         return RoleAssignment(**response)
 
     def revoke_role(self, user_id: str, role_id: str, tenant_id: Optional[str] = None) -> None:
@@ -404,7 +404,7 @@ class RBACAPI:
         body: dict[str, Any] = {"user_id": user_id, "role_id": role_id}
         if tenant_id:
             body["tenant_id"] = tenant_id
-        self._client._post("/api/v1/rbac/revoke", json=body)
+        self._client._post("/api/v1/rbac/revoke", data=body)
 
     async def revoke_role_async(
         self, user_id: str, role_id: str, tenant_id: Optional[str] = None
@@ -413,7 +413,7 @@ class RBACAPI:
         body: dict[str, Any] = {"user_id": user_id, "role_id": role_id}
         if tenant_id:
             body["tenant_id"] = tenant_id
-        await self._client._post_async("/api/v1/rbac/revoke", json=body)
+        await self._client._post_async("/api/v1/rbac/revoke", data=body)
 
     def bulk_assign(self, assignments: list[dict[str, str]]) -> list[RoleAssignment]:
         """

@@ -44,14 +44,10 @@ ZOOM_BOT_JID = os.environ.get("ZOOM_BOT_JID", "")
 ZOOM_VERIFICATION_TOKEN = os.environ.get("ZOOM_VERIFICATION_TOKEN", "")
 ZOOM_SECRET_TOKEN = os.environ.get("ZOOM_SECRET_TOKEN", "")
 
-# API base for Aragora backend (required in production)
-_api_base_env = os.environ.get("ARAGORA_API_BASE", "")
-_env_mode = os.environ.get("ARAGORA_ENV", "development").lower()
-if not _api_base_env:
-    if _env_mode in ("production", "prod", "live"):
-        raise EnvironmentError("ARAGORA_API_BASE is required in production")
-    _api_base_env = "http://localhost:8080"  # Development fallback
-API_BASE = _api_base_env
+# API base for Aragora backend (validated at bot initialization, not import time)
+# The BotClient base class validates api_base in __init__ and provides appropriate
+# error messages for production environments.
+API_BASE = os.environ.get("ARAGORA_API_BASE", "")
 
 
 class ZoomOAuthManager:

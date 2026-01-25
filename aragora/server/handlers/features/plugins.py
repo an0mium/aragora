@@ -109,15 +109,47 @@ class PluginsHandler(BaseHandler):
         # Always use index 2 since we normalize paths before extraction
         return 2
 
-    def _add_sunset_header_if_legacy(self, path: str, response: HandlerResult) -> HandlerResult:
+    def _get_original_path(self, handler) -> str | None:
+        """Get the original request path from the HTTP handler.
+
+        The handler registry may normalize paths before dispatching, so we need
+        to check handler.path to determine if the original request was versioned.
+
+        Args:
+            handler: HTTP request handler with path attribute
+
+        Returns:
+            Original request path or None if not available
+        """
+        if handler is None:
+            return None
+        path = getattr(handler, "path", None)
+        if path and isinstance(path, str):
+            if "?" in path:
+                return path.split("?")[0]
+            return path
+        return None
+
+    def _add_sunset_header_if_legacy(
+        self, path: str, response: HandlerResult, handler=None
+    ) -> HandlerResult:
         """Add HTTP Sunset header if request uses legacy (non-versioned) path.
 
         Per RFC 8594, the Sunset header indicates when an API will be retired.
 
-        Note: Only adds header for truly legacy paths, not for versioned paths
-        that were normalized by the handler registry.
+        Note: Uses the original request path (from handler.path) to detect legacy
+        paths, since the handler registry may normalize versioned paths.
+
+        Args:
+            path: Dispatch path (may be normalized)
+            response: Handler result to add headers to
+            handler: HTTP request handler for original path access
         """
-        if self._is_legacy_path(path):
+        # Use original path for legacy detection if available
+        original_path = self._get_original_path(handler)
+        check_path = original_path if original_path else path
+
+        if self._is_legacy_path(check_path):
             if response.headers is None:
                 response.headers = {}
             response.headers["Sunset"] = self._SUNSET_DATE
@@ -204,11 +236,11 @@ class PluginsHandler(BaseHandler):
             idx = self._get_plugin_name_index(normalized)
             plugin_name, err = self.extract_path_param(normalized, idx, "plugin_name")
             if err:
-                return self._add_sunset_header_if_legacy(path, err)
+                return self._add_sunset_header_if_legacy(path, err, handler)
             response = self._get_plugin(plugin_name)
 
         if response is not None:
-            return self._add_sunset_header_if_legacy(path, response)
+            return self._add_sunset_header_if_legacy(path, response, handler)
         return None
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
@@ -226,7 +258,7 @@ class PluginsHandler(BaseHandler):
             idx = self._get_plugin_name_index(normalized)
             plugin_name, err = self.extract_path_param(normalized, idx, "plugin_name")
             if err:
-                return self._add_sunset_header_if_legacy(path, err)
+                return self._add_sunset_header_if_legacy(path, err, handler)
             response = self._run_plugin(plugin_name, handler)
 
         # Install plugin: /api/v1/plugins/{name}/install or /api/plugins/{name}/install
@@ -236,11 +268,11 @@ class PluginsHandler(BaseHandler):
             idx = self._get_plugin_name_index(normalized)
             plugin_name, err = self.extract_path_param(normalized, idx, "plugin_name")
             if err:
-                return self._add_sunset_header_if_legacy(path, err)
+                return self._add_sunset_header_if_legacy(path, err, handler)
             response = self._install_plugin(plugin_name, handler)
 
         if response is not None:
-            return self._add_sunset_header_if_legacy(path, response)
+            return self._add_sunset_header_if_legacy(path, response, handler)
         return None
 
     def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
@@ -254,11 +286,11 @@ class PluginsHandler(BaseHandler):
             idx = self._get_plugin_name_index(normalized)
             plugin_name, err = self.extract_path_param(normalized, idx, "plugin_name")
             if err:
-                return self._add_sunset_header_if_legacy(path, err)
+                return self._add_sunset_header_if_legacy(path, err, handler)
             response = self._uninstall_plugin(plugin_name, handler)
 
         if response is not None:
-            return self._add_sunset_header_if_legacy(path, response)
+            return self._add_sunset_header_if_legacy(path, response, handler)
         return None
 
     @handle_errors("list plugins")

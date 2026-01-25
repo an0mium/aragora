@@ -274,6 +274,12 @@ class ControlPlaneHandler(BaseHandler):
                     "total": len(agents),
                 }
             )
+        except (ValueError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error listing agents: {type(e).__name__}: {e}")
+            return error_response(safe_error_message(e, "control plane"), 400)
+        except (RuntimeError, TimeoutError) as e:
+            logger.error(f"Runtime error listing agents: {type(e).__name__}: {e}")
+            return error_response(safe_error_message(e, "control plane"), 503)
         except Exception as e:
             logger.error(f"Error listing agents: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
@@ -291,6 +297,9 @@ class ControlPlaneHandler(BaseHandler):
                 return error_response(f"Agent not found: {agent_id}", 404)
 
             return json_response(agent.to_dict())
+        except (ValueError, KeyError, AttributeError) as e:
+            logger.warning(f"Data error getting agent {agent_id}: {type(e).__name__}: {e}")
+            return error_response(safe_error_message(e, "control plane"), 400)
         except Exception as e:
             logger.error(f"Error getting agent {agent_id}: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
@@ -308,6 +317,9 @@ class ControlPlaneHandler(BaseHandler):
                 return error_response(f"Task not found: {task_id}", 404)
 
             return json_response(task.to_dict())
+        except (ValueError, KeyError, AttributeError) as e:
+            logger.warning(f"Data error getting task {task_id}: {type(e).__name__}: {e}")
+            return error_response(safe_error_message(e, "control plane"), 400)
         except Exception as e:
             logger.error(f"Error getting task {task_id}: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)

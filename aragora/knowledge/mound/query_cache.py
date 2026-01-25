@@ -304,7 +304,7 @@ class RequestScopedCache:
         self._token = _cache_context.set(self)
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Optional[bool]:
         """Exit the cache context and clear the cache."""
         if self._token is not None:
             _cache_context.reset(self._token)

@@ -382,9 +382,6 @@ class CostTracker:
             }
         )
 
-        # Per-debate cost tracking
-        self._debate_costs: Dict[str, Decimal] = {}
-
     async def record(self, usage: TokenUsage) -> None:
         """
         Record a token usage event.

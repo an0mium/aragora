@@ -66,14 +66,19 @@ except ImportError:
 
 # Import circuit breaker from resilience module
 try:
-    from aragora.resilience import CircuitBreaker, CircuitOpenError, get_circuit_breaker
+    from aragora.resilience import CircuitBreaker as _CircuitBreaker
+    from aragora.resilience import CircuitOpenError as _CircuitOpenError
+    from aragora.resilience import get_circuit_breaker as _get_circuit_breaker
 
     RESILIENCE_AVAILABLE = True
+    CircuitBreaker: Optional[Type[Any]] = _CircuitBreaker
+    CircuitOpenError: Type[Exception] = _CircuitOpenError
+    get_circuit_breaker: Optional[Callable[..., Any]] = _get_circuit_breaker
 except ImportError:
     RESILIENCE_AVAILABLE = False
-    CircuitBreaker: Optional[Type[Any]] = None
-    CircuitOpenError: Type[Exception] = Exception
-    get_circuit_breaker: Optional[Callable[..., Any]] = None
+    CircuitBreaker = None
+    CircuitOpenError = Exception
+    get_circuit_breaker = None
     logger.debug("resilience module not available, circuit breaker disabled")
 
 

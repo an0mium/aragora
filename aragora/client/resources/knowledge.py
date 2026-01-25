@@ -437,7 +437,7 @@ class KnowledgeAPI:
         Returns:
             List of detected contradictions
         """
-        body = {"threshold": threshold}
+        body: Dict[str, Any] = {"threshold": threshold}
         if workspace_id:
             body["workspace_id"] = workspace_id
 
@@ -451,7 +451,7 @@ class KnowledgeAPI:
         threshold: float = 0.7,
     ) -> List[ContradictionResult]:
         """Async version of detect_contradictions()."""
-        body = {"threshold": threshold}
+        body: Dict[str, Any] = {"threshold": threshold}
         if workspace_id:
             body["workspace_id"] = workspace_id
 

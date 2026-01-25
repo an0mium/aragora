@@ -146,13 +146,13 @@ class BillingAPI:
         Returns:
             Updated Subscription object.
         """
-        response = self._client._post("/api/v1/billing/subscription", json={"plan_id": plan_id})
+        response = self._client._post("/api/v1/billing/subscription", data={"plan_id": plan_id})
         return Subscription(**response)
 
     async def update_subscription_async(self, plan_id: str) -> Subscription:
         """Async version of update_subscription()."""
         response = await self._client._post_async(
-            "/api/v1/billing/subscription", json={"plan_id": plan_id}
+            "/api/v1/billing/subscription", data={"plan_id": plan_id}
         )
         return Subscription(**response)
 
@@ -300,7 +300,7 @@ class BillingAPI:
         """
         return self._client._post(
             "/api/v1/billing/payment-methods",
-            json={"token": token, "set_default": set_default},
+            data={"token": token, "set_default": set_default},
         )
 
     async def add_payment_method_async(
@@ -309,7 +309,7 @@ class BillingAPI:
         """Async version of add_payment_method()."""
         return await self._client._post_async(
             "/api/v1/billing/payment-methods",
-            json={"token": token, "set_default": set_default},
+            data={"token": token, "set_default": set_default},
         )
 
     def remove_payment_method(self, payment_method_id: str) -> None:

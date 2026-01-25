@@ -281,7 +281,7 @@ class DebateLoaders:
         self._token = _loaders_context.set(self)
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Optional[bool]:
         """Exit context - clear and reset."""
         if self._token is not None:
             _loaders_context.reset(self._token)

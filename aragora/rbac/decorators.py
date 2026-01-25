@@ -115,8 +115,10 @@ def require_permission(
             # Get resource ID if specified
             resource_id: str | None = None
             if resource_id_param:
-                resource_id = kwargs.get(resource_id_param)
-                if resource_id is None:
+                raw_resource_id = kwargs.get(resource_id_param)
+                if raw_resource_id is not None:
+                    resource_id = str(raw_resource_id)
+                else:
                     # Try positional args - this is fragile but necessary
                     import inspect
 
@@ -125,7 +127,7 @@ def require_permission(
                     if resource_id_param in params:
                         idx = params.index(resource_id_param)
                         if idx < len(args):
-                            resource_id = args[idx]
+                            resource_id = str(args[idx])
 
             # Check permission
             perm_checker = checker or get_permission_checker()
@@ -149,7 +151,9 @@ def require_permission(
             # Get resource ID if specified
             resource_id: str | None = None
             if resource_id_param:
-                resource_id = kwargs.get(resource_id_param)
+                raw_resource_id = kwargs.get(resource_id_param)
+                if raw_resource_id is not None:
+                    resource_id = str(raw_resource_id)
 
             # Check permission
             perm_checker = checker or get_permission_checker()

@@ -53,7 +53,7 @@ warnings.warn(
     stacklevel=2,
 )
 
-__version__ = "2.1.13"
+__version__ = "2.4.0"
 
 from .client import AragoraClient, review
 from .exceptions import (

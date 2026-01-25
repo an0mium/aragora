@@ -465,8 +465,7 @@ class KnowledgeMoundHandler(ChangeEventHandler):
 
     async def _handle_upsert(self, mound: "KnowledgeMound", event: ChangeEvent) -> None:
         """Handle insert/update/replace events."""
-        from aragora.knowledge.mound.ingestion import IngestionRequest
-        from aragora.knowledge.mound.types import KnowledgeSource
+        from aragora.knowledge.mound.types import IngestionRequest, KnowledgeSource
 
         if not event.data:
             logger.debug(f"No data in event {event.id}, skipping ingestion")
