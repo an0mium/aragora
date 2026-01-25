@@ -185,12 +185,15 @@ def ensure_demo_agents() -> int:
     try:
         import os
 
+        from aragora.persistence.db_config import DatabaseType, get_db_path
         from aragora.ranking.elo import EloSystem
 
         nomic_dir = Path(os.environ.get("NOMIC_DIR", ".nomic"))
         nomic_dir.mkdir(exist_ok=True)
 
-        elo = EloSystem(nomic_dir)
+        # Use the correct database path (matches server initialization)
+        elo_path = get_db_path(DatabaseType.ELO, nomic_dir)
+        elo = EloSystem(str(elo_path))
 
         # Check if agents already exist
         try:
