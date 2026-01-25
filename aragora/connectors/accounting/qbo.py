@@ -25,7 +25,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from aragora.connectors.exceptions import (
     ConnectorAPIError,
@@ -678,8 +678,8 @@ class QuickBooksConnector:
 
     async def get_company_info(self) -> Dict[str, Any]:
         """Get company information."""
-        response = await self._request("GET", f"companyinfo/{self._credentials.realm_id}")  # type: ignore
-        return response.get("CompanyInfo", {})
+        response = await self._request("GET", f"companyinfo/{self._credentials.realm_id}")
+        return cast(Dict[str, Any], response).get("CompanyInfo", {})
 
     # =========================================================================
     # Vendor Operations
