@@ -833,16 +833,14 @@ class ControlPlanePolicyManager:
         if queue_seconds is not None:
             if not sla.is_queue_time_compliant(queue_seconds):
                 violations.append(
-                    f"Queue time {queue_seconds:.1f}s exceeds limit "
-                    f"{sla.max_queue_seconds:.1f}s"
+                    f"Queue time {queue_seconds:.1f}s exceeds limit {sla.max_queue_seconds:.1f}s"
                 )
 
         # Check available agents
         if available_agents is not None:
             if available_agents < sla.min_agents_available:
                 violations.append(
-                    f"Available agents {available_agents} below minimum "
-                    f"{sla.min_agents_available}"
+                    f"Available agents {available_agents} below minimum {sla.min_agents_available}"
                 )
 
         if violations:

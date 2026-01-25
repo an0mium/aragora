@@ -345,7 +345,7 @@ class ValidationMiddleware:
         if body is not None and len(body) > rule.max_body_size:
             result.valid = False
             result.errors.append(
-                f"Request body too large: {len(body)} bytes " f"(max {rule.max_body_size})"
+                f"Request body too large: {len(body)} bytes (max {rule.max_body_size})"
             )
 
         # Validate required params
@@ -362,8 +362,7 @@ class ValidationMiddleware:
                     if val < min_val or val > max_val:
                         result.valid = False
                         result.errors.append(
-                            f"Parameter '{param}' out of range: {val} "
-                            f"(allowed {min_val}-{max_val})"
+                            f"Parameter '{param}' out of range: {val} (allowed {min_val}-{max_val})"
                         )
                 except (ValueError, TypeError):
                     result.warnings.append(f"Parameter '{param}' is not a valid integer")
