@@ -420,7 +420,7 @@ class TestCalibrationEdgeCases:
 
     @pytest.mark.skipif(
         not os.environ.get("RUN_COMPLEX_TESTS"),
-        reason="Arena initialization calls get_rating during setup; need isolated unit test",
+        reason="Known issue: Arena initialization calls get_rating during setup - needs isolated unit test",
     )
     def test_calibration_weight_exception_handling(self, mock_agent):
         """Test calibration weight handles exceptions gracefully."""
@@ -437,7 +437,7 @@ class TestCalibrationEdgeCases:
 
     @pytest.mark.skipif(
         not os.environ.get("RUN_COMPLEX_TESTS"),
-        reason="Arena initialization calls get_rating during setup; need isolated unit test",
+        reason="Known issue: Arena initialization calls get_rating during setup - needs isolated unit test",
     )
     def test_composite_score_exception_handling(self, mock_agent):
         """Test composite score handles exceptions gracefully."""

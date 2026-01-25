@@ -45,6 +45,13 @@ from aragora_client.exceptions import (
     AragoraTimeoutError,
     AragoraValidationError,
 )
+from aragora_client.knowledge import (
+    Fact,
+    KnowledgeAPI,
+    KnowledgeEntry,
+    KnowledgeSearchResult,
+    KnowledgeStats,
+)
 from aragora_client.onboarding import (
     OnboardingAPI,
     OnboardingFlow,
@@ -93,6 +100,14 @@ from aragora_client.types import (
     VerificationStatus,
 )
 from aragora_client.websocket import DebateStream, stream_debate
+from aragora_client.workflows import (
+    Workflow,
+    WorkflowCheckpoint,
+    WorkflowExecution,
+    WorkflowsAPI,
+    WorkflowStep,
+    WorkflowTemplate,
+)
 
 __version__ = "2.2.0"
 __all__ = [
@@ -175,4 +190,17 @@ __all__ = [
     "OnboardingStep",
     "OnboardingTemplate",
     "OnboardingInvitation",
+    # Knowledge
+    "KnowledgeAPI",
+    "KnowledgeEntry",
+    "KnowledgeSearchResult",
+    "KnowledgeStats",
+    "Fact",
+    # Workflows
+    "WorkflowsAPI",
+    "Workflow",
+    "WorkflowStep",
+    "WorkflowTemplate",
+    "WorkflowExecution",
+    "WorkflowCheckpoint",
 ]

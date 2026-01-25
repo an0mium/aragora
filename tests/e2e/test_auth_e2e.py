@@ -308,7 +308,7 @@ class TestTokenExpiration:
                 payload = decode_jwt(new_access)
                 assert payload is not None
         elif status == 429:
-            pytest.skip("Rate limited during refresh test")
+            pytest.skip("Rate limited during refresh - expected under heavy load")
         else:
             # Other statuses are acceptable - endpoint may have different behavior
             pass

@@ -132,6 +132,44 @@ USER_LOGIN_SCHEMA = {
     "password": {"type": "string", "min_length": 1, "max_length": 128, "required": True},
 }
 
+# Password change schema
+PASSWORD_CHANGE_SCHEMA = {
+    "current_password": {"type": "string", "min_length": 1, "max_length": 128, "required": True},
+    "new_password": {"type": "string", "min_length": 8, "max_length": 128, "required": True},
+}
+
+# Token refresh schema
+TOKEN_REFRESH_SCHEMA = {
+    "refresh_token": {"type": "string", "min_length": 1, "max_length": 2000, "required": True},
+}
+
+# MFA setup/enable schema
+MFA_CODE_SCHEMA = {
+    "code": {"type": "string", "min_length": 6, "max_length": 20, "required": True},
+}
+
+# MFA verify during login (with pending token)
+MFA_VERIFY_SCHEMA = {
+    "code": {"type": "string", "min_length": 6, "max_length": 20, "required": True},
+    "pending_token": {"type": "string", "min_length": 1, "max_length": 2000, "required": True},
+}
+
+# MFA disable (requires code or password)
+MFA_DISABLE_SCHEMA = {
+    "code": {"type": "string", "max_length": 20, "required": False},
+    "password": {"type": "string", "max_length": 128, "required": False},
+}
+
+# Token revoke schema
+TOKEN_REVOKE_SCHEMA = {
+    "token": {"type": "string", "max_length": 2000, "required": False},
+}
+
+# User profile update schema
+USER_UPDATE_SCHEMA = {
+    "name": {"type": "string", "max_length": 100, "required": False},
+}
+
 # Organization schemas
 ORG_CREATE_SCHEMA = {
     "name": {"type": "string", "min_length": 1, "max_length": 100, "required": True},
@@ -141,6 +179,22 @@ ORG_CREATE_SCHEMA = {
 ORG_INVITE_SCHEMA = {
     "email": {"type": "string", "min_length": 5, "max_length": 255, "required": True},
     "role": {"type": "enum", "allowed_values": {"member", "admin"}, "required": False},
+}
+
+# Organization update schema
+ORG_UPDATE_SCHEMA = {
+    "name": {"type": "string", "min_length": 2, "max_length": 100, "required": False},
+    # Settings are validated separately due to complex structure
+}
+
+# Member role update schema
+MEMBER_ROLE_SCHEMA = {
+    "role": {"type": "enum", "allowed_values": {"member", "admin"}, "required": True},
+}
+
+# Organization switch schema
+ORG_SWITCH_SCHEMA = {
+    "org_id": {"type": "string", "min_length": 1, "max_length": 100, "required": True},
 }
 
 # Gauntlet run schema
@@ -166,6 +220,14 @@ CHECKOUT_SESSION_SCHEMA = {
     "success_url": {"type": "string", "min_length": 1, "max_length": 2000, "required": True},
     "cancel_url": {"type": "string", "min_length": 1, "max_length": 2000, "required": True},
 }
+
+# Billing portal schema
+BILLING_PORTAL_SCHEMA = {
+    "return_url": {"type": "string", "min_length": 1, "max_length": 2000, "required": True},
+}
+
+# Billing cancel/resume schemas (empty body, authentication-only)
+# Note: These endpoints don't require body validation as they use auth context
 
 # Social publishing schema (all optional since body can be empty)
 SOCIAL_PUBLISH_SCHEMA = {

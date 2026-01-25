@@ -141,6 +141,7 @@ from .gauntlet_v1 import (
 from .genesis import GenesisHandler
 from .debates import GraphDebatesHandler  # Moved to debates/
 from .admin import HealthHandler  # Moved to admin/
+from .public import StatusPageHandler  # Public status page
 from .memory import InsightsHandler  # Moved to memory/
 from .introspection import IntrospectionHandler
 from .knowledge_base import KnowledgeHandler, KnowledgeMoundHandler
@@ -250,6 +251,7 @@ ALL_HANDLERS = [
     AgentConfigHandler,  # More specific: /api/agents/configs/*
     AgentsHandler,
     HealthHandler,  # More specific: /healthz, /readyz, /api/health/*
+    StatusPageHandler,  # Public status page: /status, /api/status/*
     NomicHandler,  # More specific: /api/nomic/*
     DocsHandler,  # More specific: /api/openapi*, /api/docs*, /api/redoc*
     SystemHandler,
@@ -422,6 +424,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "AgentsHandler": Stability.STABLE,
     "SystemHandler": Stability.STABLE,
     "HealthHandler": Stability.STABLE,  # Extracted from SystemHandler
+    "StatusPageHandler": Stability.STABLE,  # Public status page
     "NomicHandler": Stability.STABLE,  # Extracted from SystemHandler
     "DocsHandler": Stability.STABLE,  # Extracted from SystemHandler
     "AnalyticsHandler": Stability.STABLE,
@@ -627,6 +630,7 @@ __all__ = [
     "AgentsHandler",
     "SystemHandler",
     "HealthHandler",
+    "StatusPageHandler",
     "NomicHandler",
     "DocsHandler",
     "PulseHandler",

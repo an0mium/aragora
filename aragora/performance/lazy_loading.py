@@ -98,7 +98,7 @@ def _init_metrics() -> None:
         _prefetch_operations_counter = Counter(
             "aragora_lazy_load_prefetch_operations_total",
             "Number of prefetch operations performed",
-            ["property_name", "type"],  # type: manual or auto
+            ["property_name", "type"],  # values: "manual" or "auto"
         )
         _auto_prefetch_counter = Counter(
             "aragora_lazy_load_auto_prefetch_total",
@@ -239,9 +239,12 @@ class AutoPrefetchBatcher:
                 self._batch_futures[property_name] = future
 
                 # Schedule batch execution after delay
+                def _schedule_batch(pn: str = property_name) -> None:
+                    asyncio.create_task(self._execute_batch(pn))
+
                 loop.call_later(
                     AUTO_PREFETCH_BATCH_DELAY_MS / 1000.0,
-                    lambda pn=property_name: asyncio.create_task(self._execute_batch(pn)),
+                    _schedule_batch,
                 )
 
             return True

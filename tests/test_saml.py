@@ -319,7 +319,9 @@ class TestAuthentication:
         assert "No SAML response" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(HAS_SAML_LIB, reason="Testing simplified parser")
+    @pytest.mark.skipif(
+        HAS_SAML_LIB, reason="python3-saml is installed - testing simplified fallback parser"
+    )
     async def test_authenticate_success(self, provider: SAMLProvider, sample_saml_response: str):
         """Successful authentication returns user."""
         user = await provider.authenticate(saml_response=sample_saml_response)
@@ -333,7 +335,9 @@ class TestAuthentication:
         assert "developers" in user.groups
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(HAS_SAML_LIB, reason="Testing simplified parser")
+    @pytest.mark.skipif(
+        HAS_SAML_LIB, reason="python3-saml is installed - testing simplified fallback parser"
+    )
     async def test_authenticate_failure_status(
         self, provider: SAMLProvider, failed_saml_response: str
     ):
@@ -343,7 +347,9 @@ class TestAuthentication:
         assert "AuthnFailed" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(HAS_SAML_LIB, reason="Testing simplified parser")
+    @pytest.mark.skipif(
+        HAS_SAML_LIB, reason="python3-saml is installed - testing simplified fallback parser"
+    )
     async def test_authenticate_invalid_xml_raises(self, provider: SAMLProvider):
         """Invalid XML in response raises error."""
         invalid_response = base64.b64encode(b"not valid xml").decode("ascii")
@@ -355,7 +361,9 @@ class TestAuthentication:
         )
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(HAS_SAML_LIB, reason="Testing simplified parser")
+    @pytest.mark.skipif(
+        HAS_SAML_LIB, reason="python3-saml is installed - testing simplified fallback parser"
+    )
     async def test_authenticate_domain_restriction(
         self,
         valid_config: SAMLConfig,

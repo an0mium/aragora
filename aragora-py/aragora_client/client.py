@@ -19,6 +19,7 @@ from aragora_client.exceptions import (
     AragoraTimeoutError,
     AragoraValidationError,
 )
+from aragora_client.knowledge import KnowledgeAPI
 from aragora_client.onboarding import OnboardingAPI
 from aragora_client.rbac import RBACAPI
 from aragora_client.tenancy import TenancyAPI
@@ -46,6 +47,7 @@ from aragora_client.types import (
     VerificationResult,
     VerifyClaimRequest,
 )
+from aragora_client.workflows import WorkflowsAPI
 
 
 class DebatesAPI:
@@ -990,6 +992,8 @@ class AragoraClient:
         self.tournaments = TournamentsAPI(self)
         self.audit = AuditAPI(self)
         self.onboarding = OnboardingAPI(self)
+        self.knowledge = KnowledgeAPI(self)
+        self.workflows = WorkflowsAPI(self)
 
     async def __aenter__(self) -> AragoraClient:
         """Enter async context."""

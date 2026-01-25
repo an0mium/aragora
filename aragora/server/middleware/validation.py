@@ -16,10 +16,27 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Pattern, Tuple
 
-from aragora.server.validation.schema import validate_against_schema
+from aragora.server.validation.schema import (
+    BILLING_PORTAL_SCHEMA,
+    CHECKOUT_SESSION_SCHEMA,
+    MEMBER_ROLE_SCHEMA,
+    MFA_CODE_SCHEMA,
+    MFA_DISABLE_SCHEMA,
+    MFA_VERIFY_SCHEMA,
+    ORG_INVITE_SCHEMA,
+    ORG_SWITCH_SCHEMA,
+    ORG_UPDATE_SCHEMA,
+    PASSWORD_CHANGE_SCHEMA,
+    TOKEN_REFRESH_SCHEMA,
+    TOKEN_REVOKE_SCHEMA,
+    USER_LOGIN_SCHEMA,
+    USER_REGISTER_SCHEMA,
+    USER_UPDATE_SCHEMA,
+    validate_against_schema,
+)
 from aragora.server.validation.entities import (
-    validate_debate_id,
     validate_agent_name,
+    validate_debate_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -73,7 +90,9 @@ PAGINATION_RULES = {"page": (1, 10000), "per_page": (1, 100)}
 
 # Route validation registry - add schemas here as they're created
 VALIDATION_REGISTRY: List[RouteValidation] = [
+    # =========================================================================
     # Debates - core functionality
+    # =========================================================================
     RouteValidation(
         r"^/api/(v1/)?debates?$",
         "POST",
@@ -90,7 +109,9 @@ VALIDATION_REGISTRY: List[RouteValidation] = [
         "GET",
         path_validators={"debate_id": validate_debate_id},
     ),
+    # =========================================================================
     # Agents
+    # =========================================================================
     RouteValidation(
         r"^/api/(v1/)?agents?$",
         "GET",
@@ -101,7 +122,129 @@ VALIDATION_REGISTRY: List[RouteValidation] = [
         "GET",
         path_validators={"agent_name": validate_agent_name},
     ),
-    # Add more routes as schemas are defined...
+    # =========================================================================
+    # Auth - Tier 1 (Security Critical)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?auth/register$",
+        "POST",
+        body_schema=USER_REGISTER_SCHEMA,
+        max_body_size=10_000,  # 10KB for registration
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?auth/login$",
+        "POST",
+        body_schema=USER_LOGIN_SCHEMA,
+        max_body_size=5_000,  # 5KB for login
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?auth/password$",
+        "POST",
+        body_schema=PASSWORD_CHANGE_SCHEMA,
+        max_body_size=5_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?auth/refresh$",
+        "POST",
+        body_schema=TOKEN_REFRESH_SCHEMA,
+        max_body_size=10_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?auth/revoke$",
+        "POST",
+        body_schema=TOKEN_REVOKE_SCHEMA,
+        max_body_size=10_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?auth/me$",
+        "PUT",
+        body_schema=USER_UPDATE_SCHEMA,
+        max_body_size=5_000,
+    ),
+    # MFA endpoints
+    RouteValidation(
+        r"^/api/(v1/)?auth/mfa/enable$",
+        "POST",
+        body_schema=MFA_CODE_SCHEMA,
+        max_body_size=1_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?auth/mfa/disable$",
+        "POST",
+        body_schema=MFA_DISABLE_SCHEMA,
+        max_body_size=1_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?auth/mfa/verify$",
+        "POST",
+        body_schema=MFA_VERIFY_SCHEMA,
+        max_body_size=5_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?auth/mfa/backup-codes$",
+        "POST",
+        body_schema=MFA_CODE_SCHEMA,
+        max_body_size=1_000,
+    ),
+    # =========================================================================
+    # Organizations - Tier 1 (Security Critical)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?org/([^/]+)$",
+        "PUT",
+        body_schema=ORG_UPDATE_SCHEMA,
+        max_body_size=100_000,  # Allow for settings object
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?org/([^/]+)/invite$",
+        "POST",
+        body_schema=ORG_INVITE_SCHEMA,
+        max_body_size=5_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?org/([^/]+)/members/([^/]+)/role$",
+        "PUT",
+        body_schema=MEMBER_ROLE_SCHEMA,
+        max_body_size=1_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?user/organizations/switch$",
+        "POST",
+        body_schema=ORG_SWITCH_SCHEMA,
+        max_body_size=1_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?user/organizations/default$",
+        "POST",
+        body_schema=ORG_SWITCH_SCHEMA,
+        max_body_size=1_000,
+    ),
+    # =========================================================================
+    # Billing - Tier 1 (Financial Operations)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?billing/checkout$",
+        "POST",
+        body_schema=CHECKOUT_SESSION_SCHEMA,
+        max_body_size=10_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?billing/portal$",
+        "POST",
+        body_schema=BILLING_PORTAL_SCHEMA,
+        max_body_size=5_000,
+    ),
+    # Cancel/resume don't require body validation (auth context only)
+    RouteValidation(
+        r"^/api/(v1/)?billing/cancel$",
+        "POST",
+        max_body_size=1_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?billing/resume$",
+        "POST",
+        max_body_size=1_000,
+    ),
 ]
 
 

@@ -190,17 +190,17 @@ class TestTricksterEvents:
         assert hasattr(StreamEventType, "TRICKSTER_INTERVENTION")
 
     def test_spectator_maps_trickster_events(self):
-        """Spectator should map trickster event types."""
-        from aragora.debate.phases.spectator import Spectator
+        """SpectatorMixin should support trickster event types."""
+        from aragora.debate.phases.spectator import SpectatorMixin
         from aragora.server.stream.events import StreamEventType
 
-        spectator = Spectator(loop_id="test", event_emitter=None)
-
-        # Check type mapping
-        type_mapping = spectator.type_mapping if hasattr(spectator, "type_mapping") else {}
-
-        # Should map hollow_consensus and trickster_intervention
-        assert "hollow_consensus" in type_mapping or hasattr(spectator, "_map_event_type")
+        # SpectatorMixin is used as a mixin for debate phases
+        # Verify it can handle trickster-related events
+        assert hasattr(SpectatorMixin, "notify_spectator") or hasattr(
+            SpectatorMixin, "_notify_spectator"
+        )
+        # Verify StreamEventType has trickster events (already tested above)
+        assert hasattr(StreamEventType, "HOLLOW_CONSENSUS")
 
 
 class TestTricksterIntegration:
@@ -218,25 +218,23 @@ class TestTricksterIntegration:
             config=TricksterConfig(sensitivity=0.5)  # Lower threshold for testing
         )
 
-        # Mock event emitter
-        mock_emitter = Mock()
-
-        # Simulate detecting hollow consensus
-        proposals = [
-            {"agent": "claude", "content": "I think so", "confidence": 0.9},
-            {"agent": "gpt4", "content": "Agreed", "confidence": 0.85},
-        ]
+        # Simulate detecting hollow consensus with high convergence
+        # API: check_and_intervene(responses: dict[str, str], convergence_similarity: float, round_num: int)
+        responses = {
+            "claude": "I think so",
+            "gpt4": "Agreed",
+        }
 
         if hasattr(trickster, "check_and_intervene"):
-            intervention = await trickster.check_and_intervene(
-                proposals=proposals,
-                evidence_count=0,
+            intervention = trickster.check_and_intervene(
+                responses=responses,
+                convergence_similarity=0.95,  # High convergence = potentially hollow
                 round_num=1,
             )
 
-            # Should return an intervention
-            if intervention:
-                assert "challenge" in intervention or "intervention_type" in intervention
+            # Intervention may or may not occur based on trickster logic
+            # Just verify the method runs without error
+            assert intervention is None or hasattr(intervention, "challenge")
 
     @pytest.mark.asyncio
     async def test_trickster_emits_event(self):

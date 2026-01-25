@@ -523,7 +523,7 @@ class TestEdgeCases:
         assert result is not None
         # Check if rate limited first
         if result.status_code == 429:
-            pytest.skip("Rate limited - test infra issue")
+            pytest.skip("Rate limited - expected under heavy load, not a failure")
         data = parse_response(result)
         assert data["results"] == []
         assert data["count"] == 0

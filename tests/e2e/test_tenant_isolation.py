@@ -270,7 +270,7 @@ class TestBillingIntegrationE2E:
 
 @pytest.mark.skipif(
     not os.environ.get("RUN_FUTURE_API_TESTS"),
-    reason="Requires TenantDataIsolation.register_resource() - use TenantFilter.register_resource() from stream module instead",
+    reason="API changed: use TenantFilter.register_resource() from stream module instead of TenantDataIsolation.register_resource()",
 )
 class TestResourceRegistration:
     """Tests for resource registration - requires API additions."""
