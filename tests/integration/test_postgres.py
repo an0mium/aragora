@@ -47,9 +47,9 @@ def test_table_name() -> str:
 @pytest.fixture
 def pg_backend(pg_connection_url):
     """Create a PostgreSQL backend for testing."""
-    from aragora.db.backends import PostgreSQLBackend
+    from aragora.db.backends import PostgresBackend
 
-    backend = PostgreSQLBackend(pg_connection_url)
+    backend = PostgresBackend(pg_connection_url)
     yield backend
     backend.close()
 
@@ -79,7 +79,7 @@ def clean_test_schema(pg_backend, test_table_name):
         conn.commit()
 
 
-class TestPostgreSQLBackend:
+class TestPostgresBackend:
     """Tests for PostgreSQL backend functionality."""
 
     def test_connection_health(self, pg_backend):
