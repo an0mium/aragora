@@ -35,6 +35,15 @@ from aragora.observability.metrics import (
 )
 from aragora.observability.metrics.slo import check_and_record_slo  # type: ignore[attr-defined]
 
+# RBAC imports with fallback for backwards compatibility
+try:
+    from aragora.rbac import check_permission, AuthorizationContext
+    from aragora.observability.metrics import record_rbac_check
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Rate limiter for checkpoint endpoints (20 requests per minute)
@@ -86,6 +95,60 @@ class KMCheckpointHandler(BaseHandler):
             return None, err
         return user, None  # type: ignore[return-value]
 
+    def _check_rbac_permission(
+        self, auth_ctx: Any, permission_key: str, resource_id: Optional[str] = None
+    ) -> Optional[HandlerResult]:
+        """Check granular RBAC permission for KM checkpoint operations.
+
+        Args:
+            auth_ctx: Authentication context with user info
+            permission_key: Permission to check (e.g., "km.checkpoints.read")
+            resource_id: Optional specific resource ID
+
+        Returns:
+            Error response if permission denied, None if allowed
+        """
+        if not RBAC_AVAILABLE:
+            return None
+
+        try:
+            user_id = auth_ctx.get("user_id") or auth_ctx.get("sub")
+            if not user_id:
+                return error_response("User ID not found in auth context", status=401)
+
+            roles = auth_ctx.get("roles", set())
+            if isinstance(roles, list):
+                roles = set(roles)
+
+            rbac_context = AuthorizationContext(
+                user_id=user_id,
+                roles=roles,
+                org_id=auth_ctx.get("org_id"),
+            )
+
+            decision = check_permission(rbac_context, permission_key, resource_id)
+
+            if not decision.allowed:
+                record_rbac_check(permission_key, allowed=False, handler="KMCheckpointHandler")
+                logger.warning(
+                    "RBAC denied: user=%s permission=%s reason=%s",
+                    user_id,
+                    permission_key,
+                    decision.reason,
+                )
+                return error_response(
+                    f"Permission denied: {permission_key}",
+                    status=403,
+                )
+
+            record_rbac_check(permission_key, allowed=True, handler="KMCheckpointHandler")
+            return None
+
+        except Exception as e:
+            logger.error("RBAC check failed: %s", e)
+            # Fail open for backwards compatibility but log the error
+            return None
+
     @rate_limit(rpm=20)
     def _list_checkpoints(self, handler) -> HandlerResult:
         """List all KM checkpoints.
@@ -98,6 +161,11 @@ class KMCheckpointHandler(BaseHandler):
         user, err = self._check_auth(handler)
         if err:
             return err
+
+        # Check RBAC permission
+        perm_err = self._check_rbac_permission(user, "km.checkpoints.read")
+        if perm_err:
+            return perm_err
 
         try:
             store = self._get_checkpoint_store()
@@ -146,6 +214,11 @@ class KMCheckpointHandler(BaseHandler):
         user, err = self._check_auth(handler)
         if err:
             return err
+
+        # Check RBAC permission for write operations
+        perm_err = self._check_rbac_permission(user, "km.checkpoints.write")
+        if perm_err:
+            return perm_err
 
         start_time = time.perf_counter()
         success = False
@@ -207,6 +280,11 @@ class KMCheckpointHandler(BaseHandler):
         if err:
             return err
 
+        # Check RBAC permission
+        perm_err = self._check_rbac_permission(user, "km.checkpoints.read", name)
+        if perm_err:
+            return perm_err
+
         try:
             store = self._get_checkpoint_store()
             metadata = store.get_checkpoint(name)  # type: ignore[attr-defined]
@@ -240,6 +318,11 @@ class KMCheckpointHandler(BaseHandler):
         if err:
             return err
 
+        # Check RBAC permission for delete operations
+        perm_err = self._check_rbac_permission(user, "km.checkpoints.delete", name)
+        if perm_err:
+            return perm_err
+
         start_time = time.perf_counter()
         success = False
 
@@ -271,6 +354,11 @@ class KMCheckpointHandler(BaseHandler):
         user, err = self._check_auth(handler)
         if err:
             return err
+
+        # Check RBAC permission for restore operations (requires elevated access)
+        perm_err = self._check_rbac_permission(user, "km.checkpoints.restore", name)
+        if perm_err:
+            return perm_err
 
         start_time = time.perf_counter()
         success = False
