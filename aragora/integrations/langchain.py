@@ -383,13 +383,12 @@ class AragoraRetriever(BaseRetriever):
         self.include_metadata = include_metadata
 
     def _get_relevant_documents(self, query: str) -> List[Document]:  # type: ignore[override]
-        """Retrieve relevant documents synchronously."""
-        return asyncio.run(self._aget_relevant_documents(query))
+        """Retrieve relevant documents synchronously.
 
-    # Alias for LangChain compatibility
-    def get_relevant_documents(self, query: str) -> List[Document]:  # type: ignore[override]
-        """Retrieve relevant documents (LangChain interface)."""
-        return self._get_relevant_documents(query)
+        This is the required abstract method for LangChain BaseRetriever.
+        LangChain's get_relevant_documents() routes here automatically.
+        """
+        return asyncio.run(self._aget_relevant_documents(query))
 
     async def _aget_relevant_documents(self, query: str) -> List[Document]:  # type: ignore[override]
         """Retrieve relevant documents asynchronously."""
@@ -424,11 +423,6 @@ class AragoraRetriever(BaseRetriever):
         except Exception as e:
             logger.error(f"Failed to retrieve documents: {e}")
             return []
-
-    # Alias for LangChain compatibility
-    async def aget_relevant_documents(self, query: str) -> List[Document]:  # type: ignore[override]
-        """Retrieve relevant documents async (LangChain interface)."""
-        return await self._aget_relevant_documents(query)
 
     def _convert_to_documents(self, nodes: List[Dict[str, Any]]) -> List[Document]:
         """Convert Aragora knowledge nodes to LangChain Documents."""
