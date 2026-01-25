@@ -1,1 +1,1 @@
-"""Security test suite for Aragora."""
+"""Security tests package."""
