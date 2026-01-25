@@ -285,14 +285,21 @@ class TestNoveltyTracker:
 
         tracker = NoveltyTracker(low_novelty_threshold=0.15)
 
-        # Add same-ish content multiple times
-        tracker.add_proposal("The solution is to use caching")
-        tracker.add_proposal("We should implement caching")
-        tracker.add_proposal("Caching is the answer")
+        # Add same-ish content multiple times using correct API
+        # API: add_to_history(proposals: dict[str, str])
+        tracker.add_to_history({"agent1": "The solution is to use caching"})
+        tracker.add_to_history({"agent1": "We should implement caching"})
+        tracker.add_to_history({"agent1": "Caching is the answer"})
 
-        # Should detect low novelty
-        if hasattr(tracker, "is_stale"):
-            assert tracker.is_stale("Caching would help") is True
+        # Compute novelty for similar content
+        # API: compute_novelty(current_proposals: dict[str, str], round_num: int) -> NoveltyResult
+        result = tracker.compute_novelty({"agent1": "Caching would help"}, round_num=4)
+
+        # NoveltyResult has avg_novelty, min_novelty, low_novelty_agents
+        assert hasattr(result, "avg_novelty")
+        assert hasattr(result, "low_novelty_agents")
+        # Similar content should have lower novelty (below 1.0)
+        assert result.avg_novelty < 1.0
 
     def test_novelty_tracker_accepts_novel_content(self):
         """NoveltyTracker should accept genuinely novel content."""
@@ -303,8 +310,15 @@ class TestNoveltyTracker:
 
         tracker = NoveltyTracker(low_novelty_threshold=0.15)
 
-        tracker.add_proposal("The solution is to use caching")
+        # Add initial content using correct API
+        tracker.add_to_history({"agent1": "The solution is to use caching"})
 
-        # Novel content should not be stale
-        if hasattr(tracker, "is_stale"):
-            assert tracker.is_stale("We need better error handling instead") is False
+        # Compute novelty for different content
+        result = tracker.compute_novelty(
+            {"agent1": "We need better error handling instead"}, round_num=2
+        )
+
+        # NoveltyResult has avg_novelty, min_novelty, low_novelty_agents
+        assert hasattr(result, "avg_novelty")
+        # Novel content should have high novelty (closer to 1.0)
+        assert result.avg_novelty > 0.5

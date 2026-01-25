@@ -91,12 +91,12 @@ class PluginsHandler(BaseHandler):
             "/api/v1/plugins/submissions",
         ):
             return True
-        # Match /api/plugins/{name}, /api/plugins/{name}/run, /api/plugins/{name}/install
+        # Match /api/v1/plugins/{name}, /api/v1/plugins/{name}/run, /api/v1/plugins/{name}/install
         if path.startswith("/api/v1/plugins/"):
             parts = path.split("/")
-            # /api/plugins/{name} has 4 parts
-            # /api/plugins/{name}/run or /api/plugins/{name}/install has 5 parts
-            return len(parts) in (4, 5)
+            # /api/v1/plugins/{name} has 5 parts: ['', 'api', 'v1', 'plugins', '{name}']
+            # /api/v1/plugins/{name}/run or /install has 6 parts
+            return len(parts) in (5, 6)
         return False
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
