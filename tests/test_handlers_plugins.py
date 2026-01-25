@@ -537,28 +537,29 @@ class TestPluginSubmissionSecurity:
     - Schema validation via PLUGIN_MANIFEST_SCHEMA
     """
 
-    @pytest.fixture(autouse=True)
-    def clear_rate_limits(self):
-        """Clear rate limits before each test to avoid 429 errors."""
-        from aragora.server.middleware.rate_limit.state import get_rate_limit_manager
+    _test_counter = 0
 
-        try:
-            manager = get_rate_limit_manager()
-            manager.clear_all()
-        except Exception:
-            pass  # Rate limit manager may not be initialized
-        yield
-
-    def _submit_plugin(self, plugins_handler, manifest_data, user_id="test-user-123"):
+    def _submit_plugin(self, plugins_handler, manifest_data, user_id=None):
         """Helper to submit a plugin with the given manifest."""
+        import uuid
+
         body = {"manifest": manifest_data}
 
-        # Create mock handler with auth headers
+        # Use unique user ID and IP for each test to avoid rate limits
+        TestPluginSubmissionSecurity._test_counter += 1
+        unique_id = f"test-user-{uuid.uuid4().hex[:8]}"
+        unique_ip = f"192.168.{(self._test_counter // 256) % 256}.{self._test_counter % 256}"
+
+        if user_id is None:
+            user_id = unique_id
+
+        # Create mock handler with auth headers and unique client address
         mock_handler = Mock()
         mock_handler.headers = {
             "Authorization": "Bearer test-api-token-12345",
             "Content-Type": "application/json",
         }
+        mock_handler.client_address = (unique_ip, 12345)
 
         # Patch auth_config to accept our test token
         from aragora.server.auth import auth_config
