@@ -9,6 +9,7 @@ This guide covers the new features added to Aragora: Template Marketplace, Decis
 3. [Webhook System](#webhook-system)
 4. [Background Workers](#background-workers)
 5. [Monitoring & Metrics](#monitoring--metrics)
+6. [CDC Database Connectors](#cdc-database-connectors)
 
 ---
 
@@ -469,3 +470,214 @@ New permissions are required for these features:
 1. Verify template ID is correct
 2. Check visibility settings
 3. Ensure user has required permissions
+
+---
+
+## CDC Database Connectors
+
+Change Data Capture (CDC) connectors enable real-time synchronization of database changes to Aragora's knowledge systems.
+
+### Supported Databases
+
+| Database | CDC Method | Features |
+|----------|------------|----------|
+| PostgreSQL | LISTEN/NOTIFY | Real-time triggers, incremental sync |
+| MongoDB | Change Streams | Replica set streaming |
+| MySQL | Binary Log (binlog) | Row-based replication, GTID support |
+| SQL Server | CDC/Change Tracking | Enterprise CDC, lightweight tracking |
+| Snowflake | Change Tracking | Time travel, stream-based changes |
+
+### MySQL Connector
+
+The MySQL connector supports both incremental sync and real-time CDC via binary log (binlog) parsing.
+
+#### Configuration
+
+```python
+from aragora.connectors.enterprise.database import MySQLConnector
+
+connector = MySQLConnector(
+    host="localhost",
+    port=3306,
+    database="myapp",
+    tables=["users", "orders", "products"],
+    use_binlog=True,  # Enable binlog CDC
+    server_id=100,    # Unique server ID for replication
+    credentials={"username": "cdc_user", "password": "secret"},
+)
+```
+
+#### Binlog Requirements
+
+```sql
+-- Enable binlog on MySQL server
+SET GLOBAL binlog_format = 'ROW';
+SET GLOBAL binlog_row_image = 'FULL';
+
+-- Grant replication privileges
+GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'cdc_user'@'%';
+GRANT SELECT ON myapp.* TO 'cdc_user'@'%';
+```
+
+#### Usage
+
+```python
+# Add change event handler
+from aragora.connectors.enterprise.database.cdc import CallbackHandler
+
+async def on_change(event):
+    print(f"Change: {event.operation} on {event.table}")
+    print(f"Data: {event.data}")
+
+connector.add_change_handler(CallbackHandler(on_change))
+
+# Start CDC
+await connector.start_binlog_cdc()
+
+# Perform incremental sync
+async for row in connector.sync():
+    print(f"Synced: {row.evidence_id}")
+
+# Stop CDC
+await connector.stop_binlog_cdc()
+await connector.close()
+```
+
+### SQL Server Connector
+
+The SQL Server connector supports both CDC (Change Data Capture) and Change Tracking modes.
+
+#### Configuration
+
+```python
+from aragora.connectors.enterprise.database import SQLServerConnector
+
+# Using CDC (full change history)
+cdc_connector = SQLServerConnector(
+    host="localhost",
+    port=1433,
+    database="myapp",
+    schema="dbo",
+    tables=["users", "orders"],
+    use_cdc=True,
+    poll_interval_seconds=5,
+    credentials={"username": "sa", "password": "secret"},
+)
+
+# Using Change Tracking (lightweight, current changes only)
+ct_connector = SQLServerConnector(
+    host="localhost",
+    port=1433,
+    database="myapp",
+    use_change_tracking=True,
+    credentials={"username": "sa", "password": "secret"},
+)
+```
+
+#### CDC Setup (SQL Server)
+
+```sql
+-- Enable CDC on database
+USE myapp;
+EXEC sys.sp_cdc_enable_db;
+
+-- Enable CDC on table
+EXEC sys.sp_cdc_enable_table
+    @source_schema = N'dbo',
+    @source_name = N'users',
+    @role_name = NULL,
+    @supports_net_changes = 1;
+```
+
+#### Change Tracking Setup
+
+```sql
+-- Enable Change Tracking on database
+ALTER DATABASE myapp SET CHANGE_TRACKING = ON
+    (CHANGE_RETENTION = 2 DAYS, AUTO_CLEANUP = ON);
+
+-- Enable Change Tracking on table
+ALTER TABLE dbo.users ENABLE CHANGE_TRACKING
+    WITH (TRACK_COLUMNS_UPDATED = ON);
+```
+
+#### Usage
+
+```python
+# Start CDC polling
+await cdc_connector.start_cdc_polling()
+
+# Or start Change Tracking polling
+await ct_connector.start_change_tracking_polling()
+
+# Both support the standard sync interface
+async for row in cdc_connector.sync():
+    print(f"Row: {row.content}")
+
+# Stop polling
+await cdc_connector.stop_cdc_polling()
+await cdc_connector.close()
+```
+
+### CDC Event Model
+
+All connectors emit standardized `ChangeEvent` objects:
+
+```python
+@dataclass
+class ChangeEvent:
+    id: str                        # Unique event ID
+    source_type: CDCSourceType     # postgresql, mongodb, mysql, sqlserver
+    connector_id: str              # Connector identifier
+    operation: ChangeOperation     # INSERT, UPDATE, DELETE
+    timestamp: datetime            # Event timestamp
+    database: str                  # Database name
+    table: str                     # Table/collection name
+    data: Dict[str, Any]           # New data (INSERT/UPDATE)
+    old_data: Dict[str, Any]       # Old data (UPDATE/DELETE)
+    primary_key: Dict[str, Any]    # Primary key values
+    resume_token: str              # For resuming streams
+    sequence_number: int           # Event sequence
+```
+
+### Concurrency Support
+
+The CDC system handles high-volume event processing:
+
+- **100+ events/second** throughput
+- **Concurrent handler execution** via `CompositeHandler`
+- **Resume token persistence** for crash recovery
+- **Knowledge Mound integration** for automatic indexing
+
+```python
+from aragora.connectors.enterprise.database.cdc import (
+    CompositeHandler,
+    KnowledgeMoundHandler,
+    CallbackHandler,
+)
+
+# Combine multiple handlers
+composite = CompositeHandler()
+composite.add_handler(KnowledgeMoundHandler(mound))
+composite.add_handler(CallbackHandler(log_change))
+composite.add_handler(CallbackHandler(send_webhook))
+
+connector.add_change_handler(composite)
+```
+
+### Health Monitoring
+
+All database connectors support health checks:
+
+```python
+health = await connector.health_check()
+# Returns: {"healthy": True, "latency_ms": 5.2, "details": {...}}
+```
+
+### Test Coverage
+
+The CDC system includes comprehensive tests:
+
+- **70+ unit tests** for MySQL and SQL Server connectors
+- **17 concurrency tests** validating 50+ simultaneous event handling
+- **Performance tests** for throughput and latency validation
