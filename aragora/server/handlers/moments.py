@@ -31,6 +31,7 @@ from .base import (
     json_response,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.versioning.compat import strip_version_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -62,44 +63,48 @@ class MomentsHandler(BaseHandler):
     """Handler for moments endpoints."""
 
     ROUTES = [
-        "/api/v1/moments/summary",
-        "/api/v1/moments/timeline",
-        "/api/v1/moments/trending",
-        "/api/v1/moments/by-type/*",
+        "/api/moments/summary",
+        "/api/moments/timeline",
+        "/api/moments/trending",
+        "/api/moments/by-type/*",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path in self.ROUTES:
+        normalized = strip_version_prefix(path)
+        if normalized in self.ROUTES:
             return True
         # Handle dynamic route: /api/moments/by-type/{type}
-        if path.startswith("/api/v1/moments/by-type/"):
+        if normalized.startswith("/api/moments/by-type/"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route moments requests to appropriate methods."""
+        # Normalize path to handle both /api/... and /api/v1/... paths
+        normalized = strip_version_prefix(path)
+
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _moments_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for moments endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/v1/moments/summary":
+        if normalized == "/api/moments/summary":
             return self._get_summary()
 
-        if path == "/api/v1/moments/timeline":
+        if normalized == "/api/moments/timeline":
             limit = get_int_param(query_params, "limit", 50)
             offset = get_int_param(query_params, "offset", 0)
             return self._get_timeline(max(1, min(limit, 200)), max(0, offset))
 
-        if path == "/api/v1/moments/trending":
+        if normalized == "/api/moments/trending":
             limit = get_int_param(query_params, "limit", 10)
             return self._get_trending(max(1, min(limit, 50)))
 
         # Handle /api/moments/by-type/{type}
-        if path.startswith("/api/v1/moments/by-type/"):
-            moment_type, err = self.extract_path_param(path, 3, "moment_type")
+        if normalized.startswith("/api/moments/by-type/"):
+            moment_type, err = self.extract_path_param(normalized, 3, "moment_type")
             if err:
                 return err
             if moment_type not in VALID_MOMENT_TYPES:
