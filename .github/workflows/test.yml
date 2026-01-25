@@ -192,7 +192,7 @@ jobs:
       - name: Run tests (parallel with xdist)
         run: |
           pytest tests/ \
-            -m "not slow and not load and not e2e" \
+            -m "not slow and not load and not e2e and not benchmark" \
             --timeout=120 \
             --cov=aragora \
             --cov-report=term-missing \
