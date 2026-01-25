@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from aragora.core_types import DebateResult
     from aragora.export.audit_trail import AuditTrail
-    from aragora.gauntlet import GauntletResult
+    from aragora.modes.gauntlet import GauntletResult  # Full orchestrator result
 
 
 @dataclass

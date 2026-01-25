@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
@@ -49,8 +49,8 @@ try:
 except ImportError:
     HAS_OFFICIAL_RLM = False
     HAS_RLM_FACTORY = False
-    get_rlm: Optional[Callable[..., Any]] = None
-    get_compressor: Optional[Callable[..., Any]] = None
+    get_rlm = None  # type: ignore[misc,assignment]
+    get_compressor = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
 
