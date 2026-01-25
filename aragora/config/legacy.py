@@ -142,31 +142,13 @@ __all__ = [
 ]
 
 
-def _env_int(key: str, default: int) -> int:
-    """Get integer from environment with fallback."""
-    try:
-        return int(os.getenv(key, str(default)))
-    except ValueError:
-        return default
-
-
-def _env_float(key: str, default: float) -> float:
-    """Get float from environment with fallback."""
-    try:
-        return float(os.getenv(key, str(default)))
-    except ValueError:
-        return default
-
-
-def _env_str(key: str, default: str) -> str:
-    """Get string from environment with fallback."""
-    return os.getenv(key, default)
-
-
-def _env_bool(key: str, default: bool) -> bool:
-    """Get boolean from environment with fallback."""
-    val = os.getenv(key, str(default)).lower()
-    return val in ("true", "1", "yes", "on")
+# Import consolidated environment helpers
+from aragora.config.env_helpers import (
+    env_int as _env_int,
+    env_float as _env_float,
+    env_str as _env_str,
+    env_bool as _env_bool,
+)
 
 
 def get_api_key(*env_vars: str, required: bool = True) -> Optional[str]:

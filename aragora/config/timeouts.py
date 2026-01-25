@@ -18,18 +18,7 @@ Usage:
 
 from __future__ import annotations
 
-import os
-
-
-def _env_float(key: str, default: float) -> float:
-    """Get float from environment with default."""
-    value = os.environ.get(key)
-    if value is None:
-        return default
-    try:
-        return float(value)
-    except ValueError:
-        return default
+from aragora.config.env_helpers import env_float as _env_float
 
 
 class Timeouts:

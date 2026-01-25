@@ -45,7 +45,6 @@ Environment Variables:
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional
@@ -164,35 +163,19 @@ class RedisHASettings:
             return f"Standalone ({self.host}:{self.port})"
 
 
-def _env_str(key: str, default: str = "") -> str:
-    """Get string from environment with fallback."""
-    return os.environ.get(key, default)
-
-
-def _env_int(key: str, default: int) -> int:
-    """Get integer from environment with fallback."""
-    try:
-        return int(os.environ.get(key, str(default)))
-    except ValueError:
-        return default
-
-
-def _env_float(key: str, default: float) -> float:
-    """Get float from environment with fallback."""
-    try:
-        return float(os.environ.get(key, str(default)))
-    except ValueError:
-        return default
-
-
-def _env_bool(key: str, default: bool) -> bool:
-    """Get boolean from environment with fallback."""
-    val = os.environ.get(key, str(default)).lower()
-    return val in ("true", "1", "yes", "on")
+from aragora.config.env_helpers import (
+    env_str as _env_str,
+    env_int as _env_int,
+    env_float as _env_float,
+    env_bool as _env_bool,
+)
 
 
 def _parse_comma_separated(value: str) -> List[str]:
-    """Parse comma-separated string into list of stripped strings."""
+    """Parse comma-separated string into list of stripped strings.
+
+    Note: Consider using env_list() from env_helpers for new code.
+    """
     if not value:
         return []
     return [item.strip() for item in value.split(",") if item.strip()]
