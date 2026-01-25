@@ -334,7 +334,10 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
         """Check system health status."""
         import aiohttp
 
-        api_base = _get_api_base(ctx)
+        try:
+            api_base = _get_api_base(ctx)
+        except ValueError as e:
+            return CommandResult.fail(f"Configuration error: {e}")
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -364,7 +367,10 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
         if not topic:
             return CommandResult.fail("Please provide a debate topic.")
 
-        api_base = _get_api_base(ctx)
+        try:
+            api_base = _get_api_base(ctx)
+        except ValueError as e:
+            return CommandResult.fail(f"Configuration error: {e}")
 
         # Try to use DecisionRouter for unified routing with deduplication
         try:
@@ -480,7 +486,10 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
         if not statement:
             return CommandResult.fail("Please provide a statement to validate.")
 
-        api_base = _get_api_base(ctx)
+        try:
+            api_base = _get_api_base(ctx)
+        except ValueError as e:
+            return CommandResult.fail(f"Configuration error: {e}")
 
         try:
             async with aiohttp.ClientSession() as session:
