@@ -673,6 +673,7 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
 
     verbose = getattr(args, "verbose", False)
     json_output = getattr(args, "json", False)
+    strict = getattr(args, "strict", False)
 
     async def run_validation() -> dict:
         """Run all environment validations."""
@@ -861,12 +862,19 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
     # Run the async validation
     results = asyncio.run(run_validation())
 
+    # Determine final validity (strict mode treats warnings as errors)
+    is_valid = results["valid"]
+    if strict and results["warnings"]:
+        is_valid = False
+
     # Output
     if json_output:
         import json
 
+        results["strict_mode"] = strict
+        results["final_valid"] = is_valid
         print(json.dumps(results, indent=2))
-        sys.exit(0 if results["valid"] else 1)
+        sys.exit(0 if is_valid else 1)
 
     # Pretty output
     print("\n" + "=" * 60)
@@ -925,19 +933,27 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
             print(f"  - {error}")
         print()
 
-    if results["warnings"] and verbose:
+    if results["warnings"]:
         print("Warnings:")
         for warning in results["warnings"]:
             print(f"  - {warning}")
         print()
 
-    if results["valid"]:
-        print("Result: All production requirements met")
+    # Determine final status
+    failed = not results["valid"]
+    if strict and results["warnings"]:
+        failed = True
+
+    if failed:
+        if strict and results["warnings"] and results["valid"]:
+            print("Result: VALIDATION FAILED (strict mode - warnings treated as errors)")
+        else:
+            print("Result: VALIDATION FAILED - fix errors before production deployment")
     else:
-        print("Result: VALIDATION FAILED - fix errors before production deployment")
+        print("Result: All production requirements met")
 
     print()
-    sys.exit(0 if results["valid"] else 1)
+    sys.exit(1 if failed else 0)
 
 
 def cmd_improve(args: argparse.Namespace) -> None:
@@ -1640,6 +1656,9 @@ Examples:
     )
     validate_env_parser.add_argument(
         "--json", "-j", action="store_true", help="Output results as JSON"
+    )
+    validate_env_parser.add_argument(
+        "--strict", "-s", action="store_true", help="Fail on warnings (for CI/CD enforcement)"
     )
     validate_env_parser.set_defaults(func=cmd_validate_env)
 
