@@ -131,7 +131,11 @@ class TwitterConnector(BaseConnector):
                 )
                 # 200 = success, 429 = rate limited (still connected)
                 return response.status_code in (200, 429)
-        except Exception:
+        except httpx.TimeoutException:
+            logger.debug("Twitter health check timed out")
+            return False
+        except httpx.RequestError as e:
+            logger.debug(f"Twitter health check failed: {e}")
             return False
 
     async def _rate_limit(self) -> None:
