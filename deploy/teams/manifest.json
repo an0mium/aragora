@@ -1,0 +1,161 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "{{TEAMS_APP_ID}}",
+  "packageName": "ai.aragora.teams",
+  "developer": {
+    "name": "Aragora",
+    "websiteUrl": "https://aragora.ai",
+    "privacyUrl": "https://aragora.ai/privacy",
+    "termsOfUseUrl": "https://aragora.ai/terms"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "name": {
+    "short": "Aragora",
+    "full": "Aragora - Multi-Agent Decision Intelligence"
+  },
+  "description": {
+    "short": "AI-powered multi-agent debates for defensible decisions",
+    "full": "Aragora orchestrates 15+ AI models to debate your organization's knowledge and deliver defensible decisions with full audit trails. Start debates directly in Teams channels, get decision receipts with confidence scores, and maintain complete compliance documentation."
+  },
+  "accentColor": "#5558AF",
+  "bots": [
+    {
+      "botId": "{{TEAMS_BOT_ID}}",
+      "scopes": [
+        "personal",
+        "team",
+        "groupchat"
+      ],
+      "supportsFiles": true,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team", "groupchat"],
+          "commands": [
+            {
+              "title": "debate",
+              "description": "Start a multi-agent debate on a topic"
+            },
+            {
+              "title": "status",
+              "description": "Check status of running debates"
+            },
+            {
+              "title": "results",
+              "description": "Get results and receipts for a debate"
+            },
+            {
+              "title": "cancel",
+              "description": "Cancel a running debate"
+            },
+            {
+              "title": "help",
+              "description": "Show available commands"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "composeExtensions": [
+    {
+      "botId": "{{TEAMS_BOT_ID}}",
+      "commands": [
+        {
+          "id": "startDebate",
+          "type": "action",
+          "title": "Start Debate",
+          "description": "Launch a multi-agent debate",
+          "initialRun": false,
+          "parameters": [
+            {
+              "name": "topic",
+              "title": "Debate Topic",
+              "description": "What should the AI agents debate?",
+              "inputType": "text"
+            },
+            {
+              "name": "rounds",
+              "title": "Rounds",
+              "description": "Number of debate rounds (default: 3)",
+              "inputType": "number"
+            }
+          ]
+        },
+        {
+          "id": "searchDecisions",
+          "type": "query",
+          "title": "Search Decisions",
+          "description": "Find past debate decisions",
+          "initialRun": true,
+          "parameters": [
+            {
+              "name": "query",
+              "title": "Search",
+              "description": "Search for past decisions"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "configurableTabs": [
+    {
+      "configurationUrl": "https://{{ARAGORA_HOST}}/teams/configure",
+      "canUpdateConfiguration": true,
+      "scopes": ["team", "groupchat"]
+    }
+  ],
+  "staticTabs": [
+    {
+      "entityId": "dashboard",
+      "name": "Dashboard",
+      "contentUrl": "https://{{ARAGORA_HOST}}/teams/dashboard",
+      "websiteUrl": "https://{{ARAGORA_HOST}}/dashboard",
+      "scopes": ["personal"]
+    },
+    {
+      "entityId": "debates",
+      "name": "Debates",
+      "contentUrl": "https://{{ARAGORA_HOST}}/teams/debates",
+      "websiteUrl": "https://{{ARAGORA_HOST}}/debates",
+      "scopes": ["personal"]
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "{{ARAGORA_HOST}}",
+    "aragora.ai",
+    "*.aragora.ai"
+  ],
+  "webApplicationInfo": {
+    "id": "{{TEAMS_CLIENT_ID}}",
+    "resource": "api://{{ARAGORA_HOST}}/{{TEAMS_CLIENT_ID}}"
+  },
+  "authorization": {
+    "permissions": {
+      "resourceSpecific": [
+        {
+          "name": "ChannelMessage.Read.Group",
+          "type": "Application"
+        },
+        {
+          "name": "TeamSettings.Read.Group",
+          "type": "Application"
+        },
+        {
+          "name": "ChannelMeeting.ReadBasic.Group",
+          "type": "Application"
+        }
+      ]
+    }
+  }
+}

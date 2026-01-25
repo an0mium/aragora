@@ -555,20 +555,376 @@ class TeamsTenantStore:
             return {"total_tenants": 0, "active_tenants": 0}
 
 
+# Environment configuration
+ARAGORA_ENV = os.environ.get("ARAGORA_ENV", "development")
+
+
+class SupabaseTeamsTenantStore:
+    """
+    Supabase-backed storage for Microsoft Teams tenant OAuth credentials.
+
+    Production-ready storage with:
+    - Automatic token encryption
+    - Row Level Security for tenant isolation
+    - Efficient queries with proper indexes
+    """
+
+    def __init__(self):
+        """Initialize Supabase client."""
+        self._client = None
+        self._encryption_key = ENCRYPTION_KEY
+        self._init_client()
+
+    def _init_client(self):
+        """Initialize the Supabase client."""
+        try:
+            from aragora.persistence.supabase_client import get_supabase_client
+
+            self._client = get_supabase_client()
+        except ImportError:
+            logger.warning("Supabase client not available")
+        except Exception as e:
+            logger.error(f"Failed to initialize Supabase client: {e}")
+
+    @property
+    def is_configured(self) -> bool:
+        """Check if Supabase is properly configured."""
+        return self._client is not None
+
+    def _encrypt_token(self, token: str) -> str:
+        """Encrypt token if encryption key is configured."""
+        if not self._encryption_key or not token:
+            return token
+
+        try:
+            from cryptography.fernet import Fernet
+            import base64
+            import hashlib
+
+            key = base64.urlsafe_b64encode(hashlib.sha256(self._encryption_key.encode()).digest())
+            f = Fernet(key)
+            return f.encrypt(token.encode()).decode()
+        except ImportError:
+            logger.warning("cryptography not installed, storing token unencrypted")
+            return token
+        except Exception as e:
+            logger.error(f"Token encryption failed: {e}")
+            return token
+
+    def _decrypt_token(self, encrypted: str) -> str:
+        """Decrypt token if encryption key is configured."""
+        if not self._encryption_key or not encrypted:
+            return encrypted
+
+        # Check if it looks like an encrypted token
+        if not encrypted.startswith("gAAA"):
+            return encrypted
+
+        try:
+            from cryptography.fernet import Fernet
+            import base64
+            import hashlib
+
+            key = base64.urlsafe_b64encode(hashlib.sha256(self._encryption_key.encode()).digest())
+            f = Fernet(key)
+            return f.decrypt(encrypted.encode()).decode()
+        except ImportError:
+            return encrypted
+        except Exception as e:
+            logger.error(f"Token decryption failed: {e}")
+            return encrypted
+
+    def save(self, tenant: TeamsTenant) -> bool:
+        """Save or update a tenant in Supabase."""
+        if not self._client:
+            return False
+
+        try:
+            encrypted_access = self._encrypt_token(tenant.access_token)
+            encrypted_refresh = (
+                self._encrypt_token(tenant.refresh_token) if tenant.refresh_token else None
+            )
+
+            data = {
+                "tenant_id": tenant.tenant_id,
+                "tenant_name": tenant.tenant_name,
+                "access_token": encrypted_access,
+                "refresh_token": encrypted_refresh,
+                "bot_id": tenant.bot_id,
+                "installed_at": datetime.fromtimestamp(
+                    tenant.installed_at, tz=timezone.utc
+                ).isoformat(),
+                "installed_by": tenant.installed_by,
+                "scopes": tenant.scopes,
+                "aragora_org_id": tenant.aragora_org_id,
+                "is_active": tenant.is_active,
+                "expires_at": (
+                    datetime.fromtimestamp(tenant.expires_at, tz=timezone.utc).isoformat()
+                    if tenant.expires_at
+                    else None
+                ),
+                "updated_at": datetime.now(tz=timezone.utc).isoformat(),
+            }
+
+            # Upsert: insert or update on conflict
+            self._client.table("teams_tenants").upsert(data, on_conflict="tenant_id").execute()
+            logger.info(f"Saved Teams tenant to Supabase: {tenant.tenant_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to save tenant to Supabase: {e}")
+            return False
+
+    def get(self, tenant_id: str) -> Optional[TeamsTenant]:
+        """Get a tenant by ID from Supabase."""
+        if not self._client:
+            return None
+
+        try:
+            response = (
+                self._client.table("teams_tenants").select("*").eq("tenant_id", tenant_id).execute()
+            )
+
+            if response.data and len(response.data) > 0:
+                row = response.data[0]
+                return self._row_to_tenant(row)
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Failed to get tenant {tenant_id} from Supabase: {e}")
+            return None
+
+    def _row_to_tenant(self, row: Dict[str, Any]) -> TeamsTenant:
+        """Convert Supabase row to TeamsTenant object."""
+        # Parse timestamps
+        installed_at = row.get("installed_at")
+        if isinstance(installed_at, str):
+            installed_at = datetime.fromisoformat(installed_at.replace("Z", "+00:00")).timestamp()
+        else:
+            installed_at = installed_at or 0
+
+        expires_at = row.get("expires_at")
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00")).timestamp()
+
+        tenant = TeamsTenant(
+            tenant_id=row["tenant_id"],
+            tenant_name=row["tenant_name"],
+            access_token=self._decrypt_token(row["access_token"]),
+            refresh_token=(
+                self._decrypt_token(row["refresh_token"]) if row.get("refresh_token") else None
+            ),
+            bot_id=row["bot_id"],
+            installed_at=installed_at,
+            installed_by=row.get("installed_by"),
+            scopes=row.get("scopes") or [],
+            aragora_org_id=row.get("aragora_org_id"),
+            is_active=row.get("is_active", True),
+            expires_at=expires_at,
+        )
+        return tenant
+
+    def get_by_org(self, aragora_org_id: str) -> List[TeamsTenant]:
+        """Get all tenants for an Aragora organization."""
+        if not self._client:
+            return []
+
+        try:
+            response = (
+                self._client.table("teams_tenants")
+                .select("*")
+                .eq("aragora_org_id", aragora_org_id)
+                .eq("is_active", True)
+                .order("installed_at", desc=True)
+                .execute()
+            )
+
+            return [self._row_to_tenant(row) for row in (response.data or [])]
+
+        except Exception as e:
+            logger.error(f"Failed to get tenants for org {aragora_org_id}: {e}")
+            return []
+
+    def list_active(self, limit: int = 100, offset: int = 0) -> List[TeamsTenant]:
+        """List all active tenants."""
+        if not self._client:
+            return []
+
+        try:
+            response = (
+                self._client.table("teams_tenants")
+                .select("*")
+                .eq("is_active", True)
+                .order("installed_at", desc=True)
+                .range(offset, offset + limit - 1)
+                .execute()
+            )
+
+            return [self._row_to_tenant(row) for row in (response.data or [])]
+
+        except Exception as e:
+            logger.error(f"Failed to list tenants: {e}")
+            return []
+
+    def list_expiring(self, within_seconds: int = 3600) -> List[TeamsTenant]:
+        """List tenants with tokens expiring soon."""
+        if not self._client:
+            return []
+
+        try:
+            import time
+
+            cutoff = datetime.fromtimestamp(
+                time.time() + within_seconds, tz=timezone.utc
+            ).isoformat()
+
+            response = (
+                self._client.table("teams_tenants")
+                .select("*")
+                .eq("is_active", True)
+                .not_.is_("expires_at", "null")
+                .lt("expires_at", cutoff)
+                .order("expires_at")
+                .execute()
+            )
+
+            return [self._row_to_tenant(row) for row in (response.data or [])]
+
+        except Exception as e:
+            logger.error(f"Failed to list expiring tenants: {e}")
+            return []
+
+    def update_tokens(
+        self,
+        tenant_id: str,
+        access_token: str,
+        refresh_token: Optional[str] = None,
+        expires_at: Optional[float] = None,
+    ) -> bool:
+        """Update tokens for a tenant (after refresh)."""
+        if not self._client:
+            return False
+
+        try:
+            encrypted_access = self._encrypt_token(access_token)
+            data: Dict[str, Any] = {
+                "access_token": encrypted_access,
+                "updated_at": datetime.now(tz=timezone.utc).isoformat(),
+            }
+
+            if refresh_token:
+                data["refresh_token"] = self._encrypt_token(refresh_token)
+
+            if expires_at:
+                data["expires_at"] = datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat()
+
+            self._client.table("teams_tenants").update(data).eq("tenant_id", tenant_id).execute()
+            logger.info(f"Updated tokens for Teams tenant: {tenant_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to update tokens for tenant {tenant_id}: {e}")
+            return False
+
+    def deactivate(self, tenant_id: str) -> bool:
+        """Deactivate a tenant (on uninstall)."""
+        if not self._client:
+            return False
+
+        try:
+            self._client.table("teams_tenants").update(
+                {
+                    "is_active": False,
+                    "updated_at": datetime.now(tz=timezone.utc).isoformat(),
+                }
+            ).eq("tenant_id", tenant_id).execute()
+            logger.info(f"Deactivated Teams tenant: {tenant_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to deactivate tenant {tenant_id}: {e}")
+            return False
+
+    def delete(self, tenant_id: str) -> bool:
+        """Permanently delete a tenant."""
+        if not self._client:
+            return False
+
+        try:
+            self._client.table("teams_tenants").delete().eq("tenant_id", tenant_id).execute()
+            logger.info(f"Deleted Teams tenant: {tenant_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to delete tenant {tenant_id}: {e}")
+            return False
+
+    def count(self, active_only: bool = True) -> int:
+        """Count tenants."""
+        if not self._client:
+            return 0
+
+        try:
+            query = self._client.table("teams_tenants").select("*", count="exact", head=True)
+            if active_only:
+                query = query.eq("is_active", True)
+            response = query.execute()
+            return response.count or 0
+
+        except Exception as e:
+            logger.error(f"Failed to count tenants: {e}")
+            return 0
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get tenant statistics."""
+        if not self._client:
+            return {"total_tenants": 0, "active_tenants": 0}
+
+        try:
+            total = self.count(active_only=False)
+            active = self.count(active_only=True)
+            expiring = len(self.list_expiring(3600))
+
+            return {
+                "total_tenants": total,
+                "active_tenants": active,
+                "inactive_tenants": total - active,
+                "expiring_tokens": expiring,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get stats: {e}")
+            return {"total_tenants": 0, "active_tenants": 0}
+
+
 # Singleton instance
-_tenant_store: Optional[TeamsTenantStore] = None
+_tenant_store: Optional[Any] = None
 
 
-def get_teams_tenant_store(db_path: Optional[str] = None) -> TeamsTenantStore:
+def get_teams_tenant_store(db_path: Optional[str] = None) -> Any:
     """Get or create the tenant store singleton.
 
+    In production (ARAGORA_ENV=production or USE_SUPABASE_TEAMS_STORE=1),
+    uses Supabase for storage. Falls back to SQLite in development.
+
     Args:
-        db_path: Optional path to database file
+        db_path: Optional path to SQLite database file (dev only)
 
     Returns:
-        TeamsTenantStore instance
+        TeamsTenantStore or SupabaseTeamsTenantStore instance
     """
     global _tenant_store
     if _tenant_store is None:
+        # Use Supabase in production
+        if ARAGORA_ENV == "production" or os.environ.get("USE_SUPABASE_TEAMS_STORE"):
+            supabase_store = SupabaseTeamsTenantStore()
+            if supabase_store.is_configured:
+                logger.info("Using Supabase Teams tenant store")
+                _tenant_store = supabase_store
+                return _tenant_store
+            logger.warning("Supabase not configured, falling back to SQLite")
+
+        # Fall back to SQLite
         _tenant_store = TeamsTenantStore(db_path)
     return _tenant_store

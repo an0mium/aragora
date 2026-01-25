@@ -230,3 +230,36 @@ SELECT
 FROM agent_metrics
 GROUP BY agent_name, model
 ORDER BY total_votes_won DESC;
+
+-- ============================================================================
+-- TEAMS TENANTS
+-- OAuth credentials for multi-tenant Microsoft Teams integration
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS teams_tenants (
+    tenant_id TEXT PRIMARY KEY,        -- Azure AD tenant ID
+    tenant_name TEXT NOT NULL,
+    access_token TEXT NOT NULL,        -- Encrypted bot access token
+    refresh_token TEXT,                -- OAuth refresh token
+    bot_id TEXT NOT NULL,              -- Bot ID in Teams
+    installed_at TIMESTAMPTZ NOT NULL,
+    installed_by TEXT,                 -- User ID who installed
+    scopes TEXT[],                     -- OAuth scopes granted
+    aragora_org_id TEXT,               -- Link to Aragora organization
+    is_active BOOLEAN DEFAULT TRUE,
+    expires_at TIMESTAMPTZ,            -- Token expiration
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX idx_teams_tenants_org ON teams_tenants(aragora_org_id);
+CREATE INDEX idx_teams_tenants_active ON teams_tenants(is_active);
+CREATE INDEX idx_teams_tenants_expires ON teams_tenants(expires_at);
+
+-- Enable RLS
+ALTER TABLE teams_tenants ENABLE ROW LEVEL SECURITY;
+
+-- Service role only (tokens are sensitive)
+CREATE POLICY "Allow service role only" ON teams_tenants
+    FOR ALL USING (auth.role() = 'service_role');
