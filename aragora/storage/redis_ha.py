@@ -331,7 +331,7 @@ def _parse_redis_url(url: str) -> Tuple[Optional[str], Optional[int]]:
 
         # Parse host:port
         return _parse_host_port(url)
-    except Exception as e:
+    except (ValueError, IndexError, AttributeError) as e:
         logger.debug(f"Failed to parse Redis URL: {e}")
         return None, None
 
@@ -370,8 +370,15 @@ def get_redis_client(config: Optional[RedisHAConfig] = None) -> Optional[Any]:
     except ImportError as e:
         logger.error(f"redis package not installed: {e}. Install with: pip install redis>=4.5.0")
         return None
-    except Exception as e:
-        logger.error(f"Failed to create Redis client ({config.mode.value} mode): {e}")
+    except (ConnectionError, TimeoutError, OSError) as e:
+        logger.error(
+            f"Failed to create Redis client ({config.mode.value} mode) - connection error: {e}"
+        )
+        return None
+    except ValueError as e:
+        logger.error(
+            f"Failed to create Redis client ({config.mode.value} mode) - invalid config: {e}"
+        )
         return None
 
 
@@ -561,8 +568,15 @@ async def get_async_redis_client(config: Optional[RedisHAConfig] = None) -> Opti
     except ImportError as e:
         logger.error(f"redis package not installed: {e}. Install with: pip install redis>=4.5.0")
         return None
-    except Exception as e:
-        logger.error(f"Failed to create async Redis client ({config.mode.value} mode): {e}")
+    except (ConnectionError, TimeoutError, OSError) as e:
+        logger.error(
+            f"Failed to create async Redis client ({config.mode.value} mode) - connection error: {e}"
+        )
+        return None
+    except ValueError as e:
+        logger.error(
+            f"Failed to create async Redis client ({config.mode.value} mode) - invalid config: {e}"
+        )
         return None
 
 
@@ -789,17 +803,13 @@ def reset_cached_clients() -> None:
         if _sync_client is not None:
             try:
                 _sync_client.close()
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, AttributeError) as e:
                 logger.debug(f"Error closing sync Redis client: {e}")
             _sync_client = None
 
         if _async_client is not None:
-            try:
-                # Note: async close should be awaited, but we're in sync context
-                # The connection will be cleaned up by garbage collector
-                pass
-            except Exception as e:
-                logger.debug(f"Error closing async Redis client: {e}")
+            # Note: async close should be awaited, but we're in sync context
+            # The connection will be cleaned up by garbage collector
             _async_client = None
 
 
@@ -858,17 +868,17 @@ def check_redis_health(config: Optional[RedisHAConfig] = None) -> dict:
                     cluster_info = client.cluster_info()
                     result["info"]["cluster_state"] = cluster_info.get("cluster_state", "unknown")
                     result["info"]["cluster_slots_ok"] = cluster_info.get("cluster_slots_ok", 0)
-                except Exception:
+                except (ConnectionError, TimeoutError, OSError, AttributeError, KeyError):
                     pass
 
             # Add sentinel-specific info (check connected slaves)
             if config.mode == RedisMode.SENTINEL:
                 result["info"]["connected_slaves"] = info.get("connected_slaves", 0)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, KeyError, TypeError) as e:
             result["info"]["error"] = str(e)
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         result["error"] = str(e)
 
     return result
@@ -917,10 +927,10 @@ async def check_async_redis_health(config: Optional[RedisHAConfig] = None) -> di
                 "used_memory_human": info.get("used_memory_human", "unknown"),
                 "role": info.get("role", "unknown"),
             }
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, KeyError, TypeError) as e:
             result["info"]["error"] = str(e)
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         result["error"] = str(e)
 
     return result
