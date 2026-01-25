@@ -515,6 +515,88 @@ if PROMETHEUS_AVAILABLE:
         ["status"],  # status: enabled/disabled/healthy/unhealthy
     )
 
+    # ========================================================================
+    # Cross-Pollination Event Metrics
+    # ========================================================================
+
+    CROSS_POLL_EVENTS_TOTAL = Counter(
+        "aragora_cross_pollination_events_total",
+        "Total cross-pollination events dispatched",
+        ["event_type"],
+    )
+
+    CROSS_POLL_HANDLER_CALLS = Counter(
+        "aragora_cross_pollination_handler_calls_total",
+        "Total handler invocations",
+        ["handler", "status"],  # status: success, failure, skipped
+    )
+
+    CROSS_POLL_HANDLER_DURATION = Histogram(
+        "aragora_cross_pollination_handler_duration_seconds",
+        "Handler execution time",
+        ["handler"],
+        buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5],
+    )
+
+    CROSS_POLL_CIRCUIT_BREAKER = Gauge(
+        "aragora_cross_pollination_circuit_breaker_state",
+        "Circuit breaker state (0=closed, 1=open)",
+        ["handler"],
+    )
+
+    CROSS_POLL_SUBSCRIBERS = Gauge(
+        "aragora_cross_pollination_subscribers",
+        "Number of registered subscribers",
+        ["event_type"],
+    )
+
+    # ========================================================================
+    # Knowledge Mound Bidirectional Flow Metrics
+    # ========================================================================
+
+    KM_INBOUND_EVENTS = Counter(
+        "aragora_km_inbound_events_total",
+        "Events flowing INTO Knowledge Mound from other subsystems",
+        ["source", "event_type"],  # source: memory, belief, rlm, ranking, insights, etc.
+    )
+
+    KM_OUTBOUND_EVENTS = Counter(
+        "aragora_km_outbound_events_total",
+        "Events flowing OUT of Knowledge Mound to other subsystems",
+        ["target", "event_type"],  # target: memory, belief, debate, trickster, etc.
+    )
+
+    KM_ADAPTER_SYNC = Counter(
+        "aragora_km_adapter_sync_total",
+        "Adapter sync operations to/from Knowledge Mound",
+        ["adapter", "direction", "status"],  # direction: to_mound, from_mound
+    )
+
+    KM_ADAPTER_SYNC_DURATION = Histogram(
+        "aragora_km_adapter_sync_duration_seconds",
+        "Adapter sync operation duration",
+        ["adapter", "direction"],
+        buckets=[0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30],
+    )
+
+    KM_STALENESS_CHECKS = Counter(
+        "aragora_km_staleness_checks_total",
+        "Staleness check operations",
+        ["workspace", "status"],  # status: completed, failed, skipped
+    )
+
+    KM_STALE_NODES_FOUND = Gauge(
+        "aragora_km_stale_nodes_found",
+        "Number of stale nodes found in last check",
+        ["workspace"],
+    )
+
+    KM_NODES_BY_SOURCE = Gauge(
+        "aragora_km_nodes_by_source",
+        "Knowledge nodes by source type",
+        ["source"],
+    )
+
 
 # ============================================================================
 # Fallback Implementation (when prometheus_client not available)

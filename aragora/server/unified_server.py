@@ -441,7 +441,28 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     )
 
     # Path prefixes exempt ONLY for GET requests (read-only access)
-    AUTH_EXEMPT_GET_PREFIXES = ("/api/evidence/",)  # Evidence read-only access
+    # These are public dashboard data endpoints that don't require auth for viewing
+    AUTH_EXEMPT_GET_PREFIXES = (
+        "/api/evidence/",  # Evidence read-only access
+        "/api/evolution/",  # Public evolution data
+        "/api/v1/evolution/",  # Public evolution data (v1)
+        "/api/replays/",  # Public replay browsing
+        "/api/v1/replays/",  # Public replay browsing (v1)
+        "/api/learning/",  # Public learning evolution data
+        "/api/v1/learning/",  # Public learning evolution data (v1)
+        "/api/meta-learning/",  # Public meta-learning stats
+        "/api/v1/meta-learning/",  # Public meta-learning stats (v1)
+        "/api/tournaments/",  # Public tournament data
+        "/api/v1/tournaments/",  # Public tournament data (v1)
+        "/api/reviews/",  # Public reviews
+        "/api/v1/reviews/",  # Public reviews (v1)
+        "/api/verticals/",  # Public verticals list
+        "/api/v1/verticals/",  # Public verticals list (v1)
+        "/api/features/",  # Public feature config
+        "/api/v1/features/",  # Public feature config (v1)
+        "/api/gauntlet/personas",  # Public gauntlet personas list
+        "/api/v1/gauntlet/personas",  # Public gauntlet personas list (v1)
+    )
 
     def _check_rate_limit(self) -> bool:
         """Check auth and rate limit. Returns True if allowed, False if blocked.

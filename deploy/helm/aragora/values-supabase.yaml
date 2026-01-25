@@ -1,0 +1,181 @@
+# Aragora Helm Values for Supabase Deployment
+# Usage: helm install aragora deploy/helm/aragora -f deploy/helm/aragora/values-supabase.yaml
+
+# Production replica count with auto-scaling
+replicaCount: 2
+
+# Image configuration
+image:
+  repository: ghcr.io/aragora/aragora
+  tag: "latest"
+  pullPolicy: Always
+
+# Service account with AWS IRSA annotations (for External Secrets)
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: ""  # Set if using AWS IRSA
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+
+# Ingress with TLS
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    # WebSocket support
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$remote_addr"
+  hosts:
+    - host: aragora.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: aragora-tls
+      hosts:
+        - aragora.yourdomain.com
+
+# Production resources
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Enable auto-scaling for production
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Pod Disruption Budget for HA
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Prefer spreading pods across nodes
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - aragora
+          topologyKey: kubernetes.io/hostname
+
+# Health probes with correct endpoints
+livenessProbe:
+  httpGet:
+    path: /api/v2/health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 15
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /api/v2/health/ready
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Application configuration
+config:
+  port: 8080
+  logLevel: INFO
+  logFormat: json
+
+  # Rate limiting
+  rateLimitEnabled: true
+  rateLimitWindow: 60
+  rateLimitMaxRequests: 100
+
+  # CORS - set your frontend domain
+  allowedOrigins: "https://aragora.yourdomain.com"
+
+# Reference existing Kubernetes secrets
+# Create these with: kubectl create secret generic aragora-secrets ...
+existingSecrets:
+  apiKeys: "aragora-secrets"
+  database: "aragora-secrets"
+
+# PostgreSQL via Supabase
+postgres:
+  enabled: true
+  existingSecret: "aragora-secrets"  # Contains DATABASE_URL key
+  poolMinSize: 5
+  poolMaxSize: 20
+
+# Redis for caching/sessions
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    existingSecret: "aragora-secrets"
+    existingSecretPasswordKey: "REDIS_PASSWORD"
+
+# Enable Prometheus monitoring
+serviceMonitor:
+  enabled: true
+  port: http
+  path: /metrics
+  interval: 15s
+  labels:
+    release: prometheus  # Match your Prometheus selector
+
+# Enable alerting rules
+prometheusRule:
+  enabled: true
+  labels:
+    release: prometheus
+  rules:
+    - alert: AragoraHighErrorRate
+      expr: sum(rate(aragora_http_requests_total{status=~"5.."}[5m])) / sum(rate(aragora_http_requests_total[5m])) > 0.05
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High error rate on Aragora API
+        description: Error rate is above 5% for 5 minutes
+    - alert: AragoraPodDown
+      expr: up{job="aragora"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: Aragora pod is down
+        description: Aragora pod has been down for more than 1 minute

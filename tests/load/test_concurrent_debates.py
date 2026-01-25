@@ -179,12 +179,33 @@ async def run_concurrent_debates(
             start = time.monotonic()
             try:
                 if use_real_api:
-                    # Import and use actual debate execution
-                    from aragora.server.debate_queue import BatchItem
+                    # Use actual Arena with mock agents for realistic load testing
                     from aragora.debate.orchestrator import Arena
+                    from aragora.core import Environment, DebateProtocol, Agent
+                    from unittest.mock import AsyncMock
 
-                    # Note: Real execution would go here
-                    raise NotImplementedError("Real API load testing not yet implemented")
+                    # Create mock agents that respond quickly
+                    mock_agents = []
+                    for i, agent_name in enumerate(agents):
+                        agent = Agent(name=agent_name, model=f"mock-{i}")
+                        agent.generate = AsyncMock(
+                            return_value=f"Agent {agent_name} response to: {question[:50]}"
+                        )
+                        mock_agents.append(agent)
+
+                    # Create minimal arena for load testing
+                    env = Environment(task=question, context={})
+                    protocol = DebateProtocol(rounds=1, consensus="first")  # Minimal for speed
+
+                    arena = Arena(
+                        environment=env,
+                        agents=mock_agents,
+                        protocol=protocol,
+                        loop_id=debate_id,
+                    )
+
+                    # Run the debate
+                    result = await arena.run()
                 else:
                     result = await mock_debate_execution(debate_id, question, agents)
 

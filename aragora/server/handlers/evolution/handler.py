@@ -14,6 +14,7 @@ import logging
 from typing import Optional
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
+from aragora.server.versioning.compat import strip_version_prefix
 
 from ..base import (
     SAFE_AGENT_PATTERN,
@@ -48,6 +49,10 @@ class EvolutionHandler(BaseHandler):
     """Handler for prompt evolution endpoints."""
 
     ROUTES = [
+        "/api/evolution/patterns",
+        "/api/evolution/summary",
+        "/api/evolution/*/history",
+        "/api/evolution/*/prompt",
         "/api/v1/evolution/patterns",
         "/api/v1/evolution/summary",
         "/api/v1/evolution/*/history",
@@ -56,19 +61,21 @@ class EvolutionHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path == "/api/v1/evolution/patterns":
+        normalized = strip_version_prefix(path)
+        if normalized == "/api/evolution/patterns":
             return True
-        if path == "/api/v1/evolution/summary":
+        if normalized == "/api/evolution/summary":
             return True
-        if path.startswith("/api/v1/evolution/") and path.endswith("/history"):
+        if normalized.startswith("/api/evolution/") and normalized.endswith("/history"):
             return True
-        if path.startswith("/api/v1/evolution/") and path.endswith("/prompt"):
+        if normalized.startswith("/api/evolution/") and normalized.endswith("/prompt"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route evolution requests to appropriate methods."""
-        if not path.startswith("/api/v1/evolution/"):
+        normalized = strip_version_prefix(path)
+        if not normalized.startswith("/api/evolution/"):
             return None
 
         # Rate limit check
@@ -78,19 +85,19 @@ class EvolutionHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Global patterns endpoint
-        if path == "/api/v1/evolution/patterns":
+        if normalized == "/api/evolution/patterns":
             pattern_type = get_string_param(query_params, "type")
             limit = get_int_param(query_params, "limit", 10)
             limit = min(max(limit, 1), 50)
             return self._get_patterns(pattern_type, limit)
 
         # Summary endpoint
-        if path == "/api/v1/evolution/summary":
+        if normalized == "/api/evolution/summary":
             return self._get_summary()
 
         # Agent-specific history endpoint
-        if path.endswith("/history"):
-            agent, err = self.extract_path_param(path, 3, "agent", SAFE_AGENT_PATTERN)
+        if normalized.endswith("/history"):
+            agent, err = self.extract_path_param(normalized, 3, "agent", SAFE_AGENT_PATTERN)
             if err:
                 return err
             limit = get_int_param(query_params, "limit", 10)
@@ -98,8 +105,8 @@ class EvolutionHandler(BaseHandler):
             return self._get_evolution_history(agent, limit)
 
         # Agent-specific prompt endpoint
-        if path.endswith("/prompt"):
-            agent, err = self.extract_path_param(path, 3, "agent", SAFE_AGENT_PATTERN)
+        if normalized.endswith("/prompt"):
+            agent, err = self.extract_path_param(normalized, 3, "agent", SAFE_AGENT_PATTERN)
             if err:
                 return err
             version = get_int_param(query_params, "version")

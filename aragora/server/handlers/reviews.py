@@ -16,6 +16,8 @@ import logging
 from pathlib import Path
 from typing import Any, Optional
 
+from aragora.server.versioning.compat import strip_version_prefix
+
 from .base import BaseHandler, HandlerResult, error_response, json_response
 from .utils.rate_limit import RateLimiter, get_client_ip
 
@@ -31,11 +33,17 @@ REVIEWS_DIR = Path.home() / ".aragora" / "reviews"
 class ReviewsHandler(BaseHandler):
     """Handler for serving shareable code reviews."""
 
-    prefix = "/api/v1/reviews"
+    ROUTES = [
+        "/api/reviews",
+        "/api/reviews/*",
+        "/api/v1/reviews",
+        "/api/v1/reviews/*",
+    ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the request."""
-        return path.startswith(self.prefix)
+        normalized = strip_version_prefix(path)
+        return normalized.startswith("/api/reviews")
 
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -47,8 +55,10 @@ class ReviewsHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for reviews endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # Strip prefix
-        subpath = path[len(self.prefix) :]
+        # Normalize and strip prefix
+        normalized = strip_version_prefix(path)
+        prefix = "/api/reviews"
+        subpath = normalized[len(prefix) :] if normalized.startswith(prefix) else ""
 
         if not subpath or subpath == "/":
             # List recent reviews

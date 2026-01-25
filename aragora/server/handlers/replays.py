@@ -25,6 +25,7 @@ from aragora.config import (
     CACHE_TTL_REPLAYS_LIST,
 )
 from aragora.memory.database import MemoryDatabase
+from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
     BaseHandler,
@@ -48,6 +49,9 @@ class ReplaysHandler(BaseHandler):
     """Handler for replays and learning evolution endpoints."""
 
     ROUTES = [
+        "/api/replays",
+        "/api/learning/evolution",
+        "/api/meta-learning/stats",
         "/api/v1/replays",
         "/api/v1/learning/evolution",
         "/api/v1/meta-learning/stats",
@@ -55,11 +59,12 @@ class ReplaysHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path in self.ROUTES:
+        normalized = strip_version_prefix(path)
+        if normalized in ("/api/replays", "/api/learning/evolution", "/api/meta-learning/stats"):
             return True
-        # Dynamic route for specific replay: /api/v1/replays/{id}
-        # Split gives ['', 'api', 'v1', 'replays', '{id}'] = 5 parts
-        if path.startswith("/api/v1/replays/") and len(path.split("/")) == 5:
+        # Dynamic route for specific replay: /api/replays/{id}
+        # Normalized split gives ['', 'api', 'replays', '{id}'] = 4 parts
+        if normalized.startswith("/api/replays/") and len(normalized.split("/")) == 4:
             return True
         return False
 
@@ -74,30 +79,31 @@ class ReplaysHandler(BaseHandler):
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route replay requests to appropriate methods."""
         nomic_dir = self.ctx.get("nomic_dir")
+        normalized = strip_version_prefix(path)
 
-        if path == "/api/v1/replays":
+        if normalized == "/api/replays":
             if err := self._apply_rate_limit(handler):
                 return err
             limit = get_int_param(query_params, "limit", 100)
             return self._list_replays(nomic_dir, max(1, min(limit, 500)))
 
-        if path == "/api/v1/learning/evolution":
+        if normalized == "/api/learning/evolution":
             if err := self._apply_rate_limit(handler):
                 return err
             limit = get_int_param(query_params, "limit", 20)
             return self._get_learning_evolution(nomic_dir, max(1, min(limit, 100)))
 
-        if path == "/api/v1/meta-learning/stats":
+        if normalized == "/api/meta-learning/stats":
             if err := self._apply_rate_limit(handler):
                 return err
             limit = get_int_param(query_params, "limit", 20)
             return self._get_meta_learning_stats(nomic_dir, max(1, min(limit, 50)))
 
-        if path.startswith("/api/v1/replays/"):
+        if normalized.startswith("/api/replays/"):
             if err := self._apply_rate_limit(handler):
                 return err
-            # Path: /api/v1/replays/{id} -> stripped parts are ["api", "v1", "replays", "{id}"]
-            replay_id, err = self.extract_path_param(path, 3, "replay_id")
+            # Path: /api/replays/{id} -> stripped parts are ["api", "replays", "{id}"]
+            replay_id, err = self.extract_path_param(normalized, 2, "replay_id")
             if err:
                 return err
             # Support pagination for large replay files

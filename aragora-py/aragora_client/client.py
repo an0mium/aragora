@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -389,6 +390,515 @@ class SelectionAPI:
         return TeamSelection.model_validate(data)
 
 
+class CodebaseAPI:
+    """API for codebase analysis and security scans."""
+
+    def __init__(self, client: AragoraClient) -> None:
+        self._client = client
+
+    async def start_scan(self, repo: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Start dependency scan."""
+        return await self._client._post(f"/api/v1/codebase/{repo}/scan", body)
+
+    async def latest_scan(self, repo: str) -> dict[str, Any]:
+        """Get latest dependency scan."""
+        return await self._client._get(f"/api/v1/codebase/{repo}/scan/latest")
+
+    async def get_scan(self, repo: str, scan_id: str) -> dict[str, Any]:
+        """Get dependency scan by ID."""
+        return await self._client._get(f"/api/v1/codebase/{repo}/scan/{scan_id}")
+
+    async def list_scans(
+        self,
+        repo: str,
+        *,
+        status: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """List dependency scans."""
+        params = {
+            k: v
+            for k, v in {
+                "status": status,
+                "limit": limit,
+                "offset": offset,
+            }.items()
+            if v is not None
+        }
+        return await self._client._get(
+            f"/api/v1/codebase/{repo}/scans", params=params or None
+        )
+
+    async def list_vulnerabilities(
+        self,
+        repo: str,
+        *,
+        severity: str | None = None,
+        package: str | None = None,
+        ecosystem: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """List vulnerabilities from latest scan."""
+        params = {
+            k: v
+            for k, v in {
+                "severity": severity,
+                "package": package,
+                "ecosystem": ecosystem,
+                "limit": limit,
+                "offset": offset,
+            }.items()
+            if v is not None
+        }
+        return await self._client._get(
+            f"/api/v1/codebase/{repo}/vulnerabilities", params=params or None
+        )
+
+    async def package_vulnerabilities(
+        self,
+        ecosystem: str,
+        package_name: str,
+        *,
+        version: str | None = None,
+    ) -> dict[str, Any]:
+        """Query package vulnerabilities."""
+        params = {"version": version} if version else None
+        return await self._client._get(
+            f"/api/v1/codebase/package/{ecosystem}/{package_name}/vulnerabilities",
+            params=params,
+        )
+
+    async def get_cve(self, cve_id: str) -> dict[str, Any]:
+        """Get CVE details."""
+        return await self._client._get(f"/api/v1/cve/{cve_id}")
+
+    async def analyze_dependencies(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Analyze dependency graph."""
+        return await self._client._post("/api/v1/codebase/analyze-dependencies", body)
+
+    async def scan_vulnerabilities(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Scan dependencies for CVEs."""
+        return await self._client._post("/api/v1/codebase/scan-vulnerabilities", body)
+
+    async def check_licenses(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Check license compatibility."""
+        return await self._client._post("/api/v1/codebase/check-licenses", body)
+
+    async def generate_sbom(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Generate SBOM for a repository."""
+        return await self._client._post("/api/v1/codebase/sbom", body)
+
+    async def clear_cache(self) -> dict[str, Any]:
+        """Clear dependency cache."""
+        return await self._client._post("/api/v1/codebase/clear-cache", {})
+
+    async def start_secrets_scan(
+        self, repo: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Trigger secrets scan."""
+        return await self._client._post(f"/api/v1/codebase/{repo}/scan/secrets", body)
+
+    async def latest_secrets_scan(self, repo: str) -> dict[str, Any]:
+        """Get latest secrets scan."""
+        return await self._client._get(f"/api/v1/codebase/{repo}/scan/secrets/latest")
+
+    async def get_secrets_scan(self, repo: str, scan_id: str) -> dict[str, Any]:
+        """Get secrets scan by ID."""
+        return await self._client._get(
+            f"/api/v1/codebase/{repo}/scan/secrets/{scan_id}"
+        )
+
+    async def list_secrets(self, repo: str) -> dict[str, Any]:
+        """List secrets from latest scan."""
+        return await self._client._get(f"/api/v1/codebase/{repo}/secrets")
+
+    async def list_secrets_scans(self, repo: str) -> dict[str, Any]:
+        """List secrets scan history."""
+        return await self._client._get(f"/api/v1/codebase/{repo}/scans/secrets")
+
+    async def start_sast_scan(self, repo: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Trigger SAST scan."""
+        return await self._client._post(f"/api/v1/codebase/{repo}/scan/sast", body)
+
+    async def get_sast_scan(self, repo: str, scan_id: str) -> dict[str, Any]:
+        """Get SAST scan by ID."""
+        return await self._client._get(f"/api/v1/codebase/{repo}/scan/sast/{scan_id}")
+
+    async def list_sast_findings(
+        self,
+        repo: str,
+        *,
+        severity: str | None = None,
+        owasp_category: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """List SAST findings."""
+        params = {
+            k: v
+            for k, v in {
+                "severity": severity,
+                "owasp_category": owasp_category,
+                "limit": limit,
+                "offset": offset,
+            }.items()
+            if v is not None
+        }
+        return await self._client._get(
+            f"/api/v1/codebase/{repo}/sast/findings", params=params or None
+        )
+
+    async def get_sast_owasp_summary(self, repo: str) -> dict[str, Any]:
+        """Summarize SAST findings by OWASP category."""
+        return await self._client._get(f"/api/v1/codebase/{repo}/sast/owasp-summary")
+
+    async def run_metrics_analysis(
+        self, repo: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Run codebase metrics analysis."""
+        return await self._client._post(
+            f"/api/v1/codebase/{repo}/metrics/analyze", body
+        )
+
+    async def latest_metrics(self, repo: str) -> dict[str, Any]:
+        """Get latest metrics report."""
+        return await self._client._get(f"/api/v1/codebase/{repo}/metrics")
+
+    async def get_metrics(self, repo: str, analysis_id: str) -> dict[str, Any]:
+        """Get metrics report by ID."""
+        return await self._client._get(f"/api/v1/codebase/{repo}/metrics/{analysis_id}")
+
+    async def list_metrics_history(
+        self,
+        repo: str,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """List metrics history."""
+        params = {
+            k: v
+            for k, v in {
+                "limit": limit,
+                "offset": offset,
+            }.items()
+            if v is not None
+        }
+        return await self._client._get(
+            f"/api/v1/codebase/{repo}/metrics/history", params=params or None
+        )
+
+    async def get_hotspots(
+        self,
+        repo: str,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """Get hotspot analysis."""
+        params = {
+            k: v
+            for k, v in {
+                "limit": limit,
+                "offset": offset,
+            }.items()
+            if v is not None
+        }
+        return await self._client._get(
+            f"/api/v1/codebase/{repo}/hotspots", params=params or None
+        )
+
+    async def get_duplicates(
+        self,
+        repo: str,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """Get duplicate block analysis."""
+        params = {
+            k: v
+            for k, v in {
+                "limit": limit,
+                "offset": offset,
+            }.items()
+            if v is not None
+        }
+        return await self._client._get(
+            f"/api/v1/codebase/{repo}/duplicates", params=params or None
+        )
+
+    async def get_file_metrics(self, repo: str, file_path: str) -> dict[str, Any]:
+        """Get metrics for a specific file."""
+        encoded = quote(file_path, safe="")
+        return await self._client._get(
+            f"/api/v1/codebase/{repo}/metrics/file/{encoded}"
+        )
+
+    async def analyze_codebase(self, repo: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Run code intelligence analysis."""
+        return await self._client._post(f"/api/v1/codebase/{repo}/analyze", body)
+
+    async def get_symbols(
+        self, repo: str, *, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Get codebase symbols."""
+        return await self._client._get(
+            f"/api/v1/codebase/{repo}/symbols", params=params
+        )
+
+    async def get_callgraph(
+        self, repo: str, *, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Get codebase call graph."""
+        return await self._client._get(
+            f"/api/v1/codebase/{repo}/callgraph", params=params
+        )
+
+    async def get_deadcode(
+        self, repo: str, *, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Get dead code report."""
+        return await self._client._get(
+            f"/api/v1/codebase/{repo}/deadcode", params=params
+        )
+
+    async def analyze_impact(self, repo: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Analyze change impact."""
+        return await self._client._post(f"/api/v1/codebase/{repo}/impact", body)
+
+    async def understand(self, repo: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Explain codebase components."""
+        return await self._client._post(f"/api/v1/codebase/{repo}/understand", body)
+
+    async def start_audit(self, repo: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Start a codebase audit."""
+        return await self._client._post(f"/api/v1/codebase/{repo}/audit", body)
+
+    async def get_audit(self, repo: str, audit_id: str) -> dict[str, Any]:
+        """Get codebase audit results."""
+        return await self._client._get(f"/api/v1/codebase/{repo}/audit/{audit_id}")
+
+    async def start_quick_scan(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Run a quick security scan."""
+        return await self._client._post("/api/v1/codebase/quick-scan", body)
+
+    async def get_quick_scan(self, scan_id: str) -> dict[str, Any]:
+        """Get quick scan result."""
+        return await self._client._get(f"/api/v1/codebase/quick-scan/{scan_id}")
+
+    async def list_quick_scans(self) -> dict[str, Any]:
+        """List quick scans."""
+        return await self._client._get("/api/v1/codebase/quick-scans")
+
+
+class GmailAPI:
+    """API for Gmail operations."""
+
+    def __init__(self, client: AragoraClient) -> None:
+        self._client = client
+
+    async def list_labels(self, *, user_id: str | None = None) -> dict[str, Any]:
+        """List Gmail labels."""
+        params = {"user_id": user_id} if user_id else None
+        return await self._client._get("/api/v1/gmail/labels", params=params)
+
+    async def create_label(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Create a Gmail label."""
+        return await self._client._post("/api/v1/gmail/labels", body)
+
+    async def update_label(self, label_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Update a Gmail label."""
+        return await self._client._patch(f"/api/v1/gmail/labels/{label_id}", body)
+
+    async def delete_label(
+        self, label_id: str, *, user_id: str | None = None
+    ) -> dict[str, Any]:
+        """Delete a Gmail label."""
+        params = {"user_id": user_id} if user_id else None
+        response = await self._client._request(
+            "DELETE", f"/api/v1/gmail/labels/{label_id}", params=params
+        )
+        return response.json()
+
+    async def list_filters(self, *, user_id: str | None = None) -> dict[str, Any]:
+        """List Gmail filters."""
+        params = {"user_id": user_id} if user_id else None
+        return await self._client._get("/api/v1/gmail/filters", params=params)
+
+    async def create_filter(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Create a Gmail filter."""
+        return await self._client._post("/api/v1/gmail/filters", body)
+
+    async def delete_filter(
+        self, filter_id: str, *, user_id: str | None = None
+    ) -> dict[str, Any]:
+        """Delete a Gmail filter."""
+        params = {"user_id": user_id} if user_id else None
+        response = await self._client._request(
+            "DELETE", f"/api/v1/gmail/filters/{filter_id}", params=params
+        )
+        return response.json()
+
+    async def modify_message_labels(
+        self, message_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Modify labels for a message."""
+        return await self._client._post(
+            f"/api/v1/gmail/messages/{message_id}/labels", body
+        )
+
+    async def mark_message_read(
+        self, message_id: str, body: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Mark a message read/unread."""
+        return await self._client._post(
+            f"/api/v1/gmail/messages/{message_id}/read", body or {}
+        )
+
+    async def mark_message_star(
+        self, message_id: str, body: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Star or unstar a message."""
+        return await self._client._post(
+            f"/api/v1/gmail/messages/{message_id}/star", body or {}
+        )
+
+    async def archive_message(self, message_id: str) -> dict[str, Any]:
+        """Archive a message."""
+        return await self._client._post(
+            f"/api/v1/gmail/messages/{message_id}/archive", {}
+        )
+
+    async def trash_message(
+        self, message_id: str, body: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Trash or untrash a message."""
+        return await self._client._post(
+            f"/api/v1/gmail/messages/{message_id}/trash", body or {}
+        )
+
+    async def get_attachment(
+        self,
+        message_id: str,
+        attachment_id: str,
+        *,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get a message attachment."""
+        params = {"user_id": user_id} if user_id else None
+        return await self._client._get(
+            f"/api/v1/gmail/messages/{message_id}/attachments/{attachment_id}",
+            params=params,
+        )
+
+    async def list_threads(
+        self,
+        *,
+        user_id: str | None = None,
+        q: str | None = None,
+        label_ids: str | None = None,
+        limit: int | None = None,
+        page_token: str | None = None,
+    ) -> dict[str, Any]:
+        """List Gmail threads."""
+        params = {
+            k: v
+            for k, v in {
+                "user_id": user_id,
+                "q": q,
+                "label_ids": label_ids,
+                "limit": limit,
+                "page_token": page_token,
+            }.items()
+            if v is not None
+        }
+        return await self._client._get("/api/v1/gmail/threads", params=params or None)
+
+    async def get_thread(
+        self, thread_id: str, *, user_id: str | None = None
+    ) -> dict[str, Any]:
+        """Get a Gmail thread."""
+        params = {"user_id": user_id} if user_id else None
+        return await self._client._get(
+            f"/api/v1/gmail/threads/{thread_id}", params=params
+        )
+
+    async def archive_thread(self, thread_id: str) -> dict[str, Any]:
+        """Archive a Gmail thread."""
+        return await self._client._post(
+            f"/api/v1/gmail/threads/{thread_id}/archive", {}
+        )
+
+    async def trash_thread(
+        self, thread_id: str, body: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Trash or untrash a Gmail thread."""
+        return await self._client._post(
+            f"/api/v1/gmail/threads/{thread_id}/trash", body or {}
+        )
+
+    async def modify_thread_labels(
+        self, thread_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Modify labels for a thread."""
+        return await self._client._post(
+            f"/api/v1/gmail/threads/{thread_id}/labels", body
+        )
+
+    async def list_drafts(
+        self,
+        *,
+        user_id: str | None = None,
+        limit: int | None = None,
+        page_token: str | None = None,
+    ) -> dict[str, Any]:
+        """List Gmail drafts."""
+        params = {
+            k: v
+            for k, v in {
+                "user_id": user_id,
+                "limit": limit,
+                "page_token": page_token,
+            }.items()
+            if v is not None
+        }
+        return await self._client._get("/api/v1/gmail/drafts", params=params or None)
+
+    async def create_draft(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Create a Gmail draft."""
+        return await self._client._post("/api/v1/gmail/drafts", body)
+
+    async def get_draft(
+        self, draft_id: str, *, user_id: str | None = None
+    ) -> dict[str, Any]:
+        """Get a Gmail draft."""
+        params = {"user_id": user_id} if user_id else None
+        return await self._client._get(
+            f"/api/v1/gmail/drafts/{draft_id}", params=params
+        )
+
+    async def update_draft(self, draft_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Update a Gmail draft."""
+        return await self._client._put(f"/api/v1/gmail/drafts/{draft_id}", body)
+
+    async def delete_draft(
+        self, draft_id: str, *, user_id: str | None = None
+    ) -> dict[str, Any]:
+        """Delete a Gmail draft."""
+        params = {"user_id": user_id} if user_id else None
+        response = await self._client._request(
+            "DELETE", f"/api/v1/gmail/drafts/{draft_id}", params=params
+        )
+        return response.json()
+
+    async def send_draft(self, draft_id: str) -> dict[str, Any]:
+        """Send a Gmail draft."""
+        return await self._client._post(f"/api/v1/gmail/drafts/{draft_id}/send", {})
+
+
 class ReplaysAPI:
     """API for replay management."""
 
@@ -471,6 +981,8 @@ class AragoraClient:
         self.selection = SelectionAPI(self)
         self.replays = ReplaysAPI(self)
         self.control_plane = ControlPlaneAPI(self)
+        self.codebase = CodebaseAPI(self)
+        self.gmail = GmailAPI(self)
         # Enterprise APIs
         self.auth = AuthAPI(self)
         self.tenants = TenancyAPI(self)

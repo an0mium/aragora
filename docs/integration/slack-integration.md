@@ -5,10 +5,14 @@ This guide covers setting up Aragora's Slack integration for multi-workspace sup
 ## Overview
 
 Aragora's Slack integration enables:
-- Slash commands (`/aragora debate`, `/aragora gauntlet`)
+- Slash commands (`/aragora debate`, `/aragora gauntlet`, `/aragora status`, `/aragora agents`)
 - Interactive components (buttons, menus)
 - Multi-workspace support via OAuth
 - Automatic token management and encryption
+- Thread-based debates (keeps channels clean)
+- **Decision Receipts** - Cryptographically signed audit trails with PDF export
+- Rate limiting (30 requests/minute per workspace)
+- SSRF protection on all webhook responses
 
 ## Prerequisites
 
@@ -139,10 +143,40 @@ curl "https://your-domain/api/integrations/slack/install?tenant_id=your-tenant"
 ### Command Options
 
 ```
-/aragora debate <topic> [--rounds 3] [--consensus majority]
-/aragora gauntlet <statement> [--mode adversarial]
-/aragora status <debate_id>
+/aragora debate <topic>        Start a multi-agent debate on a topic
+/aragora gauntlet <statement>  Run adversarial stress-testing
+/aragora status [debate_id]    Check debate status or view recent debates
+/aragora agents                List available AI agents and their ELO ratings
+/aragora help                  Show available commands
 ```
+
+### Debate Results
+
+When a debate completes, Aragora posts:
+- Consensus status and confidence level
+- Final conclusion with supporting arguments
+- Participant agents and rounds used
+- **Decision Receipt URL** - Cryptographically signed audit trail
+
+Example response:
+```
+Debate Complete: Should we adopt microservices?
+
+✓ Consensus: Yes (82% confidence)
+★★★★☆ Rounds: 3 | Participants: claude, gpt-4
+
+Conclusion: Based on the debate, microservices architecture is
+recommended for better scalability and independent deployments...
+
+📜 Receipt: https://your-domain/receipts/receipt-abc123
+```
+
+### Thread-Based Responses
+
+Debates run in threads to keep channels clean:
+1. Initial response acknowledges the command
+2. Progress updates posted to thread
+3. Final result appears in thread with channel notification
 
 ## Multi-Workspace Architecture
 
@@ -196,6 +230,21 @@ OAuth redirects require HTTPS in production. For local development:
 - Use ngrok or similar tunnel
 - Set `SLACK_REDIRECT_URI` to your tunnel URL
 
+### Rate Limiting
+
+Slash commands are rate-limited to protect both Aragora and Slack API limits:
+- **30 requests per minute** per workspace
+- Exceeded limits return a friendly retry message
+- Rate limits reset every minute
+
+### SSRF Protection
+
+Response URLs are validated to prevent Server-Side Request Forgery:
+- Only `hooks.slack.com` and `api.slack.com` domains allowed
+- HTTPS required (HTTP blocked)
+- Localhost and internal IPs blocked
+- Validates URL scheme, host, and path patterns
+
 ## Troubleshooting
 
 ### "Invalid Signature" Errors
@@ -240,8 +289,44 @@ CREATE TABLE slack_workspaces (
 );
 ```
 
+## Decision Receipts
+
+Every debate generates a Decision Receipt - a cryptographically signed audit trail:
+
+### Features
+- **Unique ID**: Each receipt has a UUID for tracking
+- **SHA-256 Integrity**: Content-addressable hashing prevents tampering
+- **Multiple Formats**: JSON, HTML, Markdown, PDF
+- **Verification**: Cryptographic signature validation
+
+### Accessing Receipts
+
+From Slack:
+1. Click the receipt URL in the debate result message
+2. View in browser or download as PDF
+
+Via API:
+```bash
+# Get receipt as JSON
+curl https://your-domain/api/v2/receipts/{receipt_id}
+
+# Get as PDF
+curl https://your-domain/api/v2/receipts/{receipt_id}?format=pdf -o receipt.pdf
+
+# Verify integrity
+curl https://your-domain/api/v2/receipts/{receipt_id}/verify
+```
+
+### Receipt Contents
+- Debate ID, topic, and timestamp
+- Participating agents and their contributions
+- Consensus status and confidence score
+- Final conclusion with reasoning
+- Integrity hash for verification
+
 ## See Also
 
 - [Microsoft Teams Integration](./teams-integration.md)
 - [Enterprise Connectors](./enterprise-connectors.md)
 - [OAuth Setup Guide](../OAUTH_SETUP.md)
+- [Decision Receipts API](../API_REFERENCE.md#receipts)

@@ -16,6 +16,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
+from aragora.server.versioning.compat import strip_version_prefix
+
 from ..base import (
     BaseHandler,
     HandlerResult,
@@ -44,11 +46,14 @@ class EvolutionABTestingHandler(BaseHandler):
     """Handler for evolution A/B testing endpoints."""
 
     ROUTES = [
+        "/api/evolution/ab-tests",
+        "/api/evolution/ab-tests/",
         "/api/v1/evolution/ab-tests",
         "/api/v1/evolution/ab-tests/",
     ]
 
     AUTH_REQUIRED_ENDPOINTS = [
+        "/api/evolution/ab-tests",
         "/api/v1/evolution/ab-tests",
     ]
 
@@ -71,35 +76,38 @@ class EvolutionABTestingHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/v1/evolution/ab-tests")
+        normalized = strip_version_prefix(path)
+        return normalized.startswith("/api/evolution/ab-tests")
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests."""
         if not AB_TESTING_AVAILABLE:
             return error_response("A/B testing module not available", 503)
 
-        if path == "/api/v1/evolution/ab-tests" or path == "/api/v1/evolution/ab-tests/":
+        normalized = strip_version_prefix(path)
+
+        if normalized == "/api/evolution/ab-tests" or normalized == "/api/evolution/ab-tests/":
             return self._list_tests(query_params)
 
-        # Parse path segments
-        parts = path.rstrip("/").split("/")
-        # /api/v1/evolution/ab-tests/{id}
-        # parts: ['', 'api', 'v1', 'evolution', 'ab-tests', '{id}', ...]
+        # Parse path segments from normalized path
+        parts = normalized.rstrip("/").split("/")
+        # /api/evolution/ab-tests/{id}
+        # parts: ['', 'api', 'evolution', 'ab-tests', '{id}', ...]
 
-        if len(parts) >= 6:
-            segment = parts[5]
+        if len(parts) >= 5:
+            segment = parts[4]
 
             # Validate path segment before using in queries
             valid, err = validate_path_segment(segment, "id_or_agent")
             if not valid:
                 return error_response(err or "Invalid path segment", 400)
 
-            # GET /api/v1/evolution/ab-tests/{agent}/active
-            if len(parts) == 7 and parts[6] == "active":
+            # GET /api/evolution/ab-tests/{agent}/active
+            if len(parts) == 6 and parts[5] == "active":
                 return self._get_active_test(segment)
 
-            # GET /api/v1/evolution/ab-tests/{id}
-            if len(parts) == 6:
+            # GET /api/evolution/ab-tests/{id}
+            if len(parts) == 5:
                 return self._get_test(segment)
 
         return None
@@ -109,11 +117,13 @@ class EvolutionABTestingHandler(BaseHandler):
         if not AB_TESTING_AVAILABLE:
             return error_response("A/B testing module not available", 503)
 
+        normalized = strip_version_prefix(path)
+
         # POST /api/evolution/ab-tests - Create new test
-        if path == "/api/v1/evolution/ab-tests" or path == "/api/v1/evolution/ab-tests/":
+        if normalized == "/api/evolution/ab-tests" or normalized == "/api/evolution/ab-tests/":
             return self._create_test(body)
 
-        parts = path.rstrip("/").split("/")
+        parts = normalized.rstrip("/").split("/")
 
         if len(parts) >= 6:
             test_id = parts[4]
@@ -145,9 +155,11 @@ class EvolutionABTestingHandler(BaseHandler):
         if not AB_TESTING_AVAILABLE:
             return error_response("A/B testing module not available", 503)
 
-        parts = path.rstrip("/").split("/")
+        normalized = strip_version_prefix(path)
+        parts = normalized.rstrip("/").split("/")
 
         # DELETE /api/evolution/ab-tests/{id}
+        # parts: ['', 'api', 'evolution', 'ab-tests', '{id}']
         if len(parts) == 5:
             test_id = parts[4]
 

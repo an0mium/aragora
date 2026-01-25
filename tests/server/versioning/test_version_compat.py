@@ -96,6 +96,19 @@ class TestResponseHeaders:
         assert headers["X-API-Legacy"] == "true"
         assert "v2" in headers["X-API-Migration"]
 
+    def test_legacy_headers_include_deprecation_link(self):
+        """Legacy requests should include deprecation metadata and successor link."""
+        headers = version_response_headers(
+            APIVersion.V1,
+            is_legacy=True,
+            path="/api/debates",
+        )
+
+        assert "Deprecation" in headers
+        assert "X-Deprecation-Level" in headers
+        assert "Link" in headers
+        assert "/api/v2/debates" in headers["Link"]
+
     def test_deprecated_version_headers(self):
         """Deprecated versions should include sunset headers."""
         headers = version_response_headers(APIVersion.V1, is_legacy=False)

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Dict, Optional, Set, Tuple
 
 from aragora.server.versioning.router import APIVersion
@@ -100,7 +101,27 @@ def extract_version(path: str, headers: Optional[Dict[str, str]] = None) -> Tupl
     return config.default_for_legacy, True
 
 
-def version_response_headers(version: APIVersion, is_legacy: bool = False) -> Dict[str, str]:
+def _deprecation_level(sunset: Optional[str]) -> str:
+    if not sunset:
+        return "warning"
+    try:
+        sunset_date = date.fromisoformat(sunset)
+    except ValueError:
+        return "warning"
+    days_left = (sunset_date - date.today()).days
+    if days_left < 0:
+        return "sunset"
+    if days_left < 30:
+        return "critical"
+    return "warning"
+
+
+def version_response_headers(
+    version: APIVersion,
+    is_legacy: bool = False,
+    *,
+    path: Optional[str] = None,
+) -> Dict[str, str]:
     """Generate response headers for a version."""
     config = get_version_config()
     supported = ",".join(v.value for v in config.supported)
@@ -117,13 +138,20 @@ def version_response_headers(version: APIVersion, is_legacy: bool = False) -> Di
             f"Use /api/{config.current.value}/ prefix for versioned endpoints"
         )
 
-    if config.is_deprecated(version):
+    deprecated = config.is_deprecated(version) or is_legacy
+    if deprecated:
         headers["X-API-Deprecated"] = "true"
-        sunset = config.get_sunset_date(version)
+        sunset = config.get_sunset_date(version) or config.get_sunset_date(
+            config.default_for_legacy
+        )
         if sunset:
             headers["X-API-Sunset"] = sunset
-            headers["Deprecation"] = "true"
             headers["Sunset"] = sunset
+        headers["Deprecation"] = "true"
+        headers["X-Deprecation-Level"] = _deprecation_level(sunset)
+        if path and path.startswith("/api/"):
+            replacement = normalize_path_version(strip_version_prefix(path), config.current)
+            headers["Link"] = f'<{replacement}>; rel="successor-version"'
 
     return headers
 

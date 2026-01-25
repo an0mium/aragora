@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 from aragora.server.validation.entities import validate_gauntlet_id
 from aragora.server.validation.schema import GAUNTLET_RUN_SCHEMA, validate_against_schema
 
+from aragora.server.versioning.compat import strip_version_prefix
+
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -245,8 +247,17 @@ class GauntletHandler(BaseHandler):
     # API version for this handler
     API_VERSION = "v1"
 
-    # Gauntlet API routes
+    # Gauntlet API routes (both versioned and non-versioned)
     ROUTES = [
+        "/api/gauntlet/run",
+        "/api/gauntlet/personas",
+        "/api/gauntlet/results",
+        "/api/gauntlet/*/receipt/verify",
+        "/api/gauntlet/*/receipt",
+        "/api/gauntlet/*/heatmap",
+        "/api/gauntlet/*/export",
+        "/api/gauntlet/*/compare/*",
+        "/api/gauntlet/*",
         "/api/v1/gauntlet/run",
         "/api/v1/gauntlet/personas",
         "/api/v1/gauntlet/results",
@@ -272,13 +283,18 @@ class GauntletHandler(BaseHandler):
 
     def _is_legacy_route(self, path: str) -> bool:
         """Check if this is a legacy (non-versioned) route."""
-        return path.startswith("/api/v1/gauntlet/") and not path.startswith("/api/v1/")
+        return path.startswith("/api/gauntlet/") and not path.startswith("/api/v1/")
 
     def _normalize_path(self, path: str) -> str:
-        """Normalize path by removing version prefix for routing logic."""
-        if path.startswith("/api/v1/gauntlet/"):
-            return path.replace("/api/v1/gauntlet/", "/api/v1/gauntlet/")
-        return path
+        """Normalize path by removing version prefix for routing logic.
+
+        Converts /api/v1/gauntlet/* to /api/gauntlet/* for consistent routing.
+        """
+        normalized = strip_version_prefix(path)
+        # Convert to /api/gauntlet/* format for internal routing
+        if normalized.startswith("/api/gauntlet"):
+            return normalized.replace("/api/gauntlet", "/api/gauntlet")
+        return normalized
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the request.
@@ -289,17 +305,17 @@ class GauntletHandler(BaseHandler):
         normalized = self._normalize_path(path)
 
         # When called without method (e.g., from route index), just check path prefix
-        if method == "GET" and normalized.startswith("/api/v1/gauntlet/"):
+        if method == "GET" and normalized.startswith("/api/gauntlet/"):
             return True
-        if normalized == "/api/v1/gauntlet/run" and method == "POST":
+        if normalized == "/api/gauntlet/run" and method == "POST":
             return True
-        if normalized == "/api/v1/gauntlet/personas" and method == "GET":
+        if normalized == "/api/gauntlet/personas" and method == "GET":
             return True
-        if normalized == "/api/v1/gauntlet/results" and method == "GET":
+        if normalized == "/api/gauntlet/results" and method == "GET":
             return True
-        if normalized.startswith("/api/v1/gauntlet/") and method == "GET":
+        if normalized.startswith("/api/gauntlet/") and method == "GET":
             return True
-        if normalized.startswith("/api/v1/gauntlet/") and method == "DELETE":
+        if normalized.startswith("/api/gauntlet/") and method == "DELETE":
             return True
         return False
 
@@ -351,15 +367,15 @@ class GauntletHandler(BaseHandler):
         result: Optional[HandlerResult] = None
 
         # POST /api/gauntlet/run
-        if path == "/api/v1/gauntlet/run" and method == "POST":
+        if path == "/api/gauntlet/run" and method == "POST":
             result = await self._start_gauntlet(handler)
 
         # GET /api/gauntlet/personas
-        elif path == "/api/v1/gauntlet/personas":
+        elif path == "/api/gauntlet/personas":
             result = self._list_personas()
 
         # GET /api/gauntlet/results - List with pagination
-        elif path == "/api/v1/gauntlet/results":
+        elif path == "/api/gauntlet/results":
             result = self._list_results(query_params)
 
         # POST /api/gauntlet/{id}/receipt/verify
@@ -410,7 +426,7 @@ class GauntletHandler(BaseHandler):
                 result = self._compare_results(gauntlet_id, compare_id, query_params)
 
         # DELETE /api/gauntlet/{id}
-        elif method == "DELETE" and path.startswith("/api/v1/gauntlet/"):
+        elif method == "DELETE" and path.startswith("/api/gauntlet/"):
             gauntlet_id = path.split("/")[-1]
             if gauntlet_id and gauntlet_id not in ("run", "personas", "results"):
                 is_valid, err = validate_gauntlet_id(gauntlet_id)
@@ -419,7 +435,7 @@ class GauntletHandler(BaseHandler):
                 result = self._delete_result(gauntlet_id, query_params)
 
         # GET /api/gauntlet/{id}
-        elif path.startswith("/api/v1/gauntlet/"):
+        elif path.startswith("/api/gauntlet/"):
             gauntlet_id = path.split("/")[-1]
             if gauntlet_id and gauntlet_id not in ("run", "personas", "results"):
                 is_valid, err = validate_gauntlet_id(gauntlet_id)

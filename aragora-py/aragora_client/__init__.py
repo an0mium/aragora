@@ -28,7 +28,7 @@ from aragora_client.auth import (
     Session,
     User,
 )
-from aragora_client.client import AragoraClient
+from aragora_client.client import AragoraClient, CodebaseAPI, GmailAPI
 from aragora_client.control_plane import (
     AgentHealth,
     ControlPlaneAPI,
@@ -98,6 +98,8 @@ __version__ = "2.2.0"
 __all__ = [
     # Client
     "AragoraClient",
+    "CodebaseAPI",
+    "GmailAPI",
     # Exceptions
     "AragoraError",
     "AragoraConnectionError",

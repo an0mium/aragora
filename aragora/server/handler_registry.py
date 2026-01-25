@@ -1430,8 +1430,15 @@ class HandlerRegistryMixin:
                 self.send_header("Content-Type", result.content_type)
 
                 # Add API version headers
-                version_headers = version_response_headers(api_version, is_legacy)
+                version_headers = version_response_headers(
+                    api_version,
+                    is_legacy,
+                    path=path,
+                )
+                existing = {name.lower() for name in result.headers}
                 for h_name, h_val in version_headers.items():
+                    if h_name.lower() in existing:
+                        continue
                     self.send_header(h_name, h_val)
 
                 # Add handler-specific headers

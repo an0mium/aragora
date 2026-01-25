@@ -88,6 +88,46 @@ HAS_MCP = _check_import("mcp")
 REQUIRES_MCP = "mcp not installed (pip install mcp)"
 requires_mcp = not HAS_MCP
 
+# aiosqlite for async SQLite
+HAS_AIOSQLITE = _check_import("aiosqlite")
+REQUIRES_AIOSQLITE = "aiosqlite not installed (pip install aiosqlite)"
+requires_aiosqlite = not HAS_AIOSQLITE
+
+# Twilio for SMS/voice
+HAS_TWILIO = _check_import("twilio")
+REQUIRES_TWILIO = "twilio not installed (pip install twilio)"
+requires_twilio = not HAS_TWILIO
+
+# PyOTP for TOTP/HOTP
+HAS_PYOTP = _check_import("pyotp")
+REQUIRES_PYOTP = "pyotp not installed (pip install pyotp)"
+requires_pyotp = not HAS_PYOTP
+
+# psycopg2 for PostgreSQL
+HAS_PSYCOPG2 = _check_import("psycopg2")
+REQUIRES_PSYCOPG2 = "psycopg2 not installed (pip install psycopg2-binary)"
+requires_psycopg2 = not HAS_PSYCOPG2
+
+# NetworkX for graph operations
+HAS_NETWORKX = _check_import("networkx")
+REQUIRES_NETWORKX = "networkx not installed (pip install networkx)"
+requires_networkx = not HAS_NETWORKX
+
+# ============================================================================
+# Composite Skip Markers
+# ============================================================================
+# These combine multiple requirements for common test scenarios
+
+# Requires any database backend
+HAS_DATABASE = HAS_ASYNCPG or HAS_PSYCOPG2 or HAS_AIOSQLITE
+REQUIRES_DATABASE = "No database driver installed (asyncpg, psycopg2, or aiosqlite)"
+requires_database = not HAS_DATABASE
+
+# Requires async database support
+HAS_ASYNC_DB = HAS_ASYNCPG or HAS_AIOSQLITE
+REQUIRES_ASYNC_DB = "No async database driver installed (asyncpg or aiosqlite)"
+requires_async_db = not HAS_ASYNC_DB
+
 
 def _check_aragora_module(module_path: str) -> bool:
     """Check if an Aragora module can be imported."""

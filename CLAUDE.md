@@ -38,7 +38,7 @@ Context for Claude Code when working with the Aragora codebase.
 
 Aragora is the **control plane for multi-agent robust decisionmaking across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge and deliver defensible decisions to any channel. It implements self-improvement through the **Nomic Loop** - an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
 
-**Codebase Scale:** 1000+ Python modules | 45,100+ tests | 1220 test files | 117 debate modules | 70 HTTP handlers + 15 WebSocket streams | 26+ enterprise connectors
+**Codebase Scale:** 1000+ Python modules | 45,100+ tests | 1220 test files | 117 debate modules | 90 HTTP handlers + 22 WebSocket streams | 461 API endpoints | 26+ enterprise connectors
 
 ## Architecture
 
@@ -79,12 +79,12 @@ aragora/
 │           ├── kafka.py    # Apache Kafka consumer
 │           └── rabbitmq.py # RabbitMQ consumer/publisher
 ├── server/           # HTTP/WebSocket API
-│   ├── unified_server.py   # Main server (~275 endpoints)
+│   ├── unified_server.py   # Main server (461 API endpoints)
 │   ├── startup.py          # Server startup sequence
 │   ├── debate_origin.py    # Bidirectional chat result routing
-│   ├── handlers/           # HTTP endpoint handlers (119 modules)
+│   ├── handlers/           # HTTP endpoint handlers (90 modules)
 │   │   └── social/         # Chat platform handlers (Telegram, WhatsApp)
-│   └── stream/             # WebSocket streaming (14 modules)
+│   └── stream/             # WebSocket streaming (22 modules)
 │       ├── tts_integration.py  # TTS for voice/chat
 │       └── voice_stream.py     # Voice session management
 ├── ranking/          # Agent skill tracking
