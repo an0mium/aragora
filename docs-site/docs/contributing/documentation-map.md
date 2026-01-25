@@ -23,7 +23,7 @@ documents are archived in [deprecated/README.md](../analysis/adr).
 | Deploy to production | [DEPLOYMENT.md](../deployment/overview) |
 | Troubleshoot issues | [TROUBLESHOOTING.md](../operations/troubleshooting) |
 | Prioritize inbox | [EMAIL_PRIORITIZATION.md](../guides/email-prioritization) |
-| Unified inbox guide | [INBOX_GUIDE.md](INBOX_GUIDE.md) |
+| Unified inbox guide | [INBOX_GUIDE.md](./INBOX_GUIDE) |
 | Manage shared inbox | [SHARED_INBOX.md](../guides/shared-inbox) |
 | Understand document ingestion | [DOCUMENTS.md](../guides/documents) |
 | Analyze codebase health | [CODEBASE_ANALYSIS.md](../analysis/codebase) |
@@ -62,7 +62,7 @@ documents are archived in [deprecated/README.md](../analysis/adr).
 - [CHANNELS.md](../guides/channels)
 - [BOT_INTEGRATIONS.md](../guides/bot-integrations)
 - [EMAIL_PRIORITIZATION.md](../guides/email-prioritization)
-- [INBOX_GUIDE.md](INBOX_GUIDE.md)
+- [INBOX_GUIDE.md](./INBOX_GUIDE)
 - [SHARED_INBOX.md](../guides/shared-inbox)
 
 ### Costs & Billing

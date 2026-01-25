@@ -1241,4 +1241,4 @@ Track these metrics for SOC 2 audits:
 - [DATABASE.md](./database) - Database operations and encryption
 - [SECRETS_MANAGEMENT.md](./secrets-management) - Encryption key management
 - [QUEUE.md](../guides/queue) - Job queue operations
-- [RBAC_MATRIX.md](RBAC_MATRIX.md) - Role-based access control permissions
+- [RBAC_MATRIX.md](./RBAC_MATRIX) - Role-based access control permissions

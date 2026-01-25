@@ -8,7 +8,7 @@ description: Documentation Index
 Canonical documentation lives in `docs/`. The published site in `docs-site/` is
 synced from these files via `docs-site/scripts/sync-docs.js`.
 
-**New to Aragora?** Start with [DOCUMENTATION_HUB.md](DOCUMENTATION_HUB.md) for guided navigation.
+**New to Aragora?** Start with [DOCUMENTATION_HUB.md](./DOCUMENTATION_HUB) for guided navigation.
 
 Use this index for fast navigation. For a fuller map, see
 `docs/DOCUMENTATION_MAP.md`. Deprecated and historical documents live in
@@ -26,7 +26,7 @@ Use this index for fast navigation. For a fuller map, see
 | Production deployment | [DEPLOYMENT.md](../deployment/overview) |
 | Troubleshooting | [TROUBLESHOOTING.md](../operations/troubleshooting) |
 | Email prioritization | [EMAIL_PRIORITIZATION.md](../guides/email-prioritization) |
-| Unified inbox guide | [INBOX_GUIDE.md](INBOX_GUIDE.md) |
+| Unified inbox guide | [INBOX_GUIDE.md](./INBOX_GUIDE) |
 | Shared inbox | [SHARED_INBOX.md](../guides/shared-inbox) |
 | Document ingestion | [DOCUMENTS.md](../guides/documents) |
 | Codebase analysis | [CODEBASE_ANALYSIS.md](../analysis/codebase) |
@@ -62,7 +62,7 @@ Use this index for fast navigation. For a fuller map, see
 - Channels overview: [CHANNELS.md](../guides/channels)
 - Bot integrations: [BOT_INTEGRATIONS.md](../guides/bot-integrations)
 - Email prioritization: [EMAIL_PRIORITIZATION.md](../guides/email-prioritization)
-- Unified inbox guide: [INBOX_GUIDE.md](INBOX_GUIDE.md)
+- Unified inbox guide: [INBOX_GUIDE.md](./INBOX_GUIDE)
 - Shared inbox: [SHARED_INBOX.md](../guides/shared-inbox)
 
 ## Analysis & Code Health
