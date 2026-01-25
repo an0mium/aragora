@@ -609,7 +609,7 @@ class KiloCodeAgent(CLIAgent):
         name: str,
         provider_id: str = "gemini-explorer",
         model: str | None = None,
-        role: str = "proposer",
+        role: AgentRole = "proposer",
         timeout: int = 600,
         mode: str = "architect",
     ):
@@ -815,7 +815,7 @@ class OpenAIAgent(CLIAgent):
     """
 
     def __init__(
-        self, name: str, model: str = "gpt-4o", role: str = "proposer", timeout: int = 120
+        self, name: str, model: str = "gpt-4o", role: AgentRole = "proposer", timeout: int = 120
     ) -> None:
         super().__init__(name, model, role, timeout)
 

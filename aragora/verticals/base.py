@@ -16,6 +16,7 @@ from jinja2 import Template
 
 from aragora.core import Critique, Message
 from aragora.agents.api_agents.base import APIAgent
+from aragora.core_types import AgentRole
 from aragora.verticals.config import (
     ComplianceConfig,
     ComplianceLevel,
@@ -44,7 +45,7 @@ class VerticalSpecialistAgent(APIAgent):
         name: str,
         model: str,
         config: VerticalConfig,
-        role: str = "specialist",
+        role: AgentRole = "analyst",
         api_key: Optional[str] = None,
         timeout: int = 120,
         **kwargs: Any,

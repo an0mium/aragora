@@ -25,7 +25,9 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
+
+from aragora.core_types import AgentRole
 
 _AgentRegistry: Any = None
 try:
@@ -202,7 +204,7 @@ class QuotaFallbackMixin:
 
         # Get agent attributes with sensible defaults
         name = getattr(self, "name", "fallback")
-        role = getattr(self, "role", "proposer")
+        role = cast(AgentRole, getattr(self, "role", "proposer"))
         timeout = getattr(self, "timeout", 120)
         system_prompt = getattr(self, "system_prompt", None)
 
