@@ -1,5 +1,6 @@
 """Social handlers - collaboration, notifications, sharing, slack, telegram, relationships, and social media."""
 
+from .channel_health import ChannelHealthHandler
 from .collaboration import CollaborationHandlers, get_collaboration_handlers
 from .notifications import NotificationsHandler
 from .relationship import (
@@ -33,6 +34,7 @@ from .social_media import (
 
 __all__ = [
     "ALLOWED_OAUTH_HOSTS",
+    "ChannelHealthHandler",
     "CollaborationHandlers",
     "MAX_OAUTH_STATES",
     "NotificationsHandler",

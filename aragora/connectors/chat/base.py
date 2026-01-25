@@ -831,6 +831,65 @@ class ChatPlatformConnector(ABC):
             "webhook_configured": bool(self.webhook_url),
         }
 
+    async def get_health(self) -> dict:
+        """
+        Get detailed health status for the channel connector.
+
+        Returns comprehensive health information including circuit breaker
+        state, configuration status, and connectivity details.
+
+        Returns:
+            Dict with health status and metrics
+        """
+        import time
+
+        health = {
+            "platform": self.platform_name,
+            "display_name": self.platform_display_name,
+            "status": "unknown",
+            "configured": self.is_configured,
+            "timestamp": time.time(),
+            "circuit_breaker": None,
+            "details": {},
+        }
+
+        # Check configuration
+        if not self.is_configured:
+            health["status"] = "unconfigured"
+            health["details"]["error"] = "Missing required configuration (bot_token or webhook_url)"
+            return health
+
+        # Get circuit breaker status
+        cb = self._get_circuit_breaker()
+        if cb:
+            cb_status = cb.get_status()
+            health["circuit_breaker"] = {
+                "state": cb_status,
+                "enabled": True,
+            }
+            if cb_status == "open":
+                health["circuit_breaker"]["cooldown_remaining"] = cb.cooldown_remaining()
+
+            # Determine health based on circuit breaker
+            if cb_status == "open":
+                health["status"] = "unhealthy"
+                health["details"]["reason"] = "Circuit breaker is open due to repeated failures"
+            elif cb_status == "half_open":
+                health["status"] = "degraded"
+                health["details"]["reason"] = "Circuit breaker in recovery mode"
+            else:
+                health["status"] = "healthy"
+        else:
+            health["circuit_breaker"] = {"enabled": False}
+            health["status"] = "healthy"
+
+        # Add configuration details
+        health["details"]["bot_token_configured"] = bool(self.bot_token)
+        health["details"]["webhook_configured"] = bool(self.webhook_url)
+        health["details"]["request_timeout"] = self._request_timeout
+
+        return health
+
     @property
     def is_configured(self) -> bool:
         """Check if the connector has minimum required configuration."""
