@@ -58,6 +58,7 @@ from .client import (
     LeaderboardAPI,
     MatrixDebatesAPI,
     MemoryAPI,
+    OrganizationsAPI,
     ReplayAPI,
     VerificationAPI,
 )
@@ -153,6 +154,7 @@ __all__ = [
     "MatrixDebatesAPI",
     "VerificationAPI",
     "MemoryAPI",
+    "OrganizationsAPI",
     "ReplayAPI",
     # WebSocket
     "DebateStream",

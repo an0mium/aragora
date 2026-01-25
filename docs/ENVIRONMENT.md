@@ -1095,6 +1095,8 @@ See [BOT_INTEGRATIONS.md](./BOT_INTEGRATIONS.md) for detailed setup guides.
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
 | `ARAGORA_KNOWLEDGE_AUTO_PROCESS` | Optional | Auto-process new knowledge entries | `true` |
+| `ARAGORA_QUERY_CACHE_ENABLED` | Optional | Enable request-scoped knowledge query cache | `true` |
+| `ARAGORA_QUERY_CACHE_MAX_SIZE` | Optional | Max entries per request-scoped cache | `1000` |
 
 ## Evolution & Prompt Settings
 
@@ -1112,6 +1114,13 @@ See [BOT_INTEGRATIONS.md](./BOT_INTEGRATIONS.md) for detailed setup guides.
 | `ARAGORA_CACHE_MAX_ENTRIES` | Optional | Max entries in LRU caches | `1000` |
 | `ARAGORA_CACHE_EVICT_PERCENT` | Optional | Percentage to evict when cache full | `10` |
 
+## Observability & Performance
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_N1_DETECTION` | Optional | N+1 query detection mode: `off`, `warn`, `error` | `off` |
+| `ARAGORA_N1_THRESHOLD` | Optional | N+1 query threshold per table | `5` |
+
 ## CLI & Process Settings
 
 | Variable | Required | Description | Default |
@@ -1120,6 +1129,13 @@ See [BOT_INTEGRATIONS.md](./BOT_INTEGRATIONS.md) for detailed setup guides.
 | `ARAGORA_BIND_HOST` | Optional | Host to bind server to | `0.0.0.0` |
 | `ARAGORA_ORG_ID` | Optional | Default organization ID | - |
 | `ARAGORA_SCOPE_CHECK` | Optional | Enable scope validation | `true` |
+
+## Testing & CI
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_BASELINE_PARALLEL` | Optional | Parallel workers for baseline runner | `auto` |
+| `ARAGORA_BASELINE_TIMEOUT` | Optional | Timeout seconds for baseline runner | `60` |
 
 ## Legacy Database Aliases
 

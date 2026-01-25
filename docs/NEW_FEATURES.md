@@ -113,34 +113,33 @@ Generate human-readable explanations for debate decisions, including reasoning c
 
 #### Get Explanation for a Debate
 ```bash
-GET /api/explainability/debate/{debate_id}?format=detailed
+GET /api/v1/debates/{debate_id}/explanation?format=json
 ```
 
 Response:
 ```json
 {
+  "decision_id": "dec-abc123",
   "debate_id": "deb-123",
-  "summary": "The agents reached consensus after 3 rounds...",
-  "reasoning_chain": [
-    {"step": 1, "agent": "claude", "action": "Proposed security-first approach"},
-    {"step": 2, "agent": "gpt4", "action": "Challenged scalability concerns"},
-    {"step": 3, "agent": "claude", "action": "Provided evidence from benchmarks"}
-  ],
-  "key_factors": ["performance data", "security requirements"],
-  "consensus_strength": 0.85
+  "conclusion": "Adopt a tiered rate limiting strategy",
+  "confidence": 0.87,
+  "consensus_reached": true,
+  "evidence_chain": [],
+  "vote_pivots": [],
+  "counterfactuals": []
 }
 ```
 
 #### Create Batch Job
 ```bash
-POST /api/explainability/batch
+POST /api/v1/explainability/batch
 Content-Type: application/json
 
 {
   "debate_ids": ["deb-1", "deb-2", "deb-3"],
   "options": {
-    "format": "summary",
-    "include_evidence": true
+    "include_evidence": true,
+    "include_counterfactuals": false
   }
 }
 ```
@@ -148,49 +147,45 @@ Content-Type: application/json
 Response:
 ```json
 {
-  "job_id": "batch-456",
+  "batch_id": "batch-456",
   "status": "processing",
-  "total": 3,
-  "processed": 0
+  "total": 3
 }
 ```
 
 #### Get Batch Job Status
 ```bash
-GET /api/explainability/batch/{job_id}
+GET /api/v1/explainability/batch/{batch_id}/status
 ```
 
 #### Get Batch Results
 ```bash
-GET /api/explainability/batch/{job_id}/results
+GET /api/v1/explainability/batch/{batch_id}/results
 ```
 
 ### Python SDK Example
 
 ```python
-from aragora import AragonaClient
+from aragora.client import AragoraClient
 
-client = AragonaClient(api_token="your-token")
+client = AragoraClient(api_key="your-token")
 
 # Single explanation
-explanation = client.explainability.explain(
-    debate_id="deb-123",
-    format="detailed"
-)
+explanation = client.explainability.get_explanation("deb-123")
 
 # Batch processing
 batch = client.explainability.create_batch(
     debate_ids=["deb-1", "deb-2", "deb-3"],
-    options={"format": "summary"}
+    include_evidence=True,
 )
 
 # Poll for completion
 while batch.status != "completed":
-    batch = client.explainability.get_batch(batch.job_id)
+    batch = client.explainability.get_batch_status(batch.batch_id)
     time.sleep(1)
 
 # Get results
-results = client.explainability.get_batch_results(batch.job_id)
+results = client.explainability.get_batch_results(batch.batch_id)
 ```
 
 ---

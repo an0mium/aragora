@@ -56,19 +56,29 @@ from .resources import (
     AuditAPI,
     AuthAPI,
     BillingAPI,
+    CodebaseAPI,
     ConsensusAPI,
+    CostManagementAPI,
     DebatesAPI,
+    DecisionsAPI,
     DocumentsAPI,
+    ExplainabilityAPI,
     GauntletAPI,
+    GmailAPI,
     GraphDebatesAPI,
     KnowledgeAPI,
     LeaderboardAPI,
     MatrixDebatesAPI,
     MemoryAPI,
+    NotificationsAPI,
+    OnboardingAPI,
+    OrganizationsAPI,
+    PoliciesAPI,
     PulseAPI,
     RBACAPI,
     ReplayAPI,
     SystemAPI,
+    TenantsAPI,
     TournamentsAPI,
     VerificationAPI,
     WorkflowsAPI,
@@ -113,6 +123,16 @@ class AragoraClient:
         - auth: Authentication and MFA management
         - knowledge: Knowledge Mound search and management
         - workflows: Workflow creation and execution
+        - organizations: Multi-tenant organization management
+        - tenants: Tenant isolation and settings
+        - codebase: Codebase analysis integration
+        - policies: Compliance policy management
+        - explainability: Decision explanations and counterfactuals
+        - cost_management: Usage tracking and budget management
+        - notifications: Notification preferences and history
+        - decisions: Unified decision-making API
+        - onboarding: User onboarding flows
+        - gmail: Gmail connector integration
 
     Usage:
         # Synchronous
@@ -218,6 +238,36 @@ class AragoraClient:
 
         # Workflows
         self.workflows = WorkflowsAPI(self)
+
+        # Organizations (multi-tenant management)
+        self.organizations = OrganizationsAPI(self)
+
+        # Tenants (tenant isolation and settings)
+        self.tenants = TenantsAPI(self)
+
+        # Codebase analysis
+        self.codebase = CodebaseAPI(self)
+
+        # Compliance policies
+        self.policies = PoliciesAPI(self)
+
+        # Decision explainability
+        self.explainability = ExplainabilityAPI(self)
+
+        # Cost management
+        self.cost_management = CostManagementAPI(self)
+
+        # Notifications
+        self.notifications = NotificationsAPI(self)
+
+        # Unified decisions API
+        self.decisions = DecisionsAPI(self)
+
+        # User onboarding
+        self.onboarding = OnboardingAPI(self)
+
+        # Gmail connector
+        self.gmail = GmailAPI(self)
 
     def _get_headers(self) -> dict[str, str]:
         """Get common request headers."""
@@ -374,6 +424,113 @@ class AragoraClient:
                     url,
                     headers=self._get_headers(),
                     params=params,
+                    timeout=aiohttp.ClientTimeout(total=self.timeout),
+                ) as resp:
+                    if resp.status >= 400:
+                        body = await resp.json()
+                        # Check if we should retry
+                        if self.retry_config and resp.status in self.retry_config.retry_statuses:
+                            if attempt < max_attempts - 1:
+                                delay = self.retry_config.get_delay(attempt)
+                                logger.debug(
+                                    f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status})"
+                                )
+                                await asyncio.sleep(delay)
+                                continue
+                        raise AragoraAPIError(
+                            body.get("error", "Unknown error"),
+                            body.get("code", "HTTP_ERROR"),
+                            resp.status,
+                        )
+                    return await resp.json()
+            except aiohttp.ClientError as e:
+                last_error = e
+                if self.retry_config and attempt < max_attempts - 1:
+                    delay = self.retry_config.get_delay(attempt)
+                    logger.debug(
+                        f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)"
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
+
+        # Should not reach here
+        raise AragoraAPIError(
+            str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0
+        )
+
+    def _put(self, path: str, data: dict, headers: dict | None = None) -> dict:
+        """Make a synchronous PUT request with retry and rate limiting."""
+        import urllib.error
+        import urllib.request
+
+        url = urljoin(self.base_url, path)
+        request_headers = self._get_headers()
+        if headers:
+            request_headers.update(headers)
+
+        req = urllib.request.Request(
+            url,
+            headers=request_headers,
+            method="PUT",
+            data=json.dumps(data).encode(),
+        )
+        last_error: Optional[Exception] = None
+        max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
+
+        for attempt in range(max_attempts):
+            # Apply rate limiting
+            if self._rate_limiter:
+                self._rate_limiter.wait()
+
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    return json.loads(resp.read().decode())
+            except urllib.error.HTTPError as e:
+                last_error = e
+                # Check if we should retry
+                if self.retry_config and e.code in self.retry_config.retry_statuses:
+                    if attempt < max_attempts - 1:
+                        delay = self.retry_config.get_delay(attempt)
+                        logger.debug(
+                            f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})"
+                        )
+                        time_module.sleep(delay)
+                        continue
+                self._handle_http_error(e)
+
+        # Should not reach here, but handle gracefully
+        if last_error:
+            self._handle_http_error(last_error)
+        raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
+
+    async def _put_async(self, path: str, data: dict, headers: dict | None = None) -> dict:
+        """Make an asynchronous PUT request with retry and rate limiting."""
+        import asyncio
+
+        import aiohttp
+
+        if self._session is None:
+            self._session = aiohttp.ClientSession()
+
+        url = urljoin(self.base_url, path)
+        request_headers = self._get_headers()
+        if headers:
+            request_headers.update(headers)
+
+        last_error: Optional[Exception] = None
+        max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
+
+        for attempt in range(max_attempts):
+            # Apply rate limiting
+            if self._rate_limiter:
+                await self._rate_limiter.wait_async()
+
+            try:
+                async with self._session.put(
+                    url,
+                    headers=request_headers,
+                    json=data,
                     timeout=aiohttp.ClientTimeout(total=self.timeout),
                 ) as resp:
                     if resp.status >= 400:

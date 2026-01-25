@@ -2307,3 +2307,779 @@ export interface AuditTrailList {
   offset: number;
   limit: number;
 }
+
+// =============================================================================
+// Debate Analysis Types
+// =============================================================================
+
+export interface DebateConvergence {
+  debate_id: string;
+  semantic_similarity: number;
+  agreement_level: number;
+  positions: Record<string, string>;
+  convergence_trajectory: Array<{
+    round: number;
+    similarity: number;
+  }>;
+  confidence: number;
+  timestamp: string;
+}
+
+export interface DebateCitation {
+  id: string;
+  source: string;
+  text: string;
+  agent: string;
+  round: number;
+  relevance_score: number;
+  verified: boolean;
+  url?: string;
+}
+
+export interface DebateCitations {
+  debate_id: string;
+  citations: DebateCitation[];
+  total: number;
+  verification_summary: {
+    verified: number;
+    unverified: number;
+    invalid: number;
+  };
+}
+
+export interface EvidenceItem {
+  id: string;
+  claim: string;
+  supporting_text: string;
+  source_agent: string;
+  round: number;
+  strength: number;
+  confidence: number;
+  reasoning?: string;
+}
+
+export interface DebateEvidence {
+  debate_id: string;
+  evidence: EvidenceItem[];
+  total: number;
+  strength_summary: {
+    strong: number;
+    moderate: number;
+    weak: number;
+  };
+}
+
+export interface DebateExport {
+  debate_id: string;
+  format: 'json' | 'markdown' | 'pdf' | 'html';
+  content: string;
+  filename: string;
+  size_bytes: number;
+  generated_at: string;
+}
+
+// =============================================================================
+// Explainability Types (Extended)
+// =============================================================================
+
+export interface ExplanationFactorDetail extends ExplanationFactor {
+  id: string;
+  category: string;
+  confidence: number;
+}
+
+export interface ExplanationFactors {
+  debate_id: string;
+  factors: ExplanationFactorDetail[];
+  total_factors: number;
+  dominant_factor: string;
+  factor_distribution: Record<string, number>;
+}
+
+export interface Counterfactual {
+  id: string;
+  scenario: string;
+  original_outcome: string;
+  alternate_outcome: string;
+  changed_factors: string[];
+  probability: number;
+  explanation: string;
+}
+
+export interface CounterfactualList {
+  debate_id: string;
+  counterfactuals: Counterfactual[];
+  total: number;
+}
+
+export interface CounterfactualGeneration {
+  debate_id: string;
+  counterfactual: Counterfactual;
+  generation_params: Record<string, unknown>;
+}
+
+export interface ProvenanceChain {
+  claim_id: string;
+  claim: string;
+  source_agent: string;
+  round: number;
+  predecessors: ProvenanceChain[];
+  evidence_ids: string[];
+  confidence: number;
+}
+
+export interface Provenance {
+  debate_id: string;
+  chains: ProvenanceChain[];
+  total_claims: number;
+  root_claims: number;
+  max_depth: number;
+}
+
+export interface Narrative {
+  debate_id: string;
+  summary: string;
+  key_points: string[];
+  decision_rationale: string;
+  dissent_summary?: string;
+  confidence_explanation: string;
+  generated_at: string;
+}
+
+export interface BatchExplainabilityResult {
+  debate_id: string;
+  status: 'pending' | 'completed' | 'failed';
+  explanation?: {
+    factors: ExplanationFactor[];
+    provenance: ProvenanceChain[];
+    narrative: string;
+  };
+  error?: string;
+}
+
+export interface BatchExplainabilityJob {
+  job_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  total: number;
+  completed: number;
+  results: BatchExplainabilityResult[];
+  created_at: string;
+  completed_at?: string;
+}
+
+// =============================================================================
+// Codebase Analysis Types
+// =============================================================================
+
+export interface CodebaseScanFinding {
+  id: string;
+  type: string;
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  file_path: string;
+  line_number?: number;
+  description: string;
+  recommendation?: string;
+  cwe_id?: string;
+  cvss_score?: number;
+}
+
+export interface CodebaseScan {
+  scan_id: string;
+  repository: string;
+  branch?: string;
+  commit_sha?: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  scan_type: string;
+  findings: CodebaseScanFinding[];
+  findings_summary: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    info: number;
+  };
+  started_at: string;
+  completed_at?: string;
+  duration_seconds?: number;
+}
+
+export interface CodebaseMetrics {
+  repository: string;
+  commit_sha?: string;
+  lines_of_code: number;
+  files_count: number;
+  complexity: {
+    average: number;
+    max: number;
+    distribution: Record<string, number>;
+  };
+  quality_score: number;
+  tech_debt_hours?: number;
+  coverage?: number;
+  duplication_pct?: number;
+  analyzed_at: string;
+}
+
+export interface CodebaseSymbol {
+  name: string;
+  type: 'class' | 'function' | 'method' | 'variable' | 'interface' | 'enum';
+  file_path: string;
+  line_number: number;
+  visibility: 'public' | 'private' | 'protected' | 'internal';
+  references_count: number;
+  documentation?: string;
+}
+
+export interface CodebaseSymbols {
+  repository: string;
+  symbols: CodebaseSymbol[];
+  total: number;
+  by_type: Record<string, number>;
+}
+
+export interface CallgraphNode {
+  id: string;
+  name: string;
+  file_path: string;
+  type: 'function' | 'method' | 'class';
+  calls: string[];
+  called_by: string[];
+}
+
+export interface CodebaseCallgraph {
+  repository: string;
+  nodes: CallgraphNode[];
+  edges_count: number;
+  entry_points: string[];
+  cycles?: string[][];
+}
+
+export interface DeadcodeItem {
+  file_path: string;
+  line_start: number;
+  line_end: number;
+  type: 'function' | 'class' | 'variable' | 'import';
+  name: string;
+  confidence: number;
+  reason: string;
+}
+
+export interface CodebaseDeadcode {
+  repository: string;
+  dead_code: DeadcodeItem[];
+  total: number;
+  removable_lines: number;
+  confidence_threshold: number;
+}
+
+export interface CodebaseAuditFinding {
+  id: string;
+  category: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  file_path?: string;
+  line_number?: number;
+  remediation: string;
+  effort: 'low' | 'medium' | 'high';
+}
+
+export interface CodebaseAudit {
+  audit_id: string;
+  repository: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  findings: CodebaseAuditFinding[];
+  summary: {
+    total_findings: number;
+    by_severity: Record<string, number>;
+    by_category: Record<string, number>;
+  };
+  score: number;
+  recommendations: string[];
+  started_at: string;
+  completed_at?: string;
+}
+
+export interface CodebaseImpact {
+  file_path: string;
+  impact_score: number;
+  affected_files: string[];
+  affected_tests: string[];
+  risk_level: 'low' | 'medium' | 'high';
+  change_summary: string;
+}
+
+export interface CodebaseUnderstanding {
+  repository: string;
+  architecture: string;
+  main_technologies: string[];
+  entry_points: string[];
+  key_components: Array<{
+    name: string;
+    purpose: string;
+    files: string[];
+  }>;
+  dependencies_summary: Record<string, string[]>;
+}
+
+// =============================================================================
+// Security Scanning Types
+// =============================================================================
+
+export interface CveDetails {
+  cve_id: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  cvss_score: number;
+  description: string;
+  affected_packages: string[];
+  fix_available: boolean;
+  fix_version?: string;
+  published_date: string;
+  references: string[];
+}
+
+export interface DependencyAnalysis {
+  repository: string;
+  total_dependencies: number;
+  direct_dependencies: number;
+  transitive_dependencies: number;
+  vulnerable_count: number;
+  outdated_count: number;
+  dependencies: Array<{
+    name: string;
+    version: string;
+    latest_version?: string;
+    license?: string;
+    vulnerabilities: string[];
+    is_direct: boolean;
+  }>;
+}
+
+export interface VulnerabilityScan {
+  scan_id: string;
+  repository: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  vulnerabilities: Array<{
+    id: string;
+    cve_id?: string;
+    severity: 'critical' | 'high' | 'medium' | 'low';
+    package: string;
+    version: string;
+    description: string;
+    fix_version?: string;
+  }>;
+  summary: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  scanned_at: string;
+}
+
+export interface LicenseCheck {
+  repository: string;
+  total_packages: number;
+  licenses: Record<string, string[]>;
+  copyleft_packages: string[];
+  unknown_licenses: string[];
+  compliance_status: 'compliant' | 'review_needed' | 'non_compliant';
+  issues: Array<{
+    package: string;
+    license: string;
+    issue: string;
+  }>;
+}
+
+export interface Sbom {
+  repository: string;
+  format: 'spdx' | 'cyclonedx';
+  version: string;
+  created_at: string;
+  packages: Array<{
+    name: string;
+    version: string;
+    license?: string;
+    supplier?: string;
+    checksum?: string;
+  }>;
+  relationships: Array<{
+    source: string;
+    target: string;
+    type: string;
+  }>;
+}
+
+export interface SecretFinding {
+  id: string;
+  type: string;
+  file_path: string;
+  line_number: number;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  description: string;
+  matched_pattern: string;
+  is_active?: boolean;
+  remediation: string;
+}
+
+export interface SecretsScan {
+  scan_id: string;
+  repository: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  findings: SecretFinding[];
+  summary: {
+    total: number;
+    by_type: Record<string, number>;
+    by_severity: Record<string, number>;
+  };
+  scanned_at: string;
+  duration_seconds?: number;
+}
+
+export interface SastFinding {
+  id: string;
+  rule_id: string;
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  category: string;
+  file_path: string;
+  line_start: number;
+  line_end: number;
+  code_snippet?: string;
+  message: string;
+  cwe_id?: string;
+  owasp_category?: string;
+  recommendation: string;
+}
+
+export interface SastScan {
+  scan_id: string;
+  repository: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  findings: SastFinding[];
+  summary: {
+    total: number;
+    by_severity: Record<string, number>;
+    by_category: Record<string, number>;
+  };
+  rules_applied: number;
+  files_scanned: number;
+  scanned_at: string;
+  duration_seconds?: number;
+}
+
+export interface OwaspSummary {
+  repository: string;
+  categories: Array<{
+    id: string;
+    name: string;
+    findings_count: number;
+    severity_breakdown: Record<string, number>;
+  }>;
+  overall_risk: 'low' | 'medium' | 'high' | 'critical';
+  compliance_score: number;
+}
+
+export interface QuickScan {
+  scan_id: string;
+  repository: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  scan_types: string[];
+  findings_summary: {
+    vulnerabilities: number;
+    secrets: number;
+    code_issues: number;
+    total: number;
+  };
+  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  started_at: string;
+  completed_at?: string;
+}
+
+// =============================================================================
+// Gmail Integration Types
+// =============================================================================
+
+export interface GmailLabel {
+  id: string;
+  name: string;
+  type: 'system' | 'user';
+  message_count: number;
+  unread_count: number;
+  color?: {
+    text: string;
+    background: string;
+  };
+}
+
+export interface GmailFilter {
+  id: string;
+  criteria: {
+    from?: string;
+    to?: string;
+    subject?: string;
+    query?: string;
+    has_attachment?: boolean;
+  };
+  action: {
+    add_labels?: string[];
+    remove_labels?: string[];
+    forward?: string;
+    archive?: boolean;
+    mark_read?: boolean;
+    star?: boolean;
+  };
+}
+
+export interface GmailMessageHeader {
+  name: string;
+  value: string;
+}
+
+export interface GmailMessagePart {
+  part_id: string;
+  mime_type: string;
+  filename?: string;
+  body?: {
+    size: number;
+    data?: string;
+    attachment_id?: string;
+  };
+  headers?: GmailMessageHeader[];
+  parts?: GmailMessagePart[];
+}
+
+export interface GmailMessage {
+  id: string;
+  thread_id: string;
+  label_ids: string[];
+  snippet: string;
+  payload: GmailMessagePart;
+  size_estimate: number;
+  history_id: string;
+  internal_date: string;
+  is_read: boolean;
+  is_starred: boolean;
+}
+
+export interface GmailThread {
+  id: string;
+  snippet: string;
+  history_id: string;
+  messages: GmailMessage[];
+  message_count: number;
+}
+
+export interface GmailDraft {
+  id: string;
+  message: {
+    to: string[];
+    cc?: string[];
+    bcc?: string[];
+    subject: string;
+    body: string;
+    body_type: 'text' | 'html';
+    attachments?: Array<{
+      filename: string;
+      mime_type: string;
+      size: number;
+    }>;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+// =============================================================================
+// Consensus & Relationship Types
+// =============================================================================
+
+export interface ConsensusStats {
+  total_debates: number;
+  consensus_reached: number;
+  consensus_rate: number;
+  average_rounds_to_consensus: number;
+  average_agreement_level: number;
+  by_consensus_type: Record<string, {
+    count: number;
+    success_rate: number;
+  }>;
+  by_agent_count: Record<string, {
+    count: number;
+    success_rate: number;
+  }>;
+  period: string;
+}
+
+export interface SettledConsensus {
+  topic: string;
+  consensus: string;
+  confidence: number;
+  supporting_debates: string[];
+  last_challenged?: string;
+  stability_score: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SimilarConsensus {
+  topic: string;
+  consensus: string;
+  similarity_score: number;
+  debate_id: string;
+  created_at: string;
+}
+
+export interface AgentRelationship {
+  agent_a: string;
+  agent_b: string;
+  relationship_type: 'ally' | 'rival' | 'neutral';
+  agreement_rate: number;
+  debate_count: number;
+  last_interaction: string;
+  notable_debates: string[];
+}
+
+export interface RelationshipSummary {
+  agent: string;
+  total_relationships: number;
+  allies: string[];
+  rivals: string[];
+  neutral: string[];
+  average_agreement: number;
+}
+
+export interface RelationshipGraphNode {
+  id: string;
+  agent: string;
+  elo: number;
+  debate_count: number;
+}
+
+export interface RelationshipGraphEdge {
+  source: string;
+  target: string;
+  weight: number;
+  relationship_type: 'ally' | 'rival' | 'neutral';
+}
+
+export interface RelationshipGraph {
+  nodes: RelationshipGraphNode[];
+  edges: RelationshipGraphEdge[];
+  clusters?: Array<{
+    id: string;
+    agents: string[];
+    cohesion: number;
+  }>;
+}
+
+// =============================================================================
+// Agent Comparison Types
+// =============================================================================
+
+export interface AgentComparison {
+  agents: string[];
+  metrics: Record<string, {
+    elo: number;
+    win_rate: number;
+    consensus_rate: number;
+    average_contribution: number;
+    calibration_score: number;
+  }>;
+  head_to_head: Array<{
+    agent_a: string;
+    agent_b: string;
+    wins_a: number;
+    wins_b: number;
+    draws: number;
+  }>;
+  strengths: Record<string, string[]>;
+  weaknesses: Record<string, string[]>;
+  recommendation?: string;
+}
+
+export interface AgentHistoryMatch {
+  debate_id: string;
+  topic: string;
+  outcome: string;
+  elo_change: number;
+  created_at: string;
+}
+
+export interface AgentHistory {
+  agent: string;
+  matches: AgentHistoryMatch[];
+  total: number;
+  elo_trajectory: Array<{
+    date: string;
+    elo: number;
+  }>;
+}
+
+// =============================================================================
+// Trending Topics Types
+// =============================================================================
+
+export interface TrendingTopic {
+  id: string;
+  topic: string;
+  category: string;
+  score: number;
+  velocity: number;
+  sources: string[];
+  related_topics: string[];
+  suggested_debate_prompt?: string;
+  first_seen: string;
+  last_updated: string;
+}
+
+export interface TrendingTopicsList {
+  topics: TrendingTopic[];
+  total: number;
+  categories: string[];
+  updated_at: string;
+}
+
+// =============================================================================
+// Workflow Execution Types
+// =============================================================================
+
+export interface WorkflowExecutionResult {
+  execution_id: string;
+  workflow_id: string;
+  status: 'completed' | 'failed';
+  outputs: Record<string, unknown>;
+  steps_executed: number;
+  total_steps: number;
+  duration_seconds: number;
+  error?: string;
+}
+
+export interface WorkflowTemplatePackage {
+  template: WorkflowTemplate;
+  examples: Array<{
+    name: string;
+    inputs: Record<string, unknown>;
+    expected_outputs?: Record<string, unknown>;
+  }>;
+  documentation?: string;
+  version: string;
+}
+
+export interface WorkflowTemplateRunResult {
+  template_id: string;
+  workflow: Workflow;
+  execution?: WorkflowExecution;
+}
+
+// =============================================================================
+// Gauntlet Receipt Types
+// =============================================================================
+
+export interface GauntletReceiptExport {
+  receipt_id: string;
+  gauntlet_id: string;
+  format: 'json' | 'pdf' | 'xml';
+  content: string;
+  filename: string;
+  size_bytes: number;
+  checksum: string;
+  generated_at: string;
+}

@@ -34,6 +34,29 @@ Use `scripts/test_tiers.sh` for common tiers:
 | `frontend` | `scripts/test_tiers.sh frontend` | Jest/RTL in `aragora/live` |
 | `e2e` | `scripts/test_tiers.sh e2e` | Playwright E2E in `aragora/live` |
 
+## Integration Baseline Runner
+
+Use `scripts/run_integration_baseline.py` for tiered integration baselines that
+match CI expectations and provide quick local feedback:
+
+```bash
+# Smoke tests (fastest)
+python scripts/run_integration_baseline.py smoke
+
+# PR-safe integration baseline (mocked dependencies)
+python scripts/run_integration_baseline.py offline
+
+# Knowledge/CDC integration focus
+python scripts/run_integration_baseline.py knowledge
+
+# Full integration suite
+python scripts/run_integration_baseline.py full
+```
+
+**Environment controls:**
+- `ARAGORA_BASELINE_PARALLEL` - worker count (default: auto)
+- `ARAGORA_BASELINE_TIMEOUT` - per-test timeout seconds (default: 60)
+
 ## CI Mapping
 
 CI workflows and what they cover:
@@ -107,6 +130,7 @@ Tests use markers to categorize them:
 | `load` | Load/stress tests | `-m load` to run only |
 | `integration` | Integration tests | `-m integration` |
 | `integration_minimal` | Minimal integration baseline (no external services) | `-m integration_minimal` |
+| `knowledge` | Knowledge Mound tests | `-m knowledge` |
 | `e2e` | End-to-end tests | `-m e2e` |
 
 ```bash

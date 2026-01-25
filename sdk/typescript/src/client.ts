@@ -8,6 +8,7 @@ import type {
   AragoraConfig,
   Agent,
   AgentCalibration,
+  AgentComparison,
   AgentConsistency,
   AgentFlip,
   AgentMoment,
@@ -15,30 +16,57 @@ import type {
   AgentPerformance,
   AgentPosition,
   AgentProfile,
+  AgentRelationship,
   AgentScore,
   AuditEvent,
   AuditFinding,
   AuditSession,
   AuditStats,
+  CodebaseAudit,
+  CodebaseCallgraph,
+  CodebaseDeadcode,
+  CodebaseImpact,
+  CodebaseMetrics,
+  CodebaseScan,
+  CodebaseSymbols,
+  CodebaseUnderstanding,
   ConsensusQualityAnalytics,
+  ConsensusStats,
+  Counterfactual,
+  CounterfactualGeneration,
+  CounterfactualList,
   CreateAuditSessionRequest,
   CreateTournamentRequest,
   CritiqueEntry,
+  CveDetails,
   Debate,
+  DebateCitations,
+  DebateConvergence,
   DebateCreateRequest,
   DebateCreateResponse,
+  DebateEvidence,
+  DebateExport,
   DebateUpdateRequest,
+  DecisionReceipt,
+  DependencyAnalysis,
   DisagreementAnalytics,
   DomainRating,
   EarlyStopAnalytics,
   ExplainabilityResult,
+  ExplanationFactors,
   GauntletComparison,
   GauntletHeatmapExtended,
   GauntletPersona,
+  GauntletReceiptExport,
   GauntletResult,
   GauntletRun,
   GauntletRunRequest,
   GauntletRunResponse,
+  GmailDraft,
+  GmailFilter,
+  GmailLabel,
+  GmailMessage,
+  GmailThread,
   GraphDebate,
   GraphDebateCreateRequest,
   GraphNode,
@@ -48,6 +76,7 @@ import type {
   KnowledgeEntry,
   KnowledgeSearchResult,
   KnowledgeStats,
+  LicenseCheck,
   MarketplaceTemplate,
   MatrixConclusion,
   MatrixDebate,
@@ -59,41 +88,59 @@ import type {
   MemoryStats,
   MemoryTier,
   MemoryTierStats,
+  Message,
+  Narrative,
   OnboardingStatus,
   OpponentBriefing,
   Organization,
-  OrganizationMember,
   OrganizationInvitation,
+  OrganizationMember,
+  OwaspSummary,
   PaginationParams,
+  Provenance,
+  QuickScan,
   RankingStats,
+  RelationshipGraph,
+  RelationshipSummary,
   Replay,
   ReplayFormat,
-  DecisionReceipt,
   RiskHeatmap,
   RoleRotationAnalytics,
+  SastFinding,
+  SastScan,
+  Sbom,
   ScoreAgentsRequest,
   SearchResponse,
+  SecretFinding,
+  SecretsScan,
   SelectionPlugin,
-  Tenant,
-  UserOrganization,
+  SettledConsensus,
+  SimilarConsensus,
   TeamSelection,
   TeamSelectionRequest,
+  Tenant,
   Tournament,
   TournamentBracket,
   TournamentMatch,
   TournamentStandings,
+  TrendingTopic,
+  TrendingTopicsList,
+  UserOrganization,
   VerificationBackend,
   VerificationReport,
   VerificationResult,
   VerificationStatus,
   VerifyClaimRequest,
+  VulnerabilityScan,
   WebSocketEvent,
   Workflow,
-  WorkflowTemplate,
-  WorkflowExecution,
   WorkflowApproval,
-  WorkflowVersion,
+  WorkflowExecution,
   WorkflowSimulationResult,
+  WorkflowTemplate,
+  WorkflowTemplatePackage,
+  WorkflowTemplateRunResult,
+  WorkflowVersion,
 } from './types';
 import { AragoraError } from './types';
 import { AragoraWebSocket, createWebSocket, streamDebate, type WebSocketOptions, type StreamOptions } from './websocket';
@@ -400,8 +447,8 @@ export class AragoraClient {
     return this.request<{ agents: Agent[] }>('GET', '/api/leaderboard');
   }
 
-  async compareAgents(agents: string[]): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/agent/compare', {
+  async compareAgents(agents: string[]): Promise<AgentComparison> {
+    return this.request<AgentComparison>('GET', '/api/agent/compare', {
       params: { agents: agents.join(',') },
     });
   }
@@ -426,28 +473,28 @@ export class AragoraClient {
     return this.request<DebateCreateResponse>('POST', '/api/debate', { body: request });
   }
 
-  async getDebateMessages(debateId: string): Promise<{ messages: unknown[] }> {
-    return this.request<{ messages: unknown[] }>('GET', `/api/debates/${encodeURIComponent(debateId)}/messages`);
+  async getDebateMessages(debateId: string): Promise<{ messages: Message[] }> {
+    return this.request<{ messages: Message[] }>('GET', `/api/debates/${encodeURIComponent(debateId)}/messages`);
   }
 
-  async getDebateConvergence(debateId: string): Promise<unknown> {
-    return this.request<unknown>('GET', `/api/debates/${encodeURIComponent(debateId)}/convergence`);
+  async getDebateConvergence(debateId: string): Promise<DebateConvergence> {
+    return this.request<DebateConvergence>('GET', `/api/debates/${encodeURIComponent(debateId)}/convergence`);
   }
 
-  async getDebateCitations(debateId: string): Promise<unknown> {
-    return this.request<unknown>('GET', `/api/debates/${encodeURIComponent(debateId)}/citations`);
+  async getDebateCitations(debateId: string): Promise<DebateCitations> {
+    return this.request<DebateCitations>('GET', `/api/debates/${encodeURIComponent(debateId)}/citations`);
   }
 
-  async getDebateEvidence(debateId: string): Promise<unknown> {
-    return this.request<unknown>('GET', `/api/debates/${encodeURIComponent(debateId)}/evidence`);
+  async getDebateEvidence(debateId: string): Promise<DebateEvidence> {
+    return this.request<DebateEvidence>('GET', `/api/debates/${encodeURIComponent(debateId)}/evidence`);
   }
 
   async forkDebate(debateId: string, options?: { branch_point?: number }): Promise<{ debate_id: string }> {
     return this.request<{ debate_id: string }>('POST', `/api/debates/${encodeURIComponent(debateId)}/fork`, { body: options });
   }
 
-  async exportDebate(debateId: string, format: 'json' | 'markdown' | 'html' | 'pdf'): Promise<unknown> {
-    return this.request<unknown>('GET', `/api/debates/${encodeURIComponent(debateId)}/export/${format}`);
+  async exportDebate(debateId: string, format: 'json' | 'markdown' | 'html' | 'pdf'): Promise<DebateExport> {
+    return this.request<DebateExport>('GET', `/api/debates/${encodeURIComponent(debateId)}/export/${format}`);
   }
 
   async searchDebates(query: string, params?: PaginationParams): Promise<SearchResponse> {
@@ -474,27 +521,27 @@ export class AragoraClient {
     return this.request<ExplainabilityResult>('GET', `/api/debates/${encodeURIComponent(debateId)}/explainability`, { params: options });
   }
 
-  async getExplanationFactors(debateId: string, options?: { min_contribution?: number }): Promise<unknown> {
-    return this.request<unknown>('GET', `/api/debates/${encodeURIComponent(debateId)}/explainability/factors`, { params: options });
+  async getExplanationFactors(debateId: string, options?: { min_contribution?: number }): Promise<ExplanationFactors> {
+    return this.request<ExplanationFactors>('GET', `/api/debates/${encodeURIComponent(debateId)}/explainability/factors`, { params: options });
   }
 
-  async getCounterfactuals(debateId: string, options?: { max_scenarios?: number }): Promise<unknown> {
-    return this.request<unknown>('GET', `/api/debates/${encodeURIComponent(debateId)}/explainability/counterfactual`, { params: options });
+  async getCounterfactuals(debateId: string, options?: { max_scenarios?: number }): Promise<CounterfactualList> {
+    return this.request<CounterfactualList>('GET', `/api/debates/${encodeURIComponent(debateId)}/explainability/counterfactual`, { params: options });
   }
 
   async generateCounterfactual(debateId: string, body: {
     hypothesis: string;
     affected_agents?: string[];
-  }): Promise<unknown> {
-    return this.request<unknown>('POST', `/api/debates/${encodeURIComponent(debateId)}/explainability/counterfactual`, { body });
+  }): Promise<CounterfactualGeneration> {
+    return this.request<CounterfactualGeneration>('POST', `/api/debates/${encodeURIComponent(debateId)}/explainability/counterfactual`, { body });
   }
 
-  async getProvenance(debateId: string): Promise<unknown> {
-    return this.request<unknown>('GET', `/api/debates/${encodeURIComponent(debateId)}/explainability/provenance`);
+  async getProvenance(debateId: string): Promise<Provenance> {
+    return this.request<Provenance>('GET', `/api/debates/${encodeURIComponent(debateId)}/explainability/provenance`);
   }
 
-  async getNarrative(debateId: string, options?: { format?: 'brief' | 'detailed' | 'executive_summary' }): Promise<unknown> {
-    return this.request<unknown>('GET', `/api/debates/${encodeURIComponent(debateId)}/explainability/narrative`, { params: options });
+  async getNarrative(debateId: string, options?: { format?: 'brief' | 'detailed' | 'executive_summary' }): Promise<Narrative> {
+    return this.request<Narrative>('GET', `/api/debates/${encodeURIComponent(debateId)}/explainability/narrative`, { params: options });
   }
 
   // Batch explainability
@@ -568,8 +615,8 @@ export class AragoraClient {
   async runWorkflowTemplate(templateId: string, body?: {
     inputs?: Record<string, unknown>;
     config?: { timeout?: number; async?: boolean };
-  }): Promise<unknown> {
-    return this.request<unknown>('POST', `/api/workflow/templates/${encodeURIComponent(templateId)}/run`, { body });
+  }): Promise<WorkflowTemplateRunResult> {
+    return this.request<WorkflowTemplateRunResult>('POST', `/api/workflow/templates/${encodeURIComponent(templateId)}/run`, { body });
   }
 
   async listWorkflowCategories(): Promise<{ categories: string[] }> {
@@ -582,8 +629,8 @@ export class AragoraClient {
 
   async getWorkflowTemplatePackage(templateId: string, options?: {
     include_examples?: boolean;
-  }): Promise<{ template: WorkflowTemplate; examples?: unknown[] }> {
-    return this.request<{ template: WorkflowTemplate; examples?: unknown[] }>(
+  }): Promise<WorkflowTemplatePackage> {
+    return this.request<WorkflowTemplatePackage>(
       'GET',
       `/api/workflow/templates/${encodeURIComponent(templateId)}/package`,
       { params: options }
@@ -753,8 +800,8 @@ export class AragoraClient {
     return this.request<{ valid: boolean; hash: string }>('GET', `/api/gauntlet/receipts/${encodeURIComponent(receiptId)}/verify`);
   }
 
-  async exportGauntletReceipt(receiptId: string, format: 'json' | 'html' | 'markdown' | 'sarif'): Promise<unknown> {
-    return this.request<unknown>('GET', `/api/gauntlet/receipts/${encodeURIComponent(receiptId)}/export`, { params: { format } });
+  async exportGauntletReceipt(receiptId: string, format: 'json' | 'html' | 'markdown' | 'sarif'): Promise<GauntletReceiptExport> {
+    return this.request<GauntletReceiptExport>('GET', `/api/gauntlet/receipts/${encodeURIComponent(receiptId)}/export`, { params: { format } });
   }
 
   async listRiskHeatmaps(params?: PaginationParams): Promise<{ heatmaps: RiskHeatmap[] }> {
@@ -1764,16 +1811,16 @@ export class AragoraClient {
     return this.request<{ success: boolean }>('POST', '/api/memory/continuum/consolidate');
   }
 
-  async getConsensusStats(): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/consensus/stats');
+  async getConsensusStats(): Promise<ConsensusStats> {
+    return this.request<ConsensusStats>('GET', '/api/consensus/stats');
   }
 
-  async getSettledConsensus(params?: { domain?: string } & PaginationParams): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/consensus/settled', { params });
+  async getSettledConsensus(params?: { domain?: string } & PaginationParams): Promise<{ settled: SettledConsensus[]; total: number }> {
+    return this.request<{ settled: SettledConsensus[]; total: number }>('GET', '/api/consensus/settled', { params });
   }
 
-  async getSimilarConsensus(topic: string): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/consensus/similar', { params: { topic } });
+  async getSimilarConsensus(topic: string): Promise<{ similar: SimilarConsensus[] }> {
+    return this.request<{ similar: SimilarConsensus[] }>('GET', '/api/consensus/similar', { params: { topic } });
   }
 
   // ===========================================================================
@@ -2258,28 +2305,28 @@ export class AragoraClient {
   // Relationships
   // ===========================================================================
 
-  async getRelationshipSummary(): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/relationships/summary');
+  async getRelationshipSummary(): Promise<RelationshipSummary> {
+    return this.request<RelationshipSummary>('GET', '/api/relationships/summary');
   }
 
-  async getRelationshipGraph(): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/relationships/graph');
+  async getRelationshipGraph(): Promise<RelationshipGraph> {
+    return this.request<RelationshipGraph>('GET', '/api/relationships/graph');
   }
 
-  async getAgentRelationship(agentA: string, agentB: string): Promise<unknown> {
-    return this.request<unknown>('GET', `/api/relationship/${encodeURIComponent(agentA)}/${encodeURIComponent(agentB)}`);
+  async getAgentRelationship(agentA: string, agentB: string): Promise<AgentRelationship> {
+    return this.request<AgentRelationship>('GET', `/api/relationship/${encodeURIComponent(agentA)}/${encodeURIComponent(agentB)}`);
   }
 
   // ===========================================================================
   // Pulse (Trending)
   // ===========================================================================
 
-  async getTrendingTopics(category?: string): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/pulse/trending', { params: { category } });
+  async getTrendingTopics(category?: string): Promise<TrendingTopicsList> {
+    return this.request<TrendingTopicsList>('GET', '/api/pulse/trending', { params: { category } });
   }
 
-  async getSuggestedTopics(): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/pulse/suggest');
+  async getSuggestedTopics(): Promise<{ topics: TrendingTopic[] }> {
+    return this.request<{ topics: TrendingTopic[] }>('GET', '/api/pulse/suggest');
   }
 
   // ===========================================================================
@@ -2291,12 +2338,12 @@ export class AragoraClient {
     return this.request<string>('GET', '/metrics');
   }
 
-  async getMetricsHealth(): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/metrics/health');
+  async getMetricsHealth(): Promise<{ healthy: boolean; checks: Record<string, boolean> }> {
+    return this.request<{ healthy: boolean; checks: Record<string, boolean> }>('GET', '/api/metrics/health');
   }
 
-  async getSystemMetrics(): Promise<unknown> {
-    return this.request<unknown>('GET', '/api/metrics/system');
+  async getSystemMetrics(): Promise<{ cpu: number; memory: number; uptime: number; requests_per_second: number }> {
+    return this.request<{ cpu: number; memory: number; uptime: number; requests_per_second: number }>('GET', '/api/metrics/system');
   }
 
   // ===========================================================================
@@ -2309,8 +2356,8 @@ export class AragoraClient {
   async startCodebaseScan(
     repo: string,
     body: { repo_path: string; branch?: string; commit_sha?: string; workspace_id?: string }
-  ): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  ): Promise<CodebaseScan> {
+    return this.request<CodebaseScan>(
       'POST',
       `/api/v1/codebase/${encodeURIComponent(repo)}/scan`,
       { body }
@@ -2320,8 +2367,8 @@ export class AragoraClient {
   /**
    * Get the latest dependency scan for a repo.
    */
-  async getLatestCodebaseScan(repo: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getLatestCodebaseScan(repo: string): Promise<CodebaseScan> {
+    return this.request<CodebaseScan>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/scan/latest`
     );
@@ -2330,8 +2377,8 @@ export class AragoraClient {
   /**
    * Get a dependency scan by ID.
    */
-  async getCodebaseScan(repo: string, scanId: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getCodebaseScan(repo: string, scanId: string): Promise<CodebaseScan> {
+    return this.request<CodebaseScan>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/scan/${encodeURIComponent(scanId)}`
     );
@@ -2343,8 +2390,8 @@ export class AragoraClient {
   async listCodebaseScans(
     repo: string,
     params?: { status?: string; limit?: number; offset?: number }
-  ): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  ): Promise<{ scans: CodebaseScan[]; total: number }> {
+    return this.request<{ scans: CodebaseScan[]; total: number }>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/scans`,
       { params }
@@ -2357,8 +2404,8 @@ export class AragoraClient {
   async listCodebaseVulnerabilities(
     repo: string,
     params?: { severity?: string; package?: string; ecosystem?: string; limit?: number; offset?: number }
-  ): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  ): Promise<VulnerabilityScan> {
+    return this.request<VulnerabilityScan>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/vulnerabilities`,
       { params }
@@ -2372,8 +2419,8 @@ export class AragoraClient {
     ecosystem: string,
     packageName: string,
     params?: { version?: string }
-  ): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  ): Promise<VulnerabilityScan> {
+    return this.request<VulnerabilityScan>(
       'GET',
       `/api/v1/codebase/package/${encodeURIComponent(ecosystem)}/${encodeURIComponent(packageName)}/vulnerabilities`,
       { params }
@@ -2383,8 +2430,8 @@ export class AragoraClient {
   /**
    * Get CVE details.
    */
-  async getCveDetails(cveId: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getCveDetails(cveId: string): Promise<CveDetails> {
+    return this.request<CveDetails>(
       'GET',
       `/api/v1/cve/${encodeURIComponent(cveId)}`
     );
@@ -2393,43 +2440,43 @@ export class AragoraClient {
   /**
    * Analyze dependencies for a repository.
    */
-  async analyzeDependencies(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('POST', '/api/v1/codebase/analyze-dependencies', { body });
+  async analyzeDependencies(body: { repo_path: string; ecosystem?: string }): Promise<DependencyAnalysis> {
+    return this.request<DependencyAnalysis>('POST', '/api/v1/codebase/analyze-dependencies', { body });
   }
 
   /**
    * Run a vulnerability scan for a repository.
    */
-  async scanVulnerabilities(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('POST', '/api/v1/codebase/scan-vulnerabilities', { body });
+  async scanVulnerabilities(body: { repo_path: string; severity_threshold?: string }): Promise<VulnerabilityScan> {
+    return this.request<VulnerabilityScan>('POST', '/api/v1/codebase/scan-vulnerabilities', { body });
   }
 
   /**
    * Check license compatibility.
    */
-  async checkCodebaseLicenses(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('POST', '/api/v1/codebase/check-licenses', { body });
+  async checkCodebaseLicenses(body: { repo_path: string; allowed_licenses?: string[] }): Promise<LicenseCheck> {
+    return this.request<LicenseCheck>('POST', '/api/v1/codebase/check-licenses', { body });
   }
 
   /**
    * Generate a software bill of materials (SBOM).
    */
-  async generateCodebaseSbom(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('POST', '/api/v1/codebase/sbom', { body });
+  async generateCodebaseSbom(body: { repo_path: string; format?: 'spdx' | 'cyclonedx' }): Promise<Sbom> {
+    return this.request<Sbom>('POST', '/api/v1/codebase/sbom', { body });
   }
 
   /**
    * Clear dependency analysis cache.
    */
-  async clearCodebaseCache(): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('POST', '/api/v1/codebase/clear-cache');
+  async clearCodebaseCache(): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('POST', '/api/v1/codebase/clear-cache');
   }
 
   /**
    * Trigger a secrets scan.
    */
-  async startSecretsScan(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async startSecretsScan(repo: string, body: { repo_path: string; scan_history?: boolean }): Promise<SecretsScan> {
+    return this.request<SecretsScan>(
       'POST',
       `/api/v1/codebase/${encodeURIComponent(repo)}/scan/secrets`,
       { body }
@@ -2439,8 +2486,8 @@ export class AragoraClient {
   /**
    * Get the latest secrets scan.
    */
-  async getLatestSecretsScan(repo: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getLatestSecretsScan(repo: string): Promise<SecretsScan> {
+    return this.request<SecretsScan>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/scan/secrets/latest`
     );
@@ -2449,8 +2496,8 @@ export class AragoraClient {
   /**
    * Get a secrets scan by ID.
    */
-  async getSecretsScan(repo: string, scanId: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getSecretsScan(repo: string, scanId: string): Promise<SecretsScan> {
+    return this.request<SecretsScan>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/scan/secrets/${encodeURIComponent(scanId)}`
     );
@@ -2459,8 +2506,8 @@ export class AragoraClient {
   /**
    * List secrets from the latest scan.
    */
-  async listSecrets(repo: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async listSecrets(repo: string): Promise<{ secrets: SecretFinding[]; total: number }> {
+    return this.request<{ secrets: SecretFinding[]; total: number }>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/secrets`
     );
@@ -2469,8 +2516,8 @@ export class AragoraClient {
   /**
    * List secrets scans.
    */
-  async listSecretsScans(repo: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async listSecretsScans(repo: string): Promise<{ scans: SecretsScan[]; total: number }> {
+    return this.request<{ scans: SecretsScan[]; total: number }>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/scans/secrets`
     );
@@ -2479,8 +2526,8 @@ export class AragoraClient {
   /**
    * Trigger a SAST scan.
    */
-  async startSastScan(repo: string, body: { repo_path: string; rule_sets?: string[]; workspace_id?: string }): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async startSastScan(repo: string, body: { repo_path: string; rule_sets?: string[]; workspace_id?: string }): Promise<SastScan> {
+    return this.request<SastScan>(
       'POST',
       `/api/v1/codebase/${encodeURIComponent(repo)}/scan/sast`,
       { body }
@@ -2490,8 +2537,8 @@ export class AragoraClient {
   /**
    * Get a SAST scan by ID.
    */
-  async getSastScan(repo: string, scanId: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getSastScan(repo: string, scanId: string): Promise<SastScan> {
+    return this.request<SastScan>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/scan/sast/${encodeURIComponent(scanId)}`
     );
@@ -2503,8 +2550,8 @@ export class AragoraClient {
   async listSastFindings(
     repo: string,
     params?: { severity?: string; owasp_category?: string; limit?: number; offset?: number }
-  ): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  ): Promise<{ findings: SastFinding[]; total: number }> {
+    return this.request<{ findings: SastFinding[]; total: number }>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/sast/findings`,
       { params }
@@ -2514,8 +2561,8 @@ export class AragoraClient {
   /**
    * Get OWASP summary for SAST findings.
    */
-  async getSastOwaspSummary(repo: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getSastOwaspSummary(repo: string): Promise<OwaspSummary> {
+    return this.request<OwaspSummary>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/sast/owasp-summary`
     );
@@ -2524,8 +2571,8 @@ export class AragoraClient {
   /**
    * Run codebase metrics analysis.
    */
-  async runCodebaseMetricsAnalysis(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async runCodebaseMetricsAnalysis(repo: string, body: { repo_path: string; include_coverage?: boolean }): Promise<CodebaseMetrics> {
+    return this.request<CodebaseMetrics>(
       'POST',
       `/api/v1/codebase/${encodeURIComponent(repo)}/metrics/analyze`,
       { body }
@@ -2535,8 +2582,8 @@ export class AragoraClient {
   /**
    * Get latest metrics report.
    */
-  async getLatestCodebaseMetrics(repo: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getLatestCodebaseMetrics(repo: string): Promise<CodebaseMetrics> {
+    return this.request<CodebaseMetrics>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/metrics`
     );
@@ -2545,8 +2592,8 @@ export class AragoraClient {
   /**
    * Get metrics report by ID.
    */
-  async getCodebaseMetrics(repo: string, analysisId: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getCodebaseMetrics(repo: string, analysisId: string): Promise<CodebaseMetrics> {
+    return this.request<CodebaseMetrics>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/metrics/${encodeURIComponent(analysisId)}`
     );
@@ -2558,8 +2605,8 @@ export class AragoraClient {
   async listCodebaseMetricsHistory(
     repo: string,
     params?: { limit?: number; offset?: number }
-  ): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  ): Promise<{ metrics: CodebaseMetrics[]; total: number }> {
+    return this.request<{ metrics: CodebaseMetrics[]; total: number }>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/metrics/history`,
       { params }
@@ -2572,8 +2619,8 @@ export class AragoraClient {
   async getCodebaseHotspots(
     repo: string,
     params?: { limit?: number; offset?: number }
-  ): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  ): Promise<{ hotspots: Array<{ file_path: string; complexity: number; churn: number; risk_score: number }>; total: number }> {
+    return this.request<{ hotspots: Array<{ file_path: string; complexity: number; churn: number; risk_score: number }>; total: number }>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/hotspots`,
       { params }
@@ -2586,8 +2633,8 @@ export class AragoraClient {
   async getCodebaseDuplicates(
     repo: string,
     params?: { limit?: number; offset?: number }
-  ): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  ): Promise<{ duplicates: Array<{ files: string[]; lines: number; tokens: number }>; total: number; total_duplicated_lines: number }> {
+    return this.request<{ duplicates: Array<{ files: string[]; lines: number; tokens: number }>; total: number; total_duplicated_lines: number }>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/duplicates`,
       { params }
@@ -2600,8 +2647,8 @@ export class AragoraClient {
   async getCodebaseFileMetrics(
     repo: string,
     filePath: string
-  ): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  ): Promise<{ file_path: string; lines: number; complexity: number; maintainability: number }> {
+    return this.request<{ file_path: string; lines: number; complexity: number; maintainability: number }>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/metrics/file/${encodeURIComponent(filePath)}`
     );
@@ -2610,8 +2657,8 @@ export class AragoraClient {
   /**
    * Run code intelligence analysis.
    */
-  async analyzeCodebase(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async analyzeCodebase(repo: string, body: { repo_path: string; depth?: number }): Promise<CodebaseUnderstanding> {
+    return this.request<CodebaseUnderstanding>(
       'POST',
       `/api/v1/codebase/${encodeURIComponent(repo)}/analyze`,
       { body }
@@ -2621,8 +2668,8 @@ export class AragoraClient {
   /**
    * Get codebase symbols.
    */
-  async getCodebaseSymbols(repo: string, params?: Record<string, string | number | boolean | undefined>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getCodebaseSymbols(repo: string, params?: { type?: string; limit?: number; offset?: number }): Promise<CodebaseSymbols> {
+    return this.request<CodebaseSymbols>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/symbols`,
       { params }
@@ -2632,8 +2679,8 @@ export class AragoraClient {
   /**
    * Get codebase call graph.
    */
-  async getCodebaseCallgraph(repo: string, params?: Record<string, string | number | boolean | undefined>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getCodebaseCallgraph(repo: string, params?: { entry_point?: string; depth?: number }): Promise<CodebaseCallgraph> {
+    return this.request<CodebaseCallgraph>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/callgraph`,
       { params }
@@ -2643,8 +2690,8 @@ export class AragoraClient {
   /**
    * Get dead code report.
    */
-  async getCodebaseDeadcode(repo: string, params?: Record<string, string | number | boolean | undefined>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getCodebaseDeadcode(repo: string, params?: { confidence_threshold?: number; limit?: number }): Promise<CodebaseDeadcode> {
+    return this.request<CodebaseDeadcode>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/deadcode`,
       { params }
@@ -2654,8 +2701,8 @@ export class AragoraClient {
   /**
    * Analyze impact for a change.
    */
-  async analyzeCodebaseImpact(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async analyzeCodebaseImpact(repo: string, body: { file_path: string; change_type?: string }): Promise<CodebaseImpact> {
+    return this.request<CodebaseImpact>(
       'POST',
       `/api/v1/codebase/${encodeURIComponent(repo)}/impact`,
       { body }
@@ -2665,8 +2712,8 @@ export class AragoraClient {
   /**
    * Explain codebase components.
    */
-  async understandCodebase(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async understandCodebase(repo: string, body: { query?: string; include_architecture?: boolean }): Promise<CodebaseUnderstanding> {
+    return this.request<CodebaseUnderstanding>(
       'POST',
       `/api/v1/codebase/${encodeURIComponent(repo)}/understand`,
       { body }
@@ -2676,8 +2723,8 @@ export class AragoraClient {
   /**
    * Start a codebase audit.
    */
-  async startCodebaseAudit(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async startCodebaseAudit(repo: string, body: { repo_path: string; categories?: string[] }): Promise<CodebaseAudit> {
+    return this.request<CodebaseAudit>(
       'POST',
       `/api/v1/codebase/${encodeURIComponent(repo)}/audit`,
       { body }
@@ -2687,8 +2734,8 @@ export class AragoraClient {
   /**
    * Get codebase audit results.
    */
-  async getCodebaseAudit(repo: string, auditId: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getCodebaseAudit(repo: string, auditId: string): Promise<CodebaseAudit> {
+    return this.request<CodebaseAudit>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/audit/${encodeURIComponent(auditId)}`
     );
@@ -2697,15 +2744,15 @@ export class AragoraClient {
   /**
    * Run a quick security scan.
    */
-  async startQuickScan(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('POST', '/api/v1/codebase/quick-scan', { body });
+  async startQuickScan(body: { repo_path: string; scan_types?: string[] }): Promise<QuickScan> {
+    return this.request<QuickScan>('POST', '/api/v1/codebase/quick-scan', { body });
   }
 
   /**
    * Get quick scan result.
    */
-  async getQuickScan(scanId: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getQuickScan(scanId: string): Promise<QuickScan> {
+    return this.request<QuickScan>(
       'GET',
       `/api/v1/codebase/quick-scan/${encodeURIComponent(scanId)}`
     );
@@ -2714,8 +2761,8 @@ export class AragoraClient {
   /**
    * List recent quick scans.
    */
-  async listQuickScans(): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('GET', '/api/v1/codebase/quick-scans');
+  async listQuickScans(): Promise<{ scans: QuickScan[]; total: number }> {
+    return this.request<{ scans: QuickScan[]; total: number }>('GET', '/api/v1/codebase/quick-scans');
   }
 
   // ===========================================================================
@@ -2725,8 +2772,8 @@ export class AragoraClient {
   /**
    * List Gmail labels.
    */
-  async listGmailLabels(params?: { user_id?: string }): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('GET', '/api/v1/gmail/labels', { params });
+  async listGmailLabels(params?: { user_id?: string }): Promise<{ labels: GmailLabel[] }> {
+    return this.request<{ labels: GmailLabel[] }>('GET', '/api/v1/gmail/labels', { params });
   }
 
   /**
@@ -2737,8 +2784,8 @@ export class AragoraClient {
     user_id?: string;
     message_list_visibility?: string;
     label_list_visibility?: string;
-  }): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('POST', '/api/v1/gmail/labels', { body });
+  }): Promise<GmailLabel> {
+    return this.request<GmailLabel>('POST', '/api/v1/gmail/labels', { body });
   }
 
   /**
@@ -2752,8 +2799,8 @@ export class AragoraClient {
       message_list_visibility?: string;
       label_list_visibility?: string;
     }
-  ): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  ): Promise<GmailLabel> {
+    return this.request<GmailLabel>(
       'PATCH',
       `/api/v1/gmail/labels/${encodeURIComponent(labelId)}`,
       { body }
@@ -2763,8 +2810,8 @@ export class AragoraClient {
   /**
    * Delete a Gmail label.
    */
-  async deleteGmailLabel(labelId: string, params?: { user_id?: string }): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async deleteGmailLabel(labelId: string, params?: { user_id?: string }): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(
       'DELETE',
       `/api/v1/gmail/labels/${encodeURIComponent(labelId)}`,
       { params }
@@ -2774,22 +2821,22 @@ export class AragoraClient {
   /**
    * List Gmail filters.
    */
-  async listGmailFilters(params?: { user_id?: string }): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('GET', '/api/v1/gmail/filters', { params });
+  async listGmailFilters(params?: { user_id?: string }): Promise<{ filters: GmailFilter[] }> {
+    return this.request<{ filters: GmailFilter[] }>('GET', '/api/v1/gmail/filters', { params });
   }
 
   /**
    * Create a Gmail filter.
    */
-  async createGmailFilter(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('POST', '/api/v1/gmail/filters', { body });
+  async createGmailFilter(body: { criteria: GmailFilter['criteria']; action: GmailFilter['action']; user_id?: string }): Promise<GmailFilter> {
+    return this.request<GmailFilter>('POST', '/api/v1/gmail/filters', { body });
   }
 
   /**
    * Delete a Gmail filter.
    */
-  async deleteGmailFilter(filterId: string, params?: { user_id?: string }): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async deleteGmailFilter(filterId: string, params?: { user_id?: string }): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(
       'DELETE',
       `/api/v1/gmail/filters/${encodeURIComponent(filterId)}`,
       { params }
@@ -2799,8 +2846,8 @@ export class AragoraClient {
   /**
    * Modify labels for a Gmail message.
    */
-  async modifyGmailMessageLabels(messageId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async modifyGmailMessageLabels(messageId: string, body: { add_labels?: string[]; remove_labels?: string[]; user_id?: string }): Promise<GmailMessage> {
+    return this.request<GmailMessage>(
       'POST',
       `/api/v1/gmail/messages/${encodeURIComponent(messageId)}/labels`,
       { body }
@@ -2810,8 +2857,8 @@ export class AragoraClient {
   /**
    * Mark a Gmail message read/unread.
    */
-  async setGmailMessageReadState(messageId: string, body?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async setGmailMessageReadState(messageId: string, body?: { read?: boolean; user_id?: string }): Promise<GmailMessage> {
+    return this.request<GmailMessage>(
       'POST',
       `/api/v1/gmail/messages/${encodeURIComponent(messageId)}/read`,
       { body }
@@ -2821,8 +2868,8 @@ export class AragoraClient {
   /**
    * Star or unstar a Gmail message.
    */
-  async setGmailMessageStarState(messageId: string, body?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async setGmailMessageStarState(messageId: string, body?: { starred?: boolean; user_id?: string }): Promise<GmailMessage> {
+    return this.request<GmailMessage>(
       'POST',
       `/api/v1/gmail/messages/${encodeURIComponent(messageId)}/star`,
       { body }
@@ -2832,8 +2879,8 @@ export class AragoraClient {
   /**
    * Archive a Gmail message.
    */
-  async archiveGmailMessage(messageId: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async archiveGmailMessage(messageId: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(
       'POST',
       `/api/v1/gmail/messages/${encodeURIComponent(messageId)}/archive`
     );
@@ -2842,8 +2889,8 @@ export class AragoraClient {
   /**
    * Trash or untrash a Gmail message.
    */
-  async trashGmailMessage(messageId: string, body?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async trashGmailMessage(messageId: string, body?: { trash?: boolean; user_id?: string }): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(
       'POST',
       `/api/v1/gmail/messages/${encodeURIComponent(messageId)}/trash`,
       { body }
@@ -2857,8 +2904,8 @@ export class AragoraClient {
     messageId: string,
     attachmentId: string,
     params?: { user_id?: string }
-  ): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  ): Promise<{ attachment_id: string; filename: string; mime_type: string; size: number; data: string }> {
+    return this.request<{ attachment_id: string; filename: string; mime_type: string; size: number; data: string }>(
       'GET',
       `/api/v1/gmail/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`,
       { params }
@@ -2874,15 +2921,15 @@ export class AragoraClient {
     label_ids?: string;
     limit?: number;
     page_token?: string;
-  }): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('GET', '/api/v1/gmail/threads', { params });
+  }): Promise<{ threads: GmailThread[]; next_page_token?: string }> {
+    return this.request<{ threads: GmailThread[]; next_page_token?: string }>('GET', '/api/v1/gmail/threads', { params });
   }
 
   /**
    * Get a Gmail thread.
    */
-  async getGmailThread(threadId: string, params?: { user_id?: string }): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getGmailThread(threadId: string, params?: { user_id?: string }): Promise<GmailThread> {
+    return this.request<GmailThread>(
       'GET',
       `/api/v1/gmail/threads/${encodeURIComponent(threadId)}`,
       { params }
@@ -2892,8 +2939,8 @@ export class AragoraClient {
   /**
    * Archive a Gmail thread.
    */
-  async archiveGmailThread(threadId: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async archiveGmailThread(threadId: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(
       'POST',
       `/api/v1/gmail/threads/${encodeURIComponent(threadId)}/archive`
     );
@@ -2902,8 +2949,8 @@ export class AragoraClient {
   /**
    * Trash or untrash a Gmail thread.
    */
-  async trashGmailThread(threadId: string, body?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async trashGmailThread(threadId: string, body?: { trash?: boolean; user_id?: string }): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(
       'POST',
       `/api/v1/gmail/threads/${encodeURIComponent(threadId)}/trash`,
       { body }
@@ -2913,8 +2960,8 @@ export class AragoraClient {
   /**
    * Modify labels for a Gmail thread.
    */
-  async modifyGmailThreadLabels(threadId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async modifyGmailThreadLabels(threadId: string, body: { add_labels?: string[]; remove_labels?: string[]; user_id?: string }): Promise<GmailThread> {
+    return this.request<GmailThread>(
       'POST',
       `/api/v1/gmail/threads/${encodeURIComponent(threadId)}/labels`,
       { body }
@@ -2924,22 +2971,22 @@ export class AragoraClient {
   /**
    * List Gmail drafts.
    */
-  async listGmailDrafts(params?: { user_id?: string; limit?: number; page_token?: string }): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('GET', '/api/v1/gmail/drafts', { params });
+  async listGmailDrafts(params?: { user_id?: string; limit?: number; page_token?: string }): Promise<{ drafts: GmailDraft[]; next_page_token?: string }> {
+    return this.request<{ drafts: GmailDraft[]; next_page_token?: string }>('GET', '/api/v1/gmail/drafts', { params });
   }
 
   /**
    * Create a Gmail draft.
    */
-  async createGmailDraft(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('POST', '/api/v1/gmail/drafts', { body });
+  async createGmailDraft(body: { message: GmailDraft['message']; user_id?: string }): Promise<GmailDraft> {
+    return this.request<GmailDraft>('POST', '/api/v1/gmail/drafts', { body });
   }
 
   /**
    * Get a Gmail draft.
    */
-  async getGmailDraft(draftId: string, params?: { user_id?: string }): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async getGmailDraft(draftId: string, params?: { user_id?: string }): Promise<GmailDraft> {
+    return this.request<GmailDraft>(
       'GET',
       `/api/v1/gmail/drafts/${encodeURIComponent(draftId)}`,
       { params }
@@ -2949,8 +2996,8 @@ export class AragoraClient {
   /**
    * Update a Gmail draft.
    */
-  async updateGmailDraft(draftId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async updateGmailDraft(draftId: string, body: { message: Partial<GmailDraft['message']>; user_id?: string }): Promise<GmailDraft> {
+    return this.request<GmailDraft>(
       'PUT',
       `/api/v1/gmail/drafts/${encodeURIComponent(draftId)}`,
       { body }
@@ -2960,8 +3007,8 @@ export class AragoraClient {
   /**
    * Delete a Gmail draft.
    */
-  async deleteGmailDraft(draftId: string, params?: { user_id?: string }): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async deleteGmailDraft(draftId: string, params?: { user_id?: string }): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(
       'DELETE',
       `/api/v1/gmail/drafts/${encodeURIComponent(draftId)}`,
       { params }
@@ -2971,8 +3018,8 @@ export class AragoraClient {
   /**
    * Send a Gmail draft.
    */
-  async sendGmailDraft(draftId: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
+  async sendGmailDraft(draftId: string): Promise<GmailMessage> {
+    return this.request<GmailMessage>(
       'POST',
       `/api/v1/gmail/drafts/${encodeURIComponent(draftId)}/send`
     );

@@ -1,17 +1,17 @@
 # TypeScript SDK Consolidation Roadmap
 
 > **Status:** Phase 2 Complete (January 2026)
-> **Next Milestone:** v2.2.0 deprecation warnings (Q1 2026)
+> **Next Milestone:** v3.0.0 consolidation (Q2 2026)
 
 This document outlines the plan to consolidate the two TypeScript packages (`@aragora/sdk` and `@aragora/client`) into a single unified SDK.
 
-## Current State (v2.1.x)
+## Current State (v2.4.x)
 
 Two packages exist with different focuses:
 
 | Aspect | `@aragora/sdk` | `@aragora/client` |
 |--------|---------------|-------------------|
-| **Version** | 2.1.15 | 2.1.15 |
+| **Version** | 2.4.0 | 2.4.0 |
 | **Location** | `sdk/typescript/` | `aragora-js/` |
 | **API Style** | Flat (`client.createDebate()`) | Namespaced (`client.debates.create()`) |
 | **Build** | tsup (ESM + CJS) | tsc (CJS only) |

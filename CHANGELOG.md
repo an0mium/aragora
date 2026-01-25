@@ -1,6 +1,29 @@
 # Changelog
 
 
+## [v2.4.0] - 2026-01-25
+
+### Features
+
+- **tests:** add CDC → Knowledge Mound integration coverage
+- **bots:** defer API base validation to runtime initialization for bot clients
+- **control-plane:** improve error handling for agent/task retrieval
+- **sdk:** add Python SDK resources for orgs, tenants, policies, codebase, costs, decisions, onboarding, notifications, gmail, and explainability
+
+### Bug Fixes
+
+- **client:** fix Python SDK payloads for billing + RBAC endpoints
+- **knowledge:** align knowledge search parameter key (`q`)
+- **plugins:** preserve legacy Sunset header behavior when paths are normalized
+- **costs:** avoid resetting per-debate cost tracking during initialization
+
+### Maintenance
+
+- **versioning:** align package versions to 2.4.0
+- **typing:** tighten optional import and context manager annotations
+
+---
+
 ## [v2.2.0] - 2026-01-24
 
 ### Features

@@ -224,6 +224,29 @@ Content-Type: application/json
 }
 ```
 
+#### CDC Ingestion (Change Data Capture)
+
+CDC events can be stored as knowledge nodes. Include CDC metadata to preserve
+provenance and freshness signals.
+
+```http
+POST /api/v1/knowledge/mound/nodes
+Content-Type: application/json
+
+{
+  "content": "Enterprise pricing updated to $499/mo",
+  "node_type": "signal",
+  "confidence": 0.9,
+  "workspace_id": "ws-001",
+  "metadata": {
+    "source_type": "postgresql",
+    "cdc_operation": "update",
+    "table": "pricing",
+    "timestamp": "2026-01-25T12:34:56Z"
+  }
+}
+```
+
 #### Promote Extracted Claims
 
 ```http
@@ -699,6 +722,16 @@ if prunable["total_count"] > 0:
 | `limit` | 100 | 50-200 | Lower for faster queries |
 | `depth` | 2 | 1-3 | Graph traversal depth |
 | `embedding_batch_size` | 32 | 16-64 | For bulk operations |
+
+### Request-Scoped Query Cache
+
+Enable the request-scoped cache to avoid repeating identical lookups within
+the same request or task.
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `ARAGORA_QUERY_CACHE_ENABLED` | `true` | Toggle request cache |
+| `ARAGORA_QUERY_CACHE_MAX_SIZE` | `1000` | Max entries per request |
 
 ### Curation Settings
 

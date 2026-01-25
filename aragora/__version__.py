@@ -20,7 +20,7 @@ if VERSION_SUFFIX:
     __version__ += VERSION_SUFFIX
 
 # Release date (ISO 8601 format)
-RELEASE_DATE = "2026-01-24"
+RELEASE_DATE = "2026-01-25"
 
 # Package metadata
 PACKAGE_NAME = "aragora"

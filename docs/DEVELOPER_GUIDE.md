@@ -89,6 +89,9 @@ client = AragoraClient(
 - `client.tournaments` - Manage agent tournaments
 - `client.auth` - Authentication and API keys
 - `client.tenants` - Multi-tenant management
+- `client.organizations` - Organization membership and settings
+- `client.policies` - Compliance policy management
+- `client.explainability` - Decision explanations and evidence chains
 - `client.rbac` - Role-based access control
 - `client.audit` - Audit logging
 - `client.control_plane` - System health and monitoring

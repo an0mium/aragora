@@ -7,6 +7,7 @@ This guide covers distributed tracing, metrics, and monitoring for Aragora deplo
 - [Overview](#overview)
 - [OpenTelemetry Tracing](#opentelemetry-tracing)
 - [Prometheus Metrics](#prometheus-metrics)
+- [N+1 Query Detection](#n1-query-detection)
 - [Grafana Dashboards](#grafana-dashboards)
 - [Local Development](#local-development)
 - [Production Setup](#production-setup)
@@ -202,6 +203,28 @@ scrape_configs:
       - targets: ['aragora:9090']
     scrape_interval: 15s
 ```
+
+## N+1 Query Detection
+
+Aragora can detect N+1 query patterns at runtime and emit warnings or errors.
+
+**Configuration:**
+- `ARAGORA_N1_DETECTION=off|warn|error` (default: `off`)
+- `ARAGORA_N1_THRESHOLD=5` (queries per table before alert)
+
+**Example:**
+
+```python
+from aragora.observability.n1_detector import detect_n1
+
+@detect_n1(threshold=3)
+async def handle_request(request):
+    # Database access that might trigger N+1 patterns
+    ...
+```
+
+When enabled, the detector logs the table/query patterns and raises an error
+in `error` mode.
 
 ---
 
