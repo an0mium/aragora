@@ -197,7 +197,7 @@ test.describe('OAuth Security', () => {
     });
 
     test('token refresh is attempted before expiration', async ({ page }) => {
-      let refreshAttempted = false;
+      let _refreshAttempted = false;
 
       // Set a token that will expire soon
       await page.addInitScript(() => {
@@ -216,7 +216,7 @@ test.describe('OAuth Security', () => {
 
       // Monitor for refresh attempts
       await page.route('**/api/auth/refresh', async (route) => {
-        refreshAttempted = true;
+        _refreshAttempted = true;
         await route.fulfill({
           status: 200,
           body: JSON.stringify({

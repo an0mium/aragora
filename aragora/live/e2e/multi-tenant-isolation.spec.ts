@@ -194,7 +194,7 @@ test.describe('Multi-Tenant Data Isolation', () => {
       page,
       aragoraPage,
     }) => {
-      let capturedOrgId: string | null = null;
+      let _capturedOrgId: string | null = null;
 
       await page.addInitScript((tenantA) => {
         localStorage.setItem('auth_token', tenantA.token);
@@ -209,7 +209,7 @@ test.describe('Multi-Tenant Data Isolation', () => {
         const postData = route.request().postData();
         if (postData) {
           const data = JSON.parse(postData);
-          capturedOrgId = data.org_id;
+          _capturedOrgId = data.org_id;
         }
         await route.fulfill({
           status: 200,

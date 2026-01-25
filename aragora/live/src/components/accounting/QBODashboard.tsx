@@ -136,7 +136,7 @@ export function QBODashboard() {
     } finally {
       setLoading(false);
     }
-  }, [tokens?.access_token, isAuthenticated, authLoading]);
+  }, [tokens?.access_token, isAuthenticated, authLoading, apiBase]);
 
   useEffect(() => {
     fetchData();

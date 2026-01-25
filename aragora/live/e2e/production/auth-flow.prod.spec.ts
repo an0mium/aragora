@@ -63,7 +63,7 @@ test.describe('Production Auth Flow', () => {
             headers: { 'Content-Type': 'application/json' },
           });
           results.push({ name: t.name, status: response.status, ok: response.ok });
-        } catch (e) {
+        } catch {
           results.push({ name: t.name, status: 0, ok: false });
         }
       }

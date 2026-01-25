@@ -35,7 +35,7 @@ test.describe('Multi-Provider Account Linking', () => {
 
       // Look for account/security settings
       const settingsContent = await page.content();
-      const hasAccountSection =
+      const _hasAccountSection =
         settingsContent.toLowerCase().includes('account') ||
         settingsContent.toLowerCase().includes('connected') ||
         settingsContent.toLowerCase().includes('security') ||
@@ -116,7 +116,7 @@ test.describe('Multi-Provider Account Linking', () => {
       page,
       aragoraPage,
     }) => {
-      let oauthInitiated = false;
+      let _oauthInitiated = false;
 
       await page.addInitScript(() => {
         localStorage.setItem('auth_token', 'test-token');
@@ -128,7 +128,7 @@ test.describe('Multi-Provider Account Linking', () => {
 
       // Intercept OAuth link initiation
       await page.route('**/api/auth/link/**', async (route) => {
-        oauthInitiated = true;
+        _oauthInitiated = true;
         await route.fulfill({
           status: 302,
           headers: {
@@ -153,7 +153,7 @@ test.describe('Multi-Provider Account Linking', () => {
 
     test('handles link callback and updates connected providers', async ({
       page,
-      aragoraPage,
+      aragoraPage: _aragoraPage,
     }) => {
       await page.addInitScript(() => {
         localStorage.setItem('auth_token', 'test-token');

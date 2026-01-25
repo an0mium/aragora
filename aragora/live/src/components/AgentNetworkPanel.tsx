@@ -259,7 +259,8 @@ function AgentNetworkPanelComponent({
         }
       })
       .catch(() => {});
-  }, [apiBase]); // Remove agentInput from deps to prevent re-fetching on selection
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally exclude agentInput to prevent re-fetching on selection
+  }, [apiBase]);
 
   const fetchNetwork = useCallback(async (agent: string) => {
     if (!agent) return;

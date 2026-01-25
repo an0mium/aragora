@@ -119,7 +119,7 @@ export function DependencySecurityPanel({
     } finally {
       setLoading(false);
     }
-  }, [path]);
+  }, [path, apiBase]);
 
   const scanVulnerabilities = useCallback(async () => {
     if (!path) return;
@@ -146,7 +146,7 @@ export function DependencySecurityPanel({
     } finally {
       setLoading(false);
     }
-  }, [path]);
+  }, [path, apiBase]);
 
   const checkLicenses = useCallback(async () => {
     if (!path) return;
@@ -173,7 +173,7 @@ export function DependencySecurityPanel({
     } finally {
       setLoading(false);
     }
-  }, [path]);
+  }, [path, apiBase]);
 
   const generateSbom = useCallback(async () => {
     if (!path) return;
@@ -204,7 +204,7 @@ export function DependencySecurityPanel({
     } finally {
       setLoading(false);
     }
-  }, [path, sbomFormat]);
+  }, [path, sbomFormat, apiBase]);
 
   const downloadSbom = () => {
     if (!sbomContent) return;

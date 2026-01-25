@@ -112,7 +112,8 @@ function CapabilityProbePanelComponent({
         }
       })
       .catch(() => {});
-  }, [apiBase]); // Remove selectedAgent from deps to prevent re-fetching on selection
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally exclude selectedAgent to prevent re-fetching on selection
+  }, [apiBase]);
 
   const toggleProbeType = (type: string) => {
     setSelectedProbes((prev) =>
