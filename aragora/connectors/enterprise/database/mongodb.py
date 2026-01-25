@@ -496,12 +496,33 @@ class MongoDBConnector(EnterpriseConnector):
         collection = payload.get("collection")
         operation = payload.get("operation")
 
-        if collection and operation:
-            logger.info(f"[{self.name}] Webhook: {operation} on {collection}")
-            asyncio.create_task(self.sync(max_items=10))
-            return True
+        if not collection or not operation:
+            return False
 
-        return False
+        # Create unified ChangeEvent from webhook payload
+        # Format webhook payload to match change stream structure
+        change_doc = {
+            "operationType": operation.lower(),
+            "ns": {"db": self.database_name, "coll": collection},
+            "documentKey": payload.get("documentKey", {}),
+            "fullDocument": payload.get("document") or payload.get("data"),
+        }
+
+        event = ChangeEvent.from_mongodb_change(
+            change=change_doc,
+            connector_id=self.connector_id,
+        )
+
+        logger.info(f"[{self.name}] Webhook CDC event: {event.operation.value} on {event.table}")
+
+        # Process through CDC manager if handlers are configured
+        if self._change_handlers:
+            await self.cdc_manager.process_event(event)
+        else:
+            # Fallback to sync-based processing
+            asyncio.create_task(self.sync(max_items=10))
+
+        return True
 
     async def aggregate(
         self,

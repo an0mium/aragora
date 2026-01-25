@@ -26,6 +26,7 @@ import uuid
 from typing import Any, Dict, Optional
 
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
+from aragora.audit.unified import audit_security
 
 from .base import (
     BaseHandler,
@@ -283,6 +284,20 @@ class PolicyHandler(BaseHandler):
 
             created = store.create_policy(policy)
 
+            # Get user for audit
+            user_id = "system"
+            if hasattr(handler, "user_context") and handler.user_context:
+                user_id = handler.user_context.user_id
+
+            audit_security(
+                event_type="policy_created",
+                actor_id=user_id,
+                resource_type="policy",
+                resource_id=policy_id,
+                policy_name=data["name"],
+                framework_id=data["framework_id"],
+            )
+
             return json_response(
                 {
                     "policy": created.to_dict(),
@@ -321,6 +336,14 @@ class PolicyHandler(BaseHandler):
             if updated is None:
                 return error_response(f"Policy not found: {policy_id}", 404)
 
+            audit_security(
+                event_type="policy_updated",
+                actor_id=user_id or "system",
+                resource_type="policy",
+                resource_id=policy_id,
+                changes=list(data.keys()),
+            )
+
             return json_response(
                 {
                     "policy": updated.to_dict(),
@@ -344,6 +367,13 @@ class PolicyHandler(BaseHandler):
             success = store.delete_policy(policy_id)
             if not success:
                 return error_response(f"Policy not found: {policy_id}", 404)
+
+            audit_security(
+                event_type="policy_deleted",
+                actor_id="system",
+                resource_type="policy",
+                resource_id=policy_id,
+            )
 
             return json_response(
                 {
@@ -383,6 +413,14 @@ class PolicyHandler(BaseHandler):
             success = store.toggle_policy(policy_id, enabled, changed_by=user_id)
             if not success:
                 return error_response(f"Policy not found: {policy_id}", 404)
+
+            audit_security(
+                event_type="policy_toggled",
+                actor_id=user_id or "system",
+                resource_type="policy",
+                resource_id=policy_id,
+                enabled=enabled,
+            )
 
             return json_response(
                 {
@@ -529,6 +567,14 @@ class PolicyHandler(BaseHandler):
 
             if updated is None:
                 return error_response(f"Violation not found: {violation_id}", 404)
+
+            audit_security(
+                event_type="violation_status_updated",
+                actor_id=user_id or "system",
+                resource_type="violation",
+                resource_id=violation_id,
+                new_status=status,
+            )
 
             return json_response(
                 {
