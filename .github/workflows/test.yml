@@ -17,6 +17,8 @@ on:
       - 'pyproject.toml'
       - 'requirements.txt'
   workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * *'
 
 concurrency:
   group: tests-${{ github.ref }}
@@ -427,3 +429,71 @@ jobs:
           fail-on-alert: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
+
+  nightly-optional:
+    name: Nightly Optional Deps
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.event_name == 'schedule'
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: aragora
+          POSTGRES_PASSWORD: aragora
+          POSTGRES_DB: aragora
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aragora"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,research]"
+          pip install redis asyncpg supabase z3-solver PyJWT websockets
+          pip install mcp || true
+
+      - name: Run optional-deps test suite
+        run: |
+          pytest tests/ \
+            -m "not load and not e2e" \
+            --timeout=180 \
+            -v \
+            --tb=short
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: postgresql://aragora:aragora@localhost:5432/aragora
+          ARAGORA_POSTGRES_DSN: postgresql://aragora:aragora@localhost:5432/aragora
+          ARAGORA_REDIS_URL: redis://localhost:6379
+          SUPABASE_URL: https://test.supabase.co
+          SUPABASE_KEY: test-key
+          SUPABASE_JWT_SECRET: test-secret
+
+      - name: Run network-marked tests
+        run: |
+          pytest tests/ -m "network" --timeout=240 -v --tb=short
+        env:
+          PYTHONPATH: .
