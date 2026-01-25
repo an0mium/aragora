@@ -382,9 +382,10 @@ class TestRegionalEventBusWithMockRedis:
     async def test_connect_graceful_failure_without_redis(self):
         """Test that connection fails gracefully when Redis is unavailable."""
         config = RegionalSyncConfig(local_region="us-west-2")
-        bus = RegionalEventBus(redis_url="redis://localhost:6379", config=config)
+        # Use a port that definitely won't have Redis (port 59999 is ephemeral and unlikely to be used)
+        bus = RegionalEventBus(redis_url="redis://localhost:59999", config=config)
 
-        # Without Redis installed or running, connect should return False
+        # Without Redis on this port, connect should return False
         result = await bus.connect()
 
         # Should fail gracefully
