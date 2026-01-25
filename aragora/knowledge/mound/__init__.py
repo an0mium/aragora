@@ -110,6 +110,14 @@ from aragora.knowledge.mound.revalidation_scheduler import (
     RevalidationScheduler,
     handle_revalidation_task,
 )
+from aragora.knowledge.mound.confidence_decay_scheduler import (
+    ConfidenceDecayScheduler,
+    DecayScheduleReport,
+    get_decay_scheduler,
+    set_decay_scheduler,
+    start_decay_scheduler,
+    stop_decay_scheduler,
+)
 
 # Metrics and observability
 from aragora.knowledge.mound.metrics import (
@@ -346,6 +354,13 @@ __all__ = [
     # Phase 1: Revalidation Scheduler (automatic staleness handling)
     "RevalidationScheduler",
     "handle_revalidation_task",
+    # Confidence decay scheduler
+    "ConfidenceDecayScheduler",
+    "DecayScheduleReport",
+    "get_decay_scheduler",
+    "set_decay_scheduler",
+    "start_decay_scheduler",
+    "stop_decay_scheduler",
     # Metrics and observability
     "KMMetrics",
     "OperationType",
