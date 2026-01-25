@@ -17,7 +17,9 @@ class TestFormalVerificationHandlerRouting:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.formal_verification import FormalVerificationHandler
+        from aragora.server.handlers.verification.formal_verification import (
+            FormalVerificationHandler,
+        )
 
         return FormalVerificationHandler({})
 
@@ -52,7 +54,9 @@ class TestVerifyClaimEndpoint:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.formal_verification import FormalVerificationHandler
+        from aragora.server.handlers.verification.formal_verification import (
+            FormalVerificationHandler,
+        )
 
         return FormalVerificationHandler({})
 
@@ -66,7 +70,7 @@ class TestVerifyClaimEndpoint:
         result = await handler.handle_async(
             mock_http_handler,
             "POST",
-            "/api/verify/claim",
+            "/api/v1/verify/claim",
             body=None,
         )
         assert result.status_code == 400
@@ -79,7 +83,7 @@ class TestVerifyClaimEndpoint:
         result = await handler.handle_async(
             mock_http_handler,
             "POST",
-            "/api/verify/claim",
+            "/api/v1/verify/claim",
             body=b'{"context": "test"}',
         )
         assert result.status_code == 400
@@ -104,7 +108,7 @@ class TestVerifyClaimEndpoint:
             result = await handler.handle_async(
                 mock_http_handler,
                 "POST",
-                "/api/verify/claim",
+                "/api/v1/verify/claim",
                 body=b'{"claim": "1 + 1 = 2"}',
             )
             assert result.status_code == 200
@@ -118,7 +122,9 @@ class TestVerifyBatchEndpoint:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.formal_verification import FormalVerificationHandler
+        from aragora.server.handlers.verification.formal_verification import (
+            FormalVerificationHandler,
+        )
 
         return FormalVerificationHandler({})
 
@@ -132,7 +138,7 @@ class TestVerifyBatchEndpoint:
         result = await handler.handle_async(
             mock_http_handler,
             "POST",
-            "/api/verify/batch",
+            "/api/v1/verify/batch",
             body=None,
         )
         assert result.status_code == 400
@@ -143,7 +149,7 @@ class TestVerifyBatchEndpoint:
         result = await handler.handle_async(
             mock_http_handler,
             "POST",
-            "/api/verify/batch",
+            "/api/v1/verify/batch",
             body=b'{"timeout": 30}',
         )
         assert result.status_code == 400
@@ -159,7 +165,7 @@ class TestVerifyBatchEndpoint:
         result = await handler.handle_async(
             mock_http_handler,
             "POST",
-            "/api/verify/batch",
+            "/api/v1/verify/batch",
             body=body,
         )
         assert result.status_code == 400
@@ -172,7 +178,9 @@ class TestVerifyStatusEndpoint:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.formal_verification import FormalVerificationHandler
+        from aragora.server.handlers.verification.formal_verification import (
+            FormalVerificationHandler,
+        )
 
         return FormalVerificationHandler({})
 
@@ -194,13 +202,14 @@ class TestVerifyStatusEndpoint:
 
         with patch.object(handler, "_get_manager", return_value=mock_manager):
             with patch(
-                "aragora.server.handlers.formal_verification.DeepSeekProverTranslator", create=True
+                "aragora.server.handlers.verification.formal_verification.DeepSeekProverTranslator",
+                create=True,
             ) as mock_ds:
                 mock_ds.return_value.is_available = False
                 result = await handler.handle_async(
                     mock_http_handler,
                     "GET",
-                    "/api/verify/status",
+                    "/api/v1/verify/status",
                     body=None,
                 )
                 assert result.status_code == 200
@@ -214,7 +223,9 @@ class TestVerifyTranslateEndpoint:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.formal_verification import FormalVerificationHandler
+        from aragora.server.handlers.verification.formal_verification import (
+            FormalVerificationHandler,
+        )
 
         return FormalVerificationHandler({})
 
@@ -228,7 +239,7 @@ class TestVerifyTranslateEndpoint:
         result = await handler.handle_async(
             mock_http_handler,
             "POST",
-            "/api/verify/translate",
+            "/api/v1/verify/translate",
             body=None,
         )
         assert result.status_code == 400
@@ -239,7 +250,7 @@ class TestVerifyTranslateEndpoint:
         result = await handler.handle_async(
             mock_http_handler,
             "POST",
-            "/api/verify/translate",
+            "/api/v1/verify/translate",
             body=b'{"target_language": "lean4"}',
         )
         assert result.status_code == 400
@@ -252,7 +263,7 @@ class TestVerifyTranslateEndpoint:
         result = await handler.handle_async(
             mock_http_handler,
             "POST",
-            "/api/verify/translate",
+            "/api/v1/verify/translate",
             body=b'{"claim": "1 + 1 = 2", "target_language": "coq"}',
         )
         assert result.status_code == 400
@@ -265,15 +276,19 @@ class TestFormalVerificationHandlerImport:
 
     def test_handler_importable(self):
         """FormalVerificationHandler can be imported."""
-        from aragora.server.handlers.formal_verification import FormalVerificationHandler
+        from aragora.server.handlers.verification.formal_verification import (
+            FormalVerificationHandler,
+        )
 
         assert FormalVerificationHandler is not None
 
     def test_handler_has_routes(self):
         """FormalVerificationHandler defines ROUTES."""
-        from aragora.server.handlers.formal_verification import FormalVerificationHandler
+        from aragora.server.handlers.verification.formal_verification import (
+            FormalVerificationHandler,
+        )
 
         handler = FormalVerificationHandler({})
         assert hasattr(handler, "ROUTES")
         assert len(handler.ROUTES) > 0
-        assert "/api/verify/claim" in handler.ROUTES
+        assert "/api/v1/verify/claim" in handler.ROUTES
