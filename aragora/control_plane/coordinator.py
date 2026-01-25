@@ -939,8 +939,8 @@ class ControlPlaneCoordinator:
                     or (metadata.get("workspace_id") if metadata else None),
                     metadata=metadata,
                 )
-            except Exception:
-                pass  # Don't fail submission on notification error
+            except Exception as e:
+                logger.debug(f"Notification error on task submission: {e}")
 
             return task_id
 
@@ -991,8 +991,8 @@ class ControlPlaneCoordinator:
                     agent_id=agent_id,
                     workspace_id=task.metadata.get("workspace_id") if task.metadata else None,
                 )
-            except Exception:
-                pass  # Don't fail claim on notification error
+            except Exception as e:
+                logger.debug(f"Notification error on task claim: {e}")
 
         return task
 
@@ -1128,8 +1128,8 @@ class ControlPlaneCoordinator:
                         if task and task.metadata
                         else None,
                     )
-                except Exception:
-                    pass  # Don't fail completion on notification error
+                except Exception as e:
+                    logger.debug(f"Notification error on task completion: {e}")
 
             return success
 
@@ -1224,8 +1224,8 @@ class ControlPlaneCoordinator:
                     if task and task.metadata
                     else None,
                 )
-            except Exception:
-                pass  # Don't fail on notification error
+            except Exception as e:
+                logger.debug(f"Notification error on task failure: {e}")
 
             return success
 

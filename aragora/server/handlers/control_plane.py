@@ -447,8 +447,8 @@ class ControlPlaneHandler(BaseHandler):
                             "latency_ms": 10,
                         }
                     )
-            except Exception:
-                pass  # Database not configured
+            except Exception as e:
+                logger.debug(f"Database health check skipped: {e}")
 
             # Overall status
             unhealthy = any(c["status"] == "unhealthy" for c in components)

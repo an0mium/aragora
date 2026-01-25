@@ -1129,8 +1129,8 @@ async def handle_add_vip(
                 if store:
                     try:
                         store.add_vip_sender(user_id, workspace_id, email)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Failed to add VIP sender to store: {e}")
 
             if domain:
                 if "vip_domains" not in config:
@@ -1200,8 +1200,8 @@ async def handle_remove_vip(
                     if store:
                         try:
                             store.remove_vip_sender(user_id, workspace_id, email)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.debug(f"Failed to remove VIP sender from store: {e}")
 
             if domain and "vip_domains" in config:
                 if domain in config["vip_domains"]:
