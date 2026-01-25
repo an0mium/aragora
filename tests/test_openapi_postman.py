@@ -35,10 +35,10 @@ class TestOpenAPISchema:
     """Tests for OpenAPI schema generation."""
 
     def test_generate_schema_structure(self):
-        """Test schema has required OpenAPI 3.0 structure."""
+        """Test schema has required OpenAPI 3.1 structure."""
         schema = generate_openapi_schema()
 
-        assert schema["openapi"] == "3.0.3"
+        assert schema["openapi"] == "3.1.0"
         assert "info" in schema
         assert "paths" in schema
         assert "components" in schema

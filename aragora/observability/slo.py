@@ -1049,9 +1049,9 @@ def create_notification_callback() -> AlertCallback:
                 NotificationMessage,
                 NotificationPriority,
             )
-            from aragora.control_plane.notifications import get_dispatcher
+            from aragora.control_plane.notifications import get_default_notification_dispatcher
 
-            dispatcher = get_dispatcher()
+            dispatcher = get_default_notification_dispatcher()
             if dispatcher is None:
                 logger.warning("Notification dispatcher not configured")
                 return

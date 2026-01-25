@@ -66,6 +66,7 @@ class NotificationPriority(Enum):
     NORMAL = "normal"
     HIGH = "high"
     URGENT = "urgent"
+    CRITICAL = "critical"
 
 
 class NotificationEventType(Enum):
@@ -87,6 +88,7 @@ class NotificationEventType(Enum):
     SLA_WARNING = "sla_warning"
     SLA_VIOLATION = "sla_violation"
     POLICY_VIOLATION = "policy_violation"
+    SYSTEM_ALERT = "system_alert"
     CONNECTOR_SYNC_COMPLETE = "connector_sync_complete"
     CONNECTOR_SYNC_FAILED = "connector_sync_failed"
 
