@@ -109,7 +109,7 @@ function ProbeReportsPanelInner({
       const data: ProbeReport = await response.json();
       setSelectedReport(data);
     } catch (err) {
-      console.error('Failed to load report details:', err);
+      logger.error('Failed to load report details:', err);
     } finally {
       setLoadingDetails(false);
     }

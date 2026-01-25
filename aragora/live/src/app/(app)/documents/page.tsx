@@ -90,7 +90,7 @@ export default function DocumentsPage() {
             }),
           });
           if (!uploadResponse.ok) {
-            console.error(`Failed to upload ${file.name}`);
+            logger.error(`Failed to upload ${file.name}`);
           }
         }
       }

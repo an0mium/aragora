@@ -70,7 +70,7 @@ export function ReviewsPanel({ apiBase }: ReviewsPanelProps) {
       const data = await response.json();
       setExpandedDetails(data.review);
     } catch (err) {
-      console.error('Failed to fetch review details:', err);
+      logger.error('Failed to fetch review details:', err);
     }
   };
 

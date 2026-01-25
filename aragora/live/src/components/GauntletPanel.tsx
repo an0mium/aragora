@@ -86,7 +86,7 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load details';
       setDetailsError(message);
-      console.error('Failed to fetch gauntlet details:', err);
+      logger.error('Failed to fetch gauntlet details:', err);
     }
   };
 

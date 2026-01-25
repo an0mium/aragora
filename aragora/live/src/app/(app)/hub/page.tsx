@@ -139,7 +139,7 @@ export default function HubPage() {
         router.push(`/debate/${data.debate_id}`);
       }
     } catch (error) {
-      console.error('Failed to start debate:', error);
+      logger.error('Failed to start debate:', error);
     } finally {
       setIsStarting(false);
     }

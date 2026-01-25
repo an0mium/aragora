@@ -83,7 +83,7 @@ export function TemplateSelectStep() {
           setAvailableTemplates(DEFAULT_TEMPLATES);
         }
       } catch (err) {
-        console.error('Failed to fetch templates:', err);
+        logger.error('Failed to fetch templates:', err);
         setError('Could not load templates. Using defaults.');
         setAvailableTemplates(DEFAULT_TEMPLATES);
       } finally {

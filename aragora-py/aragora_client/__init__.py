@@ -10,6 +10,24 @@ Example:
     >>> print(debate.consensus.conclusion)
 """
 
+from aragora_client.audit import (
+    AuditAPI,
+    AuditEvent,
+    AuditExportResponse,
+    AuditIntegrityResult,
+    AuditRetentionPolicy,
+    AuditStats,
+)
+from aragora_client.auth import (
+    APIKey,
+    AuthAPI,
+    AuthToken,
+    MFASetupResponse,
+    MFAVerifyResponse,
+    OAuthUrl,
+    Session,
+    User,
+)
 from aragora_client.client import AragoraClient
 from aragora_client.control_plane import (
     AgentHealth,
@@ -26,6 +44,27 @@ from aragora_client.exceptions import (
     AragoraNotFoundError,
     AragoraTimeoutError,
     AragoraValidationError,
+)
+from aragora_client.rbac import (
+    RBACAPI,
+    Permission,
+    PermissionCheck,
+    Role,
+    RoleAssignment,
+)
+from aragora_client.tenancy import (
+    QuotaStatus,
+    TenancyAPI,
+    Tenant,
+    TenantMember,
+)
+from aragora_client.tournaments import (
+    Tournament,
+    TournamentBracket,
+    TournamentMatch,
+    TournamentsAPI,
+    TournamentStanding,
+    TournamentStandings,
 )
 from aragora_client.types import (
     AgentProfile,
@@ -48,7 +87,7 @@ from aragora_client.types import (
 )
 from aragora_client.websocket import DebateStream, stream_debate
 
-__version__ = "2.1.13"
+__version__ = "2.2.0"
 __all__ = [
     # Client
     "AragoraClient",
@@ -59,7 +98,7 @@ __all__ = [
     "AragoraNotFoundError",
     "AragoraValidationError",
     "AragoraTimeoutError",
-    # Types
+    # Types - Core
     "Debate",
     "DebateStatus",
     "ConsensusResult",
@@ -87,4 +126,38 @@ __all__ = [
     "Task",
     "ControlPlaneStatus",
     "ResourceUtilization",
+    # Auth
+    "AuthAPI",
+    "AuthToken",
+    "User",
+    "Session",
+    "APIKey",
+    "MFASetupResponse",
+    "MFAVerifyResponse",
+    "OAuthUrl",
+    # Tenancy
+    "TenancyAPI",
+    "Tenant",
+    "TenantMember",
+    "QuotaStatus",
+    # RBAC
+    "RBACAPI",
+    "Role",
+    "Permission",
+    "RoleAssignment",
+    "PermissionCheck",
+    # Tournaments
+    "TournamentsAPI",
+    "Tournament",
+    "TournamentMatch",
+    "TournamentStanding",
+    "TournamentStandings",
+    "TournamentBracket",
+    # Audit
+    "AuditAPI",
+    "AuditEvent",
+    "AuditStats",
+    "AuditExportResponse",
+    "AuditIntegrityResult",
+    "AuditRetentionPolicy",
 ]

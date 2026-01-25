@@ -110,7 +110,7 @@ function VerificationHistoryPanelInner({
       const data = await response.json();
       setProofTree(data.nodes || []);
     } catch (err) {
-      console.error('Failed to load proof tree:', err);
+      logger.error('Failed to load proof tree:', err);
       setProofTree(null);
       setProofTreeError('Unable to load proof tree. Click to retry.');
     }

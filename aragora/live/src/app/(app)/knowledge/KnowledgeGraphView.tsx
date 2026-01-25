@@ -196,7 +196,7 @@ export function KnowledgeGraphView({
         setGraphEdges(allEdges);
       }
     } catch (err) {
-      console.error('Failed to fetch graph data:', err);
+      logger.error('Failed to fetch graph data:', err);
       setError('Failed to load graph data');
 
       // Use transformed parent nodes as fallback

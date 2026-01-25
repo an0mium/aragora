@@ -137,7 +137,7 @@ export function VoiceInput({
       };
 
       mediaRecorder.onerror = (e) => {
-        console.error('MediaRecorder error:', e);
+        logger.error('MediaRecorder error:', e);
         onError?.('Recording error occurred');
         stopRecordingRef.current();
       };
@@ -159,7 +159,7 @@ export function VoiceInput({
 
       onRecordingStart?.();
     } catch (err) {
-      console.error('Failed to start recording:', err);
+      logger.error('Failed to start recording:', err);
       setState('idle');
 
       if (err instanceof DOMException && err.name === 'NotAllowedError') {
@@ -234,7 +234,7 @@ export function VoiceInput({
       const result = await response.json();
       onTranscript(result.text || result.transcript || '');
     } catch (err) {
-      console.error('Transcription error:', err);
+      logger.error('Transcription error:', err);
       onError?.(err instanceof Error ? err.message : 'Transcription failed');
     } finally {
       setState('idle');

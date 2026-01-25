@@ -169,7 +169,7 @@ export function useDebateWebSocketStore({
 
       // Handle queue overflow
       if (data.type === 'error' && data.data?.error_type === 'queue_overflow') {
-        console.warn('[WebSocket] Server queue overflow:', data.data.message);
+        logger.warn('[WebSocket] Server queue overflow:', data.data.message);
         errorCallbackRef.current?.(`Some updates may be missing (${data.data.dropped_count} events dropped)`);
         return;
       }

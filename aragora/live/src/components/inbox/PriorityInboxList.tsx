@@ -173,7 +173,7 @@ export function PriorityInboxList({
         }),
       });
     } catch (err) {
-      console.error('Failed to send feedback:', err);
+      logger.error('Failed to send feedback:', err);
     }
   }, [apiBase, userId, authToken]);
 

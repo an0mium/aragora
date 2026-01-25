@@ -139,7 +139,7 @@ export type FeatureName = keyof typeof FEATURES;
 export function isFeatureEnabled(feature: FeatureName): boolean {
   const flag = FEATURES[feature];
   if (!flag) {
-    console.warn(`Unknown feature flag: ${feature}`);
+    logger.warn(`Unknown feature flag: ${feature}`);
     return false;
   }
 

@@ -70,7 +70,7 @@ export function CheckpointPanel({ backendConfig, debateId, onResume }: Checkpoin
         setDebates(data.debates || []);
       }
     } catch (err) {
-      console.error('Failed to fetch debates:', err);
+      logger.error('Failed to fetch debates:', err);
     }
   }, [apiBase]);
 

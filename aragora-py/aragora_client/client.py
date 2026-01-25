@@ -7,6 +7,8 @@ from typing import Any
 
 import httpx
 
+from aragora_client.audit import AuditAPI
+from aragora_client.auth import AuthAPI
 from aragora_client.control_plane import ControlPlaneAPI
 from aragora_client.exceptions import (
     AragoraAuthenticationError,
@@ -16,6 +18,9 @@ from aragora_client.exceptions import (
     AragoraTimeoutError,
     AragoraValidationError,
 )
+from aragora_client.rbac import RBACAPI
+from aragora_client.tenancy import TenancyAPI
+from aragora_client.tournaments import TournamentsAPI
 from aragora_client.types import (
     AgentProfile,
     AgentScore,
@@ -465,6 +470,12 @@ class AragoraClient:
         self.selection = SelectionAPI(self)
         self.replays = ReplaysAPI(self)
         self.control_plane = ControlPlaneAPI(self)
+        # Enterprise APIs
+        self.auth = AuthAPI(self)
+        self.tenants = TenancyAPI(self)
+        self.rbac = RBACAPI(self)
+        self.tournaments = TournamentsAPI(self)
+        self.audit = AuditAPI(self)
 
     async def __aenter__(self) -> AragoraClient:
         """Enter async context."""
@@ -541,6 +552,20 @@ class AragoraClient:
         response = await self._request("POST", path, json=data)
         return response.json()
 
+    async def _patch(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
+        """Make a PATCH request."""
+        response = await self._request("PATCH", path, json=data)
+        return response.json()
+
+    async def _put(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
+        """Make a PUT request."""
+        response = await self._request("PUT", path, json=data)
+        return response.json()
+
     async def _delete(self, path: str) -> None:
         """Make a DELETE request."""
         await self._request("DELETE", path)
+
+    async def _delete_with_body(self, path: str, data: dict[str, Any]) -> None:
+        """Make a DELETE request with a body."""
+        await self._request("DELETE", path, json=data)

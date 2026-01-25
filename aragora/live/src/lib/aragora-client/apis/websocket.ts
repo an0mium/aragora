@@ -95,7 +95,7 @@ export class AragoraWebSocket {
           const data = JSON.parse(event.data) as DebateEvent;
           this.handleEvent(data);
         } catch (e) {
-          console.error('Failed to parse WebSocket message:', e);
+          logger.error('Failed to parse WebSocket message:', e);
         }
       };
 

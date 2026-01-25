@@ -6,6 +6,7 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useControlPlaneWebSocket, type TaskState } from '@/hooks/useControlPlaneWebSocket';
+import { logger } from '@/utils/logger';
 
 // Lazy load heavy visualization component
 const AgentWorkflowVisualization = dynamic(
@@ -528,7 +529,7 @@ export default function ControlPlanePage() {
                         maxVisible={5}
                         onDeliberationClick={(d) => {
                           // Could open a modal or navigate to decisionmaking detail
-                          console.log('Selected decisionmaking session:', d.id);
+                          logger.debug('Selected decisionmaking session:', d.id);
                         }}
                       />
                     )}

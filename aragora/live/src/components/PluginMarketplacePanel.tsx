@@ -170,7 +170,7 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
         setSelectedPlugin(data);
       }
     } catch (err) {
-      console.error('Failed to fetch plugin details:', err);
+      logger.error('Failed to fetch plugin details:', err);
     }
   }, [apiBase]);
 

@@ -104,7 +104,7 @@ export function InboxStatsCards({
       }
     } catch (e) {
       setError('Failed to load stats');
-      console.error('Stats fetch error:', e);
+      logger.error('Stats fetch error:', e);
     } finally {
       setLoading(false);
     }

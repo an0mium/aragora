@@ -26,7 +26,7 @@ export function handleErrorEvent(data: ParsedEventData, ctx: EventHandlerContext
 
   // Handle queue overflow notifications
   if (eventData?.error_type === 'queue_overflow') {
-    console.warn('[WebSocket] Server queue overflow:', eventData.message);
+    logger.warn('[WebSocket] Server queue overflow:', eventData.message);
     ctx.errorCallbackRef.current?.(
       `Some updates may be missing (${eventData.dropped_count} events dropped)`
     );

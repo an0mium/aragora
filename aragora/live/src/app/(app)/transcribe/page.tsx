@@ -92,7 +92,7 @@ export default function TranscribePage() {
           }
         }
       } catch (err) {
-        console.error('Failed to fetch transcription config:', err);
+        logger.error('Failed to fetch transcription config:', err);
       }
     };
     fetchConfig();

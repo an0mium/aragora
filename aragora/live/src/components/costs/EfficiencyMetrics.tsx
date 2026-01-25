@@ -55,7 +55,7 @@ export function EfficiencyMetrics({ workspaceId = 'default', timeRange = '7d' }:
         setData(result);
       }
     } catch (error) {
-      console.error('Failed to fetch efficiency metrics:', error);
+      logger.error('Failed to fetch efficiency metrics:', error);
     } finally {
       setLoading(false);
     }

@@ -81,7 +81,7 @@ export function SystemHealthDashboard({
       setData({ system: systemHealth, breakers, queue });
       setLastUpdated(new Date());
     } catch (error) {
-      console.error('Failed to fetch health data:', error);
+      logger.error('Failed to fetch health data:', error);
       // Set demo data on error
       setData({
         system: {

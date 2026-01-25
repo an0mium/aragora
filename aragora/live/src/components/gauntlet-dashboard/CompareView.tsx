@@ -31,7 +31,7 @@ export function CompareView({ result1, result2, apiBase, onClose }: CompareViewP
           setCompareError('Failed to load comparison. Please try again.');
         }
       } catch (err) {
-        console.error('Failed to fetch comparison:', err);
+        logger.error('Failed to fetch comparison:', err);
         setCompareError('Unable to compare results. Please check your connection.');
       } finally {
         setLoading(false);

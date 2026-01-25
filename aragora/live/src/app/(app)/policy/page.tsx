@@ -489,7 +489,7 @@ function ComplianceCheckModal({
         setResult(data);
       }
     } catch (error) {
-      console.error('Failed to check compliance:', error);
+      logger.error('Failed to check compliance:', error);
     } finally {
       setChecking(false);
     }

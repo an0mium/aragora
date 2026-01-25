@@ -99,7 +99,7 @@ export async function fetchWithRetry(
     if (response.status === 429) {
       const retryAfter = response.headers.get('Retry-After');
       const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : 5000;
-      console.warn(`[fetchWithRetry] Rate limited on ${url}, waiting ${waitTime}ms`);
+      logger.warn(`[fetchWithRetry] Rate limited on ${url}, waiting ${waitTime}ms`);
       await new Promise((resolve) => setTimeout(resolve, waitTime));
       throw new Error(`Rate limited: ${response.status}`);
     }
