@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from aragora.billing.jwt_auth import extract_user_from_request
+from aragora.audit.unified import audit_admin, audit_data
 
 # Module-level imports for test mocking compatibility
 from aragora.billing.models import TIER_LIMITS, SubscriptionTier
@@ -391,6 +392,14 @@ class BillingHandler(SecureHandler):
             )
 
             logger.info(f"Created checkout session {session.id} for user {db_user.email}")
+            audit_data(
+                user_id=db_user.id,
+                resource_type="checkout_session",
+                resource_id=session.id,
+                action="create",
+                tier=tier.value,
+                org_id=db_user.org_id,
+            )
 
             return json_response({"checkout": session.to_dict()})
 
@@ -823,6 +832,14 @@ class BillingHandler(SecureHandler):
             )
 
             logger.info(f"Subscription canceled for org {org.id} (user: {db_user.email})")
+            audit_admin(
+                admin_id=user.user_id,
+                action="cancel_subscription",
+                target_type="subscription",
+                target_id=org.stripe_subscription_id,
+                org_id=org.id,
+                tier=org.tier.value,
+            )
 
             # Log audit event
             self._log_audit(
@@ -880,6 +897,13 @@ class BillingHandler(SecureHandler):
             subscription = stripe.resume_subscription(org.stripe_subscription_id)
 
             logger.info(f"Subscription resumed for org {org.id} (user: {db_user.email})")
+            audit_admin(
+                admin_id=user.user_id,
+                action="resume_subscription",
+                target_type="subscription",
+                target_id=org.stripe_subscription_id,
+                org_id=org.id,
+            )
 
             return json_response(
                 {
