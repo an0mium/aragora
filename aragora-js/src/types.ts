@@ -902,3 +902,225 @@ export interface ArchiveStats {
   newest_entry?: string;
   compression_ratio?: number;
 }
+
+// =============================================================================
+// Knowledge API Types
+// =============================================================================
+
+export interface KnowledgeEntry {
+  id?: string;
+  content: string;
+  source?: string;
+  source_type?: string;
+  metadata?: Record<string, unknown>;
+  confidence?: number;
+  created_at?: string;
+  updated_at?: string;
+  tags?: string[];
+}
+
+export interface KnowledgeSearchResult {
+  id: string;
+  content: string;
+  score: number;
+  source?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface KnowledgeStats {
+  total_entries: number;
+  total_facts: number;
+  sources?: Record<string, number>;
+  categories?: Record<string, number>;
+  avg_confidence?: number;
+  last_updated?: string;
+}
+
+export interface Fact {
+  id: string;
+  content: string;
+  source?: string;
+  confidence?: number;
+  verified: boolean;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface KnowledgeQueryResponse {
+  answer: string;
+  sources?: Array<{ id: string; content: string; score: number }>;
+  confidence?: number;
+}
+
+// =============================================================================
+// Workflow API Types
+// =============================================================================
+
+export type WorkflowStatus = 'draft' | 'active' | 'paused' | 'archived';
+export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+export interface Workflow {
+  id: string;
+  name: string;
+  description?: string;
+  status: WorkflowStatus;
+  steps: WorkflowStep[];
+  triggers?: WorkflowTrigger[];
+  created_at: string;
+  updated_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WorkflowStep {
+  id: string;
+  name: string;
+  type: string;
+  config: Record<string, unknown>;
+  depends_on?: string[];
+}
+
+export interface WorkflowTrigger {
+  type: 'schedule' | 'event' | 'webhook' | 'manual';
+  config: Record<string, unknown>;
+}
+
+export interface WorkflowExecution {
+  id: string;
+  workflow_id: string;
+  status: ExecutionStatus;
+  started_at: string;
+  completed_at?: string;
+  current_step?: string;
+  results?: Record<string, unknown>;
+  error?: string;
+}
+
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  steps: WorkflowStep[];
+  parameters?: Array<{
+    name: string;
+    type: string;
+    required: boolean;
+    default?: unknown;
+  }>;
+}
+
+// =============================================================================
+// Tournament API Types
+// =============================================================================
+
+export type TournamentStatus = 'draft' | 'registration' | 'running' | 'completed' | 'cancelled';
+export type TournamentFormat = 'single_elimination' | 'double_elimination' | 'round_robin' | 'swiss';
+
+export interface Tournament {
+  id: string;
+  name: string;
+  description?: string;
+  status: TournamentStatus;
+  format: TournamentFormat;
+  topic: string;
+  participants: string[];
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  winner?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TournamentStandings {
+  tournament_id: string;
+  standings: Array<{
+    agent: string;
+    wins: number;
+    losses: number;
+    points: number;
+    rank: number;
+  }>;
+}
+
+export interface TournamentBracket {
+  tournament_id: string;
+  rounds: Array<{
+    round_number: number;
+    matches: TournamentMatch[];
+  }>;
+}
+
+export interface TournamentMatch {
+  id: string;
+  round: number;
+  agent_a: string;
+  agent_b: string;
+  winner?: string;
+  debate_id?: string;
+  status: 'pending' | 'running' | 'completed';
+}
+
+// =============================================================================
+// RBAC API Types
+// =============================================================================
+
+export interface Role {
+  id: string;
+  name: string;
+  description?: string;
+  permissions: string[];
+  is_system: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Permission {
+  id: string;
+  name: string;
+  description?: string;
+  resource: string;
+  action: string;
+}
+
+export interface RoleAssignment {
+  id: string;
+  user_id: string;
+  role_id: string;
+  assigned_at: string;
+  assigned_by?: string;
+}
+
+// =============================================================================
+// Auth API Types
+// =============================================================================
+
+export interface AuthToken {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+  avatar_url?: string;
+  roles: string[];
+  created_at: string;
+  updated_at: string;
+  email_verified: boolean;
+  mfa_enabled: boolean;
+}
+
+export interface MFASetupResponse {
+  secret: string;
+  qr_code_url: string;
+  backup_codes: string[];
+}
+
+export interface MFAVerifyResponse {
+  success: boolean;
+  backup_codes_remaining: number;
+}

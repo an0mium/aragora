@@ -31,6 +31,13 @@ export {
   VerificationAPI,
   GauntletAPI,
   TeamSelectionAPI,
+  AnalyticsAPI,
+  MemoryAPI,
+  KnowledgeAPI,
+  WorkflowsAPI,
+  TournamentsAPI,
+  RBACAPI,
+  AuthAPI,
 } from './client';
 export type { AragoraClientOptions } from './client';
 
@@ -93,4 +100,34 @@ export type {
   TeamSelection,
   SelectionPlugins,
   SelectTeamRequest,
+  // Knowledge types
+  KnowledgeEntry,
+  KnowledgeSearchResult,
+  KnowledgeStats,
+  Fact,
+  KnowledgeQueryResponse,
+  // Workflow types
+  Workflow,
+  WorkflowStatus,
+  WorkflowStep,
+  WorkflowTrigger,
+  WorkflowExecution,
+  ExecutionStatus,
+  WorkflowTemplate,
+  // Tournament types
+  Tournament,
+  TournamentStatus,
+  TournamentFormat,
+  TournamentStandings,
+  TournamentBracket,
+  TournamentMatch,
+  // RBAC types
+  Role,
+  Permission,
+  RoleAssignment,
+  // Auth types
+  AuthToken,
+  User,
+  MFASetupResponse,
+  MFAVerifyResponse,
 } from './types';

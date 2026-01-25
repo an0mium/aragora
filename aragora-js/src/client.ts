@@ -75,6 +75,36 @@ import type {
   ConsolidationResult,
   CleanupResult,
   ArchiveStats,
+  // Knowledge types
+  KnowledgeEntry,
+  KnowledgeSearchResult,
+  KnowledgeStats,
+  Fact,
+  KnowledgeQueryResponse,
+  // Workflow types
+  Workflow,
+  WorkflowStatus,
+  WorkflowStep,
+  WorkflowTrigger,
+  WorkflowExecution,
+  ExecutionStatus,
+  WorkflowTemplate,
+  // Tournament types
+  Tournament,
+  TournamentStatus,
+  TournamentFormat,
+  TournamentStandings,
+  TournamentBracket,
+  TournamentMatch,
+  // RBAC types
+  Role,
+  Permission,
+  RoleAssignment,
+  // Auth types
+  AuthToken,
+  User,
+  MFASetupResponse,
+  MFAVerifyResponse,
 } from './types';
 
 export interface AragoraClientOptions {
@@ -922,6 +952,604 @@ export class MemoryAPI {
   }
 }
 
+// =============================================================================
+// Knowledge API
+// =============================================================================
+
+export class KnowledgeAPI {
+  constructor(private client: AragoraClient) {}
+
+  /**
+   * Search the knowledge base.
+   */
+  async search(
+    query: string,
+    options: {
+      limit?: number;
+      minScore?: number;
+      source?: string;
+      tags?: string[];
+    } = {}
+  ): Promise<{ results: KnowledgeSearchResult[] }> {
+    return this.client.get<{ results: KnowledgeSearchResult[] }>('/api/v1/knowledge/search', {
+      query,
+      limit: options.limit ?? 10,
+      ...(options.minScore !== undefined && { min_score: options.minScore }),
+      ...(options.source && { source: options.source }),
+      ...(options.tags && { tags: options.tags.join(',') }),
+    });
+  }
+
+  /**
+   * Query the knowledge base with natural language.
+   */
+  async query(
+    question: string,
+    options: { context?: string; includeSources?: boolean } = {}
+  ): Promise<KnowledgeQueryResponse> {
+    return this.client.post<KnowledgeQueryResponse>('/api/v1/knowledge/query', {
+      question,
+      include_sources: options.includeSources ?? true,
+      ...(options.context && { context: options.context }),
+    });
+  }
+
+  /**
+   * Add an entry to the knowledge base.
+   */
+  async add(options: {
+    content: string;
+    source?: string;
+    sourceType?: string;
+    metadata?: Record<string, unknown>;
+    tags?: string[];
+    confidence?: number;
+  }): Promise<{ id: string; created_at: string }> {
+    return this.client.post<{ id: string; created_at: string }>('/api/v1/knowledge', {
+      content: options.content,
+      ...(options.source && { source: options.source }),
+      ...(options.sourceType && { source_type: options.sourceType }),
+      ...(options.metadata && { metadata: options.metadata }),
+      ...(options.tags && { tags: options.tags }),
+      ...(options.confidence !== undefined && { confidence: options.confidence }),
+    });
+  }
+
+  /**
+   * Get a knowledge entry by ID.
+   */
+  async get(entryId: string): Promise<KnowledgeEntry> {
+    return this.client.get<KnowledgeEntry>(`/api/v1/knowledge/${entryId}`);
+  }
+
+  /**
+   * Delete a knowledge entry.
+   */
+  async delete(entryId: string): Promise<void> {
+    return this.client.delete(`/api/v1/knowledge/${entryId}`);
+  }
+
+  /**
+   * List facts from the knowledge base.
+   */
+  async listFacts(options: {
+    limit?: number;
+    offset?: number;
+    verified?: boolean;
+    source?: string;
+  } = {}): Promise<{ facts: Fact[]; count: number }> {
+    return this.client.get<{ facts: Fact[]; count: number }>('/api/v1/knowledge/facts', {
+      limit: options.limit ?? 50,
+      offset: options.offset ?? 0,
+      ...(options.verified !== undefined && { verified: options.verified }),
+      ...(options.source && { source: options.source }),
+    });
+  }
+
+  /**
+   * Add a fact to the knowledge base.
+   */
+  async addFact(options: {
+    content: string;
+    source?: string;
+    confidence?: number;
+    metadata?: Record<string, unknown>;
+  }): Promise<Fact> {
+    return this.client.post<Fact>('/api/v1/knowledge/facts', {
+      content: options.content,
+      ...(options.source && { source: options.source }),
+      ...(options.confidence !== undefined && { confidence: options.confidence }),
+      ...(options.metadata && { metadata: options.metadata }),
+    });
+  }
+
+  /**
+   * Verify a fact using agents.
+   */
+  async verifyFact(
+    factId: string,
+    options: { agents?: string[] } = {}
+  ): Promise<{ verified: boolean; confidence: number; reasoning: string }> {
+    return this.client.post<{ verified: boolean; confidence: number; reasoning: string }>(
+      `/api/v1/knowledge/facts/${factId}/verify`,
+      {
+        ...(options.agents && { agents: options.agents }),
+      }
+    );
+  }
+
+  /**
+   * Get facts that contradict the given fact.
+   */
+  async getContradictions(factId: string): Promise<{ contradictions: Fact[] }> {
+    return this.client.get<{ contradictions: Fact[] }>(`/api/v1/knowledge/facts/${factId}/contradictions`);
+  }
+
+  /**
+   * Get knowledge base statistics.
+   */
+  async stats(): Promise<KnowledgeStats> {
+    return this.client.get<KnowledgeStats>('/api/v1/knowledge/stats');
+  }
+
+  /**
+   * Bulk import knowledge entries.
+   */
+  async bulkImport(
+    entries: Array<{
+      content: string;
+      source?: string;
+      tags?: string[];
+      metadata?: Record<string, unknown>;
+    }>,
+    options: { skipDuplicates?: boolean } = {}
+  ): Promise<{ imported: number; skipped: number; errors: number }> {
+    return this.client.post<{ imported: number; skipped: number; errors: number }>('/api/v1/knowledge/bulk-import', {
+      entries,
+      skip_duplicates: options.skipDuplicates ?? true,
+    });
+  }
+}
+
+// =============================================================================
+// Workflows API
+// =============================================================================
+
+export class WorkflowsAPI {
+  constructor(private client: AragoraClient) {}
+
+  /**
+   * List workflows.
+   */
+  async list(options: { limit?: number; offset?: number; status?: WorkflowStatus } = {}): Promise<{
+    workflows: Workflow[];
+    count: number;
+  }> {
+    return this.client.get<{ workflows: Workflow[]; count: number }>('/api/v1/workflows', {
+      limit: options.limit ?? 50,
+      offset: options.offset ?? 0,
+      ...(options.status && { status: options.status }),
+    });
+  }
+
+  /**
+   * Get a workflow by ID.
+   */
+  async get(workflowId: string): Promise<Workflow> {
+    return this.client.get<Workflow>(`/api/v1/workflows/${workflowId}`);
+  }
+
+  /**
+   * Create a new workflow.
+   */
+  async create(options: {
+    name: string;
+    description?: string;
+    steps: WorkflowStep[];
+    triggers?: WorkflowTrigger[];
+    metadata?: Record<string, unknown>;
+  }): Promise<Workflow> {
+    return this.client.post<Workflow>('/api/v1/workflows', {
+      name: options.name,
+      ...(options.description && { description: options.description }),
+      steps: options.steps,
+      ...(options.triggers && { triggers: options.triggers }),
+      ...(options.metadata && { metadata: options.metadata }),
+    });
+  }
+
+  /**
+   * Delete a workflow.
+   */
+  async delete(workflowId: string): Promise<void> {
+    return this.client.delete(`/api/v1/workflows/${workflowId}`);
+  }
+
+  /**
+   * Execute a workflow.
+   */
+  async execute(
+    workflowId: string,
+    options: { inputs?: Record<string, unknown> } = {}
+  ): Promise<WorkflowExecution> {
+    return this.client.post<WorkflowExecution>(`/api/v1/workflows/${workflowId}/execute`, {
+      ...(options.inputs && { inputs: options.inputs }),
+    });
+  }
+
+  /**
+   * Get a workflow execution.
+   */
+  async getExecution(executionId: string): Promise<WorkflowExecution> {
+    return this.client.get<WorkflowExecution>(`/api/v1/workflows/executions/${executionId}`);
+  }
+
+  /**
+   * List workflow executions.
+   */
+  async listExecutions(options: {
+    workflowId?: string;
+    status?: ExecutionStatus;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{ executions: WorkflowExecution[]; count: number }> {
+    return this.client.get<{ executions: WorkflowExecution[]; count: number }>('/api/v1/workflows/executions', {
+      ...(options.workflowId && { workflow_id: options.workflowId }),
+      ...(options.status && { status: options.status }),
+      limit: options.limit ?? 50,
+      offset: options.offset ?? 0,
+    });
+  }
+
+  /**
+   * Cancel a workflow execution.
+   */
+  async cancelExecution(executionId: string): Promise<WorkflowExecution> {
+    return this.client.post<WorkflowExecution>(`/api/v1/workflows/executions/${executionId}/cancel`, {});
+  }
+
+  /**
+   * List workflow templates.
+   */
+  async listTemplates(options: { category?: string } = {}): Promise<{ templates: WorkflowTemplate[] }> {
+    return this.client.get<{ templates: WorkflowTemplate[] }>('/api/v1/workflows/templates', {
+      ...(options.category && { category: options.category }),
+    });
+  }
+
+  /**
+   * Get a workflow template.
+   */
+  async getTemplate(templateId: string): Promise<WorkflowTemplate> {
+    return this.client.get<WorkflowTemplate>(`/api/v1/workflows/templates/${templateId}`);
+  }
+
+  /**
+   * Run a workflow from a template.
+   */
+  async runTemplate(
+    templateId: string,
+    options: { parameters?: Record<string, unknown> } = {}
+  ): Promise<WorkflowExecution> {
+    return this.client.post<WorkflowExecution>(`/api/v1/workflows/templates/${templateId}/run`, {
+      ...(options.parameters && { parameters: options.parameters }),
+    });
+  }
+}
+
+// =============================================================================
+// Tournaments API
+// =============================================================================
+
+export class TournamentsAPI {
+  constructor(private client: AragoraClient) {}
+
+  /**
+   * List tournaments.
+   */
+  async list(options: { limit?: number; offset?: number; status?: TournamentStatus } = {}): Promise<{
+    tournaments: Tournament[];
+    count: number;
+  }> {
+    return this.client.get<{ tournaments: Tournament[]; count: number }>('/api/v1/tournaments', {
+      limit: options.limit ?? 50,
+      offset: options.offset ?? 0,
+      ...(options.status && { status: options.status }),
+    });
+  }
+
+  /**
+   * Get a tournament by ID.
+   */
+  async get(tournamentId: string): Promise<Tournament> {
+    return this.client.get<Tournament>(`/api/v1/tournaments/${tournamentId}`);
+  }
+
+  /**
+   * Create a new tournament.
+   */
+  async create(options: {
+    name: string;
+    description?: string;
+    format: TournamentFormat;
+    topic: string;
+    participants: string[];
+    metadata?: Record<string, unknown>;
+  }): Promise<Tournament> {
+    return this.client.post<Tournament>('/api/v1/tournaments', {
+      name: options.name,
+      ...(options.description && { description: options.description }),
+      format: options.format,
+      topic: options.topic,
+      participants: options.participants,
+      ...(options.metadata && { metadata: options.metadata }),
+    });
+  }
+
+  /**
+   * Start a tournament.
+   */
+  async start(tournamentId: string): Promise<Tournament> {
+    return this.client.post<Tournament>(`/api/v1/tournaments/${tournamentId}/start`, {});
+  }
+
+  /**
+   * Cancel a tournament.
+   */
+  async cancel(tournamentId: string): Promise<Tournament> {
+    return this.client.post<Tournament>(`/api/v1/tournaments/${tournamentId}/cancel`, {});
+  }
+
+  /**
+   * Get tournament standings.
+   */
+  async standings(tournamentId: string): Promise<TournamentStandings> {
+    return this.client.get<TournamentStandings>(`/api/v1/tournaments/${tournamentId}/standings`);
+  }
+
+  /**
+   * Get tournament bracket.
+   */
+  async bracket(tournamentId: string): Promise<TournamentBracket> {
+    return this.client.get<TournamentBracket>(`/api/v1/tournaments/${tournamentId}/bracket`);
+  }
+
+  /**
+   * List tournament matches.
+   */
+  async listMatches(
+    tournamentId: string,
+    options: { round?: number } = {}
+  ): Promise<{ matches: TournamentMatch[] }> {
+    return this.client.get<{ matches: TournamentMatch[] }>(`/api/v1/tournaments/${tournamentId}/matches`, {
+      ...(options.round !== undefined && { round: options.round }),
+    });
+  }
+
+  /**
+   * Get a specific match.
+   */
+  async getMatch(tournamentId: string, matchId: string): Promise<TournamentMatch> {
+    return this.client.get<TournamentMatch>(`/api/v1/tournaments/${tournamentId}/matches/${matchId}`);
+  }
+
+  /**
+   * Delete a tournament.
+   */
+  async delete(tournamentId: string): Promise<void> {
+    return this.client.delete(`/api/v1/tournaments/${tournamentId}`);
+  }
+}
+
+// =============================================================================
+// RBAC API
+// =============================================================================
+
+export class RBACAPI {
+  constructor(private client: AragoraClient) {}
+
+  /**
+   * List roles.
+   */
+  async listRoles(options: { limit?: number; offset?: number } = {}): Promise<{ roles: Role[]; count: number }> {
+    return this.client.get<{ roles: Role[]; count: number }>('/api/v1/rbac/roles', {
+      limit: options.limit ?? 50,
+      offset: options.offset ?? 0,
+    });
+  }
+
+  /**
+   * Get a role by ID.
+   */
+  async getRole(roleId: string): Promise<Role> {
+    return this.client.get<Role>(`/api/v1/rbac/roles/${roleId}`);
+  }
+
+  /**
+   * Create a new role.
+   */
+  async createRole(options: {
+    name: string;
+    description?: string;
+    permissions: string[];
+  }): Promise<Role> {
+    return this.client.post<Role>('/api/v1/rbac/roles', {
+      name: options.name,
+      ...(options.description && { description: options.description }),
+      permissions: options.permissions,
+    });
+  }
+
+  /**
+   * Delete a role.
+   */
+  async deleteRole(roleId: string): Promise<void> {
+    return this.client.delete(`/api/v1/rbac/roles/${roleId}`);
+  }
+
+  /**
+   * List all permissions.
+   */
+  async listPermissions(): Promise<{ permissions: Permission[] }> {
+    return this.client.get<{ permissions: Permission[] }>('/api/v1/rbac/permissions');
+  }
+
+  /**
+   * Assign a role to a user.
+   */
+  async assignRole(userId: string, roleId: string): Promise<RoleAssignment> {
+    return this.client.post<RoleAssignment>('/api/v1/rbac/assignments', {
+      user_id: userId,
+      role_id: roleId,
+    });
+  }
+
+  /**
+   * Revoke a role from a user.
+   */
+  async revokeRole(userId: string, roleId: string): Promise<void> {
+    return this.client.delete(`/api/v1/rbac/assignments/${userId}/${roleId}`);
+  }
+
+  /**
+   * Get user's roles.
+   */
+  async getUserRoles(userId: string): Promise<{ roles: Role[] }> {
+    return this.client.get<{ roles: Role[] }>(`/api/v1/rbac/users/${userId}/roles`);
+  }
+
+  /**
+   * Check if a user has a permission.
+   */
+  async checkPermission(
+    userId: string,
+    permission: string
+  ): Promise<{ allowed: boolean; source?: string }> {
+    return this.client.get<{ allowed: boolean; source?: string }>('/api/v1/rbac/check', {
+      user_id: userId,
+      permission,
+    });
+  }
+
+  /**
+   * Get effective permissions for a user.
+   */
+  async getEffectivePermissions(userId: string): Promise<{ permissions: string[] }> {
+    return this.client.get<{ permissions: string[] }>(`/api/v1/rbac/users/${userId}/permissions`);
+  }
+}
+
+// =============================================================================
+// Auth API
+// =============================================================================
+
+export class AuthAPI {
+  constructor(private client: AragoraClient) {}
+
+  /**
+   * Register a new user.
+   */
+  async register(options: {
+    email: string;
+    password: string;
+    name?: string;
+  }): Promise<{ user: User; token: AuthToken }> {
+    return this.client.post<{ user: User; token: AuthToken }>('/api/v1/auth/register', {
+      email: options.email,
+      password: options.password,
+      ...(options.name && { name: options.name }),
+    });
+  }
+
+  /**
+   * Login with email and password.
+   */
+  async login(email: string, password: string): Promise<AuthToken> {
+    return this.client.post<AuthToken>('/api/v1/auth/login', { email, password });
+  }
+
+  /**
+   * Refresh an access token.
+   */
+  async refreshToken(refreshToken: string): Promise<AuthToken> {
+    return this.client.post<AuthToken>('/api/v1/auth/refresh', { refresh_token: refreshToken });
+  }
+
+  /**
+   * Logout (invalidate token).
+   */
+  async logout(): Promise<void> {
+    return this.client.post<void>('/api/v1/auth/logout', {});
+  }
+
+  /**
+   * Get current authenticated user.
+   */
+  async getCurrentUser(): Promise<User> {
+    return this.client.get<User>('/api/v1/auth/me');
+  }
+
+  /**
+   * Update user profile.
+   */
+  async updateProfile(options: { name?: string; avatarUrl?: string }): Promise<User> {
+    return this.client.post<User>('/api/v1/auth/profile', {
+      ...(options.name && { name: options.name }),
+      ...(options.avatarUrl && { avatar_url: options.avatarUrl }),
+    });
+  }
+
+  /**
+   * Change password.
+   */
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    return this.client.post<void>('/api/v1/auth/change-password', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+  }
+
+  /**
+   * Request password reset email.
+   */
+  async requestPasswordReset(email: string): Promise<void> {
+    return this.client.post<void>('/api/v1/auth/forgot-password', { email });
+  }
+
+  /**
+   * Reset password with token.
+   */
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    return this.client.post<void>('/api/v1/auth/reset-password', {
+      token,
+      new_password: newPassword,
+    });
+  }
+
+  /**
+   * Get OAuth provider URL.
+   */
+  async getOAuthUrl(provider: string, options: { redirectUri?: string } = {}): Promise<{ url: string }> {
+    return this.client.get<{ url: string }>(`/api/v1/auth/oauth/${provider}`, {
+      ...(options.redirectUri && { redirect_uri: options.redirectUri }),
+    });
+  }
+
+  /**
+   * Setup MFA (TOTP).
+   */
+  async setupMFA(method: string = 'totp'): Promise<MFASetupResponse> {
+    return this.client.post<MFASetupResponse>('/api/v1/auth/mfa/setup', { method });
+  }
+
+  /**
+   * Verify MFA setup.
+   */
+  async verifyMFASetup(code: string): Promise<MFAVerifyResponse> {
+    return this.client.post<MFAVerifyResponse>('/api/v1/auth/mfa/verify', { code });
+  }
+}
+
 export class AragoraClient {
   public readonly baseUrl: string;
   private apiKey?: string;
@@ -939,6 +1567,11 @@ export class AragoraClient {
   public readonly controlPlane: ControlPlaneAPI;
   public readonly analytics: AnalyticsAPI;
   public readonly memory: MemoryAPI;
+  public readonly knowledge: KnowledgeAPI;
+  public readonly workflows: WorkflowsAPI;
+  public readonly tournaments: TournamentsAPI;
+  public readonly rbac: RBACAPI;
+  public readonly auth: AuthAPI;
 
   constructor(baseUrl: string = 'http://localhost:8080', options: AragoraClientOptions = {}) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
@@ -962,6 +1595,11 @@ export class AragoraClient {
     this.controlPlane = new ControlPlaneAPI(this);
     this.analytics = new AnalyticsAPI(this);
     this.memory = new MemoryAPI(this);
+    this.knowledge = new KnowledgeAPI(this);
+    this.workflows = new WorkflowsAPI(this);
+    this.tournaments = new TournamentsAPI(this);
+    this.rbac = new RBACAPI(this);
+    this.auth = new AuthAPI(this);
   }
 
   /**
