@@ -54,12 +54,14 @@ from .resources import (
     AgentsAPI,
     AnalyticsAPI,
     AuditAPI,
+    AuthAPI,
     BillingAPI,
     ConsensusAPI,
     DebatesAPI,
     DocumentsAPI,
     GauntletAPI,
     GraphDebatesAPI,
+    KnowledgeAPI,
     LeaderboardAPI,
     MatrixDebatesAPI,
     MemoryAPI,
@@ -69,6 +71,7 @@ from .resources import (
     SystemAPI,
     TournamentsAPI,
     VerificationAPI,
+    WorkflowsAPI,
 )
 from .models import (
     HealthCheck,
@@ -105,6 +108,11 @@ class AragoraClient:
         - pulse: Trending topics and debate suggestions
         - system: System health, stats, and circuit breaker management
         - tournaments: Agent tournament creation and management
+        - billing: Subscription and usage management
+        - rbac: Role-based access control
+        - auth: Authentication and MFA management
+        - knowledge: Knowledge Mound search and management
+        - workflows: Workflow creation and execution
 
     Usage:
         # Synchronous
@@ -201,6 +209,15 @@ class AragoraClient:
 
         # Role-Based Access Control
         self.rbac = RBACAPI(self)
+
+        # Authentication and MFA
+        self.auth = AuthAPI(self)
+
+        # Knowledge Mound
+        self.knowledge = KnowledgeAPI(self)
+
+        # Workflows
+        self.workflows = WorkflowsAPI(self)
 
     def _get_headers(self) -> dict[str, str]:
         """Get common request headers."""

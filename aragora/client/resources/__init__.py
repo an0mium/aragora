@@ -7,12 +7,14 @@ These modules contain the API interface classes that are used by AragoraClient.
 from .agents import AgentsAPI
 from .analytics import AnalyticsAPI
 from .audit import AuditAPI
+from .auth import AuthAPI
 from .billing import BillingAPI
 from .debates import DebatesAPI
 from .consensus import ConsensusAPI
 from .documents import DocumentsAPI
 from .gauntlet import GauntletAPI
 from .graph_debates import GraphDebatesAPI
+from .knowledge import KnowledgeAPI
 from .leaderboard import LeaderboardAPI
 from .matrix_debates import MatrixDebatesAPI
 from .memory import MemoryAPI
@@ -22,17 +24,20 @@ from .replay import ReplayAPI
 from .system import SystemAPI
 from .tournaments import TournamentsAPI
 from .verification import VerificationAPI
+from .workflows import WorkflowsAPI
 
 __all__ = [
     "AgentsAPI",
     "AnalyticsAPI",
     "AuditAPI",
+    "AuthAPI",
     "BillingAPI",
     "ConsensusAPI",
     "DebatesAPI",
     "DocumentsAPI",
     "GauntletAPI",
     "GraphDebatesAPI",
+    "KnowledgeAPI",
     "LeaderboardAPI",
     "MatrixDebatesAPI",
     "MemoryAPI",
@@ -42,4 +47,5 @@ __all__ = [
     "SystemAPI",
     "TournamentsAPI",
     "VerificationAPI",
+    "WorkflowsAPI",
 ]
