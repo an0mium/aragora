@@ -40,7 +40,8 @@ class TeamsReceiptFormatter(ReceiptFormatter):
         options = options or {}
         compact = options.get("compact", False)
 
-        confidence = getattr(r, "confidence_score", None) or getattr(r, "confidence", 0)
+        confidence_raw = getattr(r, "confidence_score", None) or getattr(r, "confidence", None)
+        confidence: float = float(confidence_raw) if confidence_raw is not None else 0.0
         confidence_color = self._get_confidence_color(confidence)
 
         body: List[Dict[str, Any]] = []

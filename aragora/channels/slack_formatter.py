@@ -40,9 +40,10 @@ class SlackReceiptFormatter(ReceiptFormatter):
         blocks: List[Dict[str, Any]] = []
 
         # Header
-        confidence = getattr(receipt, "confidence_score", None)
-        if confidence is None:
-            confidence = getattr(receipt, "confidence", 0)
+        confidence_raw = getattr(receipt, "confidence_score", None)
+        if confidence_raw is None:
+            confidence_raw = getattr(receipt, "confidence", None)
+        confidence: float = float(confidence_raw) if confidence_raw is not None else 0.0
         confidence_emoji = self._get_confidence_emoji(confidence)
 
         blocks.append(

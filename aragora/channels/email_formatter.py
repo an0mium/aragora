@@ -37,9 +37,10 @@ class EmailReceiptFormatter(ReceiptFormatter):
         include_css = options.get("include_css", True)
         plain_text_opt = options.get("plain_text", True)
 
-        confidence = getattr(receipt, "confidence_score", None)
-        if confidence is None:
-            confidence = getattr(receipt, "confidence", 0)
+        confidence_raw = getattr(receipt, "confidence_score", None)
+        if confidence_raw is None:
+            confidence_raw = getattr(receipt, "confidence", None)
+        confidence: float = float(confidence_raw) if confidence_raw is not None else 0.0
         confidence_color = self._get_confidence_color(confidence)
 
         # Build HTML content

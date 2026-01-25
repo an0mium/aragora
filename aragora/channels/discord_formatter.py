@@ -33,9 +33,10 @@ class DiscordReceiptFormatter(ReceiptFormatter):
         options = options or {}
         compact = options.get("compact", False)
 
-        confidence = getattr(receipt, "confidence_score", None)
-        if confidence is None:
-            confidence = getattr(receipt, "confidence", 0)
+        confidence_raw = getattr(receipt, "confidence_score", None)
+        if confidence_raw is None:
+            confidence_raw = getattr(receipt, "confidence", None)
+        confidence: float = float(confidence_raw) if confidence_raw is not None else 0.0
         color = self._get_embed_color(confidence)
 
         fields: List[Dict[str, Any]] = []
