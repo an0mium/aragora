@@ -716,6 +716,7 @@ class TestWebhookHandlers:
         request.read = read_func
 
         mock_event = MagicMock()
+        mock_event.id = "evt_test123"  # Event ID for idempotency
         mock_event.type = "payment_intent.succeeded"
         mock_event.data = MagicMock()
         mock_event.data.object = MagicMock(id="pi_test123")

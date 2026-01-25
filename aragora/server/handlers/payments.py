@@ -41,6 +41,34 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
+# Webhook Idempotency
+# =============================================================================
+
+
+def _is_duplicate_webhook(event_id: str) -> bool:
+    """Check if webhook event was already processed.
+
+    Uses persistent storage (SQLite/PostgreSQL) to track processed events,
+    ensuring idempotency survives server restarts.
+    """
+    from aragora.storage.webhook_store import get_webhook_store
+
+    store = get_webhook_store()
+    return store.is_processed(event_id)
+
+
+def _mark_webhook_processed(event_id: str, result: str = "success") -> None:
+    """Mark webhook event as processed.
+
+    Stores the event ID with a 24-hour TTL to prevent duplicate processing.
+    """
+    from aragora.storage.webhook_store import get_webhook_store
+
+    store = get_webhook_store()
+    store.mark_processed(event_id, result)
+
+
+# =============================================================================
 # Data Models
 # =============================================================================
 
@@ -1076,9 +1104,17 @@ async def handle_stripe_webhook(request: web.Request) -> web.Response:
         except Exception as e:
             return web.json_response({"error": f"Signature verification failed: {e}"}, status=400)
 
+        # Get event ID for idempotency check
+        event_id = event.id
+        if not event_id:
+            logger.warning("Webhook event missing ID, cannot check idempotency")
+        elif _is_duplicate_webhook(event_id):
+            logger.info(f"Skipping duplicate Stripe webhook: {event_id}")
+            return web.json_response({"received": True, "duplicate": True})
+
         # Handle the event
         event_type = event.type
-        logger.info(f"Received Stripe webhook: {event_type}")
+        logger.info(f"Received Stripe webhook: {event_type} (id={event_id})")
 
         # Process different event types
         if event_type == "payment_intent.succeeded":
@@ -1091,6 +1127,10 @@ async def handle_stripe_webhook(request: web.Request) -> web.Response:
             logger.info(f"Subscription canceled: {event.data.object.id}")
         elif event_type == "invoice.payment_failed":
             logger.warning(f"Invoice payment failed: {event.data.object.id}")
+
+        # Mark as processed after successful handling
+        if event_id:
+            _mark_webhook_processed(event_id)
 
         return web.json_response({"received": True})
 
@@ -1118,9 +1158,22 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
             if not await connector.verify_webhook_signature(payload, signature or ""):
                 return web.json_response({"error": "Invalid signature"}, status=400)
 
+        # Get event ID for idempotency check
+        event_id = payload.get("notificationId") or payload.get("payload", {}).get("id")
+        if not event_id:
+            # Generate deterministic ID from payload if not provided
+            import hashlib
+
+            payload_str = json.dumps(payload, sort_keys=True)
+            event_id = f"authnet_{hashlib.sha256(payload_str.encode()).hexdigest()[:16]}"
+
+        if _is_duplicate_webhook(event_id):
+            logger.info(f"Skipping duplicate Authorize.net webhook: {event_id}")
+            return web.json_response({"received": True, "duplicate": True})
+
         # Handle the event
         event_type = payload.get("eventType", "")
-        logger.info(f"Received Authorize.net webhook: {event_type}")
+        logger.info(f"Received Authorize.net webhook: {event_type} (id={event_id})")
 
         # Process different event types
         if event_type == "net.authorize.payment.authcapture.created":
@@ -1131,6 +1184,9 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
             logger.info(f"Subscription created: {payload.get('payload', {}).get('id')}")
         elif event_type == "net.authorize.customer.subscription.cancelled":
             logger.info(f"Subscription canceled: {payload.get('payload', {}).get('id')}")
+
+        # Mark as processed after successful handling
+        _mark_webhook_processed(event_id)
 
         return web.json_response({"received": True})
 
