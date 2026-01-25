@@ -26,6 +26,7 @@ from aragora_client.knowledge import KnowledgeAPI
 from aragora_client.marketplace import MarketplaceAPI
 from aragora_client.onboarding import OnboardingAPI
 from aragora_client.rbac import RBACAPI
+from aragora_client.replay import ReplayAPI
 from aragora_client.tenancy import TenancyAPI
 from aragora_client.threat_intel import ThreatIntelAPI
 from aragora_client.tournaments import TournamentsAPI
@@ -1551,6 +1552,7 @@ class AragoraClient:
         self.cross_pollination = CrossPollinationAPI(self)
         self.threat_intel = ThreatIntelAPI(self)
         self.decisions = DecisionsAPI(self)
+        self.replays = ReplayAPI(self)
 
     async def __aenter__(self) -> AragoraClient:
         """Enter async context."""

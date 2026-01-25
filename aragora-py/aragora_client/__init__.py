@@ -90,6 +90,20 @@ from aragora_client.rbac import (
     Role,
     RoleAssignment,
 )
+from aragora_client.replay import (
+    AgentEvolution,
+    DebateStats,
+    EfficiencyLogEntry,
+    HyperparamAdjustment,
+    LearningEvolution,
+    LearningPattern,
+    MetaLearningStats,
+    Replay,
+    ReplayAPI,
+    ReplayEvent,
+    ReplayMeta,
+    ReplaySummary,
+)
 from aragora_client.tenancy import (
     QuotaStatus,
     TenancyAPI,
@@ -262,4 +276,17 @@ __all__ = [
     "DecisionStatus",
     "DecisionStatusInfo",
     "DecisionType",
+    # Replay
+    "ReplayAPI",
+    "Replay",
+    "ReplaySummary",
+    "ReplayMeta",
+    "ReplayEvent",
+    "LearningEvolution",
+    "LearningPattern",
+    "AgentEvolution",
+    "DebateStats",
+    "MetaLearningStats",
+    "HyperparamAdjustment",
+    "EfficiencyLogEntry",
 ]
