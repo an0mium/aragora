@@ -288,7 +288,7 @@ class TestGlobalRegistry:
         from aragora.resilience_config import CircuitBreakerConfig
 
         # Use explicit config with known threshold to ensure deterministic behavior
-        config = CircuitBreakerConfig(failure_threshold=3, cooldown_seconds=60)
+        config = CircuitBreakerConfig(failure_threshold=3, timeout_seconds=60.0)
         cb = get_circuit_breaker("metrics-test", config=config)
 
         # Record enough failures to trip the circuit breaker
