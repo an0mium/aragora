@@ -20,6 +20,31 @@ from aragora.bots.base import (
 
 logger = logging.getLogger(__name__)
 
+
+def _get_api_base(ctx: "CommandContext") -> str:
+    """Get API base URL from command context.
+
+    Returns:
+        API base URL from metadata
+
+    Raises:
+        ValueError: If api_base is not configured in context metadata
+    """
+    import os
+
+    api_base = ctx.metadata.get("api_base", "")
+    if not api_base:
+        # Check environment as fallback
+        api_base = os.environ.get("ARAGORA_API_BASE", "")
+    if not api_base:
+        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        if env in ("production", "prod", "live"):
+            raise ValueError("api_base not configured. Set ARAGORA_API_BASE environment variable.")
+        # Development fallback only
+        api_base = "http://localhost:8080"
+    return api_base
+
+
 # Type alias for command handlers
 CommandHandler = Callable[[CommandContext], Coroutine[Any, Any, CommandResult]]
 
@@ -309,7 +334,7 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
         """Check system health status."""
         import aiohttp
 
-        api_base = ctx.metadata.get("api_base", "http://localhost:8080")
+        api_base = _get_api_base(ctx)
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -339,7 +364,7 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
         if not topic:
             return CommandResult.fail("Please provide a debate topic.")
 
-        api_base = ctx.metadata.get("api_base", "http://localhost:8080")
+        api_base = _get_api_base(ctx)
 
         # Try to use DecisionRouter for unified routing with deduplication
         try:
@@ -455,7 +480,7 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
         if not statement:
             return CommandResult.fail("Please provide a statement to validate.")
 
-        api_base = ctx.metadata.get("api_base", "http://localhost:8080")
+        api_base = _get_api_base(ctx)
 
         try:
             async with aiohttp.ClientSession() as session:

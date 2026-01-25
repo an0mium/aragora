@@ -138,15 +138,19 @@ class CommandResult:
 
 @dataclass
 class BotConfig:
-    """Configuration for a bot instance."""
+    """Configuration for a bot instance.
+
+    Note: api_base and ws_url are REQUIRED in production.
+    Set ARAGORA_API_BASE and ARAGORA_WS_URL environment variables.
+    """
 
     platform: Platform
     token: str
     app_id: Optional[str] = None
     client_secret: Optional[str] = None
     signing_secret: Optional[str] = None  # For webhook verification
-    api_base: str = "http://localhost:8080"
-    ws_url: str = "ws://localhost:8080/ws"
+    api_base: str = ""  # Required in production, defaults to localhost only in dev
+    ws_url: str = ""  # Required in production, defaults to localhost only in dev
 
     # Rate limiting
     rate_limit_per_user: int = 10  # Commands per minute per user
@@ -170,20 +174,41 @@ class BaseBotClient(ABC):
         self.platform = config.platform
         self._connected = False
 
-        # Warn about localhost defaults in production
+        # Validate and apply URL defaults based on environment
         import os
 
         env = os.environ.get("ARAGORA_ENV", "development").lower()
-        if env in ("production", "prod", "live"):
+        is_production = env in ("production", "prod", "live")
+
+        # Apply localhost defaults only in development
+        if not config.api_base:
+            if is_production:
+                raise ValueError(
+                    "api_base is required in production. "
+                    "Set ARAGORA_API_BASE environment variable."
+                )
+            config.api_base = "http://localhost:8080"
+            logger.debug("Using localhost api_base (development mode)")
+
+        if not config.ws_url:
+            if is_production:
+                raise ValueError(
+                    "ws_url is required in production. " "Set ARAGORA_WS_URL environment variable."
+                )
+            config.ws_url = "ws://localhost:8080/ws"
+            logger.debug("Using localhost ws_url (development mode)")
+
+        # Error if localhost is explicitly set in production
+        if is_production:
             if "localhost" in config.api_base or "127.0.0.1" in config.api_base:
-                logger.warning(
-                    f"Bot api_base uses localhost ({config.api_base}) in production - "
-                    "set ARAGORA_API_BASE environment variable for production"
+                raise ValueError(
+                    f"Bot api_base cannot use localhost in production ({config.api_base}). "
+                    "Set ARAGORA_API_BASE to production URL."
                 )
             if "localhost" in config.ws_url or "127.0.0.1" in config.ws_url:
-                logger.warning(
-                    f"Bot ws_url uses localhost ({config.ws_url}) in production - "
-                    "set ARAGORA_WS_URL environment variable for production"
+                raise ValueError(
+                    f"Bot ws_url cannot use localhost in production ({config.ws_url}). "
+                    "Set ARAGORA_WS_URL to production URL."
                 )
 
     @property

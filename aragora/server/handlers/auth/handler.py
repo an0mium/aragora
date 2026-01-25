@@ -574,14 +574,9 @@ class AuthHandler(SecureHandler):
         # Get current user
         user_store = self._get_user_store()
 
-        # Enhanced debug logging for storage backend
-        store_type = type(user_store).__name__ if user_store else "None"
-        logger.info(f"[AUTH_ME_DEBUG] user_store type: {store_type}")
-
         auth_ctx = extract_user_from_request(handler, user_store)
-        logger.info(
-            f"[AUTH_ME_DEBUG] auth_ctx: authenticated={auth_ctx.is_authenticated}, "
-            f"user_id={auth_ctx.user_id}, error_reason={auth_ctx.error_reason}"
+        logger.debug(
+            f"Auth /me: authenticated={auth_ctx.is_authenticated}, user_id={auth_ctx.user_id}"
         )
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401, headers=self.AUTH_NO_CACHE_HEADERS)
@@ -593,9 +588,8 @@ class AuthHandler(SecureHandler):
             )
 
         # Get full user data
-        logger.info(f"[AUTH_ME_DEBUG] Looking up user_id={auth_ctx.user_id} in {store_type}")
         user = user_store.get_user_by_id(auth_ctx.user_id)
-        logger.info(f"[AUTH_ME_DEBUG] User lookup result: {'found' if user else 'NOT FOUND'}")
+        logger.debug(f"Auth /me: user lookup {'found' if user else 'not found'}")
         if not user:
             return error_response("User not found", 404, headers=self.AUTH_NO_CACHE_HEADERS)
 

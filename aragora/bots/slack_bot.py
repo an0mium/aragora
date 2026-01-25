@@ -39,8 +39,14 @@ SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
 SLACK_APP_TOKEN = os.environ.get("SLACK_APP_TOKEN", "")
 SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")
 
-# API base for Aragora backend
-API_BASE = os.environ.get("ARAGORA_API_BASE", "http://localhost:8080")
+# API base for Aragora backend (required in production)
+_api_base_env = os.environ.get("ARAGORA_API_BASE", "")
+_env_mode = os.environ.get("ARAGORA_ENV", "development").lower()
+if not _api_base_env:
+    if _env_mode in ("production", "prod", "live"):
+        raise EnvironmentError("ARAGORA_API_BASE is required in production")
+    _api_base_env = "http://localhost:8080"  # Development fallback
+API_BASE = _api_base_env
 
 
 def _check_slack_available() -> tuple[bool, Optional[str]]:

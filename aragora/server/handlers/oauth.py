@@ -1623,10 +1623,6 @@ class OAuthHandler(SecureHandler):
         """Create a new user from OAuth info."""
         from aragora.billing.models import hash_password
 
-        # Debug: Log which user store is being used
-        store_type = type(user_store).__name__ if user_store else "None"
-        logger.info(f"[OAUTH_DEBUG] Creating user in {store_type} for {user_info.email}")
-
         # Generate random password (user will use OAuth to login)
         random_password = secrets.token_urlsafe(32)
         password_hash, password_salt = hash_password(random_password)
@@ -1639,7 +1635,7 @@ class OAuthHandler(SecureHandler):
                 name=user_info.name,
             )
 
-            logger.info(f"[OAUTH_DEBUG] User created with id={user.id} in {store_type}")
+            logger.debug(f"OAuth user created: id={user.id}, email={user_info.email}")
 
             # Link OAuth provider
             self._link_oauth_to_user(user_store, user.id, user_info)
