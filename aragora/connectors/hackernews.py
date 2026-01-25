@@ -114,7 +114,11 @@ class HackerNewsConnector(BaseConnector):
                     "https://hacker-news.firebaseio.com/v0/topstories.json?limitToFirst=1",
                 )
                 return response.status_code == 200
-        except Exception:
+        except httpx.TimeoutException:
+            logger.debug("HackerNews health check timed out")
+            return False
+        except httpx.RequestError as e:
+            logger.debug(f"HackerNews health check failed: {e}")
             return False
 
     async def _rate_limit(self) -> None:
