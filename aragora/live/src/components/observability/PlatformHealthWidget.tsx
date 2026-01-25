@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { API_BASE_URL } from '@/config';
 import { useAsyncData } from '@/hooks/useAsyncData';
 import { useAuth } from '@/context/AuthContext';
 
@@ -97,6 +98,7 @@ function StatBox({ label, value, color = 'green' }: StatBoxProps) {
 export function PlatformHealthWidget() {
   const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [expanded, setExpanded] = useState(false);
+  const apiBase = API_BASE_URL;
 
   const fetcher = useCallback(async (): Promise<PlatformHealthData> => {
     // Skip if not authenticated
@@ -108,7 +110,7 @@ export function PlatformHealthWidget() {
     if (tokens?.access_token) {
       headers['Authorization'] = `Bearer ${tokens.access_token}`;
     }
-    const response = await fetch('/api/platform/health', { headers });
+    const response = await fetch(`${apiBase}/api/platform/health`, { headers });
     if (!response.ok) {
       throw new Error(`Failed to fetch: ${response.status}`);
     }

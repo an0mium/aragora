@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { API_BASE_URL } from '@/config';
 
 interface SnoozeSuggestion {
   snooze_until: string;
@@ -38,6 +39,7 @@ interface SnoozePanelProps {
 }
 
 export function SnoozePanel({
+  apiBase,
   emailId,
   emailSubject,
   emailSender,
@@ -46,6 +48,7 @@ export function SnoozePanel({
   onClose,
   className = '',
 }: SnoozePanelProps) {
+  const baseUrl = apiBase ?? API_BASE_URL;
   const [suggestions, setSuggestions] = useState<SnoozeSuggestion[]>([]);
   const [recommended, setRecommended] = useState<SnoozeSuggestion | null>(null);
   const [loading, setLoading] = useState(false);
@@ -61,7 +64,7 @@ export function SnoozePanel({
       setLoading(true);
       setError(null);
 
-      const res = await fetch(`/api/v1/email/${emailId}/snooze-suggestions`, {
+      const res = await fetch(`${baseUrl}/api/v1/email/${emailId}/snooze-suggestions`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -74,7 +77,7 @@ export function SnoozePanel({
         max_suggestions: 5,
       };
 
-      const postRes = await fetch(`/api/v1/email/${emailId}/snooze-suggestions`, {
+      const postRes = await fetch(`${baseUrl}/api/v1/email/${emailId}/snooze-suggestions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -155,7 +158,7 @@ export function SnoozePanel({
 
     try {
       setApplying(true);
-      const res = await fetch(`/api/v1/email/${emailId}/snooze`, {
+      const res = await fetch(`${baseUrl}/api/v1/email/${emailId}/snooze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -379,11 +382,12 @@ export function SnoozedEmailsList({
   const [snoozed, setSnoozed] = useState<SnoozedEmail[]>([]);
   const [loading, setLoading] = useState(true);
   const [_error, setError] = useState<string | null>(null);
+  const baseUrl = API_BASE_URL;
 
   const fetchSnoozed = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/v1/email/snoozed');
+      const res = await fetch(`${baseUrl}/api/v1/email/snoozed`);
       const data = await res.json();
       if (data.status === 'success') {
         setSnoozed(data.data.snoozed);
@@ -401,7 +405,7 @@ export function SnoozedEmailsList({
 
   const handleCancel = async (emailId: string) => {
     try {
-      const res = await fetch(`/api/v1/email/${emailId}/snooze`, {
+      const res = await fetch(`${baseUrl}/api/v1/email/${emailId}/snooze`, {
         method: 'DELETE',
       });
       const data = await res.json();

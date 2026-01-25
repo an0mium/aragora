@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { API_BASE_URL } from '@/config';
 import { useAuth } from '@/context/AuthContext';
 import { logger } from '@/utils/logger';
 import {
@@ -329,6 +330,7 @@ interface SimulationPanelProps {
 
 function SimulationPanel({ workspaceId }: SimulationPanelProps) {
   const { tokens } = useAuth();
+  const apiBase = API_BASE_URL;
   const [scenario, setScenario] = useState({
     name: 'Custom Scenario',
     changes: {
@@ -359,7 +361,7 @@ function SimulationPanel({ workspaceId }: SimulationPanelProps) {
         changes.request_reduction = scenario.changes.request_reduction / 100;
       }
 
-      const response = await fetch('/api/costs/forecast/simulate', {
+      const response = await fetch(`${apiBase}/api/costs/forecast/simulate`, {
         method: 'POST',
         headers,
         body: JSON.stringify({

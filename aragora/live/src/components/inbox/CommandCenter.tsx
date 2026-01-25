@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { API_BASE_URL } from '@/config';
 import { logger } from '@/utils/logger';
 import { PriorityInboxList, type PrioritizedEmail } from './PriorityInboxList';
 import { TriageRulesPanel } from './TriageRulesPanel';
@@ -30,6 +31,7 @@ interface SenderProfile {
 }
 
 export function CommandCenter() {
+  const apiBase = API_BASE_URL;
   const [activeTab, setActiveTab] = useState<CommandCenterTab>('inbox');
   const [emails, setEmails] = useState<PrioritizedEmail[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<PrioritizedEmail | null>(null);
@@ -48,7 +50,7 @@ export function CommandCenter() {
   const fetchEmails = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/email/inbox?prioritized=true&limit=50');
+      const response = await fetch(`${apiBase}/api/email/inbox?prioritized=true&limit=50`);
       if (response.ok) {
         const data = await response.json();
         setEmails(data.emails || []);
@@ -81,7 +83,9 @@ export function CommandCenter() {
 
     // Fetch sender profile
     try {
-      const response = await fetch(`/api/email/sender-profile?email=${encodeURIComponent(email.from_address)}`);
+      const response = await fetch(
+        `${apiBase}/api/email/sender-profile?email=${encodeURIComponent(email.from_address)}`
+      );
       if (response.ok) {
         const profile = await response.json();
         setSenderProfile(profile);
@@ -98,7 +102,7 @@ export function CommandCenter() {
     if (ids.length === 0) return;
 
     try {
-      const response = await fetch('/api/email/actions', {
+      const response = await fetch(`${apiBase}/api/email/actions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, emailIds: ids }),

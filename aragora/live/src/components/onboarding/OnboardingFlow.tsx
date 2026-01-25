@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useCallback } from 'react';
+import { API_BASE_URL } from '@/config';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/utils/logger';
 import {
@@ -25,6 +26,7 @@ interface OnboardingFlowProps {
 
 export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
   const router = useRouter();
+  const apiBase = API_BASE_URL;
   const {
     currentStep,
     nextStep,
@@ -64,7 +66,7 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
 
     try {
       // Create first debate via API
-      const response = await fetch('/api/v1/onboarding/first-debate', {
+      const response = await fetch(`${apiBase}/api/v1/onboarding/first-debate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

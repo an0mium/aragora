@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { API_BASE_URL } from '@/config';
 import { useOnboardingStore } from '@/store';
 import { useDebateWebSocket } from '@/hooks/debate-websocket/useDebateWebSocket';
 
@@ -14,6 +15,7 @@ const EXAMPLE_TOPICS = [
 
 export function FirstDebateStep() {
   const router = useRouter();
+  const apiBase = API_BASE_URL;
   const {
     selectedTemplate,
     firstDebateTopic,
@@ -75,7 +77,7 @@ export function FirstDebateStep() {
 
     try {
       // Create the debate via API with receipt generation enabled
-      const response = await fetch('/api/debate', {
+      const response = await fetch(`${apiBase}/api/debate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { API_BASE_URL } from '@/config';
 
 interface RouteGuardProps {
   children: React.ReactNode;
@@ -77,7 +78,7 @@ export function RouteGuard({
       }
 
       // Verify token with API
-      const response = await fetch('/api/auth/verify', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -201,7 +202,7 @@ export function useAuth(): AuthState & { logout: () => void; refresh: () => Prom
         return;
       }
 
-      const response = await fetch('/api/auth/verify', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

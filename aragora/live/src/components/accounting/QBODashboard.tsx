@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { API_BASE_URL } from '@/config';
 import { TransactionList } from './TransactionList';
 import { ReportGenerator } from './ReportGenerator';
 import { useAuth } from '@/context/AuthContext';
@@ -80,6 +81,7 @@ const MOCK_TRANSACTIONS: Transaction[] = [
 
 export function QBODashboard() {
   const { tokens, isAuthenticated, isLoading: authLoading } = useAuth();
+  const apiBase = API_BASE_URL;
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -106,7 +108,7 @@ export function QBODashboard() {
       if (tokens?.access_token) {
         headers['Authorization'] = `Bearer ${tokens.access_token}`;
       }
-      const response = await fetch('/api/accounting/status', { headers });
+      const response = await fetch(`${apiBase}/api/accounting/status`, { headers });
       if (response.ok) {
         const data = await response.json();
         setConnected(data.connected);

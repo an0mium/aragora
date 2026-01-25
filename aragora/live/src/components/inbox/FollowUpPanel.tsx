@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { API_BASE_URL } from '@/config';
 import { useAuth } from '@/context/AuthContext';
 
 interface FollowUpItem {
@@ -28,11 +29,13 @@ interface FollowUpPanelProps {
 
 export function FollowUpPanel({
   userId: _userId = 'default',
+  apiBase: apiBaseProp,
   onEmailSelect,
   onRefresh,
   className = '',
 }: FollowUpPanelProps) {
   const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
+  const apiBase = apiBaseProp ?? API_BASE_URL;
   const [followups, setFollowups] = useState<FollowUpItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +64,7 @@ export function FollowUpPanel({
         include_resolved: showResolved.toString(),
         sort_by: 'urgency',
       });
-      const res = await fetch(`/api/v1/email/followups/pending?${params}`, {
+      const res = await fetch(`${apiBase}/api/v1/email/followups/pending?${params}`, {
         headers: getAuthHeaders(),
       });
       const data = await res.json();
@@ -86,7 +89,7 @@ export function FollowUpPanel({
 
     try {
       setResolving(followupId);
-      const res = await fetch(`/api/v1/email/followups/${followupId}/resolve`, {
+      const res = await fetch(`${apiBase}/api/v1/email/followups/${followupId}/resolve`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ status }),
@@ -108,7 +111,7 @@ export function FollowUpPanel({
 
     try {
       setLoading(true);
-      const res = await fetch('/api/v1/email/followups/check-replies', {
+      const res = await fetch(`${apiBase}/api/v1/email/followups/check-replies`, {
         method: 'POST',
         headers: getAuthHeaders(),
       });
@@ -129,7 +132,7 @@ export function FollowUpPanel({
 
     try {
       setLoading(true);
-      const res = await fetch('/api/v1/email/followups/auto-detect', {
+      const res = await fetch(`${apiBase}/api/v1/email/followups/auto-detect`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ days_back: 7 }),

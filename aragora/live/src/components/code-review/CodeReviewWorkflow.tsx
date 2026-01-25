@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { API_BASE_URL } from '@/config';
 import { ReviewInput } from './ReviewInput';
 import { ReviewProgress } from './ReviewProgress';
 import { ReviewResults } from './ReviewResults';
@@ -67,6 +68,7 @@ const DEFAULT_AGENTS: ReviewAgent[] = [
 ];
 
 export function CodeReviewWorkflow() {
+  const apiBase = API_BASE_URL;
   const [step, setStep] = useState<ReviewStep>('input');
   const [agents, setAgents] = useState<ReviewAgent[]>(DEFAULT_AGENTS);
   const [focus, setFocus] = useState<ReviewFocus>('all');
@@ -87,7 +89,7 @@ export function CodeReviewWorkflow() {
 
     try {
       // Start review via API
-      const response = await fetch('/api/github/pr/review', {
+      const response = await fetch(`${apiBase}/api/github/pr/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -117,7 +119,7 @@ export function CodeReviewWorkflow() {
   const pollReviewStatus = useCallback(async (reviewId: string) => {
     const checkStatus = async () => {
       try {
-        const response = await fetch(`/api/github/pr/review/${reviewId}`);
+        const response = await fetch(`${apiBase}/api/github/pr/review/${reviewId}`);
         if (response.ok) {
           const data = await response.json();
           if (data.status === 'completed') {

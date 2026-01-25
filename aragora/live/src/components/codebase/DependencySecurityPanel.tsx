@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { API_BASE_URL } from '@/config';
 
 interface Vulnerability {
   id: string;
@@ -70,9 +71,11 @@ interface DependencySecurityPanelProps {
 }
 
 export function DependencySecurityPanel({
+  apiBase: apiBaseProp,
   repoPath = '',
   className = '',
 }: DependencySecurityPanelProps) {
+  const apiBase = apiBaseProp ?? API_BASE_URL;
   const [path, setPath] = useState(repoPath);
   const [analysis, setAnalysis] = useState<DependencyAnalysis | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
@@ -99,7 +102,7 @@ export function DependencySecurityPanel({
       setLoading(true);
       setError(null);
 
-      const res = await fetch('/api/v1/codebase/analyze-dependencies', {
+      const res = await fetch(`${apiBase}/api/v1/codebase/analyze-dependencies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repo_path: path, include_dev: true }),
@@ -125,7 +128,7 @@ export function DependencySecurityPanel({
       setLoading(true);
       setError(null);
 
-      const res = await fetch('/api/v1/codebase/scan-vulnerabilities', {
+      const res = await fetch(`${apiBase}/api/v1/codebase/scan-vulnerabilities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repo_path: path }),
@@ -152,7 +155,7 @@ export function DependencySecurityPanel({
       setLoading(true);
       setError(null);
 
-      const res = await fetch('/api/v1/codebase/check-licenses', {
+      const res = await fetch(`${apiBase}/api/v1/codebase/check-licenses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repo_path: path, project_license: 'MIT' }),
@@ -179,7 +182,7 @@ export function DependencySecurityPanel({
       setLoading(true);
       setError(null);
 
-      const res = await fetch('/api/v1/codebase/sbom', {
+      const res = await fetch(`${apiBase}/api/v1/codebase/sbom`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
