@@ -1046,7 +1046,6 @@ def create_notification_callback() -> AlertCallback:
         try:
             from aragora.control_plane.channels import (
                 NotificationEventType,
-                NotificationMessage,
                 NotificationPriority,
             )
             from aragora.control_plane.notifications import get_default_notification_dispatcher
@@ -1062,7 +1061,8 @@ def create_notification_callback() -> AlertCallback:
                 else NotificationPriority.HIGH
             )
 
-            message = NotificationMessage(
+            await dispatcher.dispatch(
+                event_type=NotificationEventType.SYSTEM_ALERT,
                 title=f"SLO Alert: {breach.slo_name}",
                 body=(
                     f"{breach.message}\n\n"
@@ -1071,12 +1071,9 @@ def create_notification_callback() -> AlertCallback:
                     f"Error Budget: {breach.error_budget_remaining:.1f}%\n"
                     f"Burn Rate: {breach.burn_rate:.2f}x"
                 ),
-                event_type=NotificationEventType.SYSTEM_ALERT,
                 priority=priority,
                 metadata=breach.to_dict(),
             )
-
-            await dispatcher.dispatch(message)
             logger.info("SLO alert dispatched via notification system")
 
         except ImportError:

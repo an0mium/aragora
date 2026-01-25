@@ -428,14 +428,14 @@ class RBACAPI:
         response = self._client._post(
             "/api/v1/rbac/assignments/bulk", json={"assignments": assignments}
         )
-        return [RoleAssignment(**a) for a in response.get("assignments", [])]
+        return [RoleAssignment(**a) for a in response.get("assignments", [])]  # type: ignore[arg-type]
 
     async def bulk_assign_async(self, assignments: list[dict[str, str]]) -> list[RoleAssignment]:
         """Async version of bulk_assign()."""
         response = await self._client._post_async(
             "/api/v1/rbac/assignments/bulk", json={"assignments": assignments}
         )
-        return [RoleAssignment(**a) for a in response.get("assignments", [])]
+        return [RoleAssignment(**a) for a in response.get("assignments", [])]  # type: ignore[arg-type]
 
     # -------------------------------------------------------------------------
     # User Permissions
