@@ -71,6 +71,13 @@ class ResourceType(str, Enum):
     # Approval workflows
     APPROVAL = "approval"  # Access request approvals
 
+    # Enterprise infrastructure
+    BACKUP = "backup"  # Backup management
+    DISASTER_RECOVERY = "disaster_recovery"  # DR procedures
+    ROLE = "role"  # Custom role management
+    API_KEY = "api_key"  # API key management
+    TEMPLATE = "template"  # Workflow template management
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""
@@ -170,6 +177,15 @@ class Action(str, Enum):
     REQUEST = "request"  # Request access/approval
     GRANT = "grant"  # Grant approval
     DENY = "deny"  # Deny approval
+
+    # Enterprise sensitive operations
+    OVERRIDE = "override"  # Override quotas/limits
+    DISSOLVE = "dissolve"  # Dissolve teams/groups
+    LIST_ALL = "list_all"  # List all items (not just own)
+    EXPORT_SECRET = "export_secret"  # Export secrets/credentials
+    EXPORT_HISTORY = "export_history"  # Export historical data
+    RESTORE = "restore"  # Restore from backup
+    EXECUTE = "execute"  # Execute procedures (DR, migrations)
 
     # Wildcard
     ALL = "*"
