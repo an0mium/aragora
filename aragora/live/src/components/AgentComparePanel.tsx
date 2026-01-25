@@ -119,8 +119,10 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
 
   const getRatingDiff = () => {
     if (!comparison || comparison.agents.length < 2) return null;
-    const diff = comparison.agents[0].rating - comparison.agents[1].rating;
-    return diff;
+    const rating0 = Number(comparison.agents[0]?.rating) || 0;
+    const rating1 = Number(comparison.agents[1]?.rating) || 0;
+    if (isNaN(rating0) || isNaN(rating1)) return null;
+    return rating0 - rating1;
   };
 
   return (
@@ -186,7 +188,7 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
             <div className="bg-zinc-50 dark:bg-zinc-900 rounded p-3">
               <div className="text-2xl font-bold text-blue-400">
-                {comparison.agents[0].rating.toFixed(0)}
+                {(Number(comparison.agents[0]?.rating) || 0).toFixed(0)}
               </div>
               <div className="text-xs text-zinc-500 dark:text-zinc-400">ELO Rating</div>
             </div>
@@ -199,7 +201,7 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
             </div>
             <div className="bg-zinc-50 dark:bg-zinc-900 rounded p-3">
               <div className="text-2xl font-bold text-purple-400">
-                {comparison.agents[1].rating.toFixed(0)}
+                {(Number(comparison.agents[1]?.rating) || 0).toFixed(0)}
               </div>
               <div className="text-xs text-zinc-500 dark:text-zinc-400">ELO Rating</div>
             </div>
@@ -227,12 +229,12 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
                   <td className="py-2 px-3 text-right text-white">{comparison.agents[1].losses}</td>
                 </tr>
                 <tr className="border-b border-zinc-200 dark:border-zinc-700">
-                  <td className={`py-2 px-3 ${getWinRateColor(comparison.agents[0].win_rate)}`}>
-                    {(comparison.agents[0].win_rate * 100).toFixed(1)}%
+                  <td className={`py-2 px-3 ${getWinRateColor(comparison.agents[0]?.win_rate ?? 0)}`}>
+                    {((Number(comparison.agents[0]?.win_rate) || 0) * 100).toFixed(1)}%
                   </td>
                   <td className="py-2 px-3 text-center text-zinc-500 dark:text-zinc-400">Win Rate</td>
-                  <td className={`py-2 px-3 text-right ${getWinRateColor(comparison.agents[1].win_rate)}`}>
-                    {(comparison.agents[1].win_rate * 100).toFixed(1)}%
+                  <td className={`py-2 px-3 text-right ${getWinRateColor(comparison.agents[1]?.win_rate ?? 0)}`}>
+                    {((Number(comparison.agents[1]?.win_rate) || 0) * 100).toFixed(1)}%
                   </td>
                 </tr>
                 <tr className="border-b border-zinc-200 dark:border-zinc-700">
