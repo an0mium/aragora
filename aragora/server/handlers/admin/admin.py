@@ -1019,6 +1019,15 @@ class AdminHandler(SecureHandler):
             logger.debug(f"Metrics tracking skipped: {e}")
 
         logger.info(f"Admin {auth_ctx.user_id} reset nomic phase to {target_phase}: {reason}")
+        audit_admin(
+            admin_id=auth_ctx.user_id,
+            action="reset_nomic_phase",
+            target_type="nomic",
+            target_id=new_state["cycle_id"],
+            previous_phase=current_state.get("phase"),
+            new_phase=target_phase,
+            reason=reason,
+        )
 
         return json_response(
             {
