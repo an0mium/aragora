@@ -106,7 +106,7 @@ export function FirstDebateStep() {
       setDebateError(err instanceof Error ? err.message : 'Failed to start debate');
       setDebateStatus('error');
     }
-  }, [firstDebateTopic, selectedTemplate, setFirstDebateId, setDebateStatus, setDebateError, updateProgress]);
+  }, [apiBase, firstDebateTopic, selectedTemplate, setFirstDebateId, setDebateStatus, setDebateError, updateProgress]);
 
   const handleUseExample = (topic: string) => {
     setFirstDebateTopic(topic);

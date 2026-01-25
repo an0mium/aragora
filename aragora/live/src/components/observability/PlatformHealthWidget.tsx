@@ -115,7 +115,7 @@ export function PlatformHealthWidget() {
       throw new Error(`Failed to fetch: ${response.status}`);
     }
     return response.json();
-  }, [isAuthenticated, authLoading, tokens?.access_token]);
+  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
 
   const { data, loading, error, refetch } = useAsyncData<PlatformHealthData>(fetcher, {
     immediate: isAuthenticated && !authLoading,
