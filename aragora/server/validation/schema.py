@@ -13,7 +13,12 @@ from .core import (
     validate_list_field,
     validate_string_field,
 )
-from .entities import SAFE_AGENT_PATTERN
+from .entities import (
+    SAFE_AGENT_PATTERN,
+    SAFE_ENTRY_POINT_PATTERN,
+    SAFE_PLUGIN_NAME_PATTERN,
+    SAFE_SEMVER_PATTERN,
+)
 
 # =============================================================================
 # Endpoint-Specific Validation Schemas
@@ -249,6 +254,53 @@ PLUGIN_RUN_SCHEMA = {
 PLUGIN_INSTALL_SCHEMA = {
     "config": {"type": "string", "max_length": 10000, "required": False},
     "enabled": {"type": "string", "max_length": 10, "required": False},  # "true"/"false"
+}
+
+# Plugin manifest schema for submission validation
+# Enforces stricter validation than GET handlers for security
+PLUGIN_MANIFEST_SCHEMA = {
+    "name": {
+        "type": "string",
+        "min_length": 1,
+        "max_length": 64,
+        "pattern": SAFE_PLUGIN_NAME_PATTERN,  # lowercase, starts with letter
+        "required": True,
+    },
+    "version": {
+        "type": "string",
+        "min_length": 1,
+        "max_length": 32,
+        "pattern": SAFE_SEMVER_PATTERN,  # semver format
+        "required": True,
+    },
+    "description": {
+        "type": "string",
+        "min_length": 1,
+        "max_length": 1000,
+        "required": True,
+    },
+    "entry_point": {
+        "type": "string",
+        "min_length": 1,
+        "max_length": 256,
+        "pattern": SAFE_ENTRY_POINT_PATTERN,  # module.path:function format
+        "required": True,
+    },
+    "category": {
+        "type": "enum",
+        "allowed_values": {"analysis", "integration", "automation", "security", "other"},
+        "required": False,
+    },
+    "author": {
+        "type": "string",
+        "max_length": 100,
+        "required": False,
+    },
+    "homepage": {
+        "type": "string",
+        "max_length": 500,
+        "required": False,
+    },
 }
 
 # Sharing update schema

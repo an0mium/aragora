@@ -15,6 +15,13 @@ SAFE_ID_PATTERN_WITH_DOTS = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
 SAFE_SLUG_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,128}$")
 SAFE_AGENT_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,32}$")
 
+# Plugin manifest patterns (stricter for submission)
+SAFE_PLUGIN_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]{0,62}[a-z0-9]?$")  # 1-64 chars, lowercase
+SAFE_ENTRY_POINT_PATTERN = re.compile(
+    r"^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*:[a-zA-Z_][a-zA-Z0-9_]*$"
+)  # module.path:function
+SAFE_SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$")
+
 # Specific patterns for structured IDs
 SAFE_GAUNTLET_ID_PATTERN = re.compile(r"^gauntlet-\d{14}-[a-f0-9]{6}$")
 SAFE_TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
