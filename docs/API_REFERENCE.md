@@ -1,9 +1,22 @@
 # Aragora API Reference
 
-> **Last Updated:** 2026-01-22 (control plane, decision, platform, code review APIs)
+> **Last Updated:** 2026-01-25 (SDK parity, CI improvements, enterprise hardening)
 
 This document describes the HTTP and WebSocket APIs for Aragora's control plane
 for multi-agent vetted decisionmaking across organizational knowledge and channels.
+
+## SDK Coverage
+
+| SDK | Version | Methods | Coverage |
+|-----|---------|---------|----------|
+| TypeScript (`@aragora/sdk`) | 2.3.0 | 346 async | Full API |
+| Python (`aragora`) | 2.3.0 | 210 async + 400 sync | Full API |
+
+Both SDKs provide complete coverage of all API endpoints including:
+- Debates, Agents, Memory, Knowledge
+- Gauntlet, Verification, Workflows
+- Control Plane, RBAC, Tenancy
+- Authentication, Billing, Audit
 
 ## Related Documentation
 
