@@ -1050,6 +1050,184 @@ rm -rf /tmp/dr-test/
 
 ---
 
+## Programmatic Backup API
+
+### BackupManager
+
+The `BackupManager` provides comprehensive backup operations with verification:
+
+```python
+from aragora.backup.manager import (
+    BackupManager,
+    BackupType,
+    RetentionPolicy,
+)
+
+# Initialize with custom retention
+policy = RetentionPolicy(
+    keep_daily=7,
+    keep_weekly=4,
+    keep_monthly=3,
+    min_backups=1,
+)
+
+manager = BackupManager(
+    backup_dir="/var/backups/aragora",
+    retention_policy=policy,
+    compression=True,
+    verify_after_backup=True,
+)
+
+# Create backup
+backup = manager.create_backup(
+    source_path="/path/to/aragora.db",
+    backup_type=BackupType.FULL,
+    metadata={"reason": "pre-deployment"},
+)
+print(f"Backup created: {backup.id}, verified: {backup.verified}")
+
+# Comprehensive verification
+result = manager.verify_restore_comprehensive(backup.id)
+print(f"Schema valid: {result.schema_validation.valid}")
+print(f"Integrity valid: {result.integrity_check.valid}")
+print(f"Table checksums valid: {result.table_checksums_valid}")
+
+# Restore with dry run
+manager.restore_backup(backup.id, "/path/to/restore.db", dry_run=True)
+
+# Cleanup expired backups
+deleted = manager.cleanup_expired()
+print(f"Deleted {len(deleted)} expired backups")
+```
+
+### BackupScheduler
+
+Automated backup scheduling with DR drill integration:
+
+```python
+from aragora.backup.scheduler import (
+    BackupScheduler,
+    BackupSchedule,
+    start_backup_scheduler,
+)
+from datetime import time
+
+# Configure schedule
+schedule = BackupSchedule(
+    hourly_minute=30,              # :30 every hour
+    daily=time(2, 0),              # 2 AM daily
+    weekly_day=6,                  # Sunday
+    weekly_time=time(3, 0),        # 3 AM Sunday
+    monthly_day=1,                 # 1st of month
+    monthly_time=time(4, 0),       # 4 AM
+    verify_after_backup=True,
+    retention_cleanup_after=True,
+    enable_dr_drills=True,
+    dr_drill_interval_days=30,     # Monthly DR drills
+)
+
+# Start scheduler
+scheduler = await start_backup_scheduler(backup_manager, schedule)
+
+# Manual backup
+job = await scheduler.backup_now(verify=True, cleanup=True)
+print(f"Backup job: {job.id}, status: {job.status}")
+
+# Get stats
+stats = scheduler.get_stats()
+print(f"Total: {stats.total_backups}, Success: {stats.successful_backups}")
+print(f"Next daily: {stats.next_daily}")
+```
+
+### DRDrillScheduler
+
+Automated DR drill scheduling for SOC 2 CC9 compliance:
+
+```python
+from aragora.scheduler.dr_drill_scheduler import (
+    DRDrillScheduler,
+    DRDrillConfig,
+    DrillType,
+    ComponentType,
+    get_dr_drill_scheduler,
+)
+
+# Configure drills
+config = DRDrillConfig(
+    monthly_drill_day=15,             # 15th of each month
+    quarterly_drill_months=[3, 6, 9, 12],
+    annual_drill_month=1,             # January
+    target_rto_seconds=3600,          # 1 hour
+    target_rpo_seconds=300,           # 5 minutes
+)
+
+scheduler = DRDrillScheduler(config)
+await scheduler.start()
+
+# Manual drill execution
+drill = await scheduler.execute_drill(
+    drill_type=DrillType.BACKUP_RESTORATION,
+    components=[ComponentType.DATABASE, ComponentType.OBJECT_STORAGE],
+)
+
+print(f"Drill: {drill.drill_id}")
+print(f"Status: {drill.status.value}")
+print(f"RTO: {drill.rto_seconds:.1f}s (target: {drill.target_rto_seconds}s)")
+print(f"RPO: {drill.rpo_seconds:.1f}s (target: {drill.target_rpo_seconds}s)")
+print(f"Compliant: {drill.is_compliant}")
+print(f"Recommendations: {drill.recommendations}")
+
+# Compliance report
+report = scheduler.get_compliance_report()
+print(f"Compliance rate: {report['compliance_rate']:.0%}")
+print(f"Average RTO: {report['average_rto_seconds']:.0f}s")
+```
+
+### DR Drill CLI
+
+```bash
+# Full DR drill
+python scripts/dr_drill.py --mode full \
+  --api-url https://api.aragora.ai \
+  --backup-dir /var/backups/aragora
+
+# Backup verification only
+python scripts/dr_drill.py --mode backup
+
+# Failover testing only
+python scripts/dr_drill.py --mode failover
+
+# Generate report
+python scripts/dr_drill.py --mode full --output dr_report.md
+```
+
+---
+
+## SOC 2 Compliance
+
+This runbook supports the following SOC 2 Trust Services Criteria:
+
+| Control | Description | How Addressed |
+|---------|-------------|---------------|
+| CC9.1 | Business continuity planning | Automated DR drills, documented procedures |
+| CC9.2 | Recovery testing | Monthly backup restoration, quarterly failover |
+| A1.2 | Backup procedures | Automated daily/weekly/monthly backups |
+| A1.3 | Recovery procedures | Step-by-step restore procedures |
+
+### Compliance Metrics
+
+Track these metrics for SOC 2 audits:
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| RTO | < 1 hour | Measured during DR drills |
+| RPO | < 5 minutes | Backup frequency verification |
+| Backup verification rate | 100% | All backups verified after creation |
+| DR drill success rate | > 95% | Monthly drill pass rate |
+| Backup retention compliance | 100% | Retention policy enforcement |
+
+---
+
 ## Related Documentation
 
 - [SECURITY.md](../SECURITY.md) - Security policies and incident response
@@ -1058,3 +1236,4 @@ rm -rf /tmp/dr-test/
 - [DATABASE.md](DATABASE.md) - Database operations and encryption
 - [SECRETS_MANAGEMENT.md](SECRETS_MANAGEMENT.md) - Encryption key management
 - [QUEUE.md](QUEUE.md) - Job queue operations
+- [RBAC_MATRIX.md](RBAC_MATRIX.md) - Role-based access control permissions
