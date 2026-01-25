@@ -107,6 +107,78 @@ class DebateSettings(BaseSettings):
         return v.lower()
 
 
+class LoggingSettings(BaseSettings):
+    """Logging configuration.
+
+    Centralizes logging settings for the application. Integrates with
+    aragora.logging_config for structured logging with tracing support.
+    """
+
+    model_config = SettingsConfigDict(env_prefix="ARAGORA_LOG_")
+
+    level: str = Field(
+        default="INFO",
+        alias="ARAGORA_LOG_LEVEL",
+        description="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+    )
+    format: str = Field(
+        default="json",
+        alias="ARAGORA_LOG_FORMAT",
+        description="Log format (json or text)",
+    )
+    file: str = Field(
+        default="",
+        alias="ARAGORA_LOG_FILE",
+        description="Optional file path for log output (empty for stdout only)",
+    )
+    max_bytes: int = Field(
+        default=10 * 1024 * 1024,  # 10MB
+        ge=1024,
+        le=1024 * 1024 * 1024,  # 1GB
+        alias="ARAGORA_LOG_MAX_BYTES",
+        description="Maximum log file size before rotation (bytes)",
+    )
+    backup_count: int = Field(
+        default=5,
+        ge=0,
+        le=100,
+        alias="ARAGORA_LOG_BACKUP_COUNT",
+        description="Number of backup log files to keep",
+    )
+    include_source_location: bool = Field(
+        default=False,
+        alias="ARAGORA_LOG_SOURCE_LOCATION",
+        description="Include file/line/function in log records",
+    )
+    sensitive_fields: str = Field(
+        default="password,token,secret,api_key,authorization,cookie,session",
+        alias="ARAGORA_LOG_SENSITIVE_FIELDS",
+        description="Comma-separated list of field names to redact in logs",
+    )
+
+    @field_validator("level")
+    @classmethod
+    def validate_level(cls, v: str) -> str:
+        valid = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        upper = v.upper()
+        if upper not in valid:
+            raise ValueError(f"Log level must be one of {valid}")
+        return upper
+
+    @field_validator("format")
+    @classmethod
+    def validate_format(cls, v: str) -> str:
+        valid = {"json", "text"}
+        lower = v.lower()
+        if lower not in valid:
+            raise ValueError(f"Log format must be one of {valid}")
+        return lower
+
+    def get_sensitive_fields(self) -> list[str]:
+        """Get sensitive fields as a list."""
+        return [f.strip() for f in self.sensitive_fields.split(",") if f.strip()]
+
+
 class AgentSettings(BaseSettings):
     """Agent configuration."""
 
@@ -985,6 +1057,7 @@ class Settings(BaseSettings):
     _rate_limit: Optional[RateLimitSettings] = None
     _api_limit: Optional[APILimitSettings] = None
     _debate: Optional[DebateSettings] = None
+    _logging: Optional[LoggingSettings] = None
     _agent: Optional[AgentSettings] = None
     _cache: Optional[CacheSettings] = None
     _database: Optional[DatabaseSettings] = None
@@ -1026,6 +1099,12 @@ class Settings(BaseSettings):
         if self._debate is None:
             self._debate = DebateSettings()
         return self._debate
+
+    @property
+    def logging(self) -> LoggingSettings:
+        if self._logging is None:
+            self._logging = LoggingSettings()
+        return self._logging
 
     @property
     def agent(self) -> AgentSettings:

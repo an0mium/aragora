@@ -1,6 +1,25 @@
 """
 Structured logging for Aragora.
 
+.. deprecated::
+    This module is deprecated. Use :mod:`aragora.logging_config` instead,
+    which provides async-safe context propagation via contextvars and
+    automatic integration with the distributed tracing middleware.
+
+    Migration guide:
+        # Old (deprecated):
+        from aragora.observability.logging import get_logger, correlation_context
+        with correlation_context("req-123"):
+            logger.info("message")
+
+        # New (recommended):
+        from aragora.logging_config import get_logger, LogContext
+        with LogContext(trace_id="req-123"):
+            logger.info("message")
+
+    The new module automatically pulls trace_id from the tracing middleware,
+    so explicit context management is often unnecessary.
+
 Provides JSON-formatted logging with:
 - Correlation IDs for request tracing
 - Structured key-value logging
@@ -39,10 +58,19 @@ import re
 import sys
 import threading
 import uuid
+import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Generator, Optional
+
+# Emit deprecation warning on import
+warnings.warn(
+    "aragora.observability.logging is deprecated. "
+    "Use aragora.logging_config instead for async-safe logging with tracing integration.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 # Thread-local storage for correlation IDs
 _correlation_id = threading.local()
