@@ -42,9 +42,16 @@ from aragora.server.handlers.expenses import (
 
 
 def parse_result(result):
-    """Parse HandlerResult into (data, status_code) tuple."""
-    data = json.loads(result.body.decode("utf-8"))
-    return data, result.status_code
+    """Parse HandlerResult into (data, status_code) tuple.
+
+    Returns the inner 'data' field if present (standard API response envelope),
+    otherwise returns the full response body.
+    """
+    body = json.loads(result.body.decode("utf-8"))
+    # Unwrap standard API envelope if present
+    if "data" in body and "success" in body:
+        return body["data"], result.status_code
+    return body, result.status_code
 
 
 # =============================================================================
@@ -284,9 +291,9 @@ class TestExpenseList:
             return_value=mock_tracker,
         ):
             result = await handle_list_expenses({})
+            data, status = parse_result(result)
 
-            assert result[1] == 200
-            data = result[0]
+            assert status == 200
             assert "expenses" in data
             assert "total" in data
             assert len(data["expenses"]) == 1
@@ -308,8 +315,9 @@ class TestExpenseList:
                     "offset": "10",
                 }
             )
+            _, status = parse_result(result)
 
-            assert result[1] == 200
+            assert status == 200
 
 
 class TestExpenseGet:
@@ -323,9 +331,9 @@ class TestExpenseGet:
             return_value=mock_tracker,
         ):
             result = await handle_get_expense("exp_123")
+            data, status = parse_result(result)
 
-            assert result[1] == 200
-            data = result[0]
+            assert status == 200
             assert "expense" in data
 
     @pytest.mark.asyncio
@@ -338,8 +346,9 @@ class TestExpenseGet:
             return_value=mock_tracker,
         ):
             result = await handle_get_expense("nonexistent")
+            _, status = parse_result(result)
 
-            assert result[1] == 404
+            assert status == 404
 
 
 class TestExpenseUpdate:
@@ -356,8 +365,9 @@ class TestExpenseUpdate:
                 "exp_123",
                 {"amount": 200.00, "description": "Updated"},
             )
+            _, status = parse_result(result)
 
-            assert result[1] == 200
+            assert status == 200
             mock_tracker.update_expense.assert_called_once()
 
     @pytest.mark.asyncio
@@ -370,8 +380,9 @@ class TestExpenseUpdate:
             return_value=mock_tracker,
         ):
             result = await handle_update_expense("nonexistent", {"amount": 200.00})
+            _, status = parse_result(result)
 
-            assert result[1] == 404
+            assert status == 404
 
 
 class TestExpenseDelete:
@@ -385,8 +396,9 @@ class TestExpenseDelete:
             return_value=mock_tracker,
         ):
             result = await handle_delete_expense("exp_123")
+            _, status = parse_result(result)
 
-            assert result[1] == 200
+            assert status == 200
 
     @pytest.mark.asyncio
     async def test_delete_expense_not_found(self, mock_tracker):
@@ -398,8 +410,9 @@ class TestExpenseDelete:
             return_value=mock_tracker,
         ):
             result = await handle_delete_expense("nonexistent")
+            _, status = parse_result(result)
 
-            assert result[1] == 404
+            assert status == 404
 
 
 # =============================================================================
@@ -418,9 +431,9 @@ class TestApprovalWorkflow:
             return_value=mock_tracker,
         ):
             result = await handle_approve_expense("exp_123")
+            data, status = parse_result(result)
 
-            assert result[1] == 200
-            data = result[0]
+            assert status == 200
             assert "expense" in data
             mock_tracker.approve_expense.assert_called_once_with("exp_123")
 
@@ -434,8 +447,9 @@ class TestApprovalWorkflow:
             return_value=mock_tracker,
         ):
             result = await handle_approve_expense("nonexistent")
+            _, status = parse_result(result)
 
-            assert result[1] == 404
+            assert status == 404
 
     @pytest.mark.asyncio
     async def test_reject_expense_success(self, mock_tracker):
@@ -445,8 +459,9 @@ class TestApprovalWorkflow:
             return_value=mock_tracker,
         ):
             result = await handle_reject_expense("exp_123", {"reason": "Invalid receipt"})
+            _, status = parse_result(result)
 
-            assert result[1] == 200
+            assert status == 200
             mock_tracker.reject_expense.assert_called_once_with("exp_123", "Invalid receipt")
 
     @pytest.mark.asyncio
@@ -459,8 +474,9 @@ class TestApprovalWorkflow:
             return_value=mock_tracker,
         ):
             result = await handle_reject_expense("nonexistent", {})
+            _, status = parse_result(result)
 
-            assert result[1] == 404
+            assert status == 404
 
     @pytest.mark.asyncio
     async def test_get_pending_approvals(self, mock_tracker):
@@ -470,9 +486,9 @@ class TestApprovalWorkflow:
             return_value=mock_tracker,
         ):
             result = await handle_get_pending_approvals()
+            data, status = parse_result(result)
 
-            assert result[1] == 200
-            data = result[0]
+            assert status == 200
             assert "expenses" in data
             assert "count" in data
 
@@ -493,9 +509,9 @@ class TestCategorization:
             return_value=mock_tracker,
         ):
             result = await handle_categorize_expenses({"expense_ids": ["exp_1", "exp_2"]})
+            data, status = parse_result(result)
 
-            assert result[1] == 200
-            data = result[0]
+            assert status == 200
             assert "categorized" in data
             assert "count" in data
 
@@ -507,8 +523,9 @@ class TestCategorization:
             return_value=mock_tracker,
         ):
             result = await handle_categorize_expenses({})
+            _, status = parse_result(result)
 
-            assert result[1] == 200
+            assert status == 200
             mock_tracker.bulk_categorize.assert_called_once_with(None)
 
 
@@ -528,9 +545,9 @@ class TestQBOSync:
             return_value=mock_tracker,
         ):
             result = await handle_sync_to_qbo({"expense_ids": ["exp_1", "exp_2"]})
+            data, status = parse_result(result)
 
-            assert result[1] == 200
-            data = result[0]
+            assert status == 200
             assert "result" in data
 
     @pytest.mark.asyncio
@@ -541,8 +558,9 @@ class TestQBOSync:
             return_value=mock_tracker,
         ):
             result = await handle_sync_to_qbo({})
+            _, status = parse_result(result)
 
-            assert result[1] == 200
+            assert status == 200
 
 
 # =============================================================================
@@ -563,9 +581,9 @@ class TestStatsAndExport:
             result = await handle_get_expense_stats(
                 {"start_date": "2026-01-01", "end_date": "2026-01-31"}
             )
+            data, status = parse_result(result)
 
-            assert result[1] == 200
-            data = result[0]
+            assert status == 200
             assert "stats" in data
 
     @pytest.mark.asyncio
@@ -576,9 +594,9 @@ class TestStatsAndExport:
             return_value=mock_tracker,
         ):
             result = await handle_export_expenses({"format": "csv"})
+            data, status = parse_result(result)
 
-            assert result[1] == 200
-            data = result[0]
+            assert status == 200
             assert data["format"] == "csv"
 
     @pytest.mark.asyncio
@@ -589,9 +607,9 @@ class TestStatsAndExport:
             return_value=mock_tracker,
         ):
             result = await handle_export_expenses({"format": "json"})
+            data, status = parse_result(result)
 
-            assert result[1] == 200
-            data = result[0]
+            assert status == 200
             assert data["format"] == "json"
 
     @pytest.mark.asyncio
@@ -602,8 +620,9 @@ class TestStatsAndExport:
             return_value=mock_tracker,
         ):
             result = await handle_export_expenses({"format": "xml"})
+            _, status = parse_result(result)
 
-            assert result[1] == 400
+            assert status == 400
 
 
 # =============================================================================
@@ -651,8 +670,9 @@ class TestExpenseHandlerRouting:
             return_value=mock_tracker,
         ):
             result = await handler.handle_get("/api/v1/accounting/expenses", {})
+            _, status = parse_result(result)
 
-            assert result[1] == 200
+            assert status == 200
 
     @pytest.mark.asyncio
     async def test_handle_get_single(self, handler, mock_tracker):
@@ -662,8 +682,9 @@ class TestExpenseHandlerRouting:
             return_value=mock_tracker,
         ):
             result = await handler.handle_get("/api/v1/accounting/expenses/exp_123", {})
+            _, status = parse_result(result)
 
-            assert result[1] == 200
+            assert status == 200
 
     @pytest.mark.asyncio
     async def test_handle_post_create(self, handler, mock_tracker):
@@ -676,8 +697,9 @@ class TestExpenseHandlerRouting:
                 "/api/v1/accounting/expenses",
                 {"vendor_name": "Test", "amount": 100.00},
             )
+            _, status = parse_result(result)
 
-            assert result[1] == 200
+            assert status == 200
 
     @pytest.mark.asyncio
     async def test_handle_put_update(self, handler, mock_tracker):
@@ -690,8 +712,9 @@ class TestExpenseHandlerRouting:
                 "/api/v1/accounting/expenses/exp_123",
                 {"amount": 200.00},
             )
+            _, status = parse_result(result)
 
-            assert result[1] == 200
+            assert status == 200
 
     @pytest.mark.asyncio
     async def test_handle_delete(self, handler, mock_tracker):
@@ -701,8 +724,9 @@ class TestExpenseHandlerRouting:
             return_value=mock_tracker,
         ):
             result = await handler.handle_delete("/api/v1/accounting/expenses/exp_123")
+            _, status = parse_result(result)
 
-            assert result[1] == 200
+            assert status == 200
 
 
 if __name__ == "__main__":
