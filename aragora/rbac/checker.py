@@ -771,12 +771,20 @@ class PermissionChecker:
     def _on_remote_invalidation(self, key: str) -> None:
         """Handle invalidation from distributed cache (pub/sub)."""
         if key == "all":
+            # O(1) global invalidation via versioning
+            self._global_cache_version += 1
+            self._global_resource_cache_version += 1
+            self._user_cache_versions.clear()
+            self._user_resource_cache_versions.clear()
             self._decision_cache.clear()
+            self._resource_permission_cache.clear()
         elif key.startswith("user:"):
+            # O(1) user invalidation via versioning
             user_id = key[5:]
-            keys_to_remove = [k for k in self._decision_cache if k.startswith(f"{user_id}:")]
-            for k in keys_to_remove:
-                del self._decision_cache[k]
+            self._user_cache_versions[user_id] = self._user_cache_versions.get(user_id, 0) + 1
+            self._user_resource_cache_versions[user_id] = (
+                self._user_resource_cache_versions.get(user_id, 0) + 1
+            )
 
     def get_role_permissions(self, role_name: str) -> set[str]:
         """
