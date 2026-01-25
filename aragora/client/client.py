@@ -54,6 +54,7 @@ from .resources import (
     AgentsAPI,
     AnalyticsAPI,
     AuditAPI,
+    BillingAPI,
     ConsensusAPI,
     DebatesAPI,
     DocumentsAPI,
@@ -63,6 +64,7 @@ from .resources import (
     MatrixDebatesAPI,
     MemoryAPI,
     PulseAPI,
+    RBACAPI,
     ReplayAPI,
     SystemAPI,
     TournamentsAPI,
@@ -193,6 +195,12 @@ class AragoraClient:
 
         # Analytics (disagreements, role rotation, early stops, consensus quality)
         self.analytics = AnalyticsAPI(self)
+
+        # Billing and subscription management
+        self.billing = BillingAPI(self)
+
+        # Role-Based Access Control
+        self.rbac = RBACAPI(self)
 
     def _get_headers(self) -> dict[str, str]:
         """Get common request headers."""
