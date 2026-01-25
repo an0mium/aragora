@@ -521,7 +521,7 @@ class TeamSelector:
 
                 logger.debug(
                     f"km_expertise_score agent={agent.name} domain={domain} "
-                    f"rank={idx+1} score={adjusted_score:.3f}"
+                    f"rank={idx + 1} score={adjusted_score:.3f}"
                 )
                 return max(0.0, min(1.0, adjusted_score))
 
@@ -563,7 +563,7 @@ class TeamSelector:
                 self._pattern_affinities_cache[pattern] = affinities
                 # Log cache population for telemetry
                 logger.info(
-                    f"pattern_affinities_loaded pattern={pattern} " f"agent_count={len(affinities)}"
+                    f"pattern_affinities_loaded pattern={pattern} agent_count={len(affinities)}"
                 )
 
             affinities = self._pattern_affinities_cache.get(pattern, {})

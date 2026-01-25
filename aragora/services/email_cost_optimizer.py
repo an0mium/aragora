@@ -269,12 +269,8 @@ class CostOptimizedPrioritizer:
             minute_ago = now - timedelta(minutes=1)
             hour_ago = now - timedelta(hours=1)
 
-            self._request_timestamps = [
-                ts for ts in self._request_timestamps if ts > minute_ago
-            ]
-            self._tier_3_timestamps = [
-                ts for ts in self._tier_3_timestamps if ts > hour_ago
-            ]
+            self._request_timestamps = [ts for ts in self._request_timestamps if ts > minute_ago]
+            self._tier_3_timestamps = [ts for ts in self._tier_3_timestamps if ts > hour_ago]
 
             # Check limits
             if len(self._request_timestamps) >= self.config.max_requests_per_minute:
@@ -377,6 +373,7 @@ class CostOptimizedPrioritizer:
         # For bulk/newsletter emails, stick to tier 1
         if self.config.force_tier_1_for_bulk and tier_1_result:
             from aragora.services.email_prioritization import EmailPriority
+
             if tier_1_result.priority == EmailPriority.DEFER:
                 return 1
 
@@ -415,6 +412,7 @@ class CostOptimizedPrioritizer:
         if not await self._check_rate_limits():
             # Over rate limit - return tier 1 result only
             from aragora.services.email_prioritization import ScoringTier
+
             result = await self.prioritizer.score_email(
                 email,
                 force_tier=ScoringTier.TIER_1_RULES,
@@ -425,6 +423,7 @@ class CostOptimizedPrioritizer:
         # Determine tier
         if force_tier:
             from aragora.services.email_prioritization import ScoringTier
+
             tier_map = {
                 1: ScoringTier.TIER_1_RULES,
                 2: ScoringTier.TIER_2_LIGHTWEIGHT,
@@ -438,6 +437,7 @@ class CostOptimizedPrioritizer:
         else:
             # Score with tier 1 first
             from aragora.services.email_prioritization import ScoringTier
+
             result = await self.prioritizer.score_email(
                 email,
                 force_tier=ScoringTier.TIER_1_RULES,
@@ -576,14 +576,14 @@ class CostOptimizedPrioritizer:
             tier_distribution = {1: 0.70, 2: 0.25, 3: 0.05}
 
         daily_cost = (
-            emails_per_day * tier_distribution.get(1, 0) * self.config.tier_1_cost +
-            emails_per_day * tier_distribution.get(2, 0) * self.config.tier_2_cost +
-            emails_per_day * tier_distribution.get(3, 0) * self.config.tier_3_cost
+            emails_per_day * tier_distribution.get(1, 0) * self.config.tier_1_cost
+            + emails_per_day * tier_distribution.get(2, 0) * self.config.tier_2_cost
+            + emails_per_day * tier_distribution.get(3, 0) * self.config.tier_3_cost
         )
 
         # Account for cache hits (assume 40% hit rate)
         cache_hit_rate = 0.4
-        daily_cost *= (1 - cache_hit_rate)
+        daily_cost *= 1 - cache_hit_rate
 
         return {
             "emails_per_day": emails_per_day,

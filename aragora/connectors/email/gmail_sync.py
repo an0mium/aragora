@@ -399,8 +399,7 @@ class GmailSyncService:
                 self._watch_task = asyncio.create_task(self._watch_renewal_loop())
 
             logger.info(
-                f"[GmailSync] Started for {self._state.email_address} "
-                f"(tenant: {self.tenant_id})"
+                f"[GmailSync] Started for {self._state.email_address} (tenant: {self.tenant_id})"
             )
             return True
 
@@ -536,7 +535,7 @@ class GmailSyncService:
                     self._on_batch_complete(synced_messages)
 
                 logger.info(
-                    f"[GmailSync] Initial sync complete: " f"{len(synced_messages)} messages synced"
+                    f"[GmailSync] Initial sync complete: {len(synced_messages)} messages synced"
                 )
 
                 self._status = SyncStatus.WATCHING if self._watch_task else SyncStatus.IDLE
@@ -643,8 +642,7 @@ class GmailSyncService:
                     self._on_batch_complete(synced_messages)
 
                 logger.info(
-                    f"[GmailSync] Incremental sync complete: "
-                    f"{len(synced_messages)} new messages"
+                    f"[GmailSync] Incremental sync complete: {len(synced_messages)} new messages"
                 )
 
                 self._status = SyncStatus.WATCHING if self._watch_task else SyncStatus.IDLE

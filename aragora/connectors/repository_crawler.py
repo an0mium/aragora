@@ -387,7 +387,7 @@ class RepositoryCrawler:
 
         if len(files_to_process) > self._config.max_files:
             warnings.append(
-                f"Truncated to {self._config.max_files} files " f"(found {len(files_to_process)})"
+                f"Truncated to {self._config.max_files} files (found {len(files_to_process)})"
             )
 
         # Build dependency graph

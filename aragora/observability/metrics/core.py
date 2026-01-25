@@ -559,7 +559,12 @@ def _init_metrics() -> bool:
         NOTIFICATION_SENT_TOTAL = Counter(
             "aragora_notification_sent_total",
             "Total notifications sent",
-            ["channel", "severity", "priority", "status"],  # slack/email/webhook, severity, priority, success/failed
+            [
+                "channel",
+                "severity",
+                "priority",
+                "status",
+            ],  # slack/email/webhook, severity, priority, success/failed
         )
 
         NOTIFICATION_LATENCY = Histogram(
@@ -658,7 +663,11 @@ def _init_metrics() -> bool:
         USER_MAPPING_OPERATIONS_TOTAL = Counter(
             "aragora_user_mapping_operations_total",
             "Total user ID mapping operations",
-            ["operation", "platform", "status"],  # save/get/delete, slack/discord/teams, success/not_found
+            [
+                "operation",
+                "platform",
+                "status",
+            ],  # save/get/delete, slack/discord/teams, success/not_found
         )
 
         USER_MAPPING_CACHE_HITS_TOTAL = Counter(
@@ -1854,9 +1863,7 @@ def record_governance_verification(verification_type: str, result: str) -> None:
         result: Verification result (valid, invalid)
     """
     _init_metrics()
-    GOVERNANCE_VERIFICATIONS_TOTAL.labels(
-        verification_type=verification_type, result=result
-    ).inc()
+    GOVERNANCE_VERIFICATIONS_TOTAL.labels(verification_type=verification_type, result=result).inc()
 
 
 def record_governance_approval(approval_type: str, status: str) -> None:
@@ -1881,9 +1888,7 @@ def record_governance_store_latency(operation: str, latency_seconds: float) -> N
     GOVERNANCE_STORE_LATENCY.labels(operation=operation).observe(latency_seconds)
 
 
-def set_governance_artifacts_active(
-    decisions: int, verifications: int, approvals: int
-) -> None:
+def set_governance_artifacts_active(decisions: int, verifications: int, approvals: int) -> None:
     """Set the current number of active governance artifacts.
 
     Args:
@@ -1924,9 +1929,7 @@ def track_governance_store_operation(operation: str) -> Generator[None, None, No
 # =============================================================================
 
 
-def record_user_mapping_operation(
-    operation: str, platform: str, found: bool
-) -> None:
+def record_user_mapping_operation(operation: str, platform: str, found: bool) -> None:
     """Record a user ID mapping operation.
 
     Args:
@@ -2763,7 +2766,9 @@ def track_explainability_request(endpoint: str) -> Generator[dict, None, None]:
     finally:
         latency = time.perf_counter() - start
         record_explainability_request(
-            endpoint, success, latency,
+            endpoint,
+            success,
+            latency,
             ctx.get("factors_count", 0),
             ctx.get("counterfactuals_count", 0),
         )

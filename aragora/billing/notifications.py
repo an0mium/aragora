@@ -654,8 +654,8 @@ Need help? Contact support@aragora.ai
         html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: {config['color']}; color: white; padding: 20px; text-align: center;">
-                <h1 style="margin: 0;">{config['emoji']} {config['title']}</h1>
+            <div style="background: {config["color"]}; color: white; padding: 20px; text-align: center;">
+                <h1 style="margin: 0;">{config["emoji"]} {config["title"]}</h1>
             </div>
 
             <div style="padding: 30px; background: #f9f9f9;">
@@ -663,8 +663,8 @@ Need help? Contact support@aragora.ai
 
                 <p>This is an automated alert for <strong>{display_name}</strong>.</p>
 
-                <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid {config['color']};">
-                    <h3 style="margin-top: 0;">{config['urgency']}</h3>
+                <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid {config["color"]};">
+                    <h3 style="margin-top: 0;">{config["urgency"]}</h3>
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr>
                             <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Current Spend:</strong></td>
@@ -676,13 +676,13 @@ Need help? Contact support@aragora.ai
                         </tr>
                         <tr>
                             <td style="padding: 8px 0;"><strong>Usage:</strong></td>
-                            <td style="padding: 8px 0; text-align: right; font-size: 1.2em; color: {config['color']};">{percent_used:.1f}%</td>
+                            <td style="padding: 8px 0; text-align: right; font-size: 1.2em; color: {config["color"]};">{percent_used:.1f}%</td>
                         </tr>
                     </table>
                 </div>
 
                 <p>
-                    <a href="https://aragora.ai/dashboard/billing" style="display: inline-block; background: {config['color']}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+                    <a href="https://aragora.ai/dashboard/billing" style="display: inline-block; background: {config["color"]}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
                         View Billing Dashboard
                     </a>
                 </p>
@@ -700,7 +700,7 @@ Need help? Contact support@aragora.ai
         """
 
         text_body = f"""
-{config['title']} - {config['urgency']}
+{config["title"]} - {config["urgency"]}
 
 Organization: {display_name}
 Current Spend: {current_spend}
@@ -807,7 +807,7 @@ You can adjust your budget alerts in your billing settings.
                         </tr>
                         <tr>
                             <td style="padding: 8px 0;"><strong>Expected Exceed Date:</strong></td>
-                            <td style="padding: 8px 0; text-align: right;">{projected_date.strftime('%B %d, %Y')}</td>
+                            <td style="padding: 8px 0; text-align: right;">{projected_date.strftime("%B %d, %Y")}</td>
                         </tr>
                     </table>
                 </div>
@@ -845,7 +845,7 @@ Current Spend: ${current_spent:,.2f}
 Budget Limit: ${budget_limit:,.2f}
 Projected Total: ${projected_amount:,.2f}
 Projected Overage: ${overage_amount:,.2f}
-Expected Exceed Date: {projected_date.strftime('%B %d, %Y')}
+Expected Exceed Date: {projected_date.strftime("%B %d, %Y")}
 
 What you can do:
 - Review your usage in the billing dashboard
@@ -934,7 +934,7 @@ View your billing dashboard: https://aragora.ai/dashboard/billing
                         </tr>
                         <tr>
                             <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Expiration Date:</strong></td>
-                            <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right;">{expiration_date.strftime('%B %d, %Y')}</td>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right;">{expiration_date.strftime("%B %d, %Y")}</td>
                         </tr>
                         <tr>
                             <td style="padding: 8px 0;"><strong>Days Remaining:</strong></td>
@@ -965,7 +965,7 @@ Credits Expiring Soon
 Organization: {org_name}
 
 Expiring Amount: ${expiring_usd:,.2f}
-Expiration Date: {expiration_date.strftime('%B %d, %Y')}
+Expiration Date: {expiration_date.strftime("%B %d, %Y")}
 Days Remaining: {days_until} days
 
 Use your credits before they expire by running debates or using the API.

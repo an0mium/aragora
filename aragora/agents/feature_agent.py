@@ -246,51 +246,51 @@ class FeatureDevelopmentAgent:
 
         try:
             # Phase 1: Understand codebase context
-            self._log(f"\n{'='*60}")
+            self._log(f"\n{'=' * 60}")
             self._log("PHASE 1: UNDERSTANDING CODEBASE")
-            self._log(f"{'='*60}")
+            self._log(f"{'=' * 60}")
 
             context = await self._gather_context(spec, implementation)
             implementation.status = FeatureStatus.DESIGNING
 
             # Phase 2: Design feature architecture
-            self._log(f"\n{'='*60}")
+            self._log(f"\n{'=' * 60}")
             self._log("PHASE 2: DESIGNING ARCHITECTURE")
-            self._log(f"{'='*60}")
+            self._log(f"{'=' * 60}")
 
             design = await self._design_feature(spec, context, implementation)
             implementation.status = FeatureStatus.TESTING
 
             # Phase 3: Generate test cases (TDD)
             if self.enable_tdd:
-                self._log(f"\n{'='*60}")
+                self._log(f"\n{'=' * 60}")
                 self._log("PHASE 3: GENERATING TESTS (TDD)")
-                self._log(f"{'='*60}")
+                self._log(f"{'=' * 60}")
 
                 await self._generate_tests(spec, design, implementation)
 
             implementation.status = FeatureStatus.IMPLEMENTING
 
             # Phase 4: Implement in increments
-            self._log(f"\n{'='*60}")
+            self._log(f"\n{'=' * 60}")
             self._log("PHASE 4: IMPLEMENTING")
-            self._log(f"{'='*60}")
+            self._log(f"{'=' * 60}")
 
             await self._implement_feature(spec, design, implementation)
             implementation.status = FeatureStatus.VERIFYING
 
             # Phase 5: Verify implementation
-            self._log(f"\n{'='*60}")
+            self._log(f"\n{'=' * 60}")
             self._log("PHASE 5: VERIFYING")
-            self._log(f"{'='*60}")
+            self._log(f"{'=' * 60}")
 
             await self._verify_implementation(implementation)
 
             # Phase 6: Request approval if needed
             if self.enable_approval and approvers:
-                self._log(f"\n{'='*60}")
+                self._log(f"\n{'=' * 60}")
                 self._log("PHASE 6: REQUESTING APPROVAL")
-                self._log(f"{'='*60}")
+                self._log(f"{'=' * 60}")
 
                 implementation.status = FeatureStatus.AWAITING_APPROVAL
                 await self._request_approval(implementation, approvers)
@@ -299,9 +299,9 @@ class FeatureDevelopmentAgent:
             implementation.status = FeatureStatus.COMPLETED
             implementation.completed_at = datetime.now(timezone.utc)
 
-            self._log(f"\n{'='*60}")
+            self._log(f"\n{'=' * 60}")
             self._log("FEATURE DEVELOPMENT COMPLETED")
-            self._log(f"{'='*60}")
+            self._log(f"{'=' * 60}")
 
         except Exception as e:
             implementation.status = FeatureStatus.FAILED

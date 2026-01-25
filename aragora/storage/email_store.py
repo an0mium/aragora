@@ -630,7 +630,7 @@ class EmailStore(SQLiteStore):
         rows = self.fetch_all(
             f"""
             SELECT * FROM shared_inbox_messages
-            WHERE {' AND '.join(conditions)}
+            WHERE {" AND ".join(conditions)}
             ORDER BY received_at DESC
             LIMIT ? OFFSET ?
             """,
@@ -1007,7 +1007,7 @@ class EmailStore(SQLiteStore):
         rows = self.fetch_all(
             f"""
             SELECT * FROM routing_rules
-            WHERE {' AND '.join(conditions)}
+            WHERE {" AND ".join(conditions)}
             ORDER BY priority DESC, created_at ASC
             """,
             tuple(params),

@@ -358,30 +358,35 @@ class SharePointConnector(EnterpriseConnector):
                         logger.debug(f"[{self.name}] Skipping large file: {path} ({size} bytes)")
                         continue
 
-                yield SharePointItem(
-                    id=item["id"],
-                    name=name,
-                    path=path,
-                    web_url=item.get("webUrl", ""),
-                    size=item.get("size", 0),
-                    mime_type=item.get("file", {}).get("mimeType", ""),
-                    is_folder=is_folder,
-                    created_by=item.get("createdBy", {}).get("user", {}).get("displayName", ""),
-                    modified_by=item.get("lastModifiedBy", {})
-                    .get("user", {})
-                    .get("displayName", ""),
-                    created_at=(
-                        datetime.fromisoformat(item["createdDateTime"].replace("Z", "+00:00"))
-                        if item.get("createdDateTime")
-                        else None
+                yield (
+                    SharePointItem(
+                        id=item["id"],
+                        name=name,
+                        path=path,
+                        web_url=item.get("webUrl", ""),
+                        size=item.get("size", 0),
+                        mime_type=item.get("file", {}).get("mimeType", ""),
+                        is_folder=is_folder,
+                        created_by=item.get("createdBy", {}).get("user", {}).get("displayName", ""),
+                        modified_by=item.get("lastModifiedBy", {})
+                        .get("user", {})
+                        .get("displayName", ""),
+                        created_at=(
+                            datetime.fromisoformat(item["createdDateTime"].replace("Z", "+00:00"))
+                            if item.get("createdDateTime")
+                            else None
+                        ),
+                        modified_at=(
+                            datetime.fromisoformat(
+                                item["lastModifiedDateTime"].replace("Z", "+00:00")
+                            )
+                            if item.get("lastModifiedDateTime")
+                            else None
+                        ),
+                        etag=item.get("eTag", ""),
                     ),
-                    modified_at=(
-                        datetime.fromisoformat(item["lastModifiedDateTime"].replace("Z", "+00:00"))
-                        if item.get("lastModifiedDateTime")
-                        else None
-                    ),
-                    etag=item.get("eTag", ""),
-                ), new_delta_token
+                    new_delta_token,
+                )
 
                 # Recurse into folders
                 if is_folder:

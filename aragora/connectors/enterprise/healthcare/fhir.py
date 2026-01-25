@@ -388,9 +388,7 @@ class FHIRAuditLogger:
             query_params=query_params,
         )
         self._events.append(event)
-        logger.info(
-            f"[AUDIT] READ {resource_type}/{resource_id} by {self.user_id} " f"reason={reason}"
-        )
+        logger.info(f"[AUDIT] READ {resource_type}/{resource_id} by {self.user_id} reason={reason}")
         return event
 
     def log_search(
@@ -761,8 +759,7 @@ class FHIRConnector(EnterpriseConnector):
 
                     if response.status_code != 200:
                         logger.warning(
-                            f"[{self.name}] Failed to fetch {resource_name}: "
-                            f"{response.status_code}"
+                            f"[{self.name}] Failed to fetch {resource_name}: {response.status_code}"
                         )
                         break
 

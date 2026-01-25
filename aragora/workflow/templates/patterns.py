@@ -145,9 +145,21 @@ MAP_REDUCE_TEMPLATE: Dict[str, Any] = {
         "timeout_per_chunk": 60.0,
     },
     "inputs": {
-        "input": {"type": "string", "required": True, "description": "Text/data to split and process"},
-        "task": {"type": "string", "required": True, "description": "Processing task for each chunk"},
-        "split_strategy": {"type": "string", "required": False, "description": "How to split (chunks, lines, sections)"},
+        "input": {
+            "type": "string",
+            "required": True,
+            "description": "Text/data to split and process",
+        },
+        "task": {
+            "type": "string",
+            "required": True,
+            "description": "Processing task for each chunk",
+        },
+        "split_strategy": {
+            "type": "string",
+            "required": False,
+            "description": "How to split (chunks, lines, sections)",
+        },
         "chunk_size": {"type": "integer", "required": False, "description": "Size of chunks"},
     },
     "outputs": {
@@ -225,8 +237,16 @@ REVIEW_CYCLE_TEMPLATE: Dict[str, Any] = {
         "task": {"type": "string", "required": True, "description": "What to create/accomplish"},
         "context": {"type": "string", "required": False, "description": "Additional context"},
         "criteria": {"type": "array", "required": False, "description": "Review criteria"},
-        "max_iterations": {"type": "integer", "required": False, "description": "Maximum refinement cycles"},
-        "threshold": {"type": "number", "required": False, "description": "Convergence threshold (0-1)"},
+        "max_iterations": {
+            "type": "integer",
+            "required": False,
+            "description": "Maximum refinement cycles",
+        },
+        "threshold": {
+            "type": "number",
+            "required": False,
+            "description": "Convergence threshold (0-1)",
+        },
     },
     "outputs": {
         "final_output": {"type": "string", "description": "The refined result"},
@@ -296,19 +316,22 @@ def list_pattern_templates() -> List[Dict[str, Any]]:
     """List all available pattern templates."""
     templates = []
     for template_id, template in PATTERN_TEMPLATES.items():
-        templates.append({
-            "id": template_id,
-            "name": template.get("name", template_id),
-            "description": template.get("description", ""),
-            "pattern": template.get("pattern", ""),
-            "category": "pattern",
-        })
+        templates.append(
+            {
+                "id": template_id,
+                "name": template.get("name", template_id),
+                "description": template.get("description", ""),
+                "pattern": template.get("pattern", ""),
+                "category": "pattern",
+            }
+        )
     return templates
 
 
 # ============================================================================
 # Package Registration
 # ============================================================================
+
 
 def register_pattern_packages() -> None:
     """Register all pattern templates as packages."""

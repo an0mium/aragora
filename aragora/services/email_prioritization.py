@@ -645,11 +645,11 @@ class EmailPrioritizer:
 
 Subject: {email.subject}
 From: {email.from_address}
-Snippet: {email.snippet[:300] if email.snippet else email.body_text[:300] if email.body_text else ''}
+Snippet: {email.snippet[:300] if email.snippet else email.body_text[:300] if email.body_text else ""}
 
 Context:
-- Sender reputation: {'VIP' if sender.is_vip else 'Known' if sender.reputation_score > 0.5 else 'Unknown'}
-- Gmail flags: {'Important' if email.is_important else ''} {'Starred' if email.is_starred else ''}
+- Sender reputation: {"VIP" if sender.is_vip else "Known" if sender.reputation_score > 0.5 else "Unknown"}
+- Gmail flags: {"Important" if email.is_important else ""} {"Starred" if email.is_starred else ""}
 
 Output format: PRIORITY: [1-5], CONFIDENCE: [0-1], REASON: [brief explanation]"""
 

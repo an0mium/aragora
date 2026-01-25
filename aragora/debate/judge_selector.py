@@ -1031,7 +1031,7 @@ class JudgePanel:
             JudgingResult with votes informed by deliberation
         """
         logger.info(
-            f"judge_deliberation_start judges={len(self.judges)} " f"rounds={deliberation_rounds}"
+            f"judge_deliberation_start judges={len(self.judges)} rounds={deliberation_rounds}"
         )
 
         # Step 1: Collect initial assessments

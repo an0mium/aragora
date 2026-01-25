@@ -143,8 +143,7 @@ def require_admin_mfa(func: Callable) -> Callable:
                     f"attempted admin access without MFA"
                 )
                 return error_response(
-                    "Administrative access requires MFA. "
-                    "Please enable MFA at /api/auth/mfa/setup",
+                    "Administrative access requires MFA. Please enable MFA at /api/auth/mfa/setup",
                     403,
                     code="ADMIN_MFA_REQUIRED",
                 )
@@ -205,11 +204,10 @@ def require_admin_with_mfa(func: Callable) -> Callable:
 
         if not mfa_enabled:
             logger.warning(
-                f"Admin+MFA enforcement: admin {user.id} "
-                f"attempted sensitive operation without MFA"
+                f"Admin+MFA enforcement: admin {user.id} attempted sensitive operation without MFA"
             )
             return error_response(
-                "This operation requires MFA. " "Please enable MFA at /api/auth/mfa/setup",
+                "This operation requires MFA. Please enable MFA at /api/auth/mfa/setup",
                 403,
                 code="MFA_REQUIRED",
             )

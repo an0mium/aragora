@@ -432,21 +432,19 @@ class CacheOptimizer:
         # High eviction rate
         if stats.evictions > stats.hits:
             recommendations.append(
-                "High eviction rate detected. " "Consider increasing max_size to reduce churn."
+                "High eviction rate detected. Consider increasing max_size to reduce churn."
             )
 
         # Many hot spots
         hot_spots = len(self._cache.get_hot_spots())
         if hot_spots > self._cache.size * 0.5:
             recommendations.append(
-                f"Many hot spots ({hot_spots}). " "Consider dedicated caching for hot keys."
+                f"Many hot spots ({hot_spots}). Consider dedicated caching for hot keys."
             )
 
         # Low TTL adjustment
         if stats.ttl_adjustments == 0 and stats.hits > 100:
-            recommendations.append(
-                "No TTL adjustments made. " "Access patterns may be too uniform."
-            )
+            recommendations.append("No TTL adjustments made. Access patterns may be too uniform.")
 
         return recommendations
 

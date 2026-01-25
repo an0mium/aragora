@@ -109,7 +109,7 @@ class FindingVerifier:
     ) -> Claim:
         """Convert an audit finding to a claim for verification."""
         # Build claim statement
-        statement = f"[{finding.severity.value.upper()}] {finding.title}: " f"{finding.description}"
+        statement = f"[{finding.severity.value.upper()}] {finding.title}: {finding.description}"
 
         # Create supporting evidence from finding
         evidence = []

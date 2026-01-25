@@ -392,7 +392,7 @@ class N8nIntegration(BaseIntegration):
         self._webhook_path_map[webhook_path] = webhook
 
         logger.info(
-            f"Registered n8n webhook {webhook_id} for credential {cred_id}, " f"events: {events}"
+            f"Registered n8n webhook {webhook_id} for credential {cred_id}, events: {events}"
         )
         return webhook
 

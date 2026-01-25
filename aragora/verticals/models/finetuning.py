@@ -114,7 +114,7 @@ class TrainingExample:
                     f"### Response:\n{self.output}"
                 )
             else:
-                return f"### Instruction:\n{self.instruction}\n\n" f"### Response:\n{self.output}"
+                return f"### Instruction:\n{self.instruction}\n\n### Response:\n{self.output}"
 
         elif template == "chatml":
             messages = [
@@ -257,8 +257,7 @@ class VerticalFineTuningPipeline:
             # Print trainable parameters
             trainable, total = self._model.get_nb_trainable_parameters()
             logger.info(
-                f"Trainable parameters: {trainable:,} / {total:,} "
-                f"({100 * trainable / total:.2f}%)"
+                f"Trainable parameters: {trainable:,} / {total:,} ({100 * trainable / total:.2f}%)"
             )
 
         except ImportError as e:
@@ -392,8 +391,7 @@ class VerticalFineTuningPipeline:
             split = dataset.train_test_split(test_size=1 - train_split, seed=42)
 
             logger.info(
-                f"Dataset prepared: {len(split['train'])} train, "
-                f"{len(split['test'])} eval examples"
+                f"Dataset prepared: {len(split['train'])} train, {len(split['test'])} eval examples"
             )
 
             return split

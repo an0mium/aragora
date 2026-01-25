@@ -354,7 +354,7 @@ async def _upload_async(args: argparse.Namespace) -> int:
                     )
                     if not json_output:
                         print(
-                            f"  [{i+1}/{len(all_files)}] {file_path.name} -> {job_result.document.id}"
+                            f"  [{i + 1}/{len(all_files)}] {file_path.name} -> {job_result.document.id}"
                         )
                 else:
                     results.append(
@@ -366,7 +366,7 @@ async def _upload_async(args: argparse.Namespace) -> int:
                     )
                     failed += 1
                     if not json_output:
-                        print(f"  [{i+1}/{len(all_files)}] {file_path.name} -> FAILED")
+                        print(f"  [{i + 1}/{len(all_files)}] {file_path.name} -> FAILED")
 
             except Exception as e:
                 results.append(
@@ -378,7 +378,7 @@ async def _upload_async(args: argparse.Namespace) -> int:
                 )
                 failed += 1
                 if not json_output:
-                    print(f"  [{i+1}/{len(all_files)}] {file_path.name} -> ERROR: {e}")
+                    print(f"  [{i + 1}/{len(all_files)}] {file_path.name} -> ERROR: {e}")
 
         if json_output:
             output = {

@@ -976,8 +976,7 @@ class ContextGatherer:
                         context_parts.append(f"- {suggestion}")
 
                 logger.info(
-                    f"[belief] Extracted {len(result.cruxes)} cruxes from "
-                    f"{len(messages)} messages"
+                    f"[belief] Extracted {len(result.cruxes)} cruxes from {len(messages)} messages"
                 )
 
                 return "\n".join(context_parts)
@@ -1180,7 +1179,7 @@ class ContextGatherer:
         if self._aragora_rlm:
             try:
                 logger.debug(
-                    "[rlm] Using AragoraRLM for compression " "(routes to TRUE RLM if available)"
+                    "[rlm] Using AragoraRLM for compression (routes to TRUE RLM if available)"
                 )
                 result = await asyncio.wait_for(
                     self._aragora_rlm.compress_and_query(
@@ -1195,7 +1194,7 @@ class ContextGatherer:
                     approach = "TRUE RLM" if result.used_true_rlm else "compression fallback"
                     logger.debug(
                         f"[rlm] Compressed {len(content)} -> {len(result.answer)} chars "
-                        f"({len(result.answer)/len(content)*100:.0f}%) via {approach}"
+                        f"({len(result.answer) / len(content) * 100:.0f}%) via {approach}"
                     )
                     return (
                         result.answer[:max_chars]
@@ -1216,8 +1215,7 @@ class ContextGatherer:
         if self._rlm_compressor:
             try:
                 logger.debug(
-                    "[rlm] Falling back to HierarchicalCompressor "
-                    "(compression-only, no TRUE RLM)"
+                    "[rlm] Falling back to HierarchicalCompressor (compression-only, no TRUE RLM)"
                 )
                 compression_result = await asyncio.wait_for(
                     self._rlm_compressor.compress(
@@ -1241,7 +1239,7 @@ class ContextGatherer:
                 if summary and len(summary) < len(content):
                     logger.debug(
                         f"[rlm] Compressed {len(content)} -> {len(summary)} chars "
-                        f"({len(summary)/len(content)*100:.0f}%) via HierarchicalCompressor"
+                        f"({len(summary) / len(content) * 100:.0f}%) via HierarchicalCompressor"
                     )
                     return summary[:max_chars] if len(summary) > max_chars else summary
 

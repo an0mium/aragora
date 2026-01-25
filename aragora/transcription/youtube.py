@@ -170,7 +170,7 @@ class YouTubeFetcher:
             import yt_dlp
         except ImportError:
             raise RuntimeError(
-                "yt-dlp is required for YouTube transcription. " "Install with: pip install yt-dlp"
+                "yt-dlp is required for YouTube transcription. Install with: pip install yt-dlp"
             )
 
         ydl_opts = {
@@ -238,7 +238,7 @@ class YouTubeFetcher:
             import yt_dlp
         except ImportError:
             raise RuntimeError(
-                "yt-dlp is required for YouTube transcription. " "Install with: pip install yt-dlp"
+                "yt-dlp is required for YouTube transcription. Install with: pip install yt-dlp"
             )
 
         # Download audio

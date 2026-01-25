@@ -24,42 +24,45 @@ logger = logging.getLogger(__name__)
 
 
 # Fields that should always be encrypted when present
-SENSITIVE_FIELDS: frozenset[str] = frozenset({
-    # OAuth and API tokens
-    "access_token",
-    "refresh_token",
-    "api_key",
-    "auth_token",
-    "bot_token",
-    "bearer_token",
-    # Secrets and passwords
-    "secret",
-    "password",
-    "client_secret",
-    "signing_secret",
-    # MFA secrets
-    "mfa_secret",
-    "mfa_backup_codes",
-    "totp_secret",
-    # Platform-specific credentials
-    "webhook_url",  # May contain tokens in URL
-    "webhook_secret",
-    "sendgrid_api_key",
-    "ses_secret_access_key",
-    "twilio_auth_token",
-    "smtp_password",
-    "slack_signing_secret",
-    "discord_token",
-    "telegram_token",
-    "github_token",
-    "private_key",
-    "encryption_key",
-})
+SENSITIVE_FIELDS: frozenset[str] = frozenset(
+    {
+        # OAuth and API tokens
+        "access_token",
+        "refresh_token",
+        "api_key",
+        "auth_token",
+        "bot_token",
+        "bearer_token",
+        # Secrets and passwords
+        "secret",
+        "password",
+        "client_secret",
+        "signing_secret",
+        # MFA secrets
+        "mfa_secret",
+        "mfa_backup_codes",
+        "totp_secret",
+        # Platform-specific credentials
+        "webhook_url",  # May contain tokens in URL
+        "webhook_secret",
+        "sendgrid_api_key",
+        "ses_secret_access_key",
+        "twilio_auth_token",
+        "smtp_password",
+        "slack_signing_secret",
+        "discord_token",
+        "telegram_token",
+        "github_token",
+        "private_key",
+        "encryption_key",
+    }
+)
 
 
 def _get_encryption_service():
     """Lazily import and get encryption service to avoid circular imports."""
     from aragora.security import get_encryption_service
+
     return get_encryption_service()
 
 
@@ -67,6 +70,7 @@ def is_encryption_available() -> bool:
     """Check if encryption is available (cryptography library installed)."""
     try:
         from aragora.security.encryption import CRYPTO_AVAILABLE
+
         return CRYPTO_AVAILABLE
     except ImportError:
         return False
@@ -116,8 +120,7 @@ def encrypt_sensitive(
 
     # Find fields that exist in data and need encryption
     present_sensitive_fields = [
-        field for field in fields_to_encrypt
-        if field in data and data[field] is not None
+        field for field in fields_to_encrypt if field in data and data[field] is not None
     ]
 
     if not present_sensitive_fields:
@@ -170,10 +173,9 @@ def decrypt_sensitive(
 
     # Find fields that are encrypted
     encrypted_fields = [
-        field for field in fields_to_decrypt
-        if field in data
-        and isinstance(data[field], dict)
-        and data[field].get("_encrypted") is True
+        field
+        for field in fields_to_decrypt
+        if field in data and isinstance(data[field], dict) and data[field].get("_encrypted") is True
     ]
 
     if not encrypted_fields:
@@ -202,18 +204,21 @@ def is_field_encrypted(data: dict[str, Any], field_name: str) -> bool:
 def get_encrypted_field_names(data: dict[str, Any]) -> list[str]:
     """Get list of field names that are currently encrypted."""
     return [
-        key for key, value in data.items()
+        key
+        for key, value in data.items()
         if isinstance(value, dict) and value.get("_encrypted") is True
     ]
 
 
 class EncryptionError(Exception):
     """Raised when encryption fails."""
+
     pass
 
 
 class DecryptionError(Exception):
     """Raised when decryption fails."""
+
     pass
 
 

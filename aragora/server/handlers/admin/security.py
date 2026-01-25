@@ -159,8 +159,7 @@ class SecurityHandler(SecureHandler):
                     age_days = (datetime.now(timezone.utc) - active_key.created_at).days
                     if age_days < 30:
                         return error_response(
-                            f"Key is only {age_days} days old. "
-                            "Use 'force: true' to rotate anyway.",
+                            f"Key is only {age_days} days old. Use 'force: true' to rotate anyway.",
                             400,
                         )
 

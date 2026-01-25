@@ -739,8 +739,7 @@ class PostgresCheckpointStore:
             )
 
         logger.info(
-            f"Saved checkpoint to PostgreSQL: workflow={checkpoint.workflow_id}, "
-            f"id={checkpoint_id}"
+            f"Saved checkpoint to PostgreSQL: workflow={checkpoint.workflow_id}, id={checkpoint_id}"
         )
         return checkpoint_id
 

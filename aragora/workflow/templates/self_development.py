@@ -61,7 +61,7 @@ def create_self_development_workflow(
 
 OBJECTIVE: {objective}
 
-AVAILABLE TRACKS: {', '.join(tracks)}
+AVAILABLE TRACKS: {", ".join(tracks)}
 
 Propose 3-5 specific improvement goals that would best achieve the objective.
 For each goal, specify:

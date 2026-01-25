@@ -420,8 +420,7 @@ class BranchCoordinator:
                         merged_count += 1
                     else:
                         logger.warning(
-                            f"Could not auto-merge {assignment.branch_name}: "
-                            f"{merge_result.error}"
+                            f"Could not auto-merge {assignment.branch_name}: {merge_result.error}"
                         )
 
         # Compute result

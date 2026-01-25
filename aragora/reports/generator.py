@@ -258,12 +258,12 @@ class AuditReportGenerator:
 **Summary:**
 - Critical findings: {critical}
 - High severity: {high}
-- Medium severity: {severity_counts.get('medium', 0)}
-- Low severity: {severity_counts.get('low', 0)}
-- Informational: {severity_counts.get('info', 0)}
+- Medium severity: {severity_counts.get("medium", 0)}
+- Low severity: {severity_counts.get("low", 0)}
+- Informational: {severity_counts.get("info", 0)}
 
 **Audit Duration:** {session.duration_seconds:.1f} seconds
-**Completion:** {session.completed_at.strftime('%Y-%m-%d %H:%M UTC') if session.completed_at else 'N/A'}
+**Completion:** {session.completed_at.strftime("%Y-%m-%d %H:%M UTC") if session.completed_at else "N/A"}
 """
 
         return ReportSection(title="Executive Summary", content=content, order=1)
@@ -323,8 +323,8 @@ class AuditReportGenerator:
 - Category: {f.category}
 - Confidence: {f.confidence:.0%}
 - Description: {f.description}
-- Evidence: {f.evidence_text[:200]}{'...' if len(f.evidence_text) > 200 else ''}
-- Recommendation: {f.recommendation or 'N/A'}
+- Evidence: {f.evidence_text[:200]}{"..." if len(f.evidence_text) > 200 else ""}
+- Recommendation: {f.recommendation or "N/A"}
 """
                 )
 
@@ -406,10 +406,10 @@ This assessment covers security controls, data handling practices, and regulator
 I hereby attest that this audit was conducted in accordance with established procedures and that the findings represent an accurate assessment of the documents reviewed.
 
 Audit Session ID: `{session.id}`
-Audit Date: {session.completed_at.strftime('%Y-%m-%d') if session.completed_at else 'N/A'}
+Audit Date: {session.completed_at.strftime("%Y-%m-%d") if session.completed_at else "N/A"}
 
-Prepared by: {self.config.author or '________________'}
-Reviewed by: {self.config.reviewer or '________________'}
+Prepared by: {self.config.author or "________________"}
+Reviewed by: {self.config.reviewer or "________________"}
 
 Signature: ________________ Date: ________________
 """
@@ -437,7 +437,7 @@ Signature: ________________ Date: ________________
 Total Security Findings: {len(sec_findings)}
 
 **Vulnerability Types:**
-{chr(10).join(type_lines) if type_lines else 'No security vulnerabilities detected.'}
+{chr(10).join(type_lines) if type_lines else "No security vulnerabilities detected."}
 """
 
         return ReportSection(title="Security Summary", content=content, order=2)
@@ -460,8 +460,8 @@ Total Security Findings: {len(sec_findings)}
 - **Category:** {f.category}
 - **Location:** {f.evidence_location or f.document_id}
 - **Description:** {f.description}
-- **Impact:** {f.affected_scope or 'Unknown'}
-- **Remediation:** {f.recommendation or 'Review and address accordingly.'}
+- **Impact:** {f.affected_scope or "Unknown"}
+- **Remediation:** {f.recommendation or "Review and address accordingly."}
 """
             )
 
@@ -486,13 +486,13 @@ Total Security Findings: {len(sec_findings)}
         content = f"""**Remediation Priorities:**
 
 **Immediate Action Required ({len(immediate)} items):**
-{chr(10).join(f'- {f.title}' for f in immediate) or 'None'}
+{chr(10).join(f"- {f.title}" for f in immediate) or "None"}
 
 **Short-term (30 days) ({len(short_term)} items):**
-{chr(10).join(f'- {f.title}' for f in short_term) or 'None'}
+{chr(10).join(f"- {f.title}" for f in short_term) or "None"}
 
 **Long-term ({len(long_term)} items):**
-{chr(10).join(f'- {f.title}' for f in long_term) or 'None'}
+{chr(10).join(f"- {f.title}" for f in long_term) or "None"}
 """
 
         return ReportSection(title="Remediation Roadmap", content=content, order=4)
@@ -505,15 +505,15 @@ Total Security Findings: {len(sec_findings)}
         """Build appendix with raw data."""
         content = f"""**Audit Configuration:**
 - Model: {session.model}
-- Audit Types: {', '.join(t.value for t in session.audit_types)}
+- Audit Types: {", ".join(t.value for t in session.audit_types)}
 - Documents: {len(session.document_ids)}
 - Chunks Processed: {session.processed_chunks}/{session.total_chunks}
 
 **Document IDs:**
-{chr(10).join(f'- {d}' for d in session.document_ids)}
+{chr(10).join(f"- {d}" for d in session.document_ids)}
 
 **Errors:**
-{chr(10).join(f'- {e}' for e in session.errors) or 'None'}
+{chr(10).join(f"- {e}" for e in session.errors) or "None"}
 """
 
         return ReportSection(title="Appendix", content=content, order=99)
@@ -656,7 +656,7 @@ Total Security Findings: {len(sec_findings)}
 <body>
     <h1>Audit Report: {session.name or session.id}</h1>
     <div class="meta">
-        <p>Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</p>
+        <p>Generated: {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}</p>
         <p>Session ID: {session.id}</p>
     </div>
     {"".join(section_html)}

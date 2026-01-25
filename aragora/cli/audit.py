@@ -192,7 +192,7 @@ async def list_presets(args: Any) -> int:
                 print(f"    {p.description}")
                 print(f"    Types: {', '.join(p.audit_types)}")
                 print(
-                    f"    Rules: {len(p.custom_rules)}, Threshold: {p.consensus_threshold*100:.0f}%"
+                    f"    Rules: {len(p.custom_rules)}, Threshold: {p.consensus_threshold * 100:.0f}%"
                 )
                 print()
         return 0
@@ -231,7 +231,7 @@ async def show_preset(args: Any) -> int:
             print(f"Preset: {preset.name}")
             print(f"Description: {preset.description}")
             print(f"\nAudit Types: {', '.join(preset.audit_types)}")
-            print(f"Consensus Threshold: {preset.consensus_threshold*100:.0f}%")
+            print(f"Consensus Threshold: {preset.consensus_threshold * 100:.0f}%")
             if preset.agents:
                 print(f"Agents: {', '.join(preset.agents)}")
             if preset.parameters:
@@ -349,7 +349,7 @@ async def start_audit(args: Any) -> int:
         auditor = get_document_auditor()
 
         def on_progress(sid, progress, phase):
-            print(f"  [{phase}] {progress*100:.0f}%")
+            print(f"  [{phase}] {progress * 100:.0f}%")
 
         auditor.on_progress = on_progress
         result = await auditor.run_audit(args.session_id)
@@ -375,7 +375,7 @@ async def audit_status(args: Any) -> int:
 
         print(f"Session: {session.id}")
         print(f"Status: {session.status.value}")
-        print(f"Progress: {session.progress*100:.0f}%")
+        print(f"Progress: {session.progress * 100:.0f}%")
         print(f"Findings: {len(session.findings)}")
         return 0
     except Exception as e:

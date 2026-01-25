@@ -124,13 +124,17 @@ DANGEROUS_REGEX_PATTERNS = [
 _DANGEROUS_PATTERN_REGEX = re.compile(
     r"(?:"
     # Nested quantifiers: (a+)+, (a*)+, (a+)*, (a*)*
-    r"\([^)]*[+*]\)[+*]" r"|"
+    r"\([^)]*[+*]\)[+*]"
+    r"|"
     # Overlapping alternation with quantifier
-    r"\([^)]*\|[^)]*\)[+*]" r"|"
+    r"\([^)]*\|[^)]*\)[+*]"
+    r"|"
     # Multiple dots with quantifiers
-    r"\.+[+*]\.+[+*]" r"|"
+    r"\.+[+*]\.+[+*]"
+    r"|"
     # Backreference with quantifier after group with quantifier
-    r"\([^)]*[+*]\)[^)]*\\[0-9]" r")",
+    r"\([^)]*[+*]\)[^)]*\\[0-9]"
+    r")",
     re.IGNORECASE,
 )
 

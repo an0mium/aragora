@@ -126,8 +126,7 @@ class AsyncWebhookDispatcher:
                 )
             except ImportError:
                 raise ImportError(
-                    "httpx is required for async webhook delivery. "
-                    "Install with: pip install httpx"
+                    "httpx is required for async webhook delivery. Install with: pip install httpx"
                 )
         return self._client
 

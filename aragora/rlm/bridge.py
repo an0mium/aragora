@@ -293,15 +293,15 @@ class AragoraRLM(RLMStreamingMixin):
         rlm_prompt = f"""You are analyzing a hierarchical document context. Use Python code in the REPL to examine, grep, filter, and recursively process the context.
 
 ## Context Structure
-{formatted['structure']}
+{formatted["structure"]}
 
 ## Context Data
 
 ### Abstract Level
-{abstract_content if abstract_content else '[No abstract available]'}
+{abstract_content if abstract_content else "[No abstract available]"}
 
 ### Summary Level
-{summary_content if summary_content else '[No summary available]'}
+{summary_content if summary_content else "[No summary available]"}
 
 ### Full Content ({context.original_tokens} tokens)
 {context.original_content}

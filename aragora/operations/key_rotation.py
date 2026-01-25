@@ -95,18 +95,13 @@ class KeyRotationConfig:
     def from_env(cls) -> "KeyRotationConfig":
         """Create config from environment variables."""
         return cls(
-            rotation_interval_days=int(
-                os.environ.get("ARAGORA_KEY_ROTATION_INTERVAL_DAYS", "90")
-            ),
-            key_overlap_days=int(
-                os.environ.get("ARAGORA_KEY_ROTATION_OVERLAP_DAYS", "7")
-            ),
+            rotation_interval_days=int(os.environ.get("ARAGORA_KEY_ROTATION_INTERVAL_DAYS", "90")),
+            key_overlap_days=int(os.environ.get("ARAGORA_KEY_ROTATION_OVERLAP_DAYS", "7")),
             re_encrypt_on_rotation=os.environ.get(
                 "ARAGORA_KEY_ROTATION_RE_ENCRYPT", "false"
-            ).lower() == "true",
-            alert_days_before=int(
-                os.environ.get("ARAGORA_KEY_ROTATION_ALERT_DAYS", "7")
-            ),
+            ).lower()
+            == "true",
+            alert_days_before=int(os.environ.get("ARAGORA_KEY_ROTATION_ALERT_DAYS", "7")),
         )
 
 
@@ -218,20 +213,14 @@ class KeyRotationScheduler:
             "status": self._schedule.status.value,
             "running": self._running,
             "next_rotation": (
-                self._schedule.next_rotation.isoformat()
-                if self._schedule.next_rotation
-                else None
+                self._schedule.next_rotation.isoformat() if self._schedule.next_rotation else None
             ),
             "last_rotation": (
-                self._schedule.last_rotation.isoformat()
-                if self._schedule.last_rotation
-                else None
+                self._schedule.last_rotation.isoformat() if self._schedule.last_rotation else None
             ),
             "rotation_count": self._schedule.rotation_count,
             "last_result": (
-                self._schedule.last_result.to_dict()
-                if self._schedule.last_result
-                else None
+                self._schedule.last_result.to_dict() if self._schedule.last_result else None
             ),
             "config": {
                 "rotation_interval_days": self.config.rotation_interval_days,
@@ -265,9 +254,7 @@ class KeyRotationScheduler:
             if not active_key:
                 return True  # No key, rotation needed
 
-            key_age_days = (
-                datetime.now(timezone.utc) - active_key.created_at
-            ).days
+            key_age_days = (datetime.now(timezone.utc) - active_key.created_at).days
 
             return key_age_days >= self.config.rotation_interval_days
 
@@ -362,9 +349,7 @@ class KeyRotationScheduler:
             new_version = new_key.version
 
             duration = time.perf_counter() - start_time
-            logger.info(
-                f"Key rotated: {new_key.key_id} v{old_version} -> v{new_version}"
-            )
+            logger.info(f"Key rotated: {new_key.key_id} v{old_version} -> v{new_version}")
 
             # Record metrics
             record_key_rotation(new_key.key_id, True, duration)
@@ -627,9 +612,7 @@ class KeyRotationScheduler:
         service = get_encryption_service()
 
         try:
-            cursor.execute(
-                "SELECT user_id, access_token, refresh_token FROM gmail_tokens"
-            )
+            cursor.execute("SELECT user_id, access_token, refresh_token FROM gmail_tokens")
             rows = cursor.fetchall()
 
             for user_id, access_token, refresh_token in rows:
@@ -687,9 +670,7 @@ class KeyRotationScheduler:
         cursor = conn.cursor()
 
         try:
-            cursor.execute(
-                "SELECT id, config_json FROM sync_configs WHERE config_json IS NOT NULL"
-            )
+            cursor.execute("SELECT id, config_json FROM sync_configs WHERE config_json IS NOT NULL")
             rows = cursor.fetchall()
 
             for config_id, config_json in rows:

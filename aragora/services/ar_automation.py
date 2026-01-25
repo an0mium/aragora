@@ -581,10 +581,10 @@ class ARAutomation:
                         <div class="total-row grand-total">Total Due: ${float(invoice.total_amount):,.2f}</div>
                     </div>
 
-                    {f'<p style="margin-top: 20px;"><strong>Memo:</strong> {invoice.memo}</p>' if invoice.memo else ''}
+                    {f'<p style="margin-top: 20px;"><strong>Memo:</strong> {invoice.memo}</p>' if invoice.memo else ""}
 
                     <div style="text-align: center; margin-top: 20px;">
-                        <a href="mailto:payments@{self.company_name.lower().replace(' ', '')}.com?subject=Payment for {invoice.invoice_number}" class="button">
+                        <a href="mailto:payments@{self.company_name.lower().replace(" ", "")}.com?subject=Payment for {invoice.invoice_number}" class="button">
                             Pay Now
                         </a>
                     </div>
@@ -620,22 +620,26 @@ class ARAutomation:
             amount = item.get("amount", 0)
             lines.append(f"  {description} (x{quantity}): ${float(amount):,.2f}")
 
-        lines.extend([
-            "-" * 50,
-            f"Subtotal: ${float(invoice.subtotal):,.2f}",
-            f"Tax: ${float(invoice.tax_amount):,.2f}",
-            f"TOTAL DUE: ${float(invoice.total_amount):,.2f}",
-            "",
-        ])
+        lines.extend(
+            [
+                "-" * 50,
+                f"Subtotal: ${float(invoice.subtotal):,.2f}",
+                f"Tax: ${float(invoice.tax_amount):,.2f}",
+                f"TOTAL DUE: ${float(invoice.total_amount):,.2f}",
+                "",
+            ]
+        )
 
         if invoice.memo:
             lines.extend([f"Memo: {invoice.memo}", ""])
 
-        lines.extend([
-            "-" * 50,
-            self.company_name,
-            "Thank you for your business!",
-        ])
+        lines.extend(
+            [
+                "-" * 50,
+                self.company_name,
+                "Thank you for your business!",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -872,7 +876,7 @@ class ARAutomation:
                     </div>
 
                     <div style="text-align: center;">
-                        <a href="mailto:payments@{self.company_name.lower().replace(' ', '')}.com?subject=Payment for {invoice.invoice_number}" class="button">
+                        <a href="mailto:payments@{self.company_name.lower().replace(" ", "")}.com?subject=Payment for {invoice.invoice_number}" class="button">
                             Contact Us About Payment
                         </a>
                     </div>
@@ -1219,9 +1223,7 @@ class ARAutomation:
             else:
                 failed += 1
 
-        logger.info(
-            f"Bulk reminders complete: {sent} sent, {skipped} skipped, {failed} failed"
-        )
+        logger.info(f"Bulk reminders complete: {sent} sent, {skipped} skipped, {failed} failed")
 
         return {
             "sent": sent,

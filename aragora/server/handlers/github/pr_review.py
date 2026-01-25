@@ -819,7 +819,7 @@ Author: {pr_details.author}
 Base: {pr_details.base_branch} <- {pr_details.head_branch}
 
 Description:
-{pr_details.body[:2000] if pr_details.body else 'No description provided.'}
+{pr_details.body[:2000] if pr_details.body else "No description provided."}
 
 Changes ({len(pr_details.changed_files)} files):
 {diff_context}

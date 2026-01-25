@@ -305,7 +305,7 @@ class VoteCollector:
                 votes_by_agent[agent_name].append(vote)
 
             logger.debug(
-                f"position_shuffling_permutation_done perm={perm_idx} " f"votes={len(perm_votes)}"
+                f"position_shuffling_permutation_done perm={perm_idx} votes={len(perm_votes)}"
             )
 
         # Average votes across permutations

@@ -47,9 +47,9 @@ def _confirm(message: str, default: bool = True) -> bool:
 
 def _print_header(text: str) -> None:
     """Print a section header."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  {text}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
 
 def _print_step(step: int, total: int, text: str) -> None:

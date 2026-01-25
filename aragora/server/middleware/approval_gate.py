@@ -295,9 +295,7 @@ async def resolve_approval(
     # Record metrics and audit
     _record_approval_resolved(request)
 
-    logger.info(
-        f"Approval request {request_id} resolved: {request.state.value} " f"by {approver_id}"
-    )
+    logger.info(f"Approval request {request_id} resolved: {request.state.value} by {approver_id}")
 
     return True
 

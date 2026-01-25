@@ -646,7 +646,7 @@ and building on others' ideas."""
 The debate history has been compressed into multiple abstraction levels
 for efficient processing. You are seeing a SUMMARY view.
 
-**Available detail levels:** {', '.join(levels_available)}
+**Available detail levels:** {", ".join(levels_available)}
 
 If you need more detail on a specific topic mentioned in the context,
 you can request drill-down by including in your response:

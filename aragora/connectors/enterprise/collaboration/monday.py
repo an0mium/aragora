@@ -757,7 +757,7 @@ class MondayConnector(EnterpriseConnector):
         query = f"""
         query {{
             boards(ids: [{board_id}]) {{
-                items_page(limit: {limit}{f', cursor: "{cursor}"' if cursor else ''}) {{
+                items_page(limit: {limit}{f', cursor: "{cursor}"' if cursor else ""}) {{
                     cursor
                     items {{
                         id

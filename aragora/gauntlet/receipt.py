@@ -1105,7 +1105,7 @@ class DecisionReceipt:
             from weasyprint import HTML
         except ImportError as e:
             raise ImportError(
-                "weasyprint is required for PDF export. " "Install with: pip install weasyprint"
+                "weasyprint is required for PDF export. Install with: pip install weasyprint"
             ) from e
 
         html_content = self.to_html()

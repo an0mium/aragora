@@ -360,7 +360,7 @@ class TenantDataIsolation:
             )
             if self.config.strict_validation:
                 raise IsolationViolation(
-                    f"Resource belongs to tenant {resource_tenant}, " f"not {expected}",
+                    f"Resource belongs to tenant {resource_tenant}, not {expected}",
                     tenant_id=expected,
                 )
             return False

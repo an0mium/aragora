@@ -133,7 +133,7 @@ class DebateContextAdapter:
             return f"No proposals found from agent '{agent_name}'"
 
         return f"## {agent_name}'s Positions ({len(proposals)} proposals)\n\n" + "\n\n---\n\n".join(
-            f"**Proposal {i+1}:**\n{p[:500]}{'...' if len(p) > 500 else ''}"
+            f"**Proposal {i + 1}:**\n{p[:500]}{'...' if len(p) > 500 else ''}"
             for i, p in enumerate(proposals)
         )
 

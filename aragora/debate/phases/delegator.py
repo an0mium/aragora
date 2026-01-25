@@ -295,7 +295,7 @@ class DebateDelegator:
         prompt = f"""Task: {task}
 
 Context:
-{context[:self._config.context_token_limit * 4]}
+{context[: self._config.context_token_limit * 4]}
 
 Please provide your response to the task."""
 

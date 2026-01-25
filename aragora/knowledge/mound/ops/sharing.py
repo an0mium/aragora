@@ -184,7 +184,7 @@ class KnowledgeSharingMixin:
             logger.warning("Store does not support access grants, grant not persisted")
 
         logger.info(
-            f"Shared item {item_id} from {from_workspace_id} " f"to user {user_id} by {shared_by}"
+            f"Shared item {item_id} from {from_workspace_id} to user {user_id} by {shared_by}"
         )
 
         # Send notification asynchronously (best effort)

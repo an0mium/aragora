@@ -554,7 +554,7 @@ class MemoryMigrator:
                         stats.rows_skipped += len(batch)
 
             logger.info(
-                f"Migrated {stats.rows_migrated} rows to {table} " f"({stats.rows_skipped} skipped)"
+                f"Migrated {stats.rows_migrated} rows to {table} ({stats.rows_skipped} skipped)"
             )
 
         except Exception as e:

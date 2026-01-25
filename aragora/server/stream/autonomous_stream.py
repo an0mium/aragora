@@ -49,7 +49,9 @@ class AutonomousStreamEmitter:
         self._client_counter = 0
         self._lock = asyncio.Lock()
 
-    def add_client(self, ws: web.WebSocketResponse, subscriptions: Optional[Set[str]] = None) -> str:
+    def add_client(
+        self, ws: web.WebSocketResponse, subscriptions: Optional[Set[str]] = None
+    ) -> str:
         """Add a new WebSocket client."""
         self._client_counter += 1
         client_id = f"auto_{self._client_counter}_{int(time.time())}"
@@ -77,7 +79,7 @@ class AutonomousStreamEmitter:
         # Store in history
         self._event_history.append(event)
         if len(self._event_history) > self._max_history:
-            self._event_history = self._event_history[-self._max_history:]
+            self._event_history = self._event_history[-self._max_history :]
 
         # Broadcast to clients
         event_dict = event.to_dict()
@@ -148,6 +150,7 @@ def set_autonomous_emitter(emitter: AutonomousStreamEmitter) -> None:
 
 
 # Helper functions for emitting specific event types
+
 
 def emit_approval_event(
     event_type: str,
@@ -319,12 +322,14 @@ async def autonomous_websocket_handler(request: web.Request) -> web.WebSocketRes
     client_id = emitter.add_client(ws, subscriptions)
 
     # Send welcome message
-    await ws.send_json({
-        "type": "connected",
-        "client_id": client_id,
-        "subscriptions": list(subscriptions),
-        "timestamp": time.time(),
-    })
+    await ws.send_json(
+        {
+            "type": "connected",
+            "client_id": client_id,
+            "subscriptions": list(subscriptions),
+            "timestamp": time.time(),
+        }
+    )
 
     try:
         async for msg in ws:
@@ -340,35 +345,43 @@ async def autonomous_websocket_handler(request: web.Request) -> web.WebSocketRes
                         events = data.get("events", [])
                         if client_id in emitter._clients:
                             emitter._clients[client_id].subscriptions.update(events)
-                            await ws.send_json({
-                                "type": "subscribed",
-                                "events": events,
-                            })
+                            await ws.send_json(
+                                {
+                                    "type": "subscribed",
+                                    "events": events,
+                                }
+                            )
 
                     elif msg_type == "unsubscribe":
                         events = data.get("events", [])
                         if client_id in emitter._clients:
                             emitter._clients[client_id].subscriptions.difference_update(events)
-                            await ws.send_json({
-                                "type": "unsubscribed",
-                                "events": events,
-                            })
+                            await ws.send_json(
+                                {
+                                    "type": "unsubscribed",
+                                    "events": events,
+                                }
+                            )
 
                     elif msg_type == "get_history":
                         event_types = data.get("event_types")
                         limit = data.get("limit", 100)
                         history = emitter.get_history(event_types, limit)
-                        await ws.send_json({
-                            "type": "history",
-                            "events": history,
-                            "count": len(history),
-                        })
+                        await ws.send_json(
+                            {
+                                "type": "history",
+                                "events": history,
+                                "count": len(history),
+                            }
+                        )
 
                 except json.JSONDecodeError:
-                    await ws.send_json({
-                        "type": "error",
-                        "message": "Invalid JSON",
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "error",
+                            "message": "Invalid JSON",
+                        }
+                    )
 
             elif msg.type == WSMsgType.ERROR:
                 logger.error(f"WebSocket error: {ws.exception()}")

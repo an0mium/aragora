@@ -207,7 +207,7 @@ class OIDCProvider(SSOProvider):
         # SECURITY: Require JWT library in production for proper token validation
         if not HAS_JWT and _is_production_mode():
             raise SSOConfigurationError(
-                "PyJWT library required for OIDC in production. " "Install with: pip install PyJWT",
+                "PyJWT library required for OIDC in production. Install with: pip install PyJWT",
                 {"missing_dependency": "PyJWT"},
             )
 

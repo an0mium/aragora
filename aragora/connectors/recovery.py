@@ -202,10 +202,7 @@ class RecoveryStrategy:
             return RecoveryAction.RETRY
 
         # Exhausted retries with fallback available
-        if (
-            attempt >= self.config.max_retries
-            and self.config.fallback_endpoints
-        ):
+        if attempt >= self.config.max_retries and self.config.fallback_endpoints:
             return RecoveryAction.FALLBACK
 
         # Check escalation threshold
@@ -240,9 +237,7 @@ class RecoveryStrategy:
             # Check circuit breaker
             cb = self._get_circuit_breaker()
             if cb is not None and not cb.can_proceed():
-                logger.warning(
-                    f"[{self.connector_name}] Circuit open for {operation_name}"
-                )
+                logger.warning(f"[{self.connector_name}] Circuit open for {operation_name}")
                 raise ConnectorError(
                     f"Circuit breaker open for {operation_name}",
                     connector_name=self.connector_name,
@@ -302,7 +297,9 @@ class RecoveryStrategy:
                         attempt += 1
                         continue
                     except Exception as refresh_error:
-                        logger.error(f"[{self.connector_name}] Token refresh failed: {refresh_error}")
+                        logger.error(
+                            f"[{self.connector_name}] Token refresh failed: {refresh_error}"
+                        )
                         raise classify_exception(e, self.connector_name) from e
 
                 elif action == RecoveryAction.ESCALATE:
@@ -345,9 +342,7 @@ class RecoveryStrategy:
             "total_retries": self._total_retries,
             "last_error_time": self._last_error_time,
             "circuit_breaker": (
-                self._circuit_breaker.get_status()
-                if self._circuit_breaker
-                else None
+                self._circuit_breaker.get_status() if self._circuit_breaker else None
             ),
         }
 

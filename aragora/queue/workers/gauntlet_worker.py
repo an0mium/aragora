@@ -113,9 +113,7 @@ class GauntletWorker:
 
         # Wait for active jobs to complete on shutdown
         if self._active_jobs:
-            logger.info(
-                f"[{self.worker_id}] Waiting for {len(self._active_jobs)} active jobs"
-            )
+            logger.info(f"[{self.worker_id}] Waiting for {len(self._active_jobs)} active jobs")
             await asyncio.gather(*self._active_jobs.values(), return_exceptions=True)
 
         logger.info(f"[{self.worker_id}] Worker stopped")
@@ -127,15 +125,11 @@ class GauntletWorker:
 
     def _cleanup_completed_tasks(self) -> None:
         """Remove completed tasks from tracking dict."""
-        completed = [
-            job_id for job_id, task in self._active_jobs.items() if task.done()
-        ]
+        completed = [job_id for job_id, task in self._active_jobs.items() if task.done()]
         for job_id in completed:
             task = self._active_jobs.pop(job_id)
             if task.exception():
-                logger.warning(
-                    f"[{self.worker_id}] Job {job_id} failed: {task.exception()}"
-                )
+                logger.warning(f"[{self.worker_id}] Job {job_id} failed: {task.exception()}")
 
     async def _process_job(self, job: QueuedJob) -> None:
         """Process a single gauntlet job."""
@@ -159,10 +153,7 @@ class GauntletWorker:
                 },
             )
 
-            logger.info(
-                f"[{self.worker_id}] Completed gauntlet {gauntlet_id} "
-                f"in {duration:.1f}s"
-            )
+            logger.info(f"[{self.worker_id}] Completed gauntlet {gauntlet_id} in {duration:.1f}s")
 
         except Exception as e:
             logger.error(
@@ -454,9 +445,7 @@ async def recover_interrupted_gauntlets() -> int:
                 recovered += 1
                 logger.info(f"Re-enqueued interrupted gauntlet: {run.gauntlet_id}")
             except (json.JSONDecodeError, KeyError) as e:
-                logger.warning(
-                    f"Failed to re-enqueue {run.gauntlet_id}: {e}"
-                )
+                logger.warning(f"Failed to re-enqueue {run.gauntlet_id}: {e}")
                 storage.update_inflight_status(
                     run.gauntlet_id,
                     "interrupted",

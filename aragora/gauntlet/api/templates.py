@@ -690,7 +690,7 @@ def create_custom_template(
     template_sections = [
         TemplateSection(
             id=s.get("id", f"section-{i}"),
-            title=s.get("title", f"Section {i+1}"),
+            title=s.get("title", f"Section {i + 1}"),
             description=s.get("description", ""),
             required=s.get("required", True),
             receipt_fields=s.get("receipt_fields", []),

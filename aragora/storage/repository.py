@@ -268,9 +268,7 @@ class DatabaseRepository:
         safe_col = _validate_column_name(id_column)
         placeholders = ",".join("?" * len(id_values))
         # nosec B608: TABLE_NAME is class constant, safe_col is regex-validated, id_values are parameterized
-        query = (
-            f"SELECT * FROM {self.TABLE_NAME} WHERE {safe_col} IN ({placeholders})"  # nosec B608
-        )
+        query = f"SELECT * FROM {self.TABLE_NAME} WHERE {safe_col} IN ({placeholders})"  # nosec B608
 
         with self.connection() as conn:
             conn.row_factory = sqlite3.Row
@@ -293,9 +291,7 @@ class DatabaseRepository:
         with self.connection() as conn:
             cursor = conn.cursor()
             # nosec B608: TABLE_NAME is class constant, safe_col is regex-validated, id_value is parameterized
-            cursor.execute(
-                f"DELETE FROM {self.TABLE_NAME} WHERE {safe_col} = ?", (id_value,)
-            )  # nosec B608
+            cursor.execute(f"DELETE FROM {self.TABLE_NAME} WHERE {safe_col} = ?", (id_value,))  # nosec B608
             conn.commit()
             deleted = cursor.rowcount > 0
 

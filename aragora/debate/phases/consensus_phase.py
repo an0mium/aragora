@@ -773,7 +773,7 @@ class ConsensusPhase:
         deliberation_rounds = getattr(self.protocol, "judge_deliberation_rounds", 2)
 
         logger.info(
-            f"judge_deliberation_start proposals={len(proposals)} " f"rounds={deliberation_rounds}"
+            f"judge_deliberation_start proposals={len(proposals)} rounds={deliberation_rounds}"
         )
 
         # Get judge candidates (use 3 judges for deliberation)

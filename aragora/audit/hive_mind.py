@@ -412,7 +412,7 @@ DOCUMENT CHUNK (ID: {task.chunk_id}):
 
 INSTRUCTIONS:
 Analyze this content for:
-{chr(10).join(f'- {t.upper()}: Check for {t}-related issues' for t in task.audit_types)}
+{chr(10).join(f"- {t.upper()}: Check for {t}-related issues" for t in task.audit_types)}
 
 For each finding, provide:
 1. SEVERITY: critical/high/medium/low/info

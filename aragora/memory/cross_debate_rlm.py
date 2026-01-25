@@ -731,12 +731,12 @@ class CrossDebateMemory:
             parts.append(
                 f"""
 ## Debate: {entry.task}
-Date: {entry.timestamp.strftime('%Y-%m-%d')}
-Participants: {', '.join(entry.participants)}
-Consensus: {'Yes' if entry.consensus_reached else 'No'}
+Date: {entry.timestamp.strftime("%Y-%m-%d")}
+Participants: {", ".join(entry.participants)}
+Consensus: {"Yes" if entry.consensus_reached else "No"}
 
 ### Key Insights:
-{chr(10).join(f'- {i}' for i in entry.key_insights)}
+{chr(10).join(f"- {i}" for i in entry.key_insights)}
 
 ### Conclusion:
 {entry.final_answer}
@@ -774,9 +774,9 @@ Consensus: {'Yes' if entry.consensus_reached else 'No'}
         for _, entry in relevant_entries[:max_debates]:
             parts.append(
                 f"""
-**{entry.task}** ({entry.timestamp.strftime('%Y-%m-%d')})
-Consensus: {'Yes' if entry.consensus_reached else 'No'}
-Key insight: {entry.key_insights[0] if entry.key_insights else 'N/A'}
+**{entry.task}** ({entry.timestamp.strftime("%Y-%m-%d")})
+Consensus: {"Yes" if entry.consensus_reached else "No"}
+Key insight: {entry.key_insights[0] if entry.key_insights else "N/A"}
 """
             )
 

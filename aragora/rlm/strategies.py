@@ -374,7 +374,7 @@ Remove duplicates and resolve any contradictions.
 Question: {query.query}
 
 Partial answers:
-{chr(10).join(f'[{i+1}] {ans}' for i, ans in enumerate(partial_answers))}
+{chr(10).join(f"[{i + 1}] {ans}" for i, ans in enumerate(partial_answers))}
 
 Combined answer:"""
 

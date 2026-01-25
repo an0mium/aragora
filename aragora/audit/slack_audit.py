@@ -206,7 +206,7 @@ class SlackAuditLogger:
 
         event_id = self.audit.log(event)
         logger.debug(
-            f"slack_event_logged workspace={workspace_id} type={event_type} " f"success={success}"
+            f"slack_event_logged workspace={workspace_id} type={event_type} success={success}"
         )
         return event_id
 

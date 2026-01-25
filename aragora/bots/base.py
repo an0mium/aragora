@@ -184,8 +184,7 @@ class BaseBotClient(ABC):
         if not config.api_base:
             if is_production:
                 raise ValueError(
-                    "api_base is required in production. "
-                    "Set ARAGORA_API_BASE environment variable."
+                    "api_base is required in production. Set ARAGORA_API_BASE environment variable."
                 )
             config.api_base = "http://localhost:8080"
             logger.debug("Using localhost api_base (development mode)")
@@ -193,7 +192,7 @@ class BaseBotClient(ABC):
         if not config.ws_url:
             if is_production:
                 raise ValueError(
-                    "ws_url is required in production. " "Set ARAGORA_WS_URL environment variable."
+                    "ws_url is required in production. Set ARAGORA_WS_URL environment variable."
                 )
             config.ws_url = "ws://localhost:8080/ws"
             logger.debug("Using localhost ws_url (development mode)")

@@ -359,8 +359,7 @@ class OutlookSyncService:
                 self._renewal_task = asyncio.create_task(self._subscription_renewal_loop())
 
             logger.info(
-                f"[OutlookSync] Started for {self._state.email_address} "
-                f"(tenant: {self.tenant_id})"
+                f"[OutlookSync] Started for {self._state.email_address} (tenant: {self.tenant_id})"
             )
             return True
 
@@ -575,8 +574,7 @@ class OutlookSyncService:
                     self._on_batch_complete(synced_messages)
 
                 logger.info(
-                    f"[OutlookSync] Initial sync complete: "
-                    f"{len(synced_messages)} messages synced"
+                    f"[OutlookSync] Initial sync complete: {len(synced_messages)} messages synced"
                 )
 
                 self._status = (
@@ -654,8 +652,7 @@ class OutlookSyncService:
                     self._on_batch_complete(synced_messages)
 
                 logger.info(
-                    f"[OutlookSync] Incremental sync complete: "
-                    f"{len(synced_messages)} new messages"
+                    f"[OutlookSync] Incremental sync complete: {len(synced_messages)} new messages"
                 )
 
                 self._status = (
@@ -830,7 +827,9 @@ class OutlookSyncService:
                 elif response.status_code == 404:
                     logger.debug("[OutlookSync] Subscription already deleted")
                 else:
-                    logger.warning(f"[OutlookSync] Delete subscription returned {response.status_code}")
+                    logger.warning(
+                        f"[OutlookSync] Delete subscription returned {response.status_code}"
+                    )
 
             self._state.subscription_id = None
             self._state.subscription_expiry = None

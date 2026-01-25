@@ -367,7 +367,7 @@ class RedisDeliveryStore(WebhookDeliveryStore):
             return self._redis
         except ImportError:
             raise ImportError(
-                "redis package required for RedisDeliveryStore. " "Install with: pip install redis"
+                "redis package required for RedisDeliveryStore. Install with: pip install redis"
             )
         except Exception as e:
             logger.error(f"Redis connection failed: {e}")
@@ -699,8 +699,7 @@ class WebhookRetryQueue:
                         self._stats["delivered"] += 1
 
                     logger.info(
-                        f"Webhook delivery {delivery.id} succeeded "
-                        f"(attempt {delivery.attempts})"
+                        f"Webhook delivery {delivery.id} succeeded (attempt {delivery.attempts})"
                     )
 
                     # Call success callback

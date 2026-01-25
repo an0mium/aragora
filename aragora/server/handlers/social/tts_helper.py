@@ -142,7 +142,7 @@ class TTSHelper:
 
         # Truncate if too long
         if len(text) > TTS_MAX_TEXT_LENGTH:
-            text = text[:TTS_MAX_TEXT_LENGTH - 3] + "..."
+            text = text[: TTS_MAX_TEXT_LENGTH - 3] + "..."
             logger.debug(f"TTS text truncated to {TTS_MAX_TEXT_LENGTH} chars")
 
         voice = voice or TTS_DEFAULT_VOICE

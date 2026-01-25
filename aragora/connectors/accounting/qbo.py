@@ -612,8 +612,7 @@ class QuickBooksConnector:
     ) -> Dict[str, Any]:
         """Get profit and loss report."""
         params = (
-            f"start_date={start_date.strftime('%Y-%m-%d')}"
-            f"&end_date={end_date.strftime('%Y-%m-%d')}"
+            f"start_date={start_date.strftime('%Y-%m-%d')}&end_date={end_date.strftime('%Y-%m-%d')}"
         )
 
         response = await self._request("GET", f"reports/ProfitAndLoss?{params}")

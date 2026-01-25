@@ -365,7 +365,7 @@ class PostgresConsensusMemory(PostgresStore):
 
                 query = f"""
                     SELECT data FROM consensus
-                    WHERE ({' OR '.join(keyword_conditions)})
+                    WHERE ({" OR ".join(keyword_conditions)})
                       AND confidence >= $1
                       AND topic_hash != $2
                 """

@@ -838,7 +838,7 @@ class ConnectorsHandler(SecureHandler):
                 # Identify issues
                 issues = []
                 if success_rate < 0.9:
-                    issues.append(f"Low success rate: {success_rate*100:.1f}%")
+                    issues.append(f"Low success rate: {success_rate * 100:.1f}%")
                 if avg_duration > expected_duration * 2:
                     issues.append(
                         f"High sync duration: {avg_duration:.0f}s (expected: {expected_duration}s)"

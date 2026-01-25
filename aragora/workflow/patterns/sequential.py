@@ -112,7 +112,7 @@ class SequentialPattern(WorkflowPattern):
 
             step = self._create_agent_step(
                 step_id=step_id,
-                name=f"Stage {i+1}: {role.replace('_', ' ').title()}",
+                name=f"Stage {i + 1}: {role.replace('_', ' ').title()}",
                 agent_type=agent_type,
                 prompt=prompt,
                 position=Position(x=start_x + i * spacing, y=y_pos),

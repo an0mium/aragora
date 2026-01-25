@@ -520,8 +520,7 @@ class FederationScheduler:
             schedule.last_result = {"status": "success", **result}
 
             logger.info(
-                f"Federation sync completed: {run.items_pushed} pushed, "
-                f"{run.items_pulled} pulled"
+                f"Federation sync completed: {run.items_pushed} pushed, {run.items_pulled} pulled"
             )
 
         except Exception as e:

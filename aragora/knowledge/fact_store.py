@@ -672,7 +672,7 @@ class FactStore(SQLiteStore):
                 f"""
                 SELECT COUNT(*) as count FROM facts
                 WHERE validation_status IN ({placeholders})
-                {' AND workspace_id = ?' if workspace_id else ''}
+                {" AND workspace_id = ?" if workspace_id else ""}
                 """,
                 list(verified_statuses) + ([workspace_id] if workspace_id else []),
             )

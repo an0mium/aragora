@@ -421,9 +421,9 @@ class StatusPageHandler(BaseHandler):
         components_html = "\n".join(
             f"""
             <div class="component">
-                <span class="component-name">{self.COMPONENTS[i]['name']}</span>
+                <span class="component-name">{self.COMPONENTS[i]["name"]}</span>
                 <span class="status-badge" style="background-color: {status_colors[c.status]}">
-                    {c.status.value.replace('_', ' ').title()}
+                    {c.status.value.replace("_", " ").title()}
                 </span>
             </div>
             """
@@ -518,7 +518,7 @@ class StatusPageHandler(BaseHandler):
         </section>
 
         <footer>
-            <p>Last updated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}</p>
+            <p>Last updated: {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}</p>
             <p class="api-link">
                 <a href="/api/status">JSON API</a> |
                 <a href="https://aragora.ai">Aragora</a>

@@ -454,7 +454,7 @@ async def acquire_connection_resilient(
     # All retries exhausted
     total_time = time.time() - start_time
     logger.error(
-        f"Connection acquisition failed after {retries} attempts " f"({total_time:.2f}s total)"
+        f"Connection acquisition failed after {retries} attempts ({total_time:.2f}s total)"
     )
 
     if last_error:

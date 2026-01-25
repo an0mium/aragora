@@ -1418,9 +1418,9 @@ def _format_result_message(
         return f"""
 <h2>Debate Complete!</h2>
 <p><strong>Topic:</strong> {topic[:200]}</p>
-<p><strong>Consensus:</strong> {'Yes' if consensus else 'No'}</p>
+<p><strong>Consensus:</strong> {"Yes" if consensus else "No"}</p>
 <p><strong>Confidence:</strong> {confidence:.0%}</p>
-<p><strong>Agents:</strong> {', '.join(participants[:5])}</p>
+<p><strong>Agents:</strong> {", ".join(participants[:5])}</p>
 <hr>
 <p><strong>Conclusion:</strong></p>
 <p>{answer}</p>
@@ -1431,9 +1431,9 @@ def _format_result_message(
 
 **Topic:** {topic[:200]}
 
-**Consensus:** {'Yes' if consensus else 'No'}
+**Consensus:** {"Yes" if consensus else "No"}
 **Confidence:** {confidence:.0%}
-**Agents:** {', '.join(participants[:5])}
+**Agents:** {", ".join(participants[:5])}
 
 ---
 
@@ -1446,9 +1446,9 @@ def _format_result_message(
 
 Topic: {topic[:200]}
 
-Consensus: {'Yes' if consensus else 'No'}
+Consensus: {"Yes" if consensus else "No"}
 Confidence: {confidence:.0%}
-Agents: {', '.join(participants[:5])}
+Agents: {", ".join(participants[:5])}
 
 ---
 
@@ -1479,14 +1479,14 @@ def format_error_for_chat(error: str, debate_id: str) -> str:
         ),
         "timeout": ("There was a delay processing your request. Please wait a moment."),
         "timed out": (
-            "The analysis is taking longer than expected. " "Results will be sent when ready."
+            "The analysis is taking longer than expected. Results will be sent when ready."
         ),
         "not found": ("We couldn't find that debate. Please start a new one."),
         "404": ("The requested resource wasn't found. Please try again."),
         "unauthorized": ("Please reconnect the Aragora app to continue."),
         "401": ("Authentication required. Please reconnect the Aragora app."),
         "forbidden": (
-            "You don't have permission for this action. " "Please check with your workspace admin."
+            "You don't have permission for this action. Please check with your workspace admin."
         ),
         "403": ("Access denied. Please verify your permissions."),
         "connection": ("We're experiencing connectivity issues. Please try again in a moment."),

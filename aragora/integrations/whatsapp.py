@@ -388,7 +388,7 @@ class WhatsAppIntegration:
         if not self.config.notify_on_error:
             return False
 
-        message = f"ARAGORA ERROR\n" f"\n" f"Debate: {debate_id}\n" f"Error: {error[:500]}"
+        message = f"ARAGORA ERROR\n\nDebate: {debate_id}\nError: {error[:500]}"
 
         return await self.send_message(message)
 

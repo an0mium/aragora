@@ -463,7 +463,7 @@ class RegionRouter:
 
         if not candidates:
             logger.warning(
-                f"No failover region available for task {task_id} " f"(failed: {failed_region})"
+                f"No failover region available for task {task_id} (failed: {failed_region})"
             )
             return None
 

@@ -203,7 +203,7 @@ class VerticalsHandler(BaseHandler):
             if spec is None:
                 available = registry.get_registered_ids()
                 return error_response(
-                    f"Vertical not found: {vertical_id}. " f"Available: {', '.join(available)}", 404
+                    f"Vertical not found: {vertical_id}. Available: {', '.join(available)}", 404
                 )
 
             config = spec.config

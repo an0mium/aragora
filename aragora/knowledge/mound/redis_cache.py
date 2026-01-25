@@ -416,9 +416,7 @@ class RedisCache:
                         await self.invalidate_node(event.item_id)
                     # Also invalidate related queries
                     await self.invalidate_queries(event.workspace_id)
-                    logger.debug(
-                        f"Cache invalidated: node {event.item_id} in {event.workspace_id}"
-                    )
+                    logger.debug(f"Cache invalidated: node {event.item_id} in {event.workspace_id}")
 
                 elif event.event_type == "node_deleted":
                     if event.item_id:
@@ -431,15 +429,11 @@ class RedisCache:
 
                 elif event.event_type == "query_invalidated":
                     await self.invalidate_queries(event.workspace_id)
-                    logger.debug(
-                        f"Cache invalidated: queries in {event.workspace_id}"
-                    )
+                    logger.debug(f"Cache invalidated: queries in {event.workspace_id}")
 
                 elif event.event_type == "culture_updated":
                     await self.invalidate_culture(event.workspace_id)
-                    logger.debug(
-                        f"Cache invalidated: culture in {event.workspace_id}"
-                    )
+                    logger.debug(f"Cache invalidated: culture in {event.workspace_id}")
 
             except Exception as e:
                 logger.warning(f"Cache invalidation failed for event {event.event_type}: {e}")

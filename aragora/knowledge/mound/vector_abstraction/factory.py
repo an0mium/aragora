@@ -107,7 +107,7 @@ class VectorStoreFactory:
         if not store_class:
             available = [b.value for b in cls._registry.keys()]
             raise ValueError(
-                f"Unknown backend: {config.backend.value}. " f"Available backends: {available}"
+                f"Unknown backend: {config.backend.value}. Available backends: {available}"
             )
         return store_class(config)
 

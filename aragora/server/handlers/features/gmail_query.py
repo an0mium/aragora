@@ -290,7 +290,7 @@ class GmailQueryHandler(BaseHandler):
             if subjects:
                 return f"Found {email_count} emails about: {'; '.join(subjects[:3])}"
 
-        return f"I found {email_count} relevant emails. " "Check the sources below for details."
+        return f"I found {email_count} relevant emails. Check the sources below for details."
 
     def _handle_voice_query(
         self,

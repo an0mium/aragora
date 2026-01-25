@@ -373,7 +373,7 @@ Respond with a JSON array of findings. Each finding should have:
 
         # Initial prompt
         initial_prompt = f"""You are analyzing the repository at {context.repo_path}.
-Files in context: {', '.join(context.files_in_context) if context.files_in_context else 'all'}
+Files in context: {", ".join(context.files_in_context) if context.files_in_context else "all"}
 
 I'll ask you questions about the codebase. Provide helpful, accurate answers."""
 

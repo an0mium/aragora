@@ -331,7 +331,9 @@ def record_user_mapping_operation(operation: str, platform: str, found: bool) ->
     """Record a user ID mapping operation."""
     _ensure_init()
     status = "success" if found else "not_found"
-    USER_MAPPING_OPERATIONS_TOTAL.labels(operation=operation, platform=platform, status=status).inc()
+    USER_MAPPING_OPERATIONS_TOTAL.labels(
+        operation=operation, platform=platform, status=status
+    ).inc()
 
 
 def record_user_mapping_cache_hit(platform: str) -> None:

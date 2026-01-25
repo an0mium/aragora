@@ -894,7 +894,7 @@ class InvoiceProcessor:
                     Anomaly(
                         type=AnomalyType.UNUSUAL_AMOUNT,
                         severity="high",
-                        description=f"Amount ${current:.2f} is {current/avg_amount:.1f}x higher than average ${avg_amount:.2f}",
+                        description=f"Amount ${current:.2f} is {current / avg_amount:.1f}x higher than average ${avg_amount:.2f}",
                         expected_value=f"${avg_amount:.2f}",
                         actual_value=f"${current:.2f}",
                         recommendation="Review invoice details and verify with vendor",

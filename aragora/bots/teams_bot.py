@@ -141,8 +141,7 @@ class AragoraTeamsBot:
 
         if not text:
             await turn_context.send_activity(
-                'Hi! I\'m Aragora. Try `/aragora help` or `/aragora debate "topic"` '
-                "to get started."
+                'Hi! I\'m Aragora. Try `/aragora help` or `/aragora debate "topic"` to get started.'
             )
             return
 

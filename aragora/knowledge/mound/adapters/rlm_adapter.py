@@ -457,8 +457,7 @@ class RlmAdapter:
                 result["errors"].append(f"Pattern {pattern_id}: {e}")
 
         logger.info(
-            f"RLM sync to KM: patterns={result['patterns_synced']}, "
-            f"errors={len(result['errors'])}"
+            f"RLM sync to KM: patterns={result['patterns_synced']}, errors={len(result['errors'])}"
         )
         return result
 
@@ -528,8 +527,7 @@ class RlmAdapter:
             logger.error(f"Failed to load patterns from KM: {e}")
 
         logger.info(
-            f"RLM load from KM: loaded={result['patterns_loaded']}, "
-            f"errors={len(result['errors'])}"
+            f"RLM load from KM: loaded={result['patterns_loaded']}, errors={len(result['errors'])}"
         )
         return result
 

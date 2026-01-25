@@ -109,6 +109,7 @@ class CultureAdapter:
 
         try:
             from aragora.knowledge.mound import get_knowledge_mound
+
             self._mound = get_knowledge_mound()
             return self._mound
         except (ImportError, Exception) as e:
@@ -159,12 +160,18 @@ class CultureAdapter:
                 tier="slow",  # Culture patterns are relatively stable
                 metadata={
                     "pattern_id": pattern.id,
-                    "pattern_type": pattern.pattern_type.value if hasattr(pattern.pattern_type, 'value') else str(pattern.pattern_type),
+                    "pattern_type": pattern.pattern_type.value
+                    if hasattr(pattern.pattern_type, "value")
+                    else str(pattern.pattern_type),
                     "pattern_key": pattern.pattern_key,
                     "pattern_value": pattern.pattern_value,
                     "observation_count": pattern.observation_count,
-                    "first_observed": pattern.first_observed_at.isoformat() if hasattr(pattern.first_observed_at, 'isoformat') else str(pattern.first_observed_at),
-                    "last_observed": pattern.last_observed_at.isoformat() if hasattr(pattern.last_observed_at, 'isoformat') else str(pattern.last_observed_at),
+                    "first_observed": pattern.first_observed_at.isoformat()
+                    if hasattr(pattern.first_observed_at, "isoformat")
+                    else str(pattern.first_observed_at),
+                    "last_observed": pattern.last_observed_at.isoformat()
+                    if hasattr(pattern.last_observed_at, "isoformat")
+                    else str(pattern.last_observed_at),
                     "contributing_debates": pattern.contributing_debates[:20],  # Limit list size
                     "adapter": "culture",
                 },
@@ -195,7 +202,11 @@ class CultureAdapter:
 
     def _pattern_to_content(self, pattern: "CulturePattern") -> str:
         """Convert a CulturePattern to searchable content string."""
-        pattern_type = pattern.pattern_type.value if hasattr(pattern.pattern_type, 'value') else str(pattern.pattern_type)
+        pattern_type = (
+            pattern.pattern_type.value
+            if hasattr(pattern.pattern_type, "value")
+            else str(pattern.pattern_type)
+        )
 
         parts = [
             f"Culture Pattern: {pattern_type}",
@@ -242,8 +253,7 @@ class CultureAdapter:
                 # Build query based on pattern types
                 if pattern_types:
                     type_strings = [
-                        pt.value if hasattr(pt, 'value') else str(pt)
-                        for pt in pattern_types
+                        pt.value if hasattr(pt, "value") else str(pt) for pt in pattern_types
                     ]
                     query = f"culture pattern {' '.join(type_strings)}"
                 else:
@@ -285,12 +295,12 @@ class CultureAdapter:
 
         return StoredCulturePattern(
             id=item.id,
-            workspace_id=item.workspace_id if hasattr(item, 'workspace_id') else "",
+            workspace_id=item.workspace_id if hasattr(item, "workspace_id") else "",
             pattern_type=metadata.get("pattern_type", "unknown"),
             pattern_key=metadata.get("pattern_key", ""),
             pattern_value=metadata.get("pattern_value", {}),
             observation_count=metadata.get("observation_count", 0),
-            confidence=item.confidence if hasattr(item, 'confidence') else 0.5,
+            confidence=item.confidence if hasattr(item, "confidence") else 0.5,
             first_observed=metadata.get("first_observed", ""),
             last_observed=metadata.get("last_observed", ""),
             contributing_debates=metadata.get("contributing_debates", []),
@@ -372,11 +382,13 @@ class CultureAdapter:
                 if pattern.pattern_type == "domain_expertise":
                     if "domain_hints" not in hints:
                         hints["domain_hints"] = []
-                    hints["domain_hints"].append({
-                        "key": pattern.pattern_key,
-                        "value": pattern.pattern_value,
-                        "confidence": pattern.confidence,
-                    })
+                    hints["domain_hints"].append(
+                        {
+                            "key": pattern.pattern_key,
+                            "value": pattern.pattern_value,
+                            "confidence": pattern.confidence,
+                        }
+                    )
 
         return hints
 
@@ -397,9 +409,7 @@ class CultureAdapter:
             Node ID of promoted pattern, or None if failed
         """
         if pattern.confidence < self.MIN_CONFIDENCE_FOR_PROMOTION:
-            logger.debug(
-                f"Pattern confidence {pattern.confidence:.2f} below promotion threshold"
-            )
+            logger.debug(f"Pattern confidence {pattern.confidence:.2f} below promotion threshold")
             return None
 
         mound = self._get_mound()

@@ -317,8 +317,7 @@ class TwilioVoiceIntegration:
         # Confirm the question if configured
         if self.config.require_confirmation:
             response.say(
-                f"I heard: {speech_result}. "
-                "Press 1 to start the debate, or press 2 to try again.",
+                f"I heard: {speech_result}. Press 1 to start the debate, or press 2 to try again.",
                 voice=self.config.voice,
                 language=self.config.language,
             )
@@ -434,7 +433,8 @@ class TwilioVoiceIntegration:
                 to=to,
                 from_=self.config.phone_number,
                 twiml=twiml,
-                status_callback=status_callback or self.config.get_webhook_url(self.config.status_path),
+                status_callback=status_callback
+                or self.config.get_webhook_url(self.config.status_path),
                 status_callback_event=["initiated", "ringing", "answered", "completed"],
             )
 
@@ -529,7 +529,8 @@ class TwilioVoiceIntegration:
     def get_pending_debates(self) -> list[CallSession]:
         """Get sessions waiting for debate start."""
         return [
-            s for s in self._sessions.values()
+            s
+            for s in self._sessions.values()
             if s.transcription and not s.debate_id and s.direction == "inbound"
         ]
 

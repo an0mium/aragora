@@ -300,7 +300,7 @@ class ConfidenceDecayStep(BaseStep):
             )
 
             logger.info(
-                f"Confidence decay applied to '{workspace_id}': " f"{items_decayed} items decayed"
+                f"Confidence decay applied to '{workspace_id}': {items_decayed} items decayed"
             )
 
             return {

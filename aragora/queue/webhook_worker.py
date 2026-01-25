@@ -390,7 +390,7 @@ class WebhookDeliveryWorker:
         """Schedule a job for retry with exponential backoff."""
         attempt = job.attempts + 1
         backoff = min(
-            self.INITIAL_BACKOFF_SECONDS * (self.BACKOFF_MULTIPLIER ** attempt),
+            self.INITIAL_BACKOFF_SECONDS * (self.BACKOFF_MULTIPLIER**attempt),
             self.MAX_BACKOFF_SECONDS,
         )
 
@@ -436,8 +436,8 @@ class WebhookDeliveryWorker:
         # Update average response time
         n = health.total_deliveries
         health.avg_response_time_ms = (
-            (health.avg_response_time_ms * (n - 1) + result.response_time_ms) / n
-        )
+            health.avg_response_time_ms * (n - 1) + result.response_time_ms
+        ) / n
 
         # Update circuit state
         circuit = self._circuit_breakers.get(url)

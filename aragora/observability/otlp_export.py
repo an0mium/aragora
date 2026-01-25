@@ -231,8 +231,7 @@ def _get_jaeger_exporter(config: OTLPConfig) -> Any:
         )
     except ImportError:
         logger.warning(
-            "Jaeger exporter not available. Install with: "
-            "pip install opentelemetry-exporter-jaeger"
+            "Jaeger exporter not available. Install with: pip install opentelemetry-exporter-jaeger"
         )
         return None
 
@@ -253,8 +252,7 @@ def _get_zipkin_exporter(config: OTLPConfig) -> Any:
         return ZipkinExporter(endpoint=endpoint)
     except ImportError:
         logger.warning(
-            "Zipkin exporter not available. Install with: "
-            "pip install opentelemetry-exporter-zipkin"
+            "Zipkin exporter not available. Install with: pip install opentelemetry-exporter-zipkin"
         )
         return None
 

@@ -297,23 +297,23 @@ def _format_receipt_markdown(receipt: Dict[str, Any]) -> str:
     """Format a decision receipt as markdown."""
     md = f"""# Decision Receipt
 
-**Receipt ID:** {receipt['receipt_id']}
-**Generated:** {receipt['generated_at']}
+**Receipt ID:** {receipt["receipt_id"]}
+**Generated:** {receipt["generated_at"]}
 
 ## Decision
 
-**Question:** {receipt['question']}
+**Question:** {receipt["question"]}
 
-**Answer:** {receipt['decision']['answer']}
+**Answer:** {receipt["decision"]["answer"]}
 
-- Consensus Reached: {"Yes" if receipt['decision']['consensus_reached'] else "No"}
-- Confidence: {receipt['decision']['confidence_percent']}
+- Consensus Reached: {"Yes" if receipt["decision"]["consensus_reached"] else "No"}
+- Confidence: {receipt["decision"]["confidence_percent"]}
 
 ## Process
 
-- Rounds Used: {receipt['process']['rounds_used']}
-- Agents: {', '.join(receipt['process']['agents'])}
-- Protocol: {receipt['process']['protocol']}
+- Rounds Used: {receipt["process"]["rounds_used"]}
+- Agents: {", ".join(receipt["process"]["agents"])}
+- Protocol: {receipt["process"]["protocol"]}
 """
 
     if receipt.get("proofs"):

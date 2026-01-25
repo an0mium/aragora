@@ -955,7 +955,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         jwt_context = extract_user_from_request(handler)
         if not jwt_context.authenticated or not jwt_context.user_id:
             logger.warning(
-                "workflows: JWT authentication required. " "Request rejected - no valid token."
+                "workflows: JWT authentication required. Request rejected - no valid token."
             )
             # Return special sentinel to distinguish from RBAC-not-available
             return "unauthenticated"  # type: ignore

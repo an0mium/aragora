@@ -53,9 +53,7 @@ class WebhookConfig:
             raise ValueError("Webhook URL is required")
         if not self.url.startswith(("http://", "https://")):
             raise ValueError("Webhook URL must be HTTP or HTTPS")
-        if self.url.startswith("http://localhost") or self.url.startswith(
-            "http://127.0.0.1"
-        ):
+        if self.url.startswith("http://localhost") or self.url.startswith("http://127.0.0.1"):
             allow_localhost = os.getenv("ARAGORA_WEBHOOK_ALLOW_LOCALHOST", "false")
             if allow_localhost.lower() != "true":
                 raise ValueError(
@@ -108,14 +106,18 @@ class WebhookManager:
         self._delivery_queue: asyncio.Queue[tuple[str, WebhookPayload]] = asyncio.Queue()
         self._running = False
         self._worker_task: Optional[asyncio.Task[None]] = None
-        self._circuit_breaker: dict[str, tuple[int, float]] = {}  # url -> (failures, last_failure_time)
+        self._circuit_breaker: dict[
+            str, tuple[int, float]
+        ] = {}  # url -> (failures, last_failure_time)
         self._circuit_breaker_threshold = 5
         self._circuit_breaker_reset_seconds = 60.0
 
     def register(self, name: str, config: WebhookConfig) -> None:
         """Register a webhook endpoint."""
         self._configs[name] = config
-        logger.info(f"Registered webhook '{name}' -> {config.url} for events: {[e.value for e in config.events]}")
+        logger.info(
+            f"Registered webhook '{name}' -> {config.url} for events: {[e.value for e in config.events]}"
+        )
 
     def unregister(self, name: str) -> bool:
         """Unregister a webhook endpoint."""
@@ -328,8 +330,7 @@ class WebhookManager:
             else:
                 self._record_failure(config.url)
                 logger.warning(
-                    f"Webhook '{name}' failed: {result.error} "
-                    f"({result.attempts} attempts)"
+                    f"Webhook '{name}' failed: {result.error} ({result.attempts} attempts)"
                 )
 
     async def _deliver_with_retry(

@@ -174,8 +174,7 @@ def set_degraded(
 
     if not was_degraded:
         logger.error(
-            f"[DEGRADED MODE] Server entering degraded mode: {reason} "
-            f"(code: {error_code.value})"
+            f"[DEGRADED MODE] Server entering degraded mode: {reason} (code: {error_code.value})"
         )
         if recovery_hint or _degraded_state.recovery_hint:
             logger.info(f"[DEGRADED MODE] Recovery hint: {_degraded_state.recovery_hint}")

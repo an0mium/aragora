@@ -279,9 +279,7 @@ class AssignmentManager:
             except Exception as e:
                 logger.warning(f"Assignment hook error: {e}")
 
-        logger.info(
-            f"Assigned finding {finding_id} to user {user_id} " f"(priority: {priority.value})"
-        )
+        logger.info(f"Assigned finding {finding_id} to user {user_id} (priority: {priority.value})")
 
         return assignment
 

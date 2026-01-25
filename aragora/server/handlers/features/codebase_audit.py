@@ -1074,20 +1074,20 @@ class CodebaseAuditHandler(BaseHandler):
             f"""## Security Finding
 
 **Severity:** {finding.severity.value.upper()}
-**File:** `{finding.file_path}:{finding.line_number or ''}`
-**Rule:** {finding.rule_id or 'N/A'}
-**CWE:** {finding.cwe_id or 'N/A'}
+**File:** `{finding.file_path}:{finding.line_number or ""}`
+**Rule:** {finding.rule_id or "N/A"}
+**CWE:** {finding.cwe_id or "N/A"}
 
 ### Description
 {finding.description}
 
 ### Code
 ```
-{finding.code_snippet or 'N/A'}
+{finding.code_snippet or "N/A"}
 ```
 
 ### Remediation
-{finding.remediation or 'No remediation guidance available.'}
+{finding.remediation or "No remediation guidance available."}
 
 ---
 *Automatically created by Aragora Codebase Audit*

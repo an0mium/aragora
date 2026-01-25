@@ -871,7 +871,7 @@ class SpamFeatures:
         features.top_unigrams = unigram_counts.most_common(n_top)
 
         # Bigrams
-        bigrams = [f"{words[i]} {words[i+1]}" for i in range(len(words) - 1)]
+        bigrams = [f"{words[i]} {words[i + 1]}" for i in range(len(words) - 1)]
         bigram_counts = Counter(bigrams)
         features.top_bigrams = bigram_counts.most_common(n_top)
 

@@ -576,7 +576,7 @@ class ReconciliationHandler(BaseHandler):
             for disc in result.discrepancies:
                 lines.append(
                     f"{disc.discrepancy_type.value},"
-                    f"\"{disc.description}\","
+                    f'"{disc.description}",'
                     f"{disc.bank_amount or ''},"
                     f"{disc.book_amount or ''},"
                     f"{disc.bank_date or ''},"

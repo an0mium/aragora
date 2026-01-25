@@ -155,8 +155,7 @@ def _check_transcription_available() -> tuple[bool, Optional[str]]:
         backends = get_available_backends()
         if not backends:
             return False, (
-                "No transcription backend available. "
-                "Set OPENAI_API_KEY or install faster-whisper."
+                "No transcription backend available. Set OPENAI_API_KEY or install faster-whisper."
             )
         return True, None
     except ImportError:

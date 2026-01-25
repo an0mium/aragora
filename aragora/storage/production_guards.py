@@ -204,9 +204,7 @@ def require_distributed_store(
 
     # Allow fallback for explicitly excluded stores
     if store_name in config.fail_open_stores:
-        logger.info(
-            f"Store '{store_name}' using {current_mode.value} backend " f"(fail-open store)"
-        )
+        logger.info(f"Store '{store_name}' using {current_mode.value} backend (fail-open store)")
         return
 
     # Allow fallback if explicitly disabled

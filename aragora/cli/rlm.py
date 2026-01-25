@@ -221,7 +221,7 @@ def cmd_query(args: argparse.Namespace) -> int:
     if result.refinement_history:
         print(f"\nRefinement history ({len(result.refinement_history)} iterations):")
         for i, history in enumerate(result.refinement_history):
-            print(f"  [{i+1}] {history[:100]}...")
+            print(f"  [{i + 1}] {history[:100]}...")
 
     return 0
 

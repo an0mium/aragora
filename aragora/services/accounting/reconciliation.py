@@ -562,8 +562,8 @@ Type: {disc.discrepancy_type.value}
 Description: {disc.description}
 Bank Amount: ${float(disc.bank_amount):.2f if disc.bank_amount else 'N/A'}
 Book Amount: ${float(disc.book_amount):.2f if disc.book_amount else 'N/A'}
-Bank Date: {disc.bank_date or 'N/A'}
-Book Date: {disc.book_date or 'N/A'}
+Bank Date: {disc.bank_date or "N/A"}
+Book Date: {disc.book_date or "N/A"}
 
 Provide:
 1. Most likely explanation for this discrepancy

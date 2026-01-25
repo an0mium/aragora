@@ -266,9 +266,9 @@ def _register_hierarchical_handlers():
 
 Original Task: {original_task}
 
-Your Subtask: {subtask.get('title', 'Task')}
-Description: {subtask.get('description', '')}
-Focus Area: {subtask.get('focus', 'general')}
+Your Subtask: {subtask.get("title", "Task")}
+Description: {subtask.get("description", "")}
+Focus Area: {subtask.get("focus", "general")}
 
 Provide a thorough response:"""
 

@@ -141,8 +141,7 @@ class ControlPlaneHandler(BaseHandler):
 
         # All retries exhausted
         logger.warning(
-            f"Stream emission failed after {max_retries} attempts for "
-            f"{emit_method}: {last_error}"
+            f"Stream emission failed after {max_retries} attempts for {emit_method}: {last_error}"
         )
 
     def can_handle(self, path: str) -> bool:

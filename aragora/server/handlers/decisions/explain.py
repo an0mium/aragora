@@ -584,7 +584,7 @@ class DecisionExplainHandler(BaseHandler):
         html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>Decision Explanation - {explanation['request_id']}</title>
+    <title>Decision Explanation - {explanation["request_id"]}</title>
     <style>
         body {{ font-family: system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }}
         h1 {{ color: #1a1a1a; }}
@@ -610,17 +610,17 @@ class DecisionExplainHandler(BaseHandler):
 </head>
 <body>
     <h1>Decision Explanation</h1>
-    <p><strong>Request ID:</strong> {explanation['request_id']}<br>
-    <strong>Generated:</strong> {explanation['generated_at']}</p>
+    <p><strong>Request ID:</strong> {explanation["request_id"]}<br>
+    <strong>Generated:</strong> {explanation["generated_at"]}</p>
 
     <div class="summary">
         <h2>Summary</h2>
-        <p><strong>Answer:</strong> {summary.get('answer', 'N/A')}</p>
-        <p class="confidence">{summary.get('confidence', 0):.1%} Confidence</p>
-        <p>Consensus: <span class="{'consensus-yes' if summary.get('consensus_reached') else 'consensus-no'}">
-            {'Reached' if summary.get('consensus_reached') else 'Not Reached'}
+        <p><strong>Answer:</strong> {summary.get("answer", "N/A")}</p>
+        <p class="confidence">{summary.get("confidence", 0):.1%} Confidence</p>
+        <p>Consensus: <span class="{"consensus-yes" if summary.get("consensus_reached") else "consensus-no"}">
+            {"Reached" if summary.get("consensus_reached") else "Not Reached"}
         </span></p>
-        <p>Agreement Ratio: {summary.get('agreement_ratio', 0):.1%}</p>
+        <p>Agreement Ratio: {summary.get("agreement_ratio", 0):.1%}</p>
     </div>
 
     <h2>Key Claims</h2>
@@ -629,9 +629,9 @@ class DecisionExplainHandler(BaseHandler):
         for claim in reasoning.get("key_claims", [])[:5]:
             html += f"""
     <div class="claim">
-        <span class="claim-author">{claim.get('author', 'unknown')}:</span>
-        <span class="claim-strength">Strength: {claim.get('strength', 0.5):.2f}</span>
-        <p>{claim.get('statement', '')[:300]}</p>
+        <span class="claim-author">{claim.get("author", "unknown")}:</span>
+        <span class="claim-strength">Strength: {claim.get("strength", 0.5):.2f}</span>
+        <p>{claim.get("statement", "")[:300]}</p>
     </div>
 """
 
@@ -641,10 +641,10 @@ class DecisionExplainHandler(BaseHandler):
             vote_class = "vote-agree" if vote_type == "agree" else "vote-disagree"
             html += f"""
     <div class="vote">
-        <span class="vote-agent">{vote.get('agent', 'unknown')}</span>
+        <span class="vote-agent">{vote.get("agent", "unknown")}</span>
         <span class="vote-type {vote_class}">{vote_type}</span>
-        ({vote.get('confidence', 0):.0%})
-        <p>{vote.get('reasoning', '')[:150]}</p>
+        ({vote.get("confidence", 0):.0%})
+        <p>{vote.get("reasoning", "")[:150]}</p>
     </div>
 """
 
@@ -652,8 +652,8 @@ class DecisionExplainHandler(BaseHandler):
             html += f"""
     <div class="dissent">
         <h2>Dissenting Views</h2>
-        <p><strong>Dissenting Agents:</strong> {', '.join(dissent.get('dissenting_agents', []))}</p>
-        <p><strong>Average Severity:</strong> {dissent.get('severity', 0):.1%}</p>
+        <p><strong>Dissenting Agents:</strong> {", ".join(dissent.get("dissenting_agents", []))}</p>
+        <p><strong>Average Severity:</strong> {dissent.get("severity", 0):.1%}</p>
 """
             for alt in dissent.get("alternative_views", [])[:3]:
                 html += f"<p><strong>{alt.get('agent', 'unknown')}:</strong> {alt.get('view', '')[:200]}</p>"
@@ -664,18 +664,18 @@ class DecisionExplainHandler(BaseHandler):
             for tension in tensions[:3]:
                 html += f"""
     <div class="tension">
-        <p>{tension.get('description', '')}</p>
-        <p><em>Impact: {tension.get('impact', 'Unknown')}</em></p>
+        <p>{tension.get("description", "")}</p>
+        <p><em>Impact: {tension.get("impact", "Unknown")}</em></p>
     </div>
 """
 
         html += f"""
     <h2>Audit Trail</h2>
     <dl class="audit">
-        <dt>Duration</dt><dd>{audit.get('duration_seconds', 0):.2f}s</dd>
-        <dt>Rounds</dt><dd>{audit.get('rounds_completed', 0)}</dd>
-        <dt>Agents</dt><dd>{', '.join(audit.get('agents_involved', []))}</dd>
-        <dt>Checksum</dt><dd>{audit.get('checksum', 'N/A')}</dd>
+        <dt>Duration</dt><dd>{audit.get("duration_seconds", 0):.2f}s</dd>
+        <dt>Rounds</dt><dd>{audit.get("rounds_completed", 0)}</dd>
+        <dt>Agents</dt><dd>{", ".join(audit.get("agents_involved", []))}</dd>
+        <dt>Checksum</dt><dd>{audit.get("checksum", "N/A")}</dd>
     </dl>
 </body>
 </html>

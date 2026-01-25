@@ -219,7 +219,7 @@ class StreamingRLMQuery:
             elapsed = time.time() - start_time
             if elapsed > self.config.timeout:
                 logger.warning(
-                    f"Drill-down timeout after {elapsed:.1f}s " f"(limit: {self.config.timeout}s)"
+                    f"Drill-down timeout after {elapsed:.1f}s (limit: {self.config.timeout}s)"
                 )
                 return
 

@@ -161,7 +161,7 @@ class ConfluenceConnector(EnterpriseConnector):
 
             if not token:
                 raise ValueError(
-                    "Confluence Data Center credentials not configured. " "Set CONFLUENCE_PAT"
+                    "Confluence Data Center credentials not configured. Set CONFLUENCE_PAT"
                 )
 
             return {"Authorization": f"Bearer {token}"}

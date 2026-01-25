@@ -439,7 +439,7 @@ class LinearConnector(EnterpriseConnector):
             issues(
                 first: $first
                 after: $after
-                {f'filter: {{ {filter_str} }}' if filter_str else ''}
+                {f"filter: {{ {filter_str} }}" if filter_str else ""}
                 orderBy: updatedAt
             ) {{
                 nodes {{

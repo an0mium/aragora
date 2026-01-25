@@ -141,7 +141,9 @@ class PositionEvolution:
 
     debate_id: str
     topic: str
-    positions: dict[str, list[PositionRecord]] = field(default_factory=dict)  # agent -> positions by round
+    positions: dict[str, list[PositionRecord]] = field(
+        default_factory=dict
+    )  # agent -> positions by round
     pivots: list[PositionPivot] = field(default_factory=list)
 
     def record_position(
@@ -189,7 +191,9 @@ class PositionEvolution:
                     trigger_agent=influenced_by[0] if influenced_by else None,
                 )
                 self.pivots.append(pivot)
-                logger.info(f"Position pivot detected: {agent} {prev.stance.value} -> {stance.value}")
+                logger.info(
+                    f"Position pivot detected: {agent} {prev.stance.value} -> {stance.value}"
+                )
 
         self.positions[agent].append(record)
         return pivot
@@ -280,7 +284,9 @@ class PositionEvolution:
         influence_counts: dict[str, int] = {}
         for pivot in self.pivots:
             if pivot.trigger_agent:
-                influence_counts[pivot.trigger_agent] = influence_counts.get(pivot.trigger_agent, 0) + 1
+                influence_counts[pivot.trigger_agent] = (
+                    influence_counts.get(pivot.trigger_agent, 0) + 1
+                )
         return influence_counts
 
     def to_dict(self) -> dict[str, Any]:
@@ -289,8 +295,7 @@ class PositionEvolution:
             "debate_id": self.debate_id,
             "topic": self.topic,
             "positions": {
-                agent: [p.to_dict() for p in records]
-                for agent, records in self.positions.items()
+                agent: [p.to_dict() for p in records] for agent, records in self.positions.items()
             },
             "pivots": [p.to_dict() for p in self.pivots],
             "summary": {
@@ -423,7 +428,9 @@ class PositionTracker:
             },
             "convergence": {
                 "score": evolution.calculate_convergence_score(),
-                "interpretation": self._interpret_convergence(evolution.calculate_convergence_score()),
+                "interpretation": self._interpret_convergence(
+                    evolution.calculate_convergence_score()
+                ),
             },
             "stability": evolution.calculate_stability_scores(),
             "influence": evolution.identify_influencers(),

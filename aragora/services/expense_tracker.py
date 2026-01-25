@@ -815,13 +815,13 @@ class ExpenseTracker:
             return None
 
         categories = [cat.value for cat in ExpenseCategory]
-        prompt = f"""Categorize this expense into exactly one of these categories: {', '.join(categories)}
+        prompt = f"""Categorize this expense into exactly one of these categories: {", ".join(categories)}
 
 Expense details:
 - Vendor: {expense.vendor_name}
 - Amount: ${expense.amount}
-- Description: {expense.description or 'N/A'}
-- Date: {expense.date.strftime('%Y-%m-%d')}
+- Description: {expense.description or "N/A"}
+- Date: {expense.date.strftime("%Y-%m-%d")}
 
 Respond with ONLY the category name (lowercase, with underscores). No explanation."""
 

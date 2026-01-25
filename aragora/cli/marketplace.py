@@ -148,9 +148,9 @@ def get_template(template_id: str, json_output: bool):
         return
 
     m = template.metadata
-    click.echo(f"\n{'='*60}")
+    click.echo(f"\n{'=' * 60}")
     click.echo(f"  {m.name}")
-    click.echo(f"{'='*60}")
+    click.echo(f"{'=' * 60}")
     click.echo(f"\n  ID:          {m.id}")
     click.echo(f"  Version:     {m.version}")
     click.echo(f"  Author:      {m.author}")

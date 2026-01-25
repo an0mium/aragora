@@ -178,10 +178,10 @@ class InvoiceExporter:
         company = self.config.company_info
         company_text = f"""
         <b>{company.name}</b><br/>
-        {company.address_line1 or ''}<br/>
+        {company.address_line1 or ""}<br/>
         {company.city}, {company.state} {company.postal_code}<br/>
-        {company.email or ''}<br/>
-        {f'Tax ID: {company.tax_id}' if company.tax_id else ''}
+        {company.email or ""}<br/>
+        {f"Tax ID: {company.tax_id}" if company.tax_id else ""}
         """
         elements.append(Paragraph(company_text.strip(), header_style))
         elements.append(Spacer(1, 0.25 * inch))
@@ -223,7 +223,7 @@ class InvoiceExporter:
             <b>Bill To:</b><br/>
             {customer_info.name}<br/>
             {customer_info.email}<br/>
-            {customer_info.address_line1 or ''}<br/>
+            {customer_info.address_line1 or ""}<br/>
             {customer_info.city}, {customer_info.state} {customer_info.postal_code}
             """
             elements.append(Paragraph(customer_text.strip(), body_style))
@@ -344,10 +344,10 @@ class InvoiceExporter:
                         rows.append(
                             f"""
                             <tr>
-                                <td>{item.get('description', '')}</td>
-                                <td class="right">{item.get('quantity', 1)}</td>
-                                <td class="right">{self.config.currency_symbol}{item.get('unit_price', 0):.2f}</td>
-                                <td class="right">{self.config.currency_symbol}{item.get('amount', 0):.2f}</td>
+                                <td>{item.get("description", "")}</td>
+                                <td class="right">{item.get("quantity", 1)}</td>
+                                <td class="right">{self.config.currency_symbol}{item.get("unit_price", 0):.2f}</td>
+                                <td class="right">{self.config.currency_symbol}{item.get("amount", 0):.2f}</td>
                             </tr>
                             """
                         )
@@ -362,7 +362,7 @@ class InvoiceExporter:
                         </tr>
                     </thead>
                     <tbody>
-                        {''.join(rows)}
+                        {"".join(rows)}
                     </tbody>
                 </table>
                 """
@@ -376,7 +376,7 @@ class InvoiceExporter:
                 <p>
                     {customer_info.name}<br>
                     {customer_info.email}<br>
-                    {customer_info.address_line1 or ''}<br>
+                    {customer_info.address_line1 or ""}<br>
                     {customer_info.city}, {customer_info.state} {customer_info.postal_code}
                 </p>
             </div>
@@ -387,7 +387,7 @@ class InvoiceExporter:
         <html>
         <head>
             <meta charset="utf-8">
-            <title>Invoice {getattr(invoice, 'id', 'N/A')}</title>
+            <title>Invoice {getattr(invoice, "id", "N/A")}</title>
             <style>
                 body {{
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
@@ -494,17 +494,17 @@ class InvoiceExporter:
             <div class="header">
                 <div class="company-info">
                     <strong>{company.name}</strong><br>
-                    {company.address_line1 or ''}<br>
+                    {company.address_line1 or ""}<br>
                     {company.city}, {company.state} {company.postal_code}<br>
-                    {company.email or ''}<br>
-                    {f'Tax ID: {company.tax_id}' if company.tax_id else ''}
+                    {company.email or ""}<br>
+                    {f"Tax ID: {company.tax_id}" if company.tax_id else ""}
                 </div>
                 <div class="invoice-details">
-                    <p><dt>Invoice #:</dt><dd>{getattr(invoice, 'id', 'N/A')}</dd></p>
-                    <p><dt>Date:</dt><dd>{self._format_date(getattr(invoice, 'created_at', datetime.now()))}</dd></p>
-                    <p><dt>Period:</dt><dd>{self._format_date(getattr(invoice, 'period_start', datetime.now()))} - {self._format_date(getattr(invoice, 'period_end', datetime.now()))}</dd></p>
-                    <p><dt>Status:</dt><dd><span class="status status-{str(getattr(invoice, 'status', 'draft')).lower()}">{str(getattr(invoice, 'status', 'draft')).upper()}</span></dd></p>
-                    {f'<p><dt>Due:</dt><dd>{self._format_date(getattr(invoice, "due_date", None))}</dd></p>' if getattr(invoice, 'due_date', None) else ''}
+                    <p><dt>Invoice #:</dt><dd>{getattr(invoice, "id", "N/A")}</dd></p>
+                    <p><dt>Date:</dt><dd>{self._format_date(getattr(invoice, "created_at", datetime.now()))}</dd></p>
+                    <p><dt>Period:</dt><dd>{self._format_date(getattr(invoice, "period_start", datetime.now()))} - {self._format_date(getattr(invoice, "period_end", datetime.now()))}</dd></p>
+                    <p><dt>Status:</dt><dd><span class="status status-{str(getattr(invoice, "status", "draft")).lower()}">{str(getattr(invoice, "status", "draft")).upper()}</span></dd></p>
+                    {f"<p><dt>Due:</dt><dd>{self._format_date(getattr(invoice, "due_date", None))}</dd></p>" if getattr(invoice, "due_date", None) else ""}
                 </div>
             </div>
 
@@ -518,8 +518,8 @@ class InvoiceExporter:
                         <td>Subtotal:</td>
                         <td class="right">{self.config.currency_symbol}{subtotal:.2f}</td>
                     </tr>
-                    {'<tr><td>Discount:</td><td class="right">-' + self.config.currency_symbol + f'{discount:.2f}</td></tr>' if discount > 0 else ''}
-                    {'<tr><td>Tax:</td><td class="right">' + self.config.currency_symbol + f'{tax:.2f}</td></tr>' if tax > 0 else ''}
+                    {'<tr><td>Discount:</td><td class="right">-' + self.config.currency_symbol + f"{discount:.2f}</td></tr>" if discount > 0 else ""}
+                    {'<tr><td>Tax:</td><td class="right">' + self.config.currency_symbol + f"{tax:.2f}</td></tr>" if tax > 0 else ""}
                     <tr class="total-row">
                         <td>Total:</td>
                         <td class="right">{self.config.currency_symbol}{total:.2f}</td>
@@ -528,8 +528,8 @@ class InvoiceExporter:
             </div>
 
             <div class="footer">
-                {self.config.footer_text or ''}
-                {f'<p><strong>Notes:</strong> {getattr(invoice, "notes", "")}</p>' if getattr(invoice, 'notes', None) else ''}
+                {self.config.footer_text or ""}
+                {f"<p><strong>Notes:</strong> {getattr(invoice, "notes", "")}</p>" if getattr(invoice, "notes", None) else ""}
             </div>
         </body>
         </html>

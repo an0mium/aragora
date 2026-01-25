@@ -662,8 +662,7 @@ def to_openapi_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
             openapi[key] = to_openapi_schema(value)
         elif isinstance(value, list):
             openapi[key] = [
-                to_openapi_schema(item) if isinstance(item, dict) else item
-                for item in value
+                to_openapi_schema(item) if isinstance(item, dict) else item for item in value
             ]
         else:
             openapi[key] = value

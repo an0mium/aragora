@@ -110,9 +110,7 @@ class QualityFilterHelper:
             return responses
 
         try:
-            filtered = self._quality_gate.filter_responses(
-                responses, context=context
-            )
+            filtered = self._quality_gate.filter_responses(responses, context=context)
             removed = len(responses) - len(filtered)
             if removed > 0:
                 logger.debug(f"[ml] Quality gate filtered {removed} low-quality responses")

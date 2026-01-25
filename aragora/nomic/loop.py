@@ -550,7 +550,7 @@ class NomicLoop:
             self._get_cycle_store().save_cycle(self._current_record)
 
             logger.debug(
-                f"cycle_record_saved cycle_id={self._current_record.cycle_id} " f"success={success}"
+                f"cycle_record_saved cycle_id={self._current_record.cycle_id} success={success}"
             )
         except Exception as e:
             logger.warning(f"Failed to save cycle record: {e}")

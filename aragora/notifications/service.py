@@ -563,7 +563,9 @@ class EmailProvider(NotificationProvider):
             <style>
                 body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
                 .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background-color: {color}; color: white; padding: 15px; border-radius: 4px 4px 0 0; }}
+                .header {{ background-color: {
+            color
+        }; color: white; padding: 15px; border-radius: 4px 4px 0 0; }}
                 .content {{ background-color: #f5f5f5; padding: 20px; border-radius: 0 0 4px 4px; }}
                 .meta {{ color: #666; font-size: 0.9em; margin-top: 15px; }}
             </style>
@@ -578,8 +580,11 @@ class EmailProvider(NotificationProvider):
                     {action_html}
                     <div class="meta">
                         <p>Severity: {notification.severity.upper()}</p>
-                        {f"<p>Resource: {notification.resource_type}/{notification.resource_id}</p>"
-                         if notification.resource_type else ""}
+                        {
+            f"<p>Resource: {notification.resource_type}/{notification.resource_id}</p>"
+            if notification.resource_type
+            else ""
+        }
                     </div>
                 </div>
             </div>
@@ -930,8 +935,7 @@ async def notify_audit_completed(
     notification = Notification(
         title="Audit Completed",
         message=(
-            f"Audit session completed with {finding_count} findings "
-            f"({critical_count} critical)."
+            f"Audit session completed with {finding_count} findings ({critical_count} critical)."
         ),
         severity=severity,
         resource_type="audit_session",

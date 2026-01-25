@@ -390,9 +390,7 @@ class QualityGate:
             quality, confidence = self.score_response(message.content, context)
 
             if confidence >= self.min_confidence and quality < self.threshold:
-                logger.info(
-                    f"quality_gate_filtered agent={message.agent} " f"quality={quality:.2f}"
-                )
+                logger.info(f"quality_gate_filtered agent={message.agent} quality={quality:.2f}")
                 continue
 
             results.append((message, quality))

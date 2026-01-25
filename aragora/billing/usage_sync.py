@@ -270,7 +270,7 @@ class UsageSyncService:
 
                 if rows:
                     logger.info(
-                        f"Loaded sync watermarks for {len(rows)} orgs " f"(period: {period_start})"
+                        f"Loaded sync watermarks for {len(rows)} orgs (period: {period_start})"
                     )
 
             # Reconcile any pending syncs from previous process (crash recovery)

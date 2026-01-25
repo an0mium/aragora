@@ -423,12 +423,12 @@ def cmd_template_validate(args: argparse.Namespace) -> int:
             else:
                 for i, step in enumerate(steps):
                     if not isinstance(step, dict):
-                        errors.append(f"Step {i+1}: must be an object")
+                        errors.append(f"Step {i + 1}: must be an object")
                         continue
                     if "type" not in step:
-                        errors.append(f"Step {i+1}: missing 'type' field")
+                        errors.append(f"Step {i + 1}: missing 'type' field")
                     if "name" not in step:
-                        warnings.append(f"Step {i+1}: missing 'name' field (recommended)")
+                        warnings.append(f"Step {i + 1}: missing 'name' field (recommended)")
 
         # Strict mode checks
         if args.strict:

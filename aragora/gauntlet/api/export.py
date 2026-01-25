@@ -261,7 +261,7 @@ def _generate_sarif_rules(receipt: "DecisionReceipt") -> List[Dict[str, Any]]:
     for i, cat in enumerate(sorted(categories)):
         rules.append(
             {
-                "id": f"GAUNTLET-{i+1:03d}",
+                "id": f"GAUNTLET-{i + 1:03d}",
                 "name": cat.replace("_", " ").title(),
                 "shortDescription": {"text": f"Gauntlet finding: {cat}"},
                 "fullDescription": {"text": f"Vulnerability detected in category: {cat}"},
@@ -298,7 +298,7 @@ def _generate_sarif_results(
             message["markdown"] = vuln["description"][:1000]
 
         result: Dict[str, Any] = {
-            "ruleId": f"GAUNTLET-{i+1:03d}",
+            "ruleId": f"GAUNTLET-{i + 1:03d}",
             "level": level,
             "message": message,
             "properties": {
@@ -388,8 +388,8 @@ def _export_heatmap_html(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
 
     <div class="summary">
         <strong>Total Findings:</strong> {heatmap.total_findings}<br>
-        <strong>Highest Risk Category:</strong> {escape(heatmap.highest_risk_category or 'N/A')}<br>
-        <strong>Highest Severity:</strong> {escape(heatmap.highest_risk_severity or 'N/A')}
+        <strong>Highest Risk Category:</strong> {escape(heatmap.highest_risk_category or "N/A")}<br>
+        <strong>Highest Severity:</strong> {escape(heatmap.highest_risk_severity or "N/A")}
     </div>
 
     <div class="heatmap">
@@ -400,13 +400,13 @@ def _export_heatmap_html(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
     <table>
         <tr>
             <th>Category</th>
-            {''.join(f'<th class="{s}">{escape(s.upper())}</th>' for s in heatmap.severities)}
+            {"".join(f'<th class="{s}">{escape(s.upper())}</th>' for s in heatmap.severities)}
             <th>Total</th>
         </tr>
-        {''.join(_heatmap_row_html(heatmap, cat) for cat in heatmap.categories)}
+        {"".join(_heatmap_row_html(heatmap, cat) for cat in heatmap.categories)}
         <tr>
             <th>TOTAL</th>
-            {''.join(f'<td class="{s}"><strong>{heatmap.get_severity_total(s)}</strong></td>' for s in heatmap.severities)}
+            {"".join(f'<td class="{s}"><strong>{heatmap.get_severity_total(s)}</strong></td>' for s in heatmap.severities)}
             <td><strong>{heatmap.total_findings}</strong></td>
         </tr>
     </table>

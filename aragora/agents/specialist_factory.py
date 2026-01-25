@@ -190,9 +190,7 @@ Adapt your approach based on the specific task requirements.""",
             max_tokens=config.max_tokens,
         )
 
-        logger.info(
-            f"Created specialist agent: {specialist.id} " f"(vertical={config.vertical.value})"
-        )
+        logger.info(f"Created specialist agent: {specialist.id} (vertical={config.vertical.value})")
 
         return SpecialistAgentInfo(
             agent=agent,

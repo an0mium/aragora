@@ -174,7 +174,7 @@ class KMOutcomeBridge:
         # Deduplicate
         self._debate_km_usage[debate_id] = list(set(self._debate_km_usage[debate_id]))
 
-        logger.debug(f"Recorded KM usage for debate {debate_id}: " f"{len(km_item_ids)} items")
+        logger.debug(f"Recorded KM usage for debate {debate_id}: {len(km_item_ids)} items")
 
     def get_km_usage(self, debate_id: str) -> List[str]:
         """Get KM items used in a debate."""

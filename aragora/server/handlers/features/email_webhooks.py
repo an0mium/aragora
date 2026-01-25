@@ -250,7 +250,7 @@ async def process_outlook_notification(
             change_client_state = change.get("clientState")
             if client_state and change_client_state != client_state:
                 logger.warning(
-                    f"Client state mismatch: expected={client_state}, " f"got={change_client_state}"
+                    f"Client state mismatch: expected={client_state}, got={change_client_state}"
                 )
                 continue
 

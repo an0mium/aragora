@@ -123,7 +123,9 @@ class SharingNotification:
             from_user_name=data.get("from_user_name"),
             workspace_id=data.get("workspace_id"),
             status=NotificationStatus(data.get("status", "unread")),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),
+            created_at=datetime.fromisoformat(data["created_at"])
+            if data.get("created_at")
+            else datetime.now(),
             read_at=datetime.fromisoformat(data["read_at"]) if data.get("read_at") else None,
             metadata=data.get("metadata", {}),
         )
@@ -163,7 +165,9 @@ class InAppNotificationStore:
 
         # Keep only last 100 notifications per user
         if len(self._notifications[notification.user_id]) > 100:
-            self._notifications[notification.user_id] = self._notifications[notification.user_id][:100]
+            self._notifications[notification.user_id] = self._notifications[notification.user_id][
+                :100
+            ]
 
     def get_notifications(
         self,
@@ -293,7 +297,7 @@ class SharingNotifier:
                 user_id=to_user_id,
                 notification_type=NotificationType.ITEM_SHARED,
                 title="Knowledge Shared With You",
-                message=f"{from_user_name} shared \"{item_title}\" with you",
+                message=f'{from_user_name} shared "{item_title}" with you',
                 item_id=item_id,
                 item_title=item_title,
                 from_user_id=from_user_id,
@@ -355,7 +359,7 @@ class SharingNotifier:
                 user_id=to_user_id,
                 notification_type=NotificationType.ITEM_UNSHARED,
                 title="Knowledge Share Revoked",
-                message=f"Access to \"{item_title}\" has been revoked",
+                message=f'Access to "{item_title}" has been revoked',
                 item_id=item_id,
                 item_title=item_title,
                 from_user_id=from_user_id,
@@ -399,7 +403,7 @@ class SharingNotifier:
                 user_id=to_user_id,
                 notification_type=NotificationType.PERMISSION_CHANGED,
                 title="Share Permissions Updated",
-                message=f"Your permissions on \"{item_title}\" have been updated",
+                message=f'Your permissions on "{item_title}" have been updated',
                 item_id=item_id,
                 item_title=item_title,
                 from_user_id=from_user_id,
@@ -444,7 +448,7 @@ class SharingNotifier:
                 user_id=to_user_id,
                 notification_type=NotificationType.SHARE_EXPIRING,
                 title="Share Access Expiring",
-                message=f"Your access to \"{item_title}\" expires in {days_remaining} day{'s' if days_remaining != 1 else ''}",
+                message=f'Your access to "{item_title}" expires in {days_remaining} day{"s" if days_remaining != 1 else ""}',
                 item_id=item_id,
                 item_title=item_title,
                 metadata={

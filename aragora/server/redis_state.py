@@ -217,11 +217,14 @@ class RedisStateManager:
             await self._redis.sadd(self.ACTIVE_DEBATES_KEY, debate_id)
 
             # Publish event
-            await self._publish_event("debate_registered", {
-                "debate_id": debate_id,
-                "task": task,
-                "instance_id": self._instance_id,
-            })
+            await self._publish_event(
+                "debate_registered",
+                {
+                    "debate_id": debate_id,
+                    "task": task,
+                    "instance_id": self._instance_id,
+                },
+            )
 
             logger.debug(f"Registered debate {debate_id} in Redis")
 
@@ -244,10 +247,13 @@ class RedisStateManager:
             await self._redis.srem(self.ACTIVE_DEBATES_KEY, debate_id)
 
             # Publish event
-            await self._publish_event("debate_unregistered", {
-                "debate_id": debate_id,
-                "instance_id": self._instance_id,
-            })
+            await self._publish_event(
+                "debate_unregistered",
+                {
+                    "debate_id": debate_id,
+                    "instance_id": self._instance_id,
+                },
+            )
 
             logger.debug(f"Unregistered debate {debate_id} from Redis")
 
@@ -321,12 +327,15 @@ class RedisStateManager:
             await self._redis.setex(key, DEBATE_TTL_SECONDS, state.to_json())
 
             # Publish event
-            await self._publish_event("debate_updated", {
-                "debate_id": debate_id,
-                "status": status,
-                "current_round": current_round,
-                "instance_id": self._instance_id,
-            })
+            await self._publish_event(
+                "debate_updated",
+                {
+                    "debate_id": debate_id,
+                    "status": status,
+                    "current_round": current_round,
+                    "instance_id": self._instance_id,
+                },
+            )
 
         return True
 
@@ -352,11 +361,14 @@ class RedisStateManager:
             await self._redis.setex(key, DEBATE_TTL_SECONDS, state.to_json())
 
             # Publish event for real-time broadcast
-            await self._publish_event("debate_message", {
-                "debate_id": debate_id,
-                "message": message if isinstance(message, dict) else str(message),
-                "instance_id": self._instance_id,
-            })
+            await self._publish_event(
+                "debate_message",
+                {
+                    "debate_id": debate_id,
+                    "message": message if isinstance(message, dict) else str(message),
+                    "instance_id": self._instance_id,
+                },
+            )
 
         return True
 
@@ -396,9 +408,7 @@ class RedisStateManager:
                     try:
                         event = json.loads(message["data"])
                         # Filter by pattern if specified
-                        if pattern == "*" or event.get("type", "").startswith(
-                            pattern.rstrip("*")
-                        ):
+                        if pattern == "*" or event.get("type", "").startswith(pattern.rstrip("*")):
                             yield event
                     except json.JSONDecodeError:
                         logger.warning(f"Invalid event JSON: {message['data']}")

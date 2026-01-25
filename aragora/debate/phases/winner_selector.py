@@ -120,8 +120,7 @@ class WinnerSelector:
                 result.consensus_strength = "weak"
 
             logger.info(
-                f"consensus_strength strength={result.consensus_strength} "
-                f"variance={variance:.2f}"
+                f"consensus_strength strength={result.consensus_strength} variance={variance:.2f}"
             )
         else:
             result.consensus_strength = "unanimous"

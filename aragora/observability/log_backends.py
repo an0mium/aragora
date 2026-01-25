@@ -1175,6 +1175,5 @@ def create_audit_backend(
 
     else:
         raise ValueError(
-            f"Unknown backend type: {backend_type}. "
-            f"Supported: local, postgresql, s3_object_lock"
+            f"Unknown backend type: {backend_type}. Supported: local, postgresql, s3_object_lock"
         )

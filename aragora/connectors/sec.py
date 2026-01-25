@@ -456,8 +456,7 @@ class SECConnector(BaseConnector):
         # Create content summary
         form_desc = FORM_TYPES.get(form, form)
         content = (
-            f"{company_name} ({ticker}) filed {form} ({form_desc}) on {filing_date}. "
-            f"{description}"
+            f"{company_name} ({ticker}) filed {form} ({form_desc}) on {filing_date}. {description}"
         ).strip()
 
         # Title

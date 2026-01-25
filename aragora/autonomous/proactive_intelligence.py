@@ -379,10 +379,12 @@ class AlertAnalyzer:
             Alert if threshold exceeded, None otherwise
         """
         # Record in history
-        self._metric_history[metric_name].append({
-            "value": value,
-            "timestamp": datetime.now(),
-        })
+        self._metric_history[metric_name].append(
+            {
+                "value": value,
+                "timestamp": datetime.now(),
+            }
+        )
 
         # Check thresholds
         threshold = self._thresholds.get(metric_name)
@@ -436,9 +438,7 @@ class AlertAnalyzer:
         """Create and store an alert."""
         import hashlib
 
-        alert_id = hashlib.sha256(
-            f"{title}{datetime.now().isoformat()}".encode()
-        ).hexdigest()[:16]
+        alert_id = hashlib.sha256(f"{title}{datetime.now().isoformat()}".encode()).hexdigest()[:16]
 
         alert = Alert(
             id=alert_id,
@@ -572,9 +572,7 @@ class TrendMonitor:
         self.window_size = window_size
         self.min_data_points = min_data_points
         self.trend_threshold = trend_threshold
-        self._metrics: Dict[str, deque] = defaultdict(
-            lambda: deque(maxlen=window_size)
-        )
+        self._metrics: Dict[str, deque] = defaultdict(lambda: deque(maxlen=window_size))
 
     def record(
         self,
@@ -583,10 +581,12 @@ class TrendMonitor:
         timestamp: Optional[datetime] = None,
     ) -> None:
         """Record a metric value."""
-        self._metrics[metric_name].append({
-            "value": value,
-            "timestamp": timestamp or datetime.now(),
-        })
+        self._metrics[metric_name].append(
+            {
+                "value": value,
+                "timestamp": timestamp or datetime.now(),
+            }
+        )
 
     def get_trend(
         self,
@@ -621,7 +621,7 @@ class TrendMonitor:
 
         # Calculate trend
         first_half_avg = statistics.mean(values[: len(values) // 2])
-        second_half_avg = statistics.mean(values[len(values) // 2:])
+        second_half_avg = statistics.mean(values[len(values) // 2 :])
 
         if first_half_avg == 0:
             change_percent = 0 if second_half_avg == 0 else float("inf")
@@ -699,9 +699,7 @@ class AnomalyDetector:
         self.z_threshold = z_threshold
         self.min_data_points = min_data_points
         self.alert_callback = alert_callback
-        self._metrics: Dict[str, deque] = defaultdict(
-            lambda: deque(maxlen=window_size)
-        )
+        self._metrics: Dict[str, deque] = defaultdict(lambda: deque(maxlen=window_size))
         self._anomalies: List[Anomaly] = []
 
     def record(

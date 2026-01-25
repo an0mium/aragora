@@ -231,13 +231,16 @@ class GauntletStep(BaseStep):
                 "compliance_checks_run": len(compliance_frameworks),
                 "attack_summary": {
                     "total": result.attack_summary.total_attacks if result.attack_summary else 0,
-                    "successful": result.attack_summary.successful_attacks if result.attack_summary else 0,
+                    "successful": result.attack_summary.successful_attacks
+                    if result.attack_summary
+                    else 0,
                 },
                 "probe_summary": {
                     "total": result.probe_summary.probes_run if result.probe_summary else 0,
                     "passed": (
                         result.probe_summary.probes_run - result.probe_summary.vulnerabilities_found
-                        if result.probe_summary else 0
+                        if result.probe_summary
+                        else 0
                     ),
                 },
                 "compliance_results": (

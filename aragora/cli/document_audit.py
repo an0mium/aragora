@@ -402,11 +402,11 @@ def _generate_html_report(report: dict) -> str:
         color = severity_colors.get(sev, "#6b7280")
         findings_html += f"""
         <div class="finding" style="border-left: 4px solid {color};">
-            <h3><span class="severity" style="background: {color};">{sev.upper()}</span> {finding['title']}</h3>
-            <p><strong>Category:</strong> {finding['category']} | <strong>Confidence:</strong> {finding['confidence'] * 100:.0f}%</p>
-            <p>{finding['description']}</p>
-            <div class="evidence"><pre>{finding['evidence_text']}</pre></div>
-            <p><strong>Recommendation:</strong> {finding['recommendation']}</p>
+            <h3><span class="severity" style="background: {color};">{sev.upper()}</span> {finding["title"]}</h3>
+            <p><strong>Category:</strong> {finding["category"]} | <strong>Confidence:</strong> {finding["confidence"] * 100:.0f}%</p>
+            <p>{finding["description"]}</p>
+            <div class="evidence"><pre>{finding["evidence_text"]}</pre></div>
+            <p><strong>Recommendation:</strong> {finding["recommendation"]}</p>
         </div>
         """
 
@@ -428,19 +428,19 @@ def _generate_html_report(report: dict) -> str:
 </head>
 <body>
     <h1>Document Audit Report</h1>
-    <p>Generated: {report['generated_at']}</p>
+    <p>Generated: {report["generated_at"]}</p>
 
     <div class="summary">
         <div class="stat">
-            <div class="stat-value">{report['summary']['total_findings']}</div>
+            <div class="stat-value">{report["summary"]["total_findings"]}</div>
             <div>Total Findings</div>
         </div>
         <div class="stat">
-            <div class="stat-value">{len(report['session']['document_ids'])}</div>
+            <div class="stat-value">{len(report["session"]["document_ids"])}</div>
             <div>Documents</div>
         </div>
         <div class="stat">
-            <div class="stat-value">{report['session'].get('duration_seconds', 'N/A')}s</div>
+            <div class="stat-value">{report["session"].get("duration_seconds", "N/A")}s</div>
             <div>Duration</div>
         </div>
     </div>

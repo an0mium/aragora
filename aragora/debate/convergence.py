@@ -833,7 +833,6 @@ class ConvergenceDetector:
         """
         import numpy as np
 
-
         # Don't check before minimum rounds
         if round_number <= self.min_rounds_before_check:
             return None

@@ -233,7 +233,7 @@ class VoteBonusCalculator:
         if process_scores:
             logger.info(
                 f"process_evaluation applied: {len(process_scores)} proposals scored, "
-                f"avg={sum(process_scores.values())/len(process_scores):.2f}"
+                f"avg={sum(process_scores.values()) / len(process_scores):.2f}"
             )
 
         return vote_counts

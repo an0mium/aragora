@@ -382,7 +382,7 @@ class EmailThreader:
         content_parts = []
         for msg in thread.messages[:10]:  # Limit to 10 messages
             content_parts.append(
-                f"From: {msg.sender}\n" f"Date: {msg.date}\n" f"Content: {msg.body_preview[:500]}\n"
+                f"From: {msg.sender}\nDate: {msg.date}\nContent: {msg.body_preview[:500]}\n"
             )
 
         _thread_content = "\n---\n".join(content_parts)  # noqa: F841

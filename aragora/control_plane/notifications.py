@@ -271,7 +271,7 @@ class EmailProvider(ChannelProvider):
                 {"<p><a class='button' href='" + message.link_url + "'>" + (message.link_text or "View Details") + "</a></p>" if message.link_url else ""}
             </div>
             <div class="footer">
-                Aragora Control Plane | {message.event_type.value} | {message.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}
+                Aragora Control Plane | {message.event_type.value} | {message.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")}
             </div>
         </body>
         </html>
@@ -285,7 +285,7 @@ class EmailProvider(ChannelProvider):
 {message.link_url if message.link_url else ""}
 
 ---
-Aragora Control Plane | {message.event_type.value} | {message.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}
+Aragora Control Plane | {message.event_type.value} | {message.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")}
         """
 
         return html.strip(), text.strip()

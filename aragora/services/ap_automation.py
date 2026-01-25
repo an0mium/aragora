@@ -427,7 +427,7 @@ class APAutomation:
                         capture_discount = True
                         discount_saved = invoice.discount_amount
                         schedule.optimization_notes.append(
-                            f"Pay {invoice.vendor_name} early to capture {invoice.early_pay_discount*100:.1f}% discount (${discount_saved})"
+                            f"Pay {invoice.vendor_name} early to capture {invoice.early_pay_discount * 100:.1f}% discount (${discount_saved})"
                         )
 
             if not capture_discount and invoice.due_date:

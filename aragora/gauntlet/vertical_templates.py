@@ -370,7 +370,13 @@ TEMPLATE_SOC2 = VerticalTemplate(
     },
     metadata={
         "report_types": ["Type I", "Type II"],
-        "trust_criteria": ["Security", "Availability", "Processing Integrity", "Confidentiality", "Privacy"],
+        "trust_criteria": [
+            "Security",
+            "Availability",
+            "Processing Integrity",
+            "Confidentiality",
+            "Privacy",
+        ],
         "audit_period": "12 months (Type II)",
     },
 )
@@ -638,12 +644,14 @@ def create_custom_template(
         personas=personas,
         priority_categories=priority_categories,
         compliance_mappings=mappings,
-        report_sections=report_sections or [
+        report_sections=report_sections
+        or [
             "executive_summary",
             "findings",
             "recommendations",
         ],
-        severity_thresholds=thresholds or {
+        severity_thresholds=thresholds
+        or {
             "critical": 0.9,
             "high": 0.7,
             "medium": 0.4,

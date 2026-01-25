@@ -131,14 +131,11 @@ class AuditRegistry:
 
         if audit_type_id in self._auditors and not override:
             raise ValueError(
-                f"Auditor '{audit_type_id}' is already registered. "
-                f"Use override=True to replace."
+                f"Auditor '{audit_type_id}' is already registered. Use override=True to replace."
             )
 
         self._auditors[audit_type_id] = auditor
-        logger.info(
-            f"Registered auditor: {audit_type_id} (v{auditor.version}) " f"by {auditor.author}"
-        )
+        logger.info(f"Registered auditor: {audit_type_id} (v{auditor.version}) by {auditor.author}")
 
     def register_class(
         self,

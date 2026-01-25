@@ -72,9 +72,7 @@ def load_preset(
 
     if not preset_file.exists():
         available = list_presets()
-        raise FileNotFoundError(
-            f"Preset '{preset_name}' not found. " f"Available presets: {available}"
-        )
+        raise FileNotFoundError(f"Preset '{preset_name}' not found. Available presets: {available}")
 
     # Load YAML
     with preset_file.open() as f:

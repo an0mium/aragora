@@ -205,7 +205,7 @@ class VoteProcessor:
                 return (agent, vote_result)
             except Exception as e:
                 logger.warning(
-                    f"vote_exception_unanimous agent={agent.name} " f"error={type(e).__name__}: {e}"
+                    f"vote_exception_unanimous agent={agent.name} error={type(e).__name__}: {e}"
                 )
                 return (agent, e)
 
@@ -229,7 +229,7 @@ class VoteProcessor:
                         logger.error(f"vote_error_unanimous agent={agent.name} error={vote_result}")
                     else:
                         logger.error(
-                            f"vote_error_unanimous agent={agent.name} " "error=vote returned None"
+                            f"vote_error_unanimous agent={agent.name} error=vote returned None"
                         )
                     voting_errors += 1
                 else:

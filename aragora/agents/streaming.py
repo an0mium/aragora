@@ -84,7 +84,7 @@ class StreamingMixin:
             max_size = get_stream_buffer_size()
             if len(buffer) > max_size:
                 raise StreamingError(
-                    f"Streaming buffer exceeded maximum size ({max_size // (1024*1024)}MB limit)"
+                    f"Streaming buffer exceeded maximum size ({max_size // (1024 * 1024)}MB limit)"
                 )
 
             # Process complete SSE lines

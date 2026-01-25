@@ -116,10 +116,7 @@ class RequestDeduplicator:
 
         async with self._lock:
             # Clean up old entries
-            expired = [
-                h for h, ts in self._seen.items()
-                if now - ts > self._window_seconds
-            ]
+            expired = [h for h, ts in self._seen.items() if now - ts > self._window_seconds]
             for h in expired:
                 del self._seen[h]
                 self._in_flight.pop(h, None)
@@ -317,14 +314,15 @@ class ResponseCache:
         """
         async with self._lock:
             keys_to_remove = [
-                k for k, v in self._cache.items()
-                if v.matches_workspace(workspace_id)
+                k for k, v in self._cache.items() if v.matches_workspace(workspace_id)
             ]
             for key in keys_to_remove:
                 del self._cache[key]
 
             self._invalidations += len(keys_to_remove)
-            logger.info(f"Invalidated {len(keys_to_remove)} cache entries for workspace {workspace_id}")
+            logger.info(
+                f"Invalidated {len(keys_to_remove)} cache entries for workspace {workspace_id}"
+            )
             return len(keys_to_remove)
 
     async def invalidate_by_tag(self, tag: str) -> int:
@@ -338,10 +336,7 @@ class ResponseCache:
             Number of entries invalidated
         """
         async with self._lock:
-            keys_to_remove = [
-                k for k, v in self._cache.items()
-                if v.matches_tag(tag)
-            ]
+            keys_to_remove = [k for k, v in self._cache.items() if v.matches_tag(tag)]
             for key in keys_to_remove:
                 del self._cache[key]
 
@@ -454,6 +449,7 @@ class DecisionRoutingMiddleware:
         if self._router is None:
             try:
                 from aragora.core.decision import DecisionRouter
+
                 self._router = DecisionRouter()
             except ImportError:
                 logger.warning("DecisionRouter not available")
@@ -552,8 +548,7 @@ class DecisionRoutingMiddleware:
                 )
 
             logger.info(
-                f"Routed request {context.request_id} via {context.channel} "
-                f"in {duration:.2f}s"
+                f"Routed request {context.request_id} via {context.channel} in {duration:.2f}s"
             )
 
             return {
@@ -567,9 +562,7 @@ class DecisionRoutingMiddleware:
             logger.error(f"Routing error for {context.request_id}: {e}")
 
             if self._deduplicator:
-                await self._deduplicator.fail(
-                    content, context.user_id, context.channel, e
-                )
+                await self._deduplicator.fail(content, context.user_id, context.channel, e)
 
             return {
                 "success": False,
@@ -740,6 +733,7 @@ def route_decision(
         async def handle_slack_message(content, user_id, channel_id):
             return {"content": content, "user_id": user_id}
     """
+
     def decorator(func: F) -> F:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -776,6 +770,7 @@ def route_decision(
             return result
 
         return wrapper  # type: ignore
+
     return decorator
 
 

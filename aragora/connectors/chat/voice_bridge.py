@@ -91,7 +91,7 @@ class VoiceBridge:
         # Check file size
         if len(content) > self.max_file_size:
             raise ValueError(
-                f"Audio file too large: {len(content)} bytes " f"(max: {self.max_file_size})"
+                f"Audio file too large: {len(content)} bytes (max: {self.max_file_size})"
             )
 
         # Transcribe using Whisper
@@ -99,8 +99,7 @@ class VoiceBridge:
         lang = language or self.default_language
 
         logger.info(
-            f"Transcribing {len(content)} bytes from {voice_message.platform} "
-            f"(language: {lang})"
+            f"Transcribing {len(content)} bytes from {voice_message.platform} (language: {lang})"
         )
 
         # Call Whisper transcription

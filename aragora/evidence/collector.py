@@ -595,7 +595,7 @@ class EvidenceCollector:
         paths.extend(re.findall(unix_pattern, task, re.IGNORECASE))
 
         # Pattern 3: Unix relative paths
-        relative_pattern = rf"(\.{1,2}/[\w./-]+{doc_extensions})\b"
+        relative_pattern = rf"(\.{1, 2}/[\w./-]+{doc_extensions})\b"
         paths.extend(re.findall(relative_pattern, task, re.IGNORECASE))
 
         # Pattern 4: Windows paths

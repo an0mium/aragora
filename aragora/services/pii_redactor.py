@@ -301,7 +301,9 @@ class PIIRedactor:
         # Apply redactions
         for pii_match in matches:
             redacted_text = (
-                redacted_text[: pii_match.start] + pii_match.redacted + redacted_text[pii_match.end :]
+                redacted_text[: pii_match.start]
+                + pii_match.redacted
+                + redacted_text[pii_match.end :]
             )
 
         # Get unique PII types found

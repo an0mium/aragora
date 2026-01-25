@@ -313,8 +313,8 @@ Return JSON:
         # Format understanding
         understanding_str = f"""
 Summary: {understanding.summary}
-Key facts: {', '.join(understanding.key_facts[:5])}
-Questions from chunk: {', '.join(understanding.questions_raised[:3])}
+Key facts: {", ".join(understanding.key_facts[:5])}
+Questions from chunk: {", ".join(understanding.questions_raised[:3])}
 Confidence: {understanding.confidence}
 """
 

@@ -405,7 +405,7 @@ PROPOSAL (View {pre_prepare.view}, Sequence {pre_prepare.sequence}):
 
 PREPARE PHASE COMPLETE:
 {len(prepare_votes)} agents have prepared (quorum: {self.quorum_size})
-Prepared agents: {', '.join(sorted(prepare_votes))}
+Prepared agents: {", ".join(sorted(prepare_votes))}
 
 COMMIT PHASE INSTRUCTIONS:
 Given that a quorum of agents has prepared, decide whether to commit to this proposal.

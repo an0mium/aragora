@@ -350,14 +350,16 @@ class GoogleSheetsConnector(EnterpriseConnector):
 
             for i, row in enumerate(values):
                 if i == header_idx:
-                    headers = [str(cell) if cell else f"Column{j+1}" for j, cell in enumerate(row)]
+                    headers = [
+                        str(cell) if cell else f"Column{j + 1}" for j, cell in enumerate(row)
+                    ]
                 elif i > header_idx:
                     rows.append(row)
 
             # If no header row found, use generic headers
             if not headers and values:
                 max_cols = max(len(row) for row in values)
-                headers = [f"Column{i+1}" for i in range(max_cols)]
+                headers = [f"Column{i + 1}" for i in range(max_cols)]
                 rows = values
 
             return SheetData(

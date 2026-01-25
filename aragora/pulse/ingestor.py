@@ -330,7 +330,8 @@ class HackerNewsIngestor(PulseIngestor):
                 return topics
 
         return await self._retry_with_backoff(
-            _fetch, fallback_fn=lambda: []  # No mock data - return empty on failure
+            _fetch,
+            fallback_fn=lambda: [],  # No mock data - return empty on failure
         )
 
     def _categorize_topic(self, title: str) -> str:
@@ -420,7 +421,8 @@ class RedditIngestor(PulseIngestor):
                 return all_topics[:limit]
 
         return await self._retry_with_backoff(
-            _fetch, fallback_fn=lambda: []  # No mock data - return empty on failure
+            _fetch,
+            fallback_fn=lambda: [],  # No mock data - return empty on failure
         )
 
     def _categorize_subreddit(self, subreddit: str) -> str:
@@ -548,7 +550,8 @@ class GitHubTrendingIngestor(PulseIngestor):
                 return topics
 
         return await self._retry_with_backoff(
-            _fetch, fallback_fn=lambda: []  # No mock data - return empty on failure
+            _fetch,
+            fallback_fn=lambda: [],  # No mock data - return empty on failure
         )
 
     def _categorize_repo(self, repo: Dict[str, Any]) -> str:
@@ -1209,7 +1212,6 @@ class SubstackIngestor(PulseIngestor):
 
 
 class PulseManager:
-
     def __init__(self) -> None:
         self.ingestors: Dict[str, PulseIngestor] = {}
         # Store debate outcomes for analytics

@@ -363,9 +363,7 @@ class WhatsAppHandler(BaseHandler):
         elif len(text) > 10:
             # Treat longer messages as potential topics
             response = (
-                f'I received: "{text[:50]}..."\n\n'
-                "To start a debate, type:\n"
-                f"debate {text[:50]}"
+                f'I received: "{text[:50]}..."\n\nTo start a debate, type:\ndebate {text[:50]}'
             )
         else:
             response = "Type *help* to see available commands."

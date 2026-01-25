@@ -127,7 +127,7 @@ class MarketplaceStore(SQLiteStore):
         "is_featured, is_trending, created_at, updated_at"
     )
     _REVIEW_COLUMNS = (
-        "id, template_id, user_id, user_name, rating, title, content, " "helpful_count, created_at"
+        "id, template_id, user_id, user_name, rating, title, content, helpful_count, created_at"
     )
 
     INITIAL_SCHEMA = """

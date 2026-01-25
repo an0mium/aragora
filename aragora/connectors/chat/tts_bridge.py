@@ -49,15 +49,17 @@ class TTSConfig:
     cache_dir: Optional[str] = TTS_CACHE_DIR or None
 
     # Voice mappings for different contexts
-    voice_map: dict[str, str] = field(default_factory=lambda: {
-        "narrator": "narrator",
-        "moderator": "moderator",
-        "claude": "analyst",
-        "gpt": "expert",
-        "gemini": "researcher",
-        "consensus": "narrator",
-        "error": "moderator",
-    })
+    voice_map: dict[str, str] = field(
+        default_factory=lambda: {
+            "narrator": "narrator",
+            "moderator": "moderator",
+            "claude": "analyst",
+            "gpt": "expert",
+            "gemini": "researcher",
+            "consensus": "narrator",
+            "error": "moderator",
+        }
+    )
 
 
 class TTSBridge:
@@ -148,7 +150,7 @@ class TTSBridge:
 
         # Truncate text if too long
         if len(text) > self.config.max_text_length:
-            text = text[:self.config.max_text_length - 3] + "..."
+            text = text[: self.config.max_text_length - 3] + "..."
             logger.warning(f"TTS text truncated to {self.config.max_text_length} chars")
 
         # Resolve voice
@@ -319,6 +321,7 @@ class TTSBridge:
         """Clean up temporary files."""
         if self._temp_dir and self._temp_dir.exists():
             import shutil
+
             try:
                 shutil.rmtree(self._temp_dir)
                 self._temp_dir = None

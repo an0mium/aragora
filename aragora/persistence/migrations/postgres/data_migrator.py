@@ -106,9 +106,7 @@ class DataMigrator:
             raise RuntimeError("asyncpg package required for PostgreSQL migration")
 
         if self._pool is None:
-            self._pool = await asyncpg.create_pool(
-                self.postgres_dsn, min_size=2, max_size=10
-            )
+            self._pool = await asyncpg.create_pool(self.postgres_dsn, min_size=2, max_size=10)
         return self._pool
 
     def _get_sqlite_conn(self) -> sqlite3.Connection:
@@ -299,7 +297,8 @@ async def main():
         help="Batch size for inserts (default: 1000)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Verbose output",
     )

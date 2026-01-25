@@ -247,7 +247,7 @@ class HumanCheckpointStep(BaseStep):
         checklist = [
             ChecklistItem(
                 id=f"item_{i}",
-                label=item.get("label", f"Item {i+1}"),
+                label=item.get("label", f"Item {i + 1}"),
                 required=item.get("required", True),
             )
             for i, item in enumerate(checklist_config)

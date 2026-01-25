@@ -742,17 +742,19 @@ class SlackConnector(EnterpriseConnector):
 
             messages = []
             for match in data.get("messages", {}).get("matches", []):
-                messages.append({
-                    "text": match.get("text", ""),
-                    "channel": match.get("channel", {}).get("id", ""),
-                    "channel_name": match.get("channel", {}).get("name", ""),
-                    "ts": match.get("ts", ""),
-                    "user": match.get("user", ""),
-                    "username": match.get("username", ""),
-                    "permalink": match.get("permalink", ""),
-                    "team": match.get("team", ""),
-                    "type": match.get("type", "message"),
-                })
+                messages.append(
+                    {
+                        "text": match.get("text", ""),
+                        "channel": match.get("channel", {}).get("id", ""),
+                        "channel_name": match.get("channel", {}).get("name", ""),
+                        "ts": match.get("ts", ""),
+                        "user": match.get("user", ""),
+                        "username": match.get("username", ""),
+                        "permalink": match.get("permalink", ""),
+                        "team": match.get("team", ""),
+                        "type": match.get("type", "message"),
+                    }
+                )
 
             return messages
 
@@ -778,8 +780,7 @@ class SlackConnector(EnterpriseConnector):
             # Test authentication
             data = await self._api_request("auth.test")
             logger.info(
-                f"[{self.name}] Authenticated as {data.get('user')} "
-                f"in workspace {data.get('team')}"
+                f"[{self.name}] Authenticated as {data.get('user')} in workspace {data.get('team')}"
             )
             return True
         except Exception as e:
@@ -813,12 +814,14 @@ class SlackConnector(EnterpriseConnector):
 
             channels = []
             for channel in data.get("channels", []):
-                channels.append({
-                    "id": channel.get("id", ""),
-                    "name": channel.get("name", ""),
-                    "is_private": channel.get("is_private", False),
-                    "is_member": channel.get("is_member", True),
-                })
+                channels.append(
+                    {
+                        "id": channel.get("id", ""),
+                        "name": channel.get("name", ""),
+                        "is_private": channel.get("is_private", False),
+                        "is_member": channel.get("is_member", True),
+                    }
+                )
 
             return channels
 

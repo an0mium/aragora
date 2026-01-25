@@ -574,7 +574,6 @@ class NomicIntegration:
         if run_branch_fn is None:
             # Create a default no-op branch runner if none provided
             async def default_run_branch(task: str, context: list, branch_id: str) -> DebateResult:
-
                 return DebateResult(
                     id=branch_id,
                     task=task,

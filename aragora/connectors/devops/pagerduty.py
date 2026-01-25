@@ -1007,7 +1007,7 @@ class PagerDutyConnector:
             Resolved incident
         """
         # Document the runbook steps taken
-        steps_text = "\n".join(f"  {i+1}. {step}" for i, step in enumerate(runbook_steps))
+        steps_text = "\n".join(f"  {i + 1}. {step}" for i, step in enumerate(runbook_steps))
         await self.add_note(
             incident_id,
             f"Runbook Steps Executed:\n{steps_text}",

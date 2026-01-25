@@ -160,8 +160,7 @@ class FindingWorkflowHandler(BaseHandler):
         jwt_context = extract_user_from_request(request)
         if not jwt_context.authenticated or not jwt_context.user_id:
             logger.warning(
-                "finding_workflow: JWT authentication required. "
-                "Request rejected - no valid token."
+                "finding_workflow: JWT authentication required. Request rejected - no valid token."
             )
             return None
 

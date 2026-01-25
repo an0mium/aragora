@@ -366,9 +366,8 @@ class NotionConnector(EnterpriseConnector):
         properties = data.get("properties", {})
         for prop_name, prop_value in properties.items():
             # Check for explicit type field or infer from structure
-            is_title_prop = (
-                prop_value.get("type") == "title"
-                or (prop_name.lower() == "title" and "title" in prop_value)
+            is_title_prop = prop_value.get("type") == "title" or (
+                prop_name.lower() == "title" and "title" in prop_value
             )
             if is_title_prop:
                 title_parts = prop_value.get("title", [])
@@ -985,9 +984,7 @@ class NotionConnector(EnterpriseConnector):
             page_properties: Dict[str, Any] = properties or {}
 
             # Set title property
-            page_properties["title"] = {
-                "title": [{"type": "text", "text": {"content": title}}]
-            }
+            page_properties["title"] = {"title": [{"type": "text", "text": {"content": title}}]}
 
             # Build request body
             body: Dict[str, Any] = {
@@ -1140,7 +1137,10 @@ class NotionConnector(EnterpriseConnector):
         """
         return await self.create_page(
             parent_id=database_id,
-            title=properties.get("Name", {}).get("title", [{}])[0].get("text", {}).get("content", "Untitled"),
+            title=properties.get("Name", {})
+            .get("title", [{}])[0]
+            .get("text", {})
+            .get("content", "Untitled"),
             content=content,
             parent_type="database_id",
             properties=properties,
@@ -1173,56 +1173,78 @@ class NotionConnector(EnterpriseConnector):
 
             # Handle headers
             if paragraph.startswith("# "):
-                blocks.append({
-                    "type": "heading_1",
-                    "heading_1": {
-                        "rich_text": [{"type": "text", "text": {"content": paragraph[2:].strip()}}]
-                    },
-                })
+                blocks.append(
+                    {
+                        "type": "heading_1",
+                        "heading_1": {
+                            "rich_text": [
+                                {"type": "text", "text": {"content": paragraph[2:].strip()}}
+                            ]
+                        },
+                    }
+                )
             elif paragraph.startswith("## "):
-                blocks.append({
-                    "type": "heading_2",
-                    "heading_2": {
-                        "rich_text": [{"type": "text", "text": {"content": paragraph[3:].strip()}}]
-                    },
-                })
+                blocks.append(
+                    {
+                        "type": "heading_2",
+                        "heading_2": {
+                            "rich_text": [
+                                {"type": "text", "text": {"content": paragraph[3:].strip()}}
+                            ]
+                        },
+                    }
+                )
             elif paragraph.startswith("### "):
-                blocks.append({
-                    "type": "heading_3",
-                    "heading_3": {
-                        "rich_text": [{"type": "text", "text": {"content": paragraph[4:].strip()}}]
-                    },
-                })
+                blocks.append(
+                    {
+                        "type": "heading_3",
+                        "heading_3": {
+                            "rich_text": [
+                                {"type": "text", "text": {"content": paragraph[4:].strip()}}
+                            ]
+                        },
+                    }
+                )
             # Handle bullet lists
             elif paragraph.startswith("- ") or paragraph.startswith("* "):
                 for line in paragraph.split("\n"):
                     if line.startswith(("- ", "* ")):
-                        blocks.append({
-                            "type": "bulleted_list_item",
-                            "bulleted_list_item": {
-                                "rich_text": [{"type": "text", "text": {"content": line[2:].strip()}}]
-                            },
-                        })
+                        blocks.append(
+                            {
+                                "type": "bulleted_list_item",
+                                "bulleted_list_item": {
+                                    "rich_text": [
+                                        {"type": "text", "text": {"content": line[2:].strip()}}
+                                    ]
+                                },
+                            }
+                        )
             # Handle code blocks
             elif paragraph.startswith("```"):
                 lines = paragraph.split("\n")
                 language = lines[0][3:].strip() or "plain_text"
                 code = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
-                blocks.append({
-                    "type": "code",
-                    "code": {
-                        "rich_text": [{"type": "text", "text": {"content": code}}],
-                        "language": language,
-                    },
-                })
+                blocks.append(
+                    {
+                        "type": "code",
+                        "code": {
+                            "rich_text": [{"type": "text", "text": {"content": code}}],
+                            "language": language,
+                        },
+                    }
+                )
             # Handle quotes
             elif paragraph.startswith("> "):
-                blocks.append({
-                    "type": "quote",
-                    "quote": {
-                        "rich_text": [{"type": "text", "text": {"content": paragraph[2:].strip()}}]
-                    },
-                })
+                blocks.append(
+                    {
+                        "type": "quote",
+                        "quote": {
+                            "rich_text": [
+                                {"type": "text", "text": {"content": paragraph[2:].strip()}}
+                            ]
+                        },
+                    }
+                )
             # Regular paragraph
             else:
                 # Split into chunks if too long (Notion limit is 2000 chars)
@@ -1230,12 +1252,14 @@ class NotionConnector(EnterpriseConnector):
                 while text_content:
                     chunk = text_content[:1900]
                     text_content = text_content[1900:]
-                    blocks.append({
-                        "type": "paragraph",
-                        "paragraph": {
-                            "rich_text": [{"type": "text", "text": {"content": chunk}}]
-                        },
-                    })
+                    blocks.append(
+                        {
+                            "type": "paragraph",
+                            "paragraph": {
+                                "rich_text": [{"type": "text", "text": {"content": chunk}}]
+                            },
+                        }
+                    )
 
         return blocks
 

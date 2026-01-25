@@ -141,9 +141,9 @@ class ApprovalFlow:
         Returns:
             ApprovalRequest with status
         """
-        request_id = hashlib.sha256(
-            f"{title}{datetime.now().isoformat()}".encode()
-        ).hexdigest()[:16]
+        request_id = hashlib.sha256(f"{title}{datetime.now().isoformat()}".encode()).hexdigest()[
+            :16
+        ]
 
         request = ApprovalRequest(
             id=request_id,
@@ -332,9 +332,7 @@ class ApprovalFlow:
                 status=ApprovalStatus(data["status"]),
                 approved_by=data.get("approved_by"),
                 approved_at=(
-                    datetime.fromisoformat(data["approved_at"])
-                    if data.get("approved_at")
-                    else None
+                    datetime.fromisoformat(data["approved_at"]) if data.get("approved_at") else None
                 ),
                 rejection_reason=data.get("rejection_reason"),
                 metadata=data.get("metadata", {}),
@@ -662,8 +660,7 @@ class CodeVerifier:
             result.security_issues = security_result
             # High-severity security issues fail verification
             high_severity = [
-                i for i in security_result
-                if "high" in i.lower() or "critical" in i.lower()
+                i for i in security_result if "high" in i.lower() or "critical" in i.lower()
             ]
             if high_severity:
                 result.passed = False
@@ -796,7 +793,8 @@ class CodeVerifier:
             )
             if result.stdout:
                 issues = [
-                    line for line in result.stdout.strip().split("\n")
+                    line
+                    for line in result.stdout.strip().split("\n")
                     if line and not line.startswith("[")
                 ]
         except Exception as e:
@@ -877,10 +875,11 @@ class SelfImprovementManager:
             # Wait for approval
             request = await self.approval_flow.wait_for_approval(request.id)
 
-            if request.status != ApprovalStatus.APPROVED and request.status != ApprovalStatus.AUTO_APPROVED:
-                logger.warning(
-                    f"Self-improvement rejected: {request.status.value}"
-                )
+            if (
+                request.status != ApprovalStatus.APPROVED
+                and request.status != ApprovalStatus.AUTO_APPROVED
+            ):
+                logger.warning(f"Self-improvement rejected: {request.status.value}")
                 return False, None
 
         # Create rollback point

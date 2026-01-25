@@ -147,8 +147,7 @@ class RLMContextManager:
                 )
             except ImportError:
                 logger.warning(
-                    "[ExtendedRounds] RLM module not available, "
-                    "falling back to simple compression"
+                    "[ExtendedRounds] RLM module not available, falling back to simple compression"
                 )
         return self._rlm
 

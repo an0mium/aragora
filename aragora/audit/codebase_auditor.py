@@ -691,7 +691,7 @@ class CodebaseAuditor:
 
         elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
         logger.info(
-            f"[{session_id}] Completed in {elapsed:.2f}s: " f"{len(filtered_findings)} findings"
+            f"[{session_id}] Completed in {elapsed:.2f}s: {len(filtered_findings)} findings"
         )
 
         return IncrementalAuditResult(

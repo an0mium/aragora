@@ -232,8 +232,7 @@ class JWTSessionManager:
             user_sessions[token_jti] = session
 
         logger.info(
-            f"Created session {token_jti[:8]}... for user {user_id} "
-            f"from {ip_address or 'unknown'}"
+            f"Created session {token_jti[:8]}... for user {user_id} from {ip_address or 'unknown'}"
         )
         return session
 

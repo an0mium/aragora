@@ -34,7 +34,10 @@ if PROMETHEUS_AVAILABLE:
     SOCIAL_WEBHOOK_REQUESTS_TOTAL = Counter(
         "aragora_social_webhook_requests_total",
         "Total webhook requests received",
-        ["platform", "status"],  # platform: telegram, whatsapp; status: success, error, unauthorized
+        [
+            "platform",
+            "status",
+        ],  # platform: telegram, whatsapp; status: success, error, unauthorized
     )
 
     SOCIAL_WEBHOOK_LATENCY = Histogram(
@@ -240,7 +243,9 @@ def record_debate_completed(platform: str, consensus_reached: bool) -> None:
         fb = _get_fallback_metrics()
         if platform not in fb.debates_completed:
             fb.debates_completed[platform] = {}
-        fb.debates_completed[platform][consensus] = fb.debates_completed[platform].get(consensus, 0) + 1
+        fb.debates_completed[platform][consensus] = (
+            fb.debates_completed[platform].get(consensus, 0) + 1
+        )
         fb.debates_in_progress[platform] = max(0, fb.debates_in_progress.get(platform, 0) - 1)
 
 
@@ -273,7 +278,9 @@ def record_gauntlet_completed(platform: str, passed: bool) -> None:
         fb = _get_fallback_metrics()
         if platform not in fb.gauntlets_completed:
             fb.gauntlets_completed[platform] = {}
-        fb.gauntlets_completed[platform][result] = fb.gauntlets_completed[platform].get(result, 0) + 1
+        fb.gauntlets_completed[platform][result] = (
+            fb.gauntlets_completed[platform].get(result, 0) + 1
+        )
 
 
 def record_gauntlet_failed(platform: str) -> None:

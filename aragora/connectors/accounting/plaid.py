@@ -731,8 +731,7 @@ class PlaidConnector:
             # Amount anomaly
             if abs(float(txn.amount) - mean_amount) > 3 * std_amount:
                 anomaly_reasons.append(
-                    f"Unusual amount: ${abs(float(txn.amount)):.2f} "
-                    f"(avg: ${abs(mean_amount):.2f})"
+                    f"Unusual amount: ${abs(float(txn.amount)):.2f} (avg: ${abs(mean_amount):.2f})"
                 )
 
             # New merchant
@@ -809,10 +808,10 @@ class PlaidConnector:
 
 Transaction:
 - Description: {txn.name}
-- Merchant: {txn.merchant_name or 'Unknown'}
-- Amount: ${abs(float(txn.amount)):.2f} ({'expense/outflow' if txn.is_outflow else 'income/inflow'})
+- Merchant: {txn.merchant_name or "Unknown"}
+- Amount: ${abs(float(txn.amount)):.2f} ({"expense/outflow" if txn.is_outflow else "income/inflow"})
 - Date: {txn.date}
-- Plaid Category: {', '.join(txn.category) if txn.category else 'Uncategorized'}
+- Plaid Category: {", ".join(txn.category) if txn.category else "Uncategorized"}
 {accounts_context}
 
 Provide:

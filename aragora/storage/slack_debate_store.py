@@ -507,7 +507,7 @@ class SlackDebateStore:
             active = conn.execute(
                 f"""
                 SELECT COUNT(*) FROM slack_active_debates
-                {base_filter + ' AND' if base_filter else 'WHERE'}
+                {base_filter + " AND" if base_filter else "WHERE"}
                 status IN ('pending', 'running')
                 """,
                 params,
@@ -516,7 +516,7 @@ class SlackDebateStore:
             completed = conn.execute(
                 f"""
                 SELECT COUNT(*) FROM slack_active_debates
-                {base_filter + ' AND' if base_filter else 'WHERE'}
+                {base_filter + " AND" if base_filter else "WHERE"}
                 status = 'completed'
                 """,
                 params,
@@ -525,7 +525,7 @@ class SlackDebateStore:
             failed = conn.execute(
                 f"""
                 SELECT COUNT(*) FROM slack_active_debates
-                {base_filter + ' AND' if base_filter else 'WHERE'}
+                {base_filter + " AND" if base_filter else "WHERE"}
                 status = 'failed'
                 """,
                 params,

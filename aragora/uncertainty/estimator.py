@@ -110,9 +110,9 @@ class ConfidenceEstimator:
 
     def __init__(self):
         self.agent_confidences: Dict[str, List[ConfidenceScore]] = {}
-        self.calibration_history: Dict[str, List[Tuple[float, bool]]] = (
-            {}
-        )  # (confidence, was_correct)
+        self.calibration_history: Dict[
+            str, List[Tuple[float, bool]]
+        ] = {}  # (confidence, was_correct)
         self.brier_scores: Dict[str, float] = {}  # Calibration quality metric
         self.disagreement_analyzer = DisagreementAnalyzer()
 

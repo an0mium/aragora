@@ -1011,7 +1011,7 @@ class CrossSubscriberManager:
             patterns_count = data.get("patterns_count", 0)
             debate_id = data.get("debate_id", "")
             logger.info(
-                f"Culture patterns updated: {patterns_count} patterns " f"from debate {debate_id}"
+                f"Culture patterns updated: {patterns_count} patterns from debate {debate_id}"
             )
 
         # Handle node deletions
@@ -1621,7 +1621,7 @@ class CrossSubscriberManager:
             }
 
             logger.info(
-                f"Stored culture context for debate {debate_id}: " f"{len(protocol_hints)} hints"
+                f"Stored culture context for debate {debate_id}: {len(protocol_hints)} hints"
             )
 
         except Exception as e:
@@ -1991,8 +1991,7 @@ class CrossSubscriberManager:
 
                 if dissent_node_ids:
                     logger.info(
-                        f"Stored {len(dissent_node_ids)} dissenting views "
-                        f"for consensus {debate_id}"
+                        f"Stored {len(dissent_node_ids)} dissenting views for consensus {debate_id}"
                     )
 
                 # ============================================================

@@ -134,7 +134,7 @@ class AWSSecretsManagerProvider:
                 import boto3
             except ImportError:
                 raise ImportError(
-                    "boto3 is required for AWS Secrets Manager. " "Install with: pip install boto3"
+                    "boto3 is required for AWS Secrets Manager. Install with: pip install boto3"
                 )
 
             session_kwargs = {}

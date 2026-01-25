@@ -667,7 +667,7 @@ class ExplanationBuilder:
             lines.append("### Most Influential Votes")
             for v in pivotal[:3]:
                 lines.append(
-                    f"- **{v.agent}** voted '{v.choice}' " f"(influence: {v.influence_score:.0%})"
+                    f"- **{v.agent}** voted '{v.choice}' (influence: {v.influence_score:.0%})"
                 )
             lines.append("")
 

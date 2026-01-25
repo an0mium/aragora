@@ -117,7 +117,9 @@ class PostDebatePattern(WorkflowPattern):
             steps.append(extract_step)
 
             # Transition to next step
-            next_step = "store_consensus" if self.post_config.store_consensus else "generate_summary"
+            next_step = (
+                "store_consensus" if self.post_config.store_consensus else "generate_summary"
+            )
             transitions.append(
                 TransitionRule(
                     id=f"tr_{uuid4().hex[:8]}",

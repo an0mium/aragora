@@ -232,7 +232,7 @@ class Trainer:
             for i, history in enumerate(result.refinement_history or []):
                 trajectory.add_step(
                     Step(
-                        action=f"iteration_{i+1}",
+                        action=f"iteration_{i + 1}",
                         action_type="refinement",
                         observation=history[:500] if history else "",
                         tokens_examined=result.tokens_processed // max(1, result.iteration),

@@ -570,8 +570,7 @@ def get_refactoring_template(name: str) -> dict[str, Any]:
     """
     if name not in REFACTORING_TEMPLATES:
         raise KeyError(
-            f"Unknown refactoring template: {name}. "
-            f"Available: {list(REFACTORING_TEMPLATES.keys())}"
+            f"Unknown refactoring template: {name}. Available: {list(REFACTORING_TEMPLATES.keys())}"
         )
     return REFACTORING_TEMPLATES[name]
 
@@ -591,6 +590,6 @@ def update_code_smell_threshold(smell: str, value: int | float) -> None:
     """
     if smell not in CODE_SMELL_THRESHOLDS:
         raise KeyError(
-            f"Unknown smell threshold: {smell}. " f"Available: {list(CODE_SMELL_THRESHOLDS.keys())}"
+            f"Unknown smell threshold: {smell}. Available: {list(CODE_SMELL_THRESHOLDS.keys())}"
         )
     CODE_SMELL_THRESHOLDS[smell] = value

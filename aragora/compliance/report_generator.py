@@ -216,7 +216,7 @@ This report documents the vetted decisionmaking process and outcome for debate {
 **Outcome:** Consensus {consensus_status}
 **Confidence Level:** {confidence:.0%}
 **Rounds Completed:** {result.rounds_used}
-**Participating Agents:** {len(getattr(result, 'agents', []))}
+**Participating Agents:** {len(getattr(result, "agents", []))}
 
 The decision was reached through multi-agent vetted decisionmaking following established protocols
 with full audit trail preservation.
@@ -242,7 +242,7 @@ with full audit trail preservation.
 **Winning Position:** {winner}
 
 **Final Decision:**
-{final_answer[:1000]}{'...' if len(final_answer) > 1000 else ''}
+{final_answer[:1000]}{"..." if len(final_answer) > 1000 else ""}
         """.strip()
 
         return ReportSection(
@@ -264,7 +264,7 @@ with full audit trail preservation.
 
         content = f"""
 **Participating Agents ({len(agents)}):**
-{chr(10).join(agent_details) if agent_details else 'No agents recorded'}
+{chr(10).join(agent_details) if agent_details else "No agents recorded"}
 
 All agents participated in accordance with the debate protocol.
 Each agent's contributions are individually attributable.

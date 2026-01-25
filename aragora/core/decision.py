@@ -914,8 +914,7 @@ class DecisionRouter:
                     isolation_ctx,
                 )
                 logger.debug(
-                    f"RBAC check passed for user {request.context.user_id} "
-                    f"on {resource_type.value}"
+                    f"RBAC check passed for user {request.context.user_id} on {resource_type.value}"
                 )
             except ImportError:
                 logger.debug("RBAC module not available, skipping authorization")
@@ -1484,7 +1483,7 @@ class DecisionRouter:
                 context_string = "\n\n".join(context_parts)
                 if context_string:
                     context_string = (
-                        "## Relevant Organizational Knowledge\n\n" f"{context_string}\n\n" "---\n"
+                        f"## Relevant Organizational Knowledge\n\n{context_string}\n\n---\n"
                     )
 
                 logger.info(f"Gathered {len(context_parts)} knowledge items for debate context")

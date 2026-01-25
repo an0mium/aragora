@@ -598,7 +598,7 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
                 cursor.execute(
                     f"""
                     SELECT data_json FROM invoices
-                    WHERE {' AND '.join(where_parts)}
+                    WHERE {" AND ".join(where_parts)}
                     ORDER BY scheduled_payment_date ASC
                     """,
                     params,
@@ -1031,7 +1031,7 @@ class PostgresInvoiceStore(InvoiceStoreBackend):
             rows = await conn.fetch(
                 f"""
                 SELECT data_json FROM invoices
-                WHERE {' AND '.join(where_parts)}
+                WHERE {" AND ".join(where_parts)}
                 ORDER BY scheduled_payment_date ASC
                 """,
                 *params,

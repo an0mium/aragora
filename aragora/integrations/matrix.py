@@ -306,7 +306,7 @@ class MatrixIntegration:
             answer_preview += "..."
 
         # Plain text
-        text = f"CONSENSUS REACHED\n\n" f"{answer_preview}\n\n" f"Confidence: {confidence:.0%}\n"
+        text = f"CONSENSUS REACHED\n\n{answer_preview}\n\nConfidence: {confidence:.0%}\n"
         if agents:
             text += f"Agreement from: {', '.join(agents[:5])}\n"
         text += f"\nhttps://aragora.ai/debate/{debate_id}"

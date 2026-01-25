@@ -385,10 +385,12 @@ class VoiceStreamHandler:
                 # Voice map for specific agents
                 if "voice_map" in msg and isinstance(msg["voice_map"], dict):
                     session.tts_voice_map.update(msg["voice_map"])
-                await ws.send_json({
-                    "type": "config_ack",
-                    "auto_synthesize": session.auto_synthesize,
-                })
+                await ws.send_json(
+                    {
+                        "type": "config_ack",
+                        "auto_synthesize": session.auto_synthesize,
+                    }
+                )
 
             elif msg_type == "end":
                 # Client requesting end of session
@@ -406,11 +408,13 @@ class VoiceStreamHandler:
                 if text:
                     await self._synthesize_and_send(session, ws, text, voice, agent)
                 else:
-                    await ws.send_json({
-                        "type": "error",
-                        "code": "empty_text",
-                        "message": "No text provided for synthesis",
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "error",
+                            "code": "empty_text",
+                            "message": "No text provided for synthesis",
+                        }
+                    )
 
         except json.JSONDecodeError:
             logger.warning(f"[Voice] Invalid JSON message: {data[:100]}")
@@ -580,20 +584,24 @@ class VoiceStreamHandler:
             agent: Optional agent name for event tracking
         """
         if not VOICE_TTS_ENABLED:
-            await ws.send_json({
-                "type": "error",
-                "code": "tts_disabled",
-                "message": "TTS is disabled",
-            })
+            await ws.send_json(
+                {
+                    "type": "error",
+                    "code": "tts_disabled",
+                    "message": "TTS is disabled",
+                }
+            )
             return
 
         tts = _get_tts_backend()
         if tts is None:
-            await ws.send_json({
-                "type": "error",
-                "code": "tts_unavailable",
-                "message": "TTS backends not available. Check TTS configuration.",
-            })
+            await ws.send_json(
+                {
+                    "type": "error",
+                    "code": "tts_unavailable",
+                    "message": "TTS backends not available. Check TTS configuration.",
+                }
+            )
             return
 
         # Emit TTS start event
@@ -610,13 +618,15 @@ class VoiceStreamHandler:
         )
 
         # Notify client that synthesis is starting
-        await ws.send_json({
-            "type": "tts_start",
-            "session_id": session.session_id,
-            "voice": voice,
-            "agent": agent,
-            "text_length": len(text),
-        })
+        await ws.send_json(
+            {
+                "type": "tts_start",
+                "session_id": session.session_id,
+                "voice": voice,
+                "agent": agent,
+                "text_length": len(text),
+            }
+        )
 
         try:
             # Synthesize audio
@@ -641,31 +651,35 @@ class VoiceStreamHandler:
             )
 
             # Send audio metadata
-            await ws.send_json({
-                "type": "tts_audio_start",
-                "session_id": session.session_id,
-                "format": audio_format,
-                "size": audio_size,
-                "voice": voice,
-                "agent": agent,
-            })
+            await ws.send_json(
+                {
+                    "type": "tts_audio_start",
+                    "session_id": session.session_id,
+                    "format": audio_format,
+                    "size": audio_size,
+                    "voice": voice,
+                    "agent": agent,
+                }
+            )
 
             # Send audio data as binary
             # For large files, chunk it (64KB chunks)
             chunk_size = 64 * 1024
             offset = 0
             while offset < audio_size:
-                chunk = audio_bytes[offset:offset + chunk_size]
+                chunk = audio_bytes[offset : offset + chunk_size]
                 await ws.send_bytes(chunk)
                 offset += len(chunk)
 
             # Send audio complete message
-            await ws.send_json({
-                "type": "tts_audio_end",
-                "session_id": session.session_id,
-                "total_bytes": audio_size,
-                "format": audio_format,
-            })
+            await ws.send_json(
+                {
+                    "type": "tts_audio_end",
+                    "session_id": session.session_id,
+                    "total_bytes": audio_size,
+                    "format": audio_format,
+                }
+            )
 
             # Emit TTS complete event
             self._emit_event(
@@ -690,11 +704,13 @@ class VoiceStreamHandler:
 
         except Exception as e:
             logger.error(f"[Voice] TTS synthesis failed: {e}")
-            await ws.send_json({
-                "type": "error",
-                "code": "tts_failed",
-                "message": f"TTS synthesis failed: {e}",
-            })
+            await ws.send_json(
+                {
+                    "type": "error",
+                    "code": "tts_failed",
+                    "message": f"TTS synthesis failed: {e}",
+                }
+            )
 
     def _create_wav_header(
         self,
@@ -815,7 +831,9 @@ class VoiceStreamHandler:
                     continue
 
                 # Determine voice for this agent
-                agent_voice = voice or session.tts_voice_map.get(agent_name, VOICE_TTS_DEFAULT_VOICE)
+                agent_voice = voice or session.tts_voice_map.get(
+                    agent_name, VOICE_TTS_DEFAULT_VOICE
+                )
 
                 # Find the WebSocket for this session (stored in server connections)
                 ws = self._get_ws_for_session(session.session_id)
@@ -826,7 +844,9 @@ class VoiceStreamHandler:
                     await self._synthesize_and_send(session, ws, message, agent_voice, agent_name)
                     sessions_sent += 1
                 except Exception as e:
-                    logger.error(f"[Voice] Failed to synthesize for session {session.session_id}: {e}")
+                    logger.error(
+                        f"[Voice] Failed to synthesize for session {session.session_id}: {e}"
+                    )
 
         if sessions_sent > 0:
             logger.info(f"[Voice] Synthesized agent message for {sessions_sent} voice session(s)")

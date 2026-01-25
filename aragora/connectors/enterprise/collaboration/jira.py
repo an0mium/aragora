@@ -171,7 +171,7 @@ class JiraConnector(EnterpriseConnector):
 
             if not email or not token:
                 raise ValueError(
-                    "Jira Cloud credentials not configured. " "Set JIRA_EMAIL and JIRA_API_TOKEN"
+                    "Jira Cloud credentials not configured. Set JIRA_EMAIL and JIRA_API_TOKEN"
                 )
 
             auth = base64.b64encode(f"{email}:{token}".encode()).decode()
@@ -180,7 +180,7 @@ class JiraConnector(EnterpriseConnector):
             token = await self.credentials.get_credential("JIRA_PAT")
 
             if not token:
-                raise ValueError("Jira Data Center credentials not configured. " "Set JIRA_PAT")
+                raise ValueError("Jira Data Center credentials not configured. Set JIRA_PAT")
 
             return {"Authorization": f"Bearer {token}"}
 

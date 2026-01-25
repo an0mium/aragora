@@ -543,10 +543,7 @@ def get_connector_metrics() -> dict:
                     metrics[metric.name] = {
                         "help": metric.documentation,
                         "type": metric.type,
-                        "samples": [
-                            {"labels": dict(s.labels), "value": s.value}
-                            for s in samples
-                        ],
+                        "samples": [{"labels": dict(s.labels), "value": s.value} for s in samples],
                     }
 
         return metrics

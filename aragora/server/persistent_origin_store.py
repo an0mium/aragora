@@ -544,7 +544,7 @@ class PersistentOriginStore:
                    metadata_json, thread_id, message_id,
                    result_sent, EXTRACT(EPOCH FROM result_sent_at)
             FROM routing_origins
-            WHERE {' AND '.join(conditions)}
+            WHERE {" AND ".join(conditions)}
             ORDER BY created_at DESC
             LIMIT ${len(params)}
         """
@@ -675,7 +675,7 @@ class PersistentOriginStore:
 
         query = f"""
             SELECT * FROM routing_origins
-            WHERE {' AND '.join(conditions)}
+            WHERE {" AND ".join(conditions)}
             ORDER BY created_at DESC
             LIMIT ?
         """

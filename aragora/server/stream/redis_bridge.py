@@ -107,9 +107,7 @@ class RedisBroadcastBridge:
             self._running = True
             self._listener_task = asyncio.create_task(self._listen_loop())
 
-            logger.info(
-                f"Redis broadcast bridge connected (instance={self._instance_id})"
-            )
+            logger.info(f"Redis broadcast bridge connected (instance={self._instance_id})")
             return True
 
         except Exception as e:
@@ -198,16 +196,12 @@ class RedisBroadcastBridge:
         payload = data.get("payload", {})
         channel = message["channel"]
 
-        logger.debug(
-            f"Received cross-instance event: {event_type} from {data.get('instance_id')}"
-        )
+        logger.debug(f"Received cross-instance event: {event_type} from {data.get('instance_id')}")
 
         # Relay to local broadcaster
         await self._relay_to_local(channel, event_type, payload)
 
-    async def _relay_to_local(
-        self, channel: str, event_type: str, payload: dict
-    ) -> None:
+    async def _relay_to_local(self, channel: str, event_type: str, payload: dict) -> None:
         """Relay a remote event to local WebSocket clients.
 
         Args:
@@ -239,9 +233,7 @@ class RedisBroadcastBridge:
                     {"type": event_type, **payload},
                 )
 
-    async def publish_debate_event(
-        self, debate_id: str, event_type: str, payload: dict
-    ) -> None:
+    async def publish_debate_event(self, debate_id: str, event_type: str, payload: dict) -> None:
         """Publish a debate event to all instances.
 
         Args:
@@ -255,9 +247,7 @@ class RedisBroadcastBridge:
             {"debate_id": debate_id, **payload},
         )
 
-    async def publish_loop_event(
-        self, loop_id: str, event_type: str, payload: dict
-    ) -> None:
+    async def publish_loop_event(self, loop_id: str, event_type: str, payload: dict) -> None:
         """Publish a loop event to all instances.
 
         Args:
@@ -313,8 +303,7 @@ class RedisBroadcastBridge:
         result = {
             "connected": self._connected,
             "instance_id": self._instance_id,
-            "listener_running": self._listener_task is not None
-            and not self._listener_task.done(),
+            "listener_running": self._listener_task is not None and not self._listener_task.done(),
         }
 
         if self._connected and self._redis:

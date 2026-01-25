@@ -395,9 +395,9 @@ class CrossWorkspaceCoordinator:
             mode=FederationMode.ISOLATED,
         )
         self._workspace_policies: Dict[str, FederationPolicy] = {}  # workspace_id -> policy
-        self._pair_policies: Dict[Tuple[str, str], FederationPolicy] = (
-            {}
-        )  # (source, target) -> policy
+        self._pair_policies: Dict[
+            Tuple[str, str], FederationPolicy
+        ] = {}  # (source, target) -> policy
 
         # Consents
         self._consents: Dict[str, DataSharingConsent] = {}  # consent_id -> consent

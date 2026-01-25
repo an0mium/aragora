@@ -225,6 +225,7 @@ class UnifiedAuditLogger:
         if self._compliance_logger is None and self._enable_compliance:
             try:
                 from aragora.audit.log import get_audit_log
+
                 self._compliance_logger = get_audit_log()
             except ImportError:
                 logger.debug("Compliance audit logger not available")
@@ -235,6 +236,7 @@ class UnifiedAuditLogger:
         if self._privacy_logger is None and self._enable_privacy:
             try:
                 from aragora.privacy.audit_log import get_privacy_audit_log
+
                 self._privacy_logger = get_privacy_audit_log()
             except ImportError:
                 logger.debug("Privacy audit logger not available")
@@ -245,6 +247,7 @@ class UnifiedAuditLogger:
         if self._rbac_auditor is None and self._enable_rbac:
             try:
                 from aragora.rbac.audit import get_auditor
+
                 self._rbac_auditor = get_auditor()
             except ImportError:
                 logger.debug("RBAC auditor not available")
@@ -255,6 +258,7 @@ class UnifiedAuditLogger:
         if self._immutable_logger is None and self._enable_immutable:
             try:
                 from aragora.observability.immutable_log import get_audit_log
+
                 self._immutable_logger = get_audit_log()
             except ImportError:
                 logger.debug("Immutable audit logger not available")
@@ -265,6 +269,7 @@ class UnifiedAuditLogger:
         if self._middleware_logger is None and self._enable_middleware:
             try:
                 from aragora.server.middleware.audit_logger import get_audit_logger
+
                 self._middleware_logger = get_audit_logger()
             except ImportError:
                 logger.debug("Middleware audit logger not available")
@@ -460,23 +465,29 @@ class UnifiedAuditLogger:
         **kwargs,
     ) -> None:
         """Log a login attempt."""
-        self.log(UnifiedAuditEvent(
-            category=UnifiedAuditCategory.AUTH_LOGIN if success else UnifiedAuditCategory.AUTH_FAILED,
-            action=f"User login via {method}",
-            outcome=AuditOutcome.SUCCESS if success else AuditOutcome.FAILURE,
-            actor_id=user_id,
-            ip_address=ip_address,
-            details={"method": method, **kwargs},
-        ))
+        self.log(
+            UnifiedAuditEvent(
+                category=UnifiedAuditCategory.AUTH_LOGIN
+                if success
+                else UnifiedAuditCategory.AUTH_FAILED,
+                action=f"User login via {method}",
+                outcome=AuditOutcome.SUCCESS if success else AuditOutcome.FAILURE,
+                actor_id=user_id,
+                ip_address=ip_address,
+                details={"method": method, **kwargs},
+            )
+        )
 
     def log_auth_logout(self, user_id: str, **kwargs) -> None:
         """Log a logout."""
-        self.log(UnifiedAuditEvent(
-            category=UnifiedAuditCategory.AUTH_LOGOUT,
-            action="User logout",
-            actor_id=user_id,
-            details=kwargs,
-        ))
+        self.log(
+            UnifiedAuditEvent(
+                category=UnifiedAuditCategory.AUTH_LOGOUT,
+                action="User logout",
+                actor_id=user_id,
+                details=kwargs,
+            )
+        )
 
     def log_access_check(
         self,
@@ -489,16 +500,20 @@ class UnifiedAuditLogger:
         **kwargs,
     ) -> None:
         """Log an access control check."""
-        self.log(UnifiedAuditEvent(
-            category=UnifiedAuditCategory.ACCESS_GRANTED if granted else UnifiedAuditCategory.ACCESS_DENIED,
-            action=f"Permission check: {permission}",
-            outcome=AuditOutcome.SUCCESS if granted else AuditOutcome.DENIED,
-            actor_id=user_id,
-            resource_type=resource_type,
-            resource_id=resource_id,
-            reason=reason,
-            details={"permission": permission, **kwargs},
-        ))
+        self.log(
+            UnifiedAuditEvent(
+                category=UnifiedAuditCategory.ACCESS_GRANTED
+                if granted
+                else UnifiedAuditCategory.ACCESS_DENIED,
+                action=f"Permission check: {permission}",
+                outcome=AuditOutcome.SUCCESS if granted else AuditOutcome.DENIED,
+                actor_id=user_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                reason=reason,
+                details={"permission": permission, **kwargs},
+            )
+        )
 
     def log_data_access(
         self,
@@ -516,14 +531,16 @@ class UnifiedAuditLogger:
             "delete": UnifiedAuditCategory.DATA_DELETED,
             "export": UnifiedAuditCategory.DATA_EXPORTED,
         }
-        self.log(UnifiedAuditEvent(
-            category=category_map.get(action, UnifiedAuditCategory.DATA_READ),
-            action=f"Data {action}: {resource_type}",
-            actor_id=user_id,
-            resource_type=resource_type,
-            resource_id=resource_id,
-            details=kwargs,
-        ))
+        self.log(
+            UnifiedAuditEvent(
+                category=category_map.get(action, UnifiedAuditCategory.DATA_READ),
+                action=f"Data {action}: {resource_type}",
+                actor_id=user_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                details=kwargs,
+            )
+        )
 
     def log_admin_action(
         self,
@@ -534,15 +551,17 @@ class UnifiedAuditLogger:
         **kwargs,
     ) -> None:
         """Log an administrative action."""
-        self.log(UnifiedAuditEvent(
-            category=UnifiedAuditCategory.ADMIN_CONFIG_CHANGED,
-            action=f"Admin action: {action}",
-            severity=AuditSeverity.WARNING,
-            actor_id=admin_id,
-            resource_type=target_type,
-            resource_id=target_id,
-            details={"action": action, **kwargs},
-        ))
+        self.log(
+            UnifiedAuditEvent(
+                category=UnifiedAuditCategory.ADMIN_CONFIG_CHANGED,
+                action=f"Admin action: {action}",
+                severity=AuditSeverity.WARNING,
+                actor_id=admin_id,
+                resource_type=target_type,
+                resource_id=target_id,
+                details={"action": action, **kwargs},
+            )
+        )
 
     def log_security_event(
         self,
@@ -558,13 +577,15 @@ class UnifiedAuditLogger:
             "key_rotation": UnifiedAuditCategory.SECURITY_KEY_ROTATION,
             "anomaly": UnifiedAuditCategory.SECURITY_ANOMALY,
         }
-        self.log(UnifiedAuditEvent(
-            category=category_map.get(event_type, UnifiedAuditCategory.SECURITY_ANOMALY),
-            action=f"Security event: {event_type}",
-            severity=severity,
-            actor_id=actor_id,
-            details={"event_type": event_type, **kwargs},
-        ))
+        self.log(
+            UnifiedAuditEvent(
+                category=category_map.get(event_type, UnifiedAuditCategory.SECURITY_ANOMALY),
+                action=f"Security event: {event_type}",
+                severity=severity,
+                actor_id=actor_id,
+                details={"event_type": event_type, **kwargs},
+            )
+        )
 
     def log_debate_event(
         self,
@@ -578,14 +599,16 @@ class UnifiedAuditLogger:
             "started": UnifiedAuditCategory.DEBATE_STARTED,
             "completed": UnifiedAuditCategory.DEBATE_COMPLETED,
         }
-        self.log(UnifiedAuditEvent(
-            category=category_map.get(action, UnifiedAuditCategory.DEBATE_STARTED),
-            action=f"Debate {action}",
-            actor_id=user_id,
-            resource_type="debate",
-            resource_id=debate_id,
-            details={"action": action, **kwargs},
-        ))
+        self.log(
+            UnifiedAuditEvent(
+                category=category_map.get(action, UnifiedAuditCategory.DEBATE_STARTED),
+                action=f"Debate {action}",
+                actor_id=user_id,
+                resource_type="debate",
+                resource_id=debate_id,
+                details={"action": action, **kwargs},
+            )
+        )
 
 
 # Global instance
@@ -641,7 +664,9 @@ def audit_data(
     **kwargs,
 ) -> None:
     """Log a data access event."""
-    get_unified_audit_logger().log_data_access(user_id, resource_type, resource_id, action, **kwargs)
+    get_unified_audit_logger().log_data_access(
+        user_id, resource_type, resource_id, action, **kwargs
+    )
 
 
 def audit_admin(admin_id: str, action: str, **kwargs) -> None:

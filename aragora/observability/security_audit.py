@@ -352,9 +352,7 @@ async def audit_role_change(
         The created audit entry
     """
     event_type = (
-        SECURITY_EVENTS["role_assigned"]
-        if action == "assign"
-        else SECURITY_EVENTS["role_revoked"]
+        SECURITY_EVENTS["role_assigned"] if action == "assign" else SECURITY_EVENTS["role_revoked"]
     )
 
     return await get_audit_log().append(
@@ -853,9 +851,7 @@ async def get_security_events(
     """
     # Convert friendly event names to full event types
     if event_types:
-        event_types = [
-            SECURITY_EVENTS.get(et, et) for et in event_types
-        ]
+        event_types = [SECURITY_EVENTS.get(et, et) for et in event_types]
     else:
         # Default to all security events
         event_types = list(SECURITY_EVENTS.values())
@@ -871,10 +867,7 @@ async def get_security_events(
 
     # Filter by severity if specified
     if severity:
-        entries = [
-            e for e in entries
-            if e.details.get("severity") == severity
-        ]
+        entries = [e for e in entries if e.details.get("severity") == severity]
 
     return entries
 
@@ -942,9 +935,6 @@ async def get_security_incidents(
     )
 
     if severity:
-        entries = [
-            e for e in entries
-            if e.details.get("severity") == severity
-        ]
+        entries = [e for e in entries if e.details.get("severity") == severity]
 
     return entries
