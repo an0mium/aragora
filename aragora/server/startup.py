@@ -89,6 +89,47 @@ def check_connector_dependencies() -> list[str]:
             "ARAGORA_WEBHOOK_ALLOW_UNVERIFIED=1 is set (not recommended for production)."
         )
 
+    # Slack OAuth configuration validation
+    slack_oauth_configured = os.environ.get("SLACK_CLIENT_ID") or os.environ.get(
+        "SLACK_CLIENT_SECRET"
+    )
+    if slack_oauth_configured:
+        slack_oauth_issues = []
+
+        if not os.environ.get("SLACK_CLIENT_ID"):
+            slack_oauth_issues.append("SLACK_CLIENT_ID")
+        if not os.environ.get("SLACK_CLIENT_SECRET"):
+            slack_oauth_issues.append("SLACK_CLIENT_SECRET")
+
+        if slack_oauth_issues:
+            warnings.append(
+                f"Slack OAuth partially configured - missing: {', '.join(slack_oauth_issues)}. "
+                "OAuth installation flow will fail without both variables set."
+            )
+
+        # Validate SLACK_REDIRECT_URI in production
+        is_production = os.environ.get("ARAGORA_ENV", "development") == "production"
+        redirect_uri = os.environ.get("SLACK_REDIRECT_URI", "")
+
+        if is_production and not redirect_uri:
+            warnings.append(
+                "SLACK_REDIRECT_URI not set in production. "
+                "Slack OAuth flow may fail or redirect to unexpected URLs."
+            )
+        elif redirect_uri and not redirect_uri.startswith("https://"):
+            if is_production:
+                warnings.append(
+                    "SLACK_REDIRECT_URI must use HTTPS in production. "
+                    f"Current value: {redirect_uri}"
+                )
+
+        # Encryption key is recommended for token storage
+        if not os.environ.get("ARAGORA_ENCRYPTION_KEY") and is_production:
+            warnings.append(
+                "ARAGORA_ENCRYPTION_KEY not set - Slack OAuth tokens will be stored "
+                "UNENCRYPTED. This is a security risk in production."
+            )
+
     return warnings
 
 

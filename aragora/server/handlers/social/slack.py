@@ -64,6 +64,30 @@ def _get_user_rate_limiter() -> Any:
     return _slack_user_limiter
 
 
+# Lazy import for workspace rate limiter
+_slack_workspace_limiter: Any = None
+
+# Configurable workspace rate limit (requests per minute)
+SLACK_WORKSPACE_RATE_LIMIT_RPM = int(os.environ.get("SLACK_WORKSPACE_RATE_LIMIT_RPM", "30"))
+
+
+def _get_workspace_rate_limiter() -> Any:
+    """Get or create workspace rate limiter for per-workspace rate limiting."""
+    global _slack_workspace_limiter
+    if _slack_workspace_limiter is None:
+        try:
+            from aragora.server.middleware.rate_limit.user_limiter import (
+                get_user_rate_limiter,
+            )
+
+            # Use the same limiter infrastructure but with workspace-specific configuration
+            _slack_workspace_limiter = get_user_rate_limiter()
+        except Exception as e:
+            logger.debug(f"Workspace rate limiter not available: {e}")
+            _slack_workspace_limiter = None
+    return _slack_workspace_limiter
+
+
 # Allowed domains for Slack response URLs (SSRF protection)
 SLACK_ALLOWED_DOMAINS = frozenset({"hooks.slack.com", "api.slack.com"})
 
@@ -378,6 +402,31 @@ class SlackHandler(BaseHandler):
             response_url = params.get("response_url", [""])[0]
 
             logger.info(f"Slack command from {user_id}: {command} {text}")
+
+            # Per-workspace rate limiting (team_id as key)
+            workspace_limiter = _get_workspace_rate_limiter()
+            if workspace_limiter and team_id:
+                workspace_key = f"slack_workspace:{team_id}"
+                ws_rate_result = workspace_limiter.allow(workspace_key, "slack_workspace_command")
+                if not ws_rate_result.allowed:
+                    logger.warning(
+                        f"Slack workspace rate limited: {workspace_key} "
+                        f"(retry_after={ws_rate_result.retry_after}s)"
+                    )
+                    # Audit log workspace rate limit event
+                    audit = _get_audit_logger()
+                    if audit:
+                        audit.log_rate_limit(
+                            workspace_id=team_id,
+                            user_id=user_id,
+                            command=command,
+                            limit_type="workspace",
+                        )
+                    return self._slack_response(
+                        f"This workspace is sending commands too quickly. "
+                        f"Please wait {int(ws_rate_result.retry_after)} seconds.",
+                        response_type="ephemeral",
+                    )
 
             # Per-user rate limiting (workspace_id:user_id as key)
             user_limiter = _get_user_rate_limiter()

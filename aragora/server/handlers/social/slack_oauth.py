@@ -298,27 +298,92 @@ class SlackOAuthHandler(BaseHandler):
         if not SLACK_CLIENT_ID or not SLACK_CLIENT_SECRET:
             return error_response("Slack OAuth not configured", 503)
 
-        # Exchange code for access token
+        # Exchange code for access token with retry logic
+        request_id = secrets.token_hex(8)
+        max_retries = 3
+        retry_delay = 1.0  # seconds
+
         try:
+            import asyncio
+
             import httpx
 
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    SLACK_OAUTH_TOKEN_URL,
-                    data={
-                        "client_id": SLACK_CLIENT_ID,
-                        "client_secret": SLACK_CLIENT_SECRET,
-                        "code": code,
-                        "redirect_uri": SLACK_REDIRECT_URI,
-                    },
+            data = None
+            last_error = None
+
+            for attempt in range(max_retries):
+                try:
+                    async with httpx.AsyncClient(timeout=30.0) as client:
+                        response = await client.post(
+                            SLACK_OAUTH_TOKEN_URL,
+                            data={
+                                "client_id": SLACK_CLIENT_ID,
+                                "client_secret": SLACK_CLIENT_SECRET,
+                                "code": code,
+                                "redirect_uri": SLACK_REDIRECT_URI,
+                            },
+                        )
+
+                        # Check for retryable status codes (safely handle mocked responses)
+                        status_code = getattr(response, "status_code", 200)
+                        if isinstance(status_code, int):
+                            if status_code == 429:
+                                # Rate limited - wait and retry
+                                retry_after = int(
+                                    response.headers.get("Retry-After", retry_delay * 2)
+                                )
+                                logger.warning(
+                                    f"[{request_id}] Slack OAuth rate limited, "
+                                    f"retrying in {retry_after}s (attempt {attempt + 1}/{max_retries})"
+                                )
+                                if attempt < max_retries - 1:
+                                    await asyncio.sleep(retry_after)
+                                    continue
+
+                            if status_code >= 500:
+                                # Server error - retry with backoff
+                                logger.warning(
+                                    f"[{request_id}] Slack OAuth server error {status_code}, "
+                                    f"retrying (attempt {attempt + 1}/{max_retries})"
+                                )
+                                if attempt < max_retries - 1:
+                                    await asyncio.sleep(retry_delay * (2**attempt))
+                                    continue
+
+                        response.raise_for_status()
+                        data = response.json()
+                        break  # Success
+
+                except httpx.TimeoutException as e:
+                    last_error = e
+                    logger.warning(
+                        f"[{request_id}] Slack OAuth timeout, "
+                        f"retrying (attempt {attempt + 1}/{max_retries})"
+                    )
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(retry_delay * (2**attempt))
+                        continue
+
+                except httpx.ConnectError as e:
+                    last_error = e
+                    logger.warning(
+                        f"[{request_id}] Slack OAuth connection error, "
+                        f"retrying (attempt {attempt + 1}/{max_retries})"
+                    )
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(retry_delay * (2**attempt))
+                        continue
+
+            if data is None:
+                logger.error(
+                    f"[{request_id}] Slack token exchange failed after {max_retries} attempts: {last_error}"
                 )
-                response.raise_for_status()
-                data = response.json()
+                return error_response(f"Token exchange failed after retries: {last_error}", 500)
 
         except ImportError:
             return error_response("httpx not available", 503)
         except Exception as e:
-            logger.error(f"Slack token exchange failed: {e}")
+            logger.error(f"[{request_id}] Slack token exchange failed: {e}")
             return error_response(f"Token exchange failed: {e}", 500)
 
         if not data.get("ok"):
