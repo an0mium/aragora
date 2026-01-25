@@ -1246,6 +1246,1387 @@ class AragoraClient:
         """Get tournament standings."""
         return await self._request("GET", f"/api/tournaments/{tournament_id}/standings")
 
+    # =========================================================================
+    # Authentication
+    # =========================================================================
+
+    async def register_user(
+        self,
+        email: str,
+        password: str,
+        name: Optional[str] = None,
+        organization: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Register a new user account.
+
+        Args:
+            email: User's email address
+            password: User's password
+            name: Optional display name
+            organization: Optional organization name
+        """
+        body: Dict[str, Any] = {"email": email, "password": password}
+        if name:
+            body["name"] = name
+        if organization:
+            body["organization"] = organization
+        return await self._request("POST", "/api/v1/auth/register", json=body)
+
+    async def login(
+        self,
+        email: str,
+        password: str,
+        mfa_code: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Login to get access token.
+
+        Args:
+            email: User's email address
+            password: User's password
+            mfa_code: Optional MFA code if MFA is enabled
+        """
+        body: Dict[str, Any] = {"email": email, "password": password}
+        if mfa_code:
+            body["mfa_code"] = mfa_code
+        return await self._request("POST", "/api/v1/auth/login", json=body)
+
+    async def refresh_token(self, refresh_token: str) -> Dict[str, Any]:
+        """Refresh access token using refresh token.
+
+        Args:
+            refresh_token: The refresh token
+        """
+        return await self._request(
+            "POST", "/api/v1/auth/refresh", json={"refresh_token": refresh_token}
+        )
+
+    async def logout(self) -> None:
+        """Logout and invalidate current token."""
+        await self._request("POST", "/api/v1/auth/logout", json={})
+
+    async def logout_all(self) -> Dict[str, Any]:
+        """Logout from all sessions."""
+        return await self._request("POST", "/api/v1/auth/logout-all", json={})
+
+    async def verify_email(self, token: str) -> Dict[str, Any]:
+        """Verify email address with token.
+
+        Args:
+            token: Email verification token
+        """
+        return await self._request("POST", "/api/v1/auth/verify-email", json={"token": token})
+
+    async def resend_verification(self, email: str) -> Dict[str, Any]:
+        """Resend email verification.
+
+        Args:
+            email: Email address to resend verification to
+        """
+        return await self._request(
+            "POST", "/api/v1/auth/resend-verification", json={"email": email}
+        )
+
+    async def get_current_user(self) -> Dict[str, Any]:
+        """Get current authenticated user profile."""
+        return await self._request("GET", "/api/v1/auth/me")
+
+    async def update_profile(
+        self,
+        name: Optional[str] = None,
+        organization: Optional[str] = None,
+        avatar_url: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Update current user's profile.
+
+        Args:
+            name: New display name
+            organization: New organization name
+            avatar_url: New avatar URL
+            metadata: Additional metadata
+        """
+        body: Dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if organization is not None:
+            body["organization"] = organization
+        if avatar_url is not None:
+            body["avatar_url"] = avatar_url
+        if metadata is not None:
+            body["metadata"] = metadata
+        return await self._request("PATCH", "/api/v1/auth/profile", json=body)
+
+    async def change_password(self, current_password: str, new_password: str) -> None:
+        """Change user's password.
+
+        Args:
+            current_password: Current password
+            new_password: New password
+        """
+        await self._request(
+            "POST",
+            "/api/v1/auth/change-password",
+            json={"current_password": current_password, "new_password": new_password},
+        )
+
+    async def request_password_reset(self, email: str) -> None:
+        """Request password reset email.
+
+        Args:
+            email: Email address for password reset
+        """
+        await self._request("POST", "/api/v1/auth/forgot-password", json={"email": email})
+
+    async def reset_password(self, token: str, new_password: str) -> None:
+        """Reset password using reset token.
+
+        Args:
+            token: Password reset token
+            new_password: New password
+        """
+        await self._request(
+            "POST",
+            "/api/v1/auth/reset-password",
+            json={"token": token, "new_password": new_password},
+        )
+
+    # =========================================================================
+    # MFA (Multi-Factor Authentication)
+    # =========================================================================
+
+    async def setup_mfa(
+        self, mfa_type: str = "totp", phone_number: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Setup MFA for the account.
+
+        Args:
+            mfa_type: Type of MFA ('totp', 'sms', 'email')
+            phone_number: Phone number for SMS-based MFA
+        """
+        body: Dict[str, Any] = {"type": mfa_type}
+        if phone_number:
+            body["phone_number"] = phone_number
+        return await self._request("POST", "/api/v1/auth/mfa/setup", json=body)
+
+    async def verify_mfa_setup(self, code: str, mfa_type: str = "totp") -> Dict[str, Any]:
+        """Verify MFA setup with code.
+
+        Args:
+            code: Verification code from authenticator or SMS
+            mfa_type: Type of MFA being verified
+        """
+        return await self._request(
+            "POST",
+            "/api/v1/auth/mfa/verify-setup",
+            json={"code": code, "type": mfa_type},
+        )
+
+    async def enable_mfa(self, code: str) -> Dict[str, Any]:
+        """Enable MFA after verification.
+
+        Args:
+            code: Final verification code
+        """
+        return await self._request("POST", "/api/v1/auth/mfa/enable", json={"code": code})
+
+    async def disable_mfa(self) -> None:
+        """Disable MFA for the account."""
+        await self._request("POST", "/api/v1/auth/mfa/disable", json={})
+
+    async def generate_backup_codes(self) -> Dict[str, Any]:
+        """Generate new backup codes for MFA."""
+        return await self._request("POST", "/api/v1/auth/mfa/backup-codes", json={})
+
+    # =========================================================================
+    # Session Management
+    # =========================================================================
+
+    async def list_sessions(self) -> Dict[str, Any]:
+        """List all active sessions."""
+        return await self._request("GET", "/api/v1/auth/sessions")
+
+    async def revoke_session(self, session_id: str) -> Dict[str, Any]:
+        """Revoke a specific session.
+
+        Args:
+            session_id: ID of session to revoke
+        """
+        return await self._request("DELETE", f"/api/v1/auth/sessions/{session_id}")
+
+    # =========================================================================
+    # API Key Management
+    # =========================================================================
+
+    async def list_api_keys(self) -> Dict[str, Any]:
+        """List all API keys for the account."""
+        return await self._request("GET", "/api/v1/auth/api-keys")
+
+    async def create_api_key(
+        self,
+        name: str,
+        expires_in: Optional[int] = None,
+        scopes: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Create a new API key.
+
+        Args:
+            name: Name/description for the API key
+            expires_in: Expiration time in seconds (None for no expiration)
+            scopes: Optional list of permission scopes
+        """
+        body: Dict[str, Any] = {"name": name}
+        if expires_in is not None:
+            body["expires_in"] = expires_in
+        if scopes is not None:
+            body["scopes"] = scopes
+        return await self._request("POST", "/api/v1/auth/api-keys", json=body)
+
+    async def revoke_api_key(self, key_id: str) -> Dict[str, Any]:
+        """Revoke an API key.
+
+        Args:
+            key_id: ID of the API key to revoke
+        """
+        return await self._request("DELETE", f"/api/v1/auth/api-keys/{key_id}")
+
+    # =========================================================================
+    # OAuth & SSO
+    # =========================================================================
+
+    async def get_oauth_url(
+        self,
+        provider: str,
+        redirect_uri: Optional[str] = None,
+        state: Optional[str] = None,
+        scope: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get OAuth authorization URL.
+
+        Args:
+            provider: OAuth provider ('google', 'github', 'microsoft')
+            redirect_uri: Custom redirect URI
+            state: Custom state parameter
+            scope: OAuth scope
+        """
+        params: Dict[str, Any] = {"provider": provider}
+        if redirect_uri:
+            params["redirect_uri"] = redirect_uri
+        if state:
+            params["state"] = state
+        if scope:
+            params["scope"] = scope
+        return await self._request("GET", "/api/v1/auth/oauth/authorize", params=params)
+
+    async def complete_oauth(self, code: str, state: str, provider: str) -> Dict[str, Any]:
+        """Complete OAuth flow with authorization code.
+
+        Args:
+            code: Authorization code from OAuth provider
+            state: State parameter for verification
+            provider: OAuth provider name
+        """
+        return await self._request(
+            "POST",
+            "/api/v1/auth/oauth/callback",
+            json={"code": code, "state": state, "provider": provider},
+        )
+
+    async def list_oauth_providers(self) -> Dict[str, Any]:
+        """List available OAuth providers."""
+        return await self._request("GET", "/api/v1/auth/oauth/providers")
+
+    async def link_oauth_provider(self, provider: str, code: str) -> Dict[str, Any]:
+        """Link an OAuth provider to existing account.
+
+        Args:
+            provider: OAuth provider name
+            code: Authorization code
+        """
+        return await self._request(
+            "POST",
+            "/api/v1/auth/oauth/link",
+            json={"provider": provider, "code": code},
+        )
+
+    async def unlink_oauth_provider(self, provider: str) -> Dict[str, Any]:
+        """Unlink an OAuth provider from account.
+
+        Args:
+            provider: OAuth provider to unlink
+        """
+        return await self._request("DELETE", f"/api/v1/auth/oauth/providers/{provider}")
+
+    async def initiate_sso_login(
+        self, domain: Optional[str] = None, redirect_url: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Initiate SSO login.
+
+        Args:
+            domain: Organization domain for SSO
+            redirect_url: URL to redirect after SSO
+        """
+        params: Dict[str, Any] = {}
+        if domain:
+            params["domain"] = domain
+        if redirect_url:
+            params["redirect_url"] = redirect_url
+        return await self._request("GET", "/api/v1/auth/sso/initiate", params=params)
+
+    async def list_sso_providers(self) -> Dict[str, Any]:
+        """List configured SSO providers for organization."""
+        return await self._request("GET", "/api/v1/auth/sso/providers")
+
+    # =========================================================================
+    # Invitations
+    # =========================================================================
+
+    async def invite_team_member(
+        self,
+        email: str,
+        organization_id: str,
+        role: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Invite a new team member.
+
+        Args:
+            email: Email address to invite
+            organization_id: Organization to invite to
+            role: Role to assign to invitee
+        """
+        body: Dict[str, Any] = {"email": email, "organization_id": organization_id}
+        if role:
+            body["role"] = role
+        return await self._request("POST", "/api/v1/invitations", json=body)
+
+    async def check_invite(self, token: str) -> Dict[str, Any]:
+        """Check if invitation token is valid.
+
+        Args:
+            token: Invitation token
+        """
+        return await self._request("GET", f"/api/v1/invitations/{token}")
+
+    async def accept_invite(self, token: str) -> Dict[str, Any]:
+        """Accept an invitation.
+
+        Args:
+            token: Invitation token
+        """
+        return await self._request("POST", f"/api/v1/invitations/{token}/accept", json={})
+
+    # =========================================================================
+    # Tenancy
+    # =========================================================================
+
+    async def list_tenants(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+        """List tenants/organizations.
+
+        Args:
+            limit: Maximum number of results
+            offset: Pagination offset
+        """
+        return await self._request(
+            "GET", "/api/v1/tenants", params={"limit": limit, "offset": offset}
+        )
+
+    async def get_tenant(self, tenant_id: str) -> Dict[str, Any]:
+        """Get tenant details.
+
+        Args:
+            tenant_id: Tenant ID
+        """
+        return await self._request("GET", f"/api/v1/tenants/{tenant_id}")
+
+    async def create_tenant(
+        self,
+        name: str,
+        slug: Optional[str] = None,
+        description: Optional[str] = None,
+        plan: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a new tenant/organization.
+
+        Args:
+            name: Tenant name
+            slug: URL-friendly slug
+            description: Tenant description
+            plan: Subscription plan
+        """
+        body: Dict[str, Any] = {"name": name}
+        if slug:
+            body["slug"] = slug
+        if description:
+            body["description"] = description
+        if plan:
+            body["plan"] = plan
+        return await self._request("POST", "/api/v1/tenants", json=body)
+
+    async def update_tenant(
+        self,
+        tenant_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        plan: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update tenant settings.
+
+        Args:
+            tenant_id: Tenant ID
+            name: New name
+            description: New description
+            plan: New plan
+            status: New status
+        """
+        body: Dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if description is not None:
+            body["description"] = description
+        if plan is not None:
+            body["plan"] = plan
+        if status is not None:
+            body["status"] = status
+        return await self._request("PATCH", f"/api/v1/tenants/{tenant_id}", json=body)
+
+    async def delete_tenant(self, tenant_id: str) -> None:
+        """Delete a tenant.
+
+        Args:
+            tenant_id: Tenant ID to delete
+        """
+        await self._request("DELETE", f"/api/v1/tenants/{tenant_id}")
+
+    async def get_tenant_quotas(self, tenant_id: str) -> Dict[str, Any]:
+        """Get tenant resource quotas.
+
+        Args:
+            tenant_id: Tenant ID
+        """
+        return await self._request("GET", f"/api/v1/tenants/{tenant_id}/quotas")
+
+    async def update_tenant_quotas(self, tenant_id: str, **quotas: Any) -> Dict[str, Any]:
+        """Update tenant quotas.
+
+        Args:
+            tenant_id: Tenant ID
+            **quotas: Quota settings to update
+        """
+        return await self._request("PATCH", f"/api/v1/tenants/{tenant_id}/quotas", json=quotas)
+
+    async def list_tenant_members(
+        self, tenant_id: str, limit: int = 50, offset: int = 0
+    ) -> Dict[str, Any]:
+        """List tenant members.
+
+        Args:
+            tenant_id: Tenant ID
+            limit: Maximum results
+            offset: Pagination offset
+        """
+        return await self._request(
+            "GET",
+            f"/api/v1/tenants/{tenant_id}/members",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def add_tenant_member(
+        self,
+        tenant_id: str,
+        email: str,
+        role: str,
+        send_invitation: bool = True,
+    ) -> Dict[str, Any]:
+        """Add a member to tenant.
+
+        Args:
+            tenant_id: Tenant ID
+            email: Member's email
+            role: Role to assign
+            send_invitation: Whether to send invitation email
+        """
+        return await self._request(
+            "POST",
+            f"/api/v1/tenants/{tenant_id}/members",
+            json={"email": email, "role": role, "send_invitation": send_invitation},
+        )
+
+    async def remove_tenant_member(self, tenant_id: str, user_id: str) -> None:
+        """Remove a member from tenant.
+
+        Args:
+            tenant_id: Tenant ID
+            user_id: User ID to remove
+        """
+        await self._request("DELETE", f"/api/v1/tenants/{tenant_id}/members/{user_id}")
+
+    async def setup_organization(
+        self,
+        name: str,
+        slug: Optional[str] = None,
+        plan: Optional[str] = None,
+        billing_email: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Setup a new organization (onboarding).
+
+        Args:
+            name: Organization name
+            slug: URL-friendly slug
+            plan: Subscription plan
+            billing_email: Billing contact email
+        """
+        body: Dict[str, Any] = {"name": name}
+        if slug:
+            body["slug"] = slug
+        if plan:
+            body["plan"] = plan
+        if billing_email:
+            body["billing_email"] = billing_email
+        return await self._request("POST", "/api/v1/organizations/setup", json=body)
+
+    # =========================================================================
+    # RBAC (Role-Based Access Control)
+    # =========================================================================
+
+    async def list_roles(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+        """List available roles.
+
+        Args:
+            limit: Maximum results
+            offset: Pagination offset
+        """
+        return await self._request(
+            "GET", "/api/v1/rbac/roles", params={"limit": limit, "offset": offset}
+        )
+
+    async def get_role(self, role_id: str) -> Dict[str, Any]:
+        """Get role details.
+
+        Args:
+            role_id: Role ID
+        """
+        return await self._request("GET", f"/api/v1/rbac/roles/{role_id}")
+
+    async def create_role(
+        self,
+        name: str,
+        permissions: List[str],
+        description: Optional[str] = None,
+        inherits_from: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Create a new role.
+
+        Args:
+            name: Role name
+            permissions: List of permission strings
+            description: Role description
+            inherits_from: List of role IDs to inherit from
+        """
+        body: Dict[str, Any] = {"name": name, "permissions": permissions}
+        if description:
+            body["description"] = description
+        if inherits_from:
+            body["inherits_from"] = inherits_from
+        return await self._request("POST", "/api/v1/rbac/roles", json=body)
+
+    async def update_role(
+        self,
+        role_id: str,
+        name: Optional[str] = None,
+        permissions: Optional[List[str]] = None,
+        description: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update a role.
+
+        Args:
+            role_id: Role ID
+            name: New name
+            permissions: New permissions list
+            description: New description
+        """
+        body: Dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if permissions is not None:
+            body["permissions"] = permissions
+        if description is not None:
+            body["description"] = description
+        return await self._request("PATCH", f"/api/v1/rbac/roles/{role_id}", json=body)
+
+    async def delete_role(self, role_id: str) -> None:
+        """Delete a role.
+
+        Args:
+            role_id: Role ID to delete
+        """
+        await self._request("DELETE", f"/api/v1/rbac/roles/{role_id}")
+
+    async def list_permissions(self) -> Dict[str, Any]:
+        """List all available permissions."""
+        return await self._request("GET", "/api/v1/rbac/permissions")
+
+    async def assign_role(
+        self,
+        user_id: str,
+        role_id: str,
+        tenant_id: Optional[str] = None,
+    ) -> None:
+        """Assign a role to a user.
+
+        Args:
+            user_id: User ID
+            role_id: Role ID to assign
+            tenant_id: Optional tenant scope
+        """
+        body: Dict[str, Any] = {"user_id": user_id, "role_id": role_id}
+        if tenant_id:
+            body["tenant_id"] = tenant_id
+        await self._request("POST", "/api/v1/rbac/assignments", json=body)
+
+    async def revoke_role(
+        self,
+        user_id: str,
+        role_id: str,
+        tenant_id: Optional[str] = None,
+    ) -> None:
+        """Revoke a role from a user.
+
+        Args:
+            user_id: User ID
+            role_id: Role ID to revoke
+            tenant_id: Optional tenant scope
+        """
+        params: Dict[str, Any] = {"user_id": user_id, "role_id": role_id}
+        if tenant_id:
+            params["tenant_id"] = tenant_id
+        await self._request("DELETE", "/api/v1/rbac/assignments", params=params)
+
+    async def get_user_roles(self, user_id: str) -> Dict[str, Any]:
+        """Get all roles assigned to a user.
+
+        Args:
+            user_id: User ID
+        """
+        return await self._request("GET", f"/api/v1/rbac/users/{user_id}/roles")
+
+    async def check_permission(
+        self,
+        user_id: str,
+        permission: str,
+        resource: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Check if user has a permission.
+
+        Args:
+            user_id: User ID
+            permission: Permission to check
+            resource: Optional resource context
+        """
+        params: Dict[str, Any] = {"permission": permission}
+        if resource:
+            params["resource"] = resource
+        return await self._request(
+            "GET", f"/api/v1/rbac/users/{user_id}/permissions/check", params=params
+        )
+
+    async def list_role_assignments(
+        self, role_id: str, limit: int = 50, offset: int = 0
+    ) -> Dict[str, Any]:
+        """List users assigned to a role.
+
+        Args:
+            role_id: Role ID
+            limit: Maximum results
+            offset: Pagination offset
+        """
+        return await self._request(
+            "GET",
+            f"/api/v1/rbac/roles/{role_id}/assignments",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def bulk_assign_roles(self, assignments: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Bulk assign roles to users.
+
+        Args:
+            assignments: List of {user_id, role_id, tenant_id?} dicts
+        """
+        return await self._request(
+            "POST", "/api/v1/rbac/assignments/bulk", json={"assignments": assignments}
+        )
+
+    # =========================================================================
+    # Billing
+    # =========================================================================
+
+    async def list_billing_plans(self) -> Dict[str, Any]:
+        """List available billing plans."""
+        return await self._request("GET", "/api/v1/billing/plans")
+
+    async def get_billing_usage(self, period: Optional[str] = None) -> Dict[str, Any]:
+        """Get billing usage for current period.
+
+        Args:
+            period: Time period ('current', 'previous', or YYYY-MM)
+        """
+        params: Dict[str, Any] = {}
+        if period:
+            params["period"] = period
+        return await self._request("GET", "/api/v1/billing/usage", params=params)
+
+    async def get_subscription(self) -> Dict[str, Any]:
+        """Get current subscription details."""
+        return await self._request("GET", "/api/v1/billing/subscription")
+
+    async def create_checkout_session(
+        self, plan_id: str, success_url: str, cancel_url: str
+    ) -> Dict[str, Any]:
+        """Create a checkout session for subscription.
+
+        Args:
+            plan_id: Plan to subscribe to
+            success_url: URL to redirect on success
+            cancel_url: URL to redirect on cancel
+        """
+        return await self._request(
+            "POST",
+            "/api/v1/billing/checkout",
+            json={
+                "plan_id": plan_id,
+                "success_url": success_url,
+                "cancel_url": cancel_url,
+            },
+        )
+
+    async def create_billing_portal_session(
+        self, return_url: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Create a billing portal session.
+
+        Args:
+            return_url: URL to return to after portal
+        """
+        body: Dict[str, Any] = {}
+        if return_url:
+            body["return_url"] = return_url
+        return await self._request("POST", "/api/v1/billing/portal", json=body)
+
+    async def cancel_subscription(self) -> Dict[str, Any]:
+        """Cancel current subscription."""
+        return await self._request("POST", "/api/v1/billing/subscription/cancel", json={})
+
+    async def resume_subscription(self) -> Dict[str, Any]:
+        """Resume a canceled subscription."""
+        return await self._request("POST", "/api/v1/billing/subscription/resume", json={})
+
+    async def get_invoice_history(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+        """Get invoice history.
+
+        Args:
+            limit: Maximum results
+            offset: Pagination offset
+        """
+        return await self._request(
+            "GET", "/api/v1/billing/invoices", params={"limit": limit, "offset": offset}
+        )
+
+    async def get_usage_forecast(self) -> Dict[str, Any]:
+        """Get usage forecast for current period."""
+        return await self._request("GET", "/api/v1/billing/forecast")
+
+    async def export_usage_data(
+        self,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        format: str = "csv",
+    ) -> Dict[str, Any]:
+        """Export usage data.
+
+        Args:
+            start_date: Start date (YYYY-MM-DD)
+            end_date: End date (YYYY-MM-DD)
+            format: Export format ('csv', 'json')
+        """
+        params: Dict[str, Any] = {"format": format}
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+        return await self._request("GET", "/api/v1/billing/export", params=params)
+
+    # =========================================================================
+    # Budgets
+    # =========================================================================
+
+    async def list_budgets(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+        """List budgets.
+
+        Args:
+            limit: Maximum results
+            offset: Pagination offset
+        """
+        return await self._request(
+            "GET", "/api/v1/budgets", params={"limit": limit, "offset": offset}
+        )
+
+    async def create_budget(
+        self,
+        name: str,
+        limit_amount: float,
+        period: str,
+        description: Optional[str] = None,
+        alert_threshold: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Create a new budget.
+
+        Args:
+            name: Budget name
+            limit_amount: Budget limit amount
+            period: Budget period ('daily', 'weekly', 'monthly')
+            description: Budget description
+            alert_threshold: Percentage threshold for alerts (0-1)
+        """
+        body: Dict[str, Any] = {
+            "name": name,
+            "limit_amount": limit_amount,
+            "period": period,
+        }
+        if description:
+            body["description"] = description
+        if alert_threshold is not None:
+            body["alert_threshold"] = alert_threshold
+        return await self._request("POST", "/api/v1/budgets", json=body)
+
+    async def get_budget(self, budget_id: str) -> Dict[str, Any]:
+        """Get budget details.
+
+        Args:
+            budget_id: Budget ID
+        """
+        return await self._request("GET", f"/api/v1/budgets/{budget_id}")
+
+    async def update_budget(
+        self,
+        budget_id: str,
+        name: Optional[str] = None,
+        limit_amount: Optional[float] = None,
+        alert_threshold: Optional[float] = None,
+        status: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update a budget.
+
+        Args:
+            budget_id: Budget ID
+            name: New name
+            limit_amount: New limit
+            alert_threshold: New alert threshold
+            status: New status ('active', 'paused')
+        """
+        body: Dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if limit_amount is not None:
+            body["limit_amount"] = limit_amount
+        if alert_threshold is not None:
+            body["alert_threshold"] = alert_threshold
+        if status is not None:
+            body["status"] = status
+        return await self._request("PATCH", f"/api/v1/budgets/{budget_id}", json=body)
+
+    async def delete_budget(self, budget_id: str) -> Dict[str, Any]:
+        """Delete a budget.
+
+        Args:
+            budget_id: Budget ID to delete
+        """
+        return await self._request("DELETE", f"/api/v1/budgets/{budget_id}")
+
+    async def get_budget_alerts(
+        self, budget_id: str, limit: int = 50, offset: int = 0
+    ) -> Dict[str, Any]:
+        """Get alerts for a budget.
+
+        Args:
+            budget_id: Budget ID
+            limit: Maximum results
+            offset: Pagination offset
+        """
+        return await self._request(
+            "GET",
+            f"/api/v1/budgets/{budget_id}/alerts",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def acknowledge_budget_alert(self, budget_id: str, alert_id: str) -> Dict[str, Any]:
+        """Acknowledge a budget alert.
+
+        Args:
+            budget_id: Budget ID
+            alert_id: Alert ID to acknowledge
+        """
+        return await self._request(
+            "POST", f"/api/v1/budgets/{budget_id}/alerts/{alert_id}/acknowledge", json={}
+        )
+
+    async def check_budget(
+        self,
+        operation: str,
+        estimated_cost: float,
+        user_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Check if an operation is within budget.
+
+        Args:
+            operation: Operation type/name
+            estimated_cost: Estimated cost of operation
+            user_id: Optional user ID for user-specific budget
+        """
+        body: Dict[str, Any] = {
+            "operation": operation,
+            "estimated_cost": estimated_cost,
+        }
+        if user_id:
+            body["user_id"] = user_id
+        return await self._request("POST", "/api/v1/budgets/check", json=body)
+
+    async def get_budget_summary(self) -> Dict[str, Any]:
+        """Get summary of all budgets and current usage."""
+        return await self._request("GET", "/api/v1/budgets/summary")
+
+    async def add_budget_override(
+        self,
+        budget_id: str,
+        user_id: str,
+        limit: float,
+        reason: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Add a budget override for a user.
+
+        Args:
+            budget_id: Budget ID
+            user_id: User ID for override
+            limit: Override limit
+            reason: Reason for override
+        """
+        body: Dict[str, Any] = {"user_id": user_id, "limit": limit}
+        if reason:
+            body["reason"] = reason
+        return await self._request("POST", f"/api/v1/budgets/{budget_id}/overrides", json=body)
+
+    async def remove_budget_override(self, budget_id: str, user_id: str) -> Dict[str, Any]:
+        """Remove a budget override.
+
+        Args:
+            budget_id: Budget ID
+            user_id: User ID whose override to remove
+        """
+        return await self._request("DELETE", f"/api/v1/budgets/{budget_id}/overrides/{user_id}")
+
+    async def reset_budget(self, budget_id: str) -> Dict[str, Any]:
+        """Reset budget usage to zero.
+
+        Args:
+            budget_id: Budget ID to reset
+        """
+        return await self._request("POST", f"/api/v1/budgets/{budget_id}/reset", json={})
+
+    # =========================================================================
+    # Audit
+    # =========================================================================
+
+    async def list_audit_events(
+        self,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        actor_id: Optional[str] = None,
+        resource_type: Optional[str] = None,
+        action: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """List audit events.
+
+        Args:
+            start_date: Filter from date (ISO format)
+            end_date: Filter to date (ISO format)
+            actor_id: Filter by actor
+            resource_type: Filter by resource type
+            action: Filter by action
+            limit: Maximum results
+            offset: Pagination offset
+        """
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+        if actor_id:
+            params["actor_id"] = actor_id
+        if resource_type:
+            params["resource_type"] = resource_type
+        if action:
+            params["action"] = action
+        return await self._request("GET", "/api/v1/audit/events", params=params)
+
+    async def get_audit_stats(self, period: Optional[str] = None) -> Dict[str, Any]:
+        """Get audit statistics.
+
+        Args:
+            period: Time period for stats
+        """
+        params: Dict[str, Any] = {}
+        if period:
+            params["period"] = period
+        return await self._request("GET", "/api/v1/audit/stats", params=params)
+
+    async def export_audit_logs(
+        self,
+        start_date: str,
+        end_date: str,
+        format: str = "json",
+        filters: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        """Export audit logs.
+
+        Args:
+            start_date: Start date (ISO format)
+            end_date: End date (ISO format)
+            format: Export format ('json', 'csv')
+            filters: Additional filters
+        """
+        body: Dict[str, Any] = {
+            "start_date": start_date,
+            "end_date": end_date,
+            "format": format,
+        }
+        if filters:
+            body["filters"] = filters
+        return await self._request("POST", "/api/v1/audit/export", json=body)
+
+    async def verify_audit_integrity(
+        self,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Verify audit log integrity.
+
+        Args:
+            start_date: Start date for verification
+            end_date: End date for verification
+        """
+        params: Dict[str, Any] = {}
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+        return await self._request("GET", "/api/v1/audit/verify", params=params)
+
+    async def list_audit_trails(
+        self,
+        verdict: Optional[str] = None,
+        risk_level: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """List audit trails.
+
+        Args:
+            verdict: Filter by verdict
+            risk_level: Filter by risk level
+            limit: Maximum results
+            offset: Pagination offset
+        """
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        if verdict:
+            params["verdict"] = verdict
+        if risk_level:
+            params["risk_level"] = risk_level
+        return await self._request("GET", "/api/v1/audit/trails", params=params)
+
+    async def get_audit_trail(self, trail_id: str) -> Dict[str, Any]:
+        """Get audit trail details.
+
+        Args:
+            trail_id: Audit trail ID
+        """
+        return await self._request("GET", f"/api/v1/audit/trails/{trail_id}")
+
+    async def verify_audit_trail(self, trail_id: str) -> Dict[str, Any]:
+        """Verify audit trail integrity.
+
+        Args:
+            trail_id: Audit trail ID
+        """
+        return await self._request("POST", f"/api/v1/audit/trails/{trail_id}/verify", json={})
+
+    async def export_audit_trail(self, trail_id: str, format: str = "json") -> Dict[str, Any]:
+        """Export audit trail.
+
+        Args:
+            trail_id: Audit trail ID
+            format: Export format ('json', 'pdf')
+        """
+        return await self._request(
+            "GET", f"/api/v1/audit/trails/{trail_id}/export", params={"format": format}
+        )
+
+    # =========================================================================
+    # Notifications
+    # =========================================================================
+
+    async def get_notification_status(self) -> Dict[str, Any]:
+        """Get notification configuration status."""
+        return await self._request("GET", "/api/v1/notifications/status")
+
+    async def configure_email_notifications(
+        self,
+        provider: str,
+        from_email: str,
+        **config: Any,
+    ) -> Dict[str, Any]:
+        """Configure email notifications.
+
+        Args:
+            provider: Email provider ('sendgrid', 'ses', 'smtp')
+            from_email: From email address
+            **config: Provider-specific configuration
+        """
+        body: Dict[str, Any] = {
+            "provider": provider,
+            "from_email": from_email,
+            **config,
+        }
+        return await self._request("POST", "/api/v1/notifications/email/configure", json=body)
+
+    async def configure_telegram_notifications(
+        self,
+        bot_token: str,
+        chat_id: str,
+        **config: Any,
+    ) -> Dict[str, Any]:
+        """Configure Telegram notifications.
+
+        Args:
+            bot_token: Telegram bot token
+            chat_id: Telegram chat ID
+            **config: Additional configuration
+        """
+        body: Dict[str, Any] = {"bot_token": bot_token, "chat_id": chat_id, **config}
+        return await self._request("POST", "/api/v1/notifications/telegram/configure", json=body)
+
+    async def get_email_recipients(self) -> Dict[str, Any]:
+        """Get list of email notification recipients."""
+        return await self._request("GET", "/api/v1/notifications/email/recipients")
+
+    async def add_email_recipient(
+        self,
+        email: str,
+        name: Optional[str] = None,
+        preferences: Optional[Dict[str, bool]] = None,
+    ) -> Dict[str, Any]:
+        """Add email notification recipient.
+
+        Args:
+            email: Email address
+            name: Recipient name
+            preferences: Notification preferences by type
+        """
+        body: Dict[str, Any] = {"email": email}
+        if name:
+            body["name"] = name
+        if preferences:
+            body["preferences"] = preferences
+        return await self._request("POST", "/api/v1/notifications/email/recipients", json=body)
+
+    async def remove_email_recipient(self, email: str) -> Dict[str, Any]:
+        """Remove email notification recipient.
+
+        Args:
+            email: Email address to remove
+        """
+        return await self._request(
+            "DELETE", "/api/v1/notifications/email/recipients", params={"email": email}
+        )
+
+    async def send_test_notification(self, channel: str) -> Dict[str, Any]:
+        """Send a test notification.
+
+        Args:
+            channel: Channel to test ('email', 'telegram', 'slack')
+        """
+        return await self._request("POST", "/api/v1/notifications/test", json={"channel": channel})
+
+    async def send_notification(
+        self,
+        channel: str,
+        message: str,
+        subject: Optional[str] = None,
+        recipients: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Send a notification.
+
+        Args:
+            channel: Notification channel
+            message: Message content
+            subject: Message subject (for email)
+            recipients: Specific recipients (optional)
+        """
+        body: Dict[str, Any] = {"channel": channel, "message": message}
+        if subject:
+            body["subject"] = subject
+        if recipients:
+            body["recipients"] = recipients
+        return await self._request("POST", "/api/v1/notifications/send", json=body)
+
+    # =========================================================================
+    # Costs
+    # =========================================================================
+
+    async def get_cost_dashboard(self, period: Optional[str] = None) -> Dict[str, Any]:
+        """Get cost dashboard data.
+
+        Args:
+            period: Time period for costs
+        """
+        params: Dict[str, Any] = {}
+        if period:
+            params["period"] = period
+        return await self._request("GET", "/api/v1/costs/dashboard", params=params)
+
+    async def get_cost_breakdown(
+        self,
+        period: Optional[str] = None,
+        group_by: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get cost breakdown.
+
+        Args:
+            period: Time period
+            group_by: Grouping ('agent', 'user', 'operation')
+        """
+        params: Dict[str, Any] = {}
+        if period:
+            params["period"] = period
+        if group_by:
+            params["group_by"] = group_by
+        return await self._request("GET", "/api/v1/costs/breakdown", params=params)
+
+    async def get_cost_timeline(
+        self,
+        period: Optional[str] = None,
+        granularity: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get cost timeline data.
+
+        Args:
+            period: Time period
+            granularity: Data granularity ('hour', 'day', 'week')
+        """
+        params: Dict[str, Any] = {}
+        if period:
+            params["period"] = period
+        if granularity:
+            params["granularity"] = granularity
+        return await self._request("GET", "/api/v1/costs/timeline", params=params)
+
+    async def get_cost_alerts(self) -> Dict[str, Any]:
+        """Get active cost alerts."""
+        return await self._request("GET", "/api/v1/costs/alerts")
+
+    async def set_cost_budget(
+        self,
+        daily_limit: Optional[float] = None,
+        monthly_limit: Optional[float] = None,
+        alert_threshold: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Set cost budget limits.
+
+        Args:
+            daily_limit: Daily cost limit
+            monthly_limit: Monthly cost limit
+            alert_threshold: Alert threshold percentage (0-1)
+        """
+        body: Dict[str, Any] = {}
+        if daily_limit is not None:
+            body["daily_limit"] = daily_limit
+        if monthly_limit is not None:
+            body["monthly_limit"] = monthly_limit
+        if alert_threshold is not None:
+            body["alert_threshold"] = alert_threshold
+        return await self._request("POST", "/api/v1/costs/budget", json=body)
+
+    async def dismiss_cost_alert(self, alert_id: str) -> Dict[str, Any]:
+        """Dismiss a cost alert.
+
+        Args:
+            alert_id: Alert ID to dismiss
+        """
+        return await self._request("POST", f"/api/v1/costs/alerts/{alert_id}/dismiss", json={})
+
+    # =========================================================================
+    # Onboarding
+    # =========================================================================
+
+    async def get_onboarding_status(self) -> Dict[str, Any]:
+        """Get onboarding progress status."""
+        return await self._request("GET", "/api/v1/onboarding/status")
+
+    async def complete_onboarding(
+        self,
+        first_debate_id: Optional[str] = None,
+        template_used: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Mark onboarding as complete.
+
+        Args:
+            first_debate_id: ID of first created debate
+            template_used: Template used during onboarding
+        """
+        body: Dict[str, Any] = {}
+        if first_debate_id:
+            body["first_debate_id"] = first_debate_id
+        if template_used:
+            body["template_used"] = template_used
+        return await self._request("POST", "/api/v1/onboarding/complete", json=body)
+
+    # =========================================================================
+    # Decision Receipts
+    # =========================================================================
+
+    async def list_decision_receipts(
+        self,
+        verdict: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """List decision receipts.
+
+        Args:
+            verdict: Filter by verdict
+            limit: Maximum results
+            offset: Pagination offset
+        """
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        if verdict:
+            params["verdict"] = verdict
+        return await self._request("GET", "/api/v1/receipts", params=params)
+
+    async def get_decision_receipt(self, receipt_id: str) -> Dict[str, Any]:
+        """Get decision receipt details.
+
+        Args:
+            receipt_id: Receipt ID
+        """
+        return await self._request("GET", f"/api/v1/receipts/{receipt_id}")
+
+    async def verify_decision_receipt(self, receipt_id: str) -> Dict[str, Any]:
+        """Verify decision receipt integrity.
+
+        Args:
+            receipt_id: Receipt ID to verify
+        """
+        return await self._request("POST", f"/api/v1/receipts/{receipt_id}/verify", json={})
+
 
 # Sync wrapper for convenience
 class AragoraClientSync:
@@ -1484,3 +2865,385 @@ class AragoraClientSync:
 
     def get_tournament_standings(self, tournament_id: str) -> Dict[str, Any]:
         return self._run(self._async_client.get_tournament_standings(tournament_id))
+
+    # =========================================================================
+    # Authentication
+    # =========================================================================
+
+    def register_user(self, email: str, password: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.register_user(email, password, **kwargs))
+
+    def login(self, email: str, password: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.login(email, password, **kwargs))
+
+    def refresh_token(self, refresh_token: str) -> Dict[str, Any]:
+        return self._run(self._async_client.refresh_token(refresh_token))
+
+    def logout(self) -> None:
+        return self._run(self._async_client.logout())
+
+    def logout_all(self) -> None:
+        return self._run(self._async_client.logout_all())
+
+    def verify_email(self, token: str) -> Dict[str, Any]:
+        return self._run(self._async_client.verify_email(token))
+
+    def resend_verification(self, email: str) -> Dict[str, Any]:
+        return self._run(self._async_client.resend_verification(email))
+
+    def get_current_user(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_current_user())
+
+    def update_profile(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.update_profile(**kwargs))
+
+    def change_password(self, current_password: str, new_password: str) -> None:
+        return self._run(self._async_client.change_password(current_password, new_password))
+
+    def request_password_reset(self, email: str) -> None:
+        return self._run(self._async_client.request_password_reset(email))
+
+    def reset_password(self, token: str, new_password: str) -> None:
+        return self._run(self._async_client.reset_password(token, new_password))
+
+    # =========================================================================
+    # Multi-Factor Authentication
+    # =========================================================================
+
+    def setup_mfa(self, mfa_type: str = "totp") -> Dict[str, Any]:
+        return self._run(self._async_client.setup_mfa(mfa_type))
+
+    def verify_mfa_setup(self, code: str) -> Dict[str, Any]:
+        return self._run(self._async_client.verify_mfa_setup(code))
+
+    def enable_mfa(self, code: str) -> Dict[str, Any]:
+        return self._run(self._async_client.enable_mfa(code))
+
+    def disable_mfa(self) -> None:
+        return self._run(self._async_client.disable_mfa())
+
+    def generate_backup_codes(self) -> Dict[str, Any]:
+        return self._run(self._async_client.generate_backup_codes())
+
+    # =========================================================================
+    # Session Management
+    # =========================================================================
+
+    def list_sessions(self) -> Dict[str, Any]:
+        return self._run(self._async_client.list_sessions())
+
+    def revoke_session(self, session_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.revoke_session(session_id))
+
+    # =========================================================================
+    # API Key Management
+    # =========================================================================
+
+    def list_api_keys(self) -> Dict[str, Any]:
+        return self._run(self._async_client.list_api_keys())
+
+    def create_api_key(self, name: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.create_api_key(name, **kwargs))
+
+    def revoke_api_key(self, key_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.revoke_api_key(key_id))
+
+    # =========================================================================
+    # OAuth & SSO
+    # =========================================================================
+
+    def get_oauth_url(self, provider: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.get_oauth_url(provider, **kwargs))
+
+    def complete_oauth(self, code: str, state: str, provider: str) -> Dict[str, Any]:
+        return self._run(self._async_client.complete_oauth(code, state, provider))
+
+    def list_oauth_providers(self) -> Dict[str, Any]:
+        return self._run(self._async_client.list_oauth_providers())
+
+    def link_oauth_provider(self, provider: str, code: str) -> Dict[str, Any]:
+        return self._run(self._async_client.link_oauth_provider(provider, code))
+
+    def unlink_oauth_provider(self, provider: str) -> Dict[str, Any]:
+        return self._run(self._async_client.unlink_oauth_provider(provider))
+
+    def initiate_sso_login(self, domain: str) -> Dict[str, Any]:
+        return self._run(self._async_client.initiate_sso_login(domain))
+
+    def list_sso_providers(self) -> Dict[str, Any]:
+        return self._run(self._async_client.list_sso_providers())
+
+    # =========================================================================
+    # Invitations
+    # =========================================================================
+
+    def invite_team_member(self, email: str, role: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.invite_team_member(email, role, **kwargs))
+
+    def check_invite(self, token: str) -> Dict[str, Any]:
+        return self._run(self._async_client.check_invite(token))
+
+    def accept_invite(self, token: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.accept_invite(token, **kwargs))
+
+    # =========================================================================
+    # Tenancy
+    # =========================================================================
+
+    def list_tenants(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.list_tenants(**kwargs))
+
+    def get_tenant(self, tenant_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_tenant(tenant_id))
+
+    def create_tenant(self, name: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.create_tenant(name, **kwargs))
+
+    def update_tenant(self, tenant_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.update_tenant(tenant_id, **kwargs))
+
+    def delete_tenant(self, tenant_id: str) -> None:
+        return self._run(self._async_client.delete_tenant(tenant_id))
+
+    def get_tenant_quotas(self, tenant_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_tenant_quotas(tenant_id))
+
+    def update_tenant_quotas(self, tenant_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.update_tenant_quotas(tenant_id, **kwargs))
+
+    def list_tenant_members(self, tenant_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.list_tenant_members(tenant_id))
+
+    def add_tenant_member(self, tenant_id: str, email: str, role: str) -> Dict[str, Any]:
+        return self._run(self._async_client.add_tenant_member(tenant_id, email, role))
+
+    def remove_tenant_member(self, tenant_id: str, user_id: str) -> None:
+        return self._run(self._async_client.remove_tenant_member(tenant_id, user_id))
+
+    def setup_organization(self, name: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.setup_organization(name, **kwargs))
+
+    # =========================================================================
+    # RBAC (Role-Based Access Control)
+    # =========================================================================
+
+    def list_roles(self) -> Dict[str, Any]:
+        return self._run(self._async_client.list_roles())
+
+    def get_role(self, role_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_role(role_id))
+
+    def create_role(self, name: str, permissions: List[str], **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.create_role(name, permissions, **kwargs))
+
+    def update_role(self, role_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.update_role(role_id, **kwargs))
+
+    def delete_role(self, role_id: str) -> None:
+        return self._run(self._async_client.delete_role(role_id))
+
+    def list_permissions(self) -> Dict[str, Any]:
+        return self._run(self._async_client.list_permissions())
+
+    def assign_role(self, user_id: str, role_id: str) -> None:
+        return self._run(self._async_client.assign_role(user_id, role_id))
+
+    def revoke_role(self, user_id: str, role_id: str) -> None:
+        return self._run(self._async_client.revoke_role(user_id, role_id))
+
+    def get_user_roles(self, user_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_user_roles(user_id))
+
+    def check_permission(self, user_id: str, permission: str) -> Dict[str, Any]:
+        return self._run(self._async_client.check_permission(user_id, permission))
+
+    def list_role_assignments(self, role_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.list_role_assignments(role_id))
+
+    def bulk_assign_roles(self, assignments: List[Dict[str, Any]]) -> Dict[str, Any]:
+        return self._run(self._async_client.bulk_assign_roles(assignments))
+
+    # =========================================================================
+    # Billing
+    # =========================================================================
+
+    def list_billing_plans(self) -> Dict[str, Any]:
+        return self._run(self._async_client.list_billing_plans())
+
+    def get_billing_usage(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.get_billing_usage(**kwargs))
+
+    def get_subscription(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_subscription())
+
+    def create_checkout_session(
+        self, plan_id: str, success_url: str, cancel_url: str
+    ) -> Dict[str, Any]:
+        return self._run(
+            self._async_client.create_checkout_session(plan_id, success_url, cancel_url)
+        )
+
+    def create_billing_portal_session(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.create_billing_portal_session(**kwargs))
+
+    def cancel_subscription(self) -> Dict[str, Any]:
+        return self._run(self._async_client.cancel_subscription())
+
+    def resume_subscription(self) -> Dict[str, Any]:
+        return self._run(self._async_client.resume_subscription())
+
+    def get_invoice_history(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_invoice_history())
+
+    def get_usage_forecast(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_usage_forecast())
+
+    def export_usage_data(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.export_usage_data(**kwargs))
+
+    # =========================================================================
+    # Budgets
+    # =========================================================================
+
+    def list_budgets(self) -> Dict[str, Any]:
+        return self._run(self._async_client.list_budgets())
+
+    def create_budget(
+        self, name: str, limit_amount: float, period: str, **kwargs: Any
+    ) -> Dict[str, Any]:
+        return self._run(self._async_client.create_budget(name, limit_amount, period, **kwargs))
+
+    def get_budget(self, budget_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_budget(budget_id))
+
+    def update_budget(self, budget_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.update_budget(budget_id, **kwargs))
+
+    def delete_budget(self, budget_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.delete_budget(budget_id))
+
+    def get_budget_alerts(self, budget_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_budget_alerts(budget_id))
+
+    def acknowledge_budget_alert(self, budget_id: str, alert_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.acknowledge_budget_alert(budget_id, alert_id))
+
+    def check_budget(self, operation: str, estimated_cost: float) -> Dict[str, Any]:
+        return self._run(self._async_client.check_budget(operation, estimated_cost))
+
+    def get_budget_summary(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_budget_summary())
+
+    def add_budget_override(self, budget_id: str, user_id: str, limit: float) -> Dict[str, Any]:
+        return self._run(self._async_client.add_budget_override(budget_id, user_id, limit))
+
+    def remove_budget_override(self, budget_id: str, user_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.remove_budget_override(budget_id, user_id))
+
+    def reset_budget(self, budget_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.reset_budget(budget_id))
+
+    # =========================================================================
+    # Audit
+    # =========================================================================
+
+    def list_audit_events(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.list_audit_events(**kwargs))
+
+    def get_audit_stats(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.get_audit_stats(**kwargs))
+
+    def export_audit_logs(self, start_date: str, end_date: str) -> Dict[str, Any]:
+        return self._run(self._async_client.export_audit_logs(start_date, end_date))
+
+    def verify_audit_integrity(self) -> Dict[str, Any]:
+        return self._run(self._async_client.verify_audit_integrity())
+
+    def list_audit_trails(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.list_audit_trails(**kwargs))
+
+    def get_audit_trail(self, trail_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_audit_trail(trail_id))
+
+    def verify_audit_trail(self, trail_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.verify_audit_trail(trail_id))
+
+    def export_audit_trail(self, trail_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.export_audit_trail(trail_id))
+
+    # =========================================================================
+    # Notifications
+    # =========================================================================
+
+    def get_notification_status(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_notification_status())
+
+    def configure_email_notifications(
+        self, provider: str, from_email: str, **kwargs: Any
+    ) -> Dict[str, Any]:
+        return self._run(
+            self._async_client.configure_email_notifications(provider, from_email, **kwargs)
+        )
+
+    def configure_telegram_notifications(self, bot_token: str, chat_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.configure_telegram_notifications(bot_token, chat_id))
+
+    def get_email_recipients(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_email_recipients())
+
+    def add_email_recipient(self, email: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.add_email_recipient(email, **kwargs))
+
+    def remove_email_recipient(self, recipient_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.remove_email_recipient(recipient_id))
+
+    def send_test_notification(self, channel: str) -> Dict[str, Any]:
+        return self._run(self._async_client.send_test_notification(channel))
+
+    def send_notification(self, channel: str, message: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.send_notification(channel, message, **kwargs))
+
+    # =========================================================================
+    # Costs
+    # =========================================================================
+
+    def get_cost_dashboard(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.get_cost_dashboard(**kwargs))
+
+    def get_cost_breakdown(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.get_cost_breakdown(**kwargs))
+
+    def get_cost_timeline(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.get_cost_timeline(**kwargs))
+
+    def get_cost_alerts(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_cost_alerts())
+
+    def set_cost_budget(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.set_cost_budget(**kwargs))
+
+    def dismiss_cost_alert(self, alert_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.dismiss_cost_alert(alert_id))
+
+    # =========================================================================
+    # Onboarding
+    # =========================================================================
+
+    def get_onboarding_status(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_onboarding_status())
+
+    def complete_onboarding(self, step: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.complete_onboarding(step, **kwargs))
+
+    # =========================================================================
+    # Decision Receipts
+    # =========================================================================
+
+    def list_decision_receipts(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.list_decision_receipts(**kwargs))
+
+    def get_decision_receipt(self, receipt_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_decision_receipt(receipt_id))
+
+    def verify_decision_receipt(self, receipt_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.verify_decision_receipt(receipt_id))
