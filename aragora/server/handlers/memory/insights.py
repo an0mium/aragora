@@ -27,6 +27,7 @@ from aragora.server.validation.security import (
     execute_regex_with_timeout,
     execute_regex_finditer_with_timeout,
 )
+from aragora.server.versioning.compat import strip_version_prefix
 
 # Rate limiter for insights endpoints (60 requests per minute)
 _insights_limiter = RateLimiter(requests_per_minute=60)
@@ -40,47 +41,54 @@ logger = logging.getLogger(__name__)
 class InsightsHandler(BaseHandler):
     """Handler for insights-related endpoints."""
 
-    # Route patterns this handler manages
+    # Route patterns this handler manages (normalized without version prefix)
     ROUTES = [
-        "/api/v1/insights/recent",
-        "/api/v1/insights/extract-detailed",
-        "/api/v1/flips/recent",
+        "/api/insights/recent",
+        "/api/insights/extract-detailed",
+        "/api/flips/recent",
     ]
 
     # Endpoints that require authentication
     AUTH_REQUIRED_ENDPOINTS = [
-        "/api/v1/insights/extract-detailed",  # Computationally expensive
+        "/api/insights/extract-detailed",  # Computationally expensive
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/v1/insights/") or path == "/api/v1/flips/recent"
+        normalized = strip_version_prefix(path)
+        return normalized.startswith("/api/insights/") or normalized == "/api/flips/recent"
 
     def handle_get(self, path: str, query: dict, handler, ctx: dict) -> Optional[HandlerResult]:
         """Handle GET requests for insights endpoints."""
+        # Normalize path to handle both /api/... and /api/v1/... paths
+        normalized = strip_version_prefix(path)
+
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _insights_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for insights endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/v1/insights/recent":
+        if normalized == "/api/insights/recent":
             return self._get_recent_insights(query, ctx)
 
-        if path == "/api/v1/flips/recent":
+        if normalized == "/api/flips/recent":
             return self._get_recent_flips(query, ctx)
 
         return None
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests for insights endpoints."""
+        # Normalize path to handle both /api/... and /api/v1/... paths
+        normalized = strip_version_prefix(path)
+
         # Rate limit check (shared with GET)
         client_ip = get_client_ip(handler)
         if not _insights_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for insights POST endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/v1/insights/extract-detailed":
+        if normalized == "/api/insights/extract-detailed":
             # Read JSON body from request
             data = self.read_json_body(handler)
             if data is None:
