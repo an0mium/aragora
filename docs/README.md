@@ -80,6 +80,7 @@ organizational knowledge and channels**.
 | [API_VERSIONING](./API_VERSIONING.md) | API version policy |
 | [WEBSOCKET_EVENTS](./WEBSOCKET_EVENTS.md) | WebSocket event reference |
 | [SDK_TYPESCRIPT](./SDK_TYPESCRIPT.md) | TypeScript SDK guide |
+| [SDK_CONSOLIDATION](./SDK_CONSOLIDATION.md) | TypeScript SDK migration (v2 → v3) |
 | [SDK_GUIDE](./SDK_GUIDE.md) | Python SDK guide |
 | [LIBRARY_USAGE](./LIBRARY_USAGE.md) | Using Aragora as a library |
 

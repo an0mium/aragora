@@ -20,6 +20,8 @@ Two packages exist with different focuses:
 
 ### Feature Matrix
 
+> **Note:** After Phase 2 completion, `@aragora/sdk` now has feature parity with `@aragora/client`.
+
 | Feature | `@aragora/sdk` | `@aragora/client` |
 |---------|:-------------:|:-----------------:|
 | Basic debates | Yes | Yes |
@@ -27,10 +29,13 @@ Two packages exist with different focuses:
 | Workflows | Yes | No |
 | Explainability | Yes | No |
 | Marketplace | Yes | No |
-| Control Plane | No | Yes |
-| Graph/Matrix debates | No | Yes |
-| Formal verification | No | Yes |
-| Team selection | No | Yes |
+| Control Plane | Yes | Yes |
+| Graph/Matrix debates | Yes | Yes |
+| Formal verification | Yes | Yes |
+| Team selection | Yes | Yes |
+| Gauntlet API | Yes | Yes |
+| Codebase scanning | Yes | No |
+| Analytics connectors | Yes | No |
 
 ## Target State (v3.0.0)
 

@@ -182,7 +182,7 @@ requires_no_ci = RUNNING_IN_CI
 
 
 def pytest_configure(config):
-    """Register custom pytest markers for test tiers.
+    """Register custom pytest markers and configure test environment.
 
     Test Tiers:
     - smoke: Quick sanity tests for CI (<5 min total)
@@ -192,6 +192,10 @@ def pytest_configure(config):
     CI Strategy:
     - PR CI: pytest -m "not slow and not integration" (~5 min)
     - Nightly: pytest (full suite)
+
+    Environment Configuration:
+    - Sets ARAGORA_AUTH_CLEANUP_INTERVAL to 1 second for fast test cleanup.
+      This prevents the 300-second default from blocking test completion.
 
     Usage:
         @pytest.mark.smoke
@@ -206,6 +210,11 @@ def pytest_configure(config):
         def test_supabase_connection():
             ...
     """
+    # Set fast auth cleanup interval for tests (1 second instead of 300)
+    # This prevents test timeouts caused by long cleanup waits
+    if "ARAGORA_AUTH_CLEANUP_INTERVAL" not in os.environ:
+        os.environ["ARAGORA_AUTH_CLEANUP_INTERVAL"] = "1"
+
     config.addinivalue_line("markers", "smoke: quick sanity tests for fast CI feedback")
     config.addinivalue_line(
         "markers", "integration: tests requiring external dependencies (APIs, databases)"
@@ -220,6 +229,39 @@ def pytest_configure(config):
 # ============================================================================
 # Global Test Setup
 # ============================================================================
+
+
+@pytest.fixture
+def stop_auth_cleanup():
+    """Fixture to stop auth cleanup threads after tests.
+
+    Use this fixture for tests that create AuthConfig instances.
+    It yields a function that stops the cleanup thread, and also
+    cleans up on teardown.
+
+    Usage:
+        def test_auth_config(stop_auth_cleanup):
+            from aragora.server.auth import AuthConfig
+            config = AuthConfig()
+            # ... test code ...
+            stop_auth_cleanup(config)
+    """
+    configs = []
+
+    def _stop(auth_config):
+        configs.append(auth_config)
+        if hasattr(auth_config, "stop_cleanup_thread"):
+            auth_config.stop_cleanup_thread()
+
+    yield _stop
+
+    # Cleanup any remaining configs
+    for config in configs:
+        if hasattr(config, "stop_cleanup_thread"):
+            try:
+                config.stop_cleanup_thread()
+            except Exception:
+                pass
 
 
 @pytest.fixture(autouse=True)

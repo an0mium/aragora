@@ -1,5 +1,10 @@
 # @aragora/client
 
+> **Deprecation Notice**: This package is being deprecated in favor of `@aragora/sdk`.
+> Starting in v2.2.0, deprecation warnings will be logged. In v3.0.0, this package
+> will become a thin wrapper around `@aragora/sdk`. See [Migration Guide](#migration-to-aragorasdk)
+> and the [SDK Consolidation Roadmap](../docs/SDK_CONSOLIDATION.md) for details.
+
 Lightweight TypeScript/JavaScript client for the Aragora REST API. If you need
 the full feature surface (workflows, marketplace, explainability, built-in
 retries), use `@aragora/sdk` instead.
@@ -882,6 +887,47 @@ For WebSocket streaming in Node.js, install the `ws` package:
 ```bash
 npm install ws
 ```
+
+## Migration to @aragora/sdk
+
+This package is being consolidated into `@aragora/sdk`. Migration is straightforward:
+
+### Step 1: Install the new package
+
+```bash
+npm install @aragora/sdk
+npm uninstall @aragora/client
+```
+
+### Step 2: Update imports
+
+```typescript
+// Before
+import { AragoraClient } from '@aragora/client';
+
+// After
+import { AragoraClient } from '@aragora/sdk';
+```
+
+### Step 3: Minor API changes
+
+Most APIs remain the same. Key changes:
+
+| `@aragora/client` | `@aragora/sdk` |
+|-------------------|----------------|
+| `client.debates.run()` | `client.debates.create()` |
+| `new AragoraClient()` | `new AragoraClient()` (same) |
+| Namespace APIs | Same namespace structure |
+
+The SDK includes everything from this client plus:
+- Workflow APIs
+- Marketplace APIs
+- Explainability APIs
+- Built-in retry/backoff
+- ESM + CJS dual build
+
+See [SDK_CONSOLIDATION.md](../docs/SDK_CONSOLIDATION.md) for the complete migration guide
+and timeline.
 
 ## License
 

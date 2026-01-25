@@ -27,8 +27,9 @@ from aragora.server.cors_config import cors_config
 class AuthConfig:
     """Configuration for authentication."""
 
-    # Cleanup interval in seconds (5 minutes)
-    CLEANUP_INTERVAL_SECONDS = 300
+    # Cleanup interval in seconds (default: 5 minutes)
+    # Configurable via ARAGORA_AUTH_CLEANUP_INTERVAL env var (useful for tests)
+    CLEANUP_INTERVAL_SECONDS = int(os.environ.get("ARAGORA_AUTH_CLEANUP_INTERVAL", "300"))
 
     def __init__(self):
         self.enabled = False
