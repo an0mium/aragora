@@ -1,7 +1,8 @@
 """
 Database Migration Runner for Aragora.
 
-Provides CLI tools for running database migrations in production.
+Provides CLI tools for running database migrations in production with
+backup support, checksum verification, and multi-step rollback.
 
 Usage:
     # Check migration status
@@ -10,25 +11,35 @@ Usage:
     # Dry-run migrations (show what would be done)
     python -m aragora.persistence.migrations.runner --dry-run
 
-    # Run migrations
+    # Run migrations (creates automatic backup first)
     python -m aragora.persistence.migrations.runner --migrate
 
+    # Run migrations without backup (not recommended)
+    python -m aragora.persistence.migrations.runner --migrate --no-backup
+
     # Create a new migration
-    python -m aragora.persistence.migrations.runner --create "Add user lockout fields"
+    python -m aragora.persistence.migrations.runner --create "Add user lockout fields" --db users
 
     # Rollback last migration (not recommended in production)
-    python -m aragora.persistence.migrations.runner --rollback
+    python -m aragora.persistence.migrations.runner --rollback --db users
+
+    # Rollback to a specific version (not recommended in production)
+    python -m aragora.persistence.migrations.runner --rollback-to 5 --db users
+
+    # Dry-run rollback to see what would happen
+    python -m aragora.persistence.migrations.runner --rollback-to 5 --db users --dry-run
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib
 import logging
 import os
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
@@ -56,11 +67,29 @@ class MigrationFile:
     name: str
     path: Path
     description: str = ""
+    checksum: str = ""
 
     @property
     def module_name(self) -> str:
         """Get the Python module name for this migration."""
         return self.path.stem
+
+    def compute_checksum(self) -> str:
+        """Compute SHA-256 checksum of the migration file."""
+        if not self.path.exists():
+            return ""
+        content = self.path.read_bytes()
+        return hashlib.sha256(content).hexdigest()[:16]
+
+
+@dataclass
+class AppliedMigration:
+    """Record of an applied migration with metadata."""
+
+    version: int
+    name: str
+    checksum: str
+    applied_at: str
 
 
 @dataclass
@@ -74,6 +103,9 @@ class MigrationStatus:
     pending_count: int
     applied_migrations: list[int]
     pending_migrations: list[int]
+    # Enhanced tracking
+    applied_details: list[AppliedMigration] = field(default_factory=list)
+    checksum_mismatches: list[int] = field(default_factory=list)
 
 
 class MigrationRunner:
@@ -89,6 +121,8 @@ class MigrationRunner:
         self,
         nomic_dir: Optional[Path] = None,
         db_paths: Optional[dict[str, str]] = None,
+        backup_before_migrate: bool = True,
+        backup_dir: Optional[Path] = None,
     ):
         """
         Initialize the migration runner.
@@ -96,10 +130,15 @@ class MigrationRunner:
         Args:
             nomic_dir: Base directory for database files
             db_paths: Override default database paths
+            backup_before_migrate: Create backup before migrations (default: True)
+            backup_dir: Directory for backups (default: nomic_dir/backups)
         """
         self.nomic_dir = nomic_dir or self._get_nomic_dir()
         self.db_paths = db_paths or DEFAULT_DB_PATHS
+        self.backup_before_migrate = backup_before_migrate
+        self.backup_dir = backup_dir or (self.nomic_dir / "migration_backups")
         self._discovered_migrations: dict[str, list[MigrationFile]] = {}
+        self._backup_manager = None  # Lazy-loaded
 
     @staticmethod
     def _get_nomic_dir() -> Path:
@@ -114,6 +153,85 @@ class MigrationRunner:
 
         # Default to .nomic (relative to current working directory)
         return Path(".nomic")
+
+    def _get_backup_manager(self):
+        """Get or create the backup manager (lazy-loaded)."""
+        if self._backup_manager is None:
+            try:
+                from aragora.backup.manager import BackupManager
+
+                self.backup_dir.mkdir(parents=True, exist_ok=True)
+                self._backup_manager = BackupManager(
+                    backup_dir=self.backup_dir,
+                    compression=True,
+                    verify_after_backup=True,
+                )
+            except ImportError:
+                logger.warning("BackupManager not available, backups disabled")
+                self._backup_manager = False  # Mark as unavailable
+        return self._backup_manager if self._backup_manager else None
+
+    def create_pre_migration_backup(self, db_path: Path, db_name: str) -> Optional[str]:
+        """
+        Create a backup before running migrations.
+
+        Args:
+            db_path: Path to the database file
+            db_name: Name of the database
+
+        Returns:
+            Backup ID if successful, None otherwise
+        """
+        if not self.backup_before_migrate:
+            return None
+
+        if not db_path.exists():
+            logger.debug(f"Database {db_path} does not exist, skipping backup")
+            return None
+
+        manager = self._get_backup_manager()
+        if not manager:
+            logger.warning("No backup manager available, proceeding without backup")
+            return None
+
+        try:
+            logger.info(f"[{db_name}] Creating pre-migration backup...")
+            from aragora.backup.manager import BackupType
+
+            backup = manager.create_backup(
+                db_path,
+                backup_type=BackupType.FULL,
+                metadata={"reason": "pre_migration", "db_name": db_name},
+            )
+            logger.info(f"[{db_name}] Backup created: {backup.id}")
+            return backup.id
+        except Exception as e:
+            logger.error(f"[{db_name}] Failed to create backup: {e}")
+            return None
+
+    def restore_from_backup(self, backup_id: str, db_path: Path) -> bool:
+        """
+        Restore a database from a backup.
+
+        Args:
+            backup_id: ID of the backup to restore
+            db_path: Path where to restore the database
+
+        Returns:
+            True if successful, False otherwise
+        """
+        manager = self._get_backup_manager()
+        if not manager:
+            logger.error("No backup manager available for restore")
+            return False
+
+        try:
+            manager.restore_backup(backup_id, str(db_path))
+            logger.info(f"Restored database from backup {backup_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to restore from backup {backup_id}: {e}")
+            return False
 
     def discover_migrations(self, db_name: str) -> list[MigrationFile]:
         """
@@ -151,14 +269,14 @@ class MigrationRunner:
             if match:
                 version = int(match.group(1))
                 name = match.group(2)
-                migrations.append(
-                    MigrationFile(
-                        version=version,
-                        name=name,
-                        path=file_path,
-                        description=name.replace("_", " ").title(),
-                    )
+                migration = MigrationFile(
+                    version=version,
+                    name=name,
+                    path=file_path,
+                    description=name.replace("_", " ").title(),
                 )
+                migration.checksum = migration.compute_checksum()
+                migrations.append(migration)
 
         # Sort by version
         migrations.sort(key=lambda m: m.version)
@@ -322,6 +440,41 @@ class MigrationRunner:
         finally:
             conn.close()
 
+    def _ensure_migration_tracking(self, conn, db_name: str) -> None:
+        """Ensure the migration tracking table exists with checksum support."""
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS _migration_checksums (
+                version INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                checksum TEXT NOT NULL,
+                applied_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+
+    def _get_applied_checksums(self, conn) -> dict[int, str]:
+        """Get checksums of previously applied migrations."""
+        try:
+            cursor = conn.execute("SELECT version, checksum FROM _migration_checksums")
+            return {row[0]: row[1] for row in cursor.fetchall()}
+        except Exception:
+            return {}
+
+    def _record_migration(self, conn, migration: MigrationFile) -> None:
+        """Record a migration with its checksum."""
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO _migration_checksums (version, name, checksum, applied_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                migration.version,
+                migration.name,
+                migration.checksum,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+
     def _execute_migrate(
         self,
         db_name: str,
@@ -330,23 +483,52 @@ class MigrationRunner:
         target_version: int,
     ) -> dict:
         """Execute migrations."""
+        # Create backup before migration
+        backup_id = self.create_pre_migration_backup(db_path, db_name)
+
         conn = get_wal_connection(db_path)
         applied = []
         errors = []
 
         try:
+            # Ensure tracking table exists
+            self._ensure_migration_tracking(conn, db_name)
+
             manager = SchemaManager(conn, db_name, current_version=target_version)
             current = manager.get_version()
+
+            # Check for checksum mismatches on already-applied migrations
+            applied_checksums = self._get_applied_checksums(conn)
+            checksum_warnings = []
+            for m in migrations:
+                if m.version <= current and m.version in applied_checksums:
+                    if applied_checksums[m.version] != m.checksum:
+                        checksum_warnings.append(
+                            {
+                                "version": m.version,
+                                "expected": applied_checksums[m.version],
+                                "actual": m.checksum,
+                            }
+                        )
+
+            if checksum_warnings:
+                logger.warning(
+                    f"[{db_name}] Checksum mismatch for {len(checksum_warnings)} migration(s) - "
+                    f"files may have been modified after application"
+                )
 
             pending = [m for m in migrations if m.version > current and m.version <= target_version]
 
             if not pending:
-                return {
+                result = {
                     "db_name": db_name,
                     "status": "up_to_date",
                     "current_version": current,
                     "message": f"{db_name} is already at version {current}",
                 }
+                if checksum_warnings:
+                    result["checksum_warnings"] = checksum_warnings
+                return result
 
             for migration in pending:
                 logger.info(
@@ -369,8 +551,10 @@ class MigrationRunner:
                     else:
                         raise ValueError(f"Migration {migration.path} missing upgrade() function")
 
-                    # Update version
+                    # Update version and record checksum
                     manager.set_version(migration.version)
+                    self._record_migration(conn, migration)
+                    conn.commit()
                     applied.append(migration.version)
 
                     logger.info(f"[{db_name}] Applied migration {migration.version} successfully")
@@ -388,7 +572,7 @@ class MigrationRunner:
 
             final_version = manager.get_version()
 
-            return {
+            result = {
                 "db_name": db_name,
                 "status": "completed" if not errors else "partial",
                 "initial_version": current,
@@ -396,6 +580,11 @@ class MigrationRunner:
                 "applied": applied,
                 "errors": errors,
             }
+            if backup_id:
+                result["backup_id"] = backup_id
+            if checksum_warnings:
+                result["checksum_warnings"] = checksum_warnings
+            return result
 
         finally:
             conn.close()
@@ -441,6 +630,164 @@ class MigrationRunner:
         for db_name in self.db_paths:
             results[db_name] = self.migrate(db_name, dry_run=dry_run)
         return results
+
+    def rollback_to_version(
+        self,
+        db_name: str,
+        target_version: int,
+        dry_run: bool = False,
+    ) -> dict:
+        """
+        Rollback multiple migrations to reach a specific version.
+
+        Args:
+            db_name: Name of the database module
+            target_version: Target version to rollback to (0 = no migrations)
+            dry_run: If True, show what would be done without executing
+
+        Returns:
+            Dict with rollback results
+        """
+        db_path = self.get_db_path(db_name)
+        migrations = self.discover_migrations(db_name)
+
+        if not migrations:
+            return {
+                "db_name": db_name,
+                "status": "no_migrations",
+                "message": f"No migrations found for {db_name}",
+            }
+
+        if not db_path.exists():
+            return {
+                "db_name": db_name,
+                "status": "no_database",
+                "message": f"Database {db_path} does not exist",
+            }
+
+        conn = get_wal_connection(db_path)
+        try:
+            manager = SchemaManager(conn, db_name, current_version=0)
+            current_version = manager.get_version()
+
+            if current_version <= target_version:
+                return {
+                    "db_name": db_name,
+                    "status": "nothing_to_rollback",
+                    "current_version": current_version,
+                    "target_version": target_version,
+                    "message": f"Already at version {current_version}, target is {target_version}",
+                }
+
+            # Get migrations to rollback (in reverse order)
+            to_rollback = sorted(
+                [
+                    m
+                    for m in migrations
+                    if m.version <= current_version and m.version > target_version
+                ],
+                key=lambda m: m.version,
+                reverse=True,
+            )
+
+            if dry_run:
+                return {
+                    "db_name": db_name,
+                    "status": "dry_run",
+                    "current_version": current_version,
+                    "target_version": target_version,
+                    "would_rollback": [
+                        {
+                            "version": m.version,
+                            "name": m.name,
+                            "description": m.description,
+                        }
+                        for m in to_rollback
+                    ],
+                }
+
+            # Create backup before multi-step rollback
+            backup_id = self.create_pre_migration_backup(db_path, db_name)
+
+            rolled_back = []
+            errors = []
+
+            for migration in to_rollback:
+                logger.info(
+                    f"[{db_name}] Rolling back migration {migration.version}: {migration.description}"
+                )
+
+                try:
+                    module = self._load_migration_module(migration)
+                    if not hasattr(module, "downgrade"):
+                        errors.append(
+                            {
+                                "version": migration.version,
+                                "error": "No downgrade() function defined",
+                            }
+                        )
+                        break
+
+                    if self._is_empty_migration(module.downgrade):
+                        errors.append(
+                            {
+                                "version": migration.version,
+                                "error": "downgrade() function is empty (pass statement)",
+                            }
+                        )
+                        break
+
+                    module.downgrade(conn)
+                    conn.commit()
+
+                    # Calculate new version
+                    previous_versions = [
+                        m.version for m in migrations if m.version < migration.version
+                    ]
+                    new_version = max(previous_versions) if previous_versions else 0
+                    manager.set_version(new_version)
+
+                    # Remove checksum record
+                    try:
+                        conn.execute(
+                            "DELETE FROM _migration_checksums WHERE version = ?",
+                            (migration.version,),
+                        )
+                        conn.commit()
+                    except Exception:
+                        pass  # Table may not exist
+
+                    rolled_back.append(migration.version)
+                    logger.info(f"[{db_name}] Rolled back migration {migration.version}")
+
+                except Exception as e:
+                    conn.rollback()
+                    errors.append(
+                        {
+                            "version": migration.version,
+                            "error": str(e),
+                        }
+                    )
+                    logger.error(f"[{db_name}] Rollback of {migration.version} failed: {e}")
+                    break
+
+            final_version = manager.get_version()
+
+            result = {
+                "db_name": db_name,
+                "status": "completed" if not errors else "partial",
+                "initial_version": current_version,
+                "final_version": final_version,
+                "target_version": target_version,
+                "rolled_back": rolled_back,
+                "errors": errors,
+            }
+            if backup_id:
+                result["backup_id"] = backup_id
+            return result
+
+        finally:
+            conn.close()
 
     def rollback(
         self,
@@ -755,6 +1102,17 @@ def main() -> int:
         help="Rollback the last migration (requires --db, not recommended in production)",
     )
     parser.add_argument(
+        "--rollback-to",
+        metavar="VERSION",
+        type=int,
+        help="Rollback to a specific version (requires --db)",
+    )
+    parser.add_argument(
+        "--no-backup",
+        action="store_true",
+        help="Skip automatic backup before migrations (not recommended)",
+    )
+    parser.add_argument(
         "--db",
         metavar="NAME",
         help="Target specific database (default: all)",
@@ -781,7 +1139,10 @@ def main() -> int:
 
     # Initialize runner
     nomic_dir = Path(args.nomic_dir) if args.nomic_dir else None
-    runner = MigrationRunner(nomic_dir=nomic_dir)
+    runner = MigrationRunner(
+        nomic_dir=nomic_dir,
+        backup_before_migrate=not args.no_backup,
+    )
 
     # Handle commands
     if args.status:
@@ -868,6 +1229,57 @@ def main() -> int:
             print(f"  Previous version: {result['previous_version']}")
             print(f"  Current version: {result['current_version']}")
             return 0
+        elif result.get("error"):
+            print(f"  Error: {result['error']}")
+            return 1
+        else:
+            print(f"  Message: {result.get('message', 'Unknown status')}")
+            return 1 if result["status"] in ("failed", "error") else 0
+
+    if args.rollback_to is not None:
+        if not args.db:
+            print("Error: --db is required when using --rollback-to")
+            print("Rollback must target a specific database for safety.")
+            return 1
+
+        # Show warning
+        print("\n⚠️  WARNING: Multi-step rollback is not recommended in production!")
+        print("SQLite has limited ALTER TABLE support, so downgrades may not work properly.")
+        print(f"Target version: {args.rollback_to}")
+        print()
+
+        if args.dry_run:
+            result = runner.rollback_to_version(args.db, args.rollback_to, dry_run=True)
+            print(f"[{args.db}] Rollback-to dry run:")
+            if result.get("would_rollback"):
+                print(f"  Current version: {result['current_version']}")
+                print(f"  Target version: {result['target_version']}")
+                print("  Would rollback migrations:")
+                for m in result["would_rollback"]:
+                    print(f"    - v{m['version']:03d}: {m['description']}")
+            else:
+                print(f"  Status: {result.get('status')} - {result.get('message', '')}")
+            return 0
+
+        result = runner.rollback_to_version(args.db, args.rollback_to)
+        print(f"\n[{args.db}] Rollback-to result: {result['status']}")
+
+        if result.get("backup_id"):
+            print(f"  Pre-rollback backup: {result['backup_id']}")
+
+        if result["status"] == "completed":
+            print(f"  Initial version: {result['initial_version']}")
+            print(f"  Final version: {result['final_version']}")
+            print(f"  Rolled back: {result['rolled_back']}")
+            return 0
+        elif result["status"] == "partial":
+            print(f"  Initial version: {result['initial_version']}")
+            print(f"  Final version: {result['final_version']}")
+            print(f"  Rolled back: {result.get('rolled_back', [])}")
+            if result.get("errors"):
+                for err in result["errors"]:
+                    print(f"  Error in v{err['version']}: {err['error']}")
+            return 1
         elif result.get("error"):
             print(f"  Error: {result['error']}")
             return 1
