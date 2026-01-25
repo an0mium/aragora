@@ -5,6 +5,7 @@ Implements the MCP 1.0 protocol to expose Aragora capabilities.
 
 Features:
 - Rate limiting per tool (configurable via environment)
+- Redis-backed rate limiting for multi-instance deployments
 - Input validation and sanitization
 - Comprehensive error handling and logging
 - Resource caching for debate results
@@ -18,6 +19,7 @@ import logging
 import os
 import sys
 import time
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple, cast
 
@@ -36,14 +38,42 @@ DEFAULT_RATE_LIMITS: Dict[str, int] = {
     "list_trending_topics": int(os.environ.get("MCP_RATE_LIMIT_LIST_TRENDING_TOPICS", "30")),
 }
 
+# Rate limiter backend configuration
+# MCP_RATE_LIMIT_BACKEND: "memory" (default) or "redis"
+# MCP_REDIS_URL: Redis connection URL (e.g., redis://localhost:6379)
+RATE_LIMIT_BACKEND = os.environ.get("MCP_RATE_LIMIT_BACKEND", "memory")
+REDIS_URL = os.environ.get("MCP_REDIS_URL", "redis://localhost:6379")
+
 # Maximum input sizes for validation
 MAX_QUESTION_LENGTH = 10000
 MAX_CONTENT_LENGTH = 100000
 MAX_QUERY_LENGTH = 1000
 
 
-class RateLimiter:
-    """Simple in-memory rate limiter with per-tool limits."""
+class RateLimiterBase(ABC):
+    """Abstract base class for rate limiters."""
+
+    @abstractmethod
+    def check(self, tool_name: str) -> Tuple[bool, Optional[str]]:
+        """Check if a request is allowed.
+
+        Returns:
+            Tuple of (allowed, error_message)
+        """
+        pass
+
+    @abstractmethod
+    def get_remaining(self, tool_name: str) -> int:
+        """Get remaining requests for a tool."""
+        pass
+
+
+class RateLimiter(RateLimiterBase):
+    """Simple in-memory rate limiter with per-tool limits.
+
+    Suitable for single-instance deployments. For multi-instance deployments,
+    use RedisRateLimiter instead.
+    """
 
     def __init__(self, limits: Optional[Dict[str, int]] = None):
         self._limits = limits or DEFAULT_RATE_LIMITS
@@ -80,6 +110,196 @@ class RateLimiter:
 
         current_count = len([t for t in self._requests[tool_name] if t > window_start])
         return max(0, limit - current_count)
+
+
+class RedisRateLimiter(RateLimiterBase):
+    """Redis-backed rate limiter for multi-instance deployments.
+
+    Uses Redis sorted sets for sliding window rate limiting.
+    This allows rate limits to be shared across multiple MCP server instances.
+
+    Configuration via environment variables:
+        MCP_REDIS_URL: Redis connection URL (default: redis://localhost:6379)
+        MCP_RATE_LIMIT_{TOOL_NAME}: Per-tool rate limits
+
+    Example:
+        export MCP_RATE_LIMIT_BACKEND=redis
+        export MCP_REDIS_URL=redis://localhost:6379
+        export MCP_RATE_LIMIT_RUN_DEBATE=10
+    """
+
+    def __init__(
+        self,
+        limits: Optional[Dict[str, int]] = None,
+        redis_url: Optional[str] = None,
+        key_prefix: str = "mcp:ratelimit:",
+    ):
+        self._limits = limits or DEFAULT_RATE_LIMITS
+        self._redis_url = redis_url or REDIS_URL
+        self._key_prefix = key_prefix
+        self._window_seconds = 60
+        self._redis: Any = None
+        self._connected = False
+
+    def _get_redis(self) -> Any:
+        """Get or create Redis connection."""
+        if self._redis is None:
+            try:
+                import redis
+
+                self._redis = redis.from_url(self._redis_url, decode_responses=True)
+                # Test connection
+                self._redis.ping()
+                self._connected = True
+                logger.info(f"RedisRateLimiter connected to {self._redis_url}")
+            except ImportError:
+                logger.warning("redis package not installed. Install with: pip install redis")
+                self._connected = False
+            except Exception as e:
+                logger.warning(f"Redis connection failed: {e}. Falling back to permissive mode.")
+                self._connected = False
+        return self._redis
+
+    def check(self, tool_name: str) -> Tuple[bool, Optional[str]]:
+        """Check if a request is allowed using Redis sorted set.
+
+        Uses sliding window algorithm with Redis sorted sets.
+
+        Returns:
+            Tuple of (allowed, error_message)
+        """
+        redis_client = self._get_redis()
+        if not self._connected or redis_client is None:
+            # If Redis is unavailable, allow the request (fail-open)
+            logger.debug(f"Redis unavailable, allowing request for {tool_name}")
+            return True, None
+
+        limit = self._limits.get(tool_name, 60)
+        now = time.time()
+        window_start = now - self._window_seconds
+        key = f"{self._key_prefix}{tool_name}"
+
+        try:
+            # Use Redis pipeline for atomic operations
+            pipe = redis_client.pipeline()
+
+            # Remove old entries outside the window
+            pipe.zremrangebyscore(key, "-inf", window_start)
+
+            # Count current entries
+            pipe.zcard(key)
+
+            # Execute pipeline
+            results = pipe.execute()
+            current_count = results[1]
+
+            # Check limit
+            if current_count >= limit:
+                # Get the oldest timestamp to calculate wait time
+                oldest = redis_client.zrange(key, 0, 0, withscores=True)
+                if oldest:
+                    remaining_wait = oldest[0][1] - window_start
+                    return (
+                        False,
+                        f"Rate limit exceeded for {tool_name}. Try again in {remaining_wait:.0f}s",
+                    )
+                return False, f"Rate limit exceeded for {tool_name}."
+
+            # Add current request with score = timestamp
+            redis_client.zadd(key, {str(now): now})
+
+            # Set expiry on the key to auto-cleanup
+            redis_client.expire(key, self._window_seconds + 10)
+
+            return True, None
+
+        except Exception as e:
+            logger.warning(f"Redis rate limit check failed: {e}. Allowing request.")
+            return True, None
+
+    def get_remaining(self, tool_name: str) -> int:
+        """Get remaining requests for a tool."""
+        redis_client = self._get_redis()
+        if not self._connected or redis_client is None:
+            # If Redis unavailable, return full limit
+            return self._limits.get(tool_name, 60)
+
+        limit = self._limits.get(tool_name, 60)
+        now = time.time()
+        window_start = now - self._window_seconds
+        key = f"{self._key_prefix}{tool_name}"
+
+        try:
+            # Remove old entries and count current
+            redis_client.zremrangebyscore(key, "-inf", window_start)
+            current_count = redis_client.zcard(key)
+            return max(0, limit - current_count)
+        except Exception as e:
+            logger.warning(f"Redis get_remaining failed: {e}")
+            return limit
+
+    def reset(self, tool_name: Optional[str] = None) -> None:
+        """Reset rate limit counters.
+
+        Args:
+            tool_name: Specific tool to reset, or None to reset all.
+        """
+        redis_client = self._get_redis()
+        if not self._connected or redis_client is None:
+            return
+
+        try:
+            if tool_name:
+                key = f"{self._key_prefix}{tool_name}"
+                redis_client.delete(key)
+            else:
+                # Reset all rate limit keys
+                pattern = f"{self._key_prefix}*"
+                cursor = 0
+                while True:
+                    cursor, keys = redis_client.scan(cursor, match=pattern)
+                    if keys:
+                        redis_client.delete(*keys)
+                    if cursor == 0:
+                        break
+        except Exception as e:
+            logger.warning(f"Redis reset failed: {e}")
+
+
+def create_rate_limiter(
+    backend: Optional[str] = None,
+    limits: Optional[Dict[str, int]] = None,
+    redis_url: Optional[str] = None,
+) -> RateLimiterBase:
+    """Factory function to create the appropriate rate limiter.
+
+    Args:
+        backend: "memory" or "redis". If None, uses MCP_RATE_LIMIT_BACKEND env var.
+        limits: Rate limit configuration per tool. Defaults to DEFAULT_RATE_LIMITS.
+        redis_url: Redis URL for redis backend. Defaults to MCP_REDIS_URL env var.
+
+    Returns:
+        RateLimiter instance (in-memory or Redis-backed)
+
+    Example:
+        # Use environment variables
+        limiter = create_rate_limiter()
+
+        # Explicit configuration
+        limiter = create_rate_limiter(
+            backend="redis",
+            redis_url="redis://localhost:6379",
+            limits={"run_debate": 5}
+        )
+    """
+    backend = backend or RATE_LIMIT_BACKEND
+
+    if backend == "redis":
+        logger.info("Using Redis-backed rate limiter")
+        return RedisRateLimiter(limits=limits, redis_url=redis_url)
+    else:
+        logger.info("Using in-memory rate limiter")
+        return RateLimiter(limits=limits)
 
 
 # Check if mcp package is available
@@ -120,12 +340,28 @@ class AragoraMCPServer:
     - trending://topics: Access trending topics
     """
 
-    def __init__(self, rate_limits: Optional[Dict[str, int]] = None):
+    def __init__(
+        self,
+        rate_limits: Optional[Dict[str, int]] = None,
+        rate_limit_backend: Optional[str] = None,
+        redis_url: Optional[str] = None,
+    ):
+        """Initialize the MCP server.
+
+        Args:
+            rate_limits: Per-tool rate limits. Defaults to DEFAULT_RATE_LIMITS.
+            rate_limit_backend: "memory" or "redis". Defaults to MCP_RATE_LIMIT_BACKEND env var.
+            redis_url: Redis URL for redis backend. Defaults to MCP_REDIS_URL env var.
+        """
         if not MCP_AVAILABLE:
             raise ImportError("MCP package not installed. Install with: pip install mcp")
 
         self.server = Server("aragora")
-        self._rate_limiter = RateLimiter(rate_limits)
+        self._rate_limiter = create_rate_limiter(
+            backend=rate_limit_backend,
+            limits=rate_limits,
+            redis_url=redis_url,
+        )
         self._setup_handlers()
         self._debates_cache: Dict[str, Dict[str, Any]] = {}
         self._agents_cache: Dict[str, Dict[str, Any]] = {}

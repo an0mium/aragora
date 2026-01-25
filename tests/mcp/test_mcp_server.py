@@ -2,7 +2,9 @@
 Tests for MCP Server Implementation.
 
 Tests for:
-- RateLimiter class
+- RateLimiter class (in-memory)
+- RedisRateLimiter class
+- create_rate_limiter factory
 - AragoraMCPServer initialization
 - Input validation
 - Argument sanitization
@@ -18,6 +20,9 @@ from unittest.mock import MagicMock, patch, AsyncMock, PropertyMock
 
 from aragora.mcp.server import (
     RateLimiter,
+    RedisRateLimiter,
+    RateLimiterBase,
+    create_rate_limiter,
     DEFAULT_RATE_LIMITS,
     MAX_QUESTION_LENGTH,
     MAX_CONTENT_LENGTH,
@@ -381,9 +386,189 @@ class TestMCPAvailability:
         assert isinstance(MCP_AVAILABLE, bool)
 
 
+class TestRedisRateLimiter:
+    """Tests for RedisRateLimiter class."""
+
+    def test_inherits_from_base(self):
+        """Test RedisRateLimiter inherits from RateLimiterBase."""
+        assert issubclass(RedisRateLimiter, RateLimiterBase)
+
+    def test_init_with_defaults(self):
+        """Test RedisRateLimiter initialization with defaults."""
+        limiter = RedisRateLimiter()
+        assert limiter._limits == DEFAULT_RATE_LIMITS
+        assert limiter._window_seconds == 60
+        assert limiter._key_prefix == "mcp:ratelimit:"
+
+    def test_init_with_custom_limits(self):
+        """Test RedisRateLimiter initialization with custom limits."""
+        custom_limits = {"run_debate": 5}
+        limiter = RedisRateLimiter(limits=custom_limits)
+        assert limiter._limits == custom_limits
+
+    def test_init_with_custom_redis_url(self):
+        """Test RedisRateLimiter initialization with custom Redis URL."""
+        limiter = RedisRateLimiter(redis_url="redis://custom:6379")
+        assert limiter._redis_url == "redis://custom:6379"
+
+    def test_init_with_custom_key_prefix(self):
+        """Test RedisRateLimiter initialization with custom key prefix."""
+        limiter = RedisRateLimiter(key_prefix="test:prefix:")
+        assert limiter._key_prefix == "test:prefix:"
+
+    def test_check_fails_open_when_redis_unavailable(self):
+        """Test that requests are allowed when Redis is unavailable."""
+        limiter = RedisRateLimiter()
+        limiter._connected = False
+        limiter._redis = None
+
+        allowed, error = limiter.check("test_tool")
+        assert allowed is True
+        assert error is None
+
+    def test_get_remaining_returns_full_limit_when_redis_unavailable(self):
+        """Test get_remaining returns full limit when Redis unavailable."""
+        limiter = RedisRateLimiter(limits={"test_tool": 10})
+        limiter._connected = False
+        limiter._redis = None
+
+        remaining = limiter.get_remaining("test_tool")
+        assert remaining == 10
+
+    def test_check_with_mock_redis(self):
+        """Test rate limiting with mocked Redis."""
+        mock_redis = MagicMock()
+        mock_pipe = MagicMock()
+        mock_pipe.execute.return_value = [None, 0]  # zremrangebyscore result, zcard result
+        mock_redis.pipeline.return_value = mock_pipe
+
+        limiter = RedisRateLimiter(limits={"test_tool": 10})
+        limiter._redis = mock_redis
+        limiter._connected = True
+
+        allowed, error = limiter.check("test_tool")
+
+        assert allowed is True
+        assert error is None
+        mock_redis.zadd.assert_called_once()
+        mock_redis.expire.assert_called_once()
+
+    def test_check_denies_when_over_limit(self):
+        """Test rate limiting denies when over limit."""
+        mock_redis = MagicMock()
+        mock_pipe = MagicMock()
+        mock_pipe.execute.return_value = [None, 5]  # 5 requests already, limit is 5
+        mock_redis.pipeline.return_value = mock_pipe
+        mock_redis.zrange.return_value = [("timestamp", time.time() - 30)]
+
+        limiter = RedisRateLimiter(limits={"test_tool": 5})
+        limiter._redis = mock_redis
+        limiter._connected = True
+
+        allowed, error = limiter.check("test_tool")
+
+        assert allowed is False
+        assert "Rate limit exceeded" in error
+
+    def test_get_remaining_with_mock_redis(self):
+        """Test get_remaining with mocked Redis."""
+        mock_redis = MagicMock()
+        mock_redis.zcard.return_value = 3
+
+        limiter = RedisRateLimiter(limits={"test_tool": 10})
+        limiter._redis = mock_redis
+        limiter._connected = True
+
+        remaining = limiter.get_remaining("test_tool")
+        assert remaining == 7
+
+    def test_reset_single_tool(self):
+        """Test reset for a single tool."""
+        mock_redis = MagicMock()
+        limiter = RedisRateLimiter()
+        limiter._redis = mock_redis
+        limiter._connected = True
+
+        limiter.reset("test_tool")
+
+        mock_redis.delete.assert_called_once_with("mcp:ratelimit:test_tool")
+
+    def test_reset_all_tools(self):
+        """Test reset for all tools."""
+        mock_redis = MagicMock()
+        mock_redis.scan.return_value = (0, ["mcp:ratelimit:tool1", "mcp:ratelimit:tool2"])
+
+        limiter = RedisRateLimiter()
+        limiter._redis = mock_redis
+        limiter._connected = True
+
+        limiter.reset()
+
+        mock_redis.delete.assert_called_once()
+
+
+class TestCreateRateLimiter:
+    """Tests for create_rate_limiter factory function."""
+
+    def test_creates_memory_limiter_by_default(self):
+        """Test factory creates in-memory limiter by default."""
+        with patch.dict("os.environ", {"MCP_RATE_LIMIT_BACKEND": "memory"}, clear=False):
+            limiter = create_rate_limiter()
+            assert isinstance(limiter, RateLimiter)
+
+    def test_creates_redis_limiter_when_specified(self):
+        """Test factory creates Redis limiter when backend=redis."""
+        limiter = create_rate_limiter(backend="redis")
+        assert isinstance(limiter, RedisRateLimiter)
+
+    def test_creates_memory_limiter_explicitly(self):
+        """Test factory creates memory limiter when backend=memory."""
+        limiter = create_rate_limiter(backend="memory")
+        assert isinstance(limiter, RateLimiter)
+
+    def test_passes_custom_limits(self):
+        """Test factory passes custom limits to limiter."""
+        custom_limits = {"test_tool": 100}
+        limiter = create_rate_limiter(limits=custom_limits)
+        assert limiter._limits == custom_limits
+
+    def test_passes_redis_url_to_redis_limiter(self):
+        """Test factory passes Redis URL to Redis limiter."""
+        limiter = create_rate_limiter(backend="redis", redis_url="redis://custom:6379")
+        assert isinstance(limiter, RedisRateLimiter)
+        assert limiter._redis_url == "redis://custom:6379"
+
+    def test_uses_env_var_for_backend(self):
+        """Test factory uses MCP_RATE_LIMIT_BACKEND env var when backend=None."""
+        # Patch the module-level constant that's read at runtime
+        with patch("aragora.mcp.server.RATE_LIMIT_BACKEND", "redis"):
+            limiter = create_rate_limiter(backend=None)
+            assert isinstance(limiter, RedisRateLimiter)
+
+
+class TestRateLimiterBase:
+    """Tests for RateLimiterBase abstract class."""
+
+    def test_is_abstract(self):
+        """Test RateLimiterBase cannot be instantiated directly."""
+        with pytest.raises(TypeError):
+            RateLimiterBase()
+
+    def test_ratelimiter_is_subclass(self):
+        """Test RateLimiter is subclass of RateLimiterBase."""
+        assert issubclass(RateLimiter, RateLimiterBase)
+
+    def test_redisratelimiter_is_subclass(self):
+        """Test RedisRateLimiter is subclass of RateLimiterBase."""
+        assert issubclass(RedisRateLimiter, RateLimiterBase)
+
+
 # Export test classes
 __all__ = [
     "TestRateLimiter",
+    "TestRedisRateLimiter",
+    "TestCreateRateLimiter",
+    "TestRateLimiterBase",
     "TestAragoraMCPServerInit",
     "TestInputValidation",
     "TestArgumentSanitization",

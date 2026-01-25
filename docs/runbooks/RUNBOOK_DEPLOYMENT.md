@@ -4,24 +4,25 @@ Operational procedures for Aragora deployments.
 
 ## Quick Reference
 
-| Target | Health Endpoint | SSH Access |
-|--------|-----------------|------------|
-| EC2 Staging | `http://{EC2_HOST}:8080/api/health` | `ssh -i ~/.ssh/ec2 ec2-user@{EC2_HOST}` |
-| Lightsail Prod | `http://{LIGHTSAIL_HOST}:8080/api/health` | `ssh -i ~/.ssh/lightsail ubuntu@{LIGHTSAIL_HOST}` |
-| Cloudflare | `https://aragora.live/api/health` | N/A (static site) |
+| Target | Health Endpoint | Access |
+|--------|-----------------|--------|
+| EC2 Staging | `http://{EC2_HOST}:8080/api/health` | Via SSM Run Command |
+| EC2 Production | `http://{EC2_HOST}:8080/api/health` | Via SSM Run Command |
+| Load Balancer | `https://api.aragora.ai/api/health` | Cloudflare Dashboard |
+| Frontend | `https://aragora.ai` | Cloudflare Pages |
 
 ## Standard Deployment
 
 ### Trigger via GitHub Actions
 
 ```bash
-# Deploy to all targets
-gh workflow run deploy.yml
+# Deploy to all targets (requires AWS OIDC, production requires approval)
+gh workflow run deploy-secure.yml
 
 # Deploy to specific target
-gh workflow run deploy.yml -f environment=cloudflare
-gh workflow run deploy.yml -f environment=lightsail
-gh workflow run deploy.yml -f environment=ec2
+gh workflow run deploy-secure.yml -f environment=cloudflare
+gh workflow run deploy-secure.yml -f environment=ec2-staging
+gh workflow run deploy-secure.yml -f environment=ec2-production
 ```
 
 ### Monitor Deployment
@@ -140,8 +141,8 @@ curl -s http://$EC2_HOST:8080/api/health | jq .
 # Lightsail Production
 curl -s http://$LIGHTSAIL_HOST:8080/api/health | jq .
 
-# Cloudflare (frontend health)
-curl -s https://aragora.live/api/health | jq .
+# API via Cloudflare LB
+curl -s https://api.aragora.ai/api/health | jq .
 ```
 
 ### Expected Healthy Response
