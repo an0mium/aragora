@@ -53,6 +53,8 @@ class MockRequest:
 class TestHandler(BaseHandler):
     """Test handler implementation."""
 
+    __test__ = False  # Not a pytest test class - helper fixture
+
     ROUTES = [
         "/api/test",
         "/api/test/item",

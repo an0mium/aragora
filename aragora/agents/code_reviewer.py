@@ -494,6 +494,8 @@ SUGGESTION: [how to improve]"""
 class TestCoverageReviewer(BaseDebateAgent):
     """Agent specialized in test coverage review."""
 
+    __test__ = False  # Not a pytest test class
+
     def __init__(self, **kwargs):
         # Initialize Agent attributes directly to avoid ABC init issues
         self.name = kwargs.get("name", "test_coverage_reviewer")

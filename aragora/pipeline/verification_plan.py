@@ -36,6 +36,8 @@ class VerificationType(Enum):
     Note: Renamed from TestType to avoid pytest collection warnings.
     """
 
+    __test__ = False  # Not a pytest test class
+
     UNIT = "unit"
     INTEGRATION = "integration"
     E2E = "e2e"
@@ -54,6 +56,8 @@ class CasePriority(Enum):
     Note: Renamed from TestPriority to avoid pytest collection warnings.
     """
 
+    __test__ = False  # Not a pytest test class
+
     P0 = "p0"  # Critical - must pass
     P1 = "p1"  # High priority
     P2 = "p2"  # Medium priority
@@ -67,6 +71,8 @@ TestPriority = CasePriority
 @dataclass
 class VerificationCase:
     """A single test case specification."""
+
+    __test__ = False  # Not a pytest test class
 
     id: str
     title: str
@@ -112,6 +118,8 @@ class VerificationPlan:
     Contains test cases organized by type and priority,
     with traceability to debate claims and critiques.
     """
+
+    __test__ = False  # Not a pytest test class
 
     debate_id: str
     title: str
@@ -240,6 +248,8 @@ class VerificationPlanGenerator:
     - Critiques for edge cases
     - Verification results for already-proven properties
     """
+
+    __test__ = False  # Not a pytest test class
 
     def __init__(self, artifact: "DebateArtifact") -> None:
         self.artifact: DebateArtifact = artifact

@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 class TestType(Enum):
     """Type of test to generate."""
 
+    __test__ = False  # Not a pytest test class
+
     UNIT = "unit"
     INTEGRATION = "integration"
     EDGE_CASE = "edge_case"
@@ -99,6 +101,8 @@ class FunctionSpec:
 class TestSuite:
     """Collection of test cases for a feature."""
 
+    __test__ = False  # Not a pytest test class
+
     name: str
     description: str
     test_cases: List[TestCase] = field(default_factory=list)
@@ -145,6 +149,8 @@ class TestGenerator:
     - Error handling tests
     - Type validation tests
     """
+
+    __test__ = False  # Not a pytest test class
 
     def __init__(self):
         self._edge_case_generators = {
