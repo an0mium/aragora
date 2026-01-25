@@ -537,41 +537,40 @@ class TestPluginSubmissionSecurity:
     - Schema validation via PLUGIN_MANIFEST_SCHEMA
     """
 
-    @pytest.fixture
-    def mock_handler_with_body(self, plugins_handler):
-        """Create a mock handler with configurable JSON body."""
+    @pytest.fixture(autouse=True)
+    def clear_rate_limits(self):
+        """Clear rate limits before each test to avoid 429 errors."""
+        from aragora.server.middleware.rate_limit.state import get_rate_limit_manager
 
-        def create_handler(body_data, user_id="test-user-123"):
-            handler = Mock()
-            handler.command = "POST"
-            handler.path = "/api/v1/plugins/submit"
-            # Set up rfile to return JSON body
-            body_bytes = json.dumps(body_data).encode("utf-8")
-            handler.rfile = Mock()
-            handler.rfile.read.return_value = body_bytes
-            handler.headers = {
-                "Content-Length": str(len(body_bytes)),
-                "Content-Type": "application/json",
-            }
-
-            # Mock auth token extraction
-            with (
-                patch.object(plugins_handler, "get_user_id", return_value=user_id),
-                patch.object(plugins_handler, "read_json_body", return_value=body_data),
-            ):
-                yield handler
-
-        return create_handler
+        try:
+            manager = get_rate_limit_manager()
+            manager.clear_all()
+        except Exception:
+            pass  # Rate limit manager may not be initialized
+        yield
 
     def _submit_plugin(self, plugins_handler, manifest_data, user_id="test-user-123"):
         """Helper to submit a plugin with the given manifest."""
         body = {"manifest": manifest_data}
 
+        # Create mock handler with auth headers
+        mock_handler = Mock()
+        mock_handler.headers = {
+            "Authorization": "Bearer test-api-token-12345",
+            "Content-Type": "application/json",
+        }
+
+        # Patch auth_config to accept our test token
+        from aragora.server.auth import auth_config
+
         with (
+            patch.object(auth_config, "api_token", "test-api-token-12345"),
+            patch.object(auth_config, "validate_token", return_value=True),
             patch.object(plugins_handler, "get_user_id", return_value=user_id),
             patch.object(plugins_handler, "read_json_body", return_value=body),
         ):
-            return plugins_handler.handle("/api/v1/plugins/submit", {"command": "POST"}, None)
+            # Use handle_post for POST requests with the mock handler
+            return plugins_handler.handle_post("/api/v1/plugins/submit", {}, mock_handler)
 
     def test_submit_plugin_name_too_long(self, plugins_handler):
         """Reject plugin names exceeding 64 characters."""
