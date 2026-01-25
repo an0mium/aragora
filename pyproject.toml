@@ -166,8 +166,10 @@ rlm = [
     # Official RLM library from arXiv:2512.24601 (MIT license)
     # Enables recursive language models for infinite context processing
     # Source: https://github.com/alexzhang13/rlm
-    # Install: pip install git+https://github.com/alexzhang13/rlm.git@v1.0.0
-    "rlm @ git+https://github.com/alexzhang13/rlm.git@v1.0.0",
+    # NOTE: Currently conflicts with our pytest<9.0 and openai<2.0 constraints.
+    # The aragora.rlm module works without this package (graceful fallback).
+    # To use official RLM: pip install git+https://github.com/alexzhang13/rlm.git@v1.0.0
+    # "rlm @ git+https://github.com/alexzhang13/rlm.git@v1.0.0",
 ]
 control-plane = [
     "redis>=5.0.0,<6.0",
@@ -186,7 +188,8 @@ code-intel = [
     "networkx>=3.0,<4.0",
 ]
 all = [
-    "aragora[test,persistence,documents,broadcast-premium,research,monitoring,ml,redis,control-plane,rlm,postgres,observability,code-intel]",
+    # Note: 'rlm' excluded due to dependency conflicts (requires pytest>=9, openai>=2)
+    "aragora[test,persistence,documents,broadcast-premium,research,monitoring,ml,redis,control-plane,postgres,observability,code-intel]",
 ]
 
 [project.scripts]
