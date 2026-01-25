@@ -1,9 +1,11 @@
 """Plugin and laboratory endpoint definitions."""
 
+from typing import Any
+
 from aragora.server.openapi.helpers import _ok_response
 
 # Common parameter definitions for reuse
-_PLUGIN_NAME_PARAM = {
+_PLUGIN_NAME_PARAM: dict[str, Any] = {
     "name": "name",
     "in": "path",
     "required": True,
@@ -12,9 +14,9 @@ _PLUGIN_NAME_PARAM = {
 }
 
 
-def _plugin_list_endpoint(deprecated: bool = False) -> dict:
+def _plugin_list_endpoint(deprecated: bool = False) -> dict[str, Any]:
     """Generate plugin list endpoint definition."""
-    result = {
+    result: dict[str, Any] = {
         "get": {
             "tags": ["Plugins"],
             "summary": "List plugins",
@@ -29,9 +31,9 @@ def _plugin_list_endpoint(deprecated: bool = False) -> dict:
     return result
 
 
-def _plugin_details_endpoint(deprecated: bool = False) -> dict:
+def _plugin_details_endpoint(deprecated: bool = False) -> dict[str, Any]:
     """Generate plugin details endpoint definition."""
-    result = {
+    result: dict[str, Any] = {
         "get": {
             "tags": ["Plugins"],
             "summary": "Get plugin details",
@@ -47,9 +49,9 @@ def _plugin_details_endpoint(deprecated: bool = False) -> dict:
     return result
 
 
-def _plugin_run_endpoint(deprecated: bool = False) -> dict:
+def _plugin_run_endpoint(deprecated: bool = False) -> dict[str, Any]:
     """Generate plugin run endpoint definition."""
-    result = {
+    result: dict[str, Any] = {
         "post": {
             "tags": ["Plugins"],
             "summary": "Run plugin",
@@ -67,9 +69,9 @@ def _plugin_run_endpoint(deprecated: bool = False) -> dict:
     return result
 
 
-def _plugin_install_endpoint(deprecated: bool = False) -> dict:
+def _plugin_install_endpoint(deprecated: bool = False) -> dict[str, Any]:
     """Generate plugin install/uninstall endpoint definition."""
-    result = {
+    result: dict[str, Any] = {
         "post": {
             "tags": ["Plugins"],
             "summary": "Install plugin",
@@ -98,9 +100,9 @@ def _plugin_install_endpoint(deprecated: bool = False) -> dict:
     return result
 
 
-def _plugin_installed_endpoint(deprecated: bool = False) -> dict:
+def _plugin_installed_endpoint(deprecated: bool = False) -> dict[str, Any]:
     """Generate installed plugins list endpoint definition."""
-    result = {
+    result: dict[str, Any] = {
         "get": {
             "tags": ["Plugins"],
             "summary": "List installed plugins",
@@ -116,9 +118,9 @@ def _plugin_installed_endpoint(deprecated: bool = False) -> dict:
     return result
 
 
-def _plugin_marketplace_endpoint(deprecated: bool = False) -> dict:
+def _plugin_marketplace_endpoint(deprecated: bool = False) -> dict[str, Any]:
     """Generate marketplace endpoint definition."""
-    result = {
+    result: dict[str, Any] = {
         "get": {
             "tags": ["Plugins"],
             "summary": "Get marketplace listings",
@@ -133,9 +135,9 @@ def _plugin_marketplace_endpoint(deprecated: bool = False) -> dict:
     return result
 
 
-def _plugin_submit_endpoint(deprecated: bool = False) -> dict:
+def _plugin_submit_endpoint(deprecated: bool = False) -> dict[str, Any]:
     """Generate plugin submission endpoint definition."""
-    result = {
+    result: dict[str, Any] = {
         "post": {
             "tags": ["Plugins"],
             "summary": "Submit plugin for review",
@@ -152,9 +154,9 @@ def _plugin_submit_endpoint(deprecated: bool = False) -> dict:
     return result
 
 
-def _plugin_submissions_endpoint(deprecated: bool = False) -> dict:
+def _plugin_submissions_endpoint(deprecated: bool = False) -> dict[str, Any]:
     """Generate submissions list endpoint definition."""
-    result = {
+    result: dict[str, Any] = {
         "get": {
             "tags": ["Plugins"],
             "summary": "List user's plugin submissions",
