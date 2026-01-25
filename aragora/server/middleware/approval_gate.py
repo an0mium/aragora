@@ -568,8 +568,11 @@ def _record_approval_request_created(request: OperationApprovalRequest) -> None:
         from aragora.observability.metrics.stores import record_governance_approval
 
         record_governance_approval(request.operation, "created")
-    except Exception:
+    except ImportError:
+        # Metrics module not available (optional dependency)
         pass
+    except (AttributeError, TypeError, RuntimeError) as e:
+        logger.warning(f"Failed to record approval creation metric: {e}")
 
 
 def _record_approval_resolved(request: OperationApprovalRequest) -> None:
@@ -578,8 +581,11 @@ def _record_approval_resolved(request: OperationApprovalRequest) -> None:
         from aragora.observability.metrics.stores import record_governance_approval
 
         record_governance_approval(request.operation, request.state.value)
-    except Exception:
+    except ImportError:
+        # Metrics module not available (optional dependency)
         pass
+    except (AttributeError, TypeError, RuntimeError) as e:
+        logger.warning(f"Failed to record approval resolution metric: {e}")
 
     # Audit log
     try:
@@ -597,8 +603,11 @@ def _record_approval_resolved(request: OperationApprovalRequest) -> None:
                 requester_id=request.requester_id,
             )
         )
-    except Exception:
+    except ImportError:
+        # Audit module not available (optional dependency)
         pass
+    except (RuntimeError, TypeError) as e:
+        logger.warning(f"Failed to create audit task for approval: {e}")
 
 
 # =============================================================================

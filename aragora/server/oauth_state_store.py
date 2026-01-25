@@ -11,6 +11,7 @@ If Redis is unavailable, automatically falls back to in-memory storage.
 
 from __future__ import annotations
 
+import binascii
 import json
 import logging
 import os
@@ -554,8 +555,8 @@ class JWTOAuthStateStore(OAuthStateStore):
         sig_b64_padded = sig_b64 + "=" * (4 - len(sig_b64) % 4)
         try:
             actual_sig = base64.urlsafe_b64decode(sig_b64_padded)
-        except Exception:
-            logger.debug("JWT state: invalid signature encoding")
+        except (ValueError, binascii.Error) as e:
+            logger.debug(f"JWT state: invalid signature encoding: {e}")
             return None
 
         if not hmac.compare_digest(expected_sig, actual_sig):
@@ -567,7 +568,7 @@ class JWTOAuthStateStore(OAuthStateStore):
         try:
             payload_json = base64.urlsafe_b64decode(payload_b64_padded).decode()
             payload = json.loads(payload_json)
-        except Exception as e:
+        except (ValueError, binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as e:
             logger.debug(f"JWT state: payload decode failed: {e}")
             return None
 

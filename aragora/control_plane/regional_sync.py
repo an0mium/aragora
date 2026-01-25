@@ -271,8 +271,12 @@ class RegionalEventBus:
                         entity_id=self._config.local_region,
                     )
                 )
-            except Exception:
-                pass
+            except asyncio.CancelledError:
+                # Re-raise cancellation for proper shutdown
+                raise
+            except (ConnectionError, TimeoutError, OSError) as e:
+                # Connection issues during shutdown are expected
+                logger.debug(f"Could not announce region leaving: {e}")
 
         # Cancel background tasks
         if self._listener_task:

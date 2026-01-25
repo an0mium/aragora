@@ -758,7 +758,11 @@ class NotificationDispatcher:
         try:
             info = await self._redis.xinfo_stream(self._config.queue_stream_key)
             return info.get("length", 0)
-        except Exception:
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.debug(f"Redis connection error getting queue depth: {e}")
+            return 0
+        except KeyError:
+            # Stream doesn't exist yet
             return 0
 
     async def get_dlq_depth(self) -> int:
@@ -770,7 +774,11 @@ class NotificationDispatcher:
             dlq_key = f"{self._config.queue_stream_key}:dlq"
             info = await self._redis.xinfo_stream(dlq_key)
             return info.get("length", 0)
-        except Exception:
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.debug(f"Redis connection error getting DLQ depth: {e}")
+            return 0
+        except KeyError:
+            # Stream doesn't exist yet
             return 0
 
 

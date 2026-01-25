@@ -718,7 +718,8 @@ def validate_body(required_fields: list[str]) -> Callable[[Callable], Callable]:
             async def async_wrapper(self, request, *args, **kwargs):
                 try:
                     body = await request.json()
-                except Exception:
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                    logger.debug(f"JSON parse error in request body: {e}")
                     if hasattr(self, "error_response"):
                         return self.error_response("Invalid JSON body", status=400)
                     return error_response("Invalid JSON body", status=400)
@@ -738,7 +739,8 @@ def validate_body(required_fields: list[str]) -> Callable[[Callable], Callable]:
         def sync_wrapper(self, request, *args, **kwargs):
             try:
                 body = request.json() if callable(getattr(request, "json", None)) else None
-            except Exception:
+            except (json.JSONDecodeError, ValueError, TypeError) as e:
+                logger.debug(f"JSON parse error in request body: {e}")
                 if hasattr(self, "error_response"):
                     return self.error_response("Invalid JSON body", status=400)
                 return error_response("Invalid JSON body", status=400)
