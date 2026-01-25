@@ -50,6 +50,7 @@ from aragora.server.openapi.endpoints.accounting import ACCOUNTING_ENDPOINTS
 from aragora.server.openapi.endpoints.threat_intel import THREAT_INTEL_ENDPOINTS
 from aragora.server.openapi.endpoints.budgets import BUDGET_ENDPOINTS
 from aragora.server.openapi.endpoints.teams import TEAMS_ENDPOINTS
+from aragora.server.openapi.endpoints.webhooks import WEBHOOK_ENDPOINTS
 
 
 # Import decorator-based endpoints registry
@@ -109,6 +110,7 @@ ALL_ENDPOINTS = {
     **THREAT_INTEL_ENDPOINTS,
     **BUDGET_ENDPOINTS,
     **TEAMS_ENDPOINTS,
+    **WEBHOOK_ENDPOINTS,
     # Decorator-registered endpoints (merged last to allow overrides)
     **_get_decorator_endpoints(),
 }
@@ -155,5 +157,6 @@ __all__ = [
     "THREAT_INTEL_ENDPOINTS",
     "BUDGET_ENDPOINTS",
     "TEAMS_ENDPOINTS",
+    "WEBHOOK_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]
