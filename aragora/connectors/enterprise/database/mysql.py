@@ -269,6 +269,81 @@ class MySQLConnector(EnterpriseConnector):
                             timestamp=row_dict.get(ts_column) if ts_column else None,
                         )
 
+    async def search(
+        self,
+        query: str,
+        limit: int = 10,
+        **kwargs,
+    ) -> list:
+        """
+        Search across indexed tables using LIKE queries.
+
+        For full-text search, tables should have FULLTEXT indexes.
+        """
+        import aiomysql
+
+        pool = await self._get_pool()
+        results = []
+
+        tables = self.tables or await self._discover_tables()
+
+        async with pool.acquire() as conn:
+            async with conn.cursor(aiomysql.DictCursor) as cursor:
+                for table in tables[:5]:  # Limit to first 5 tables
+                    try:
+                        columns = await self._get_table_columns(table)
+                        text_columns = [
+                            c["column_name"]
+                            for c in columns
+                            if "char" in c["data_type"].lower() or "text" in c["data_type"].lower()
+                        ]
+
+                        if text_columns:
+                            conditions = " OR ".join(
+                                [f"`{col}` LIKE %s" for col in text_columns[:3]]
+                            )
+                            search_query = f"""
+                                SELECT * FROM `{table}`
+                                WHERE {conditions}
+                                LIMIT %s
+                            """
+                            params = [f"%{query}%"] * min(len(text_columns), 3) + [limit]
+                            await cursor.execute(search_query, params)
+                            rows = await cursor.fetchall()
+
+                            for row in rows:
+                                results.append(
+                                    {
+                                        "table": table,
+                                        "data": dict(row),
+                                        "rank": 0.5,
+                                    }
+                                )
+
+                    except Exception as e:
+                        logger.debug(f"Search failed on {table}: {e}")
+                        continue
+
+        return sorted(results, key=lambda x: x.get("rank", 0), reverse=True)[:limit]
+
+    async def fetch(self, evidence_id: str):
+        """Fetch a specific row by evidence ID."""
+        if not evidence_id.startswith("mysql:"):
+            return None
+
+        parts = evidence_id.split(":")
+        if len(parts) < 4:
+            return None
+
+        database, _table, _pk_hash = parts[1], parts[2], parts[3]
+
+        if database != self.database:
+            return None
+
+        # We can't reverse the hash, so this is limited
+        logger.debug(f"[{self.name}] Fetch not implemented for hash-based IDs")
+        return None
+
     async def start_binlog_cdc(self) -> None:
         """
         Start CDC using MySQL binary log.

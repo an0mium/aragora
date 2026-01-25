@@ -277,6 +277,87 @@ class SQLServerConnector(EnterpriseConnector):
                             timestamp=row_dict.get(ts_column) if ts_column else None,
                         )
 
+    async def search(
+        self,
+        query: str,
+        limit: int = 10,
+        **kwargs,
+    ) -> list:
+        """
+        Search across indexed tables using LIKE queries.
+
+        For full-text search, tables should have full-text indexes.
+        """
+        pool = await self._get_pool()
+        results = []
+
+        tables = self.tables or await self._discover_tables()
+
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                for table in tables[:5]:  # Limit to first 5 tables
+                    try:
+                        columns = await self._get_table_columns(table)
+                        text_columns = [
+                            c["column_name"]
+                            for c in columns
+                            if "char" in c["data_type"].lower() or "text" in c["data_type"].lower()
+                        ]
+
+                        if text_columns:
+                            qualified_table = f"[{self.schema}].[{table}]"
+                            conditions = " OR ".join(
+                                [f"[{col}] LIKE ?" for col in text_columns[:3]]
+                            )
+                            search_query = f"""
+                                SELECT TOP (?) * FROM {qualified_table}
+                                WHERE {conditions}
+                            """
+                            params = [limit] + [f"%{query}%"] * min(len(text_columns), 3)
+                            await cursor.execute(search_query, *params)
+                            rows = await cursor.fetchall()
+
+                            # Get column names from cursor description
+                            col_names = (
+                                [desc[0] for desc in cursor.description]
+                                if cursor.description
+                                else []
+                            )
+
+                            for row in rows:
+                                row_dict = dict(zip(col_names, row)) if col_names else {}
+                                results.append(
+                                    {
+                                        "table": table,
+                                        "data": row_dict,
+                                        "rank": 0.5,
+                                    }
+                                )
+
+                    except Exception as e:
+                        logger.debug(f"Search failed on {table}: {e}")
+                        continue
+
+        return sorted(results, key=lambda x: x.get("rank", 0), reverse=True)[:limit]
+
+    async def fetch(self, evidence_id: str):
+        """Fetch a specific row by evidence ID."""
+        if not evidence_id.startswith("sqlserver:"):
+            return None
+
+        parts = evidence_id.split(":")
+        if len(parts) < 4:
+            return None
+
+        database, _table, _pk_hash = parts[1], parts[2], parts[3]
+
+        if database != self.database:
+            return None
+
+        # We can't reverse the hash, so this is limited
+        logger.debug(f"[{self.name}] Fetch not implemented for hash-based IDs")
+        return None
+
     async def _check_cdc_enabled(self, table: str) -> bool:
         """Check if CDC is enabled for a table."""
         pool = await self._get_pool()
