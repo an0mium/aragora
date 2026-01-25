@@ -81,8 +81,8 @@ export function FirstDebateStep() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          task: firstDebateTopic,
-          agents: ['claude', 'gpt-4'], // Express: 2 agents
+          question: firstDebateTopic,
+          agents: 'anthropic-api,openai-api', // Express: 2 agents (CSV format)
           rounds: selectedTemplate?.rounds || 2,
           enable_receipt_generation: true, // Enable for onboarding
           receipt_min_confidence: 0.5,
