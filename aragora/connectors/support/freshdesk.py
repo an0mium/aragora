@@ -18,7 +18,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -364,7 +364,7 @@ class FreshdeskConnector:
     async def get_ticket(self, ticket_id: int) -> FreshdeskTicket:
         """Get a single ticket."""
         data = await self._request("GET", f"/tickets/{ticket_id}")
-        return FreshdeskTicket.from_api(data)  # type: ignore
+        return FreshdeskTicket.from_api(cast(dict[str, Any], data))
 
     async def create_ticket(
         self,
@@ -406,7 +406,7 @@ class FreshdeskConnector:
             ticket_data["custom_fields"] = custom_fields
 
         data = await self._request("POST", "/tickets", json_data=ticket_data)
-        return FreshdeskTicket.from_api(data)  # type: ignore
+        return FreshdeskTicket.from_api(cast(dict[str, Any], data))
 
     async def update_ticket(
         self,
@@ -435,7 +435,7 @@ class FreshdeskConnector:
             ticket_data["custom_fields"] = custom_fields
 
         data = await self._request("PUT", f"/tickets/{ticket_id}", json_data=ticket_data)
-        return FreshdeskTicket.from_api(data)  # type: ignore
+        return FreshdeskTicket.from_api(cast(dict[str, Any], data))
 
     async def delete_ticket(self, ticket_id: int) -> bool:
         """Delete a ticket."""
@@ -463,7 +463,7 @@ class FreshdeskConnector:
             reply_data["cc_emails"] = cc_emails
 
         data = await self._request("POST", f"/tickets/{ticket_id}/reply", json_data=reply_data)
-        return Conversation.from_api(data)  # type: ignore
+        return Conversation.from_api(cast(dict[str, Any], data))
 
     async def add_note(
         self,
@@ -474,7 +474,7 @@ class FreshdeskConnector:
         """Add a note to a ticket."""
         note_data: dict[str, Any] = {"body": body, "private": private}
         data = await self._request("POST", f"/tickets/{ticket_id}/notes", json_data=note_data)
-        return Conversation.from_api(data)  # type: ignore
+        return Conversation.from_api(cast(dict[str, Any], data))
 
     # =========================================================================
     # Contacts
@@ -500,7 +500,7 @@ class FreshdeskConnector:
     async def get_contact(self, contact_id: int) -> Contact:
         """Get a single contact."""
         data = await self._request("GET", f"/contacts/{contact_id}")
-        return Contact.from_api(data)  # type: ignore
+        return Contact.from_api(cast(dict[str, Any], data))
 
     async def create_contact(
         self,
@@ -520,7 +520,7 @@ class FreshdeskConnector:
             contact_data["job_title"] = job_title
 
         data = await self._request("POST", "/contacts", json_data=contact_data)
-        return Contact.from_api(data)  # type: ignore
+        return Contact.from_api(cast(dict[str, Any], data))
 
     # =========================================================================
     # Companies
@@ -535,7 +535,7 @@ class FreshdeskConnector:
     async def get_company(self, company_id: int) -> Company:
         """Get a single company."""
         data = await self._request("GET", f"/companies/{company_id}")
-        return Company.from_api(data)  # type: ignore
+        return Company.from_api(cast(dict[str, Any], data))
 
     async def create_company(
         self,
@@ -551,7 +551,7 @@ class FreshdeskConnector:
             company_data["description"] = description
 
         data = await self._request("POST", "/companies", json_data=company_data)
-        return Company.from_api(data)  # type: ignore
+        return Company.from_api(cast(dict[str, Any], data))
 
     # =========================================================================
     # Agents
@@ -566,7 +566,7 @@ class FreshdeskConnector:
     async def get_agent(self, agent_id: int) -> Agent:
         """Get a single agent."""
         data = await self._request("GET", f"/agents/{agent_id}")
-        return Agent.from_api(data)  # type: ignore
+        return Agent.from_api(cast(dict[str, Any], data))
 
     # =========================================================================
     # Search
