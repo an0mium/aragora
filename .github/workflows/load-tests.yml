@@ -160,6 +160,40 @@ jobs:
             cat /tmp/aragora-server.log
             exit 1
           fi
+
+          # Wait for critical endpoints to be ready (not just health)
+          # These endpoints are used by the load test scripts
+          echo "Waiting for critical endpoints to be ready..."
+          for i in {1..30}; do
+            READY=true
+
+            # Check leaderboard-view - accept 2xx or 4xx (endpoint exists but may need auth)
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/api/v1/leaderboard-view?limit=10)
+            if [ "$CODE" -ge 500 ] || [ "$CODE" -eq 000 ]; then
+              READY=false
+            fi
+
+            # Check agents list - accept 2xx or 4xx
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/api/v1/agents)
+            if [ "$CODE" -ge 500 ] || [ "$CODE" -eq 000 ]; then
+              READY=false
+            fi
+
+            if [ "$READY" = "true" ]; then
+              echo "All critical endpoints ready (responding with non-5xx)"
+              break
+            fi
+
+            echo "Waiting for endpoints... ($i/30)"
+            sleep 2
+          done
+
+          # Log endpoint status for debugging
+          echo "=== Endpoint status ==="
+          echo "Leaderboard: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/leaderboard-view?limit=10)"
+          echo "Agents: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/agents)"
+          echo "Debates: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/debates?limit=10)"
+          echo "=== End status ==="
         env:
           ARAGORA_REDIS_URL: redis://localhost:6379/0
           ARAGORA_ENABLE_REDIS_RATE_LIMIT: "1"
