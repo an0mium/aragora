@@ -28,11 +28,13 @@ import logging
 from typing import Any, Optional
 
 from aragora.server.http_utils import run_async as _run_async
+from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    get_string_param,
     handle_errors,
     json_response,
     require_user_auth,
@@ -42,82 +44,158 @@ from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
+ANALYTICS_STUB_RESPONSES = {
+    "/api/analytics/summary": {
+        "summary": {
+            "total_debates": 0,
+            "total_messages": 0,
+            "consensus_rate": 0,
+            "avg_debate_duration_ms": 0,
+            "active_users_24h": 0,
+            "top_topics": [],
+        }
+    },
+    "/api/analytics/trends/findings": {"trends": []},
+    "/api/analytics/remediation": {
+        "metrics": {
+            "total_findings": 0,
+            "remediated": 0,
+            "pending": 0,
+            "avg_remediation_time_hours": 0,
+            "remediation_rate": 0,
+        }
+    },
+    "/api/analytics/agents": {"agents": []},
+    "/api/analytics/cost": {
+        "analysis": {
+            "total_cost_usd": 0,
+            "cost_by_model": {},
+            "cost_by_debate_type": {},
+            "projected_monthly_cost": 0,
+            "cost_trend": [],
+        }
+    },
+    "/api/analytics/compliance": {
+        "compliance": {
+            "overall_score": 0,
+            "categories": [],
+            "last_audit": "",
+        }
+    },
+    "/api/analytics/heatmap": {
+        "heatmap": {
+            "x_labels": [],
+            "y_labels": [],
+            "values": [],
+            "max_value": 0,
+        }
+    },
+    "/api/analytics/tokens": {
+        "summary": {
+            "total_tokens_in": 0,
+            "total_tokens_out": 0,
+            "total_tokens": 0,
+            "avg_tokens_per_day": 0,
+        },
+        "by_agent": {},
+        "by_model": {},
+    },
+    "/api/analytics/tokens/trends": {"trends": []},
+    "/api/analytics/tokens/providers": {"providers": []},
+    "/api/analytics/flips/summary": {"summary": {"total": 0, "consistent": 0, "inconsistent": 0}},
+    "/api/analytics/flips/recent": {"flips": []},
+    "/api/analytics/flips/consistency": {"consistency": []},
+    "/api/analytics/flips/trends": {"trends": []},
+    "/api/analytics/deliberations": {"summary": {"total": 0, "consensus_rate": 0}},
+    "/api/analytics/deliberations/channels": {"channels": []},
+    "/api/analytics/deliberations/consensus": {"consensus": []},
+    "/api/analytics/deliberations/performance": {"performance": []},
+}
+
 
 class AnalyticsDashboardHandler(BaseHandler):
     """Handler for analytics dashboard endpoints."""
 
     ROUTES = [
-        "/api/v1/analytics/summary",
-        "/api/v1/analytics/trends/findings",
-        "/api/v1/analytics/remediation",
-        "/api/v1/analytics/agents",
-        "/api/v1/analytics/cost",
-        "/api/v1/analytics/compliance",
-        "/api/v1/analytics/heatmap",
-        "/api/v1/analytics/tokens",
-        "/api/v1/analytics/tokens/trends",
-        "/api/v1/analytics/tokens/providers",
-        "/api/v1/analytics/flips/summary",
-        "/api/v1/analytics/flips/recent",
-        "/api/v1/analytics/flips/consistency",
-        "/api/v1/analytics/flips/trends",
+        "/api/analytics/summary",
+        "/api/analytics/trends/findings",
+        "/api/analytics/remediation",
+        "/api/analytics/agents",
+        "/api/analytics/cost",
+        "/api/analytics/compliance",
+        "/api/analytics/heatmap",
+        "/api/analytics/tokens",
+        "/api/analytics/tokens/trends",
+        "/api/analytics/tokens/providers",
+        "/api/analytics/flips/summary",
+        "/api/analytics/flips/recent",
+        "/api/analytics/flips/consistency",
+        "/api/analytics/flips/trends",
         # Deliberation analytics
-        "/api/v1/analytics/deliberations",
-        "/api/v1/analytics/deliberations/channels",
-        "/api/v1/analytics/deliberations/consensus",
-        "/api/v1/analytics/deliberations/performance",
+        "/api/analytics/deliberations",
+        "/api/analytics/deliberations/channels",
+        "/api/analytics/deliberations/consensus",
+        "/api/analytics/deliberations/performance",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES
+        normalized = strip_version_prefix(path)
+        return normalized in self.ROUTES
 
     @rate_limit(rpm=60)
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
-        if path == "/api/v1/analytics/summary":
-            return self._get_summary(query_params)
-        elif path == "/api/v1/analytics/trends/findings":
-            return self._get_finding_trends(query_params)
-        elif path == "/api/v1/analytics/remediation":
-            return self._get_remediation_metrics(query_params)
-        elif path == "/api/v1/analytics/agents":
-            return self._get_agent_metrics(query_params)
-        elif path == "/api/v1/analytics/cost":
-            return self._get_cost_metrics(query_params)
-        elif path == "/api/v1/analytics/compliance":
-            return self._get_compliance_scorecard(query_params)
-        elif path == "/api/v1/analytics/heatmap":
-            return self._get_risk_heatmap(query_params)
-        elif path == "/api/v1/analytics/tokens":
-            return self._get_token_usage(query_params)
-        elif path == "/api/v1/analytics/tokens/trends":
-            return self._get_token_trends(query_params)
-        elif path == "/api/v1/analytics/tokens/providers":
-            return self._get_provider_breakdown(query_params)
-        elif path == "/api/v1/analytics/flips/summary":
-            return self._get_flip_summary(query_params)
-        elif path == "/api/v1/analytics/flips/recent":
-            return self._get_recent_flips(query_params)
-        elif path == "/api/v1/analytics/flips/consistency":
-            return self._get_agent_consistency(query_params)
-        elif path == "/api/v1/analytics/flips/trends":
-            return self._get_flip_trends(query_params)
+        normalized = strip_version_prefix(path)
+        if normalized in ANALYTICS_STUB_RESPONSES:
+            user_ctx = self.get_current_user(handler) if handler else None
+            workspace_id = get_string_param(query_params, "workspace_id")
+            if user_ctx is None or not workspace_id:
+                return json_response(ANALYTICS_STUB_RESPONSES[normalized])
+
+        if normalized == "/api/analytics/summary":
+            return self._get_summary(query_params, handler)
+        elif normalized == "/api/analytics/trends/findings":
+            return self._get_finding_trends(query_params, handler)
+        elif normalized == "/api/analytics/remediation":
+            return self._get_remediation_metrics(query_params, handler)
+        elif normalized == "/api/analytics/agents":
+            return self._get_agent_metrics(query_params, handler)
+        elif normalized == "/api/analytics/cost":
+            return self._get_cost_metrics(query_params, handler)
+        elif normalized == "/api/analytics/compliance":
+            return self._get_compliance_scorecard(query_params, handler)
+        elif normalized == "/api/analytics/heatmap":
+            return self._get_risk_heatmap(query_params, handler)
+        elif normalized == "/api/analytics/tokens":
+            return self._get_token_usage(query_params, handler)
+        elif normalized == "/api/analytics/tokens/trends":
+            return self._get_token_trends(query_params, handler)
+        elif normalized == "/api/analytics/tokens/providers":
+            return self._get_provider_breakdown(query_params, handler)
+        elif normalized == "/api/analytics/flips/summary":
+            return self._get_flip_summary(query_params, handler)
+        elif normalized == "/api/analytics/flips/recent":
+            return self._get_recent_flips(query_params, handler)
+        elif normalized == "/api/analytics/flips/consistency":
+            return self._get_agent_consistency(query_params, handler)
+        elif normalized == "/api/analytics/flips/trends":
+            return self._get_flip_trends(query_params, handler)
         # Deliberation analytics
-        elif path == "/api/v1/analytics/deliberations":
-            return self._get_deliberation_summary(query_params)
-        elif path == "/api/v1/analytics/deliberations/channels":
-            return self._get_deliberation_by_channel(query_params)
-        elif path == "/api/v1/analytics/deliberations/consensus":
-            return self._get_consensus_rates(query_params)
-        elif path == "/api/v1/analytics/deliberations/performance":
-            return self._get_deliberation_performance(query_params)
+        elif normalized == "/api/analytics/deliberations":
+            return self._get_deliberation_summary(query_params, handler)
+        elif normalized == "/api/analytics/deliberations/channels":
+            return self._get_deliberation_by_channel(query_params, handler)
+        elif normalized == "/api/analytics/deliberations/consensus":
+            return self._get_consensus_rates(query_params, handler)
+        elif normalized == "/api/analytics/deliberations/performance":
+            return self._get_deliberation_performance(query_params, handler)
 
         return None
 
     @require_user_auth
     @handle_errors("get analytics summary")
-    def _get_summary(self, query_params: dict, user=None) -> HandlerResult:
+    def _get_summary(self, query_params: dict, handler=None, user=None) -> HandlerResult:
         """
         Get dashboard summary with key metrics.
 
@@ -167,7 +245,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get finding trends")
-    def _get_finding_trends(self, query_params: dict, user=None) -> HandlerResult:
+    def _get_finding_trends(self, query_params: dict, handler=None, user=None) -> HandlerResult:
         """
         Get finding trends over time.
 
@@ -232,7 +310,9 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get remediation metrics")
-    def _get_remediation_metrics(self, query_params: dict, user=None) -> HandlerResult:
+    def _get_remediation_metrics(
+        self, query_params: dict, handler=None, user=None
+    ) -> HandlerResult:
         """
         Get remediation performance metrics.
 
@@ -284,7 +364,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get agent metrics")
-    def _get_agent_metrics(self, query_params: dict, user=None) -> HandlerResult:
+    def _get_agent_metrics(self, query_params: dict, handler=None, user=None) -> HandlerResult:
         """
         Get agent performance metrics.
 
@@ -341,7 +421,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get cost metrics")
-    def _get_cost_metrics(self, query_params: dict, user=None) -> HandlerResult:
+    def _get_cost_metrics(self, query_params: dict, handler=None, user=None) -> HandlerResult:
         """
         Get cost analysis for audits.
 
@@ -392,7 +472,9 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get compliance scorecard")
-    def _get_compliance_scorecard(self, query_params: dict, user=None) -> HandlerResult:
+    def _get_compliance_scorecard(
+        self, query_params: dict, handler=None, user=None
+    ) -> HandlerResult:
         """
         Get compliance scorecard for specified frameworks.
 
@@ -447,7 +529,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get risk heatmap")
-    def _get_risk_heatmap(self, query_params: dict, user=None) -> HandlerResult:
+    def _get_risk_heatmap(self, query_params: dict, handler=None, user=None) -> HandlerResult:
         """
         Get risk heatmap data (category x severity).
 
@@ -502,7 +584,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get token usage")
-    def _get_token_usage(self, query_params: dict, user=None) -> HandlerResult:
+    def _get_token_usage(self, query_params: dict, handler=None, user=None) -> HandlerResult:
         """
         Get token usage summary.
 
@@ -566,7 +648,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get token trends")
-    def _get_token_trends(self, query_params: dict, user=None) -> HandlerResult:
+    def _get_token_trends(self, query_params: dict, handler=None, user=None) -> HandlerResult:
         """
         Get token usage trends over time.
 
@@ -663,7 +745,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get provider breakdown")
-    def _get_provider_breakdown(self, query_params: dict, user=None) -> HandlerResult:
+    def _get_provider_breakdown(self, query_params: dict, handler=None, user=None) -> HandlerResult:
         """
         Get detailed breakdown by provider and model.
 
@@ -1051,7 +1133,9 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get deliberation summary")
-    def _get_deliberation_summary(self, query_params: dict, user=None) -> HandlerResult:
+    def _get_deliberation_summary(
+        self, query_params: dict, handler=None, user=None
+    ) -> HandlerResult:
         """
         Get deliberation analytics summary.
 
@@ -1136,7 +1220,9 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get deliberation by channel")
-    def _get_deliberation_by_channel(self, query_params: dict, user=None) -> HandlerResult:
+    def _get_deliberation_by_channel(
+        self, query_params: dict, handler=None, user=None
+    ) -> HandlerResult:
         """
         Get deliberation breakdown by channel/platform.
 
@@ -1238,7 +1324,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get consensus rates")
-    def _get_consensus_rates(self, query_params: dict, user=None) -> HandlerResult:
+    def _get_consensus_rates(self, query_params: dict, handler=None, user=None) -> HandlerResult:
         """
         Get consensus rates by agent team composition.
 
@@ -1324,7 +1410,9 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get deliberation performance")
-    def _get_deliberation_performance(self, query_params: dict, user=None) -> HandlerResult:
+    def _get_deliberation_performance(
+        self, query_params: dict, handler=None, user=None
+    ) -> HandlerResult:
         """
         Get deliberation performance metrics (latency, cost, efficiency).
 

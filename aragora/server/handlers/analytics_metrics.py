@@ -30,6 +30,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from aragora.config import CACHE_TTL_ANALYTICS
+from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
     BaseHandler,
@@ -122,65 +123,66 @@ class AnalyticsMetricsHandler(BaseHandler):
 
     ROUTES = [
         # Debate Analytics
-        "/api/v1/analytics/debates/overview",
-        "/api/v1/analytics/debates/trends",
-        "/api/v1/analytics/debates/topics",
-        "/api/v1/analytics/debates/outcomes",
+        "/api/analytics/debates/overview",
+        "/api/analytics/debates/trends",
+        "/api/analytics/debates/topics",
+        "/api/analytics/debates/outcomes",
         # Agent Performance
-        "/api/v1/analytics/agents/leaderboard",
-        "/api/v1/analytics/agents/comparison",
-        "/api/v1/analytics/agents/trends",
+        "/api/analytics/agents/leaderboard",
+        "/api/analytics/agents/comparison",
+        "/api/analytics/agents/trends",
         # Usage Analytics
-        "/api/v1/analytics/usage/tokens",
-        "/api/v1/analytics/usage/costs",
-        "/api/v1/analytics/usage/active_users",
+        "/api/analytics/usage/tokens",
+        "/api/analytics/usage/costs",
+        "/api/analytics/usage/active_users",
     ]
 
     # Pattern for agent-specific performance endpoint
-    AGENT_PERFORMANCE_PATTERN = re.compile(
-        r"^/api/v1/analytics/agents/([a-zA-Z0-9_-]+)/performance$"
-    )
+    AGENT_PERFORMANCE_PATTERN = re.compile(r"^/api/analytics/agents/([a-zA-Z0-9_-]+)/performance$")
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path in self.ROUTES:
+        normalized = strip_version_prefix(path)
+        if normalized in self.ROUTES:
             return True
         # Check agent performance pattern
-        return bool(self.AGENT_PERFORMANCE_PATTERN.match(path))
+        return bool(self.AGENT_PERFORMANCE_PATTERN.match(normalized))
 
     @rate_limit(rpm=60)
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
+        normalized = strip_version_prefix(path)
+
         # Debate Analytics
-        if path == "/api/v1/analytics/debates/overview":
+        if normalized == "/api/analytics/debates/overview":
             return self._get_debates_overview(query_params)
-        elif path == "/api/v1/analytics/debates/trends":
+        elif normalized == "/api/analytics/debates/trends":
             return self._get_debates_trends(query_params)
-        elif path == "/api/v1/analytics/debates/topics":
+        elif normalized == "/api/analytics/debates/topics":
             return self._get_debates_topics(query_params)
-        elif path == "/api/v1/analytics/debates/outcomes":
+        elif normalized == "/api/analytics/debates/outcomes":
             return self._get_debates_outcomes(query_params)
 
         # Agent Performance
-        elif path == "/api/v1/analytics/agents/leaderboard":
+        elif normalized == "/api/analytics/agents/leaderboard":
             return self._get_agents_leaderboard(query_params)
-        elif path == "/api/v1/analytics/agents/comparison":
+        elif normalized == "/api/analytics/agents/comparison":
             return self._get_agents_comparison(query_params)
-        elif path == "/api/v1/analytics/agents/trends":
+        elif normalized == "/api/analytics/agents/trends":
             return self._get_agents_trends(query_params)
 
         # Agent-specific performance
-        match = self.AGENT_PERFORMANCE_PATTERN.match(path)
+        match = self.AGENT_PERFORMANCE_PATTERN.match(normalized)
         if match:
             agent_id = match.group(1)
             return self._get_agent_performance(agent_id, query_params)
 
         # Usage Analytics
-        if path == "/api/v1/analytics/usage/tokens":
+        if normalized == "/api/analytics/usage/tokens":
             return self._get_usage_tokens(query_params)
-        elif path == "/api/v1/analytics/usage/costs":
+        elif normalized == "/api/analytics/usage/costs":
             return self._get_usage_costs(query_params)
-        elif path == "/api/v1/analytics/usage/active_users":
+        elif normalized == "/api/analytics/usage/active_users":
             return self._get_active_users(query_params)
 
         return None
