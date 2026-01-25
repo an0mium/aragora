@@ -1192,6 +1192,7 @@ class DecisionRouter:
                 self._debate_engine = Arena
 
             # Convert to debate format
+            from aragora.agents import get_agents_by_names
             from aragora.core_types import Environment
             from aragora.debate.protocol import DebateProtocol
 
@@ -1222,10 +1223,12 @@ class DecisionRouter:
                 span.set_attribute("debate.agents", ",".join(request.config.agents or []))
 
             # Create arena and run
+            # Convert agent names to Agent instances (Arena expects agents, not agent_names)
+            agents = get_agents_by_names(request.config.agents) if request.config.agents else []
             arena = self._debate_engine(
                 environment=env,
+                agents=agents,
                 protocol=protocol,
-                agent_names=request.config.agents,
             )
 
             debate_result = await arena.run()

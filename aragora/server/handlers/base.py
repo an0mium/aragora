@@ -1147,7 +1147,9 @@ class BaseHandler:
                 return err
         """
         pattern = pattern or SAFE_ID_PATTERN
-        parts = path.strip("/").split("/")
+        # Don't strip leading slash - handler code expects index 0 to be empty string
+        # e.g., "/api/agent/claude/profile" -> ["", "api", "agent", "claude", "profile"]
+        parts = path.split("/")
 
         if segment_index >= len(parts):
             return None, error_response(f"Missing {param_name} in path", 400)

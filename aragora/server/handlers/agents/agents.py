@@ -37,6 +37,7 @@ from aragora.config import (
     CACHE_TTL_FLIPS_SUMMARY,
     CACHE_TTL_LEADERBOARD,
     CACHE_TTL_RECENT_MATCHES,
+    ELO_INITIAL_RATING,
 )
 
 logger = logging.getLogger(__name__)
@@ -651,7 +652,7 @@ class AgentsHandler(BaseHandler):
 
             profiles = []
             for agent in limited_agents:
-                rating = ratings_map.get(agent)
+                rating = ratings_map.get(agent) or ELO_INITIAL_RATING
                 stats = elo.get_agent_stats(agent) if hasattr(elo, "get_agent_stats") else {}
                 profiles.append(
                     {
@@ -693,7 +694,7 @@ class AgentsHandler(BaseHandler):
         if not elo:
             return error_response("ELO system not available", 503)
 
-        rating = elo.get_rating(agent)
+        rating = elo.get_rating(agent) or ELO_INITIAL_RATING
         stats: dict[str, Any] = {}
         if hasattr(elo, "get_agent_stats"):
             stats = elo.get_agent_stats(agent) or {}
