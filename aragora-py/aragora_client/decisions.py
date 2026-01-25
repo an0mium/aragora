@@ -8,7 +8,7 @@ Provides a unified interface for creating and tracking decisions:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -19,9 +19,11 @@ if TYPE_CHECKING:
 class DecisionType(str, Enum):
     """Type of decision request."""
 
+    AUTO = "auto"
     DEBATE = "debate"
     WORKFLOW = "workflow"
     GAUNTLET = "gauntlet"
+    QUICK = "quick"
 
 
 class DecisionStatus(str, Enum):
@@ -32,44 +34,101 @@ class DecisionStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    TIMEOUT = "timeout"
+    NOT_FOUND = "not_found"
+    UNKNOWN = "unknown"
+
+
+def _parse_decision_type(raw: str | None) -> DecisionType:
+    if not raw:
+        return DecisionType.AUTO
+    try:
+        return DecisionType(raw)
+    except ValueError:
+        return DecisionType.AUTO
+
+
+def _parse_decision_status(raw: str | None) -> DecisionStatus:
+    if not raw:
+        return DecisionStatus.UNKNOWN
+    try:
+        return DecisionStatus(raw)
+    except ValueError:
+        return DecisionStatus.UNKNOWN
 
 
 @dataclass
 class DecisionResult:
     """Result of a decision request."""
 
-    id: str
-    type: DecisionType
+    request_id: str
+    decision_type: DecisionType
     status: DecisionStatus
-    task: str
-    conclusion: str | None
+    answer: str | None
     confidence: float | None
+    consensus_reached: bool | None = None
     reasoning: str | None
-    created_at: str
+    evidence_used: list[dict[str, Any]] = field(default_factory=list)
+    duration_seconds: float | None = None
+    created_at: str | None = None
     completed_at: str | None
-    metadata: dict[str, Any]
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    task: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DecisionResult:
-        return cls(
-            id=data.get("id", ""),
-            type=DecisionType(data.get("type", "debate")),
-            status=DecisionStatus(data.get("status", "pending")),
-            task=data.get("task", ""),
-            conclusion=data.get("conclusion"),
-            confidence=data.get("confidence"),
-            reasoning=data.get("reasoning"),
-            created_at=data.get("created_at", ""),
-            completed_at=data.get("completed_at"),
-            metadata=data.get("metadata", {}),
+        payload = data.get("result", {})
+        decision_type = _parse_decision_type(
+            data.get("decision_type")
+            or payload.get("decision_type")
+            or data.get("type")
         )
+        status = _parse_decision_status(data.get("status") or payload.get("status"))
+        return cls(
+            request_id=data.get("request_id")
+            or data.get("id")
+            or payload.get("request_id", ""),
+            decision_type=decision_type,
+            status=status,
+            answer=data.get("answer")
+            or payload.get("answer")
+            or data.get("conclusion"),
+            confidence=data.get("confidence") or payload.get("confidence"),
+            consensus_reached=data.get("consensus_reached")
+            if "consensus_reached" in data
+            else payload.get("consensus_reached"),
+            reasoning=data.get("reasoning") or payload.get("reasoning"),
+            evidence_used=data.get("evidence_used")
+            or payload.get("evidence_used")
+            or [],
+            duration_seconds=data.get("duration_seconds")
+            or payload.get("duration_seconds"),
+            created_at=data.get("created_at") or payload.get("created_at"),
+            completed_at=data.get("completed_at") or payload.get("completed_at"),
+            error=data.get("error") or payload.get("error"),
+            metadata=data.get("metadata") or payload.get("metadata") or {},
+            task=data.get("task") or data.get("content"),
+        )
+
+    @property
+    def id(self) -> str:
+        return self.request_id
+
+    @property
+    def type(self) -> DecisionType:
+        return self.decision_type
+
+    @property
+    def conclusion(self) -> str | None:
+        return self.answer
 
 
 @dataclass
 class DecisionStatusInfo:
     """Status information for polling."""
 
-    id: str
+    request_id: str
     status: DecisionStatus
     progress: float  # 0-100
     current_phase: str | None
@@ -78,12 +137,16 @@ class DecisionStatusInfo:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DecisionStatusInfo:
         return cls(
-            id=data.get("id", ""),
-            status=DecisionStatus(data.get("status", "pending")),
+            request_id=data.get("request_id") or data.get("id", ""),
+            status=_parse_decision_status(data.get("status")),
             progress=data.get("progress", 0.0),
             current_phase=data.get("current_phase"),
             eta_seconds=data.get("eta_seconds"),
         )
+
+    @property
+    def id(self) -> str:
+        return self.request_id
 
 
 class DecisionsAPI:
@@ -149,26 +212,33 @@ class DecisionsAPI:
             )
         """
         data: dict[str, Any] = {
-            "task": task,
-            "type": decision_type.value,
-            "async": async_mode,
+            "content": task,
+            "decision_type": decision_type.value,
         }
 
+        config: dict[str, Any] = {}
         if agents:
-            data["agents"] = agents
+            config["agents"] = agents
         if max_rounds != 5:
-            data["max_rounds"] = max_rounds
+            config["rounds"] = max_rounds
         if consensus_threshold != 0.8:
-            data["consensus_threshold"] = consensus_threshold
+            config["consensus_threshold"] = consensus_threshold
         if workflow_id:
-            data["workflow_id"] = workflow_id
+            config["workflow_id"] = workflow_id
         if gauntlet_checks:
-            data["gauntlet_checks"] = gauntlet_checks
+            config["attack_categories"] = gauntlet_checks
+        if async_mode is False:
+            config["async"] = False
+        if config:
+            data["config"] = config
         if metadata:
-            data["metadata"] = metadata
+            data["context"] = {"metadata": metadata}
 
         response = await self._client._post("/api/v1/decisions", data)
-        return DecisionResult.from_dict(response)
+        result = DecisionResult.from_dict(response)
+        if result.task is None:
+            result.task = task
+        return result
 
     # =========================================================================
     # Decision Retrieval
