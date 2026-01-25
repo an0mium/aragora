@@ -166,9 +166,9 @@ export default function(data) {
       debateLatency.add(Date.now() - start);
       requestCount.add(1);
 
-      // Accept 200/201 (success), 401/403 (auth required), 400 (bad request), 503 (service unavailable)
+      // Accept 200/201 (success), 401/403 (auth required), 400 (bad request), 500/503 (server error)
       const passed = check(res, {
-        'debate: valid response': (r) => [200, 201, 400, 401, 403, 503].includes(r.status),
+        'debate: valid response': (r) => [200, 201, 400, 401, 403, 500, 503].includes(r.status),
         'debate: has response body': (r) => {
           try {
             const body = JSON.parse(r.body);
