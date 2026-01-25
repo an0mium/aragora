@@ -831,11 +831,26 @@ export class AragoraClient {
   async executeSMEWorkflow(workflowId: string, body: {
     inputs?: Record<string, unknown>;
     context?: Record<string, unknown>;
+    execute?: boolean;
+    tenant_id?: string;
   }): Promise<{ execution_id: string }> {
+    const payload: Record<string, unknown> = { ...(body?.inputs ?? {}) };
+    if (body?.context) {
+      payload.context = body.context;
+    }
+    if (body?.tenant_id) {
+      payload.tenant_id = body.tenant_id;
+    }
+    if (body?.execute !== undefined) {
+      payload.execute = body.execute;
+    } else if (payload.execute === undefined) {
+      payload.execute = true;
+    }
+
     return this.request<{ execution_id: string }>(
       'POST',
-      `/api/v1/sme/workflows/${encodeURIComponent(workflowId)}/execute`,
-      { body }
+      `/api/v1/sme/workflows/${encodeURIComponent(workflowId)}`,
+      { body: payload }
     );
   }
 

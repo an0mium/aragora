@@ -24,7 +24,12 @@ interface SMEClientInterface {
   // SME Workflows
   listSMEWorkflows(params?: { category?: string; limit?: number; offset?: number }): Promise<{ workflows: WorkflowTemplate[] }>;
   getSMEWorkflow(workflowId: string): Promise<WorkflowTemplate>;
-  executeSMEWorkflow(workflowId: string, body: { inputs?: Record<string, unknown>; context?: Record<string, unknown> }): Promise<SMEWorkflowExecutionResult>;
+  executeSMEWorkflow(workflowId: string, body: {
+    inputs?: Record<string, unknown>;
+    context?: Record<string, unknown>;
+    execute?: boolean;
+    tenant_id?: string;
+  }): Promise<SMEWorkflowExecutionResult>;
 
   // Onboarding
   getOnboardingStatus(): Promise<OnboardingStatus>;
@@ -121,7 +126,12 @@ export class SMEAPI {
    */
   async executeWorkflow(
     workflowId: string,
-    body: { inputs?: Record<string, unknown>; config?: Record<string, unknown> }
+    body: {
+      inputs?: Record<string, unknown>;
+      context?: Record<string, unknown>;
+      execute?: boolean;
+      tenant_id?: string;
+    }
   ): Promise<SMEWorkflowExecutionResult> {
     return this.client.executeSMEWorkflow(workflowId, body);
   }
