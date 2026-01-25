@@ -235,7 +235,7 @@ ignore = ["E402", "E501"]
 "tests/*" = ["T201", "F401", "F841", "BLE001"]
 "examples/*" = ["T201", "BLE001"]
 # BLE001: Ignore bare exception handlers in all modules (to be fixed incrementally)
-# 3,606 existing violations documented - fix in phases
+# 4,673 existing violations documented - 87 fixed in Phase 30 (auth, storage modules)
 "aragora/*" = ["BLE001"]
 
 [tool.pytest.ini_options]
@@ -650,6 +650,13 @@ module = [
     "aragora.workflow.queue.persistent_queue",
     "aragora.workflow.queue.executor",
     "aragora.workflow.queue.scheduler",
+    # Added strict - Phase 30 exception handling hardening (Jan 2026)
+    "aragora.auth.oidc",
+    "aragora.storage.redis_ha",
+    "aragora.storage.integration_store",
+    "aragora.storage.teams_tenant_store",
+    "aragora.storage.slack_workspace_store",
+    "aragora.storage.discord_guild_store",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
