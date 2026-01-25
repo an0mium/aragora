@@ -209,7 +209,7 @@ class DecisionReceipt:
         result: Any,
         input_hash: Optional[str] = None,
     ) -> "DecisionReceipt":
-        """Create receipt from aragora.modes.gauntlet.GauntletResult."""
+        """Create receipt from aragora.gauntlet.GauntletResult."""
         receipt_id = str(uuid.uuid4())
 
         findings = list(getattr(result, "all_findings", []))

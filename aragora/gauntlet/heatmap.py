@@ -115,7 +115,7 @@ class RiskHeatmap:
 
     @classmethod
     def from_mode_result(cls, result: Any) -> "RiskHeatmap":
-        """Create heatmap from aragora.modes.gauntlet.GauntletResult."""
+        """Create heatmap from aragora.gauntlet.GauntletResult."""
         findings = list(getattr(result, "all_findings", []))
         categories = sorted({f.category for f in findings})
         severities = ["critical", "high", "medium", "low"]
