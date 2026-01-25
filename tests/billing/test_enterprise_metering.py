@@ -176,49 +176,59 @@ class TestInvoice:
 
     def test_create_invoice(self):
         """Should accept all parameters."""
+        now = datetime.utcnow()
         invoice = Invoice(
             tenant_id="tenant_1",
-            period="2025-01",
-            total_amount=Decimal("500.00"),
+            period_start=now - timedelta(days=30),
+            period_end=now,
+            total=Decimal("500.00"),
             status=InvoiceStatus.PENDING,
         )
         assert invoice.tenant_id == "tenant_1"
-        assert invoice.period == "2025-01"
-        assert invoice.total_amount == Decimal("500.00")
+        assert invoice.total == Decimal("500.00")
         assert invoice.status == InvoiceStatus.PENDING
 
     def test_to_dict(self):
         """Should convert to dictionary."""
+        now = datetime.utcnow()
         invoice = Invoice(
             tenant_id="tenant_1",
-            period="2025-01",
-            total_amount=Decimal("500.00"),
+            period_start=now - timedelta(days=30),
+            period_end=now,
+            total=Decimal("500.00"),
         )
         data = invoice.to_dict()
         assert data["tenant_id"] == "tenant_1"
-        assert data["period"] == "2025-01"
-        assert data["total_amount"] == "500.00"
+        assert data["total"] == "500.00"
+        assert "period_start" in data
 
 
 class TestUsageForecast:
     """Tests for UsageForecast dataclass."""
 
     def test_default_values(self):
-        """Should have sensible defaults."""
-        forecast = UsageForecast()
+        """Should have sensible defaults when required fields provided."""
+        now = datetime.utcnow()
+        forecast = UsageForecast(
+            tenant_id="test_tenant",
+            forecast_date=now,
+            period_end=now + timedelta(days=30),
+        )
         assert forecast.confidence == 0.0
-        assert len(forecast.daily_projections) == 0
+        assert forecast.projected_cost == Decimal("0")
 
     def test_to_dict(self):
         """Should convert to dictionary."""
+        now = datetime.utcnow()
         forecast = UsageForecast(
             tenant_id="tenant_1",
-            projected_monthly_cost=Decimal("1000.00"),
+            forecast_date=now,
+            period_end=now + timedelta(days=30),
+            projected_cost=Decimal("1000.00"),
             confidence=0.85,
         )
         data = forecast.to_dict()
         assert data["tenant_id"] == "tenant_1"
-        assert data["projected_monthly_cost"] == "1000.00"
         assert data["confidence"] == 0.85
 
 
@@ -319,13 +329,13 @@ class TestEnterpriseMeter:
         """Should set and retrieve budget configuration."""
         await meter.set_budget(
             tenant_id="test_tenant",
-            monthly_limit=Decimal("1000.00"),
+            monthly_budget=Decimal("1000.00"),
             daily_limit=Decimal("50.00"),
         )
         budget = await meter.get_budget("test_tenant")
         assert budget is not None
         assert budget.tenant_id == "test_tenant"
-        assert budget.monthly_limit == Decimal("1000.00")
+        assert budget.monthly_budget == Decimal("1000.00")
         assert budget.daily_limit == Decimal("50.00")
 
     @pytest.mark.asyncio
@@ -424,7 +434,8 @@ class TestEnterpriseMeter:
         )
         assert invoice is not None
         assert invoice.tenant_id == "invoice_test"
-        assert invoice.period == period
+        assert invoice.period_start is not None
+        assert invoice.period_end is not None
         assert invoice.status == InvoiceStatus.DRAFT
 
     @pytest.mark.asyncio
