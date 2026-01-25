@@ -54,10 +54,10 @@ def rfc7807_error(
     if instance:
         problem["instance"] = instance
     problem.update(extra)
-    return HandlerResult(  # type: ignore[call-arg]
-        status=status,
-        body=json.dumps(problem).encode("utf-8"),
+    return HandlerResult(
+        status_code=status,
         content_type="application/problem+json",
+        body=json.dumps(problem).encode("utf-8"),
     )
 
 
@@ -350,7 +350,8 @@ class GauntletReceiptExportHandler(BaseHandler):
             # Try persistent storage
             if not run:
                 storage = _get_storage()
-                run = storage.get_result(gauntlet_id)  # type: ignore[attr-defined]
+                if hasattr(storage, "get_result"):
+                    run = storage.get_result(gauntlet_id)
 
             if not run:
                 return rfc7807_error(
@@ -442,10 +443,11 @@ class GauntletReceiptExportHandler(BaseHandler):
                     "text": "text/plain",
                 }.get(format_str, "text/plain")
 
-                return HandlerResult(  # type: ignore[call-arg,arg-type]
-                    status=200,
-                    body=content,  # type: ignore[arg-type]
-                    headers={"Content-Type": content_type},
+                content_bytes = content.encode("utf-8") if isinstance(content, str) else content
+                return HandlerResult(
+                    status_code=200,
+                    content_type=content_type,
+                    body=content_bytes,
                 )
 
             # Export without template
@@ -456,12 +458,12 @@ class GauntletReceiptExportHandler(BaseHandler):
             )
 
             # Map format string to enum
-            format_map = {
-                "json": ReceiptExportFormat.JSON,  # type: ignore[dict-item]
-                "markdown": ReceiptExportFormat.MARKDOWN,  # type: ignore[dict-item]
-                "html": ReceiptExportFormat.HTML,  # type: ignore[dict-item]
-                "csv": ReceiptExportFormat.CSV,  # type: ignore[dict-item]
-                "sarif": ReceiptExportFormat.SARIF,  # type: ignore[dict-item]
+            format_map: dict[str, ReceiptExportFormat] = {
+                "json": ReceiptExportFormat.JSON,
+                "markdown": ReceiptExportFormat.MARKDOWN,
+                "html": ReceiptExportFormat.HTML,
+                "csv": ReceiptExportFormat.CSV,
+                "sarif": ReceiptExportFormat.SARIF,
             }
 
             if format_str not in format_map:
@@ -484,7 +486,8 @@ class GauntletReceiptExportHandler(BaseHandler):
                 validate_schema=options_dict.get("validate_schema", False),
             )
 
-            content = export_receipt(receipt, export_format, options)  # type: ignore[arg-type,assignment]
+            exported = export_receipt(receipt, export_format, options)
+            content_bytes = exported.encode("utf-8") if isinstance(exported, str) else exported
 
             # Set appropriate content type
             content_type = {
@@ -496,10 +499,10 @@ class GauntletReceiptExportHandler(BaseHandler):
                 "pdf": "application/pdf",
             }.get(format_str, "application/json")
 
-            return HandlerResult(  # type: ignore[call-arg,arg-type]
-                status=200,
-                body=content,  # type: ignore[arg-type]
-                headers={"Content-Type": content_type},
+            return HandlerResult(
+                status_code=200,
+                content_type=content_type,
+                body=content_bytes,
             )
 
         except Exception as e:
@@ -556,7 +559,8 @@ class GauntletHeatmapExportHandler(BaseHandler):
             run = _gauntlet_runs.get(gauntlet_id)
             if not run:
                 storage = _get_storage()
-                run = storage.get_result(gauntlet_id)  # type: ignore[attr-defined]
+                if hasattr(storage, "get_result"):
+                    run = storage.get_result(gauntlet_id)
 
             if not run:
                 return rfc7807_error(
@@ -584,7 +588,7 @@ class GauntletHeatmapExportHandler(BaseHandler):
             # Export
             from aragora.gauntlet.api import HeatmapExportFormat, export_heatmap
 
-            format_map = {
+            format_map: dict[str, HeatmapExportFormat] = {
                 "json": HeatmapExportFormat.JSON,
                 "csv": HeatmapExportFormat.CSV,
                 "svg": HeatmapExportFormat.SVG,
@@ -603,7 +607,8 @@ class GauntletHeatmapExportHandler(BaseHandler):
                 )
 
             export_format = format_map[format_str]
-            content = export_heatmap(heatmap, export_format)
+            exported = export_heatmap(heatmap, export_format)
+            content_bytes = exported.encode("utf-8") if isinstance(exported, str) else exported
 
             content_type = {
                 "json": "application/json",
@@ -613,10 +618,10 @@ class GauntletHeatmapExportHandler(BaseHandler):
                 "html": "text/html",
             }.get(format_str, "application/json")
 
-            return HandlerResult(  # type: ignore[call-arg,arg-type]
-                status=200,
-                body=content,  # type: ignore[arg-type]
-                headers={"Content-Type": content_type},
+            return HandlerResult(
+                status_code=200,
+                content_type=content_type,
+                body=content_bytes,
             )
 
         except Exception as e:
@@ -698,6 +703,7 @@ GAUNTLET_V1_HANDLERS = [
 
 def register_gauntlet_v1_handlers(router: Any, server_context: Any = None) -> None:
     """Register all v1 Gauntlet handlers with a router."""
-    ctx = server_context or {}
+    ctx: Dict[str, Any] = server_context or {}
     for handler_cls in GAUNTLET_V1_HANDLERS:
-        router.add_handler(handler_cls(ctx))  # type: ignore[arg-type]
+        handler = handler_cls(ctx)
+        router.add_handler(handler)
