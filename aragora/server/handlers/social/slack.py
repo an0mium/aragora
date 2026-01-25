@@ -918,18 +918,29 @@ class SlackHandler(BaseHandler):
             ]
 
             for i, debate in enumerate(debates[:10]):
-                topic = debate.get("task", "Unknown topic")[:50]
-                consensus = "" if debate.get("consensus_reached") else ""
-                confidence = debate.get("confidence", 0)
-                debate_id = debate.get("id", "unknown")
-                created = debate.get("created_at", "")[:10]  # Date only
+                # Handle both dict and object formats
+                if isinstance(debate, dict):
+                    full_topic = debate.get("task", "Unknown topic")
+                    consensus = "" if debate.get("consensus_reached") else ""
+                    confidence = debate.get("confidence", 0)
+                    debate_id = str(debate.get("id", "unknown"))
+                    created = str(debate.get("created_at", ""))[:10]
+                else:
+                    full_topic = str(getattr(debate, "task", "Unknown topic"))
+                    consensus = "" if getattr(debate, "consensus_reached", False) else ""
+                    confidence = getattr(debate, "confidence", 0)
+                    debate_id = str(getattr(debate, "id", "unknown"))
+                    created = str(getattr(debate, "created_at", ""))[:10]
+
+                topic = full_topic[:50]
+                needs_ellipsis = len(full_topic) > 50
 
                 blocks.append(
                     {
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": f"*{i + 1}. {consensus} {topic}{'...' if len(debate.get('task', '')) > 50 else ''}*\n{confidence:.0%} confidence | {created} | `{debate_id[:8]}`",
+                            "text": f"*{i + 1}. {consensus} {topic}{'...' if needs_ellipsis else ''}*\n{confidence:.0%} confidence | {created} | `{debate_id[:8]}`",
                         },
                         "accessory": {
                             "type": "button",
