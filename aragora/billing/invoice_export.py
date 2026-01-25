@@ -382,6 +382,12 @@ class InvoiceExporter:
             </div>
             """
 
+        # Pre-compute due date HTML to avoid nested f-string issues in Python 3.11
+        due_date = getattr(invoice, "due_date", None)
+        due_date_html = (
+            f"<p><dt>Due:</dt><dd>{self._format_date(due_date)}</dd></p>" if due_date else ""
+        )
+
         html = f"""
         <!DOCTYPE html>
         <html>
@@ -504,7 +510,7 @@ class InvoiceExporter:
                     <p><dt>Date:</dt><dd>{self._format_date(getattr(invoice, "created_at", datetime.now()))}</dd></p>
                     <p><dt>Period:</dt><dd>{self._format_date(getattr(invoice, "period_start", datetime.now()))} - {self._format_date(getattr(invoice, "period_end", datetime.now()))}</dd></p>
                     <p><dt>Status:</dt><dd><span class="status status-{str(getattr(invoice, "status", "draft")).lower()}">{str(getattr(invoice, "status", "draft")).upper()}</span></dd></p>
-                    {f"<p><dt>Due:</dt><dd>{self._format_date(getattr(invoice, 'due_date', None))}</dd></p>" if getattr(invoice, "due_date", None) else ""}
+                    {due_date_html}
                 </div>
             </div>
 
