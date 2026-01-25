@@ -268,23 +268,6 @@ class TestBillingIntegrationE2E:
 # ============================================================================
 
 
-@pytest.mark.skipif(
-    not os.environ.get("RUN_FUTURE_API_TESTS"),
-    reason="API changed: use TenantFilter.register_resource() from stream module instead of TenantDataIsolation.register_resource()",
-)
-class TestResourceRegistration:
-    """Tests for resource registration - requires API additions."""
-
-    @pytest.mark.asyncio
-    async def test_cross_tenant_access_prevention(
-        self,
-        tenant_a: TestTenant,
-        tenant_b: TestTenant,
-    ):
-        """Test that cross-tenant access is prevented."""
-        pass
-
-
 class TestTenantSecurityE2E:
     """E2E tests for tenant security using TenantManager."""
 

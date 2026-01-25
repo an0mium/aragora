@@ -61,6 +61,8 @@ class SlackWorkspace:
     tenant_id: Optional[str] = None  # Link to Aragora tenant
     is_active: bool = True
     signing_secret: Optional[str] = None  # Workspace-specific signing secret
+    refresh_token: Optional[str] = None  # OAuth refresh token for token renewal
+    token_expires_at: Optional[float] = None  # Unix timestamp when access_token expires
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary (excludes sensitive token and signing_secret)."""
@@ -77,6 +79,8 @@ class SlackWorkspace:
             "tenant_id": self.tenant_id,
             "is_active": self.is_active,
             "has_signing_secret": bool(self.signing_secret),
+            "has_refresh_token": bool(self.refresh_token),
+            "token_expires_at": self.token_expires_at,
         }
 
     @classmethod
@@ -364,6 +368,8 @@ class SlackWorkspaceStore:
                 workspace.access_token = self._decrypt_token(workspace.access_token)
                 if workspace.signing_secret:
                     workspace.signing_secret = self._decrypt_token(workspace.signing_secret)
+                if workspace.refresh_token:
+                    workspace.refresh_token = self._decrypt_token(workspace.refresh_token)
                 return workspace
 
             return None
@@ -532,6 +538,109 @@ class SlackWorkspaceStore:
         except sqlite3.Error as e:
             logger.error(f"Failed to get stats: {e}")
             return {"total_workspaces": 0, "active_workspaces": 0}
+
+    def refresh_workspace_token(
+        self,
+        workspace_id: str,
+        client_id: str,
+        client_secret: str,
+    ) -> Optional[SlackWorkspace]:
+        """Refresh an expired access token using the refresh token.
+
+        Args:
+            workspace_id: Slack team_id
+            client_id: Slack OAuth client ID
+            client_secret: Slack OAuth client secret
+
+        Returns:
+            Updated workspace with new tokens, or None on failure
+        """
+        import urllib.request
+        import urllib.parse
+        import json
+
+        workspace = self.get(workspace_id)
+        if not workspace:
+            logger.error(f"Workspace not found for refresh: {workspace_id}")
+            return None
+
+        if not workspace.refresh_token:
+            logger.error(f"No refresh token available for workspace: {workspace_id}")
+            return None
+
+        try:
+            # Exchange refresh token for new access token
+            data = urllib.parse.urlencode(
+                {
+                    "grant_type": "refresh_token",
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "refresh_token": workspace.refresh_token,
+                }
+            ).encode()
+
+            request = urllib.request.Request(
+                "https://slack.com/api/oauth.v2.access",
+                data=data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+
+            with urllib.request.urlopen(request, timeout=30) as response:
+                result = json.loads(response.read().decode())
+
+            if not result.get("ok"):
+                error = result.get("error", "unknown")
+                logger.error(f"Token refresh failed for {workspace_id}: {error}")
+                # If token is revoked, deactivate the workspace
+                if error in ("invalid_refresh_token", "token_revoked"):
+                    self.deactivate(workspace_id)
+                return None
+
+            # Update workspace with new tokens
+            workspace.access_token = result.get("access_token", workspace.access_token)
+
+            # Handle new refresh token (rotation)
+            new_refresh = result.get("refresh_token")
+            if new_refresh:
+                workspace.refresh_token = new_refresh
+
+            # Calculate expiration time
+            expires_in = result.get("expires_in")
+            if expires_in:
+                workspace.token_expires_at = time.time() + expires_in
+
+            # Save updated workspace
+            if self.save(workspace):
+                logger.info(f"Successfully refreshed token for workspace: {workspace_id}")
+                return workspace
+
+            return None
+
+        except urllib.error.URLError as e:
+            logger.error(f"Network error refreshing token for {workspace_id}: {e}")
+            return None
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.error(f"Invalid response refreshing token for {workspace_id}: {e}")
+            return None
+
+    def is_token_expired(self, workspace_id: str, buffer_seconds: int = 300) -> bool:
+        """Check if a workspace's access token is expired or will expire soon.
+
+        Args:
+            workspace_id: Slack team_id
+            buffer_seconds: Consider token expired this many seconds before actual expiry
+
+        Returns:
+            True if token is expired or will expire within buffer_seconds
+        """
+        workspace = self.get(workspace_id)
+        if not workspace:
+            return True  # Can't validate, assume expired
+
+        if not workspace.token_expires_at:
+            return False  # No expiration set, assume valid
+
+        return time.time() + buffer_seconds >= workspace.token_expires_at
 
 
 # Supabase-backed implementation for production
