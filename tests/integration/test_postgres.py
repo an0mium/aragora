@@ -47,9 +47,13 @@ def test_table_name() -> str:
 @pytest.fixture
 def pg_backend(pg_connection_url):
     """Create a PostgreSQL backend for testing."""
-    from aragora.db.backends import PostgresBackend
+    from aragora.db.backends import DatabaseConfig, PostgresBackend
 
-    backend = PostgresBackend(pg_connection_url)
+    # Create config from URL
+    config = DatabaseConfig(backend="postgres")
+    config._parse_database_url(pg_connection_url)
+
+    backend = PostgresBackend(config)
     yield backend
     backend.close()
 

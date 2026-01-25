@@ -285,16 +285,26 @@ class TestGlobalRegistry:
 
     def test_metrics_includes_summary(self):
         """E2E: get_circuit_breaker_metrics should include summary."""
-        cb = get_circuit_breaker("metrics-test")
-        # Record enough failures to trip the circuit breaker (default threshold is 5)
-        for _ in range(5):
+        from aragora.resilience_config import CircuitBreakerConfig
+
+        # Use explicit config with known threshold to ensure deterministic behavior
+        config = CircuitBreakerConfig(failure_threshold=3, cooldown_seconds=60)
+        cb = get_circuit_breaker("metrics-test", config=config)
+
+        # Record enough failures to trip the circuit breaker
+        for _ in range(config.failure_threshold):
             cb.record_failure()
+
+        # Verify the circuit breaker is actually open before checking metrics
+        assert cb.get_status() == "open", f"Expected open, got {cb.get_status()}"
 
         metrics = get_circuit_breaker_metrics()
 
         assert "summary" in metrics
         assert "open" in metrics["summary"]
-        assert metrics["summary"]["open"] >= 1
+        assert (
+            metrics["summary"]["open"] >= 1
+        ), f"Expected at least 1 open, got {metrics['summary']}"
         assert "health" in metrics
         assert metrics["health"]["status"] in ["healthy", "degraded", "critical"]
 
