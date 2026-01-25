@@ -60,6 +60,7 @@ venv.bak/
 # Node
 node_modules/
 typings/
+docs-site/.docusaurus/
 
 # IDE
 .idea/
