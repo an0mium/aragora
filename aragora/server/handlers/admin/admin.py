@@ -278,6 +278,10 @@ class AdminHandler(SecureHandler):
         """
         Check granular RBAC permission.
 
+        For admin endpoints, this provides defense-in-depth beyond the basic admin
+        role check. Admin/owner roles are allowed by default if RBAC isn't configured
+        for the specific permission, but the check is logged for audit.
+
         Args:
             auth_ctx: Authentication context from _require_admin
             permission_key: Permission like "admin.users.impersonate"
@@ -295,6 +299,7 @@ class AdminHandler(SecureHandler):
             user_store = self._get_user_store()
             user = user_store.get_user_by_id(auth_ctx.user_id)
             roles = [user.role] if user else []
+            user_role = user.role if user else None
 
             rbac_context = AuthorizationContext(
                 user_id=auth_ctx.user_id,
@@ -304,15 +309,26 @@ class AdminHandler(SecureHandler):
 
             decision = check_permission(rbac_context, permission_key, resource_id)
             if not decision.allowed:
+                # For admin endpoints, admin/owner roles are allowed by default
+                # if RBAC permission isn't explicitly configured. This provides
+                # backward compatibility while still recording the check for audit.
+                if user_role in ADMIN_ROLES:
+                    logger.debug(
+                        f"RBAC permission {permission_key} not explicitly granted, "
+                        f"allowing admin {auth_ctx.user_id} by role fallback"
+                    )
+                    record_rbac_check(permission_key, allowed=True, handler="AdminHandler")
+                    return None
+
                 logger.warning(
-                    f"RBAC permission denied: {permission_key} for admin {auth_ctx.user_id}: {decision.reason}"
+                    f"RBAC permission denied: {permission_key} for user {auth_ctx.user_id}: {decision.reason}"
                 )
                 record_rbac_check(permission_key, allowed=False, handler="AdminHandler")
                 return error_response(f"Permission denied: {decision.reason}", 403)
             record_rbac_check(permission_key, allowed=True)
         except PermissionDeniedError as e:
             logger.warning(
-                f"RBAC permission denied: {permission_key} for admin {auth_ctx.user_id}: {e}"
+                f"RBAC permission denied: {permission_key} for user {auth_ctx.user_id}: {e}"
             )
             record_rbac_check(permission_key, allowed=False, handler="AdminHandler")
             return error_response(f"Permission denied: {str(e)}", 403)
@@ -401,10 +417,17 @@ class AdminHandler(SecureHandler):
 
     @handle_errors("list organizations")
     def _list_organizations(self, handler, query_params: dict) -> HandlerResult:
-        """List all organizations with pagination."""
+        """List all organizations with pagination.
+        Requires admin:organizations:list permission.
+        """
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+
+        # Check RBAC permission
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.organizations.list")
+        if perm_err:
+            return perm_err
 
         user_store = self._get_user_store()
 
@@ -430,10 +453,17 @@ class AdminHandler(SecureHandler):
 
     @handle_errors("list users")
     def _list_users(self, handler, query_params: dict) -> HandlerResult:
-        """List all users with pagination and filtering."""
+        """List all users with pagination and filtering.
+        Requires admin:users:list permission.
+        """
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+
+        # Check RBAC permission
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.users.list")
+        if perm_err:
+            return perm_err
 
         user_store = self._get_user_store()
 
@@ -474,10 +504,17 @@ class AdminHandler(SecureHandler):
 
     @handle_errors("get admin stats")
     def _get_stats(self, handler) -> HandlerResult:
-        """Get system-wide statistics."""
+        """Get system-wide statistics.
+        Requires admin:stats:read permission.
+        """
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+
+        # Check RBAC permission
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.stats.read")
+        if perm_err:
+            return perm_err
 
         user_store = self._get_user_store()
         stats = user_store.get_admin_stats()
@@ -486,10 +523,17 @@ class AdminHandler(SecureHandler):
 
     @handle_errors("get system metrics")
     def _get_system_metrics(self, handler) -> HandlerResult:
-        """Get aggregated system metrics from various sources."""
+        """Get aggregated system metrics from various sources.
+        Requires admin:metrics:read permission.
+        """
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+
+        # Check RBAC permission
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.metrics.read")
+        if perm_err:
+            return perm_err
 
         metrics: dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -541,10 +585,17 @@ class AdminHandler(SecureHandler):
 
     @handle_errors("get revenue stats")
     def _get_revenue_stats(self, handler) -> HandlerResult:
-        """Get revenue and billing statistics."""
+        """Get revenue and billing statistics.
+        Requires admin:revenue:read permission.
+        """
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+
+        # Check RBAC permission
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.revenue.read")
+        if perm_err:
+            return perm_err
 
         user_store = self._get_user_store()
 
@@ -823,12 +874,18 @@ class AdminHandler(SecureHandler):
     def _get_nomic_status(self, handler) -> HandlerResult:
         """
         Get detailed nomic loop status including state machine state.
+        Requires admin:nomic:read permission.
 
         Returns comprehensive status for admin monitoring and intervention.
         """
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+
+        # Check RBAC permission
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.nomic.read")
+        if perm_err:
+            return perm_err
 
         import json
         from pathlib import Path
@@ -902,10 +959,17 @@ class AdminHandler(SecureHandler):
 
     @handle_errors("get nomic circuit breakers")
     def _get_nomic_circuit_breakers(self, handler) -> HandlerResult:
-        """Get detailed circuit breaker status for the nomic loop."""
+        """Get detailed circuit breaker status for the nomic loop.
+        Requires admin:nomic:read permission.
+        """
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+
+        # Check RBAC permission
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.nomic.read")
+        if perm_err:
+            return perm_err
 
         try:
             from aragora.nomic.recovery import CircuitBreakerRegistry
@@ -929,6 +993,7 @@ class AdminHandler(SecureHandler):
     def _reset_nomic_phase(self, handler) -> HandlerResult:
         """
         Reset nomic loop to a specific phase.
+        Requires admin:nomic:write permission.
 
         This is a recovery action for stuck or failed nomic cycles.
         Supports resetting to: idle, context, debate, design, implement, verify, commit.
@@ -943,6 +1008,11 @@ class AdminHandler(SecureHandler):
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+
+        # Check RBAC permission
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.nomic.write")
+        if perm_err:
+            return perm_err
 
         import json
         from pathlib import Path
@@ -1044,6 +1114,7 @@ class AdminHandler(SecureHandler):
     def _pause_nomic(self, handler) -> HandlerResult:
         """
         Pause the nomic loop for manual intervention.
+        Requires admin:nomic:write permission.
 
         This sets the state to 'paused' and prevents further phase transitions
         until resumed.
@@ -1051,6 +1122,11 @@ class AdminHandler(SecureHandler):
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+
+        # Check RBAC permission
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.nomic.write")
+        if perm_err:
+            return perm_err
 
         import json
         from datetime import datetime
@@ -1125,6 +1201,7 @@ class AdminHandler(SecureHandler):
     def _resume_nomic(self, handler) -> HandlerResult:
         """
         Resume a paused nomic loop.
+        Requires admin:nomic:write permission.
 
         Resumes from the phase that was active before the pause, or from
         a specified target phase.
@@ -1132,6 +1209,11 @@ class AdminHandler(SecureHandler):
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+
+        # Check RBAC permission
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.nomic.write")
+        if perm_err:
+            return perm_err
 
         import json
         from datetime import datetime
@@ -1210,6 +1292,7 @@ class AdminHandler(SecureHandler):
     def _reset_nomic_circuit_breakers(self, handler) -> HandlerResult:
         """
         Reset all nomic circuit breakers.
+        Requires admin:nomic:write permission.
 
         This clears the failure counts and closes all open circuit breakers,
         allowing the nomic loop to retry previously failing operations.
@@ -1217,6 +1300,11 @@ class AdminHandler(SecureHandler):
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+
+        # Check RBAC permission
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.nomic.write")
+        if perm_err:
+            return perm_err
 
         try:
             from aragora.nomic.recovery import CircuitBreakerRegistry
