@@ -62,9 +62,24 @@ class ConnectorError(AragoraError):
         self.is_retryable = is_retryable
 
     def __str__(self) -> str:
+        parts = []
         if self.connector_name != "unknown":
-            return f"[{self.connector_name}] {self.message}"
-        return self.message
+            parts.append(f"[{self.connector_name}]")
+        parts.append(self.message)
+
+        # Include diagnostic info for logging/debugging
+        extra = []
+        if self.retry_after is not None:
+            extra.append(f"retry_after={self.retry_after}s")
+        if self.is_retryable:
+            extra.append("retryable=True")
+        if self.details:
+            extra.append(f"details={self.details}")
+
+        if extra:
+            parts.append(f"({', '.join(extra)})")
+
+        return " ".join(parts)
 
 
 class ConnectorAuthError(ConnectorError):
