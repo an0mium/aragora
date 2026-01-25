@@ -12,7 +12,9 @@ from enum import Enum
 from typing import Any, Callable, ClassVar, Literal, Optional
 
 # Type aliases for agent role and stance
-AgentRole = Literal["proposer", "critic", "synthesizer", "judge", "analyst"]
+AgentRole = Literal[
+    "proposer", "critic", "synthesizer", "judge", "analyst", "implementer", "planner"
+]
 AgentStance = Literal["affirmative", "negative", "neutral"]
 
 

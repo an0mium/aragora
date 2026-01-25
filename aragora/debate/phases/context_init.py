@@ -36,9 +36,9 @@ try:
 except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
-    get_rlm: Optional[Callable[..., Any]] = None
-    RLMConfig: Optional[Type[Any]] = None
-    _RLMContext: Optional[Type[Any]] = None
+    get_rlm: Optional[Callable[..., Any]] = None  # type: ignore[no-redef]
+    RLMConfig: Optional[Type[Any]] = None  # type: ignore[no-redef]
+    _RLMContext: Optional[Type[Any]] = None  # type: ignore[no-redef]
 
 
 class ContextInitializer:

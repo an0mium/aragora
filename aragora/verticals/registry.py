@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type
 
+from aragora.core_types import AgentRole
 from aragora.verticals.config import VerticalConfig
 
 if TYPE_CHECKING:
@@ -88,7 +89,7 @@ class VerticalRegistry:
         vertical_id: str,
         name: str,
         model: Optional[str] = None,
-        role: str = "specialist",
+        role: AgentRole = "analyst",
         api_key: Optional[str] = None,
         **kwargs: Any,
     ) -> "VerticalSpecialistAgent":
