@@ -109,6 +109,21 @@ spec:
               value: {{ .Values.postgres.dsn | quote }}
             {{- end }}
             {{- end }}
+            {{- if .Values.redis.enabled }}
+            {{- if .Values.redis.auth.existingSecret }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.redis.auth.existingSecret }}
+                  key: {{ .Values.redis.auth.existingSecretPasswordKey | default "REDIS_PASSWORD" }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.redis.auth.existingSecret }}
+                  key: REDIS_URL
+                  optional: true
+            {{- end }}
+            {{- end }}
           {{- if .Values.persistence.enabled }}
           volumeMounts:
             - name: data
