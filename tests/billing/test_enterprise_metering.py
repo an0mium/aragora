@@ -114,46 +114,56 @@ class TestBudgetConfig:
     """Tests for BudgetConfig dataclass."""
 
     def test_default_values(self):
-        """Should have sensible defaults."""
-        config = BudgetConfig()
-        assert config.monthly_limit == Decimal("0")
+        """Should have sensible defaults when tenant_id provided."""
+        config = BudgetConfig(tenant_id="test_tenant")
+        assert config.monthly_budget == Decimal("0")
         assert config.alert_thresholds is not None
+        assert len(config.alert_thresholds) == 3  # [50, 75, 90]
 
     def test_create_with_values(self):
         """Should accept all parameters."""
         config = BudgetConfig(
             tenant_id="tenant_1",
-            monthly_limit=Decimal("1000.00"),
+            monthly_budget=Decimal("1000.00"),
             daily_limit=Decimal("50.00"),
-            per_user_limit=Decimal("100.00"),
+            alert_emails=["admin@example.com"],
         )
         assert config.tenant_id == "tenant_1"
-        assert config.monthly_limit == Decimal("1000.00")
+        assert config.monthly_budget == Decimal("1000.00")
         assert config.daily_limit == Decimal("50.00")
-        assert config.per_user_limit == Decimal("100.00")
+        assert "admin@example.com" in config.alert_emails
 
 
 class TestCostBreakdown:
     """Tests for CostBreakdown dataclass."""
 
     def test_default_values(self):
-        """Should initialize with empty collections."""
-        breakdown = CostBreakdown()
+        """Should initialize with empty collections when required fields provided."""
+        now = datetime.utcnow()
+        breakdown = CostBreakdown(
+            tenant_id="test_tenant",
+            period_start=now - timedelta(days=30),
+            period_end=now,
+        )
         assert breakdown.total_cost == Decimal("0")
-        assert len(breakdown.by_provider) == 0
-        assert len(breakdown.by_model) == 0
+        assert len(breakdown.cost_by_provider) == 0
+        assert len(breakdown.cost_by_model) == 0
 
     def test_to_dict(self):
         """Should convert to dictionary."""
+        now = datetime.utcnow()
         breakdown = CostBreakdown(
+            tenant_id="test_tenant",
+            period_start=now - timedelta(days=30),
+            period_end=now,
             total_cost=Decimal("100.00"),
-            by_provider={"anthropic": Decimal("60.00"), "openai": Decimal("40.00")},
-            by_model={"claude-opus-4": Decimal("60.00"), "gpt-4": Decimal("40.00")},
+            cost_by_provider={"anthropic": Decimal("60.00"), "openai": Decimal("40.00")},
+            cost_by_model={"claude-opus-4": Decimal("60.00"), "gpt-4": Decimal("40.00")},
         )
         data = breakdown.to_dict()
         assert data["total_cost"] == "100.00"
-        assert "anthropic" in data["by_provider"]
-        assert "claude-opus-4" in data["by_model"]
+        assert "anthropic" in data["by_provider"]["cost"]
+        assert "claude-opus-4" in data["by_model"]["cost"]
 
 
 class TestInvoice:
