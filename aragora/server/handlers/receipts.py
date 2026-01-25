@@ -118,6 +118,15 @@ class ReceiptsHandler(BaseHandler):
                 if len(parts) > 5 and parts[5] == "verify-signature" and method == "POST":
                     return await self._verify_signature(receipt_id)
 
+                # Send to channel
+                if len(parts) > 5 and parts[5] == "send-to-channel" and method == "POST":
+                    return await self._send_to_channel(receipt_id, body)
+
+                # Get formatted for channel
+                if len(parts) > 5 and parts[5] == "formatted" and method == "GET":
+                    channel_type = parts[6] if len(parts) > 6 else "slack"
+                    return await self._get_formatted(receipt_id, channel_type, query_params)
+
                 # Get single receipt
                 if method == "GET":
                     return await self._get_receipt(receipt_id)
@@ -375,6 +384,252 @@ class ReceiptsHandler(BaseHandler):
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             }
         )
+
+    async def _send_to_channel(self, receipt_id: str, body: Dict[str, Any]) -> HandlerResult:
+        """
+        Send a decision receipt to a specified channel.
+
+        Body:
+            channel_type: Channel type (slack, teams, email, discord)
+            channel_id: Target channel/conversation ID
+            workspace_id: Workspace/tenant ID (for Slack/Teams)
+            options: Optional formatting options (compact, etc.)
+        """
+        channel_type = body.get("channel_type")
+        channel_id = body.get("channel_id")
+        workspace_id = body.get("workspace_id")
+        options = body.get("options", {})
+
+        if not channel_type:
+            return error_response("channel_type is required", 400)
+        if not channel_id:
+            return error_response("channel_id is required", 400)
+
+        # Get the receipt
+        store = self._get_store()
+        receipt = store.get(receipt_id)
+        if not receipt:
+            return error_response("Receipt not found", 404)
+
+        try:
+            from aragora.channels.formatter import format_receipt_for_channel
+            from aragora.export.decision_receipt import DecisionReceipt
+
+            # Reconstruct DecisionReceipt from stored data
+            decision_receipt = DecisionReceipt.from_dict(receipt.data)
+
+            # Format the receipt for the channel
+            formatted = format_receipt_for_channel(decision_receipt, channel_type, options)
+
+            # Send to the channel based on type
+            if channel_type == "slack":
+                result = await self._send_to_slack(formatted, channel_id, workspace_id)
+            elif channel_type == "teams":
+                result = await self._send_to_teams(formatted, channel_id, workspace_id)
+            elif channel_type == "email":
+                result = await self._send_to_email(formatted, channel_id, options)
+            elif channel_type == "discord":
+                result = await self._send_to_discord(formatted, channel_id, options)
+            else:
+                return error_response(
+                    f"Unsupported channel type: {channel_type}. "
+                    "Supported: slack, teams, email, discord",
+                    400,
+                )
+
+            return json_response(
+                {
+                    "sent": True,
+                    "receipt_id": receipt_id,
+                    "channel_type": channel_type,
+                    "channel_id": channel_id,
+                    **result,
+                }
+            )
+
+        except ImportError as e:
+            logger.exception(f"Missing dependency for channel {channel_type}: {e}")
+            return error_response(f"Channel {channel_type} not available: {str(e)}", 501)
+        except Exception as e:
+            logger.exception(f"Failed to send receipt to channel: {e}")
+            return error_response(f"Failed to send: {str(e)}", 500)
+
+    async def _send_to_slack(
+        self,
+        formatted: Dict[str, Any],
+        channel_id: str,
+        workspace_id: Optional[str],
+    ) -> Dict[str, Any]:
+        """Send formatted receipt to Slack channel."""
+        from aragora.storage.slack_workspace_store import get_slack_workspace_store
+
+        if not workspace_id:
+            raise ValueError("workspace_id is required for Slack")
+
+        store = get_slack_workspace_store()
+        workspace = store.get(workspace_id)
+        if not workspace:
+            raise ValueError(f"Slack workspace not found: {workspace_id}")
+
+        # Use Slack connector to send
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(
+            token=workspace.access_token,
+            signing_secret=workspace.signing_secret,
+        )
+
+        blocks = formatted.get("blocks", [])
+        result = await connector.send_message(
+            channel=channel_id,
+            text="Decision Receipt",
+            blocks=blocks,
+        )
+
+        return {"message_ts": result.get("ts"), "channel": result.get("channel")}
+
+    async def _send_to_teams(
+        self,
+        formatted: Dict[str, Any],
+        channel_id: str,
+        workspace_id: Optional[str],
+    ) -> Dict[str, Any]:
+        """Send formatted receipt to Teams channel."""
+        from aragora.storage.teams_workspace_store import get_teams_workspace_store
+
+        if not workspace_id:
+            raise ValueError("workspace_id (tenant_id) is required for Teams")
+
+        store = get_teams_workspace_store()
+        workspace = store.get(workspace_id)
+        if not workspace:
+            raise ValueError(f"Teams workspace not found: {workspace_id}")
+
+        # Use Teams connector to send
+        from aragora.connectors.chat.teams import TeamsConnector
+
+        connector = TeamsConnector(
+            app_id=workspace.bot_id,
+            app_password="",  # Bot Framework uses different auth flow
+            service_url=workspace.service_url or "https://smba.trafficmanager.net/amer/",
+        )
+
+        # Send Adaptive Card
+        result = await connector.send_adaptive_card(
+            conversation_id=channel_id,
+            card=formatted,
+        )
+
+        return {"message_id": result.get("id")}
+
+    async def _send_to_email(
+        self,
+        formatted: Dict[str, Any],
+        email_address: str,
+        options: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Send formatted receipt via email."""
+        import os
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+
+        smtp_host = os.environ.get("SMTP_HOST", "localhost")
+        smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+        smtp_user = os.environ.get("SMTP_USER", "")
+        smtp_password = os.environ.get("SMTP_PASSWORD", "")
+        from_email = os.environ.get("SMTP_FROM", "aragora@localhost")
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = formatted.get("subject", "Decision Receipt")
+        msg["From"] = from_email
+        msg["To"] = email_address
+
+        # Add plain text and HTML parts
+        if "plain_text" in formatted:
+            msg.attach(MIMEText(formatted["plain_text"], "plain"))
+        if "html" in formatted:
+            msg.attach(MIMEText(formatted["html"], "html"))
+
+        # Send email
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            if smtp_user and smtp_password:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+            server.send_message(msg)
+
+        return {"email_sent_to": email_address}
+
+    async def _send_to_discord(
+        self,
+        formatted: Dict[str, Any],
+        channel_id: str,
+        options: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Send formatted receipt to Discord channel."""
+        import os
+        import urllib.request
+        import json
+
+        bot_token = os.environ.get("DISCORD_BOT_TOKEN")
+        if not bot_token:
+            raise ValueError("DISCORD_BOT_TOKEN environment variable required")
+
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+        headers = {
+            "Authorization": f"Bot {bot_token}",
+            "Content-Type": "application/json",
+        }
+
+        data = json.dumps(formatted).encode("utf-8")
+        request = urllib.request.Request(url, data=data, headers=headers)
+
+        with urllib.request.urlopen(request, timeout=30) as response:
+            result = json.loads(response.read().decode())
+
+        return {"message_id": result.get("id")}
+
+    async def _get_formatted(
+        self,
+        receipt_id: str,
+        channel_type: str,
+        query_params: Dict[str, str],
+    ) -> HandlerResult:
+        """
+        Get receipt formatted for a specific channel type.
+
+        Returns the formatted payload without sending it.
+        """
+        store = self._get_store()
+        receipt = store.get(receipt_id)
+
+        if not receipt:
+            return error_response("Receipt not found", 404)
+
+        options = {
+            "compact": query_params.get("compact", "").lower() == "true",
+        }
+
+        try:
+            from aragora.channels.formatter import format_receipt_for_channel
+            from aragora.export.decision_receipt import DecisionReceipt
+
+            decision_receipt = DecisionReceipt.from_dict(receipt.data)
+            formatted = format_receipt_for_channel(decision_receipt, channel_type, options)
+
+            return json_response(
+                {
+                    "receipt_id": receipt_id,
+                    "channel_type": channel_type,
+                    "formatted": formatted,
+                }
+            )
+
+        except ValueError as e:
+            return error_response(str(e), 400)
+        except Exception as e:
+            logger.exception(f"Failed to format receipt: {e}")
+            return error_response(f"Formatting failed: {str(e)}", 500)
 
     def _parse_timestamp(self, value: Optional[str]) -> Optional[float]:
         """Parse timestamp from string (ISO date or unix timestamp)."""
