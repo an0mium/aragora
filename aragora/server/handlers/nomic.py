@@ -502,10 +502,17 @@ class NomicHandler(BaseHandler):
                 if state.get("running"):
                     return error_response("Nomic loop is already running", 409)
 
-            # Extract configuration
-            cycles = body.get("cycles", 1)
-            max_cycles = body.get("max_cycles", 10)
-            auto_approve = body.get("auto_approve", False)
+            # Extract and validate configuration
+            try:
+                cycles = int(body.get("cycles", 1))
+                max_cycles = int(body.get("max_cycles", 10))
+            except (ValueError, TypeError):
+                return error_response("cycles and max_cycles must be integers", 400)
+
+            # Ensure positive bounds
+            cycles = max(1, min(cycles, 100))  # Cap at 100 cycles
+            max_cycles = max(1, min(max_cycles, 100))
+            auto_approve = bool(body.get("auto_approve", False))
 
             # Start nomic loop as subprocess
             script_path = nomic_dir.parent.parent / "scripts" / "nomic_loop.py"
