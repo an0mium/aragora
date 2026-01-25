@@ -266,31 +266,105 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return membership?.role || null;
   }, [state.organization, state.organizations]);
 
-  // Check for stored auth on mount
+  // Check for stored auth on mount and validate tokens
   useEffect(() => {
-    const tokens = getStoredTokens();
-    const user = getStoredUser();
-    const activeOrg = getStoredActiveOrg();
-    const userOrgs = getStoredUserOrgs();
+    let active = true;
 
-    if (tokens && user) {
-      // Check if token is expired
+    const validateStoredSession = async () => {
+      const tokens = getStoredTokens();
+      const user = getStoredUser();
+      const activeOrg = getStoredActiveOrg();
+      const userOrgs = getStoredUserOrgs();
+
+      if (!tokens || !user) {
+        if (active) {
+          setState(prev => ({ ...prev, isLoading: false }));
+        }
+        return;
+      }
+
       const expiresAt = new Date(tokens.expires_at);
-      if (expiresAt > new Date()) {
+      if (expiresAt <= new Date()) {
+        clearAuth();
+        if (active) {
+          setState({
+            user: null,
+            organization: null,
+            organizations: [],
+            tokens: null,
+            isLoading: false,
+            isAuthenticated: false,
+            isLoadingOrganizations: false,
+          });
+        }
+        return;
+      }
+
+      if (active) {
         setState({
           user,
           organization: activeOrg,
           organizations: userOrgs,
           tokens,
-          isLoading: false,
+          isLoading: true,
           isAuthenticated: true,
           isLoadingOrganizations: false,
         });
-        return;
       }
-    }
 
-    setState(prev => ({ ...prev, isLoading: false }));
+      try {
+        const response = await fetch(`${API_BASE}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${tokens.access_token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Auth validation failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const validatedUser = data.user || user;
+        const validatedOrg = data.organization ?? activeOrg;
+        const validatedOrgs = data.organizations || userOrgs;
+
+        storeAuth(validatedUser, tokens);
+        storeActiveOrg(validatedOrg);
+        storeUserOrgs(validatedOrgs);
+
+        if (active) {
+          setState({
+            user: validatedUser,
+            organization: validatedOrg,
+            organizations: validatedOrgs,
+            tokens,
+            isLoading: false,
+            isAuthenticated: true,
+            isLoadingOrganizations: false,
+          });
+        }
+      } catch (err) {
+        logger.warn('[AuthContext] Stored session invalid, clearing auth');
+        clearAuth();
+        if (active) {
+          setState({
+            user: null,
+            organization: null,
+            organizations: [],
+            tokens: null,
+            isLoading: false,
+            isAuthenticated: false,
+            isLoadingOrganizations: false,
+          });
+        }
+      }
+    };
+
+    validateStoredSession();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Fetch organizations when authenticated

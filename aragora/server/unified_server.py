@@ -446,6 +446,8 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         "/api/evidence/",  # Evidence read-only access
         "/api/evolution/",  # Public evolution data
         "/api/v1/evolution/",  # Public evolution data (v1)
+        "/api/analytics/",  # Public analytics dashboards (stubbed when unauthenticated)
+        "/api/v1/analytics/",  # Public analytics dashboards (v1)
         "/api/replays/",  # Public replay browsing
         "/api/v1/replays/",  # Public replay browsing (v1)
         "/api/learning/",  # Public learning evolution data
@@ -540,6 +542,15 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         """
         from aragora.billing.auth import extract_user_from_request
         from aragora.rbac import AuthorizationContext, get_role_permissions
+
+        if path in self.AUTH_EXEMPT_PATHS:
+            return True
+        if any(path.startswith(prefix) for prefix in self.AUTH_EXEMPT_PREFIXES):
+            return True
+        if method.upper() == "GET" and any(
+            path.startswith(prefix) for prefix in self.AUTH_EXEMPT_GET_PREFIXES
+        ):
+            return True
 
         logger.info(f"[RBAC_DEBUG] Checking auth for {method} {path}")
 
