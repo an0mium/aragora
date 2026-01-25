@@ -10,12 +10,13 @@ Tests the provenance API handlers for:
 - Agent contributions
 """
 
+import json
+
 import pytest
 
 from aragora.reasoning.provenance import (
     ProvenanceManager,
     SourceType,
-    TransformationType,
 )
 from aragora.server.handlers.features.provenance import (
     _build_graph_edges,
@@ -32,6 +33,11 @@ from aragora.server.handlers.features.provenance import (
     handle_verify_provenance_chain,
     register_provenance_manager,
 )
+
+
+def parse_body(result):
+    """Parse JSON body from HandlerResult."""
+    return json.loads(result.body.decode("utf-8"))
 
 
 class TestHelperFunctions:
@@ -230,8 +236,8 @@ class TestHandleGetDebateProvenance:
         """Returns complete graph structure."""
         result = await handle_get_debate_provenance("test-graph-debate")
 
-        assert result.status == 200
-        body = result.body
+        assert result.status_code == 200
+        body = parse_body(result)
         assert "debate_id" in body
         assert "nodes" in body
         assert "edges" in body
@@ -241,14 +247,16 @@ class TestHandleGetDebateProvenance:
         """Metadata contains status field."""
         result = await handle_get_debate_provenance("test-status-debate")
 
-        assert result.body["metadata"]["status"] == "ready"
+        body = parse_body(result)
+        assert body["metadata"]["status"] == "ready"
 
     async def test_returns_verification_status(self):
         """Returns chain verification status."""
         result = await handle_get_debate_provenance("test-verify-debate")
 
-        assert "verified" in result.body["metadata"]
-        assert isinstance(result.body["metadata"]["verified"], bool)
+        body = parse_body(result)
+        assert "verified" in body["metadata"]
+        assert isinstance(body["metadata"]["verified"], bool)
 
 
 @pytest.mark.asyncio
@@ -259,8 +267,8 @@ class TestHandleGetProvenanceTimeline:
         """Returns timeline structure."""
         result = await handle_get_provenance_timeline("test-timeline-debate")
 
-        assert result.status == 200
-        body = result.body
+        assert result.status_code == 200
+        body = parse_body(result)
         assert "debate_id" in body
         assert "rounds" in body
         assert "agent_positions" in body
@@ -285,8 +293,9 @@ class TestHandleGetProvenanceTimeline:
 
         result = await handle_get_provenance_timeline("test-round-debate", round_number=1)
 
+        body = parse_body(result)
         # Should only include round 1 records
-        for r in result.body["rounds"]:
+        for r in body["rounds"]:
             if r["round"] == 1:
                 assert len(r["records"]) == 1
 
@@ -299,8 +308,8 @@ class TestHandleVerifyProvenanceChain:
         """Returns verification result structure."""
         result = await handle_verify_provenance_chain("test-chain-debate")
 
-        assert result.status == 200
-        body = result.body
+        assert result.status_code == 200
+        body = parse_body(result)
         assert "chain_valid" in body
         assert "content_valid" in body
         assert "citations_complete" in body
@@ -310,15 +319,17 @@ class TestHandleVerifyProvenanceChain:
         """Empty chain is considered valid."""
         result = await handle_verify_provenance_chain("test-empty-chain-debate")
 
-        assert result.body["chain_valid"] is True
-        assert result.body["content_valid"] is True
+        body = parse_body(result)
+        assert body["chain_valid"] is True
+        assert body["content_valid"] is True
 
     async def test_returns_error_list(self):
         """Returns errors list (empty for valid chain)."""
         result = await handle_verify_provenance_chain("test-errors-debate")
 
-        assert "errors" in result.body
-        assert isinstance(result.body["errors"], list)
+        body = parse_body(result)
+        assert "errors" in body
+        assert isinstance(body["errors"], list)
 
 
 @pytest.mark.asyncio
@@ -339,28 +350,32 @@ class TestHandleExportProvenanceReport:
             "test-export-json", format="json", include_evidence=True
         )
 
-        assert "records" in result.body
-        assert len(result.body["records"]) == 1
+        body = parse_body(result)
+        assert "records" in body
+        assert len(body["records"]) == 1
 
     async def test_audit_format_includes_hash_chain(self):
         """Audit format includes hash chain."""
         result = await handle_export_provenance_report("test-export-audit", format="audit")
 
-        assert "hash_chain" in result.body
+        body = parse_body(result)
+        assert "hash_chain" in body
 
     async def test_summary_format_includes_summary(self):
         """Summary format includes summary object."""
         result = await handle_export_provenance_report("test-export-summary", format="summary")
 
-        assert "summary" in result.body
-        assert "total_evidence_pieces" in result.body["summary"]
+        body = parse_body(result)
+        assert "summary" in body
+        assert "total_evidence_pieces" in body["summary"]
 
     async def test_returns_verification_status(self):
         """Returns verification status."""
         result = await handle_export_provenance_report("test-export-status")
 
-        assert "verification_status" in result.body
-        assert result.body["verification_status"] in ["verified", "failed"]
+        body = parse_body(result)
+        assert "verification_status" in body
+        assert body["verification_status"] in ["verified", "failed"]
 
 
 @pytest.mark.asyncio
@@ -371,8 +386,8 @@ class TestHandleGetClaimProvenance:
         """Returns claim provenance structure."""
         result = await handle_get_claim_provenance("test-claim-debate", "claim-1")
 
-        assert result.status == 200
-        body = result.body
+        assert result.status_code == 200
+        body = parse_body(result)
         assert "debate_id" in body
         assert "claim_id" in body
         assert "supporting_evidence" in body
@@ -397,8 +412,9 @@ class TestHandleGetClaimProvenance:
 
         result = await handle_get_claim_provenance("test-claim-evidence", "claim-123")
 
-        assert len(result.body["supporting_evidence"]) == 1
-        evidence = result.body["supporting_evidence"][0]
+        body = parse_body(result)
+        assert len(body["supporting_evidence"]) == 1
+        evidence = body["supporting_evidence"][0]
         assert "relevance" in evidence
         assert "content_hash" in evidence
 
@@ -411,8 +427,8 @@ class TestHandleGetAgentContributions:
         """Returns contributions structure."""
         result = await handle_get_agent_contributions("test-contrib-debate")
 
-        assert result.status == 200
-        body = result.body
+        assert result.status_code == 200
+        body = parse_body(result)
         assert "debate_id" in body
         assert "contributions" in body
         assert "summary" in body
@@ -434,7 +450,8 @@ class TestHandleGetAgentContributions:
 
         result = await handle_get_agent_contributions("test-agent-group")
 
-        assert len(result.body["contributions"]) == 2
+        body = parse_body(result)
+        assert len(body["contributions"]) == 2
 
     async def test_filters_by_agent_id(self):
         """Filters contributions by agent_id."""
@@ -453,14 +470,16 @@ class TestHandleGetAgentContributions:
 
         result = await handle_get_agent_contributions("test-agent-filter", agent_id="agent-1")
 
-        assert len(result.body["contributions"]) == 1
-        assert result.body["contributions"][0]["agent_id"] == "agent-1"
+        body = parse_body(result)
+        assert len(body["contributions"]) == 1
+        assert body["contributions"][0]["agent_id"] == "agent-1"
 
     async def test_summary_contains_statistics(self):
         """Summary contains contribution statistics."""
         result = await handle_get_agent_contributions("test-summary-stats")
 
-        summary = result.body["summary"]
+        body = parse_body(result)
+        summary = body["summary"]
         assert "total_arguments" in summary
         assert "total_evidence" in summary
         assert "total_syntheses" in summary
