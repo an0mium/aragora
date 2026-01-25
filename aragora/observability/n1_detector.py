@@ -250,14 +250,14 @@ class N1QueryDetector:
         self._token = _current_detector.set(self)
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Optional[bool]:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Exit the detection context and check for violations."""
         if self._token is not None:
             _current_detector.reset(self._token)
             self._token = None
 
         if self.mode == "off":
-            return False
+            return
 
         elapsed_ms = (time.time() - self.start_time) * 1000
         violations = self.get_violations()
@@ -273,8 +273,6 @@ class N1QueryDetector:
                 raise N1QueryError(violation.table, violation.query_count, self.threshold)
             elif self.mode == "warn":
                 logger.warning(msg)
-
-        return False
 
 
 def get_current_detector() -> Optional[N1QueryDetector]:
