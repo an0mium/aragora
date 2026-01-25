@@ -106,6 +106,7 @@ class MockAuthContext:
     email: str = "test@example.com"
     org_id: str | None = "org-123"
     role: str = "owner"
+    error_reason: str | None = None
 
 
 class MockUserStore:
