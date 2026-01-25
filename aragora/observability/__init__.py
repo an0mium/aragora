@@ -171,6 +171,16 @@ from aragora.observability.trace_correlation import (
     should_sample_trace_id,
     track_request_with_trace,
 )
+from aragora.observability.query_analyzer import (
+    QueryPlanAnalyzer,
+    QueryPlanIssue,
+    SlowQuery,
+    analyze_query,
+    clear_slow_queries,
+    get_analyzer,
+    get_query_analysis_stats,
+    get_slow_queries as get_slow_query_history,
+)
 
 __all__ = [
     # Logging
@@ -301,4 +311,13 @@ __all__ = [
     "clear_traced_latency_samples",
     "get_slow_traces",
     "generate_exemplar_line",
+    # Query Plan Analysis
+    "QueryPlanAnalyzer",
+    "QueryPlanIssue",
+    "SlowQuery",
+    "get_analyzer",
+    "analyze_query",
+    "get_slow_query_history",
+    "clear_slow_queries",
+    "get_query_analysis_stats",
 ]

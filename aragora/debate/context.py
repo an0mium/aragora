@@ -168,6 +168,9 @@ class DebateContext:
     ratings_cache: dict[str, Any] = field(default_factory=dict)
     """Batch-fetched AgentRating objects by agent name."""
 
+    data_loaders: Any = None
+    """Request-scoped DataLoaders for batched queries (DebateLoaders instance)."""
+
     event_emitter: Optional["EventEmitterProtocol"] = None
     """Optional event emitter for WebSocket event streaming."""
 

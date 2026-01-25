@@ -19,6 +19,7 @@ from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vo
 from aragora.debate.arena_config import ArenaConfig
 from aragora.debate.arena_initializer import ArenaInitializer
 from aragora.debate.arena_phases import create_phase_executor, init_phases
+from aragora.debate.batch_loaders import debate_loader_context
 from aragora.debate.audience_manager import AudienceManager
 from aragora.debate.checkpoint_ops import CheckpointOperations
 from aragora.debate.complexity_governor import (
@@ -47,6 +48,7 @@ from aragora.debate.termination_checker import TerminationChecker
 from aragora.exceptions import EarlyStopError
 from aragora.observability.logging import correlation_context
 from aragora.observability.logging import get_logger as get_structured_logger
+from aragora.observability.n1_detector import n1_detection_scope
 from aragora.observability.tracing import add_span_attributes, get_tracer
 from aragora.debate.performance_monitor import get_debate_monitor
 from aragora.server.metrics import (
@@ -323,9 +325,19 @@ class Arena:
                         f"[knowledge_mound] Could not auto-create: {e}. "
                         "Debates will run without knowledge grounding."
                     )
-                except Exception as e:
+                except (RuntimeError, ConnectionError, OSError) as e:
                     logger.warning(
-                        f"[knowledge_mound] Failed to initialize: {e}. "
+                        f"[knowledge_mound] Initialization failed (infrastructure): {e}. "
+                        "Debates will run without knowledge grounding."
+                    )
+                except (ValueError, TypeError, AttributeError) as e:
+                    logger.warning(
+                        f"[knowledge_mound] Initialization failed (config): {e}. "
+                        "Debates will run without knowledge grounding."
+                    )
+                except Exception as e:
+                    logger.exception(
+                        f"[knowledge_mound] Unexpected initialization error: {e}. "
                         "Debates will run without knowledge grounding."
                     )
         elif knowledge_mound is None:
@@ -1027,8 +1039,10 @@ class Arena:
                 logger.debug(f"[arena] Loaded {len(patterns)} domain-specific culture patterns")
                 self._culture_domain_patterns = patterns
 
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.debug(f"[arena] Failed to apply culture hints (data error): {e}")
         except Exception as e:
-            logger.debug(f"[arena] Failed to apply culture hints: {e}")
+            logger.warning(f"[arena] Unexpected error applying culture hints: {e}")
 
     def _setup_belief_network(
         self,
@@ -1321,8 +1335,11 @@ class Arena:
             if removed > 0:
                 logger.debug(f"[ml] Quality gate filtered {removed} low-quality responses")
             return filtered
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
+            logger.warning(f"[ml] Quality gate failed with data error, keeping all responses: {e}")
+            return responses
         except Exception as e:
-            logger.warning(f"[ml] Quality gate failed, keeping all responses: {e}")
+            logger.exception(f"[ml] Unexpected quality gate error, keeping all responses: {e}")
             return responses
 
     def _should_terminate_early(self, responses: list[tuple[str, str]], current_round: int) -> bool:
@@ -1813,7 +1830,12 @@ class Arena:
         with (
             tracer.start_as_current_span("debate") as span,
             perf_monitor.track_debate(debate_id, task=self.env.task, agent_names=agent_names),
+            n1_detection_scope(f"debate_{debate_id}"),
+            debate_loader_context(elo_system=self.elo_system) as loaders,
         ):
+            # Make loaders available in context for phase handlers
+            ctx.data_loaders = loaders
+
             # Add debate attributes to span
             add_span_attributes(
                 span,
@@ -1830,6 +1852,7 @@ class Arena:
 
             try:
                 # Execute all phases via PhaseExecutor with OpenTelemetry tracing
+                # N+1 detection is active via n1_detection_scope (configurable via ARAGORA_N1_DETECTION env var)
                 execution_result = await self.phase_executor.execute(
                     ctx,
                     debate_id=debate_id,
