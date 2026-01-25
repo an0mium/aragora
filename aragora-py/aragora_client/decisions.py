@@ -64,14 +64,14 @@ class DecisionResult:
     request_id: str
     decision_type: DecisionType
     status: DecisionStatus
-    answer: str | None
-    confidence: float | None
+    answer: str | None = None
+    confidence: float | None = None
     consensus_reached: bool | None = None
-    reasoning: str | None
+    reasoning: str | None = None
     evidence_used: list[dict[str, Any]] = field(default_factory=list)
     duration_seconds: float | None = None
     created_at: str | None = None
-    completed_at: str | None
+    completed_at: str | None = None
     error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     task: str | None = None
