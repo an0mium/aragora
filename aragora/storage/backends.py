@@ -217,7 +217,7 @@ class SQLiteBackend(DatabaseBackend):
             try:
                 conn.close()
             except sqlite3.Error:
-                pass  # Best-effort close
+                logger.debug("Best-effort connection close failed (overflow conn)")
 
     @contextmanager
     def connection(self) -> Generator[sqlite3.Connection, None, None]:

@@ -635,6 +635,7 @@ class KiloCodeAgent(CLIAgent):
                     if text:
                         responses.append(text)
             except json.JSONDecodeError:
+                logger.debug("Skipping non-JSON line in agent output: %s", line[:100])
                 continue
         return "\n\n".join(responses) if responses else output
 

@@ -518,7 +518,7 @@ class SyncScheduler:
             try:
                 await self._scheduler_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("Scheduler task cancelled during shutdown")
             self._scheduler_task = None
 
         # Cancel running syncs
@@ -527,7 +527,7 @@ class SyncScheduler:
             try:
                 await task
             except asyncio.CancelledError:
-                pass
+                logger.debug("Sync task %s cancelled during shutdown", run_id)
 
         self._running_syncs.clear()
         logger.info("Sync scheduler stopped")

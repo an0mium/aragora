@@ -811,7 +811,7 @@ class DebateRoundsPhase:
                         f"in_progress_{heartbeat_count * interval}s",
                     )
             except asyncio.CancelledError:
-                pass
+                logger.debug("Heartbeat task cancelled during revision round %d", round_num)
 
         # Execute all revisions with bounded concurrency and phase-level timeout
         heartbeat_task = asyncio.create_task(heartbeat_during_revisions())
@@ -833,7 +833,7 @@ class DebateRoundsPhase:
             try:
                 await heartbeat_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("Heartbeat task cleanup completed for round %d", round_num)
 
         # Process results
         revision_count = 0

@@ -403,7 +403,7 @@ class AirlockProxy:
                 json.loads(match.group(0))
                 return match.group(0)
             except json.JSONDecodeError:
-                pass
+                logger.debug("JSON object extraction failed, trying array pattern")
 
         # Try to find JSON array
         match = re.search(r"\[[\s\S]*\]", content)
@@ -412,7 +412,7 @@ class AirlockProxy:
                 json.loads(match.group(0))
                 return match.group(0)
             except json.JSONDecodeError:
-                pass
+                logger.debug("JSON array extraction failed, returning original content")
 
         # Return original if no JSON found
         return content

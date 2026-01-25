@@ -1142,8 +1142,11 @@ class ControlPlanePolicyManager:
                 try:
                     store.create_violation(violation)
                     saved += 1
-                except (KeyError, ValueError):
-                    pass  # Violation may already exist or have invalid data
+                except (KeyError, ValueError) as e:
+                    logger.debug(
+                        "Skipping violation sync: %s (may already exist or have invalid data)",
+                        e,
+                    )
 
             logger.info("violations_synced_to_store", saved=saved)
             return saved

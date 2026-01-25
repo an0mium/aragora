@@ -422,7 +422,7 @@ class GmailSyncService:
             try:
                 await self._watch_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("[GmailSync] Watch task cancelled during stop")
 
         # Stop the watch
         if self._state and self._state.watch_resource_id:

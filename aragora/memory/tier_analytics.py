@@ -546,6 +546,6 @@ class TierAnalyticsTracker:
                     )
                 except sqlite3.IntegrityError:
                     # Already have snapshot for today
-                    pass
+                    logger.debug("Daily snapshot already exists for tier %s", tier.value)
 
             conn.commit()

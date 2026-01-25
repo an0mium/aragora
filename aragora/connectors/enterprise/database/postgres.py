@@ -424,7 +424,7 @@ class PostgreSQLConnector(EnterpriseConnector):
             try:
                 await self._listener_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("[%s] Listener task cancelled during stop", self.name)
             self._listener_task = None
 
     async def close(self):
