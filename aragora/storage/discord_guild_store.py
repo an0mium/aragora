@@ -193,7 +193,7 @@ class DiscordGuildStore:
         except ImportError:
             logger.warning("cryptography not installed, storing token unencrypted")
             return token
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
             logger.error(f"Token encryption failed: {e}")
             return token
 
@@ -216,7 +216,7 @@ class DiscordGuildStore:
             return f.decrypt(encrypted.encode()).decode()
         except ImportError:
             return encrypted
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
             logger.error(f"Token decryption failed: {e}")
             return encrypted
 
@@ -262,7 +262,7 @@ class DiscordGuildStore:
             logger.info(f"Saved Discord guild: {guild.guild_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to save guild: {e}")
             return False
 
@@ -292,7 +292,7 @@ class DiscordGuildStore:
 
             return None
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to get guild {guild_id}: {e}")
             return None
 
@@ -326,7 +326,7 @@ class DiscordGuildStore:
 
             return guilds
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to get guilds for tenant {tenant_id}: {e}")
             return []
 
@@ -362,7 +362,7 @@ class DiscordGuildStore:
 
             return guilds
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to list guilds: {e}")
             return []
 
@@ -399,7 +399,7 @@ class DiscordGuildStore:
 
             return guilds
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to list expiring guilds: {e}")
             return []
 
@@ -449,7 +449,7 @@ class DiscordGuildStore:
             logger.info(f"Updated tokens for Discord guild: {guild_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to update tokens for guild {guild_id}: {e}")
             return False
 
@@ -472,7 +472,7 @@ class DiscordGuildStore:
             logger.info(f"Deactivated Discord guild: {guild_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to deactivate guild {guild_id}: {e}")
             return False
 
@@ -495,7 +495,7 @@ class DiscordGuildStore:
             logger.info(f"Deleted Discord guild: {guild_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to delete guild {guild_id}: {e}")
             return False
 
@@ -517,7 +517,7 @@ class DiscordGuildStore:
 
             return cursor.fetchone()[0]
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to count guilds: {e}")
             return 0
 
@@ -550,7 +550,7 @@ class DiscordGuildStore:
                 "expiring_tokens": expiring,
             }
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to get stats: {e}")
             return {"total_guilds": 0, "active_guilds": 0}
 

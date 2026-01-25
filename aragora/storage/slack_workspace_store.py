@@ -199,7 +199,7 @@ class SlackWorkspaceStore:
                         conn.execute(self.MIGRATION_ADD_SIGNING_SECRET)
                         conn.commit()
                         logger.info("Added signing_secret column to slack_workspaces")
-                except Exception as e:
+                except sqlite3.Error as e:
                     logger.debug(f"Migration check: {e}")
 
                 self._initialized = True
@@ -258,7 +258,7 @@ class SlackWorkspaceStore:
         except ImportError:
             logger.warning("cryptography not installed, storing token unencrypted")
             return token
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
             logger.error(f"Token encryption failed: {e}")
             return token
 
@@ -293,7 +293,7 @@ class SlackWorkspaceStore:
             return f.decrypt(ciphertext.encode()).decode()
         except ImportError:
             return encrypted
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
             logger.error(f"Token decryption failed: {e}")
             return encrypted
 
@@ -338,7 +338,7 @@ class SlackWorkspaceStore:
             logger.info(f"Saved Slack workspace: {workspace.workspace_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to save workspace: {e}")
             return False
 
@@ -368,7 +368,7 @@ class SlackWorkspaceStore:
 
             return None
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to get workspace {workspace_id}: {e}")
             return None
 
@@ -402,7 +402,7 @@ class SlackWorkspaceStore:
 
             return workspaces
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to get workspaces for tenant {tenant_id}: {e}")
             return []
 
@@ -438,7 +438,7 @@ class SlackWorkspaceStore:
 
             return workspaces
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to list workspaces: {e}")
             return []
 
@@ -461,7 +461,7 @@ class SlackWorkspaceStore:
             logger.info(f"Deactivated Slack workspace: {workspace_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to deactivate workspace {workspace_id}: {e}")
             return False
 
@@ -484,7 +484,7 @@ class SlackWorkspaceStore:
             logger.info(f"Deleted Slack workspace: {workspace_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to delete workspace {workspace_id}: {e}")
             return False
 
@@ -506,7 +506,7 @@ class SlackWorkspaceStore:
 
             return cursor.fetchone()[0]
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to count workspaces: {e}")
             return 0
 
@@ -529,7 +529,7 @@ class SlackWorkspaceStore:
                 "inactive_workspaces": total - active,
             }
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to get stats: {e}")
             return {"total_workspaces": 0, "active_workspaces": 0}
 
@@ -612,7 +612,7 @@ class SupabaseSlackWorkspaceStore:
             logger.info(f"Saved Slack workspace to Supabase: {workspace.workspace_id}")
             return True
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to save workspace to Supabase: {e}")
             return False
 
@@ -634,7 +634,7 @@ class SupabaseSlackWorkspaceStore:
                 return self._row_to_workspace(result.data)
             return None
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to get workspace from Supabase: {e}")
             return None
 
@@ -655,7 +655,7 @@ class SupabaseSlackWorkspaceStore:
 
             return [self._row_to_workspace(row) for row in result.data]
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to get workspaces for tenant from Supabase: {e}")
             return []
 
@@ -676,7 +676,7 @@ class SupabaseSlackWorkspaceStore:
 
             return [self._row_to_workspace(row) for row in result.data]
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to list workspaces from Supabase: {e}")
             return []
 
@@ -696,7 +696,7 @@ class SupabaseSlackWorkspaceStore:
             logger.info(f"Deactivated Slack workspace in Supabase: {workspace_id}")
             return True
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to deactivate workspace in Supabase: {e}")
             return False
 
@@ -713,7 +713,7 @@ class SupabaseSlackWorkspaceStore:
             logger.info(f"Deleted Slack workspace from Supabase: {workspace_id}")
             return True
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to delete workspace from Supabase: {e}")
             return False
 
@@ -730,7 +730,7 @@ class SupabaseSlackWorkspaceStore:
             result = query.execute()
             return result.count or 0
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to count workspaces in Supabase: {e}")
             return 0
 
@@ -749,7 +749,7 @@ class SupabaseSlackWorkspaceStore:
                 "inactive_workspaces": total - active,
             }
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to get stats from Supabase: {e}")
             return {"total_workspaces": 0, "active_workspaces": 0}
 

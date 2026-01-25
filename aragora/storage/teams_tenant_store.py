@@ -742,7 +742,7 @@ class SupabaseTeamsTenantStore:
 
             return [self._row_to_tenant(row) for row in (response.data or [])]
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to get tenants for org {aragora_org_id}: {e}")
             return []
 
@@ -763,7 +763,7 @@ class SupabaseTeamsTenantStore:
 
             return [self._row_to_tenant(row) for row in (response.data or [])]
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to list tenants: {e}")
             return []
 
@@ -791,7 +791,7 @@ class SupabaseTeamsTenantStore:
 
             return [self._row_to_tenant(row) for row in (response.data or [])]
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to list expiring tenants: {e}")
             return []
 
@@ -823,7 +823,7 @@ class SupabaseTeamsTenantStore:
             logger.info(f"Updated tokens for Teams tenant: {tenant_id}")
             return True
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to update tokens for tenant {tenant_id}: {e}")
             return False
 
@@ -842,7 +842,7 @@ class SupabaseTeamsTenantStore:
             logger.info(f"Deactivated Teams tenant: {tenant_id}")
             return True
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to deactivate tenant {tenant_id}: {e}")
             return False
 
@@ -856,7 +856,7 @@ class SupabaseTeamsTenantStore:
             logger.info(f"Deleted Teams tenant: {tenant_id}")
             return True
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to delete tenant {tenant_id}: {e}")
             return False
 
@@ -872,7 +872,7 @@ class SupabaseTeamsTenantStore:
             response = query.execute()
             return response.count or 0
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to count tenants: {e}")
             return 0
 
@@ -893,7 +893,7 @@ class SupabaseTeamsTenantStore:
                 "expiring_tokens": expiring,
             }
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to get stats: {e}")
             return {"total_tenants": 0, "active_tenants": 0}
 
