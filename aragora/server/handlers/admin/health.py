@@ -241,8 +241,8 @@ class HealthHandler(BaseHandler):
             try:
                 if is_distributed_state_required():
                     ready = False
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Error checking distributed state requirement: {e}")
 
         # Check PostgreSQL connectivity (if required)
         try:
@@ -2342,7 +2342,8 @@ class HealthHandler(BaseHandler):
                             "failure_count": cb.failure_count,  # type: ignore[attr-defined]
                             "success_count": getattr(cb, "success_count", 0),
                         }
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"Error getting circuit breaker for {platform}: {e}")
                     platform_circuits[platform] = {"state": "not_configured"}
 
             components["platform_circuits"] = {

@@ -91,7 +91,8 @@ def _validate_slack_url(url: str) -> bool:
         if parsed.netloc not in SLACK_ALLOWED_DOMAINS:
             return False
         return True
-    except Exception:
+    except Exception as e:
+        logger.debug(f"URL validation failed for slack: {e}")
         return False
 
 

@@ -637,8 +637,9 @@ async def handle_get_inbox_messages(
                                         m for m in all_messages if tag in m.get("tags", [])
                                     ]
                                 total_count = len(all_messages)
-                        except Exception:
+                        except Exception as e:
                             # Fall back to page count + offset
+                            logger.debug(f"Error counting messages, using fallback: {e}")
                             total_count = offset + len(messages_data)
 
                     return {

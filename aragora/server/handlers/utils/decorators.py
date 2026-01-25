@@ -229,13 +229,7 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
                     exc_info=True,
                 )
                 status = map_exception_to_status(e, default_status)
-                # For OAuth debugging, include actual error details
-                import os
-
-                if os.environ.get("OAUTH_DEBUG") == "1" and "OAuth" in context:
-                    message = f"{type(e).__name__}: {e}"
-                else:
-                    message = safe_error_message(e, context)
+                message = safe_error_message(e, context)
                 return error_response(
                     message,
                     status=status,

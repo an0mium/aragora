@@ -1258,7 +1258,8 @@ class GauntletHandler(BaseHandler):
             computed_hash = ""
             try:
                 computed_hash = receipt._calculate_hash()
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Error calculating receipt hash: {e}")
                 computed_hash = ""
 
             if verification_result["verified"]:

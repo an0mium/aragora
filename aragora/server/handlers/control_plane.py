@@ -425,12 +425,13 @@ class ControlPlaneHandler(BaseHandler):
                             "latency_ms": latency,
                         }
                     )
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Redis health check failed: {e}")
                 components.append(
                     {
                         "name": "Redis",
                         "status": "unhealthy",
-                        "error": "Not connected",
+                        "error": f"Not connected: {type(e).__name__}",
                     }
                 )
 
