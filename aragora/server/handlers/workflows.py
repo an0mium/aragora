@@ -28,6 +28,7 @@ from aragora.workflow.types import (
 )
 from aragora.workflow.engine import WorkflowEngine
 from aragora.workflow.persistent_store import get_workflow_store, PersistentWorkflowStore
+from aragora.audit.unified import audit_data
 
 # RBAC imports
 try:
@@ -171,6 +172,14 @@ async def create_workflow(
     store.save_version(workflow)
 
     logger.info(f"Created workflow {workflow_id}: {workflow.name}")
+    audit_data(
+        user_id=created_by or "system",
+        resource_type="workflow",
+        resource_id=workflow_id,
+        action="create",
+        workflow_name=workflow.name,
+        tenant_id=tenant_id,
+    )
     return workflow.to_dict()
 
 
@@ -222,6 +231,14 @@ async def update_workflow(
     store.save_version(workflow)
 
     logger.info(f"Updated workflow {workflow_id} to version {workflow.version}")
+    audit_data(
+        user_id="system",
+        resource_type="workflow",
+        resource_id=workflow_id,
+        action="update",
+        new_version=workflow.version,
+        tenant_id=tenant_id,
+    )
     return workflow.to_dict()
 
 
@@ -241,6 +258,13 @@ async def delete_workflow(workflow_id: str, tenant_id: str = "default") -> bool:
 
     if deleted:
         logger.info(f"Deleted workflow {workflow_id}")
+        audit_data(
+            user_id="system",
+            resource_type="workflow",
+            resource_id=workflow_id,
+            action="delete",
+            tenant_id=tenant_id,
+        )
 
     return deleted
 
