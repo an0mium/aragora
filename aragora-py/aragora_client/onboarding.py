@@ -128,9 +128,7 @@ class OnboardingAPI:
     async def list_templates(self) -> list[OnboardingTemplate]:
         """List available onboarding templates."""
         data = await self._client._get("/api/v1/onboarding/templates")
-        return [
-            OnboardingTemplate.model_validate(t) for t in data.get("templates", [])
-        ]
+        return [OnboardingTemplate.model_validate(t) for t in data.get("templates", [])]
 
     async def get_template(self, template_id: str) -> OnboardingTemplate:
         """Get a specific onboarding template."""

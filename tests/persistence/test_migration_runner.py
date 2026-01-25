@@ -172,9 +172,7 @@ class TestRollback:
         assert result["status"] == "no_database"
         assert "does not exist" in result["message"]
 
-    def test_rollback_nothing_to_rollback(
-        self, runner: MigrationRunner, temp_db_dir: Path
-    ):
+    def test_rollback_nothing_to_rollback(self, runner: MigrationRunner, temp_db_dir: Path):
         """Test rollback when version is 0."""
         # Create database with version 0
         db_path = temp_db_dir / "test.db"
@@ -224,9 +222,7 @@ class TestRollback:
         assert result["would_rollback"]["version"] == 1
         assert result["would_rollback"]["name"] == "initial"
 
-    def test_rollback_migration_not_found(
-        self, runner: MigrationRunner, test_db: Path
-    ):
+    def test_rollback_migration_not_found(self, runner: MigrationRunner, test_db: Path):
         """Test rollback when migration file is missing."""
         # Database is at version 1, but we only have version 2 migration
         migration = MigrationFile(
@@ -240,9 +236,7 @@ class TestRollback:
         assert result["status"] == "migration_not_found"
         assert "not found" in result["message"]
 
-    def test_rollback_no_downgrade_function(
-        self, runner: MigrationRunner, test_db: Path
-    ):
+    def test_rollback_no_downgrade_function(self, runner: MigrationRunner, test_db: Path):
         """Test rollback when migration has no downgrade function."""
         migration = MigrationFile(
             version=1,
@@ -304,9 +298,7 @@ class TestRollback:
         # Verify downgrade was called
         mock_module.downgrade.assert_called_once()
 
-    def test_rollback_to_previous_version(
-        self, runner: MigrationRunner, temp_db_dir: Path
-    ):
+    def test_rollback_to_previous_version(self, runner: MigrationRunner, temp_db_dir: Path):
         """Test rollback sets version to previous migration."""
         # Create database at version 2
         db_path = temp_db_dir / "test.db"
@@ -421,9 +413,238 @@ class TestCLI:
             description="Initial",
         )
 
-        with patch("sys.argv", ["runner.py", "--rollback", "--dry-run", "--db", "elo", "--nomic-dir", str(temp_db_dir)]):
+        with patch(
+            "sys.argv",
+            [
+                "runner.py",
+                "--rollback",
+                "--dry-run",
+                "--db",
+                "elo",
+                "--nomic-dir",
+                str(temp_db_dir),
+            ],
+        ):
             with patch.object(MigrationRunner, "discover_migrations", return_value=[migration]):
                 with patch("builtins.print") as mock_print:
                     result = main()
 
         assert result == 0
+
+
+# ===========================================================================
+# Test SQLite Table Recreation Downgrade Pattern
+# ===========================================================================
+
+
+class TestSQLiteTableRecreationDowngrade:
+    """Tests for SQLite table recreation downgrade pattern (used when DROP COLUMN not supported)."""
+
+    def test_table_recreation_preserves_data(self, temp_db_dir: Path):
+        """Test that table recreation pattern preserves existing data."""
+        db_path = temp_db_dir / "test_recreation.db"
+        conn = sqlite3.connect(str(db_path))
+
+        # Step 1: Create original schema (like 001_initial)
+        conn.executescript(
+            """
+            CREATE TABLE users (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                password_salt TEXT NOT NULL,
+                name TEXT DEFAULT '',
+                org_id TEXT,
+                role TEXT DEFAULT 'member',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                last_login_at TEXT,
+                is_active INTEGER DEFAULT 1,
+                email_verified INTEGER DEFAULT 0,
+                avatar_url TEXT,
+                preferences TEXT DEFAULT '{}'
+            );
+            CREATE INDEX idx_users_email ON users(email);
+            CREATE INDEX idx_users_org ON users(org_id);
+        """
+        )
+
+        # Insert test data
+        conn.execute(
+            """
+            INSERT INTO users (id, email, password_hash, password_salt, name, role)
+            VALUES ('user1', 'test@example.com', 'hash1', 'salt1', 'Test User', 'admin')
+        """
+        )
+        conn.execute(
+            """
+            INSERT INTO users (id, email, password_hash, password_salt, name)
+            VALUES ('user2', 'user2@example.com', 'hash2', 'salt2', 'Second User')
+        """
+        )
+        conn.commit()
+
+        # Step 2: Apply upgrade (like 002_add_lockout)
+        conn.execute("ALTER TABLE users ADD COLUMN locked_until TEXT")
+        conn.execute("ALTER TABLE users ADD COLUMN failed_login_count INTEGER DEFAULT 0")
+        conn.execute("ALTER TABLE users ADD COLUMN lockout_reason TEXT")
+        conn.execute("ALTER TABLE users ADD COLUMN last_activity_at TEXT")
+        conn.execute("ALTER TABLE users ADD COLUMN last_debate_at TEXT")
+
+        # Update some lockout data
+        conn.execute(
+            "UPDATE users SET failed_login_count = 3, lockout_reason = 'test' WHERE id = 'user1'"
+        )
+        conn.commit()
+
+        # Verify new columns exist
+        cursor = conn.execute("PRAGMA table_info(users)")
+        columns = [row[1] for row in cursor.fetchall()]
+        assert "locked_until" in columns
+        assert "failed_login_count" in columns
+
+        # Step 3: Apply downgrade (table recreation pattern from 002_add_lockout)
+        conn.executescript(
+            """
+            -- Backup current data
+            CREATE TABLE users_backup AS SELECT * FROM users;
+            -- Drop original table
+            DROP TABLE users;
+            -- Recreate table WITHOUT the new columns
+            CREATE TABLE users (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                password_salt TEXT NOT NULL,
+                name TEXT DEFAULT '',
+                org_id TEXT,
+                role TEXT DEFAULT 'member',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                last_login_at TEXT,
+                is_active INTEGER DEFAULT 1,
+                email_verified INTEGER DEFAULT 0,
+                avatar_url TEXT,
+                preferences TEXT DEFAULT '{}'
+            );
+            -- Copy data back (original columns only)
+            INSERT INTO users (
+                id, email, password_hash, password_salt, name, org_id, role,
+                created_at, updated_at, last_login_at, is_active, email_verified,
+                avatar_url, preferences
+            )
+            SELECT
+                id, email, password_hash, password_salt, name, org_id, role,
+                created_at, updated_at, last_login_at, is_active, email_verified,
+                avatar_url, preferences
+            FROM users_backup;
+            -- Drop backup
+            DROP TABLE users_backup;
+            -- Recreate indexes
+            CREATE INDEX idx_users_email ON users(email);
+            CREATE INDEX idx_users_org ON users(org_id);
+        """
+        )
+        conn.commit()
+
+        # Verify columns are removed
+        cursor = conn.execute("PRAGMA table_info(users)")
+        columns = [row[1] for row in cursor.fetchall()]
+        assert "locked_until" not in columns
+        assert "failed_login_count" not in columns
+        assert "lockout_reason" not in columns
+        assert "last_activity_at" not in columns
+        assert "last_debate_at" not in columns
+
+        # Verify original columns still exist
+        assert "id" in columns
+        assert "email" in columns
+        assert "password_hash" in columns
+        assert "name" in columns
+        assert "role" in columns
+
+        # Verify data is preserved
+        cursor = conn.execute("SELECT id, email, name, role FROM users ORDER BY id")
+        rows = cursor.fetchall()
+        assert len(rows) == 2
+        assert rows[0] == ("user1", "test@example.com", "Test User", "admin")
+        assert rows[1] == ("user2", "user2@example.com", "Second User", "member")
+
+        # Verify indexes are recreated
+        cursor = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='users'"
+        )
+        indexes = [row[0] for row in cursor.fetchall()]
+        assert "idx_users_email" in indexes
+        assert "idx_users_org" in indexes
+
+        conn.close()
+
+    def test_downgrade_with_actual_migration(self, temp_db_dir: Path):
+        """Test the actual 002_add_lockout downgrade function."""
+        db_path = temp_db_dir / "test_migration.db"
+        conn = sqlite3.connect(str(db_path))
+
+        # Create base schema from 001
+        conn.executescript(
+            """
+            CREATE TABLE users (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                password_salt TEXT NOT NULL,
+                name TEXT DEFAULT '',
+                org_id TEXT,
+                role TEXT DEFAULT 'member',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                last_login_at TEXT,
+                is_active INTEGER DEFAULT 1,
+                email_verified INTEGER DEFAULT 0,
+                avatar_url TEXT,
+                preferences TEXT DEFAULT '{}'
+            );
+            CREATE INDEX idx_users_email ON users(email);
+            CREATE INDEX idx_users_org ON users(org_id);
+        """
+        )
+
+        # Insert test user
+        conn.execute(
+            """
+            INSERT INTO users (id, email, password_hash, password_salt)
+            VALUES ('u1', 'a@b.com', 'h', 's')
+        """
+        )
+        conn.commit()
+
+        # Import and apply the actual upgrade (module name starts with number, use importlib)
+        import importlib
+
+        m002 = importlib.import_module("aragora.persistence.migrations.users.002_add_lockout")
+        m002.upgrade(conn)
+        conn.commit()
+
+        # Verify upgrade worked
+        cursor = conn.execute("PRAGMA table_info(users)")
+        columns = [row[1] for row in cursor.fetchall()]
+        assert "locked_until" in columns
+        assert "failed_login_count" in columns
+
+        # Apply the actual downgrade
+        m002.downgrade(conn)
+        conn.commit()
+
+        # Verify downgrade worked
+        cursor = conn.execute("PRAGMA table_info(users)")
+        columns = [row[1] for row in cursor.fetchall()]
+        assert "locked_until" not in columns
+        assert "failed_login_count" not in columns
+
+        # Verify data preserved
+        cursor = conn.execute("SELECT id, email FROM users")
+        rows = cursor.fetchall()
+        assert len(rows) == 1
+        assert rows[0] == ("u1", "a@b.com")
+
+        conn.close()

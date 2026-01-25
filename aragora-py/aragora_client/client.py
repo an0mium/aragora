@@ -10,7 +10,6 @@ import httpx
 from aragora_client.audit import AuditAPI
 from aragora_client.auth import AuthAPI
 from aragora_client.control_plane import ControlPlaneAPI
-from aragora_client.onboarding import OnboardingAPI
 from aragora_client.exceptions import (
     AragoraAuthenticationError,
     AragoraConnectionError,
@@ -19,6 +18,7 @@ from aragora_client.exceptions import (
     AragoraTimeoutError,
     AragoraValidationError,
 )
+from aragora_client.onboarding import OnboardingAPI
 from aragora_client.rbac import RBACAPI
 from aragora_client.tenancy import TenancyAPI
 from aragora_client.tournaments import TournamentsAPI

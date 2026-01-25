@@ -95,12 +95,30 @@ class PermissionChecker:
         self._workspace_roles: dict[str, dict[str, set[str]]] = {}
 
         # Cache versioning for O(1) invalidation (instead of iterating all keys)
+        # When clearing cache for a user, we increment their version instead of
+        # iterating all keys. The version is embedded in cache keys, so old entries
+        # automatically become stale and won't match on lookup.
         self._global_cache_version: int = 0
         self._user_cache_versions: dict[str, int] = {}
+        # Resource permission cache also uses versioning
+        self._global_resource_cache_version: int = 0
+        self._user_resource_cache_versions: dict[str, int] = {}
 
         # If distributed cache provided, register for invalidation callbacks
         if self._cache_backend:
             self._cache_backend.add_invalidation_callback(self._on_remote_invalidation)
+
+    def _get_cache_version(self, user_id: str) -> str:
+        """Get the cache version string for a user (combines global and user version)."""
+        global_v = self._global_cache_version
+        user_v = self._user_cache_versions.get(user_id, 0)
+        return f"v{global_v}.{user_v}"
+
+    def _get_resource_cache_version(self, user_id: str) -> str:
+        """Get the resource cache version string for a user."""
+        global_v = self._global_resource_cache_version
+        user_v = self._user_resource_cache_versions.get(user_id, 0)
+        return f"v{global_v}.{user_v}"
 
     def check_permission(
         self,
@@ -451,14 +469,29 @@ class PermissionChecker:
         return roles
 
     def clear_cache(self, user_id: str | None = None) -> None:
-        """Clear decision cache, optionally for a specific user."""
+        """
+        Clear decision cache, optionally for a specific user.
+
+        Uses O(1) cache versioning instead of O(n) key iteration.
+        Old entries with stale versions become unreachable and are
+        cleaned up on TTL expiry or periodic cache maintenance.
+        """
         if user_id:
-            keys_to_remove = [k for k in self._decision_cache if k.startswith(f"{user_id}:")]
-            for key in keys_to_remove:
-                del self._decision_cache[key]
-            # Also clear resource permission cache for this user
-            self.clear_resource_permission_cache(user_id=user_id)
+            # O(1) invalidation: increment user's cache version
+            # Old keys with old version won't match on lookup
+            self._user_cache_versions[user_id] = self._user_cache_versions.get(user_id, 0) + 1
+            # Also invalidate resource permission cache for this user
+            self._user_resource_cache_versions[user_id] = (
+                self._user_resource_cache_versions.get(user_id, 0) + 1
+            )
         else:
+            # O(1) global invalidation: increment global versions
+            self._global_cache_version += 1
+            self._global_resource_cache_version += 1
+            # Clear version dicts (optional, but keeps memory bounded)
+            self._user_cache_versions.clear()
+            self._user_resource_cache_versions.clear()
+            # Also clear the actual cache dicts to free memory immediately
             self._decision_cache.clear()
             self._resource_permission_cache.clear()
 
@@ -670,9 +703,11 @@ class PermissionChecker:
                     cached=True,
                 )
 
-        # Fall back to local cache
+        # Fall back to local cache (version included for O(1) invalidation)
+        version = self._get_cache_version(context.user_id)
         cache_key = (
-            f"{context.user_id}:{context.org_id}:{roles_hash}:{permission_key}:{resource_id}"
+            f"{version}:{context.user_id}:{context.org_id}:{roles_hash}:"
+            f"{permission_key}:{resource_id}"
         )
         if cache_key not in self._decision_cache:
             return None
@@ -725,8 +760,11 @@ class PermissionChecker:
             )
 
         # Also cache locally (L1 when using distributed, primary otherwise)
+        # Include version for O(1) invalidation
+        version = self._get_cache_version(context.user_id)
         cache_key = (
-            f"{context.user_id}:{context.org_id}:{roles_hash}:{permission_key}:{resource_id}"
+            f"{version}:{context.user_id}:{context.org_id}:{roles_hash}:"
+            f"{permission_key}:{resource_id}"
         )
         self._decision_cache[cache_key] = (decision, datetime.now(timezone.utc))
 
