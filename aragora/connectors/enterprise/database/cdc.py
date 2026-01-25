@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.core import KnowledgeMound
+    from aragora.knowledge.mound import KnowledgeMound
 
 logger = logging.getLogger(__name__)
 
@@ -435,7 +435,7 @@ class KnowledgeMoundHandler(ChangeEventHandler):
     async def _get_mound(self) -> "KnowledgeMound":
         """Get or create Knowledge Mound instance."""
         if self._mound is None:
-            from aragora.knowledge.mound.core import KnowledgeMound
+            from aragora.knowledge.mound import KnowledgeMound
 
             self._mound = KnowledgeMound(workspace_id=self.workspace_id)
         return self._mound
@@ -492,7 +492,7 @@ class KnowledgeMoundHandler(ChangeEventHandler):
             },
         )
 
-        await mound.store(request)
+        await mound.store(request)  # type: ignore[misc]  # Mixin pattern
         logger.debug(f"Ingested change event {event.id} to Knowledge Mound")
 
     async def _handle_delete(self, mound: "KnowledgeMound", event: ChangeEvent) -> None:
