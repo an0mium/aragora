@@ -495,3 +495,31 @@ class UserRepository:
             mfa_backup_codes=_decrypt_mfa_field(safe_get("mfa_backup_codes") or "", row["id"]),
             token_version=safe_get("token_version", 1) or 1,
         )
+
+
+_user_repository: Optional[UserRepository] = None
+
+
+def get_user_repository() -> Optional[UserRepository]:
+    """Get or create the user repository from the configured user store."""
+    global _user_repository
+    if _user_repository is not None:
+        return _user_repository
+
+    try:
+        from aragora.storage.user_store import get_user_store
+    except ImportError:
+        return None
+
+    store = get_user_store()
+    if store is None:
+        return None
+
+    repo = getattr(store, "_user_repo", None)
+    if repo is None:
+        repo = UserRepository(
+            store._transaction,
+            getattr(store, "_get_connection", None),
+        )
+    _user_repository = repo
+    return _user_repository
