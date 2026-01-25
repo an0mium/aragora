@@ -1,0 +1,318 @@
+#!/bin/bash
+# Aragora Quick Start Setup Wizard
+# Interactive setup for self-hosted Docker deployments
+#
+# Usage:
+#   ./scripts/quick-start.sh
+#
+# Or directly from repository:
+#   curl -sSL https://raw.githubusercontent.com/aragora-ai/aragora/main/scripts/quick-start.sh | bash
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Print functions
+info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+# Banner
+echo ""
+echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║                                                                   ║${NC}"
+echo -e "${BLUE}║   ${GREEN}Aragora${BLUE} - Multi-Agent Decision Platform                        ║${NC}"
+echo -e "${BLUE}║   ${NC}Self-Hosted Quick Start Setup${BLUE}                                  ║${NC}"
+echo -e "${BLUE}║                                                                   ║${NC}"
+echo -e "${BLUE}╚═══════════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+# Check prerequisites
+info "Checking prerequisites..."
+
+# Check Docker
+if ! command -v docker &> /dev/null; then
+    error "Docker is not installed. Please install Docker first."
+    echo "  Ubuntu: curl -fsSL https://get.docker.com | sh"
+    echo "  macOS:  brew install --cask docker"
+    exit 1
+fi
+success "Docker is installed ($(docker --version | cut -d' ' -f3 | tr -d ','))"
+
+# Check Docker Compose (v2)
+if ! docker compose version &> /dev/null; then
+    error "Docker Compose v2 is not available."
+    echo "  Please upgrade Docker Desktop or install docker-compose-plugin"
+    exit 1
+fi
+success "Docker Compose is available ($(docker compose version --short))"
+
+# Check if we're in the aragora directory
+if [ ! -f "docker-compose.sme.yml" ]; then
+    if [ -f "../docker-compose.sme.yml" ]; then
+        cd ..
+    else
+        error "This script must be run from the aragora repository root."
+        echo "  git clone https://github.com/aragora-ai/aragora.git"
+        echo "  cd aragora && ./scripts/quick-start.sh"
+        exit 1
+    fi
+fi
+success "Repository found"
+
+echo ""
+
+# Deployment mode selection
+info "Select deployment mode:"
+echo ""
+echo "  1) ${GREEN}SME${NC} (Small/Medium Enterprise)"
+echo "     - Single server, 4GB RAM minimum"
+echo "     - PostgreSQL, Redis, basic monitoring"
+echo "     - Good for: Teams of 5-50 users"
+echo ""
+echo "  2) ${BLUE}Production${NC}"
+echo "     - High availability, 8GB+ RAM"
+echo "     - TLS, load balancing, full observability"
+echo "     - Good for: Enterprise, public-facing"
+echo ""
+read -p "Choose mode [1/2] (default: 1): " DEPLOY_MODE
+DEPLOY_MODE=${DEPLOY_MODE:-1}
+
+if [ "$DEPLOY_MODE" = "2" ]; then
+    COMPOSE_FILE="docker-compose.production.yml"
+    ENV_FILE=".env.production"
+    MODE_NAME="Production"
+else
+    COMPOSE_FILE="docker-compose.sme.yml"
+    ENV_FILE=".env"
+    MODE_NAME="SME"
+fi
+
+echo ""
+success "Selected: $MODE_NAME mode"
+echo ""
+
+# Check for existing .env
+if [ -f "$ENV_FILE" ]; then
+    warn "Existing $ENV_FILE found."
+    read -p "Overwrite? [y/N]: " OVERWRITE
+    if [ "$OVERWRITE" != "y" ] && [ "$OVERWRITE" != "Y" ]; then
+        info "Keeping existing configuration."
+        SKIP_ENV=true
+    fi
+fi
+
+# Generate environment file
+if [ "${SKIP_ENV:-false}" != "true" ]; then
+    info "Configuring environment..."
+    echo ""
+
+    # AI Provider selection
+    echo "At least one AI provider API key is required:"
+    echo ""
+
+    read -p "Anthropic API Key (recommended): " ANTHROPIC_KEY
+    read -p "OpenAI API Key (optional): " OPENAI_KEY
+    read -p "OpenRouter API Key (optional, for fallback): " OPENROUTER_KEY
+
+    if [ -z "$ANTHROPIC_KEY" ] && [ -z "$OPENAI_KEY" ]; then
+        error "At least one API key is required (Anthropic or OpenAI)"
+        exit 1
+    fi
+
+    # Generate secure passwords
+    POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=' | head -c 32)
+    JWT_SECRET=$(openssl rand -base64 48 | tr -d '/+=' | head -c 64)
+    API_TOKEN=$(openssl rand -hex 32)
+
+    echo ""
+
+    # Production-specific settings
+    if [ "$DEPLOY_MODE" = "2" ]; then
+        read -p "Domain name (e.g., aragora.example.com): " DOMAIN
+        read -p "Email for Let's Encrypt certificates: " ACME_EMAIL
+        read -p "Grafana admin password: " GRAFANA_PASSWORD
+
+        if [ -z "$DOMAIN" ] || [ -z "$ACME_EMAIL" ]; then
+            error "Domain and email are required for production mode"
+            exit 1
+        fi
+    fi
+
+    # Write .env file
+    info "Writing configuration to $ENV_FILE..."
+
+    if [ "$DEPLOY_MODE" = "2" ]; then
+        cat > "$ENV_FILE" << EOF
+# Aragora Production Configuration
+# Generated by quick-start.sh on $(date)
+
+# Domain & TLS
+DOMAIN=${DOMAIN}
+ACME_EMAIL=${ACME_EMAIL}
+
+# AI Providers
+ANTHROPIC_API_KEY=${ANTHROPIC_KEY}
+OPENAI_API_KEY=${OPENAI_KEY}
+OPENROUTER_API_KEY=${OPENROUTER_KEY}
+
+# Database
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+
+# Security
+ARAGORA_API_TOKEN=${API_TOKEN}
+ARAGORA_JWT_SECRET=${JWT_SECRET}
+ARAGORA_ENV=production
+
+# Observability
+GRAFANA_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+
+# Scaling (adjust based on resources)
+ARAGORA_REPLICAS=2
+WORKER_REPLICAS=2
+ARAGORA_MAX_CONCURRENT_DEBATES=20
+
+# Logging
+ARAGORA_LOG_LEVEL=INFO
+TRAEFIK_LOG_LEVEL=INFO
+
+# Backup (optional S3)
+# BACKUP_S3_BUCKET=
+# AWS_ACCESS_KEY_ID=
+# AWS_SECRET_ACCESS_KEY=
+# AWS_REGION=us-east-1
+EOF
+    else
+        cat > "$ENV_FILE" << EOF
+# Aragora SME Configuration
+# Generated by quick-start.sh on $(date)
+
+# AI Providers (at least one required)
+ANTHROPIC_API_KEY=${ANTHROPIC_KEY}
+OPENAI_API_KEY=${OPENAI_KEY}
+OPENROUTER_API_KEY=${OPENROUTER_KEY}
+
+# Database
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+
+# Security
+ARAGORA_API_TOKEN=${API_TOKEN}
+ARAGORA_JWT_SECRET=${JWT_SECRET}
+ARAGORA_ENV=production
+
+# Server
+ARAGORA_PORT=8080
+ARAGORA_ALLOWED_ORIGINS=*
+ARAGORA_MAX_CONCURRENT_DEBATES=10
+
+# Observability
+GRAFANA_PORT=3001
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=admin
+
+# Logging
+ARAGORA_LOG_LEVEL=INFO
+
+# Backup retention (days)
+BACKUP_RETENTION_DAYS=7
+EOF
+    fi
+
+    chmod 600 "$ENV_FILE"
+    success "Configuration saved to $ENV_FILE"
+fi
+
+echo ""
+
+# Pull images
+info "Pulling Docker images (this may take a few minutes)..."
+docker compose -f "$COMPOSE_FILE" pull
+
+echo ""
+
+# Start services
+info "Starting Aragora services..."
+docker compose -f "$COMPOSE_FILE" up -d
+
+echo ""
+
+# Wait for health
+info "Waiting for services to be healthy..."
+RETRIES=30
+HEALTHY=false
+
+for i in $(seq 1 $RETRIES); do
+    if docker compose -f "$COMPOSE_FILE" ps | grep -q "healthy"; then
+        # Check if aragora container specifically is healthy
+        if docker compose -f "$COMPOSE_FILE" ps aragora 2>/dev/null | grep -q "healthy"; then
+            HEALTHY=true
+            break
+        fi
+    fi
+    echo -n "."
+    sleep 2
+done
+echo ""
+
+if [ "$HEALTHY" = "true" ]; then
+    success "All services are healthy!"
+else
+    warn "Services may still be starting. Check status with:"
+    echo "  docker compose -f $COMPOSE_FILE ps"
+fi
+
+echo ""
+
+# Print summary
+echo -e "${GREEN}═══════════════════════════════════════════════════════════════════${NC}"
+echo -e "${GREEN}                    Setup Complete!${NC}"
+echo -e "${GREEN}═══════════════════════════════════════════════════════════════════${NC}"
+echo ""
+
+if [ "$DEPLOY_MODE" = "2" ]; then
+    echo "Access points:"
+    echo "  - Aragora API:    https://${DOMAIN}"
+    echo "  - Grafana:        https://${DOMAIN}/grafana"
+    echo "  - Health check:   https://${DOMAIN}/api/health"
+else
+    echo "Access points:"
+    echo "  - Aragora API:    http://localhost:8080"
+    echo "  - API Health:     http://localhost:8080/api/health"
+    echo "  - Grafana:        http://localhost:3001 (admin/admin)"
+fi
+
+echo ""
+echo "Useful commands:"
+echo "  docker compose -f $COMPOSE_FILE ps        # Check status"
+echo "  docker compose -f $COMPOSE_FILE logs -f   # View logs"
+echo "  docker compose -f $COMPOSE_FILE down      # Stop services"
+echo "  docker compose -f $COMPOSE_FILE restart   # Restart all"
+echo ""
+
+# Quick API test
+if command -v curl &> /dev/null; then
+    info "Testing API endpoint..."
+    sleep 3
+    if [ "$DEPLOY_MODE" = "2" ]; then
+        API_URL="http://localhost:8080/api/health"
+    else
+        API_URL="http://localhost:8080/api/health"
+    fi
+
+    if curl -s "$API_URL" | grep -q "healthy"; then
+        success "API is responding correctly!"
+    else
+        warn "API may still be starting. Try: curl $API_URL"
+    fi
+fi
+
+echo ""
+echo "Documentation: https://docs.aragora.ai/self-hosted"
+echo "Support:       https://github.com/aragora-ai/aragora/issues"
+echo ""
