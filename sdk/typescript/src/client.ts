@@ -144,6 +144,7 @@ import type {
 } from './types';
 import { AragoraError } from './types';
 import { AragoraWebSocket, createWebSocket, streamDebate, type WebSocketOptions, type StreamOptions } from './websocket';
+import { DebatesAPI, AgentsAPI, WorkflowsAPI } from './namespaces';
 
 interface RequestOptions {
   body?: unknown;
@@ -154,9 +155,51 @@ interface RequestOptions {
 
 /**
  * Main Aragora API client.
+ *
+ * Provides both flat and namespaced APIs for interacting with Aragora:
+ *
+ * @example Namespaced API (recommended)
+ * ```typescript
+ * const client = createClient({ baseUrl: 'https://api.aragora.ai', apiKey: 'your-key' });
+ *
+ * // Debates namespace
+ * const { debate_id } = await client.debates.create({ task: 'Should we use microservices?' });
+ * const debate = await client.debates.get(debate_id);
+ *
+ * // Agents namespace
+ * const { agents } = await client.agents.list();
+ * const performance = await client.agents.getPerformance('claude');
+ *
+ * // Workflows namespace
+ * const { execution_id } = await client.workflows.execute('workflow-123', { input: 'value' });
+ * ```
+ *
+ * @example Flat API (legacy, still supported)
+ * ```typescript
+ * const debate = await client.createDebate({ task: 'Should we use microservices?' });
+ * const agents = await client.listAgents();
+ * ```
  */
 export class AragoraClient {
   private config: Required<Omit<AragoraConfig, 'apiKey' | 'wsUrl'>> & Pick<AragoraConfig, 'apiKey' | 'wsUrl'>;
+
+  /**
+   * Debates API namespace.
+   * Provides methods for creating, managing, and analyzing debates.
+   */
+  readonly debates: DebatesAPI;
+
+  /**
+   * Agents API namespace.
+   * Provides methods for listing agents and viewing their performance.
+   */
+  readonly agents: AgentsAPI;
+
+  /**
+   * Workflows API namespace.
+   * Provides methods for creating and executing automated workflows.
+   */
+  readonly workflows: WorkflowsAPI;
 
   constructor(config: AragoraConfig) {
     this.config = {
@@ -168,6 +211,11 @@ export class AragoraClient {
       maxRetries: config.maxRetries ?? 3,
       wsUrl: config.wsUrl,
     };
+
+    // Initialize namespace APIs
+    this.debates = new DebatesAPI(this);
+    this.agents = new AgentsAPI(this);
+    this.workflows = new WorkflowsAPI(this);
   }
 
   // ===========================================================================
