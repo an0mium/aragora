@@ -504,7 +504,7 @@ class InvoiceExporter:
                     <p><dt>Date:</dt><dd>{self._format_date(getattr(invoice, "created_at", datetime.now()))}</dd></p>
                     <p><dt>Period:</dt><dd>{self._format_date(getattr(invoice, "period_start", datetime.now()))} - {self._format_date(getattr(invoice, "period_end", datetime.now()))}</dd></p>
                     <p><dt>Status:</dt><dd><span class="status status-{str(getattr(invoice, "status", "draft")).lower()}">{str(getattr(invoice, "status", "draft")).upper()}</span></dd></p>
-                    {f"<p><dt>Due:</dt><dd>{self._format_date(getattr(invoice, "due_date", None))}</dd></p>" if getattr(invoice, "due_date", None) else ""}
+                    {f"<p><dt>Due:</dt><dd>{self._format_date(getattr(invoice, 'due_date', None))}</dd></p>" if getattr(invoice, "due_date", None) else ""}
                 </div>
             </div>
 
@@ -529,7 +529,7 @@ class InvoiceExporter:
 
             <div class="footer">
                 {self.config.footer_text or ""}
-                {f"<p><strong>Notes:</strong> {getattr(invoice, "notes", "")}</p>" if getattr(invoice, "notes", None) else ""}
+                {f"<p><strong>Notes:</strong> {getattr(invoice, 'notes', '')}</p>" if getattr(invoice, "notes", None) else ""}
             </div>
         </body>
         </html>
