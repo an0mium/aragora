@@ -5,7 +5,6 @@ import { API_BASE_URL } from '@/config';
 import { useAuth } from '@/context/AuthContext';
 import { logger } from '@/utils/logger';
 import {
-  LineChart,
   Line,
   XAxis,
   YAxis,

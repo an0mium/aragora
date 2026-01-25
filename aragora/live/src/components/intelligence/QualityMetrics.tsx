@@ -237,7 +237,7 @@ export function QualityMetrics({ backendUrl }: QualityMetricsProps) {
       <div className="mt-4">
         <h3 className="text-sm font-mono text-acid-green mb-2">Consensus Rate Trend</h3>
         <div className="flex items-end gap-1 h-16">
-          {data.consensus_metrics.consensus_rate_trend.map((point, index) => (
+          {data.consensus_metrics.consensus_rate_trend.map((point, _index) => (
             <div
               key={point.date}
               className="flex-1 bg-acid-green/30 hover:bg-acid-green/50 transition-colors relative group"

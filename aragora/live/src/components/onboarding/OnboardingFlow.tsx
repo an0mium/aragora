@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { API_BASE_URL } from '@/config';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/utils/logger';
@@ -31,7 +31,6 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
     currentStep,
     nextStep,
     previousStep,
-    setCurrentStep,
     completeOnboarding,
     skipOnboarding,
     setFirstDebateId,
@@ -39,7 +38,7 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
   } = useOnboardingStore();
 
   const { stepIndex, totalSteps } = useOnboardingStep();
-  const { percentage, isComplete, isSkipped } = useOnboardingProgress();
+  const { percentage: _percentage } = useOnboardingProgress();
   const needsOnboarding = useOnboardingStore(selectIsOnboardingNeeded);
 
   // Handle skip
@@ -56,7 +55,7 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
   }, [completeOnboarding, onComplete, router]);
 
   // Handle use case selection
-  const handleUseCaseNext = useCallback((useCase: string) => {
+  const handleUseCaseNext = useCallback((_useCase: string) => {
     nextStep();
   }, [nextStep]);
 

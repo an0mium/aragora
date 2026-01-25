@@ -60,7 +60,8 @@ export function UseCaseStep({ onNext, onBack }: UseCaseStepProps) {
 
   const handleSelect = (id: string) => {
     setSelected(id);
-    setUseCase(id as any);
+    // Cast to the expected union type - use cases are pre-defined and validated
+    setUseCase(id as 'team_decisions' | 'project_planning' | 'vendor_selection' | 'policy_review' | 'technical_decisions' | 'general');
   };
 
   const handleNext = () => {

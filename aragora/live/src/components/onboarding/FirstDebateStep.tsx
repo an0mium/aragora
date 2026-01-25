@@ -30,7 +30,7 @@ export function FirstDebateStep() {
   } = useOnboardingStore();
 
   const [localError, setLocalError] = useState<string | null>(null);
-  const [receiptId, setReceiptId] = useState<string | null>(null);
+  const [_receiptId, setReceiptId] = useState<string | null>(null);
   const [autoNavigate, setAutoNavigate] = useState(true);
 
   // Use WebSocket for real-time debate progress

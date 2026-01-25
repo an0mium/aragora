@@ -41,7 +41,7 @@ export function useAriaLive(options: UseAriaLiveOptions = {}) {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const announce = useCallback(
-    (text: string, overridePoliteness?: AriaLivePolite) => {
+    (text: string, _overridePoliteness?: AriaLivePolite) => {
       // Clear any existing timeout
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);

@@ -76,7 +76,7 @@ export function BottomNavigation({
   showLabels = true,
 }: BottomNavigationProps) {
   const isMobile = useIsMobile();
-  const { focusedIndex, setItemRef, handleKeyDown, getTabIndex } = useRovingTabIndex({
+  const { setItemRef, handleKeyDown, getTabIndex } = useRovingTabIndex({
     itemCount: items.length,
     horizontal: true,
   });

@@ -71,8 +71,8 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: 'text-blue-400 bg-blue-500/10',
 };
 
-// Demo data
-const DEMO_INBOX: SharedInbox = {
+// Demo data (prefixed with _ as currently unused fallback data)
+const _DEMO_INBOX: SharedInbox = {
   id: 'inbox_demo',
   workspace_id: 'ws_demo',
   name: 'Support Inbox',
@@ -85,7 +85,7 @@ const DEMO_INBOX: SharedInbox = {
   unread_count: 12,
 };
 
-const DEMO_MESSAGES: SharedInboxMessage[] = [
+const _DEMO_MESSAGES: SharedInboxMessage[] = [
   {
     id: 'msg_1',
     inbox_id: 'inbox_demo',

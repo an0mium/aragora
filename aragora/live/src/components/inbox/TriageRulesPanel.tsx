@@ -75,8 +75,8 @@ const ACTION_OPTIONS: { value: ActionType; label: string; icon: string; needsTar
   { value: 'forward', label: 'Forward To', icon: '➡️', needsTarget: true },
 ];
 
-// Demo rules for when API is unavailable
-const DEMO_RULES: TriageRule[] = [
+// Demo rules for when API is unavailable (prefixed with _ as currently unused fallback)
+const _DEMO_RULES: TriageRule[] = [
   {
     id: 'rule-1',
     name: 'Urgent Customer Issues',

@@ -343,7 +343,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             isLoadingOrganizations: false,
           });
         }
-      } catch (err) {
+      } catch {
         logger.warn('[AuthContext] Stored session invalid, clearing auth');
         clearAuth();
         if (active) {

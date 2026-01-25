@@ -1,7 +1,5 @@
 'use client';
 
-import { useOnboardingStore } from '@/store';
-
 export function WelcomeStep() {
   return (
     <div className="space-y-6">
