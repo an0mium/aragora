@@ -21,14 +21,19 @@ Each exception includes:
 - is_retryable: Whether the operation can be retried
 """
 
-from typing import Optional
+from typing import Any, Optional
+
+from aragora.exceptions import AragoraError
 
 
-class ConnectorError(Exception):
+class ConnectorError(AragoraError):
     """Base exception for all connector errors.
 
     All connector implementations should raise subclasses of this
     exception for consistent error handling.
+
+    Inherits from AragoraError to provide unified exception hierarchy
+    while adding connector-specific attributes for retry logic.
 
     Attributes:
         connector_name: Name of the connector that raised the error
@@ -43,16 +48,23 @@ class ConnectorError(Exception):
         retry_after: Optional[float] = None,
         is_retryable: bool = False,
     ):
-        super().__init__(message)
+        # Build details dict for AragoraError
+        details: dict[str, Any] = {
+            "connector_name": connector_name,
+            "is_retryable": is_retryable,
+        }
+        if retry_after is not None:
+            details["retry_after"] = retry_after
+
+        super().__init__(message, details)
         self.connector_name = connector_name
         self.retry_after = retry_after
         self.is_retryable = is_retryable
 
     def __str__(self) -> str:
-        base = super().__str__()
         if self.connector_name != "unknown":
-            return f"[{self.connector_name}] {base}"
-        return base
+            return f"[{self.connector_name}] {self.message}"
+        return self.message
 
 
 class ConnectorAuthError(ConnectorError):

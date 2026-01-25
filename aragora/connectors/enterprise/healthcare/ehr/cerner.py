@@ -10,6 +10,7 @@ SMART on FHIR integration with Cerner-specific patterns:
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Any, AsyncIterator, Dict, List, Optional, Set
 
 from aragora.connectors.enterprise.healthcare.ehr.base import (
@@ -20,6 +21,25 @@ from aragora.connectors.enterprise.healthcare.ehr.base import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Cerner identifier system mappings (commonly used in Cerner Millennium)
+CERNER_IDENTIFIER_SYSTEMS = {
+    "federated_person_principal": "urn:cerner:identifier:federated-person-principal",
+    "mrn": "urn:cerner:identifier:mrn",
+    "npi": "http://hl7.org/fhir/sid/us-npi",
+}
+
+
+@dataclass
+class CernerPatientContext:
+    """Cerner patient launch context."""
+
+    patient_id: str
+    fhir_id: str
+    federated_id: Optional[str] = None
+    mrn: Optional[str] = None
+    organization_id: Optional[str] = None
+    encounter_id: Optional[str] = None
 
 
 class CernerAdapter(EHRAdapter):
@@ -38,13 +58,20 @@ class CernerAdapter(EHRAdapter):
         EHRCapability.FHIR_R4,
         EHRCapability.BACKEND_SERVICES,
         EHRCapability.BULK_DATA_EXPORT,
+        EHRCapability.SUBSCRIPTIONS,
         EHRCapability.CERNER_MILLENNIUM,
         EHRCapability.CERNER_POWERCHART,
     }
 
     CERNER_SCOPES = [
+        "system/Patient.read",
+        "system/Encounter.read",
+        "system/Observation.read",
+        "patient/Patient.read",
+        "patient/CarePlan.read",
         "system/*.read",
         "patient/*.read",
+        "fhirUser",
         "openid",
         "profile",
         "launch/patient",

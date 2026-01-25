@@ -226,7 +226,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         logger.warning("WhatsApp doesn't support message deletion via API")
         return False
 
-    async def upload_file(
+    async def upload_file(  # type: ignore[override]
         self,
         channel_id: str,
         file_path: str,
@@ -615,7 +615,7 @@ class WhatsAppConnector(ChatPlatformConnector):
             platform="whatsapp",
         )
 
-    async def send_voice_message(
+    async def send_voice_message(  # type: ignore[override]
         self,
         channel_id: str,
         audio_data: bytes,
@@ -711,7 +711,8 @@ class WhatsAppConnector(ChatPlatformConnector):
         **kwargs: Any,
     ) -> bytes:
         """Download a voice message with circuit breaker protection."""
-        return await self.download_file(voice_message.file.id)
+        attachment = await self.download_file(voice_message.file.id)
+        return attachment.content or b""
 
     async def get_channel_info(
         self,
@@ -907,7 +908,7 @@ class WhatsAppConnector(ChatPlatformConnector):
     # Abstract method implementations
     # ==========================================================================
 
-    def format_blocks(
+    def format_blocks(  # type: ignore[override]
         self,
         title: Optional[str] = None,
         body: Optional[str] = None,

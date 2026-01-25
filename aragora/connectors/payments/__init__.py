@@ -4,8 +4,8 @@ Payment Platform Connectors.
 Integrations for payment processing:
 - Stripe (payments, subscriptions, invoices)
 - Authorize.net (transactions, CIM, ARB)
-- PayPal - planned
-- Square - planned
+- PayPal (orders, subscriptions, payouts)
+- Square (payments, subscriptions, customers)
 """
 
 from aragora.connectors.payments.stripe import (
@@ -41,6 +41,56 @@ from aragora.connectors.payments.authorize_net import (
     Subscription as AuthorizeNetSubscription,
     create_authorize_net_connector,
 )
+from aragora.connectors.payments.paypal import (
+    PayPalClient,
+    PayPalCredentials,
+    PayPalEnvironment,
+    PayPalError,
+    OrderStatus,
+    OrderIntent,
+    CaptureStatus,
+    RefundStatus,
+    SubscriptionStatus as PayPalSubscriptionStatus,
+    PayoutBatchStatus,
+    Money as PayPalMoney,
+    Payer,
+    PayerName,
+    PurchaseUnit,
+    Order,
+    Capture,
+    Refund,
+    BillingPlan,
+    Subscription as PayPalSubscription,
+    PayoutItem,
+    PayoutBatch,
+    get_mock_order,
+    get_mock_subscription as get_mock_paypal_subscription,
+    get_mock_capture,
+)
+from aragora.connectors.payments.square import (
+    SquareClient,
+    SquareCredentials,
+    SquareEnvironment,
+    SquareError,
+    PaymentStatus as SquarePaymentStatus,
+    CardBrand,
+    SubscriptionStatus as SquareSubscriptionStatus,
+    InvoiceStatus as SquareInvoiceStatus,
+    CatalogObjectType,
+    Money as SquareMoney,
+    Address as SquareAddress,
+    Card as SquareCard,
+    Customer as SquareCustomer,
+    Payment as SquarePayment,
+    Refund as SquareRefund,
+    SubscriptionPlan,
+    Subscription as SquareSubscription,
+    Invoice as SquareInvoice,
+    CatalogItem,
+    get_mock_customer as get_mock_square_customer,
+    get_mock_payment as get_mock_square_payment,
+    get_mock_subscription as get_mock_square_subscription,
+)
 
 __all__ = [
     # Stripe
@@ -74,4 +124,52 @@ __all__ = [
     "CustomerProfile",
     "AuthorizeNetSubscription",
     "create_authorize_net_connector",
+    # PayPal
+    "PayPalClient",
+    "PayPalCredentials",
+    "PayPalEnvironment",
+    "PayPalError",
+    "OrderStatus",
+    "OrderIntent",
+    "CaptureStatus",
+    "RefundStatus",
+    "PayPalSubscriptionStatus",
+    "PayoutBatchStatus",
+    "PayPalMoney",
+    "Payer",
+    "PayerName",
+    "PurchaseUnit",
+    "Order",
+    "Capture",
+    "Refund",
+    "BillingPlan",
+    "PayPalSubscription",
+    "PayoutItem",
+    "PayoutBatch",
+    "get_mock_order",
+    "get_mock_paypal_subscription",
+    "get_mock_capture",
+    # Square
+    "SquareClient",
+    "SquareCredentials",
+    "SquareEnvironment",
+    "SquareError",
+    "SquarePaymentStatus",
+    "CardBrand",
+    "SquareSubscriptionStatus",
+    "SquareInvoiceStatus",
+    "CatalogObjectType",
+    "SquareMoney",
+    "SquareAddress",
+    "SquareCard",
+    "SquareCustomer",
+    "SquarePayment",
+    "SquareRefund",
+    "SubscriptionPlan",
+    "SquareSubscription",
+    "SquareInvoice",
+    "CatalogItem",
+    "get_mock_square_customer",
+    "get_mock_square_payment",
+    "get_mock_square_subscription",
 ]

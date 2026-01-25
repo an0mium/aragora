@@ -707,7 +707,8 @@ class TelegramConnector(ChatPlatformConnector):
         **kwargs: Any,
     ) -> bytes:
         """Download a voice message."""
-        return await self.download_file(voice_message.file.id)
+        attachment = await self.download_file(voice_message.file.id)
+        return attachment.content or b""
 
     async def get_channel_info(
         self,
@@ -854,7 +855,7 @@ class TelegramConnector(ChatPlatformConnector):
             self._record_failure(e)
             raise
 
-    def _blocks_to_keyboard(self, blocks: list[dict[str, Any]]) -> Optional[dict]:
+    def _blocks_to_keyboard(self, blocks: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
         """Convert generic blocks to Telegram inline keyboard."""
         buttons = []
 
@@ -893,14 +894,14 @@ class TelegramConnector(ChatPlatformConnector):
     # Required Abstract Method Implementations
     # =========================================================================
 
-    def format_blocks(
+    def format_blocks(  # type: ignore[override]
         self,
         title: Optional[str] = None,
         body: Optional[str] = None,
         fields: Optional[list[tuple[str, str]]] = None,
-        buttons: Optional[list[dict[str, Any]]] = None,  # type: ignore[override]
+        buttons: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
-    ) -> list[dict[str, Any]]:  # type: ignore[override]
+    ) -> list[dict[str, Any]]:
         """Format content as Telegram-compatible blocks.
 
         Telegram uses inline keyboards for interactive elements.
@@ -923,7 +924,7 @@ class TelegramConnector(ChatPlatformConnector):
         style: Optional[str] = None,
         url: Optional[str] = None,
         **kwargs: Any,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Format a button for Telegram inline keyboard."""
         if url:
             return {
@@ -1060,7 +1061,7 @@ class TelegramConnector(ChatPlatformConnector):
             thread_id=reply_to,
         )
 
-    async def respond_to_interaction(  # type: ignore[override]
+    async def respond_to_interaction(
         self,
         interaction: UserInteraction,
         text: str,
@@ -1090,7 +1091,8 @@ class TelegramConnector(ChatPlatformConnector):
                 text=text,
                 blocks=blocks,
             )
-            return result.success
+            success: bool = result.success
+            return success
 
         return True
 
@@ -1704,7 +1706,8 @@ class TelegramConnector(ChatPlatformConnector):
                     return None
 
                 self._record_success()
-                return result.get("result")
+                bot_info: Optional[dict[str, Any]] = result.get("result")
+                return bot_info
         except Exception as e:
             self._record_failure(e)
             raise
@@ -1739,7 +1742,8 @@ class TelegramConnector(ChatPlatformConnector):
                     return None
 
                 self._record_success()
-                return result.get("result")
+                count: Optional[int] = result.get("result")
+                return count
         except Exception as e:
             self._record_failure(e)
             raise

@@ -218,7 +218,8 @@ class SlackConnector(ChatPlatformConnector):
                 )
                 if response.status_code == 200:
                     data = response.json()
-                    return data.get("ok", False)
+                    ok: bool = data.get("ok", False)
+                    return ok
                 return False
         except Exception:
             return False
@@ -333,7 +334,7 @@ class SlackConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         thread_id: Optional[str] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -373,7 +374,7 @@ class SlackConnector(ChatPlatformConnector):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Update a Slack message with retry and circuit breaker."""
@@ -418,7 +419,7 @@ class SlackConnector(ChatPlatformConnector):
         channel_id: str,
         user_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send ephemeral message visible only to one user with retry."""
@@ -487,7 +488,7 @@ class SlackConnector(ChatPlatformConnector):
         self,
         command: BotCommand,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         ephemeral: bool = True,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -523,7 +524,7 @@ class SlackConnector(ChatPlatformConnector):
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -557,7 +558,7 @@ class SlackConnector(ChatPlatformConnector):
         self,
         response_url: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         response_type: str = "ephemeral",
         replace_original: bool = False,
     ) -> SendMessageResponse:
@@ -903,9 +904,9 @@ class SlackConnector(ChatPlatformConnector):
         fields: Optional[list[tuple[str, str]]] = None,
         actions: Optional[list[MessageButton]] = None,
         **kwargs: Any,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Format content as Slack Block Kit blocks."""
-        blocks: list[dict] = []
+        blocks: list[dict[str, Any]] = []
 
         if title:
             blocks.append(
@@ -967,7 +968,7 @@ class SlackConnector(ChatPlatformConnector):
         value: Optional[str] = None,
         style: str = "default",
         url: Optional[str] = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Format a Slack button element."""
         if url:
             return {
@@ -1096,7 +1097,7 @@ class SlackConnector(ChatPlatformConnector):
             raw_payload=payload,
         )
 
-    def _parse_slash_command(self, parsed: dict) -> WebhookEvent:
+    def _parse_slash_command(self, parsed: dict[str, Any]) -> WebhookEvent:
         """Parse slash command from form data."""
 
         def get_first(key: str, default: str = "") -> str:
@@ -1135,7 +1136,7 @@ class SlackConnector(ChatPlatformConnector):
             ),
         )
 
-    def _parse_interaction_payload(self, payload: dict) -> WebhookEvent:
+    def _parse_interaction_payload(self, payload: dict[str, Any]) -> WebhookEvent:
         """Parse interactive component payload."""
         interaction_type = payload.get("type", "")
 
@@ -1196,7 +1197,7 @@ class SlackConnector(ChatPlatformConnector):
 
         return event
 
-    def _parse_event_callback(self, payload: dict) -> WebhookEvent:
+    def _parse_event_callback(self, payload: dict[str, Any]) -> WebhookEvent:
         """Parse Events API callback."""
         event_data = payload.get("event", {})
         event_type = event_data.get("type", "")
@@ -1999,7 +2000,8 @@ class SlackConnector(ChatPlatformConnector):
 
                     if self._circuit_breaker:
                         self._circuit_breaker.record_success()
-                    return data.get("view", {}).get("id")
+                    view_id: Optional[str] = data.get("view", {}).get("id")
+                    return view_id
 
             except httpx.TimeoutException:
                 if attempt < self._max_retries - 1:

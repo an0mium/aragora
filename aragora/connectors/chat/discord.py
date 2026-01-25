@@ -129,7 +129,7 @@ class DiscordConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         thread_id: Optional[str] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -189,7 +189,7 @@ class DiscordConnector(ChatPlatformConnector):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Update a Discord message with circuit breaker protection."""
@@ -254,7 +254,8 @@ class DiscordConnector(ChatPlatformConnector):
                 headers=self._get_headers(),
                 operation="delete_message",
             )
-            return success
+            result: bool = success
+            return result
 
         except Exception as e:
             self._record_failure(e)
@@ -281,7 +282,8 @@ class DiscordConnector(ChatPlatformConnector):
                 headers=self._get_headers(),
                 operation="send_typing",
             )
-            return success
+            result: bool = success
+            return result
 
         except Exception as e:
             logger.debug(f"Discord typing indicator error: {e}")
@@ -292,7 +294,7 @@ class DiscordConnector(ChatPlatformConnector):
         channel_id: str,
         user_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send ephemeral message (only works in interaction responses)."""
@@ -305,7 +307,7 @@ class DiscordConnector(ChatPlatformConnector):
         self,
         command: BotCommand,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         ephemeral: bool = True,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -328,7 +330,7 @@ class DiscordConnector(ChatPlatformConnector):
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -358,7 +360,7 @@ class DiscordConnector(ChatPlatformConnector):
         interaction_id: str,
         interaction_token: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         ephemeral: bool = False,
         response_type: int = 4,  # CHANNEL_MESSAGE_WITH_SOURCE
     ) -> SendMessageResponse:
@@ -549,7 +551,7 @@ class DiscordConnector(ChatPlatformConnector):
         fields: Optional[list[tuple[str, str]]] = None,
         actions: Optional[list[MessageButton]] = None,
         **kwargs: Any,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Format content as Discord Embed."""
         embed: dict[str, Any] = {
             "type": "rich",
@@ -578,7 +580,7 @@ class DiscordConnector(ChatPlatformConnector):
         value: Optional[str] = None,
         style: str = "default",
         url: Optional[str] = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Format a Discord button component."""
         if url:
             return {

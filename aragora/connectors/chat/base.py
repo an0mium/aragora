@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any, Awaitable, Callable, Optional, TypeVar
+
+T = TypeVar("T")
 
 from .models import (
     BotCommand,
@@ -151,14 +153,14 @@ class ChatPlatformConnector(ABC):
     async def _with_retry(
         self,
         operation: str,
-        func,
-        *args,
+        func: Callable[..., Awaitable[T]],
+        *args: Any,
         max_retries: int = 3,
         base_delay: float = 1.0,
         max_delay: float = 30.0,
-        retryable_exceptions: tuple = (Exception,),
-        **kwargs,
-    ):
+        retryable_exceptions: tuple[type[Exception], ...] = (Exception,),
+        **kwargs: Any,
+    ) -> T:
         """
         Execute an async function with exponential backoff retry and circuit breaker.
 
@@ -396,7 +398,7 @@ class ChatPlatformConnector(ABC):
         self,
         channel_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         thread_id: Optional[str] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -421,7 +423,7 @@ class ChatPlatformConnector(ABC):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -464,7 +466,7 @@ class ChatPlatformConnector(ABC):
         channel_id: str,
         user_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -515,7 +517,7 @@ class ChatPlatformConnector(ABC):
         self,
         command: BotCommand,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         ephemeral: bool = True,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -543,7 +545,7 @@ class ChatPlatformConnector(ABC):
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -671,7 +673,7 @@ class ChatPlatformConnector(ABC):
         fields: Optional[list[tuple[str, str]]] = None,
         actions: Optional[list[MessageButton]] = None,
         **kwargs: Any,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """
         Format content into platform-specific rich blocks.
 
@@ -695,7 +697,7 @@ class ChatPlatformConnector(ABC):
         value: Optional[str] = None,
         style: str = "default",
         url: Optional[str] = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Format a button element.
 
@@ -817,7 +819,7 @@ class ChatPlatformConnector(ABC):
     # Utility Methods
     # ==========================================================================
 
-    async def test_connection(self) -> dict:
+    async def test_connection(self) -> dict[str, Any]:
         """
         Test the connection to the platform.
 
@@ -831,7 +833,7 @@ class ChatPlatformConnector(ABC):
             "webhook_configured": bool(self.webhook_url),
         }
 
-    async def get_health(self) -> dict:
+    async def get_health(self) -> dict[str, Any]:
         """
         Get detailed health status for the channel connector.
 
@@ -843,40 +845,43 @@ class ChatPlatformConnector(ABC):
         """
         import time
 
-        health = {
+        details: dict[str, Any] = {}
+        circuit_breaker: Optional[dict[str, Any]] = None
+        health: dict[str, Any] = {
             "platform": self.platform_name,
             "display_name": self.platform_display_name,
             "status": "unknown",
             "configured": self.is_configured,
             "timestamp": time.time(),
-            "circuit_breaker": None,
-            "details": {},
+            "circuit_breaker": circuit_breaker,
+            "details": details,
         }
 
         # Check configuration
         if not self.is_configured:
             health["status"] = "unconfigured"
-            health["details"]["error"] = "Missing required configuration (bot_token or webhook_url)"
+            details["error"] = "Missing required configuration (bot_token or webhook_url)"
             return health
 
         # Get circuit breaker status
         cb = self._get_circuit_breaker()
         if cb:
             cb_status = cb.get_status()
-            health["circuit_breaker"] = {
+            cb_info: dict[str, Any] = {
                 "state": cb_status,
                 "enabled": True,
             }
             if cb_status == "open":
-                health["circuit_breaker"]["cooldown_remaining"] = cb.cooldown_remaining()
+                cb_info["cooldown_remaining"] = cb.cooldown_remaining()
+            health["circuit_breaker"] = cb_info
 
             # Determine health based on circuit breaker
             if cb_status == "open":
                 health["status"] = "unhealthy"
-                health["details"]["reason"] = "Circuit breaker is open due to repeated failures"
+                details["reason"] = "Circuit breaker is open due to repeated failures"
             elif cb_status == "half_open":
                 health["status"] = "degraded"
-                health["details"]["reason"] = "Circuit breaker in recovery mode"
+                details["reason"] = "Circuit breaker in recovery mode"
             else:
                 health["status"] = "healthy"
         else:
@@ -884,9 +889,9 @@ class ChatPlatformConnector(ABC):
             health["status"] = "healthy"
 
         # Add configuration details
-        health["details"]["bot_token_configured"] = bool(self.bot_token)
-        health["details"]["webhook_configured"] = bool(self.webhook_url)
-        health["details"]["request_timeout"] = self._request_timeout
+        details["bot_token_configured"] = bool(self.bot_token)
+        details["webhook_configured"] = bool(self.webhook_url)
+        details["request_timeout"] = self._request_timeout
 
         return health
 
