@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     pass
 
 from aragora.server.validation import validate_debate_id, validate_genome_id
+from aragora.server.versioning.compat import strip_version_prefix
 from aragora.utils.optional_imports import try_import
 
 from .base import (
@@ -62,6 +63,15 @@ class GenesisHandler(BaseHandler):
     """Handler for genesis (evolution visibility) endpoints."""
 
     ROUTES = [
+        "/api/genesis/stats",
+        "/api/genesis/events",
+        "/api/genesis/genomes",
+        "/api/genesis/genomes/top",
+        "/api/genesis/genomes/*",
+        "/api/genesis/population",
+        "/api/genesis/lineage/*",
+        "/api/genesis/tree/*",
+        "/api/genesis/descendants/*",
         "/api/v1/genesis/stats",
         "/api/v1/genesis/events",
         "/api/v1/genesis/genomes",
@@ -75,21 +85,26 @@ class GenesisHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path in self.ROUTES:
+        normalized = strip_version_prefix(path)
+        if normalized in self.ROUTES:
             return True
         # Dynamic routes
-        if path.startswith("/api/v1/genesis/lineage/"):
+        if normalized.startswith("/api/genesis/lineage/"):
             return True
-        if path.startswith("/api/v1/genesis/tree/"):
+        if normalized.startswith("/api/genesis/tree/"):
             return True
-        if path.startswith("/api/v1/genesis/genomes/") and path != "/api/v1/genesis/genomes/top":
+        if (
+            normalized.startswith("/api/genesis/genomes/")
+            and normalized != "/api/genesis/genomes/top"
+        ):
             return True
-        if path.startswith("/api/v1/genesis/descendants/"):
+        if normalized.startswith("/api/genesis/descendants/"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route genesis requests to appropriate methods."""
+        normalized = strip_version_prefix(path)
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _genesis_limiter.is_allowed(client_ip):
@@ -98,10 +113,10 @@ class GenesisHandler(BaseHandler):
 
         nomic_dir = self.ctx.get("nomic_dir")
 
-        if path == "/api/v1/genesis/stats":
+        if normalized == "/api/genesis/stats":
             return self._get_genesis_stats(nomic_dir)
 
-        if path == "/api/v1/genesis/events":
+        if normalized == "/api/genesis/events":
             limit = get_int_param(query_params, "limit", 20)
             limit = min(limit, 100)
             event_type = query_params.get("event_type")
@@ -109,35 +124,35 @@ class GenesisHandler(BaseHandler):
                 event_type = event_type[0] if event_type else None
             return self._get_genesis_events(nomic_dir, limit, event_type)
 
-        if path == "/api/v1/genesis/genomes":
+        if normalized == "/api/genesis/genomes":
             limit = get_int_param(query_params, "limit", 50)
             limit = min(limit, 200)
             offset = get_int_param(query_params, "offset", 0)
             return self._get_genomes(nomic_dir, limit, offset)
 
-        if path == "/api/v1/genesis/genomes/top":
+        if normalized == "/api/genesis/genomes/top":
             limit = get_int_param(query_params, "limit", 10)
             limit = min(limit, 50)
             return self._get_top_genomes(nomic_dir, limit)
 
-        if path == "/api/v1/genesis/population":
+        if normalized == "/api/genesis/population":
             return self._get_population(nomic_dir)
 
-        if path.startswith("/api/v1/genesis/genomes/"):
+        if normalized.startswith("/api/genesis/genomes/"):
             # Block path traversal attempts
-            if ".." in path:
+            if ".." in normalized:
                 return error_response("Invalid genome ID", 400)
-            genome_id = path.split("/")[-1]
+            genome_id = normalized.split("/")[-1]
             is_valid, err = validate_genome_id(genome_id)
             if not is_valid:
                 return error_response(err, 400)
             return self._get_genome(nomic_dir, genome_id)
 
-        if path.startswith("/api/v1/genesis/lineage/"):
+        if normalized.startswith("/api/genesis/lineage/"):
             # Block path traversal attempts
-            if ".." in path:
+            if ".." in normalized:
                 return error_response("Invalid genome ID", 400)
-            genome_id = path.split("/")[-1]
+            genome_id = normalized.split("/")[-1]
             is_valid, err = validate_genome_id(genome_id)
             if not is_valid:
                 return error_response(err, 400)
@@ -145,21 +160,21 @@ class GenesisHandler(BaseHandler):
             max_depth = min(max(max_depth, 1), 50)  # Clamp to 1-50
             return self._get_genome_lineage(nomic_dir, genome_id, max_depth)
 
-        if path.startswith("/api/v1/genesis/tree/"):
+        if normalized.startswith("/api/genesis/tree/"):
             # Block path traversal attempts
-            if ".." in path:
+            if ".." in normalized:
                 return error_response("Invalid debate ID", 400)
-            debate_id = path.split("/")[-1]
+            debate_id = normalized.split("/")[-1]
             is_valid, err = validate_debate_id(debate_id)
             if not is_valid:
                 return error_response(err, 400)
             return self._get_debate_tree(nomic_dir, debate_id)
 
-        if path.startswith("/api/v1/genesis/descendants/"):
+        if normalized.startswith("/api/genesis/descendants/"):
             # Block path traversal attempts
-            if ".." in path:
+            if ".." in normalized:
                 return error_response("Invalid genome ID", 400)
-            genome_id = path.split("/")[-1]
+            genome_id = normalized.split("/")[-1]
             is_valid, err = validate_genome_id(genome_id)
             if not is_valid:
                 return error_response(err, 400)

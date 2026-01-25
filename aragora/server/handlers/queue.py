@@ -21,6 +21,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
+from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
     BaseHandler,
@@ -75,6 +76,16 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
     """Handler for job queue management endpoints."""
 
     ROUTES = [
+        "/api/queue/jobs",
+        "/api/queue/jobs/*",
+        "/api/queue/jobs/*/retry",
+        "/api/queue/stats",
+        "/api/queue/workers",
+        "/api/queue/dlq",
+        "/api/queue/dlq/requeue",
+        "/api/queue/dlq/*/requeue",
+        "/api/queue/cleanup",
+        "/api/queue/stale",
         "/api/v1/queue/jobs",
         "/api/v1/queue/jobs/*",
         "/api/v1/queue/jobs/*/retry",
@@ -89,15 +100,15 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the request."""
-        if path.startswith("/api/v1/queue/"):
-            return True
-        return False
+        normalized = strip_version_prefix(path)
+        return normalized.startswith("/api/queue/")
 
     @rate_limit(rpm=60)
     async def handle(  # type: ignore[override]
         self, path: str, method: str, handler: Any = None
     ) -> Optional[HandlerResult]:
         """Route request to appropriate handler method."""
+        normalized = strip_version_prefix(path)
         query_params: Dict[str, Any] = {}
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
@@ -106,72 +117,76 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
             query_params = parse_qs(query_str)
 
         # GET /api/queue/stats
-        if path == "/api/v1/queue/stats" and method == "GET":
+        if normalized == "/api/queue/stats" and method == "GET":
             return await self._get_stats()
 
         # GET /api/queue/workers
-        if path == "/api/v1/queue/workers" and method == "GET":
+        if normalized == "/api/queue/workers" and method == "GET":
             return await self._get_workers()
 
         # GET /api/queue/dlq (list dead-letter queue jobs)
-        if path == "/api/v1/queue/dlq" and method == "GET":
+        if normalized == "/api/queue/dlq" and method == "GET":
             return await self._list_dlq(query_params)
 
         # POST /api/queue/dlq/requeue (requeue all DLQ jobs)
-        if path == "/api/v1/queue/dlq/requeue" and method == "POST":
+        if normalized == "/api/queue/dlq/requeue" and method == "POST":
             return await self._requeue_all_dlq()
 
         # POST /api/v1/queue/dlq/:id/requeue (requeue specific DLQ job)
-        # Parts: ["", "api", "v1", "queue", "dlq", "{job_id}", "requeue"]
-        if path.startswith("/api/v1/queue/dlq/") and path.endswith("/requeue") and method == "POST":
-            parts = path.split("/")
-            if len(parts) == 7:
-                job_id = parts[5]
+        # Parts: ["", "api", "queue", "dlq", "{job_id}", "requeue"]
+        if (
+            normalized.startswith("/api/queue/dlq/")
+            and normalized.endswith("/requeue")
+            and method == "POST"
+        ):
+            parts = normalized.split("/")
+            if len(parts) == 6:
+                job_id = parts[4]
                 is_valid, err = validate_path_segment(job_id, "job_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
                 return await self._requeue_dlq_job(job_id)
 
         # POST /api/queue/cleanup (cleanup old completed jobs)
-        if path == "/api/v1/queue/cleanup" and method == "POST":
+        if normalized == "/api/queue/cleanup" and method == "POST":
             return await self._cleanup_jobs(query_params)
 
         # GET /api/queue/stale (list stale/stuck jobs)
-        if path == "/api/v1/queue/stale" and method == "GET":
+        if normalized == "/api/queue/stale" and method == "GET":
             return await self._list_stale_jobs(query_params)
 
         # POST /api/queue/jobs (submit new job)
-        if path == "/api/v1/queue/jobs" and method == "POST":
+        if normalized == "/api/queue/jobs" and method == "POST":
             return await self._submit_job(handler)
 
         # GET /api/queue/jobs (list jobs)
-        if path == "/api/v1/queue/jobs" and method == "GET":
+        if normalized == "/api/queue/jobs" and method == "GET":
             return await self._list_jobs(query_params)
 
         # Handle job-specific endpoints
-        if path.startswith("/api/v1/queue/jobs/"):
-            parts = path.split("/")
-            # Parts: ['', 'api', 'v1', 'queue', 'jobs', ':id', ...]
+        if normalized.startswith("/api/queue/jobs/"):
+            parts = normalized.split("/")
+            # Parts: ['', 'api', 'queue', 'jobs', ':id', ...]
 
-            # POST /api/v1/queue/jobs/:id/retry (7 parts)
-            if len(parts) == 7 and parts[6] == "retry" and method == "POST":
-                job_id = parts[5]
+            # POST /api/queue/jobs/:id/retry (6 parts)
+            if len(parts) == 6 and parts[5] == "retry" and method == "POST":
+                job_id = parts[4]
                 is_valid, err = validate_path_segment(job_id, "job_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
                 return await self._retry_job(job_id)
 
-            # GET /api/v1/queue/jobs/:id (6 parts)
-            if len(parts) == 6 and method == "GET":
-                job_id = parts[5]
+            # GET /api/queue/jobs/:id (5 parts)
+            if len(parts) == 5 and method == "GET":
+                job_id = parts[4]
                 is_valid, err = validate_path_segment(job_id, "job_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
                 return await self._get_job(job_id)
 
-            # DELETE /api/v1/queue/jobs/:id (6 parts)
-            if len(parts) == 6 and method == "DELETE":
-                job_id = parts[5]
+            # DELETE /api/queue/jobs/:id (5 parts)
+            if len(parts) == 5 and method == "DELETE":
+                job_id = parts[4]
                 is_valid, err = validate_path_segment(job_id, "job_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)

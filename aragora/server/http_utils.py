@@ -28,6 +28,34 @@ ALLOWED_QUERY_PARAMS = {
     "loop_id": 100,
     "topic": 500,
     "query": 1000,
+    "q": 1000,
+    "task": 1000,
+    "use_case": 100,
+    "category": 100,
+    "metric": 100,
+    "format": 50,
+    "status": 50,
+    "range": 50,
+    "period": 50,
+    "time_range": 50,
+    "granularity": 50,
+    "host": 200,
+    "email": 254,
+    "direction": 10,
+    "prioritized": 10,
+    "scopes": 500,
+    "debate_id": 100,
+    "org_id": 100,
+    "organization_id": 100,
+    "user_id": 100,
+    "workspace_id": 100,
+    "agents": 500,
+    # Analytics/time windows
+    "days": None,
+    # Depth/graph
+    "depth": None,
+    "max_depth": None,
+    "include_cruxes": 10,
     # Export
     "table": {"summary", "debates", "proposals", "votes", "critiques", "messages"},
     # Agent queries
@@ -40,6 +68,11 @@ ALLOWED_QUERY_PARAMS = {
     # Memory
     "tiers": 100,
     "min_importance": None,
+    # Thresholds
+    "min_confidence": None,
+    "min_success": None,
+    "min_success_rate": None,
+    "min_confidence_diff": None,
     # Genesis
     "event_type": {"mutation", "crossover", "selection", "extinction", "speciation"},
     # Logs
