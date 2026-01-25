@@ -116,7 +116,11 @@ class RedditConnector(BaseConnector):
                     headers=self._get_headers(),
                 )
                 return response.status_code == 200
-        except Exception:
+        except httpx.TimeoutException:
+            logger.debug("Reddit health check timed out")
+            return False
+        except httpx.RequestError as e:
+            logger.debug(f"Reddit health check failed: {e}")
             return False
 
     async def _rate_limit(self) -> None:
