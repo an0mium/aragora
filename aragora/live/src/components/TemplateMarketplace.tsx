@@ -508,7 +508,7 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
               </div>
               <div className="text-center">
                 <div className="text-2xl font-mono text-acid-yellow">
-                  {selectedTemplate.rating.toFixed(1)}
+                  {(Number(selectedTemplate.rating) || 0).toFixed(1)}
                 </div>
                 <div className="text-xs font-mono text-text-muted">Rating</div>
               </div>
