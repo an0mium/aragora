@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Callable, Dict, List, Optional,
 
 from aragora.server.versioning import (
     extract_version,
+    normalize_path_version,
     strip_version_prefix,
     version_response_headers,
 )
@@ -1369,6 +1370,13 @@ class HandlerRegistryMixin:
 
         # Normalize path for handler matching (strip version prefix)
         normalized_path = strip_version_prefix(path)
+        candidate_paths = [path]
+        if is_legacy:
+            versioned_path = normalize_path_version(path, api_version)
+            if versioned_path not in candidate_paths:
+                candidate_paths.append(versioned_path)
+        if normalized_path not in candidate_paths:
+            candidate_paths.append(normalized_path)
 
         # Convert query params from {key: [val]} to {key: val}
         query_dict = {
@@ -1380,20 +1388,26 @@ class HandlerRegistryMixin:
 
         # O(1) route lookup via index (uses both original and normalized paths)
         route_index = get_route_index()
-        route_match = route_index.get_handler(path)
+        route_match = None
+        matched_path = None
+        for candidate in candidate_paths:
+            route_match = route_index.get_handler(candidate)
+            if route_match is not None:
+                matched_path = candidate
+                break
 
         if route_match is None:
             # Fallback: iterate through handlers for edge cases not in index
-            # Try normalized path first for versioned routes
             for attr_name, _ in HANDLER_REGISTRY:
                 handler = getattr(self, attr_name, None)
                 if handler:
-                    if handler.can_handle(normalized_path):
-                        route_match = (attr_name, handler)
-                        break
-                    elif normalized_path != path and handler.can_handle(path):
-                        route_match = (attr_name, handler)
-                        break
+                    for candidate in candidate_paths:
+                        if handler.can_handle(candidate):
+                            route_match = (attr_name, handler)
+                            matched_path = candidate
+                            break
+                if route_match is not None:
+                    break
 
         if route_match is None:
             return False
@@ -1401,8 +1415,8 @@ class HandlerRegistryMixin:
         attr_name, handler = route_match
 
         try:
-            # Use normalized path for handler dispatch
-            dispatch_path = normalized_path
+            # Use matched path if available, otherwise fall back to normalized path
+            dispatch_path = matched_path or normalized_path
 
             # Dispatch to appropriate handler method based on HTTP method
             if method == "POST" and hasattr(handler, "handle_post"):
