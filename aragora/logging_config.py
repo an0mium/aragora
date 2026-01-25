@@ -35,6 +35,28 @@ from typing import Any, Callable, Dict, Optional
 # Context variables for automatic field injection
 _log_context: ContextVar[Dict[str, Any]] = ContextVar("log_context", default={})
 
+
+def _get_trace_context() -> Dict[str, Optional[str]]:
+    """Get trace context from tracing middleware if available.
+
+    This integrates the logging system with the distributed tracing middleware,
+    automatically injecting trace_id and span_id into log records.
+
+    Returns:
+        Dict with trace_id and span_id (may be None if not in trace context)
+    """
+    try:
+        from aragora.server.middleware.tracing import get_span_id, get_trace_id
+
+        return {
+            "trace_id": get_trace_id(),
+            "span_id": get_span_id(),
+        }
+    except ImportError:
+        # Tracing middleware not available (e.g., in standalone scripts)
+        return {"trace_id": None, "span_id": None}
+
+
 # Environment configuration
 LOG_LEVEL = os.environ.get("ARAGORA_LOG_LEVEL", "INFO").upper()
 LOG_FORMAT = os.environ.get("ARAGORA_LOG_FORMAT", "json")  # "json" or "text"
@@ -114,15 +136,22 @@ class JSONFormatter(logging.Formatter):
         # Get context from ContextVar
         ctx = _log_context.get()
 
-        # Build structured record
+        # Get trace context from tracing middleware (fallback if not in local context)
+        trace_ctx = _get_trace_context()
+
+        # Build structured record (priority: local context > tracing middleware > record attr)
         log_record = LogRecord(
             timestamp=datetime.now(timezone.utc).isoformat() + "Z",
             level=record.levelname,
             logger=record.name,
             message=record.getMessage(),
             fields=getattr(record, "structured_fields", {}),
-            trace_id=ctx.get("trace_id") or getattr(record, "trace_id", None),
-            span_id=ctx.get("span_id") or getattr(record, "span_id", None),
+            trace_id=ctx.get("trace_id")
+            or trace_ctx.get("trace_id")
+            or getattr(record, "trace_id", None),
+            span_id=ctx.get("span_id")
+            or trace_ctx.get("span_id")
+            or getattr(record, "span_id", None),
             debate_id=ctx.get("debate_id") or getattr(record, "debate_id", None),
         )
 
