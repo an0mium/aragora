@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.facade import KnowledgeMound
+    from aragora.knowledge.mound.ops.confidence_decay import DecayReport
 
 logger = logging.getLogger(__name__)
 
@@ -248,7 +249,7 @@ class ConfidenceDecayScheduler:
 
         try:
             # Use the KnowledgeMound's apply_confidence_decay method
-            decay_report = await self._knowledge_mound.apply_confidence_decay(
+            decay_report: DecayReport = await self._knowledge_mound.apply_confidence_decay(
                 workspace_id=workspace_id,
                 force=force,
             )
