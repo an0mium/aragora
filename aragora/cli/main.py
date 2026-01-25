@@ -1003,6 +1003,12 @@ def cmd_serve(args: argparse.Namespace) -> None:
         print("Make sure websockets and aiohttp are installed: pip install websockets aiohttp")
         return
 
+    # Get nomic_dir from environment (same as db_config.get_nomic_dir())
+    from aragora.persistence.db_config import get_nomic_dir
+
+    nomic_dir = get_nomic_dir()
+    nomic_dir.mkdir(parents=True, exist_ok=True)
+
     # Determine static directory (Live Dashboard)
     static_dir = None
     live_dir = Path(__file__).parent.parent / "live" / "dist"
@@ -1037,6 +1043,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
                     http_host=args.host,
                     ws_host=args.host,
                     static_dir=static_dir,
+                    nomic_dir=nomic_dir,
                 )
             )
         except KeyboardInterrupt:
@@ -1050,7 +1057,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
         print("\nPress Ctrl+C to stop\n")
         print("=" * 60 + "\n")
 
-        def run_worker(http_port, ws_port, host, static):
+        def run_worker(http_port, ws_port, host, static, data_dir):
             asyncio.run(
                 run_unified_server(
                     http_port=http_port,
@@ -1058,6 +1065,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
                     http_host=host,
                     ws_host=host,
                     static_dir=static,
+                    nomic_dir=data_dir,
                 )
             )
 
@@ -1078,7 +1086,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
             ws_port = args.ws_port + i
             p = multiprocessing.Process(
                 target=run_worker,
-                args=(http_port, ws_port, args.host, static_dir),
+                args=(http_port, ws_port, args.host, static_dir, nomic_dir),
                 name=f"aragora-worker-{i}",
             )
             p.start()
