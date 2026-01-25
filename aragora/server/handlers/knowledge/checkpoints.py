@@ -29,7 +29,7 @@ from aragora.server.handlers.utils.rate_limit import (
     RateLimiter,
     rate_limit,
 )
-from aragora.observability.metrics import (  # type: ignore[attr-defined]
+from aragora.observability.metrics import (
     record_checkpoint_operation,
     track_checkpoint_operation,
 )

@@ -368,7 +368,7 @@ class DebatePerformanceMonitor:
             # Emit phase metric
             if self.emit_prometheus:
                 try:
-                    from aragora.observability.metrics import record_phase_duration  # type: ignore[attr-defined]
+                    from aragora.observability.metrics import record_phase_duration
 
                     record_phase_duration(phase_name, metric.duration_seconds)
                 except ImportError:
@@ -540,7 +540,7 @@ class DebatePerformanceMonitor:
             return
 
         try:
-            from aragora.observability.metrics import record_debate_completion  # type: ignore[attr-defined]
+            from aragora.observability.metrics import record_debate_completion
 
             # Record overall debate completion
             outcome = (

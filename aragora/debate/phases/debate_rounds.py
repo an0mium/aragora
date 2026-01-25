@@ -68,7 +68,7 @@ async def _with_callback_timeout(coro, timeout: float = DEFAULT_CALLBACK_TIMEOUT
 def _record_adaptive_round(direction: str) -> None:
     """Record adaptive round change metric with lazy import."""
     try:
-        from aragora.observability.metrics import record_adaptive_round_change  # type: ignore[attr-defined]
+        from aragora.observability.metrics import record_adaptive_round_change
 
         record_adaptive_round_change(direction)
     except ImportError:
@@ -475,7 +475,7 @@ class DebateRoundsPhase:
                 f"duration={_round_duration:.2f}s threshold={_slow_threshold:.2f}s"
             )
             try:
-                from aragora.observability.metrics import (  # type: ignore[attr-defined]
+                from aragora.observability.metrics import (
                     record_slow_round,
                     record_round_latency,
                 )
@@ -486,7 +486,7 @@ class DebateRoundsPhase:
                 pass
         else:
             try:
-                from aragora.observability.metrics import record_round_latency  # type: ignore[attr-defined]
+                from aragora.observability.metrics import record_round_latency
 
                 record_round_latency(_round_duration)
             except ImportError:

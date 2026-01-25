@@ -90,6 +90,7 @@ from _aragora_metrics_impl import (  # noqa: F401, E402
     record_debate_completion,
     record_phase_duration,
     record_round_latency,
+    record_slow_round,
     record_adaptive_round_change,
     record_calibration_adjustment,
     record_evidence_citation_bonus,
@@ -129,4 +130,8 @@ from _aragora_metrics_impl import (  # noqa: F401, E402
     record_task_queue_operation,
     record_task_queue_recovery,
     record_task_queue_cleanup,
+    # Context managers
+    track_debate,
+    track_phase,
+    track_websocket_connection,
 )

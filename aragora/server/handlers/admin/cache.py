@@ -52,7 +52,7 @@ def _get_metrics() -> tuple[CacheMetricFunc, CacheMetricFunc]:
     global _record_cache_hit, _record_cache_miss
     if _record_cache_hit is None:
         try:
-            from aragora.observability.metrics import record_cache_hit, record_cache_miss  # type: ignore[attr-defined]
+            from aragora.observability.metrics import record_cache_hit, record_cache_miss
 
             _record_cache_hit = record_cache_hit
             _record_cache_miss = record_cache_miss
