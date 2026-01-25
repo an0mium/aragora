@@ -40,8 +40,16 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Check version alignment
         run: python scripts/check_version_alignment.py
+
+      - name: Check SDK types are up to date
+        run: python scripts/generate_sdk_types.py --check
 
   # Skip marker audit (warns if skip count increases)
   skip-audit:
