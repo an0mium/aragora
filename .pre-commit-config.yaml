@@ -21,7 +21,7 @@ repos:
         args: [--maxkb=1000]
       - id: check-merge-conflict
       - id: detect-private-key
-        exclude: ^tests/  # Test files may contain fake keys for testing
+        exclude: ^(tests/|aragora/server/middleware/structured_logging\.py)  # Test files and redaction config contain field names
 
   # Ruff - fast Python linter and formatter
   - repo: https://github.com/astral-sh/ruff-pre-commit

@@ -46,21 +46,132 @@ LOG_LEVEL = os.environ.get("ARAGORA_LOG_LEVEL", "INFO").upper()
 LOG_FORMAT = os.environ.get("ARAGORA_LOG_FORMAT", "json")  # "json" or "text"
 LOG_INCLUDE_TIMESTAMP = os.environ.get("ARAGORA_LOG_TIMESTAMP", "true").lower() == "true"
 
-# Sensitive fields to redact
+# Sensitive fields to redact (field name patterns)
 REDACT_FIELDS = frozenset(
     {
+        # Authentication
         "password",
+        "passwd",
         "secret",
         "token",
         "api_key",
         "apikey",
+        "api-key",
+        "auth_token",
+        "access_token",
+        "refresh_token",
+        "bearer",
         "authorization",
-        "cookie",
-        "credit_card",
-        "ssn",
+        "credential",
+        "credentials",
+        # Keys and certificates
         "private_key",
+        "privatekey",
+        "signing_key",
+        "encryption_key",
+        "client_secret",
+        "client_id",  # Often paired with secret
+        "webhook_secret",
+        "jwt_secret",
+        "session_key",
+        # Payment/Financial
+        "credit_card",
+        "card_number",
+        "cvv",
+        "cvc",
+        "expiry",
+        "account_number",
+        "routing_number",
+        "bank_account",
+        "stripe_key",
+        "plaid_secret",
+        # PII
+        "ssn",
+        "social_security",
+        "tax_id",
+        "national_id",
+        # Session/Cookie
+        "cookie",
+        "session",
+        "session_id",
+        "csrf_token",
+        # Database
+        "db_password",
+        "database_url",
+        "connection_string",
+        "dsn",
+        # Cloud/Provider specific
+        "aws_secret",
+        "aws_access_key",
+        "gcp_key",
+        "azure_key",
+        "openai_key",
+        "anthropic_key",
+        "sendgrid_key",
+        "twilio_token",
     }
 )
+
+# Regex patterns for detecting secrets in string values
+import re
+
+SECRET_VALUE_PATTERNS = [
+    # API keys (various formats)
+    re.compile(r"sk[-_](?:live|test|prod)[-_][a-zA-Z0-9]{20,}"),  # Stripe-style
+    re.compile(r"(?:api|key|token)[-_]?[a-zA-Z0-9]{32,}"),  # Generic API keys
+    re.compile(r"[a-zA-Z0-9]{32}-us\d+"),  # Mailchimp-style
+    # Bearer tokens / JWTs
+    re.compile(r"Bearer\s+[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+"),
+    re.compile(r"eyJ[a-zA-Z0-9\-_]+\.eyJ[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+"),  # JWT
+    # AWS credentials
+    re.compile(r"AKIA[0-9A-Z]{16}"),  # AWS Access Key ID
+    re.compile(r"aws[-_]?secret[-_]?[a-zA-Z0-9/+=]{40}"),
+    # Private keys
+    re.compile(r"-----BEGIN (?:RSA |EC |DSA )?PRIVATE KEY-----"),
+    re.compile(r"-----BEGIN OPENSSH PRIVATE KEY-----"),
+    # Database connection strings
+    re.compile(r"(?:postgres|mysql|mongodb|redis)://[^@]+:[^@]+@"),
+    # Basic auth in URLs
+    re.compile(r"https?://[^:]+:[^@]+@"),
+]
+
+
+def _contains_secret_pattern(value: str) -> bool:
+    """Check if a string value matches any secret pattern.
+
+    Args:
+        value: String to check
+
+    Returns:
+        True if value appears to contain a secret
+    """
+    if not isinstance(value, str) or len(value) < 16:
+        return False
+    for pattern in SECRET_VALUE_PATTERNS:
+        if pattern.search(value):
+            return True
+    return False
+
+
+def redact_string(value: str) -> str:
+    """Redact secrets from a string value.
+
+    Preserves structure but masks secret values.
+
+    Args:
+        value: String that may contain secrets
+
+    Returns:
+        String with secrets redacted
+    """
+    if not isinstance(value, str):
+        return value
+    if _contains_secret_pattern(value):
+        # Preserve first/last few chars for debugging
+        if len(value) > 20:
+            return f"{value[:4]}...{value[-4:]}[REDACTED]"
+        return "[REDACTED]"
+    return value
 
 
 @dataclass
@@ -117,9 +228,14 @@ def redact_sensitive(data: Dict[str, Any], depth: int = 0) -> Dict[str, Any]:
             result[key] = redact_sensitive(value, depth + 1)
         elif isinstance(value, list):
             result[key] = [
-                redact_sensitive(item, depth + 1) if isinstance(item, dict) else item
+                redact_sensitive(item, depth + 1)
+                if isinstance(item, dict)
+                else (redact_string(item) if isinstance(item, str) else item)
                 for item in value
             ]
+        elif isinstance(value, str):
+            # Check string values for secret patterns
+            result[key] = redact_string(value)
         else:
             result[key] = value
     return result
@@ -591,6 +707,7 @@ __all__ = [
     "clear_log_context",
     "get_log_context",
     "redact_sensitive",
+    "redact_string",
     "RequestLoggingMiddleware",
     "JsonFormatter",
     "TextFormatter",
