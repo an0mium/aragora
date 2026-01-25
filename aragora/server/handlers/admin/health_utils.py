@@ -274,3 +274,116 @@ def get_uptime_info(start_time: float) -> Dict[str, Any]:
         "uptime_seconds": round(uptime_seconds, 2),
         "uptime_human": uptime_str,
     }
+
+
+def check_stripe_health() -> Dict[str, Any]:
+    """Check Stripe API connectivity.
+
+    Validates the Stripe API key by making a lightweight API call.
+
+    Returns:
+        Dict with Stripe health status.
+    """
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY") or os.environ.get("STRIPE_API_KEY")
+
+    if not stripe_key:
+        return {"healthy": True, "configured": False, "note": "Stripe not configured"}
+
+    try:
+        import stripe
+
+        stripe.api_key = stripe_key
+        ping_start = time.time()
+        # Use a lightweight API call - list 1 customer to verify connectivity
+        stripe.Customer.list(limit=1)
+        ping_latency = round((time.time() - ping_start) * 1000, 2)
+
+        return {
+            "healthy": True,
+            "configured": True,
+            "latency_ms": ping_latency,
+        }
+
+    except ImportError:
+        return {"healthy": True, "configured": True, "warning": "stripe package not installed"}
+    except stripe.error.AuthenticationError as e:  # type: ignore[attr-defined]
+        return {
+            "healthy": False,
+            "configured": True,
+            "error": f"Authentication failed: {str(e)[:80]}",
+        }
+    except stripe.error.APIConnectionError as e:  # type: ignore[attr-defined]
+        return {
+            "healthy": False,
+            "configured": True,
+            "error": f"Connection failed: {str(e)[:80]}",
+        }
+    except Exception as e:
+        return {
+            "healthy": False,
+            "configured": True,
+            "error": f"{type(e).__name__}: {str(e)[:80]}",
+        }
+
+
+def check_slack_health() -> Dict[str, Any]:
+    """Check Slack API connectivity.
+
+    Validates the Slack bot token by calling auth.test endpoint.
+
+    Returns:
+        Dict with Slack health status.
+    """
+    slack_token = os.environ.get("SLACK_BOT_TOKEN") or os.environ.get("SLACK_TOKEN")
+
+    if not slack_token:
+        return {"healthy": True, "configured": False, "note": "Slack not configured"}
+
+    try:
+        import httpx
+
+        ping_start = time.time()
+        response = httpx.post(
+            "https://slack.com/api/auth.test",
+            headers={"Authorization": f"Bearer {slack_token}"},
+            timeout=5.0,
+        )
+        ping_latency = round((time.time() - ping_start) * 1000, 2)
+
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("ok"):
+                return {
+                    "healthy": True,
+                    "configured": True,
+                    "latency_ms": ping_latency,
+                    "team": data.get("team"),
+                    "user": data.get("user"),
+                }
+            else:
+                return {
+                    "healthy": False,
+                    "configured": True,
+                    "error": data.get("error", "Unknown error"),
+                }
+        else:
+            return {
+                "healthy": False,
+                "configured": True,
+                "error": f"HTTP {response.status_code}",
+            }
+
+    except ImportError:
+        return {"healthy": True, "configured": True, "warning": "httpx package not installed"}
+    except httpx.TimeoutException:
+        return {
+            "healthy": False,
+            "configured": True,
+            "error": "Request timeout",
+        }
+    except Exception as e:
+        return {
+            "healthy": False,
+            "configured": True,
+            "error": f"{type(e).__name__}: {str(e)[:80]}",
+        }
