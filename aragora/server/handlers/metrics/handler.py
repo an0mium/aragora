@@ -145,6 +145,14 @@ class MetricsHandler(BaseHandler):
             logger.error("Failed to get Prometheus metrics: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get Prometheus metrics"), 500)
 
+    def _format_uptime(self, seconds: float) -> str:
+        """Format uptime for tests and legacy callers."""
+        return format_uptime(seconds)
+
+    def _format_size(self, size_bytes: int) -> str:
+        """Format sizes for tests and legacy callers."""
+        return format_size(size_bytes)
+
     def _get_metrics(self) -> HandlerResult:
         """Get comprehensive operational metrics."""
         try:
