@@ -93,7 +93,7 @@ jobs:
           - name: knowledge
             path: tests/knowledge tests/evidence tests/memory
           - name: storage
-            path: tests/storage tests/ranking tests/persistence
+            path: tests/storage tests/ranking tests/persistence tests/billing
 
     steps:
       - name: Checkout

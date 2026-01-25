@@ -94,7 +94,7 @@ jobs:
       - name: Typecheck core modules (REQUIRED)
         run: |
           # These modules must pass strict type checking
-          # Phase 25: Expanded to 31 modules (Jan 2026)
+          # Phase 26: Expanded to 37 modules - chat connectors (Jan 2026)
           python -m mypy \
             aragora/ranking/elo.py \
             aragora/server/stream/servers.py \
@@ -127,6 +127,12 @@ jobs:
             aragora/policy/engine.py \
             aragora/policy/risk.py \
             aragora/policy/tools.py \
+            aragora/connectors/chat/models.py \
+            aragora/connectors/chat/base.py \
+            aragora/connectors/chat/telegram.py \
+            aragora/connectors/chat/whatsapp.py \
+            aragora/connectors/chat/slack.py \
+            aragora/connectors/chat/discord.py \
             --config-file pyproject.toml \
             --no-error-summary
           echo "Core modules type check passed!"
