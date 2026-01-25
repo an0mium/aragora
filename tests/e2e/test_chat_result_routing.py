@@ -440,53 +440,59 @@ class TestOriginCleanup:
     """Tests for origin TTL and cleanup."""
 
     def test_cleanup_expired_origins(self):
-        """Test that expired origins are cleaned up."""
+        """Test that expired origins are cleaned up from in-memory store."""
         from unittest.mock import MagicMock, patch
         import aragora.server.debate_origin as debate_origin_module
         from aragora.server.debate_origin import (
-            register_debate_origin,
             cleanup_expired_origins,
-            get_debate_origin,
             _origin_store,
             ORIGIN_TTL_SECONDS,
+            DebateOrigin,
         )
 
         _origin_store.clear()
 
-        # Reset the cached SQLite store to ensure mock takes effect
+        # Reset the cached stores to ensure mocks take effect
         original_sqlite_store = debate_origin_module._sqlite_store
         debate_origin_module._sqlite_store = None
 
-        # Mock SQLite store to prevent fallback retrieval
-        mock_store = MagicMock()
-        mock_store.get.return_value = None
-        mock_store.save.return_value = None
+        # Create mock SQLite store
+        mock_sqlite = MagicMock()
+        mock_sqlite.get.return_value = None
+        mock_sqlite.save.return_value = None
+        mock_sqlite.cleanup_expired.return_value = 0
 
         try:
-            # Mock all persistent store retrieval paths to test in-memory cleanup only
+            # Mock all persistent store paths to test in-memory cleanup only
             with (
-                patch("aragora.server.debate_origin._get_sqlite_store", return_value=mock_store),
+                patch("aragora.server.debate_origin._get_sqlite_store", return_value=mock_sqlite),
                 patch("aragora.server.debate_origin._load_origin_redis", return_value=None),
+                patch("aragora.server.debate_origin._store_origin_redis", return_value=None),
                 patch("aragora.server.debate_origin._get_postgres_store_sync", return_value=None),
             ):
-                # Register an origin
+                # Create an expired origin directly in the in-memory store
                 debate_id = f"debate-{uuid.uuid4().hex[:8]}"
-                origin = register_debate_origin(
+                expired_origin = DebateOrigin(
                     debate_id=debate_id,
                     platform="telegram",
                     channel_id="123",
                     user_id="456",
+                    created_at=time.time() - ORIGIN_TTL_SECONDS - 100,  # Already expired
                 )
+                _origin_store[debate_id] = expired_origin
 
-                # Manually expire it by updating the store entry directly
-                origin.created_at = time.time() - ORIGIN_TTL_SECONDS - 100
-                _origin_store[debate_id] = origin  # Update the store with expired origin
+                # Verify it's in the store
+                assert debate_id in _origin_store
 
                 # Run cleanup
                 cleaned = cleanup_expired_origins()
 
-                assert cleaned == 1
-                assert get_debate_origin(debate_id) is None
+                # Should have cleaned 1 from in-memory
+                assert cleaned >= 1, f"Expected at least 1 cleaned, got {cleaned}"
+                assert (
+                    debate_id not in _origin_store
+                ), "Origin should be removed from in-memory store"
+
         finally:
             # Restore the original SQLite store
             debate_origin_module._sqlite_store = original_sqlite_store

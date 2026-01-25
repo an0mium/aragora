@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -1523,10 +1524,27 @@ def get_marketplace_store() -> Union[MarketplaceStore, PostgresMarketplaceStore]
 
     Returns:
         Configured marketplace store instance
+
+    Raises:
+        RuntimeError: If ARAGORA_MULTI_INSTANCE=true and using SQLite backend
     """
     global _marketplace_store
     if _marketplace_store is not None:
         return _marketplace_store
+
+    # Check for multi-instance mode with SQLite (not supported)
+    is_multi_instance = os.environ.get("ARAGORA_MULTI_INSTANCE", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+    db_backend = os.environ.get("ARAGORA_DB_BACKEND", "").lower()
+    if is_multi_instance and db_backend == "sqlite":
+        raise RuntimeError(
+            "ARAGORA_MULTI_INSTANCE=true requires PostgreSQL for marketplace store. "
+            "SQLite cannot be shared across instances. "
+            "Configure DATABASE_URL or SUPABASE_URL for distributed operation."
+        )
 
     from aragora.storage.connection_factory import create_persistent_store
 
