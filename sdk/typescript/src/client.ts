@@ -41,6 +41,8 @@ import type {
   GauntletRunResponse,
   GraphDebate,
   GraphDebateCreateRequest,
+  GraphNode,
+  GraphStats,
   HeadToHeadStats,
   HealthCheck,
   KnowledgeEntry,
@@ -50,6 +52,7 @@ import type {
   MatrixConclusion,
   MatrixDebate,
   MatrixDebateCreateRequest,
+  MatrixScenarioResult,
   MemoryAnalytics,
   MemoryEntry,
   MemorySearchParams,
@@ -58,6 +61,9 @@ import type {
   MemoryTierStats,
   OnboardingStatus,
   OpponentBriefing,
+  Organization,
+  OrganizationMember,
+  OrganizationInvitation,
   PaginationParams,
   RankingStats,
   Replay,
@@ -69,6 +75,7 @@ import type {
   SearchResponse,
   SelectionPlugin,
   Tenant,
+  UserOrganization,
   TeamSelection,
   TeamSelectionRequest,
   Tournament,
@@ -83,6 +90,10 @@ import type {
   WebSocketEvent,
   Workflow,
   WorkflowTemplate,
+  WorkflowExecution,
+  WorkflowApproval,
+  WorkflowVersion,
+  WorkflowSimulationResult,
 } from './types';
 import { AragoraError } from './types';
 import { AragoraWebSocket, createWebSocket, streamDebate, type WebSocketOptions, type StreamOptions } from './websocket';
@@ -593,6 +604,139 @@ export class AragoraClient {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Workflow Execution Tracking
+  // ---------------------------------------------------------------------------
+
+  /**
+   * List all workflow executions (for runtime dashboard).
+   */
+  async listWorkflowExecutions(params?: {
+    workflow_id?: string;
+    status?: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  } & PaginationParams): Promise<{ executions: WorkflowExecution[] }> {
+    return this.request<{ executions: WorkflowExecution[] }>(
+      'GET',
+      '/api/v1/workflow-executions',
+      { params }
+    );
+  }
+
+  /**
+   * Get workflow execution details.
+   */
+  async getWorkflowExecution(executionId: string): Promise<WorkflowExecution> {
+    return this.request<WorkflowExecution>(
+      'GET',
+      `/api/v1/workflow-executions/${encodeURIComponent(executionId)}`
+    );
+  }
+
+  /**
+   * Get execution status for a workflow.
+   */
+  async getWorkflowStatus(workflowId: string): Promise<WorkflowExecution> {
+    return this.request<WorkflowExecution>(
+      'GET',
+      `/api/v1/workflows/${encodeURIComponent(workflowId)}/status`
+    );
+  }
+
+  /**
+   * Get workflow version history.
+   */
+  async getWorkflowVersions(workflowId: string): Promise<{ versions: WorkflowVersion[] }> {
+    return this.request<{ versions: WorkflowVersion[] }>(
+      'GET',
+      `/api/v1/workflows/${encodeURIComponent(workflowId)}/versions`
+    );
+  }
+
+  /**
+   * Simulate (dry-run) a workflow without executing.
+   */
+  async simulateWorkflow(workflowId: string, inputs?: Record<string, unknown>): Promise<WorkflowSimulationResult> {
+    return this.request<WorkflowSimulationResult>(
+      'POST',
+      `/api/v1/workflows/${encodeURIComponent(workflowId)}/simulate`,
+      { body: { inputs } }
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Workflow Approvals
+  // ---------------------------------------------------------------------------
+
+  /**
+   * List pending workflow approvals.
+   */
+  async listWorkflowApprovals(params?: {
+    workflow_id?: string;
+    status?: 'pending' | 'approved' | 'rejected';
+  } & PaginationParams): Promise<{ approvals: WorkflowApproval[] }> {
+    return this.request<{ approvals: WorkflowApproval[] }>(
+      'GET',
+      '/api/v1/workflow-approvals',
+      { params }
+    );
+  }
+
+  /**
+   * Resolve a workflow approval (approve or reject).
+   */
+  async resolveWorkflowApproval(approvalId: string, body: {
+    approved: boolean;
+    reason?: string;
+  }): Promise<WorkflowApproval> {
+    return this.request<WorkflowApproval>(
+      'POST',
+      `/api/v1/workflow-approvals/${encodeURIComponent(approvalId)}/resolve`,
+      { body }
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // SME Workflows
+  // ---------------------------------------------------------------------------
+
+  /**
+   * List SME-specific workflow templates.
+   */
+  async listSMEWorkflows(params?: {
+    category?: string;
+    industry?: string;
+  } & PaginationParams): Promise<{ workflows: WorkflowTemplate[] }> {
+    return this.request<{ workflows: WorkflowTemplate[] }>(
+      'GET',
+      '/api/v1/sme/workflows',
+      { params }
+    );
+  }
+
+  /**
+   * Get SME workflow template details.
+   */
+  async getSMEWorkflow(workflowId: string): Promise<WorkflowTemplate> {
+    return this.request<WorkflowTemplate>(
+      'GET',
+      `/api/v1/sme/workflows/${encodeURIComponent(workflowId)}`
+    );
+  }
+
+  /**
+   * Execute an SME workflow template.
+   */
+  async executeSMEWorkflow(workflowId: string, body: {
+    inputs?: Record<string, unknown>;
+    context?: Record<string, unknown>;
+  }): Promise<{ execution_id: string }> {
+    return this.request<{ execution_id: string }>(
+      'POST',
+      `/api/v1/sme/workflows/${encodeURIComponent(workflowId)}/execute`,
+      { body }
+    );
+  }
+
   // ===========================================================================
   // Gauntlet
   // ===========================================================================
@@ -799,6 +943,656 @@ export class AragoraClient {
       'POST',
       '/api/v1/knowledge/bulk',
       { body: { entries } }
+    );
+  }
+
+  // ===========================================================================
+  // Knowledge Mound (Advanced Knowledge Management)
+  // ===========================================================================
+
+  /**
+   * Query the Knowledge Mound with semantic search.
+   *
+   * @param query - Search query
+   * @param options - Query options
+   * @returns Query results with nodes and relationships
+   */
+  async queryKnowledgeMound(query: string, options?: {
+    limit?: number;
+    node_types?: string[];
+    min_confidence?: number;
+    include_relationships?: boolean;
+  }): Promise<{ nodes: any[]; relationships: any[]; total: number; query_time_ms: number }> {
+    return this.request<{ nodes: any[]; relationships: any[]; total: number; query_time_ms: number }>(
+      'POST',
+      '/api/v1/knowledge/mound/query',
+      { body: { query, ...options } }
+    );
+  }
+
+  /**
+   * List Knowledge Mound nodes with filtering.
+   *
+   * @param options - Filter options
+   * @returns List of nodes
+   */
+  async listKnowledgeMoundNodes(options?: {
+    node_type?: string;
+    min_confidence?: number;
+    visibility?: 'private' | 'team' | 'global';
+    limit?: number;
+    offset?: number;
+  }): Promise<{ nodes: any[]; total: number }> {
+    return this.request<{ nodes: any[]; total: number }>('GET', '/api/v1/knowledge/mound/nodes', {
+      params: options as Record<string, string | number | boolean | undefined>,
+    });
+  }
+
+  /**
+   * Create a new Knowledge Mound node.
+   *
+   * @param node - Node to create
+   * @returns Created node
+   */
+  async createKnowledgeMoundNode(node: {
+    content: string;
+    node_type: 'fact' | 'concept' | 'claim' | 'evidence' | 'insight';
+    confidence?: number;
+    source?: string;
+    tags?: string[];
+    visibility?: 'private' | 'team' | 'global';
+    metadata?: Record<string, unknown>;
+  }): Promise<{ id: string; created_at: string }> {
+    return this.request<{ id: string; created_at: string }>('POST', '/api/v1/knowledge/mound/nodes', { body: node });
+  }
+
+  /**
+   * Get Knowledge Mound relationships.
+   *
+   * @param options - Filter options
+   * @returns List of relationships
+   */
+  async listKnowledgeMoundRelationships(options?: {
+    node_id?: string;
+    relationship_type?: string;
+    limit?: number;
+  }): Promise<{ relationships: any[]; total: number }> {
+    return this.request<{ relationships: any[]; total: number }>('GET', '/api/v1/knowledge/mound/relationships', {
+      params: options as Record<string, string | number | boolean | undefined>,
+    });
+  }
+
+  /**
+   * Create a relationship between Knowledge Mound nodes.
+   *
+   * @param relationship - Relationship to create
+   * @returns Created relationship
+   */
+  async createKnowledgeMoundRelationship(relationship: {
+    source_id: string;
+    target_id: string;
+    relationship_type: 'supports' | 'contradicts' | 'elaborates' | 'derived_from' | 'related_to';
+    strength?: number;
+    confidence?: number;
+    metadata?: Record<string, unknown>;
+  }): Promise<{ id: string; created_at: string }> {
+    return this.request<{ id: string; created_at: string }>(
+      'POST',
+      '/api/v1/knowledge/mound/relationships',
+      { body: relationship }
+    );
+  }
+
+  /**
+   * Get Knowledge Mound statistics.
+   *
+   * @returns Knowledge Mound statistics
+   */
+  async getKnowledgeMoundStats(): Promise<any> {
+    return this.request<any>('GET', '/api/v1/knowledge/mound/stats');
+  }
+
+  /**
+   * Get stale knowledge items that need revalidation.
+   *
+   * @param options - Filter options
+   * @returns Stale items
+   */
+  async getStaleKnowledge(options?: {
+    max_age_days?: number;
+    limit?: number;
+  }): Promise<{ items: any[]; total: number }> {
+    return this.request<{ items: any[]; total: number }>('GET', '/api/v1/knowledge/mound/stale', {
+      params: options as Record<string, string | number | boolean | undefined>,
+    });
+  }
+
+  /**
+   * Revalidate a knowledge node.
+   *
+   * @param nodeId - Node ID to revalidate
+   * @param validation - Validation result
+   * @returns Updated node
+   */
+  async revalidateKnowledge(nodeId: string, validation: {
+    valid: boolean;
+    new_confidence?: number;
+    notes?: string;
+  }): Promise<{ updated: boolean }> {
+    return this.request<{ updated: boolean }>(
+      'POST',
+      `/api/v1/knowledge/mound/revalidate/${encodeURIComponent(nodeId)}`,
+      { body: validation }
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Knowledge Mound - Graph Operations
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get lineage (ancestry/descendants) of a knowledge node.
+   *
+   * @param nodeId - Node ID
+   * @param options - Traversal options
+   * @returns Lineage graph
+   */
+  async getKnowledgeLineage(nodeId: string, options?: {
+    direction?: 'ancestors' | 'descendants' | 'both';
+    max_depth?: number;
+  }): Promise<{ nodes: any[]; relationships: any[] }> {
+    return this.request<{ nodes: any[]; relationships: any[] }>(
+      'GET',
+      `/api/v1/knowledge/mound/graph/${encodeURIComponent(nodeId)}/lineage`,
+      { params: options as Record<string, string | number | boolean | undefined> }
+    );
+  }
+
+  /**
+   * Get nodes related to a specific knowledge node.
+   *
+   * @param nodeId - Node ID
+   * @param options - Filter options
+   * @returns Related nodes
+   */
+  async getRelatedKnowledge(nodeId: string, options?: {
+    relationship_types?: string[];
+    limit?: number;
+  }): Promise<{ nodes: any[]; relationships: any[] }> {
+    return this.request<{ nodes: any[]; relationships: any[] }>(
+      'GET',
+      `/api/v1/knowledge/mound/graph/${encodeURIComponent(nodeId)}/related`,
+      { params: options as Record<string, string | number | boolean | undefined> }
+    );
+  }
+
+  /**
+   * Export knowledge graph in D3 format.
+   *
+   * @param options - Export options
+   * @returns D3-compatible graph data
+   */
+  async exportKnowledgeGraphD3(options?: {
+    node_types?: string[];
+    max_nodes?: number;
+  }): Promise<{ nodes: any[]; links: any[] }> {
+    return this.request<{ nodes: any[]; links: any[] }>('GET', '/api/v1/knowledge/mound/export/d3', {
+      params: options as Record<string, string | number | boolean | undefined>,
+    });
+  }
+
+  /**
+   * Export knowledge graph in GraphML format.
+   *
+   * @param options - Export options
+   * @returns GraphML XML string
+   */
+  async exportKnowledgeGraphML(options?: {
+    node_types?: string[];
+  }): Promise<{ graphml: string }> {
+    return this.request<{ graphml: string }>('GET', '/api/v1/knowledge/mound/export/graphml', {
+      params: options as Record<string, string | number | boolean | undefined>,
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Knowledge Mound - Contradiction Detection (Phase A2)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Detect contradictions in the knowledge base.
+   *
+   * @param options - Detection options
+   * @returns Detected contradictions
+   */
+  async detectKnowledgeContradictions(options?: {
+    scope?: 'all' | 'recent' | 'high_confidence';
+    min_confidence?: number;
+  }): Promise<{ contradictions: any[]; detected_at: string }> {
+    return this.request<{ contradictions: any[]; detected_at: string }>(
+      'POST',
+      '/api/v1/knowledge/mound/contradictions/detect',
+      { body: options || {} }
+    );
+  }
+
+  /**
+   * List existing contradictions.
+   *
+   * @param options - Filter options
+   * @returns List of contradictions
+   */
+  async listKnowledgeContradictions(options?: {
+    status?: 'pending' | 'resolved' | 'all';
+    limit?: number;
+    offset?: number;
+  }): Promise<{ contradictions: any[]; total: number }> {
+    return this.request<{ contradictions: any[]; total: number }>('GET', '/api/v1/knowledge/mound/contradictions', {
+      params: options as Record<string, string | number | boolean | undefined>,
+    });
+  }
+
+  /**
+   * Resolve a knowledge contradiction.
+   *
+   * @param contradictionId - Contradiction ID
+   * @param resolution - Resolution details
+   * @returns Resolution result
+   */
+  async resolveKnowledgeContradiction(contradictionId: string, resolution: {
+    resolution: string;
+    resolution_method: 'manual' | 'automated' | 'debate';
+    keep_node_id?: string;
+    notes?: string;
+  }): Promise<{ resolved: boolean; resolved_at: string }> {
+    return this.request<{ resolved: boolean; resolved_at: string }>(
+      'POST',
+      `/api/v1/knowledge/mound/contradictions/${encodeURIComponent(contradictionId)}/resolve`,
+      { body: resolution }
+    );
+  }
+
+  /**
+   * Get contradiction detection statistics.
+   *
+   * @returns Contradiction stats
+   */
+  async getKnowledgeContradictionStats(): Promise<any> {
+    return this.request<any>('GET', '/api/v1/knowledge/mound/contradictions/stats');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Knowledge Mound - Governance (Phase A2)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * List Knowledge Mound governance roles.
+   *
+   * @returns List of roles
+   */
+  async listKnowledgeGovernanceRoles(): Promise<{ roles: any[] }> {
+    return this.request<{ roles: any[] }>('GET', '/api/v1/knowledge/mound/governance/roles');
+  }
+
+  /**
+   * Assign a governance role to a user.
+   *
+   * @param assignment - Role assignment details
+   * @returns Assignment result
+   */
+  async assignKnowledgeGovernanceRole(assignment: {
+    user_id: string;
+    role_id: string;
+    scope?: string;
+  }): Promise<{ assigned: boolean }> {
+    return this.request<{ assigned: boolean }>(
+      'POST',
+      '/api/v1/knowledge/mound/governance/roles/assign',
+      { body: assignment }
+    );
+  }
+
+  /**
+   * Revoke a governance role from a user.
+   *
+   * @param revocation - Role revocation details
+   * @returns Revocation result
+   */
+  async revokeKnowledgeGovernanceRole(revocation: {
+    user_id: string;
+    role_id: string;
+  }): Promise<{ revoked: boolean }> {
+    return this.request<{ revoked: boolean }>(
+      'POST',
+      '/api/v1/knowledge/mound/governance/roles/revoke',
+      { body: revocation }
+    );
+  }
+
+  /**
+   * Check if a user has permission for a knowledge operation.
+   *
+   * @param check - Permission check request
+   * @returns Permission check result
+   */
+  async checkKnowledgePermission(check: {
+    user_id: string;
+    permission: string;
+    resource_id?: string;
+  }): Promise<{ allowed: boolean; reason?: string }> {
+    return this.request<{ allowed: boolean; reason?: string }>(
+      'POST',
+      '/api/v1/knowledge/mound/governance/permissions/check',
+      { body: check }
+    );
+  }
+
+  /**
+   * Get Knowledge Mound audit log.
+   *
+   * @param options - Filter options
+   * @returns Audit events
+   */
+  async getKnowledgeAuditLog(options?: {
+    user_id?: string;
+    action?: string;
+    start_date?: string;
+    end_date?: string;
+    limit?: number;
+  }): Promise<{ events: any[]; total: number }> {
+    return this.request<{ events: any[]; total: number }>('GET', '/api/v1/knowledge/mound/governance/audit', {
+      params: options as Record<string, string | number | boolean | undefined>,
+    });
+  }
+
+  /**
+   * Get governance statistics.
+   *
+   * @returns Governance stats
+   */
+  async getKnowledgeGovernanceStats(): Promise<any> {
+    return this.request<any>('GET', '/api/v1/knowledge/mound/governance/stats');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Knowledge Mound - Analytics (Phase A2)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get knowledge coverage analytics.
+   *
+   * @returns Coverage metrics
+   */
+  async getKnowledgeCoverageAnalytics(): Promise<any> {
+    return this.request<any>('GET', '/api/v1/knowledge/mound/analytics/coverage');
+  }
+
+  /**
+   * Get knowledge usage analytics.
+   *
+   * @param options - Time range options
+   * @returns Usage metrics
+   */
+  async getKnowledgeUsageAnalytics(options?: {
+    start_date?: string;
+    end_date?: string;
+  }): Promise<any> {
+    return this.request<any>('GET', '/api/v1/knowledge/mound/analytics/usage', {
+      params: options as Record<string, string | number | boolean | undefined>,
+    });
+  }
+
+  /**
+   * Record a knowledge usage event.
+   *
+   * @param event - Usage event details
+   * @returns Recording result
+   */
+  async recordKnowledgeUsage(event: {
+    node_id: string;
+    user_id?: string;
+    action: 'view' | 'cite' | 'share' | 'export';
+    context?: string;
+  }): Promise<{ recorded: boolean }> {
+    return this.request<{ recorded: boolean }>(
+      'POST',
+      '/api/v1/knowledge/mound/analytics/usage/record',
+      { body: event }
+    );
+  }
+
+  /**
+   * Get a quality snapshot of the knowledge base.
+   *
+   * @returns Quality metrics snapshot
+   */
+  async getKnowledgeQualitySnapshot(): Promise<any> {
+    return this.request<any>('GET', '/api/v1/knowledge/mound/analytics/quality/snapshot');
+  }
+
+  /**
+   * Get quality trend over time.
+   *
+   * @param options - Time range options
+   * @returns Quality trend data
+   */
+  async getKnowledgeQualityTrend(options?: {
+    days?: number;
+  }): Promise<{ trend: Array<{ date: string; score: number }> }> {
+    return this.request<{ trend: Array<{ date: string; score: number }> }>(
+      'GET',
+      '/api/v1/knowledge/mound/analytics/quality/trend',
+      { params: options as Record<string, string | number | boolean | undefined> }
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Knowledge Mound - Dashboard
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get Knowledge Mound health status.
+   *
+   * @returns Health status
+   */
+  async getKnowledgeMoundHealth(): Promise<any> {
+    return this.request<any>('GET', '/api/v1/knowledge/mound/dashboard/health');
+  }
+
+  /**
+   * Get Knowledge Mound metrics.
+   *
+   * @returns Current metrics
+   */
+  async getKnowledgeMoundMetrics(): Promise<any> {
+    return this.request<any>('GET', '/api/v1/knowledge/mound/dashboard/metrics');
+  }
+
+  /**
+   * Get Knowledge Mound adapter status.
+   *
+   * @returns List of adapters and their status
+   */
+  async getKnowledgeMoundAdapters(): Promise<{ adapters: Array<{ name: string; status: string; last_sync?: string }> }> {
+    return this.request<{ adapters: Array<{ name: string; status: string; last_sync?: string }> }>(
+      'GET',
+      '/api/v1/knowledge/mound/dashboard/adapters'
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Knowledge Mound - Deduplication
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get duplicate knowledge clusters.
+   *
+   * @param options - Detection options
+   * @returns Duplicate clusters
+   */
+  async getKnowledgeDeduplicationClusters(options?: {
+    min_similarity?: number;
+    limit?: number;
+  }): Promise<{ clusters: any[]; total: number }> {
+    return this.request<{ clusters: any[]; total: number }>('GET', '/api/v1/knowledge/mound/dedup/clusters', {
+      params: options as Record<string, string | number | boolean | undefined>,
+    });
+  }
+
+  /**
+   * Merge duplicate knowledge nodes.
+   *
+   * @param merge - Merge request
+   * @returns Merge result
+   */
+  async mergeKnowledgeDuplicates(merge: {
+    cluster_id?: string;
+    node_ids: string[];
+    keep_node_id: string;
+  }): Promise<{ merged: number; kept_id: string }> {
+    return this.request<{ merged: number; kept_id: string }>(
+      'POST',
+      '/api/v1/knowledge/mound/dedup/merge',
+      { body: merge }
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Knowledge Mound - Pruning
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get items eligible for pruning.
+   *
+   * @param options - Filter options
+   * @returns Pruning candidates
+   */
+  async getKnowledgePruningItems(options?: {
+    reason?: 'stale' | 'low_confidence' | 'unused' | 'duplicate';
+    limit?: number;
+  }): Promise<{ items: any[]; total: number }> {
+    return this.request<{ items: any[]; total: number }>('GET', '/api/v1/knowledge/mound/pruning/items', {
+      params: options as Record<string, string | number | boolean | undefined>,
+    });
+  }
+
+  /**
+   * Execute pruning on selected items.
+   *
+   * @param pruning - Pruning request
+   * @returns Pruning result
+   */
+  async executeKnowledgePruning(pruning: {
+    node_ids?: string[];
+    reason?: string;
+    archive?: boolean;
+  }): Promise<{ pruned: number; archived: number }> {
+    return this.request<{ pruned: number; archived: number }>(
+      'POST',
+      '/api/v1/knowledge/mound/pruning/execute',
+      { body: pruning }
+    );
+  }
+
+  /**
+   * Get pruning history.
+   *
+   * @param options - Filter options
+   * @returns Pruning history
+   */
+  async getKnowledgePruningHistory(options?: {
+    limit?: number;
+  }): Promise<{ history: any[] }> {
+    return this.request<{ history: any[] }>('GET', '/api/v1/knowledge/mound/pruning/history', {
+      params: options as Record<string, string | number | boolean | undefined>,
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Knowledge Mound - Extraction
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Extract knowledge from a completed debate.
+   *
+   * @param debateId - Debate ID to extract from
+   * @param options - Extraction options
+   * @returns Extraction result
+   */
+  async extractKnowledgeFromDebate(debateId: string, options?: {
+    min_confidence?: number;
+    node_types?: string[];
+  }): Promise<{ extracted_nodes: number; node_ids: string[] }> {
+    return this.request<{ extracted_nodes: number; node_ids: string[] }>(
+      'POST',
+      '/api/v1/knowledge/mound/extraction/debate',
+      { body: { debate_id: debateId, ...options } }
+    );
+  }
+
+  /**
+   * Promote extracted knowledge to permanent storage.
+   *
+   * @param nodeIds - Node IDs to promote
+   * @returns Promotion result
+   */
+  async promoteExtractedKnowledge(nodeIds: string[]): Promise<{ promoted: number }> {
+    return this.request<{ promoted: number }>(
+      'POST',
+      '/api/v1/knowledge/mound/extraction/promote',
+      { body: { node_ids: nodeIds } }
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Knowledge Mound - Confidence Decay
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get confidence decay information for a node.
+   *
+   * @param nodeId - Node ID
+   * @returns Decay information
+   */
+  async getKnowledgeConfidenceDecay(nodeId: string): Promise<any> {
+    return this.request<any>('GET', `/api/v1/knowledge/mound/confidence/decay`, {
+      params: { node_id: nodeId },
+    });
+  }
+
+  /**
+   * Record a confidence event (validation, citation, etc.).
+   *
+   * @param event - Confidence event
+   * @returns Event recording result
+   */
+  async recordKnowledgeConfidenceEvent(event: {
+    node_id: string;
+    event_type: 'validation' | 'citation' | 'contradiction' | 'update';
+    confidence_delta: number;
+    notes?: string;
+  }): Promise<{ recorded: boolean; new_confidence: number }> {
+    return this.request<{ recorded: boolean; new_confidence: number }>(
+      'POST',
+      '/api/v1/knowledge/mound/confidence/event',
+      { body: event }
+    );
+  }
+
+  /**
+   * Get confidence history for a node.
+   *
+   * @param nodeId - Node ID
+   * @param options - History options
+   * @returns Confidence history
+   */
+  async getKnowledgeConfidenceHistory(nodeId: string, options?: {
+    limit?: number;
+  }): Promise<{ history: Array<{ timestamp: string; confidence: number; event_type: string }> }> {
+    return this.request<{ history: Array<{ timestamp: string; confidence: number; event_type: string }> }>(
+      'GET',
+      '/api/v1/knowledge/mound/confidence/history',
+      { params: { node_id: nodeId, ...options } as Record<string, string | number | boolean | undefined> }
     );
   }
 
@@ -1827,7 +2621,7 @@ export class AragoraClient {
   /**
    * Get codebase symbols.
    */
-  async getCodebaseSymbols(repo: string, params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async getCodebaseSymbols(repo: string, params?: Record<string, string | number | boolean | undefined>): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/symbols`,
@@ -1838,7 +2632,7 @@ export class AragoraClient {
   /**
    * Get codebase call graph.
    */
-  async getCodebaseCallgraph(repo: string, params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async getCodebaseCallgraph(repo: string, params?: Record<string, string | number | boolean | undefined>): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/callgraph`,
@@ -1849,7 +2643,7 @@ export class AragoraClient {
   /**
    * Get dead code report.
    */
-  async getCodebaseDeadcode(repo: string, params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async getCodebaseDeadcode(repo: string, params?: Record<string, string | number | boolean | undefined>): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>(
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/deadcode`,
@@ -2264,6 +3058,79 @@ export class AragoraClient {
     return this.request<{ debates: MatrixDebate[] }>('GET', '/api/v1/matrix-debates', { params });
   }
 
+  /**
+   * Get all scenario results for a matrix debate.
+   */
+  async getMatrixDebateScenarios(debateId: string): Promise<{ scenarios: MatrixScenarioResult[] }> {
+    return this.request<{ scenarios: MatrixScenarioResult[] }>(
+      'GET',
+      `/api/v1/debates/matrix/${encodeURIComponent(debateId)}/scenarios`
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Graph Debate Extended APIs
+  // ---------------------------------------------------------------------------
+
+  /**
+   * List all graph debates.
+   */
+  async listGraphDebates(params?: {
+    status?: string;
+  } & PaginationParams): Promise<{ debates: GraphDebate[] }> {
+    return this.request<{ debates: GraphDebate[] }>('GET', '/api/v1/graph-debates', { params });
+  }
+
+  /**
+   * Get all nodes in a graph debate.
+   */
+  async getGraphDebateNodes(debateId: string): Promise<{ nodes: GraphNode[] }> {
+    return this.request<{ nodes: GraphNode[] }>(
+      'GET',
+      `/api/v1/debates/graph/${encodeURIComponent(debateId)}/nodes`
+    );
+  }
+
+  /**
+   * Get graph statistics for a debate.
+   */
+  async getDebateGraphStats(debateId: string): Promise<GraphStats> {
+    return this.request<GraphStats>(
+      'GET',
+      `/api/v1/debate/${encodeURIComponent(debateId)}/graph-stats`
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Belief Network Graph APIs
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get belief network graph visualization data.
+   */
+  async getBeliefNetworkGraph(networkId: string): Promise<{
+    nodes: Array<{
+      id: string;
+      type: string;
+      label: string;
+      confidence: number;
+    }>;
+    edges: Array<{
+      source: string;
+      target: string;
+      type: string;
+      weight: number;
+    }>;
+  }> {
+    return this.request<{
+      nodes: Array<{ id: string; type: string; label: string; confidence: number }>;
+      edges: Array<{ source: string; target: string; type: string; weight: number }>;
+    }>(
+      'GET',
+      `/api/v1/belief-network/${encodeURIComponent(networkId)}/graph`
+    );
+  }
+
   // ===========================================================================
   // Verification (Z3/Lean)
   // ===========================================================================
@@ -2629,6 +3496,156 @@ export class AragoraClient {
    */
   async removeTenantMember(tenantId: string, userId: string): Promise<void> {
     await this.request<void>('DELETE', `/api/v1/tenants/${encodeURIComponent(tenantId)}/members/${encodeURIComponent(userId)}`);
+  }
+
+  // ===========================================================================
+  // Organizations
+  // ===========================================================================
+
+  /**
+   * Get organization details.
+   */
+  async getOrganization(orgId: string): Promise<Organization> {
+    return this.request<Organization>('GET', `/api/v1/org/${encodeURIComponent(orgId)}`);
+  }
+
+  /**
+   * Update organization settings.
+   */
+  async updateOrganization(orgId: string, body: {
+    name?: string;
+    settings?: Record<string, unknown>;
+  }): Promise<Organization> {
+    return this.request<Organization>('PUT', `/api/v1/org/${encodeURIComponent(orgId)}`, { body });
+  }
+
+  /**
+   * List organization members.
+   */
+  async listOrganizationMembers(orgId: string, params?: PaginationParams): Promise<{ members: OrganizationMember[] }> {
+    return this.request<{ members: OrganizationMember[] }>(
+      'GET',
+      `/api/v1/org/${encodeURIComponent(orgId)}/members`,
+      { params }
+    );
+  }
+
+  /**
+   * Invite a user to an organization.
+   */
+  async inviteToOrganization(orgId: string, body: {
+    email: string;
+    role: 'admin' | 'member';
+    message?: string;
+  }): Promise<OrganizationInvitation> {
+    return this.request<OrganizationInvitation>(
+      'POST',
+      `/api/v1/org/${encodeURIComponent(orgId)}/invite`,
+      { body }
+    );
+  }
+
+  /**
+   * List pending invitations for an organization.
+   */
+  async listOrganizationInvitations(orgId: string, params?: PaginationParams): Promise<{ invitations: OrganizationInvitation[] }> {
+    return this.request<{ invitations: OrganizationInvitation[] }>(
+      'GET',
+      `/api/v1/org/${encodeURIComponent(orgId)}/invitations`,
+      { params }
+    );
+  }
+
+  /**
+   * Revoke an invitation.
+   */
+  async revokeOrganizationInvitation(orgId: string, invitationId: string): Promise<void> {
+    await this.request<void>(
+      'DELETE',
+      `/api/v1/org/${encodeURIComponent(orgId)}/invitations/${encodeURIComponent(invitationId)}`
+    );
+  }
+
+  /**
+   * Remove a member from an organization.
+   */
+  async removeOrganizationMember(orgId: string, userId: string): Promise<void> {
+    await this.request<void>(
+      'DELETE',
+      `/api/v1/org/${encodeURIComponent(orgId)}/members/${encodeURIComponent(userId)}`
+    );
+  }
+
+  /**
+   * Update a member's role in an organization.
+   */
+  async updateOrganizationMemberRole(orgId: string, userId: string, role: 'admin' | 'member'): Promise<OrganizationMember> {
+    return this.request<OrganizationMember>(
+      'PUT',
+      `/api/v1/org/${encodeURIComponent(orgId)}/members/${encodeURIComponent(userId)}/role`,
+      { body: { role } }
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // User Organization Management
+  // ---------------------------------------------------------------------------
+
+  /**
+   * List organizations for the current user.
+   */
+  async listUserOrganizations(): Promise<{ organizations: UserOrganization[] }> {
+    return this.request<{ organizations: UserOrganization[] }>('GET', '/api/v1/user/organizations');
+  }
+
+  /**
+   * Switch active organization for the current user.
+   */
+  async switchOrganization(orgId: string): Promise<{ organization_id: string }> {
+    return this.request<{ organization_id: string }>(
+      'POST',
+      '/api/v1/user/organizations/switch',
+      { body: { organization_id: orgId } }
+    );
+  }
+
+  /**
+   * Set default organization for the current user.
+   */
+  async setDefaultOrganization(orgId: string): Promise<{ organization_id: string }> {
+    return this.request<{ organization_id: string }>(
+      'POST',
+      '/api/v1/user/organizations/default',
+      { body: { organization_id: orgId } }
+    );
+  }
+
+  /**
+   * Leave an organization.
+   */
+  async leaveOrganization(orgId: string): Promise<void> {
+    await this.request<void>('DELETE', `/api/v1/user/organizations/${encodeURIComponent(orgId)}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // User Invitation Management
+  // ---------------------------------------------------------------------------
+
+  /**
+   * List pending invitations for the current user.
+   */
+  async listPendingInvitations(): Promise<{ invitations: OrganizationInvitation[] }> {
+    return this.request<{ invitations: OrganizationInvitation[] }>('GET', '/api/v1/invitations/pending');
+  }
+
+  /**
+   * Accept an invitation.
+   */
+  async acceptInvitation(token: string): Promise<{ organization_id: string; role: string }> {
+    return this.request<{ organization_id: string; role: string }>(
+      'POST',
+      `/api/v1/invitations/${encodeURIComponent(token)}/accept`
+    );
   }
 
   // ===========================================================================

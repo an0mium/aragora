@@ -80,6 +80,10 @@ export type {
   TransitionRule,
   Workflow,
   WorkflowTemplate,
+  WorkflowExecution,
+  WorkflowApproval,
+  WorkflowVersion,
+  WorkflowSimulationResult,
 
   // Gauntlet
   DecisionReceipt,
@@ -135,6 +139,9 @@ export type {
   GraphDebateCreateRequest,
   GraphDebate,
   GraphBranch,
+  GraphNode,
+  GraphStats,
+  MatrixScenarioResult,
 
   // Verification
   VerificationBackend,
@@ -190,6 +197,12 @@ export type {
   TenantMember,
   MemberList,
   AddMemberRequest,
+
+  // Organizations
+  Organization,
+  OrganizationMember,
+  OrganizationInvitation,
+  UserOrganization,
 
   // RBAC
   Permission,

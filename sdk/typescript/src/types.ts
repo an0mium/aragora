@@ -249,6 +249,59 @@ export interface WorkflowTemplate {
   parameters?: Record<string, unknown>;
 }
 
+export interface WorkflowExecution {
+  id: string;
+  workflow_id: string;
+  workflow_name?: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'waiting_approval';
+  current_step?: string;
+  progress?: number;
+  inputs?: Record<string, unknown>;
+  outputs?: Record<string, unknown>;
+  error?: string;
+  started_at?: string;
+  completed_at?: string;
+  created_at?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WorkflowApproval {
+  id: string;
+  execution_id: string;
+  workflow_id: string;
+  step_id: string;
+  approver_id?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reason?: string;
+  requested_at?: string;
+  resolved_at?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WorkflowVersion {
+  version: string;
+  workflow_id: string;
+  created_at: string;
+  created_by?: string;
+  changes?: string;
+  snapshot?: Workflow;
+}
+
+export interface WorkflowSimulationResult {
+  workflow_id: string;
+  valid: boolean;
+  steps_count: number;
+  estimated_duration?: number;
+  warnings?: string[];
+  errors?: string[];
+  step_previews?: Array<{
+    step_id: string;
+    name: string;
+    would_execute: boolean;
+    estimated_duration?: number;
+  }>;
+}
+
 // =============================================================================
 // Gauntlet Types
 // =============================================================================
@@ -603,6 +656,41 @@ export interface GraphBranch {
   messages: Message[];
   conclusion?: string;
   confidence?: number;
+}
+
+export interface GraphNode {
+  id: string;
+  type: 'root' | 'argument' | 'critique' | 'synthesis' | 'branch_point';
+  content: string;
+  agent?: string;
+  parent_id?: string;
+  children_ids?: string[];
+  round?: number;
+  confidence?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface GraphStats {
+  total_nodes: number;
+  total_edges: number;
+  max_depth: number;
+  branch_count: number;
+  leaf_count: number;
+  argument_count: number;
+  critique_count: number;
+  synthesis_count: number;
+}
+
+export interface MatrixScenarioResult {
+  scenario_id: string;
+  scenario_name: string;
+  debate_id?: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  conclusion?: string;
+  confidence?: number;
+  agent_votes?: Record<string, string>;
+  key_arguments?: string[];
+  completed_at?: string;
 }
 
 // =============================================================================
@@ -1011,6 +1099,206 @@ export interface KnowledgeStats {
   by_visibility: Record<string, number>;
   by_source: Record<string, number>;
   storage_bytes: number;
+}
+
+// =============================================================================
+// Knowledge Mound Types
+// =============================================================================
+
+export interface KnowledgeMoundNode {
+  id: string;
+  content: string;
+  node_type: 'fact' | 'concept' | 'claim' | 'evidence' | 'insight';
+  confidence: number;
+  source?: string;
+  source_debate_id?: string;
+  created_at: string;
+  updated_at?: string;
+  metadata?: Record<string, unknown>;
+  tags?: string[];
+  visibility: 'private' | 'team' | 'global';
+}
+
+export interface KnowledgeMoundRelationship {
+  id: string;
+  source_id: string;
+  target_id: string;
+  relationship_type: 'supports' | 'contradicts' | 'elaborates' | 'derived_from' | 'related_to';
+  strength: number;
+  confidence: number;
+  created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface KnowledgeMoundQueryResult {
+  nodes: KnowledgeMoundNode[];
+  relationships: KnowledgeMoundRelationship[];
+  total: number;
+  query_time_ms: number;
+}
+
+export interface KnowledgeMoundStats {
+  total_nodes: number;
+  total_relationships: number;
+  nodes_by_type: Record<string, number>;
+  relationships_by_type: Record<string, number>;
+  avg_confidence: number;
+  staleness_stats: {
+    fresh: number;
+    stale: number;
+    critical: number;
+  };
+  last_sync: string;
+}
+
+export interface KnowledgeMoundContradiction {
+  id: string;
+  node_a_id: string;
+  node_b_id: string;
+  description: string;
+  confidence: number;
+  detected_at: string;
+  resolved_at?: string;
+  resolution?: string;
+  resolution_method?: 'manual' | 'automated' | 'debate';
+}
+
+export interface KnowledgeMoundContradictionStats {
+  total_detected: number;
+  total_resolved: number;
+  pending: number;
+  by_resolution_method: Record<string, number>;
+  avg_resolution_time_hours: number;
+}
+
+export interface KnowledgeMoundGovernanceRole {
+  role_id: string;
+  name: string;
+  description: string;
+  permissions: string[];
+  created_at: string;
+}
+
+export interface KnowledgeMoundGovernanceStats {
+  total_roles: number;
+  total_assignments: number;
+  permissions_by_role: Record<string, number>;
+  audit_events_today: number;
+}
+
+export interface KnowledgeMoundAuditEvent {
+  id: string;
+  timestamp: string;
+  user_id: string;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  details?: Record<string, unknown>;
+}
+
+export interface KnowledgeMoundAnalytics {
+  coverage: {
+    total_topics: number;
+    covered_topics: number;
+    coverage_percentage: number;
+    gaps: string[];
+  };
+  usage: {
+    total_queries: number;
+    unique_users: number;
+    avg_query_time_ms: number;
+    popular_topics: Array<{ topic: string; count: number }>;
+  };
+  quality: {
+    avg_confidence: number;
+    freshness_score: number;
+    consistency_score: number;
+    completeness_score: number;
+  };
+}
+
+export interface KnowledgeMoundDashboard {
+  health: {
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    adapters_online: number;
+    adapters_total: number;
+    last_check: string;
+  };
+  metrics: {
+    nodes_added_today: number;
+    queries_today: number;
+    avg_response_time_ms: number;
+    cache_hit_rate: number;
+  };
+  alerts: Array<{
+    severity: 'info' | 'warning' | 'error';
+    message: string;
+    timestamp: string;
+  }>;
+}
+
+export interface KnowledgeMoundCurationPolicy {
+  id: string;
+  name: string;
+  enabled: boolean;
+  rules: Array<{
+    condition: string;
+    action: 'archive' | 'promote' | 'flag' | 'delete';
+    priority: number;
+  }>;
+  schedule?: string;
+  last_run?: string;
+}
+
+export interface KnowledgeMoundExtractionResult {
+  extracted_nodes: number;
+  promoted_nodes: number;
+  debate_id: string;
+  extracted_at: string;
+}
+
+export interface KnowledgeMoundConfidenceDecay {
+  node_id: string;
+  original_confidence: number;
+  current_confidence: number;
+  decay_rate: number;
+  last_validated?: string;
+  events: Array<{
+    timestamp: string;
+    event_type: string;
+    confidence_delta: number;
+  }>;
+}
+
+export interface KnowledgeMoundDeduplicationCluster {
+  cluster_id: string;
+  nodes: KnowledgeMoundNode[];
+  similarity_score: number;
+  recommended_action: 'merge' | 'review' | 'keep';
+}
+
+export interface KnowledgeMoundPruningItem {
+  node_id: string;
+  reason: 'stale' | 'low_confidence' | 'unused' | 'duplicate';
+  last_accessed?: string;
+  confidence: number;
+  created_at: string;
+}
+
+export interface KnowledgeMoundGraphExport {
+  format: 'd3' | 'graphml';
+  nodes: Array<{
+    id: string;
+    label: string;
+    type: string;
+    metadata?: Record<string, unknown>;
+  }>;
+  edges: Array<{
+    source: string;
+    target: string;
+    type: string;
+    weight?: number;
+  }>;
 }
 
 // =============================================================================
@@ -1428,6 +1716,53 @@ export interface AddMemberRequest {
   email: string;
   role: string;
   send_invitation?: boolean;
+}
+
+// =============================================================================
+// Organization Types
+// =============================================================================
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug?: string;
+  owner_id: string;
+  created_at: string;
+  updated_at?: string;
+  settings?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface OrganizationMember {
+  user_id: string;
+  email: string;
+  name?: string;
+  role: 'owner' | 'admin' | 'member';
+  joined_at: string;
+  invited_by?: string;
+  status: 'active' | 'invited' | 'suspended';
+}
+
+export interface OrganizationInvitation {
+  id: string;
+  organization_id: string;
+  email: string;
+  role: 'admin' | 'member';
+  token: string;
+  invited_by: string;
+  invited_at: string;
+  expires_at: string;
+  accepted_at?: string;
+  status: 'pending' | 'accepted' | 'expired' | 'revoked';
+}
+
+export interface UserOrganization {
+  id: string;
+  name: string;
+  role: 'owner' | 'admin' | 'member';
+  is_default: boolean;
+  is_active: boolean;
+  joined_at: string;
 }
 
 // =============================================================================
