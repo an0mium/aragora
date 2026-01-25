@@ -4,7 +4,7 @@ Enterprise Connectors for the Multi-Agent Control Plane.
 Provides crawling and syncing from enterprise data sources:
 - Git repositories (GitHub, GitLab, Bitbucket)
 - Cloud documents (S3, SharePoint, Google Drive, Google Sheets)
-- Databases (PostgreSQL, MongoDB, Snowflake)
+- Databases (PostgreSQL, MongoDB, MySQL, SQL Server, Snowflake)
 - Collaboration platforms (Confluence, Notion, Slack, Jira)
 - CRM platforms (Salesforce)
 - ITSM platforms (ServiceNow)
@@ -36,6 +36,8 @@ from aragora.connectors.enterprise.documents import (
 from aragora.connectors.enterprise.database import (
     PostgreSQLConnector,
     MongoDBConnector,
+    MySQLConnector,
+    SQLServerConnector,
     SnowflakeConnector,
 )
 from aragora.connectors.enterprise.sync import SyncScheduler, SyncJob, SyncSchedule, SyncHistory
@@ -73,6 +75,8 @@ __all__ = [
     # Database connectors
     "PostgreSQLConnector",
     "MongoDBConnector",
+    "MySQLConnector",
+    "SQLServerConnector",
     "SnowflakeConnector",
     # Collaboration connectors
     "ConfluenceConnector",
