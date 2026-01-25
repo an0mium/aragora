@@ -231,6 +231,9 @@ _wrap_agent_for_streaming = wrap_agent_for_streaming
 # Stuck debate timeout (10 minutes for production, prevents indefinitely running debates)
 STUCK_DEBATE_TIMEOUT_SECONDS = 600
 
+# Shorter timeout for debates stuck in "starting" state (should transition to running quickly)
+STUCK_STARTING_TIMEOUT_SECONDS = 60
+
 
 async def watchdog_stuck_debates(check_interval: float = 60.0) -> None:
     """Background coroutine to cleanup stuck debates.
@@ -258,9 +261,15 @@ async def watchdog_stuck_debates(check_interval: float = 60.0) -> None:
             # Get all active debates and find stuck ones
             debates = manager.get_active_debates()
             for debate_id, state in debates.items():
-                if state.status in ("running", "starting"):
+                if state.status in ("running", "starting", "initializing"):
                     elapsed = now - state.start_time
-                    if elapsed > STUCK_DEBATE_TIMEOUT_SECONDS:
+                    # Use shorter timeout for debates stuck in starting/initializing state
+                    timeout = (
+                        STUCK_STARTING_TIMEOUT_SECONDS
+                        if state.status in ("starting", "initializing")
+                        else STUCK_DEBATE_TIMEOUT_SECONDS
+                    )
+                    if elapsed > timeout:
                         stuck_debates.append((debate_id, elapsed))
 
             # Process stuck debates

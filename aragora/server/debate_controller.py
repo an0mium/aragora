@@ -406,6 +406,9 @@ Return JSON with these exact fields:
 
         start_time = time.time()
         try:
+            # Update status to initializing immediately to prevent stuck "starting" state
+            update_debate_status(debate_id, "initializing")
+
             # Create event hooks for streaming with explicit loop_id
             # (prevents race condition when multiple debates run concurrently)
             hooks = create_arena_hooks(self.emitter, loop_id=debate_id)
