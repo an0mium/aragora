@@ -143,13 +143,9 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
         JWTPayload if valid, None otherwise
     """
     try:
-        # Log token prefix for debugging (don't log full token for security)
-        token_prefix = token[:50] if len(token) > 50 else token
-        logger.info(f"[JWT_DEBUG] decode_jwt called, token_prefix={token_prefix}...")
-
         parts = token.split(".")
         if len(parts) != 3:
-            logger.warning("[JWT_DEBUG] jwt_decode_failed: invalid format (not 3 parts)")
+            logger.debug("jwt_decode_failed: invalid token format")
             return None
 
         header_b64, payload_b64, signature_b64 = parts
@@ -158,16 +154,15 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
         try:
             header_json = _base64url_decode(header_b64).decode("utf-8")
             header = json.loads(header_json)
-            logger.info(f"[JWT_DEBUG] Header decoded: {header}")
-        except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as e:
-            logger.warning(f"[JWT_DEBUG] jwt_decode_failed: invalid header encoding: {e}")
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
+            logger.debug("jwt_decode_failed: invalid header encoding")
             return None
 
         token_alg = header.get("alg", "")
 
         # Reject 'none' algorithm attack and other disallowed algorithms
         if token_alg not in ALLOWED_ALGORITHMS:
-            logger.warning(f"[JWT_DEBUG] jwt_decode_failed: disallowed algorithm '{token_alg}'")
+            logger.warning("jwt_decode_failed: disallowed algorithm")
             return None
 
         if token_alg != JWT_ALGORITHM:
