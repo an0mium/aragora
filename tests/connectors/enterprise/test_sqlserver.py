@@ -401,8 +401,7 @@ class TestCDCPolling:
         await cdc_connector.stop_cdc_polling()
 
         assert task.cancelled()
-        # _cdc_task is cancelled but not set to None
-        assert task.cancelled() is True
+        assert cdc_connector._cdc_task is None
 
 
 # =============================================================================
@@ -436,6 +435,7 @@ class TestChangeTrackingPolling:
         await ct_connector.stop_cdc_polling()
 
         assert task.cancelled()
+        assert ct_connector._cdc_task is None
 
 
 # =============================================================================

@@ -614,6 +614,7 @@ class SQLServerConnector(EnterpriseConnector):
                 await self._cdc_task
             except asyncio.CancelledError:
                 pass
+            self._cdc_task = None
 
         logger.info(f"[SQL Server CDC/CT] Stopped polling for {self.database}")
 
