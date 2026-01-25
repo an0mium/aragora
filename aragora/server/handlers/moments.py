@@ -104,7 +104,7 @@ class MomentsHandler(BaseHandler):
 
         # Handle /api/moments/by-type/{type}
         if normalized.startswith("/api/moments/by-type/"):
-            moment_type, err = self.extract_path_param(normalized, 3, "moment_type")
+            moment_type, err = self.extract_path_param(normalized, 4, "moment_type")
             if err:
                 return err
             if moment_type not in VALID_MOMENT_TYPES:
