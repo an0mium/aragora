@@ -46,8 +46,8 @@ if TYPE_CHECKING:
 from aragora.config.legacy import ALLOWED_AGENT_TYPES
 
 # Valid debate roles (from core.py)
-AgentRole = Literal["proposer", "critic", "synthesizer", "judge"]
-VALID_ROLES: frozenset[str] = frozenset({"proposer", "critic", "synthesizer", "judge"})
+AgentRole = Literal["proposer", "critic", "synthesizer", "judge", "analyst"]
+VALID_ROLES: frozenset[str] = frozenset({"proposer", "critic", "synthesizer", "judge", "analyst"})
 
 
 def _find_similar(
