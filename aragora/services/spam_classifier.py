@@ -47,10 +47,11 @@ Usage:
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import math
 import os
-import pickle
+import pickle  # Legacy support only - do not use for new saves
 import re
 import sqlite3
 import threading
@@ -987,7 +988,7 @@ class NaiveBayesClassifier:
         return words
 
     def save(self, path: str) -> None:
-        """Save model to file."""
+        """Save model to file using JSON (safe serialization)."""
         with self._lock:
             data = {
                 "word_spam_counts": dict(self.word_spam_counts),
@@ -996,24 +997,48 @@ class NaiveBayesClassifier:
                 "ham_count": self.ham_count,
                 "vocabulary": list(self.vocabulary),
             }
-            with open(path, "wb") as f:
-                pickle.dump(data, f)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f)
 
     def load(self, path: str) -> bool:
-        """Load model from file."""
+        """Load model from file.
+
+        Supports JSON (preferred) with legacy pickle fallback for migration.
+        """
         try:
-            with open(path, "rb") as f:
-                data = pickle.load(f)
-            with self._lock:
-                self.word_spam_counts = Counter(data["word_spam_counts"])
-                self.word_ham_counts = Counter(data["word_ham_counts"])
-                self.spam_count = data["spam_count"]
-                self.ham_count = data["ham_count"]
-                self.vocabulary = set(data["vocabulary"])
-            return True
+            # Try JSON first (secure format)
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            # Legacy pickle fallback - only for migration from old format
+            # SECURITY: Only load pickle files from trusted sources
+            logger.warning(f"Loading legacy pickle model from {path} - will re-save as JSON")
+            try:
+                with open(path, "rb") as f:
+                    data = pickle.load(f)
+                # Re-save as JSON immediately to migrate away from pickle
+                self._apply_model_data(data)
+                self.save(path)
+                logger.info(f"Migrated model from pickle to JSON: {path}")
+                return True
+            except Exception as e:
+                logger.warning(f"Failed to load legacy pickle model: {e}")
+                return False
         except Exception as e:
             logger.warning(f"Failed to load model: {e}")
             return False
+
+        self._apply_model_data(data)
+        return True
+
+    def _apply_model_data(self, data: dict) -> None:
+        """Apply loaded model data to instance."""
+        with self._lock:
+            self.word_spam_counts = Counter(data["word_spam_counts"])
+            self.word_ham_counts = Counter(data["word_ham_counts"])
+            self.spam_count = data["spam_count"]
+            self.ham_count = data["ham_count"]
+            self.vocabulary = set(data["vocabulary"])
 
     @property
     def is_trained(self) -> bool:
