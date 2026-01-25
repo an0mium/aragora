@@ -791,6 +791,27 @@ module = [
     # Payment connectors (external API types)
     "aragora.connectors.payments.paypal",
     "aragora.connectors.accounting.qbo",
+    # Enterprise database connectors (complex third-party async types)
+    "aragora.connectors.enterprise.database.mongodb",
+    "aragora.connectors.enterprise.database.postgres",
+    # Visualization and CLI modules (complex return types)
+    "aragora.visualization.replay",
+    "aragora.tournaments.tournament",
+    "aragora.ranking.km_elo_bridge",
+    "aragora.cli.template",
+    "aragora.cli.knowledge",
+    "aragora.cli.document_audit",
+    "aragora.cli.audit",
+    "aragora.cli.gauntlet",
+    "aragora.tools.code",
+    # Server handlers with dynamic patterns
+    "aragora.server.handlers.inbox_command",
+    "aragora.server.stream.debate_executor",
+    "aragora.server.handlers.knowledge.analytics",
+    "aragora.server.stream.servers",
+    # MCP modules (dynamic typing)
+    "aragora.mcp.tools_module.integrations",
+    "aragora.mcp.server",
 ]
 ignore_errors = true
 

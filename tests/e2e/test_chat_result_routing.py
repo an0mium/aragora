@@ -463,7 +463,12 @@ class TestOriginCleanup:
         mock_store.save.return_value = None
 
         try:
-            with patch("aragora.server.debate_origin._get_sqlite_store", return_value=mock_store):
+            # Mock all persistent store retrieval paths to test in-memory cleanup only
+            with (
+                patch("aragora.server.debate_origin._get_sqlite_store", return_value=mock_store),
+                patch("aragora.server.debate_origin._load_origin_redis", return_value=None),
+                patch("aragora.server.debate_origin._get_postgres_store_sync", return_value=None),
+            ):
                 # Register an origin
                 debate_id = f"debate-{uuid.uuid4().hex[:8]}"
                 origin = register_debate_origin(

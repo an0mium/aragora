@@ -286,9 +286,9 @@ class TestGlobalRegistry:
     def test_metrics_includes_summary(self):
         """E2E: get_circuit_breaker_metrics should include summary."""
         cb = get_circuit_breaker("metrics-test")
-        cb.record_failure()
-        cb.record_failure()
-        cb.record_failure()
+        # Record enough failures to trip the circuit breaker (default threshold is 5)
+        for _ in range(5):
+            cb.record_failure()
 
         metrics = get_circuit_breaker_metrics()
 
