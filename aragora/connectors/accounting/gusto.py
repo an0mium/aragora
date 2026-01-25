@@ -27,6 +27,12 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
+from aragora.connectors.exceptions import (
+    ConnectorAPIError,
+    ConnectorAuthError,
+    ConnectorConfigError,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -386,7 +392,10 @@ class GustoConnector:
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    raise Exception(f"Token exchange failed: {error_text}")
+                    raise ConnectorAuthError(
+                        f"Token exchange failed: {error_text}",
+                        connector_name="gusto",
+                    )
 
                 data = await response.json()
 
@@ -409,7 +418,10 @@ class GustoConnector:
     async def refresh_tokens(self) -> GustoCredentials:
         """Refresh OAuth tokens."""
         if not self._credentials:
-            raise Exception("No credentials to refresh")
+            raise ConnectorConfigError(
+                "No credentials to refresh",
+                connector_name="gusto",
+            )
 
         import aiohttp
 
@@ -425,7 +437,10 @@ class GustoConnector:
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    raise Exception(f"Token refresh failed: {error_text}")
+                    raise ConnectorAuthError(
+                        f"Token refresh failed: {error_text}",
+                        connector_name="gusto",
+                    )
 
                 data = await response.json()
 
@@ -456,7 +471,7 @@ class GustoConnector:
         token = access_token
         if not token:
             if not self._credentials:
-                raise Exception("Not authenticated")
+                raise ConnectorAuthError("Not authenticated", connector_name="gusto")
             if self._credentials.is_expired:
                 await self.refresh_tokens()
             token = self._credentials.access_token
@@ -482,7 +497,11 @@ class GustoConnector:
 
                 if response.status >= 400:
                     error = response_data.get("error", "Unknown error")
-                    raise Exception(f"Gusto API error: {error}")
+                    raise ConnectorAPIError(
+                        f"Gusto API error: {error}",
+                        connector_name="gusto",
+                        status_code=response.status,
+                    )
 
                 return response_data
 
@@ -510,7 +529,7 @@ class GustoConnector:
     ) -> List[Employee]:
         """List all employees."""
         if not self._credentials:
-            raise Exception("Not authenticated")
+            raise ConnectorAuthError("Not authenticated", connector_name="gusto")
 
         response = await self._request(
             "GET",
@@ -563,7 +582,7 @@ class GustoConnector:
     ) -> List[PayrollRun]:
         """List payroll runs."""
         if not self._credentials:
-            raise Exception("Not authenticated")
+            raise ConnectorAuthError("Not authenticated", connector_name="gusto")
 
         # Build query params
         params = []
@@ -614,7 +633,7 @@ class GustoConnector:
     async def get_payroll(self, payroll_id: str) -> Optional[PayrollRun]:
         """Get detailed payroll run with employee items."""
         if not self._credentials:
-            raise Exception("Not authenticated")
+            raise ConnectorAuthError("Not authenticated", connector_name="gusto")
 
         response = await self._request(
             "GET",

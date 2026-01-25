@@ -27,6 +27,14 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from aragora.connectors.exceptions import (
+    ConnectorAPIError,
+    ConnectorAuthError,
+    ConnectorConfigError,
+    ConnectorNetworkError,
+    ConnectorTimeoutError,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -272,7 +280,10 @@ class QuickBooksConnector:
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    raise Exception(f"Token exchange failed: {error_text}")
+                    raise ConnectorAuthError(
+                        f"Token exchange failed: {error_text}",
+                        connector_name="qbo",
+                    )
 
                 data = await response.json()
 
@@ -290,7 +301,10 @@ class QuickBooksConnector:
     async def refresh_tokens(self) -> QBOCredentials:
         """Refresh OAuth tokens."""
         if not self._credentials:
-            raise Exception("No credentials to refresh")
+            raise ConnectorConfigError(
+                "No credentials to refresh",
+                connector_name="qbo",
+            )
 
         import aiohttp
         import base64
@@ -311,7 +325,10 @@ class QuickBooksConnector:
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    raise Exception(f"Token refresh failed: {error_text}")
+                    raise ConnectorAuthError(
+                        f"Token refresh failed: {error_text}",
+                        connector_name="qbo",
+                    )
 
                 data = await response.json()
 
@@ -359,7 +376,7 @@ class QuickBooksConnector:
         import aiohttp
 
         if not self._credentials:
-            raise Exception("Not authenticated")
+            raise ConnectorAuthError("Not authenticated", connector_name="qbo")
 
         # Refresh if expired
         if self._credentials.is_expired:
@@ -410,7 +427,11 @@ class QuickBooksConnector:
 
                         if response.status >= 400:
                             error = response_data.get("Fault", {}).get("Error", [{}])[0]
-                            raise Exception(f"QBO API error: {error.get('Message', 'Unknown error')}")
+                            raise ConnectorAPIError(
+                                f"QBO API error: {error.get('Message', 'Unknown error')}",
+                                connector_name="qbo",
+                                status_code=response.status,
+                            )
 
                         return response_data
 
@@ -424,7 +445,10 @@ class QuickBooksConnector:
                     )
                     await asyncio.sleep(delay)
                     continue
-                raise Exception(f"QBO connection failed after {max_retries} retries: {e}")
+                raise ConnectorNetworkError(
+                    f"QBO connection failed after {max_retries} retries: {e}",
+                    connector_name="qbo",
+                )
 
             except asyncio.TimeoutError:
                 last_error = asyncio.TimeoutError("Request timed out")
@@ -436,10 +460,16 @@ class QuickBooksConnector:
                     )
                     await asyncio.sleep(delay)
                     continue
-                raise Exception(f"QBO request timed out after {max_retries} retries")
+                raise ConnectorTimeoutError(
+                    f"QBO request timed out after {max_retries} retries",
+                    connector_name="qbo",
+                )
 
         # Should not reach here, but just in case
-        raise last_error or Exception("QBO request failed")
+        raise ConnectorAPIError(
+            "QBO request failed",
+            connector_name="qbo",
+        ) from last_error
 
     # =========================================================================
     # Customer Operations

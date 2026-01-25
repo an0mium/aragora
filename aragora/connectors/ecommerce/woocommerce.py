@@ -31,6 +31,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aragora.connectors.base import Evidence
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
+from aragora.connectors.exceptions import ConnectorAPIError
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
@@ -445,7 +446,11 @@ class WooCommerceConnector(EnterpriseConnector):
         async with self._client.request(method, url, params=params, json=json_data) as resp:
             if resp.status >= 400:
                 error_text = await resp.text()
-                raise Exception(f"WooCommerce API error {resp.status}: {error_text}")
+                raise ConnectorAPIError(
+                    f"WooCommerce API error: {error_text}",
+                    connector_name="woocommerce",
+                    status_code=resp.status,
+                )
             return await resp.json()
 
     # =========================================================================

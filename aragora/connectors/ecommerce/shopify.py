@@ -30,6 +30,7 @@ from enum import Enum
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncResult, SyncState
+from aragora.connectors.exceptions import ConnectorAPIError
 
 logger = logging.getLogger(__name__)
 
@@ -453,7 +454,11 @@ class ShopifyConnector(EnterpriseConnector):
         async with self._session.request(method, url, params=params, json=json_data) as resp:
             if resp.status >= 400:
                 error_text = await resp.text()
-                raise Exception(f"Shopify API error {resp.status}: {error_text}")
+                raise ConnectorAPIError(
+                    f"Shopify API error: {error_text}",
+                    connector_name="shopify",
+                    status_code=resp.status,
+                )
             data = await resp.json()
             if return_headers:
                 return data, dict(resp.headers)
