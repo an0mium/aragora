@@ -32,6 +32,7 @@ from typing import Any, Callable, Optional, TypeVar, ParamSpec
 from aragora.auth.lockout import get_lockout_tracker
 from aragora.billing.jwt_auth import create_access_token, extract_user_from_request
 from aragora.server.middleware.mfa import enforce_admin_mfa_policy
+from aragora.audit.unified import audit_admin
 
 from ..base import (
     SAFE_ID_PATTERN,
@@ -677,6 +678,13 @@ class AdminHandler(SecureHandler):
         user_store.update_user(target_user_id, is_active=False)
 
         logger.info(f"Admin {auth_ctx.user_id} deactivated user {target_user_id}")
+        audit_admin(
+            admin_id=auth_ctx.user_id,
+            action="deactivate_user",
+            target_type="user",
+            target_id=target_user_id,
+            target_email=target_user.email,
+        )
 
         return json_response(
             {
@@ -710,6 +718,13 @@ class AdminHandler(SecureHandler):
         user_store.update_user(target_user_id, is_active=True)
 
         logger.info(f"Admin {auth_ctx.user_id} activated user {target_user_id}")
+        audit_admin(
+            admin_id=auth_ctx.user_id,
+            action="activate_user",
+            target_type="user",
+            target_id=target_user_id,
+            target_email=target_user.email,
+        )
 
         return json_response(
             {
