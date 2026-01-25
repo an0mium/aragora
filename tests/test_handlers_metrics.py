@@ -348,7 +348,7 @@ class TestPrometheusEndpoint:
         # Should contain some metric-like content
         assert len(body) > 0
 
-    @patch("aragora.server.handlers.metrics.get_metrics_output")
+    @patch("aragora.server.handlers.metrics.handler.get_metrics_output")
     def test_handles_prometheus_error(self, mock_output, handler):
         """Handles errors during Prometheus generation."""
         mock_output.side_effect = Exception("Prometheus error")

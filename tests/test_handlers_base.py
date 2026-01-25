@@ -718,7 +718,7 @@ class TestBaseHandler:
 
     def test_extract_path_param_success(self, handler):
         """Test successful path param extraction."""
-        value, err = handler.extract_path_param("/api/debates/abc123/status", 2, "debate_id")
+        value, err = handler.extract_path_param("/api/debates/abc123/status", 3, "debate_id")
         assert value == "abc123"
         assert err is None
 
@@ -731,14 +731,14 @@ class TestBaseHandler:
 
     def test_extract_path_param_empty(self, handler):
         """Test error for empty segment."""
-        value, err = handler.extract_path_param("/api/debates//status", 2, "debate_id")
+        value, err = handler.extract_path_param("/api/debates//status", 3, "debate_id")
         assert value is None
         assert err.status_code == 400
 
     def test_extract_path_param_invalid_pattern(self, handler):
         """Test error for invalid pattern match."""
         value, err = handler.extract_path_param(
-            "/api/debates/../../../etc/passwd/status", 2, "debate_id"
+            "/api/debates/../../../etc/passwd/status", 3, "debate_id"
         )
         assert value is None
         assert err.status_code == 400
@@ -747,7 +747,7 @@ class TestBaseHandler:
         """Test custom validation pattern."""
         # Agent names allow hyphens
         value, err = handler.extract_path_param(
-            "/api/agents/claude-3", 2, "agent_name", SAFE_AGENT_PATTERN
+            "/api/agents/claude-3", 3, "agent_name", SAFE_AGENT_PATTERN
         )
         assert value == "claude-3"
         assert err is None
@@ -1029,7 +1029,7 @@ class TestBaseHandlerIntegration:
         class CombinedHandler(BaseHandler, PaginatedHandlerMixin, CachedHandlerMixin):
             def handle(self, path, query_params, handler):
                 # Extract path param
-                item_id, err = self.extract_path_param(path, 2, "item_id")
+                item_id, err = self.extract_path_param(path, 3, "item_id")
                 if err:
                     return err
 

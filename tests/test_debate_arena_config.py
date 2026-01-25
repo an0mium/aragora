@@ -190,9 +190,9 @@ class TestArenaConfigDefaults:
         assert config.checkpoint_manager is None
 
     def test_default_enable_checkpointing(self):
-        """Test default enable_checkpointing is False."""
+        """Test default enable_checkpointing is True."""
         config = ArenaConfig()
-        assert config.enable_checkpointing is False
+        assert config.enable_checkpointing is True
 
     def test_default_performance_monitor_none(self):
         """Test default performance_monitor is None."""
