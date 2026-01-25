@@ -425,6 +425,24 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
             "/api/v1/leaderboard",
             "/api/v1/leaderboard-view",
             "/api/v1/agents",
+            # Public dashboard base paths (without trailing slash)
+            # These match exact requests like /api/features that don't have a subpath
+            "/api/features",
+            "/api/v1/features",
+            "/api/analytics",
+            "/api/v1/analytics",
+            "/api/replays",
+            "/api/v1/replays",
+            "/api/tournaments",
+            "/api/v1/tournaments",
+            "/api/reviews",
+            "/api/v1/reviews",
+            "/api/verticals",
+            "/api/v1/verticals",
+            "/api/evolution",
+            "/api/v1/evolution",
+            "/api/debates",
+            "/api/v1/debates",
         ]
     )
 
@@ -464,6 +482,8 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         "/api/v1/features/",  # Public feature config (v1)
         "/api/gauntlet/personas",  # Public gauntlet personas list
         "/api/v1/gauntlet/personas",  # Public gauntlet personas list (v1)
+        "/api/debates/",  # Public debate browsing
+        "/api/v1/debates/",  # Public debate browsing (v1)
     )
 
     def _check_rate_limit(self) -> bool:
