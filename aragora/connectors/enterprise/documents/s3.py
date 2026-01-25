@@ -290,6 +290,8 @@ class S3Connector(EnterpriseConnector):
                         )
                         body = obj_response["Body"].read()
                         content_type = obj_response.get("ContentType", "")
+                        # ETag provides content hash for change detection
+                        etag = obj_response.get("ETag", "").strip('"')
 
                         # Extract text
                         text = await self._extract_text(key, body, content_type)
@@ -297,7 +299,7 @@ class S3Connector(EnterpriseConnector):
                         # Infer domain
                         domain = self._infer_domain(key)
 
-                        # Create sync item
+                        # Create sync item with content hash
                         yield SyncItem(
                             id=f"s3:{self.bucket}:{hashlib.sha256(key.encode()).hexdigest()[:12]}",
                             content=text[:100000],  # Limit content size
@@ -312,6 +314,7 @@ class S3Connector(EnterpriseConnector):
                             ),
                             domain=domain,
                             confidence=0.75,
+                            content_hash=etag,  # Use S3 ETag for change detection
                             metadata={
                                 "bucket": self.bucket,
                                 "key": key,
@@ -319,6 +322,7 @@ class S3Connector(EnterpriseConnector):
                                 "content_type": content_type,
                                 "last_modified": last_modified.isoformat(),
                                 "extension": Path(key).suffix.lower(),
+                                "etag": etag,
                             },
                         )
 

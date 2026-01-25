@@ -69,6 +69,7 @@ class DriveFile:
     owners: List[str] = field(default_factory=list)
     shared: bool = False
     drive_id: Optional[str] = None  # For Shared Drives
+    md5_checksum: Optional[str] = None  # Content hash for change detection
 
 
 @dataclass
@@ -278,7 +279,7 @@ class GoogleDriveConnector(EnterpriseConnector):
 
         params: Dict[str, Any] = {
             "pageSize": 100,
-            "fields": "nextPageToken,files(id,name,mimeType,size,createdTime,modifiedTime,webViewLink,parents,owners,shared,driveId)",
+            "fields": "nextPageToken,files(id,name,mimeType,size,createdTime,modifiedTime,webViewLink,parents,owners,shared,driveId,md5Checksum)",
         }
 
         if query:
@@ -322,6 +323,7 @@ class GoogleDriveConnector(EnterpriseConnector):
                     owners=[o.get("displayName", "") for o in item.get("owners", [])],
                     shared=item.get("shared", False),
                     drive_id=item.get("driveId"),
+                    md5_checksum=item.get("md5Checksum"),
                 )
             )
 
@@ -362,7 +364,7 @@ class GoogleDriveConnector(EnterpriseConnector):
             params: Dict[str, Any] = {
                 "pageToken": page_token,
                 "pageSize": 100,
-                "fields": "nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,size,createdTime,modifiedTime,webViewLink,parents,owners,shared,driveId))",
+                "fields": "nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,size,createdTime,modifiedTime,webViewLink,parents,owners,shared,driveId,md5Checksum))",
             }
 
             if self.include_shared_drives:
@@ -410,6 +412,7 @@ class GoogleDriveConnector(EnterpriseConnector):
                         owners=[o.get("displayName", "") for o in file_data.get("owners", [])],
                         shared=file_data.get("shared", False),
                         drive_id=file_data.get("driveId"),
+                        md5_checksum=file_data.get("md5Checksum"),
                     )
                 )
 
@@ -522,12 +525,14 @@ class GoogleDriveConnector(EnterpriseConnector):
                     updated_at=file.modified_time,
                     domain="enterprise/gdrive",
                     confidence=0.85,
+                    content_hash=file.md5_checksum,  # Use GDrive md5Checksum for change detection
                     metadata={
                         "file_id": file.id,
                         "mime_type": file.mime_type,
                         "size": file.size,
                         "shared": file.shared,
                         "drive_id": file.drive_id,
+                        "md5_checksum": file.md5_checksum,
                     },
                 )
 
@@ -589,6 +594,7 @@ class GoogleDriveConnector(EnterpriseConnector):
                         updated_at=file.modified_time,
                         domain="enterprise/gdrive",
                         confidence=0.85,
+                        content_hash=file.md5_checksum,  # Use GDrive md5Checksum for change detection
                         metadata={
                             "file_id": file.id,
                             "mime_type": file.mime_type,
@@ -596,6 +602,7 @@ class GoogleDriveConnector(EnterpriseConnector):
                             "shared": file.shared,
                             "drive_id": file.drive_id,
                             "folder_id": folder_id,
+                            "md5_checksum": file.md5_checksum,
                         },
                     )
 

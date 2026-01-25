@@ -223,6 +223,8 @@ class SyncItem:
     domain: str = "general"
     confidence: float = 0.7
     metadata: Dict[str, Any] = field(default_factory=dict)
+    # Content hash for change detection (e.g., S3 ETag, GDrive md5Checksum)
+    content_hash: Optional[str] = None
 
     def to_evidence(self, connector_source_type: SourceType) -> Evidence:
         """Convert to Evidence for compatibility with base connector."""
@@ -238,6 +240,41 @@ class SyncItem:
             confidence=self.confidence,
             metadata=self.metadata,
         )
+
+    def has_changed(self, previous_hash: Optional[str]) -> bool:
+        """
+        Check if the item has changed based on content hash.
+
+        Enables efficient change detection by comparing hashes instead of
+        re-processing entire documents. Uses content_hash field (e.g., S3 ETag,
+        GDrive md5Checksum) when available.
+
+        Args:
+            previous_hash: The hash from the previous sync (None if new item)
+
+        Returns:
+            True if the item has changed or is new, False if unchanged
+        """
+        # New item or no previous hash
+        if previous_hash is None:
+            return True
+
+        # No current hash available - assume changed
+        if self.content_hash is None:
+            return True
+
+        # Compare hashes
+        return self.content_hash != previous_hash
+
+    def compute_content_hash(self) -> str:
+        """
+        Compute a content hash if one wasn't provided.
+
+        Uses SHA-256 of content for consistent hashing.
+        """
+        if self.content_hash:
+            return self.content_hash
+        return hashlib.sha256(self.content.encode("utf-8")).hexdigest()
 
 
 class EnterpriseConnector(BaseConnector):
