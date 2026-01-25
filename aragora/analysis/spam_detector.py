@@ -529,7 +529,8 @@ class SpamDetector:
         try:
             parsed = urlparse(url)
             domain = parsed.netloc.lower()
-        except Exception:
+        except (ValueError, AttributeError):
+            # ValueError: malformed URL, AttributeError: non-string input
             domain = ""
 
         is_shortened = domain in self.URL_SHORTENERS
