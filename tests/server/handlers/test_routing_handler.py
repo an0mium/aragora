@@ -45,11 +45,12 @@ class TestRoutingHandlerRouting:
 
     def test_routes_defined(self):
         """Handler should define expected routes."""
-        assert "/api/v1/routing/best-teams" in RoutingHandler.ROUTES
-        assert "/api/v1/routing/recommendations" in RoutingHandler.ROUTES
-        assert "/api/v1/routing/auto-route" in RoutingHandler.ROUTES
-        assert "/api/v1/routing/detect-domain" in RoutingHandler.ROUTES
-        assert "/api/v1/routing/domain-leaderboard" in RoutingHandler.ROUTES
+        # ROUTES uses normalized paths without version prefix
+        assert "/api/routing/best-teams" in RoutingHandler.ROUTES
+        assert "/api/routing/recommendations" in RoutingHandler.ROUTES
+        assert "/api/routing/auto-route" in RoutingHandler.ROUTES
+        assert "/api/routing/detect-domain" in RoutingHandler.ROUTES
+        assert "/api/routing/domain-leaderboard" in RoutingHandler.ROUTES
 
     def test_can_handle_routes(self):
         """Should handle defined routes."""

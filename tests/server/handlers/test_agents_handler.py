@@ -28,12 +28,13 @@ class TestAgentsHandlerInit:
 
     def test_routes_includes_core_endpoints(self):
         """ROUTES should include core agent endpoints."""
+        # ROUTES uses normalized paths without version prefix
         routes = AgentsHandler.ROUTES
-        assert "/api/v1/agents" in routes
-        assert "/api/v1/leaderboard" in routes
-        assert "/api/v1/rankings" in routes
-        assert "/api/v1/matches/recent" in routes
-        assert "/api/v1/agent/compare" in routes
+        assert "/api/agents" in routes
+        assert "/api/leaderboard" in routes
+        assert "/api/rankings" in routes
+        assert "/api/matches/recent" in routes
+        assert "/api/agent/compare" in routes
 
 
 class TestAgentsHandlerCanHandle:

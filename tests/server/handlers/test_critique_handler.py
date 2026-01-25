@@ -44,9 +44,10 @@ class TestCritiqueHandlerRouting:
 
     def test_routes_defined(self):
         """Handler should define expected routes."""
-        assert "/api/v1/critiques/patterns" in CritiqueHandler.ROUTES
-        assert "/api/v1/critiques/archive" in CritiqueHandler.ROUTES
-        assert "/api/v1/reputation/all" in CritiqueHandler.ROUTES
+        # ROUTES uses normalized paths without version prefix
+        assert "/api/critiques/patterns" in CritiqueHandler.ROUTES
+        assert "/api/critiques/archive" in CritiqueHandler.ROUTES
+        assert "/api/reputation/all" in CritiqueHandler.ROUTES
 
     def test_can_handle_static_routes(self):
         """Should handle static routes."""
