@@ -32,6 +32,9 @@ import type {
   CodebaseUnderstanding,
   ConsensusQualityAnalytics,
   ConsensusStats,
+  ContinuumRetrieveOptions,
+  ContinuumStoreOptions,
+  ContinuumStoreResult,
   Counterfactual,
   CounterfactualGeneration,
   CounterfactualList,
@@ -1868,15 +1871,91 @@ export class AragoraClient {
     return this.request<{ critiques: CritiqueEntry[] }>('GET', '/api/v1/memory/critiques', { params });
   }
 
-  async retrieveFromContinuum(query: string, options?: {
-    tier?: 'fast' | 'medium' | 'slow' | 'glacial';
-    limit?: number;
-  }): Promise<{ entries: MemoryEntry[] }> {
+  /**
+   * Store content in the continuum memory system.
+   *
+   * The continuum memory system organizes data across tiers based on
+   * access patterns and importance, automatically promoting or demoting
+   * entries over time.
+   *
+   * @param content - Content to store in memory
+   * @param options - Storage options
+   * @returns Storage confirmation with entry ID and tier
+   *
+   * @example
+   * ```typescript
+   * const result = await client.storeToContinuum('Important insight from debate', {
+   *   tier: 'medium',
+   *   tags: ['debate', 'insight'],
+   *   metadata: { debate_id: 'deb-123' }
+   * });
+   * console.log(`Stored with ID: ${result.id}`);
+   * ```
+   */
+  async storeToContinuum(content: string, options?: ContinuumStoreOptions): Promise<ContinuumStoreResult> {
+    return this.request<ContinuumStoreResult>('POST', '/api/memory/continuum/store', {
+      body: {
+        content,
+        tier: options?.tier ?? 'medium',
+        tags: options?.tags,
+        metadata: options?.metadata,
+      },
+    });
+  }
+
+  /**
+   * Retrieve memories from the continuum by semantic query.
+   *
+   * Searches across memory tiers for entries matching the query,
+   * returning relevant memories ranked by relevance and importance.
+   *
+   * @param query - Search query string
+   * @param options - Retrieval options
+   * @returns Matching memory entries
+   *
+   * @example
+   * ```typescript
+   * const { entries } = await client.retrieveFromContinuum('database optimization', {
+   *   tier: 'slow',
+   *   limit: 5
+   * });
+   * entries.forEach(e => console.log(e.content));
+   * ```
+   */
+  async retrieveFromContinuum(query: string, options?: ContinuumRetrieveOptions): Promise<{ entries: MemoryEntry[] }> {
     return this.request<{ entries: MemoryEntry[] }>('GET', '/api/memory/continuum/retrieve', {
       params: { q: query, ...options },
     });
   }
 
+  /**
+   * Get statistics for the continuum memory system.
+   *
+   * Returns detailed metrics about memory usage across all tiers,
+   * including entry counts, consolidation rates, and health status.
+   *
+   * @returns Continuum memory statistics
+   *
+   * @example
+   * ```typescript
+   * const stats = await client.getContinuumStats();
+   * console.log(`Total entries: ${stats.total_entries}`);
+   * console.log(`Health: ${stats.health_status}`);
+   * ```
+   */
+  async getContinuumStats(): Promise<MemoryStats> {
+    return this.request<MemoryStats>('GET', '/api/memory/continuum/stats');
+  }
+
+  /**
+   * Consolidate memory across tiers.
+   *
+   * Triggers the memory consolidation process which promotes frequently
+   * accessed entries to faster tiers and demotes infrequently accessed
+   * entries to slower tiers.
+   *
+   * @returns Consolidation result
+   */
   async consolidateMemory(): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>('POST', '/api/memory/continuum/consolidate');
   }

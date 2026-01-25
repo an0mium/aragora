@@ -1404,6 +1404,31 @@ export interface MemoryStats {
   health_status: 'healthy' | 'degraded' | 'critical';
 }
 
+export interface ContinuumStoreOptions {
+  /** Target memory tier for storage (default: 'medium') */
+  tier?: MemoryTier;
+  /** Tags for categorization and filtering */
+  tags?: string[];
+  /** Additional metadata to store with the entry */
+  metadata?: Record<string, unknown>;
+}
+
+export interface ContinuumStoreResult {
+  /** Unique identifier for the stored memory entry */
+  id: string;
+  /** The tier where the content was stored */
+  tier: string;
+  /** Timestamp when the entry was created */
+  created_at: string;
+}
+
+export interface ContinuumRetrieveOptions {
+  /** Filter to a specific memory tier */
+  tier?: MemoryTier;
+  /** Maximum number of results to return */
+  limit?: number;
+}
+
 // =============================================================================
 // Debate Update Types
 // =============================================================================
