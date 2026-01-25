@@ -64,7 +64,7 @@ function InsightsPanelComponent({ wsMessages = [], apiBase = DEFAULT_API_BASE }:
     try {
       setLoading(true);
       const response = await fetchWithRetry(
-        `${apiBase}/api/insights/recent?limit=10`,
+        `${apiBase}/api/v1/insights/recent?limit=10`,
         undefined,
         { maxRetries: 2 }
       );
