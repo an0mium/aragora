@@ -91,19 +91,23 @@ class TestIntrospectionHandlerRoutesAttribute:
 
     def test_routes_contains_all(self, introspection_handler):
         """ROUTES contains /all endpoint."""
-        assert "/api/v1/introspection/all" in introspection_handler.ROUTES
+        # ROUTES uses normalized paths without version prefix
+        assert "/api/introspection/all" in introspection_handler.ROUTES
 
     def test_routes_contains_leaderboard(self, introspection_handler):
         """ROUTES contains /leaderboard endpoint."""
-        assert "/api/v1/introspection/leaderboard" in introspection_handler.ROUTES
+        # ROUTES uses normalized paths without version prefix
+        assert "/api/introspection/leaderboard" in introspection_handler.ROUTES
 
     def test_routes_contains_agents(self, introspection_handler):
         """ROUTES contains /agents endpoint."""
-        assert "/api/v1/introspection/agents" in introspection_handler.ROUTES
+        # ROUTES uses normalized paths without version prefix
+        assert "/api/introspection/agents" in introspection_handler.ROUTES
 
     def test_routes_contains_agents_wildcard(self, introspection_handler):
         """ROUTES contains /agents/* wildcard."""
-        assert "/api/v1/introspection/agents/*" in introspection_handler.ROUTES
+        # ROUTES uses normalized paths without version prefix
+        assert "/api/introspection/agents/*" in introspection_handler.ROUTES
 
 
 # ============================================================================
