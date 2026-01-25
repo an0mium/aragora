@@ -226,10 +226,12 @@ class TestFileOperations:
 
     @pytest.mark.asyncio
     async def test_download_file_success(self, connector, mock_httpx_response):
-        """Test successful file download."""
+        """Test successful file download returns FileAttachment."""
         mock_media_info_response = mock_httpx_response(
             {
                 "url": "https://cdn.whatsapp.com/media/file123",
+                "mime_type": "audio/ogg",
+                "file_size": 17,
             }
         )
         mock_download_response = MagicMock()
@@ -244,7 +246,13 @@ class TestFileOperations:
 
             result = await connector.download_file(file_id="media_123")
 
-            assert result == b"file content here"
+            # Should return FileAttachment with content populated
+
+            assert isinstance(result, FileAttachment)
+            assert result.content == b"file content here"
+            assert result.id == "media_123"
+            assert result.content_type == "audio/ogg"
+            assert result.size == 17
 
     @pytest.mark.asyncio
     async def test_download_file_failure(self, connector, mock_httpx_response):

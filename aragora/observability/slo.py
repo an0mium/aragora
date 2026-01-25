@@ -36,6 +36,7 @@ See docs/OBSERVABILITY.md for configuration guide.
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import logging
 import os
@@ -722,3 +723,464 @@ def get_slo_status_json() -> Dict[str, Any]:
             for alert, result in check_alerts(status)
         ],
     }
+
+
+# =============================================================================
+# SLO Alerting Monitor
+# =============================================================================
+
+
+@dataclass
+class SLOBreach:
+    """Record of an SLO breach event."""
+
+    slo_name: str
+    severity: str
+    current_value: float
+    target_value: float
+    error_budget_remaining: float
+    burn_rate: float
+    message: str
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "slo_name": self.slo_name,
+            "severity": self.severity,
+            "current_value": self.current_value,
+            "target_value": self.target_value,
+            "error_budget_remaining": self.error_budget_remaining,
+            "burn_rate": self.burn_rate,
+            "message": self.message,
+            "timestamp": self.timestamp.isoformat(),
+        }
+
+
+# Type alias for alert callback
+AlertCallback = Any  # Callable[[SLOBreach], None] or async version
+
+
+class SLOAlertMonitor:
+    """
+    Monitor SLOs and trigger alerts on breaches.
+
+    Supports multiple alert callbacks (Slack, webhook, email, logging).
+
+    Usage:
+        monitor = SLOAlertMonitor()
+
+        # Add callbacks
+        monitor.add_callback(send_slack_alert)
+        monitor.add_callback(send_webhook_alert)
+
+        # Check and alert (call periodically)
+        await monitor.check_and_alert()
+
+        # Or start background monitoring
+        await monitor.start_background_monitoring(interval_seconds=60)
+    """
+
+    def __init__(
+        self,
+        check_interval_seconds: float = 60.0,
+        cooldown_seconds: float = 300.0,
+    ):
+        """
+        Initialize the SLO alert monitor.
+
+        Args:
+            check_interval_seconds: How often to check SLOs in background mode
+            cooldown_seconds: Minimum time between alerts for same SLO
+        """
+        self.check_interval = check_interval_seconds
+        self.cooldown_seconds = cooldown_seconds
+        self._callbacks: List[AlertCallback] = []
+        self._last_alert_times: Dict[str, datetime] = {}
+        self._running = False
+        self._task: Optional[asyncio.Task] = None
+
+    def add_callback(self, callback: AlertCallback) -> None:
+        """Add an alert callback function.
+
+        Args:
+            callback: Function to call when SLO breach detected.
+                     Can be sync or async: callback(breach: SLOBreach) -> None
+        """
+        self._callbacks.append(callback)
+
+    def remove_callback(self, callback: AlertCallback) -> None:
+        """Remove an alert callback."""
+        if callback in self._callbacks:
+            self._callbacks.remove(callback)
+
+    def _should_alert(self, slo_name: str, severity: str) -> bool:
+        """Check if we should alert (respects cooldown)."""
+        key = f"{slo_name}:{severity}"
+        last_alert = self._last_alert_times.get(key)
+
+        if last_alert is None:
+            return True
+
+        now = datetime.now(timezone.utc)
+        cooldown = timedelta(seconds=self.cooldown_seconds)
+        return now - last_alert > cooldown
+
+    def _record_alert(self, slo_name: str, severity: str) -> None:
+        """Record that we sent an alert."""
+        key = f"{slo_name}:{severity}"
+        self._last_alert_times[key] = datetime.now(timezone.utc)
+
+    async def _invoke_callback(self, callback: AlertCallback, breach: SLOBreach) -> None:
+        """Invoke a callback (handles both sync and async)."""
+        try:
+            result = callback(breach)
+            if asyncio.iscoroutine(result):
+                await result
+        except Exception as e:
+            logger.error(f"SLO alert callback failed: {e}")
+
+    async def check_and_alert(self) -> List[SLOBreach]:
+        """
+        Check SLO status and trigger alerts for any breaches.
+
+        Returns:
+            List of SLOBreach objects for triggered alerts
+        """
+        breaches: List[SLOBreach] = []
+
+        try:
+            status = get_slo_status()
+            triggered = check_alerts(status)
+
+            for alert, result in triggered:
+                if not self._should_alert(alert.slo_name, alert.severity):
+                    logger.debug(f"Skipping alert for {alert.slo_name} (cooldown)")
+                    continue
+
+                breach = SLOBreach(
+                    slo_name=alert.slo_name,
+                    severity=alert.severity,
+                    current_value=result.current,
+                    target_value=result.target,
+                    error_budget_remaining=result.error_budget_remaining,
+                    burn_rate=result.burn_rate,
+                    message=alert.message,
+                )
+                breaches.append(breach)
+
+                # Invoke all callbacks
+                for callback in self._callbacks:
+                    await self._invoke_callback(callback, breach)
+
+                self._record_alert(alert.slo_name, alert.severity)
+                logger.warning(
+                    f"SLO breach: {alert.slo_name} ({alert.severity}) - "
+                    f"error budget: {result.error_budget_remaining:.1f}%, "
+                    f"burn rate: {result.burn_rate:.2f}x"
+                )
+
+        except Exception as e:
+            logger.error(f"SLO check failed: {e}")
+
+        return breaches
+
+    async def start_background_monitoring(self) -> None:
+        """Start background SLO monitoring."""
+        if self._running:
+            return
+
+        self._running = True
+        self._task = asyncio.create_task(self._monitor_loop())
+        logger.info(f"SLO monitoring started (interval: {self.check_interval}s)")
+
+    async def stop_background_monitoring(self) -> None:
+        """Stop background SLO monitoring."""
+        self._running = False
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            self._task = None
+        logger.info("SLO monitoring stopped")
+
+    async def _monitor_loop(self) -> None:
+        """Background monitoring loop."""
+        while self._running:
+            try:
+                await self.check_and_alert()
+            except Exception as e:
+                logger.error(f"SLO monitor error: {e}")
+
+            await asyncio.sleep(self.check_interval)
+
+
+# =============================================================================
+# Built-in Alert Callbacks
+# =============================================================================
+
+
+def log_alert_callback(breach: SLOBreach) -> None:
+    """Simple logging callback for SLO alerts."""
+    logger.warning(
+        f"SLO ALERT [{breach.severity.upper()}]: {breach.slo_name} - "
+        f"{breach.message} (current: {breach.current_value:.4f}, "
+        f"target: {breach.target_value:.4f}, "
+        f"error_budget: {breach.error_budget_remaining:.1f}%)"
+    )
+
+
+async def webhook_alert_callback(
+    breach: SLOBreach,
+    webhook_url: str,
+    headers: Optional[Dict[str, str]] = None,
+) -> None:
+    """Send SLO alert to a webhook endpoint.
+
+    Args:
+        breach: The SLO breach details
+        webhook_url: URL to POST the alert to
+        headers: Optional headers to include
+    """
+    try:
+        import httpx
+
+        payload = {
+            "type": "slo_alert",
+            **breach.to_dict(),
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                webhook_url,
+                json=payload,
+                headers=headers or {},
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            logger.info(f"SLO alert sent to webhook: {webhook_url}")
+
+    except ImportError:
+        logger.warning("httpx not installed, webhook alert skipped")
+    except Exception as e:
+        logger.error(f"Failed to send webhook alert: {e}")
+
+
+def create_slack_alert_callback(webhook_url: str) -> AlertCallback:
+    """Create a Slack alert callback using incoming webhook.
+
+    Args:
+        webhook_url: Slack incoming webhook URL
+
+    Returns:
+        Callback function for SLO alerts
+    """
+
+    async def slack_callback(breach: SLOBreach) -> None:
+        try:
+            import httpx
+
+            # Format as Slack message
+            color = "#ff0000" if breach.severity == "critical" else "#ffa500"
+            payload = {
+                "attachments": [
+                    {
+                        "color": color,
+                        "title": f"SLO Alert: {breach.slo_name}",
+                        "text": breach.message,
+                        "fields": [
+                            {
+                                "title": "Severity",
+                                "value": breach.severity.upper(),
+                                "short": True,
+                            },
+                            {
+                                "title": "Current Value",
+                                "value": f"{breach.current_value:.4f}",
+                                "short": True,
+                            },
+                            {
+                                "title": "Target",
+                                "value": f"{breach.target_value:.4f}",
+                                "short": True,
+                            },
+                            {
+                                "title": "Error Budget",
+                                "value": f"{breach.error_budget_remaining:.1f}%",
+                                "short": True,
+                            },
+                            {
+                                "title": "Burn Rate",
+                                "value": f"{breach.burn_rate:.2f}x",
+                                "short": True,
+                            },
+                        ],
+                        "ts": int(breach.timestamp.timestamp()),
+                    }
+                ]
+            }
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(webhook_url, json=payload, timeout=10.0)
+                response.raise_for_status()
+                logger.info("SLO alert sent to Slack")
+
+        except ImportError:
+            logger.warning("httpx not installed, Slack alert skipped")
+        except Exception as e:
+            logger.error(f"Failed to send Slack alert: {e}")
+
+    return slack_callback
+
+
+def create_notification_callback() -> AlertCallback:
+    """Create a callback using the control plane notification system.
+
+    Returns:
+        Callback function that sends alerts through NotificationDispatcher
+    """
+
+    async def notification_callback(breach: SLOBreach) -> None:
+        try:
+            from aragora.control_plane.channels import (
+                NotificationEventType,
+                NotificationMessage,
+                NotificationPriority,
+            )
+            from aragora.control_plane.notifications import get_dispatcher
+
+            dispatcher = get_dispatcher()
+            if dispatcher is None:
+                logger.warning("Notification dispatcher not configured")
+                return
+
+            priority = (
+                NotificationPriority.CRITICAL
+                if breach.severity == "critical"
+                else NotificationPriority.HIGH
+            )
+
+            message = NotificationMessage(
+                title=f"SLO Alert: {breach.slo_name}",
+                body=(
+                    f"{breach.message}\n\n"
+                    f"Current: {breach.current_value:.4f}\n"
+                    f"Target: {breach.target_value:.4f}\n"
+                    f"Error Budget: {breach.error_budget_remaining:.1f}%\n"
+                    f"Burn Rate: {breach.burn_rate:.2f}x"
+                ),
+                event_type=NotificationEventType.SYSTEM_ALERT,
+                priority=priority,
+                metadata=breach.to_dict(),
+            )
+
+            await dispatcher.dispatch(message)
+            logger.info("SLO alert dispatched via notification system")
+
+        except ImportError:
+            logger.warning("Notification system not available")
+        except Exception as e:
+            logger.error(f"Failed to dispatch notification: {e}")
+
+    return notification_callback
+
+
+# =============================================================================
+# Global Monitor Instance
+# =============================================================================
+
+_global_monitor: Optional[SLOAlertMonitor] = None
+
+
+def get_slo_monitor() -> SLOAlertMonitor:
+    """Get or create the global SLO alert monitor."""
+    global _global_monitor
+    if _global_monitor is None:
+        _global_monitor = SLOAlertMonitor()
+        # Add default logging callback
+        _global_monitor.add_callback(log_alert_callback)
+    return _global_monitor
+
+
+def configure_slo_alerting(
+    slack_webhook: Optional[str] = None,
+    webhook_url: Optional[str] = None,
+    use_notifications: bool = True,
+    check_interval: float = 60.0,
+    cooldown: float = 300.0,
+) -> SLOAlertMonitor:
+    """
+    Configure SLO alerting with common callback patterns.
+
+    Args:
+        slack_webhook: Optional Slack incoming webhook URL
+        webhook_url: Optional generic webhook URL
+        use_notifications: Use control plane notification system
+        check_interval: How often to check SLOs (seconds)
+        cooldown: Minimum time between alerts for same SLO (seconds)
+
+    Returns:
+        Configured SLOAlertMonitor
+    """
+    global _global_monitor
+    _global_monitor = SLOAlertMonitor(
+        check_interval_seconds=check_interval,
+        cooldown_seconds=cooldown,
+    )
+
+    # Always add logging
+    _global_monitor.add_callback(log_alert_callback)
+
+    # Add Slack if configured
+    if slack_webhook:
+        _global_monitor.add_callback(create_slack_alert_callback(slack_webhook))
+
+    # Add generic webhook if configured
+    if webhook_url:
+
+        async def webhook_cb(breach: SLOBreach) -> None:
+            await webhook_alert_callback(breach, webhook_url)
+
+        _global_monitor.add_callback(webhook_cb)
+
+    # Add notification system if requested
+    if use_notifications:
+        _global_monitor.add_callback(create_notification_callback())
+
+    return _global_monitor
+
+
+# =============================================================================
+# Exports
+# =============================================================================
+
+__all__ = [
+    # SLO Types
+    "SLOTarget",
+    "SLOResult",
+    "SLOStatus",
+    "SLOAlert",
+    "SLOBreach",
+    # SLO Checks
+    "get_slo_targets",
+    "check_availability_slo",
+    "check_latency_slo",
+    "check_debate_success_slo",
+    "get_slo_status",
+    "get_slo_status_json",
+    # Alerting
+    "check_alerts",
+    "get_default_alerts",
+    "format_slo_report",
+    # Alert Monitor
+    "SLOAlertMonitor",
+    "get_slo_monitor",
+    "configure_slo_alerting",
+    # Callbacks
+    "log_alert_callback",
+    "webhook_alert_callback",
+    "create_slack_alert_callback",
+    "create_notification_callback",
+]

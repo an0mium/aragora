@@ -719,3 +719,168 @@ def _register_core_migrations(runner: PostgresMigrationRunner) -> None:
             DROP TABLE IF EXISTS knowledge_items;
         """,
     )
+
+    # Migration 005: Knowledge Mound advanced tables and performance indexes
+    runner.register_migration(
+        version=5,
+        name="Knowledge Mound advanced tables and indexes",
+        up_sql="""
+            -- Knowledge nodes (core metadata) - extended schema
+            CREATE TABLE IF NOT EXISTS knowledge_nodes (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                node_type TEXT NOT NULL CHECK (node_type IN ('fact', 'claim', 'memory', 'evidence', 'consensus', 'entity', 'culture')),
+                content TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                confidence REAL DEFAULT 0.5,
+                tier TEXT DEFAULT 'slow' CHECK (tier IN ('fast', 'medium', 'slow', 'glacial')),
+                surprise_score REAL DEFAULT 0.0,
+                update_count INTEGER DEFAULT 1,
+                consolidation_score REAL DEFAULT 0.0,
+                validation_status TEXT DEFAULT 'unverified',
+                consensus_proof_id TEXT,
+                last_validated_at TIMESTAMPTZ,
+                staleness_score REAL DEFAULT 0.0,
+                revalidation_requested BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                metadata JSONB DEFAULT '{}',
+                visibility TEXT DEFAULT 'workspace' CHECK (visibility IN ('private', 'workspace', 'organization', 'public', 'system')),
+                visibility_set_by TEXT,
+                is_discoverable BOOLEAN DEFAULT TRUE
+            );
+
+            -- Provenance tracking
+            CREATE TABLE IF NOT EXISTS provenance_chains (
+                id TEXT PRIMARY KEY,
+                node_id TEXT NOT NULL REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
+                source_type TEXT NOT NULL,
+                source_id TEXT NOT NULL,
+                agent_id TEXT,
+                debate_id TEXT,
+                document_id TEXT,
+                user_id TEXT,
+                parent_provenance_id TEXT REFERENCES provenance_chains(id),
+                transformation_type TEXT,
+                transformations JSONB DEFAULT '[]',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            -- Graph relationships
+            CREATE TABLE IF NOT EXISTS knowledge_relationships (
+                id TEXT PRIMARY KEY,
+                from_node_id TEXT NOT NULL REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
+                to_node_id TEXT NOT NULL REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
+                relationship_type TEXT NOT NULL CHECK (relationship_type IN ('supports', 'contradicts', 'derived_from', 'related_to', 'supersedes', 'cites', 'elaborates')),
+                strength REAL DEFAULT 1.0,
+                created_by TEXT,
+                metadata JSONB DEFAULT '{}',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            -- Topics for categorization
+            CREATE TABLE IF NOT EXISTS node_topics (
+                node_id TEXT NOT NULL REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
+                topic TEXT NOT NULL,
+                PRIMARY KEY (node_id, topic)
+            );
+
+            -- Culture patterns (organizational learning)
+            CREATE TABLE IF NOT EXISTS culture_patterns (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                pattern_type TEXT NOT NULL,
+                pattern_key TEXT NOT NULL,
+                pattern_value JSONB NOT NULL,
+                observation_count INTEGER DEFAULT 1,
+                confidence REAL DEFAULT 0.5,
+                first_observed_at TIMESTAMPTZ NOT NULL,
+                last_observed_at TIMESTAMPTZ NOT NULL,
+                contributing_debates TEXT[],
+                metadata JSONB DEFAULT '{}'
+            );
+
+            -- Staleness tracking
+            CREATE TABLE IF NOT EXISTS staleness_checks (
+                id TEXT PRIMARY KEY,
+                node_id TEXT NOT NULL REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
+                checked_at TIMESTAMPTZ NOT NULL,
+                staleness_score REAL NOT NULL,
+                trigger TEXT NOT NULL,
+                revalidation_requested BOOLEAN DEFAULT FALSE,
+                revalidation_completed_at TIMESTAMPTZ,
+                metadata JSONB DEFAULT '{}'
+            );
+
+            -- Archived nodes
+            CREATE TABLE IF NOT EXISTS archived_nodes (
+                id TEXT PRIMARY KEY,
+                original_id TEXT NOT NULL,
+                workspace_id TEXT NOT NULL,
+                node_data JSONB NOT NULL,
+                archived_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                archived_by TEXT
+            );
+
+            -- Access grants for fine-grained sharing
+            CREATE TABLE IF NOT EXISTS access_grants (
+                id TEXT PRIMARY KEY,
+                item_id TEXT NOT NULL REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
+                grantee_type TEXT NOT NULL CHECK (grantee_type IN ('user', 'role', 'workspace', 'organization')),
+                grantee_id TEXT NOT NULL,
+                permissions TEXT[] DEFAULT '{read}',
+                granted_by TEXT,
+                granted_at TIMESTAMPTZ DEFAULT NOW(),
+                expires_at TIMESTAMPTZ,
+                UNIQUE(item_id, grantee_type, grantee_id)
+            );
+
+            -- Performance indexes for knowledge_nodes
+            CREATE INDEX IF NOT EXISTS idx_knowledge_nodes_workspace ON knowledge_nodes(workspace_id);
+            CREATE INDEX IF NOT EXISTS idx_knowledge_nodes_workspace_type ON knowledge_nodes(workspace_id, node_type);
+            CREATE INDEX IF NOT EXISTS idx_knowledge_nodes_workspace_visibility ON knowledge_nodes(workspace_id, visibility);
+            CREATE INDEX IF NOT EXISTS idx_knowledge_nodes_created ON knowledge_nodes(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_knowledge_nodes_workspace_created ON knowledge_nodes(workspace_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_knowledge_nodes_content_hash ON knowledge_nodes(content_hash);
+
+            -- Performance indexes for provenance_chains
+            CREATE INDEX IF NOT EXISTS idx_provenance_chains_node ON provenance_chains(node_id);
+            CREATE INDEX IF NOT EXISTS idx_provenance_chains_source ON provenance_chains(source_type, source_id);
+            CREATE INDEX IF NOT EXISTS idx_provenance_chains_debate ON provenance_chains(debate_id) WHERE debate_id IS NOT NULL;
+
+            -- Performance indexes for knowledge_relationships
+            CREATE INDEX IF NOT EXISTS idx_knowledge_relationships_from ON knowledge_relationships(from_node_id);
+            CREATE INDEX IF NOT EXISTS idx_knowledge_relationships_to ON knowledge_relationships(to_node_id);
+            CREATE INDEX IF NOT EXISTS idx_knowledge_relationships_nodes ON knowledge_relationships(from_node_id, to_node_id);
+            CREATE INDEX IF NOT EXISTS idx_knowledge_relationships_type ON knowledge_relationships(relationship_type);
+
+            -- Performance indexes for node_topics
+            CREATE INDEX IF NOT EXISTS idx_node_topics_topic ON node_topics(topic);
+
+            -- Performance indexes for culture_patterns
+            CREATE INDEX IF NOT EXISTS idx_culture_patterns_workspace ON culture_patterns(workspace_id);
+            CREATE INDEX IF NOT EXISTS idx_culture_patterns_workspace_type ON culture_patterns(workspace_id, pattern_type);
+
+            -- Performance indexes for staleness_checks
+            CREATE INDEX IF NOT EXISTS idx_staleness_checks_node ON staleness_checks(node_id, checked_at DESC);
+
+            -- Performance indexes for access_grants (hot path)
+            CREATE INDEX IF NOT EXISTS idx_access_grants_item ON access_grants(item_id);
+            CREATE INDEX IF NOT EXISTS idx_access_grants_grantee ON access_grants(grantee_type, grantee_id);
+            CREATE INDEX IF NOT EXISTS idx_access_grants_item_grantee ON access_grants(item_id, grantee_type, grantee_id);
+
+            -- Performance indexes for archived_nodes
+            CREATE INDEX IF NOT EXISTS idx_archived_nodes_original ON archived_nodes(original_id);
+            CREATE INDEX IF NOT EXISTS idx_archived_nodes_workspace ON archived_nodes(workspace_id, archived_at DESC);
+        """,
+        down_sql="""
+            DROP TABLE IF EXISTS access_grants;
+            DROP TABLE IF EXISTS archived_nodes;
+            DROP TABLE IF EXISTS staleness_checks;
+            DROP TABLE IF EXISTS culture_patterns;
+            DROP TABLE IF EXISTS node_topics;
+            DROP TABLE IF EXISTS knowledge_relationships;
+            DROP TABLE IF EXISTS provenance_chains;
+            DROP TABLE IF EXISTS knowledge_nodes;
+        """,
+    )

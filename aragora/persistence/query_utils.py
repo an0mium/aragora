@@ -5,12 +5,59 @@ Provides batch query helpers and common patterns to avoid N+1 queries
 and improve database performance.
 """
 
+from __future__ import annotations
+
 import logging
+import re
 import sqlite3
 import time
 from typing import Any, Iterator, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
+
+# Lazy import to avoid circular dependencies
+_n1_detector_imported = False
+_record_query = None
+
+
+def _get_record_query():
+    """Lazy import of N+1 detector to avoid circular imports."""
+    global _n1_detector_imported, _record_query
+    if not _n1_detector_imported:
+        try:
+            from aragora.observability.n1_detector import record_query
+
+            _record_query = record_query
+        except ImportError:
+            _record_query = None
+        _n1_detector_imported = True
+    return _record_query
+
+
+def _extract_table_name(query: str) -> str:
+    """Extract table name from a SQL query for N+1 tracking."""
+    # Handle SELECT ... FROM table
+    match = re.search(r"\bFROM\s+([a-zA-Z_][a-zA-Z0-9_]*)", query, re.IGNORECASE)
+    if match:
+        return match.group(1)
+
+    # Handle INSERT INTO table
+    match = re.search(r"\bINTO\s+([a-zA-Z_][a-zA-Z0-9_]*)", query, re.IGNORECASE)
+    if match:
+        return match.group(1)
+
+    # Handle UPDATE table
+    match = re.search(r"\bUPDATE\s+([a-zA-Z_][a-zA-Z0-9_]*)", query, re.IGNORECASE)
+    if match:
+        return match.group(1)
+
+    # Handle DELETE FROM table
+    match = re.search(r"\bDELETE\s+FROM\s+([a-zA-Z_][a-zA-Z0-9_]*)", query, re.IGNORECASE)
+    if match:
+        return match.group(1)
+
+    return "unknown"
+
 
 T = TypeVar("T")
 
@@ -117,9 +164,7 @@ def batch_exists(
 
     for chunk in chunked(ids, batch_size):
         placeholders = ", ".join("?" * len(chunk))
-        query = (
-            f"SELECT {id_column} FROM {table} WHERE {id_column} IN ({placeholders})"  # nosec B608
-        )
+        query = f"SELECT {id_column} FROM {table} WHERE {id_column} IN ({placeholders})"  # nosec B608
 
         try:
             cursor = conn.execute(query, chunk)
@@ -139,7 +184,7 @@ def timed_query(
     operation_name: str = "query",
     threshold_ms: float = 500.0,
 ) -> sqlite3.Cursor:
-    """Execute a query with timing and slow query logging.
+    """Execute a query with timing, slow query logging, and N+1 detection.
 
     Args:
         conn: SQLite connection
@@ -159,6 +204,12 @@ def timed_query(
             cursor = conn.execute(query)
 
         elapsed_ms = (time.monotonic() - start) * 1000
+
+        # Record query for N+1 detection
+        record_fn = _get_record_query()
+        if record_fn is not None:
+            table = _extract_table_name(query)
+            record_fn(table, query, elapsed_ms)
 
         if elapsed_ms > threshold_ms:
             # Truncate query for logging

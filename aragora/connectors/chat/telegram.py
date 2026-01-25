@@ -101,7 +101,7 @@ class TelegramConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         thread_id: Optional[str] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -177,7 +177,7 @@ class TelegramConnector(ChatPlatformConnector):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Edit an existing message.
@@ -380,14 +380,21 @@ class TelegramConnector(ChatPlatformConnector):
             self._record_failure(e)
             raise
 
-    async def download_file(  # type: ignore[override]
+    async def download_file(
         self,
         file_id: str,
         **kwargs: Any,
-    ) -> bytes:
+    ) -> FileAttachment:
         """Download a file by file_id.
 
         Includes circuit breaker protection for fault tolerance.
+
+        Args:
+            file_id: Telegram file_id to download
+            **kwargs: Additional options (url, filename for hints)
+
+        Returns:
+            FileAttachment with content populated
         """
         if not HTTPX_AVAILABLE:
             raise RuntimeError("httpx is required for Telegram connector")
@@ -415,7 +422,8 @@ class TelegramConnector(ChatPlatformConnector):
                     self._record_failure(Exception(data.get("description", "Failed to get file")))
                     raise RuntimeError(data.get("description", "Failed to get file"))
 
-                file_path = data.get("result", {}).get("file_path")
+                file_info = data.get("result", {})
+                file_path = file_info.get("file_path")
                 if not file_path:
                     self._record_failure(Exception("No file path returned"))
                     raise RuntimeError("No file path returned")
@@ -423,8 +431,32 @@ class TelegramConnector(ChatPlatformConnector):
                 # Download file
                 download_url = f"https://api.telegram.org/file/bot{self.bot_token}/{file_path}"
                 response = await client.get(download_url)
+                content = response.content
                 self._record_success()
-                return response.content
+
+                # Extract filename from path or use kwargs hint
+                filename = kwargs.get("filename") or file_path.split("/")[-1]
+
+                # Guess content type from extension
+                content_type = "application/octet-stream"
+                if filename.endswith(".ogg") or filename.endswith(".oga"):
+                    content_type = "audio/ogg"
+                elif filename.endswith(".mp3"):
+                    content_type = "audio/mpeg"
+                elif filename.endswith(".wav"):
+                    content_type = "audio/wav"
+                elif filename.endswith(".m4a"):
+                    content_type = "audio/mp4"
+
+                return FileAttachment(
+                    id=file_id,
+                    filename=filename,
+                    content_type=content_type,
+                    size=file_info.get("file_size", len(content)),
+                    url=download_url,
+                    content=content,
+                    metadata={"telegram_file_path": file_path},
+                )
         except Exception as e:
             self._record_failure(e)
             raise
@@ -822,7 +854,7 @@ class TelegramConnector(ChatPlatformConnector):
             self._record_failure(e)
             raise
 
-    def _blocks_to_keyboard(self, blocks: list[dict]) -> Optional[dict]:
+    def _blocks_to_keyboard(self, blocks: list[dict[str, Any]]) -> Optional[dict]:
         """Convert generic blocks to Telegram inline keyboard."""
         buttons = []
 
@@ -866,9 +898,9 @@ class TelegramConnector(ChatPlatformConnector):
         title: Optional[str] = None,
         body: Optional[str] = None,
         fields: Optional[list[tuple[str, str]]] = None,
-        buttons: Optional[list[dict]] = None,  # type: ignore[override]
+        buttons: Optional[list[dict[str, Any]]] = None,  # type: ignore[override]
         **kwargs: Any,
-    ) -> list[dict]:  # type: ignore[override]
+    ) -> list[dict[str, Any]]:  # type: ignore[override]
         """Format content as Telegram-compatible blocks.
 
         Telegram uses inline keyboards for interactive elements.
@@ -1002,7 +1034,7 @@ class TelegramConnector(ChatPlatformConnector):
         self,
         command: BotCommand,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         ephemeral: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -1032,7 +1064,7 @@ class TelegramConnector(ChatPlatformConnector):
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> bool:
@@ -1072,7 +1104,7 @@ class TelegramConnector(ChatPlatformConnector):
         photo: str | bytes,
         caption: Optional[str] = None,
         thread_id: Optional[str] = None,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send a photo to a Telegram chat.
@@ -1175,7 +1207,7 @@ class TelegramConnector(ChatPlatformConnector):
         width: Optional[int] = None,
         height: Optional[int] = None,
         supports_streaming: bool = True,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send a video to a Telegram chat.
@@ -1287,7 +1319,7 @@ class TelegramConnector(ChatPlatformConnector):
         animation: str | bytes,
         caption: Optional[str] = None,
         thread_id: Optional[str] = None,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send an animation (GIF) to a Telegram chat.

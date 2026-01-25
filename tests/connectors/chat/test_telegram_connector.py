@@ -276,11 +276,11 @@ class TestFileOperations:
 
     @pytest.mark.asyncio
     async def test_download_file_success(self, connector, mock_httpx_response):
-        """Test successful file download."""
+        """Test successful file download returns FileAttachment."""
         mock_get_file_response = mock_httpx_response(
             {
                 "ok": True,
-                "result": {"file_path": "documents/file_123.pdf"},
+                "result": {"file_path": "documents/file_123.pdf", "file_size": 17},
             }
         )
         mock_download_response = MagicMock()
@@ -294,7 +294,13 @@ class TestFileOperations:
 
             result = await connector.download_file(file_id="file_123")
 
-            assert result == b"file content here"
+            # Should return FileAttachment with content populated
+
+            assert isinstance(result, FileAttachment)
+            assert result.content == b"file content here"
+            assert result.id == "file_123"
+            assert result.filename == "file_123.pdf"
+            assert result.size == 17
 
     @pytest.mark.asyncio
     async def test_download_file_failure(self, connector, mock_httpx_response):

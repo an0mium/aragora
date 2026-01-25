@@ -151,6 +151,26 @@ from aragora.observability.memory_profiler import (
     profile_memory,
     track_memory,
 )
+from aragora.observability.n1_detector import (
+    N1Detection,
+    N1QueryDetector,
+    N1QueryError,
+    QueryRecord,
+    detect_n1,
+    get_current_detector,
+    n1_detection_scope,
+    record_query,
+)
+from aragora.observability.trace_correlation import (
+    TraceContext,
+    clear_traced_latency_samples,
+    generate_exemplar_line,
+    get_slow_traces,
+    get_trace_context,
+    get_traced_latency_samples,
+    should_sample_trace_id,
+    track_request_with_trace,
+)
 
 __all__ = [
     # Logging
@@ -263,4 +283,22 @@ __all__ = [
     "track_memory",
     "km_profiler",
     "consensus_profiler",
+    # N+1 Query Detection
+    "N1QueryDetector",
+    "N1QueryError",
+    "N1Detection",
+    "QueryRecord",
+    "detect_n1",
+    "get_current_detector",
+    "record_query",
+    "n1_detection_scope",
+    # Trace Correlation
+    "TraceContext",
+    "get_trace_context",
+    "should_sample_trace_id",
+    "track_request_with_trace",
+    "get_traced_latency_samples",
+    "clear_traced_latency_samples",
+    "get_slow_traces",
+    "generate_exemplar_line",
 ]

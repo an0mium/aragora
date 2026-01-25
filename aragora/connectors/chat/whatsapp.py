@@ -113,7 +113,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         thread_id: Optional[str] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -195,7 +195,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -226,7 +226,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         logger.warning("WhatsApp doesn't support message deletion via API")
         return False
 
-    async def upload_file(  # type: ignore[override]
+    async def upload_file(
         self,
         channel_id: str,
         file_path: str,
@@ -330,17 +330,26 @@ class WhatsAppConnector(ChatPlatformConnector):
                         raise RuntimeError(error.get("message", "Media upload failed"))
 
                     self._record_success()
-                    return result.get("id", "")
+                    media_id: str = result.get("id", "")
+                    return media_id
         except Exception as e:
             self._record_failure(e)
             raise
 
-    async def download_file(  # type: ignore[override]
+    async def download_file(
         self,
         file_id: str,
         **kwargs: Any,
-    ) -> bytes:
-        """Download a file by media ID with circuit breaker protection."""
+    ) -> FileAttachment:
+        """Download a file by media ID with circuit breaker protection.
+
+        Args:
+            file_id: WhatsApp media ID to download
+            **kwargs: Additional options (url, filename for hints)
+
+        Returns:
+            FileAttachment with content populated
+        """
         if not HTTPX_AVAILABLE:
             raise RuntimeError("httpx is required for WhatsApp connector")
 
@@ -353,7 +362,7 @@ class WhatsAppConnector(ChatPlatformConnector):
 
         try:
             async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                # Get media URL
+                # Get media URL and metadata
                 response = await client.get(
                     f"{WHATSAPP_API_BASE}/{file_id}",
                     headers=headers,
@@ -371,10 +380,38 @@ class WhatsAppConnector(ChatPlatformConnector):
                 if not media_url:
                     raise RuntimeError("No media URL returned")
 
+                # Extract metadata from the response
+                mime_type = data.get("mime_type", "application/octet-stream")
+                file_size = data.get("file_size", 0)
+
                 # Download file
                 response = await client.get(media_url, headers=headers)
+                content = response.content
                 self._record_success()
-                return response.content
+
+                # Use filename hint or generate from mime type
+                filename = kwargs.get("filename")
+                if not filename:
+                    ext = ".ogg"  # Default for voice
+                    if "audio/ogg" in mime_type:
+                        ext = ".ogg"
+                    elif "audio/mpeg" in mime_type or "audio/mp3" in mime_type:
+                        ext = ".mp3"
+                    elif "audio/aac" in mime_type or "audio/mp4" in mime_type:
+                        ext = ".m4a"
+                    elif "audio/wav" in mime_type:
+                        ext = ".wav"
+                    filename = f"audio_{file_id[:8]}{ext}"
+
+                return FileAttachment(
+                    id=file_id,
+                    filename=filename,
+                    content_type=mime_type,
+                    size=file_size or len(content),
+                    url=media_url,
+                    content=content,
+                    metadata={"whatsapp_mime_type": mime_type},
+                )
         except Exception as e:
             self._record_failure(e)
             raise
@@ -437,7 +474,7 @@ class WhatsAppConnector(ChatPlatformConnector):
             raw_payload=payload,
         )
 
-    def _verify_signature(self, payload: dict, signature: str) -> bool:
+    def _verify_signature(self, payload: dict[str, Any], signature: str) -> bool:
         """Verify webhook signature."""
         if not signature.startswith("sha256="):
             return False
@@ -578,7 +615,7 @@ class WhatsAppConnector(ChatPlatformConnector):
             platform="whatsapp",
         )
 
-    async def send_voice_message(  # type: ignore[override]
+    async def send_voice_message(
         self,
         channel_id: str,
         audio_data: bytes,
@@ -727,7 +764,7 @@ class WhatsAppConnector(ChatPlatformConnector):
             source_message=message,
         )
 
-    def _build_interactive(self, text: str, blocks: list[dict]) -> dict:
+    def _build_interactive(self, text: str, blocks: list[dict[str, Any]]) -> dict[str, Any]:
         """Build interactive message payload."""
         buttons = []
         list_items = []
@@ -776,7 +813,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         channel_id: str,
         template_name: str,
         language_code: str = "en",
-        components: Optional[list[dict]] = None,
+        components: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -849,7 +886,7 @@ class WhatsAppConnector(ChatPlatformConnector):
                 error=str(e),
             )
 
-    async def verify_webhook(  # type: ignore[override]
+    async def verify_webhook(
         self,
         mode: str,
         token: str,
@@ -870,16 +907,16 @@ class WhatsAppConnector(ChatPlatformConnector):
     # Abstract method implementations
     # ==========================================================================
 
-    def format_blocks(  # type: ignore[override]
+    def format_blocks(
         self,
         title: Optional[str] = None,
         body: Optional[str] = None,
-        fields: Optional[list[dict]] = None,
-        buttons: Optional[list[dict]] = None,
+        fields: Optional[list[dict[str, Any]]] = None,
+        buttons: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Format content as WhatsApp-compatible blocks."""
-        blocks: list[dict] = []
+        blocks: list[dict[str, Any]] = []
 
         if title:
             blocks.append({"type": "header", "text": title})
@@ -918,7 +955,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         style: Optional[str] = None,
         url: Optional[str] = None,
         **kwargs: Any,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Format a button for WhatsApp interactive message."""
         if url:
             return {"type": "url_button", "text": text, "url": url}
@@ -1005,7 +1042,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         self,
         command: BotCommand,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         ephemeral: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -1024,7 +1061,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
