@@ -472,7 +472,8 @@ class TestDiscovery:
         """Test that discovery failure returns empty dict."""
         with patch("aragora.auth.oidc.HAS_HTTPX", False):
             with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_urlopen.side_effect = Exception("Network error")
+                # Use OSError which is what urllib raises on network errors
+                mock_urlopen.side_effect = OSError("Network error")
 
                 result = await provider._discover_endpoints()
 
