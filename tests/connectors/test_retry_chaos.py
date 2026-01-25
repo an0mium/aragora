@@ -53,7 +53,9 @@ class TestConnectorExceptions:
     def test_connector_error_base(self):
         """Test base ConnectorError."""
         error = ConnectorError("Base error", connector_name="test")
-        assert str(error).startswith("[test] Base error")
+        text = str(error)
+        assert text.startswith("[test] Base error")
+        assert "details=" in text
         assert error.connector_name == "test"
         assert error.is_retryable is False
         assert error.retry_after is None
@@ -61,7 +63,9 @@ class TestConnectorExceptions:
     def test_connector_error_unknown_name(self):
         """Test ConnectorError with unknown name."""
         error = ConnectorError("Error")
-        assert str(error).startswith("Error")
+        text = str(error)
+        assert text.startswith("Error")
+        assert "details=" in text
         assert error.connector_name == "unknown"
 
     def test_auth_error(self):
