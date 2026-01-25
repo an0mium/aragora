@@ -224,7 +224,8 @@ class RedisCacheBackend(ExportCacheBackend):
                     val = client.get(key)
                     if val:
                         total_size += len(val)
-                except Exception:
+                except (ConnectionError, TimeoutError, OSError):
+                    # Skip keys that fail to retrieve (connection issues)
                     pass
             avg_size = total_size / len(keys[:100]) if keys else 0
             estimated_total = int(avg_size * len(keys))

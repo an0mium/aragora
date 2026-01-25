@@ -574,8 +574,8 @@ async def _get_security_debate_agents() -> List[Any]:
                         model="claude-sonnet-4-20250514",
                     )
                 )
-            except Exception:
-                pass
+            except (ValueError, RuntimeError) as e:
+                logger.debug(f"Could not create Anthropic security agent: {e}")
 
             try:
                 agents.append(
@@ -584,13 +584,15 @@ async def _get_security_debate_agents() -> List[Any]:
                         model="gpt-4o",
                     )
                 )
-            except Exception:
-                pass
+            except (ValueError, RuntimeError) as e:
+                logger.debug(f"Could not create OpenAI security agent: {e}")
 
             return agents
         except ImportError:
+            logger.debug("Could not import agent modules for security debate")
             return []
-    except Exception:
+    except ImportError:
+        logger.debug("Could not import agent availability module")
         return []
 
 
