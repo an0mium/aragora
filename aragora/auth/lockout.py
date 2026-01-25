@@ -191,7 +191,7 @@ class RedisLockoutBackend(LockoutBackend):
         except ImportError:
             logger.warning("redis-py not installed, Redis backend unavailable")
             self._available = False
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"Redis connection failed: {e}")
             self._available = False
 
@@ -217,8 +217,11 @@ class RedisLockoutBackend(LockoutBackend):
                 lockout_until=parsed.get("lockout_until"),
                 last_attempt=parsed.get("last_attempt"),
             )
-        except Exception as e:
-            logger.warning(f"Redis get failed: {e}")
+        except (json.JSONDecodeError, TypeError, KeyError) as e:
+            logger.warning(f"Redis get failed - data error: {e}")
+            return None
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"Redis get failed - connection error: {e}")
             return None
 
     def set_entry(self, key: str, entry: LockoutEntry, ttl_seconds: int) -> None:
@@ -237,7 +240,7 @@ class RedisLockoutBackend(LockoutBackend):
                 }
             )
             self._client.setex(self._make_key(key), ttl_seconds, data)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"Redis set failed: {e}")
 
     def delete_entry(self, key: str) -> None:
@@ -247,7 +250,7 @@ class RedisLockoutBackend(LockoutBackend):
 
         try:
             self._client.delete(self._make_key(key))
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"Redis delete failed: {e}")
 
     def is_available(self) -> bool:
@@ -258,14 +261,9 @@ class RedisLockoutBackend(LockoutBackend):
         try:
             self._client.ping()
             return True
-        except (ConnectionError, TimeoutError, OSError) as e:
-            # Expected Redis connection issues
-            logger.debug(f"Redis ping failed (connection issue): {e}")
-            self._available = False
-            return False
-        except Exception as e:
-            # Unexpected errors during availability check
-            logger.warning(f"Redis availability check failed unexpectedly: {e}")
+        except (ConnectionError, TimeoutError, OSError, AttributeError, RuntimeError) as e:
+            # Expected Redis connection issues or client misconfiguration
+            logger.debug(f"Redis ping failed: {e}")
             self._available = False
             return False
 

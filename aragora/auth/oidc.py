@@ -257,8 +257,14 @@ class OIDCProvider(SSOProvider):
             logger.debug(f"OIDC discovery successful for {self.config.issuer_url}")
             return self._discovery_cache
 
-        except Exception as e:
-            logger.warning(f"OIDC discovery failed: {e}")
+        except json.JSONDecodeError as e:
+            logger.warning(f"OIDC discovery failed - invalid JSON: {e}")
+            return {}
+        except (OSError, TimeoutError) as e:
+            logger.warning(f"OIDC discovery failed - network error: {e}")
+            return {}
+        except RuntimeError as e:
+            logger.warning(f"OIDC discovery failed - runtime error: {e}")
             return {}
 
     async def _get_endpoint(self, name: str) -> str:
@@ -444,8 +450,14 @@ class OIDCProvider(SSOProvider):
                 with urllib.request.urlopen(req, timeout=30) as resp:
                     return json.loads(resp.read().decode())
 
-        except Exception as e:
-            logger.error(f"Token exchange failed: {e}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Token exchange failed - invalid JSON response: {e}")
+            raise SSOAuthenticationError(f"Token exchange failed - invalid response: {e}")
+        except (OSError, TimeoutError) as e:
+            logger.error(f"Token exchange failed - network error: {e}")
+            raise SSOAuthenticationError(f"Token exchange failed - network error: {e}")
+        except ValueError as e:
+            logger.error(f"Token exchange failed - invalid data: {e}")
             raise SSOAuthenticationError(f"Token exchange failed: {e}")
 
     async def _get_user_info(self, tokens: Dict[str, Any]) -> SSOUser:
@@ -460,7 +472,8 @@ class OIDCProvider(SSOProvider):
             try:
                 # Validate and decode ID token
                 claims = await self._validate_id_token(id_token)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:
+                # Token parsing/validation errors
                 # SECURITY: In production, token validation failures should not silently
                 # fall back to userinfo - this could allow signature bypass attacks
                 if _is_production_mode():
@@ -532,8 +545,11 @@ class OIDCProvider(SSOProvider):
                 with urllib.request.urlopen(req, timeout=10) as resp:
                     return json.loads(resp.read().decode())
 
-        except Exception as e:
-            logger.warning(f"Userinfo fetch failed: {e}")
+        except json.JSONDecodeError as e:
+            logger.warning(f"Userinfo fetch failed - invalid JSON: {e}")
+            return {}
+        except (OSError, TimeoutError) as e:
+            logger.warning(f"Userinfo fetch failed - network error: {e}")
             return {}
 
     def _claims_to_user(
@@ -658,8 +674,14 @@ class OIDCProvider(SSOProvider):
                 raw_claims=user.raw_claims,
             )
 
-        except Exception as e:
-            logger.warning(f"Token refresh failed: {e}")
+        except json.JSONDecodeError as e:
+            logger.warning(f"Token refresh failed - invalid JSON: {e}")
+            return None
+        except (OSError, TimeoutError) as e:
+            logger.warning(f"Token refresh failed - network error: {e}")
+            return None
+        except (KeyError, TypeError) as e:
+            logger.warning(f"Token refresh failed - invalid response: {e}")
             return None
 
     async def logout(self, user: SSOUser) -> Optional[str]:
