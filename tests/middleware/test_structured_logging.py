@@ -312,9 +312,10 @@ class TestRedactSensitive:
         data = {
             "user": {
                 "name": "John",
-                "credentials": {
+                "settings": {
                     "password": "secret",
                     "api_key": "key123",
+                    "theme": "dark",
                 },
             },
         }
@@ -322,8 +323,11 @@ class TestRedactSensitive:
         result = redact_sensitive(data)
 
         assert result["user"]["name"] == "John"
-        assert result["user"]["credentials"]["password"] == "[REDACTED]"
-        assert result["user"]["credentials"]["api_key"] == "[REDACTED]"
+        # Sensitive keys in nested dicts should be redacted
+        assert result["user"]["settings"]["password"] == "[REDACTED]"
+        assert result["user"]["settings"]["api_key"] == "[REDACTED]"
+        # Non-sensitive keys preserved
+        assert result["user"]["settings"]["theme"] == "dark"
 
     def test_redact_list_of_dicts(self):
         """Should redact sensitive fields in lists of dictionaries."""
@@ -381,6 +385,41 @@ class TestRedactSensitive:
 
         assert data["password"] == "secret"  # Original unchanged
         assert result["password"] == "[REDACTED]"  # Result redacted
+
+    def test_redact_sensitive_key_with_dict_value(self):
+        """Should fully redact when sensitive key has dict value (regression test)."""
+        # This was a security bug - dict values under sensitive keys were recursed
+        # instead of fully redacted, potentially leaking nested secrets
+        data = {"token": {"value": "abc123", "type": "bearer"}}
+
+        result = redact_sensitive(data)
+
+        # The entire token value should be redacted, not recursed into
+        assert result["token"] == "[REDACTED]"
+
+    def test_redact_sensitive_key_with_list_value(self):
+        """Should fully redact when sensitive key has list value (regression test)."""
+        # List values under sensitive keys should be fully redacted
+        data = {"authorization": ["Bearer", "sk-secret-key-12345"]}
+
+        result = redact_sensitive(data)
+
+        # The entire authorization value should be redacted
+        assert result["authorization"] == "[REDACTED]"
+
+    def test_redact_sensitive_key_with_nested_structure(self):
+        """Should fully redact complex nested structures under sensitive keys."""
+        data = {
+            "credentials": {
+                "primary": {"key": "secret1", "endpoint": "https://api.example.com"},
+                "backup": {"key": "secret2"},
+            }
+        }
+
+        result = redact_sensitive(data)
+
+        # credentials contains "credential" so entire value should be redacted
+        assert result["credentials"] == "[REDACTED]"
 
     def test_redact_fields_constant(self):
         """REDACT_FIELDS should contain expected sensitive field names."""
