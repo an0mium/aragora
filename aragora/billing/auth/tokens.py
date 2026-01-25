@@ -448,13 +448,12 @@ def validate_refresh_token(
             if user is not None:
                 user_token_version = getattr(user, "token_version", 1)
                 if payload.tv < user_token_version:
-                    logger.debug(
-                        f"jwt_validate_failed: refresh token version mismatch "
-                        f"(token={payload.tv}, user={user_token_version})"
-                    )
+                    logger.debug("jwt_validate_failed: refresh token version mismatch")
                     return None
         except Exception as e:
-            logger.warning(f"jwt_validate_failed: error checking token version - {e}")
+            logger.warning(
+                f"jwt_validate_failed: error checking token version - {type(e).__name__}"
+            )
 
     return payload
 
