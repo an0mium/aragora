@@ -22,6 +22,7 @@ from aragora.debate.arena_phases import create_phase_executor, init_phases
 from aragora.debate.batch_loaders import debate_loader_context
 from aragora.debate.audience_manager import AudienceManager
 from aragora.debate.checkpoint_ops import CheckpointOperations
+from aragora.debate.knowledge_manager import ArenaKnowledgeManager
 from aragora.debate.complexity_governor import (
     classify_task_complexity,
     get_complexity_governor,
@@ -35,7 +36,6 @@ from aragora.debate.convergence import (
 from aragora.debate.event_emission import EventEmitter
 from aragora.debate.lifecycle_manager import LifecycleManager
 from aragora.debate.grounded_operations import GroundedOperations
-from aragora.debate.knowledge_mound_ops import KnowledgeMoundOperations
 from aragora.debate.prompt_context import PromptContextBuilder
 from aragora.debate.event_bus import EventBus
 from aragora.debate.judge_selector import JudgeSelector
@@ -757,99 +757,48 @@ class Arena:
         )
 
     def _init_knowledge_ops(self) -> None:
-        """Initialize KnowledgeMoundOperations for knowledge retrieval and ingestion."""
-        # Initialize KM metrics for observability
-        self._km_metrics = None
-        if self.knowledge_mound:
-            try:
-                from aragora.knowledge.mound.metrics import KMMetrics
+        """Initialize ArenaKnowledgeManager for knowledge retrieval and ingestion.
 
-                self._km_metrics = KMMetrics()
-                logger.debug("[knowledge_mound] KMMetrics initialized for observability")
-            except ImportError:
-                pass
-
-        self._knowledge_ops = KnowledgeMoundOperations(
+        Delegates to ArenaKnowledgeManager for:
+        - KnowledgeMoundOperations creation
+        - KnowledgeBridgeHub initialization
+        - RevalidationScheduler setup
+        - BidirectionalCoordinator and adapter factory
+        """
+        # Create the knowledge manager
+        self._km_manager = ArenaKnowledgeManager(
             knowledge_mound=self.knowledge_mound,
             enable_retrieval=self.enable_knowledge_retrieval,
             enable_ingestion=self.enable_knowledge_ingestion,
+            enable_auto_revalidation=self.enable_auto_revalidation,
+            revalidation_staleness_threshold=getattr(self, "revalidation_staleness_threshold", 0.7),
+            revalidation_check_interval_seconds=getattr(
+                self, "revalidation_check_interval_seconds", 3600
+            ),
             notify_callback=self._knowledge_notify_callback,
-            metrics=self._km_metrics,
         )
 
-        # Initialize KnowledgeBridgeHub for unified bridge access
-        self.knowledge_bridge_hub = None
-        if self.knowledge_mound:
-            from aragora.knowledge.bridges import KnowledgeBridgeHub
+        # Initialize the manager with subsystems
+        self._km_manager.initialize(
+            continuum_memory=self.continuum_memory,
+            consensus_memory=self.consensus_memory,
+            elo_system=self.elo_system,
+            cost_tracker=getattr(self, "cost_tracker", None),
+            insight_store=self.insight_store,
+            flip_detector=self.flip_detector,
+            evidence_store=getattr(self, "evidence_store", None),
+            pulse_manager=getattr(self, "pulse_manager", None),
+            memory=self.memory,
+        )
 
-            self.knowledge_bridge_hub = KnowledgeBridgeHub(self.knowledge_mound)
-
-        # Initialize RevalidationScheduler for automatic knowledge revalidation
-        self.revalidation_scheduler = None
-        if self.enable_auto_revalidation and self.knowledge_mound:
-            try:
-                from aragora.knowledge.mound.revalidation_scheduler import RevalidationScheduler
-
-                self.revalidation_scheduler = RevalidationScheduler(
-                    knowledge_mound=self.knowledge_mound,
-                    staleness_threshold=getattr(self, "revalidation_staleness_threshold", 0.7),
-                    check_interval_seconds=getattr(
-                        self, "revalidation_check_interval_seconds", 3600
-                    ),
-                )
-                logger.info(  # type: ignore[misc,call-arg]
-                    "[knowledge_mound] RevalidationScheduler initialized "
-                    "(staleness_threshold=%.2f)",
-                    getattr(self, "revalidation_staleness_threshold", 0.7),
-                )
-            except ImportError as e:
-                logger.debug(f"[knowledge_mound] RevalidationScheduler unavailable: {e}")
-
-        # Initialize KM adapter factory and coordinator for bidirectional sync
-        self._km_coordinator = None
-        self._km_adapters = {}
-        if self.knowledge_mound:
-            try:
-                from aragora.knowledge.mound.adapters import AdapterFactory
-                from aragora.knowledge.mound.bidirectional_coordinator import (
-                    BidirectionalCoordinator,
-                )
-
-                # Create coordinator
-                self._km_coordinator = BidirectionalCoordinator()
-
-                # Create adapters from available subsystems
-                factory = AdapterFactory(
-                    event_callback=self._knowledge_notify_callback,
-                )
-
-                self._km_adapters = factory.create_from_subsystems(
-                    continuum_memory=self.continuum_memory,
-                    consensus_memory=self.consensus_memory,
-                    elo_system=self.elo_system,
-                    cost_tracker=getattr(self, "cost_tracker", None),
-                    insight_store=self.insight_store,
-                    flip_detector=self.flip_detector,
-                    evidence_store=getattr(self, "evidence_store", None),
-                    pulse_manager=getattr(self, "pulse_manager", None),
-                    memory=self.memory,
-                )
-
-                # Register adapters with coordinator
-                if self._km_adapters:
-                    registered = factory.register_with_coordinator(
-                        self._km_coordinator, self._km_adapters
-                    )
-                    logger.info(  # type: ignore[misc,call-arg]
-                        "[knowledge_mound] AdapterFactory created %d adapters, "
-                        "registered %d with coordinator",
-                        len(self._km_adapters),
-                        registered,
-                    )
-            except ImportError as e:
-                logger.debug(f"[knowledge_mound] AdapterFactory unavailable: {e}")
-            except Exception as e:
-                logger.warning(f"[knowledge_mound] Failed to initialize adapters: {e}")
+        # Expose manager components for backwards compatibility
+        self._knowledge_ops = self._km_manager._knowledge_ops
+        self.knowledge_bridge_hub = self._km_manager.knowledge_bridge_hub
+        # Only override revalidation_scheduler if manager created one
+        if self._km_manager.revalidation_scheduler is not None:
+            self.revalidation_scheduler = self._km_manager.revalidation_scheduler
+        self._km_coordinator = self._km_manager._km_coordinator
+        self._km_adapters = self._km_manager._km_adapters
 
     def _knowledge_notify_callback(self, event_type: str, data: dict) -> None:
         """Callback for knowledge mound notifications."""
@@ -938,46 +887,25 @@ class Arena:
     async def _init_km_context(self, debate_id: str, domain: str) -> None:
         """Initialize Knowledge Mound context for the debate.
 
-        Emits DEBATE_START event to trigger cross-subsystem handlers:
-        - mound_to_belief: Initialize belief priors from historical cruxes
-        - mound_to_team_selection: Query domain experts for team assembly
-        - mound_to_trickster: Load flip history for consistency checking
-        - culture_to_debate: Load learned culture patterns
+        Delegates to ArenaKnowledgeManager.init_context() which emits
+        DEBATE_START event to trigger cross-subsystem handlers.
 
         Args:
             debate_id: Unique debate identifier
             domain: Detected debate domain for targeted retrieval
         """
-        try:
-            from aragora.events.types import StreamEvent, StreamEventType
-            from aragora.events.cross_subscribers import get_cross_subscriber_manager
-
-            manager = get_cross_subscriber_manager()
-
-            # Emit DEBATE_START to trigger KM→subsystem flows
-            event = StreamEvent(
-                type=StreamEventType.DEBATE_START,
-                data={
-                    "debate_id": debate_id,
-                    "domain": domain,
-                    "question": self.env.task,
-                    "agent_count": len(self.agents),
-                    "protocol": {
-                        "rounds": self.protocol.rounds,
-                        "consensus": self.protocol.consensus,
-                    },
-                },
-            )
-            manager.dispatch(event)
-            logger.debug(f"[arena] KM context initialized for debate {debate_id}")
-
-        except ImportError:
-            logger.debug("[arena] KM context initialization skipped (events not available)")
-        except Exception as e:
-            logger.warning(f"[arena] Failed to initialize KM context: {e}")
+        await self._km_manager.init_context(
+            debate_id=debate_id,
+            domain=domain,
+            env=self.env,
+            agents=self.agents,
+            protocol=self.protocol,
+        )
 
     def _get_culture_hints(self, debate_id: str) -> dict:
         """Retrieve culture hints from cross-subscriber manager.
+
+        Delegates to ArenaKnowledgeManager.get_culture_hints().
 
         Args:
             debate_id: Debate identifier
@@ -985,64 +913,23 @@ class Arena:
         Returns:
             Dict of protocol hints derived from organizational culture
         """
-        try:
-            from aragora.events.cross_subscribers import get_cross_subscriber_manager
-
-            manager = get_cross_subscriber_manager()
-            hints = manager.get_debate_culture_hints(debate_id)
-            if hints:
-                logger.debug(f"[arena] Retrieved {len(hints)} culture hints for debate {debate_id}")
-            return hints
-
-        except ImportError:
-            return {}
-        except Exception as e:
-            logger.debug(f"[arena] Failed to get culture hints: {e}")
-            return {}
+        return self._km_manager.get_culture_hints(debate_id)
 
     def _apply_culture_hints(self, hints: dict) -> None:
         """Apply culture-derived hints to protocol and debate configuration.
 
+        Delegates to ArenaKnowledgeManager.apply_culture_hints() and copies
+        the applied hints to Arena attributes for backwards compatibility.
+
         Args:
             hints: Protocol hints from organizational culture patterns
         """
-        if not hints:
-            return
-
-        try:
-            # Apply recommended consensus method if available
-            if "recommended_consensus" in hints:
-                recommended = hints["recommended_consensus"]
-                if recommended in ("unanimous", "majority", "consensus"):
-                    logger.info(f"[arena] Culture recommends {recommended} consensus")
-                    # Note: This could be applied to self.protocol.consensus
-                    # but we avoid modifying protocol after initialization
-                    # Instead, store as context for consensus detection
-                    self._culture_consensus_hint = recommended
-
-            # Apply extra critique rounds for conservative cultures
-            if hints.get("extra_critique_rounds", 0) > 0:
-                extra = hints["extra_critique_rounds"]
-                logger.info(f"[arena] Culture suggests {extra} extra critique rounds")
-                # Store hint for critique phase to consider
-                self._culture_extra_critiques = extra
-
-            # Apply early consensus threshold for aggressive cultures
-            if "early_consensus_threshold" in hints:
-                threshold = hints["early_consensus_threshold"]
-                logger.info(f"[arena] Culture suggests early consensus at {threshold:.0%}")
-                self._culture_early_consensus = threshold
-
-            # Store domain-specific patterns
-            if "domain_patterns" in hints:
-                patterns = hints["domain_patterns"]
-                logger.debug(f"[arena] Loaded {len(patterns)} domain-specific culture patterns")
-                self._culture_domain_patterns = patterns
-
-        except (KeyError, TypeError, AttributeError) as e:
-            logger.debug(f"[arena] Failed to apply culture hints (data error): {e}")
-        except Exception as e:
-            logger.warning(f"[arena] Unexpected error applying culture hints: {e}")
+        self._km_manager.apply_culture_hints(hints)
+        # Copy applied hints to Arena for backwards compatibility
+        self._culture_consensus_hint = self._km_manager.culture_consensus_hint
+        self._culture_extra_critiques = self._km_manager.culture_extra_critiques
+        self._culture_early_consensus = self._km_manager.culture_early_consensus
+        self._culture_domain_patterns = self._km_manager.culture_domain_patterns
 
     def _setup_belief_network(
         self,
@@ -1583,16 +1470,16 @@ class Arena:
     async def _fetch_knowledge_context(self, task: str, limit: int = 10) -> Optional[str]:
         """Fetch relevant knowledge from Knowledge Mound for debate context.
 
-        Delegates to KnowledgeMoundOperations for implementation.
+        Delegates to ArenaKnowledgeManager.fetch_context().
         """
-        return await self._knowledge_ops.fetch_knowledge_context(task, limit)
+        return await self._km_manager.fetch_context(task, limit)
 
     async def _ingest_debate_outcome(self, result: "DebateResult") -> None:
         """Store debate outcome in Knowledge Mound for future retrieval.
 
-        Delegates to KnowledgeMoundOperations for implementation.
+        Delegates to ArenaKnowledgeManager.ingest_outcome().
         """
-        await self._knowledge_ops.ingest_debate_outcome(result, env=self.env)
+        await self._km_manager.ingest_outcome(result, self.env)
 
     async def _refresh_evidence_for_round(
         self, combined_text: str, ctx: "DebateContext", round_num: int
