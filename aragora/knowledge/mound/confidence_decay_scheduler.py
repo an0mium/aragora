@@ -249,7 +249,9 @@ class ConfidenceDecayScheduler:
 
         try:
             # Use the KnowledgeMound's apply_confidence_decay method
-            decay_report: DecayReport = await self._knowledge_mound.apply_confidence_decay(
+            # Note: Uses ConfidenceDecayMixin.apply_confidence_decay (returns DecayReport)
+            # not PruningOperationsMixin.apply_confidence_decay (returns int)
+            decay_report: DecayReport = await self._knowledge_mound.apply_confidence_decay(  # type: ignore[call-arg,assignment]
                 workspace_id=workspace_id,
                 force=force,
             )
