@@ -89,6 +89,19 @@ async for event in service.stream_events(debate_id):
     print(event)
 ```
 
+### Request-Scoped Batch Loaders
+
+Debate execution uses request-scoped DataLoaders to prevent N+1 query patterns
+when fetching agent stats and ELO ratings.
+
+```python
+from aragora.debate.batch_loaders import get_debate_loaders
+
+loaders = get_debate_loaders()
+ratings = await loaders.elo.load_many(["anthropic-api", "openai-api"])
+stats = await loaders.stats.load_many(["anthropic-api", "openai-api"])
+```
+
 ## Phase System
 
 Debates progress through configurable phases.

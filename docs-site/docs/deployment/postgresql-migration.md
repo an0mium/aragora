@@ -365,6 +365,10 @@ The schema file includes:
 ## Docker Deployment
 
 ```bash
+# Ensure Aragora uses PostgreSQL for storage
+export ARAGORA_DB_BACKEND=postgres
+export ARAGORA_POSTGRES_DSN=postgresql://aragora:${POSTGRES_PASSWORD:-aragora_dev_password}@postgres:5432/aragora
+
 # Start PostgreSQL with docker-compose
 docker compose --profile postgres up -d postgres
 

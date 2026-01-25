@@ -16,6 +16,8 @@ The Knowledge Mound system provides:
 - **Provenance Tracking** for audit and compliance
 - **Staleness Detection** with automatic revalidation scheduling
 - **Culture Accumulation** for organizational learning
+- **CDC Ingestion** for change-data capture sources with provenance metadata
+- **Request-Scoped Query Cache** to avoid repeated lookups within a request
 - **Multi-Tenant Workspace Isolation**
 
 ## Architecture
@@ -90,6 +92,33 @@ await mound.initialize()
 ```
 
 ---
+
+## CDC Ingestion (Change Data Capture)
+
+Knowledge nodes can be ingested from database CDC streams (PostgreSQL, MongoDB, etc.).
+Attach CDC metadata to each node for provenance and freshness checks:
+
+```python
+from aragora.knowledge.mound import IngestionRequest, KnowledgeSource
+
+await mound.store(
+    IngestionRequest(
+        content="Product pricing updated for enterprise tier",
+        source_type=KnowledgeSource.EXTERNAL,
+        workspace_id="enterprise",
+        confidence=0.9,
+        metadata={
+            "source_type": "postgresql",
+            "cdc_operation": "update",
+            "table": "products",
+            "timestamp": "2026-01-25T12:34:56Z",
+        },
+    )
+)
+```
+
+Downstream debates can query this CDC-sourced knowledge for context, and
+freshness filters can use the `timestamp` field.
 
 ## Core Components
 

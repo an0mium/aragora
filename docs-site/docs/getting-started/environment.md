@@ -5,7 +5,7 @@ description: Environment Variable Reference
 
 # Environment Variable Reference
 
-> **Last Updated:** 2026-01-21
+> **Last Updated:** 2026-01-25
 
 
 Complete reference for all environment variables used by Aragora.
@@ -1042,9 +1042,21 @@ Slack integration uses the existing `SLACK_*` variables with additional bidirect
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `SLACK_BOT_TOKEN` | Required | Slack bot OAuth token (xoxb-...) | - |
-| `SLACK_SIGNING_SECRET` | Required | Request signing secret | - |
+| `SLACK_CLIENT_ID` | Required | OAuth app client ID | - |
+| `SLACK_CLIENT_SECRET` | Required | OAuth app client secret | - |
+| `SLACK_SIGNING_SECRET` | Required | Request signing secret (webhook verification) | - |
+| `SLACK_REDIRECT_URI` | **Required in Production** | OAuth callback URL (enforced when `ARAGORA_ENV=production`) | Auto-construct in dev |
+| `SLACK_BOT_TOKEN` | Optional | Bot token for direct API calls (xoxb-...) | - |
 | `SLACK_APP_TOKEN` | Optional | App-level token for Socket Mode (xapp-...) | - |
+| `SLACK_SCOPES` | Optional | OAuth scopes (comma-separated) | See default scopes |
+| `ARAGORA_API_BASE_URL` | **Required in Production** | Base URL for internal API calls | `http://localhost:8080` |
+| `ARAGORA_ENCRYPTION_KEY` | **Required in Production** | Encryption key for token storage | - |
+| `ARAGORA_ENV` | Optional | Environment mode (`production` enforces requirements) | `development` |
+
+**Production Requirements:**
+- `SLACK_REDIRECT_URI` must be set when `ARAGORA_ENV=production` (prevents open redirect attacks)
+- `ARAGORA_API_BASE_URL` should point to your production API endpoint
+- `ARAGORA_ENCRYPTION_KEY` required for secure token storage (PBKDF2-HMAC with 480k iterations)
 
 **Additional Commands:**
 - `/aragora debate "topic"` - Start a multi-agent debate
@@ -1088,6 +1100,8 @@ See [BOT_INTEGRATIONS.md](../guides/bot-integrations) for detailed setup guides.
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
 | `ARAGORA_KNOWLEDGE_AUTO_PROCESS` | Optional | Auto-process new knowledge entries | `true` |
+| `ARAGORA_QUERY_CACHE_ENABLED` | Optional | Enable request-scoped knowledge query cache | `true` |
+| `ARAGORA_QUERY_CACHE_MAX_SIZE` | Optional | Max entries per request-scoped cache | `1000` |
 
 ## Evolution & Prompt Settings
 
@@ -1105,6 +1119,13 @@ See [BOT_INTEGRATIONS.md](../guides/bot-integrations) for detailed setup guides.
 | `ARAGORA_CACHE_MAX_ENTRIES` | Optional | Max entries in LRU caches | `1000` |
 | `ARAGORA_CACHE_EVICT_PERCENT` | Optional | Percentage to evict when cache full | `10` |
 
+## Observability & Performance
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_N1_DETECTION` | Optional | N+1 query detection mode: `off`, `warn`, `error` | `off` |
+| `ARAGORA_N1_THRESHOLD` | Optional | N+1 query threshold per table | `5` |
+
 ## CLI & Process Settings
 
 | Variable | Required | Description | Default |
@@ -1113,6 +1134,13 @@ See [BOT_INTEGRATIONS.md](../guides/bot-integrations) for detailed setup guides.
 | `ARAGORA_BIND_HOST` | Optional | Host to bind server to | `0.0.0.0` |
 | `ARAGORA_ORG_ID` | Optional | Default organization ID | - |
 | `ARAGORA_SCOPE_CHECK` | Optional | Enable scope validation | `true` |
+
+## Testing & CI
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_BASELINE_PARALLEL` | Optional | Parallel workers for baseline runner | `auto` |
+| `ARAGORA_BASELINE_TIMEOUT` | Optional | Timeout seconds for baseline runner | `60` |
 
 ## Legacy Database Aliases
 

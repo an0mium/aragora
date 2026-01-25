@@ -9,9 +9,9 @@ This document explains the security improvements in Aragora's CI/CD pipeline, sp
 
 ## Overview
 
-### Previous Approach (SSH Keys)
+### Previous Approach (SSH Keys) - DEPRECATED
 
-The original `deploy.yml` workflow used SSH keys stored as GitHub secrets:
+The original `deploy.yml` workflow (now removed) used SSH keys stored as GitHub secrets:
 
 ```yaml
 # Vulnerable pattern - SSH private key in secrets
@@ -166,17 +166,13 @@ Required secrets (Settings > Secrets and variables > Actions):
 
 ### 5. Enable the Secure Workflow
 
-The secure workflow is at `.github/workflows/deploy-secure.yml`. To make it the default:
+The secure workflow is at `.github/workflows/deploy-secure.yml` and is now the **only** deployment workflow.
 
-1. Disable the old workflow:
-   ```bash
-   mv .github/workflows/deploy.yml .github/workflows/deploy.yml.legacy
-   ```
-
-2. Or rename the secure workflow:
-   ```bash
-   mv .github/workflows/deploy-secure.yml .github/workflows/deploy.yml
-   ```
+**Migration Complete (2026-01):** The legacy `deploy.yml` workflow has been removed. All deployments now use the secure OIDC-based workflow which:
+- Triggers automatically on pushes to `main`
+- Supports manual deployments via `workflow_dispatch`
+- Uses AWS OIDC authentication (no stored credentials)
+- Deploys via AWS SSM (no SSH access required)
 
 ## Security Comparison
 
@@ -243,16 +239,53 @@ aws cloudtrail lookup-events \
 
 ## Migration Checklist
 
-- [ ] Create OIDC provider in AWS IAM
-- [ ] Create IAM role with trust policy
-- [ ] Attach permissions policy to role
-- [ ] Configure EC2 instances with SSM agent and instance profile
-- [ ] Tag instances with Environment and Application
-- [ ] Add AWS_ACCOUNT_ID and AWS_DEPLOY_ROLE_NAME secrets
-- [ ] Test deploy-secure.yml workflow manually
-- [ ] Monitor CloudTrail for deployment events
-- [ ] Deprecate old SSH key secrets (but don't delete until confident)
-- [ ] Remove old deploy.yml after validation period
+**Migration Status: Complete (2026-01)**
+
+- [x] Create OIDC provider in AWS IAM
+- [x] Create IAM role with trust policy
+- [x] Attach permissions policy to role
+- [x] Configure EC2 instances with SSM agent and instance profile
+- [x] Tag instances with Environment and Application
+- [x] Add AWS_ACCOUNT_ID and AWS_DEPLOY_ROLE_NAME secrets
+- [x] Test deploy-secure.yml workflow manually
+- [x] Monitor CloudTrail for deployment events
+- [x] Remove legacy deploy.yml workflow (completed 2026-01-24)
+- [x] Configure environment protection for production (see below)
+- [ ] Delete old SSH key secrets from GitHub (LIGHTSAIL_SSH_KEY, etc.)
+
+## Environment Protection Rules
+
+Production deployments require approval via GitHub Environment Protection Rules.
+
+### Configure Required Reviewers
+
+1. Go to **Settings > Environments > production**
+2. Enable **Required reviewers**
+3. Add one or more reviewers (team leads, DevOps)
+4. Optionally set a wait timer (e.g., 5 minutes for "bake time")
+
+### Configure Deployment Branch Rules
+
+1. In the same environment settings, scroll to **Deployment branches**
+2. Select "Selected branches" and add `main`
+3. This prevents accidental production deploys from feature branches
+
+### What Happens During Deployment
+
+When a workflow targets the `production` environment:
+
+1. Workflow pauses at the job with `environment: production`
+2. Designated reviewers receive notification
+3. Reviewer approves or rejects in the workflow run UI
+4. If approved, deployment proceeds
+5. If rejected or timeout (default 30 days), job fails
+
+### Best Practices
+
+- **Require 2+ reviewers** for critical production systems
+- **Set deployment branches** to only allow `main`
+- **Enable wait timer** for automatic rollback capability
+- **Review staging results** before approving production
 
 ## References
 

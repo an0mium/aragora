@@ -16,7 +16,7 @@ Enterprise connectors enable incremental syncing from various data sources:
 |----------|------------|----------|
 | **Git** | GitHub Enterprise | PRs, Issues, Discussions, Code |
 | **Documents** | S3, SharePoint, Google Drive | File sync, Office documents |
-| **Databases** | PostgreSQL, MongoDB | Table sync, LISTEN/NOTIFY |
+| **Databases** | PostgreSQL, MongoDB, MySQL, SQL Server, Snowflake | Table sync, CDC/Change Tracking |
 | **Collaboration** | Confluence, Notion, Slack | Pages, Workspaces, Channels |
 | **Healthcare** | FHIR | HL7 FHIR resources, PHI redaction |
 
@@ -70,6 +70,14 @@ export ARAGORA_GDRIVE_REFRESH_TOKEN="..."
 # PostgreSQL
 export ARAGORA_POSTGRES_USER="..."
 export ARAGORA_POSTGRES_PASSWORD="..."
+
+# MySQL
+export ARAGORA_MYSQL_USER="..."
+export ARAGORA_MYSQL_PASSWORD="..."
+
+# SQL Server
+export ARAGORA_SQLSERVER_USER="..."
+export ARAGORA_SQLSERVER_PASSWORD="..."
 
 # S3
 export ARAGORA_AWS_ACCESS_KEY_ID="..."
@@ -382,6 +390,74 @@ result = await mongo.sync()
 **Environment Variables:**
 ```bash
 ARAGORA_MONGODB_URI=mongodb://user:pass@host:27017/dbname?authSource=admin
+```
+
+### MySQL
+
+```python
+from aragora.connectors.enterprise import MySQLConnector
+
+mysql = MySQLConnector(
+    host="localhost",
+    port=3306,
+    database="myapp",
+    tenant_id="workspace-1",
+    tables=["documents", "articles"],
+    timestamp_column="updated_at",
+    primary_key_column="id",
+    content_columns=["title", "body"],
+    # Optional: enable binlog CDC (requires mysql-replication)
+    enable_binlog_cdc=True,
+    server_id=100,
+    pool_size=5,
+)
+
+result = await mysql.sync()
+```
+
+**Dependencies:**
+- `aiomysql` for async connection pooling
+- `mysql-replication` for binlog CDC
+
+**Environment Variables:**
+```bash
+ARAGORA_MYSQL_USER=myuser
+ARAGORA_MYSQL_PASSWORD=mypassword
+```
+
+### SQL Server
+
+```python
+from aragora.connectors.enterprise import SQLServerConnector
+
+sqlserver = SQLServerConnector(
+    host="localhost",
+    port=1433,
+    database="myapp",
+    schema="dbo",
+    tenant_id="workspace-1",
+    tables=["documents", "articles"],
+    timestamp_column="updated_at",
+    primary_key_column="id",
+    content_columns=["title", "body"],
+    # Optional: CDC or Change Tracking
+    use_cdc=True,
+    use_change_tracking=False,
+    poll_interval_seconds=5,
+    pool_size=5,
+)
+
+result = await sqlserver.sync()
+```
+
+**Dependencies:**
+- `aioodbc` for async pooling
+- ODBC Driver 17+ for SQL Server
+
+**Environment Variables:**
+```bash
+ARAGORA_SQLSERVER_USER=sa
+ARAGORA_SQLSERVER_PASSWORD=your-password
 ```
 
 ## Collaboration Connectors

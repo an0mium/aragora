@@ -5,16 +5,30 @@ description: Aragora API Reference
 
 # Aragora API Reference
 
-> **Last Updated:** 2026-01-22 (control plane, decision, platform, code review APIs)
+> **Last Updated:** 2026-01-25 (SDK parity, CI improvements, enterprise hardening)
 
 This document describes the HTTP and WebSocket APIs for Aragora's control plane
 for multi-agent vetted decisionmaking across organizational knowledge and channels.
+
+## SDK Coverage
+
+| SDK | Version | Methods | Coverage |
+|-----|---------|---------|----------|
+| TypeScript (`@aragora/sdk`) | 2.4.0 | 346 async | Full API |
+| Python (`aragora`) | 2.4.0 | 210 async + 400 sync | Full API |
+
+Both SDKs provide complete coverage of all API endpoints including:
+- Debates, Agents, Memory, Knowledge
+- Gauntlet, Verification, Workflows
+- Control Plane, RBAC, Tenancy
+- Authentication, Billing, Audit
 
 ## Related Documentation
 
 | Document | Purpose | When to Use |
 |----------|---------|-------------|
 | **API_REFERENCE.md** (this) | Complete endpoint catalog | Primary reference for all endpoints |
+| [API_ENDPOINTS.md](./endpoints) | Auto-generated endpoint list | Cross-check handler coverage |
 | [API_EXAMPLES.md](./examples) | Runnable code examples | Learning API patterns |
 | [API_RATE_LIMITS.md](./rate-limits) | Rate limiting details | Understanding throttling |
 | [API_VERSIONING.md](./versioning) | Version strategy | API migration planning |
@@ -575,12 +589,11 @@ Threat intelligence endpoints live under `/api/v1/threat`.
 
 | Endpoint | Description | Status |
 |----------|-------------|--------|
-| `GET /api/debates/:id/explainability` | Get full decision explanation | NEW |
-| `GET /api/debates/:id/explainability/factors` | Get contributing factors | NEW |
-| `GET /api/debates/:id/explainability/counterfactual` | Get counterfactual scenarios | NEW |
-| `POST /api/debates/:id/explainability/counterfactual` | Generate custom counterfactual | NEW |
-| `GET /api/debates/:id/explainability/provenance` | Get decision provenance chain | NEW |
-| `GET /api/debates/:id/explainability/narrative` | Get natural language narrative | NEW |
+| `GET /api/v1/debates/:id/explanation` | Get full decision explanation | NEW |
+| `GET /api/v1/debates/:id/evidence` | Get evidence chain | NEW |
+| `GET /api/v1/debates/:id/votes/pivots` | Get vote pivot analysis | NEW |
+| `GET /api/v1/debates/:id/counterfactuals` | Get counterfactual scenarios | NEW |
+| `GET /api/v1/debates/:id/summary` | Get human-readable summary | NEW |
 | `GET /api/workflow/templates` | List workflow templates | NEW |
 | `GET /api/workflow/templates/:id` | Get template details | NEW |
 | `GET /api/workflow/templates/:id/package` | Get full template package | NEW |
@@ -5175,151 +5188,83 @@ GET /api/training/jobs/\{id\}/artifacts
 
 ## Explainability API
 
-Get detailed explanations of debate decisions including factors, counterfactuals, and provenance.
+Get decision explanations, evidence chains, vote pivots, counterfactuals, and summaries.
 
 ### Get Full Explanation
 
 ```http
-GET /api/debates/\{debate_id\}/explainability
+GET /api/v1/debates/\{debate_id\}/explanation
 Authorization: Bearer <token>
 ```
 
 **Query Parameters:**
-- `include_factors` (boolean, default: true): Include factor decomposition
-- `include_counterfactuals` (boolean, default: true): Include counterfactual scenarios
-- `include_provenance` (boolean, default: true): Include decision provenance chain
+- `format` (string, default: `json`): `json` or `summary` (Markdown)
 
-**Response:**
+**Response (json):**
 ```json
 {
+  "decision_id": "dec-abc123",
   "debate_id": "debate-123",
-  "narrative": "The debate concluded with consensus favoring...",
-  "factors": [
-    {
-      "name": "evidence_quality",
-      "contribution": 0.35,
-      "description": "Quality of cited evidence",
-      "evidence": ["Source A demonstrated...", "Source B corroborated..."]
-    }
-  ],
-  "counterfactuals": [
-    {
-      "scenario": "If Agent A had cited additional sources...",
-      "outcome": "Consensus would have been stronger",
-      "probability": 0.72
-    }
-  ],
-  "provenance": [
-    {
-      "step": 1,
-      "action": "Initial arguments presented",
-      "timestamp": "2026-01-20T10:00:00Z",
-      "agent": "anthropic-api",
-      "confidence": 0.85
-    }
-  ]
-}
-```
-
-### Get Contributing Factors
-
-```http
-GET /api/debates/\{debate_id\}/explainability/factors
-Authorization: Bearer <token>
-```
-
-**Query Parameters:**
-- `min_contribution` (float, 0-1): Minimum contribution threshold
-- `sort_by` (string): Sort by "contribution", "name", or "type"
-
-**Response:**
-```json
-{
-  "debate_id": "debate-123",
-  "factors": [
-    {
-      "name": "argument_strength",
-      "contribution": 0.45,
-      "type": "rhetorical",
-      "description": "Logical coherence of arguments"
-    }
-  ],
-  "total_factors": 8
-}
-```
-
-### Get Counterfactual Scenarios
-
-```http
-GET /api/debates/\{debate_id\}/explainability/counterfactual
-Authorization: Bearer <token>
-```
-
-**Query Parameters:**
-- `max_scenarios` (int, default: 5, max: 20): Maximum scenarios to generate
-- `min_probability` (float, default: 0.3): Minimum probability threshold
-
-**Response:**
-```json
-{
-  "debate_id": "debate-123",
-  "counterfactuals": [
-    {
-      "scenario": "What if GPT-4 had participated instead of Claude?",
-      "outcome": "Similar consensus with different reasoning path",
-      "probability": 0.68,
-      "affected_factors": ["agent_diversity", "reasoning_style"]
-    }
-  ]
-}
-```
-
-### Generate Custom Counterfactual
-
-```http
-POST /api/debates/\{debate_id\}/explainability/counterfactual
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "hypothesis": "What if the debate had one more round?",
-  "affected_agents": ["anthropic-api"]
-}
-```
-
-### Get Decision Provenance
-
-```http
-GET /api/debates/\{debate_id\}/explainability/provenance
-Authorization: Bearer <token>
-```
-
-**Query Parameters:**
-- `include_timestamps` (boolean, default: true)
-- `include_agents` (boolean, default: true)
-- `include_confidence` (boolean, default: true)
-
-### Get Narrative Explanation
-
-```http
-GET /api/debates/\{debate_id\}/explainability/narrative
-Authorization: Bearer <token>
-```
-
-**Query Parameters:**
-- `format` (string): "brief", "detailed", or "executive_summary"
-- `language` (string, default: "en"): ISO 639-1 language code
-
-**Response:**
-```json
-{
-  "debate_id": "debate-123",
-  "narrative": "The debate reached consensus after 3 rounds...",
+  "conclusion": "Adopt a tiered rate limiting strategy",
   "confidence": 0.87,
-  "format": "detailed",
-  "word_count": 250
+  "consensus_reached": true,
+  "evidence_chain": [],
+  "vote_pivots": [],
+  "counterfactuals": [],
+  "evidence_quality_score": 0.82
 }
 ```
+
+### Get Evidence Chain
+
+```http
+GET /api/v1/debates/\{debate_id\}/evidence
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `limit` (int, default: 20)
+- `min_relevance` (float, default: 0.0)
+
+**Response:**
+```json
+{
+  "debate_id": "debate-123",
+  "evidence_count": 5,
+  "evidence_quality_score": 0.82,
+  "evidence": []
+}
+```
+
+### Get Vote Pivots
+
+```http
+GET /api/v1/debates/\{debate_id\}/votes/pivots
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `min_influence` (float, default: 0.0)
+
+### Get Counterfactuals
+
+```http
+GET /api/v1/debates/\{debate_id\}/counterfactuals
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `min_sensitivity` (float, default: 0.0)
+
+### Get Summary
+
+```http
+GET /api/v1/debates/\{debate_id\}/summary
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `format` (string, default: `markdown`): `markdown`, `json`, or `html`
 
 ### Batch Explainability
 

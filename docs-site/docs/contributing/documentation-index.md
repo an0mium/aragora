@@ -8,6 +8,8 @@ description: Documentation Index
 Canonical documentation lives in `docs/`. The published site in `docs-site/` is
 synced from these files via `docs-site/scripts/sync-docs.js`.
 
+**New to Aragora?** Start with [DOCUMENTATION_HUB.md](DOCUMENTATION_HUB.md) for guided navigation.
+
 Use this index for fast navigation. For a fuller map, see
 `docs/DOCUMENTATION_MAP.md`. Deprecated and historical documents live in
 `docs/deprecated/`.

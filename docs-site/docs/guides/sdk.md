@@ -6,6 +6,7 @@ description: Aragora Python SDK
 # Aragora Python SDK
 
 The Aragora Python SDK provides a type-safe interface for interacting with the Aragora API.
+Prefer `/api/v1` endpoints for SDK usage; unversioned `/api` endpoints remain supported but are deprecated for SDK clients.
 
 ## Package Options
 
@@ -303,6 +304,59 @@ data = client.replays.export(replay.replay_id, format="json")
 
 # Delete replay
 client.replays.delete(replay.replay_id)
+```
+
+### Explainability
+
+Inspect decision explanations, evidence chains, and counterfactuals.
+
+```python
+explanation = client.explainability.get_explanation(debate_id)
+evidence = client.explainability.get_evidence(debate_id)
+summary = client.explainability.get_summary(debate_id, format="markdown")
+
+batch = client.explainability.create_batch([debate_id], include_evidence=True)
+status = client.explainability.get_batch_status(batch.batch_id)
+```
+
+### Organizations
+
+Manage organizations and membership.
+
+```python
+org = client.organizations.get(org_id)
+members = client.organizations.list_members(org_id)
+client.organizations.invite_member(org_id, email="user@acme.com", role="member")
+
+memberships = client.organizations.list_user_organizations()
+if memberships:
+    client.organizations.switch_organization(memberships[0].org_id)
+```
+
+### Compliance Policies
+
+Define policies and review violations.
+
+```python
+policies, total = client.policies.list(limit=50)
+policy = client.policies.get("policy-123")
+
+violations, _ = client.policies.list_violations(status="open")
+result = client.policies.check(
+    content="We store EU customer data in us-east-1",
+    frameworks=["gdpr"],
+)
+```
+
+### Tenants
+
+Administer tenants for multi-tenant deployments.
+
+```python
+tenants, total = client.tenants.list()
+tenant = client.tenants.create(name="Acme Corp", slug="acme", tier="enterprise")
+usage = client.tenants.get_usage(tenant.id)
+client.tenants.update_quotas(tenant.id, {"debates_per_month": 5000})
 ```
 
 ### Health Check

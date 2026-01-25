@@ -5,8 +5,8 @@ description: Aragora Deployment Guide
 
 # Aragora Deployment Guide
 
-**Version**: 2.0.0
-**Last Updated**: January 18, 2026
+**Version**: 2.3.0
+**Last Updated**: January 25, 2026
 
 This guide covers deploying Aragora to production environments.
 
@@ -32,6 +32,62 @@ docker compose up -d
 
 # 4. Check health
 curl http://localhost:8080/api/health
+```
+
+## Production Readiness Checklist
+
+Use this checklist before deploying to production:
+
+### Environment Setup
+- [ ] All required environment variables configured (see [ENVIRONMENT.md](../getting-started/environment))
+- [ ] At least one AI provider API key set (ANTHROPIC_API_KEY or OPENAI_API_KEY)
+- [ ] Database connection configured (ARAGORA_POSTGRES_DSN)
+- [ ] Redis URL configured for caching (ARAGORA_REDIS_URL)
+- [ ] Secrets properly encrypted (not plain text in configs)
+
+### Security
+- [ ] TLS/HTTPS configured with valid certificates
+- [ ] CORS origins restricted (ARAGORA_ALLOWED_ORIGINS)
+- [ ] Rate limiting enabled
+- [ ] API authentication enabled (API keys or OAuth)
+- [ ] RBAC roles and permissions configured
+- [ ] Audit logging enabled
+
+### Infrastructure
+- [ ] Container image built and pushed to registry
+- [ ] Resource limits set (CPU, memory)
+- [ ] Health checks configured (/api/health, /api/ready)
+- [ ] Persistent storage configured for database
+- [ ] Backup strategy in place
+
+### Monitoring
+- [ ] Prometheus metrics endpoint enabled (/metrics)
+- [ ] Grafana dashboards deployed
+- [ ] Alerting rules configured
+- [ ] Log aggregation configured
+- [ ] Error tracking (Sentry) configured
+
+### Performance
+- [ ] Load tested with expected traffic
+- [ ] Response time < 500ms for P99
+- [ ] Memory usage stable under load
+- [ ] Connection pooling configured
+
+### Verification Commands
+
+```bash
+# Verify health endpoints
+curl -f https://your-domain/api/health
+curl -f https://your-domain/api/ready
+
+# Verify metrics
+curl https://your-domain/metrics | head -20
+
+# Verify WebSocket
+wscat -c wss://your-domain/ws
+
+# Verify API authentication
+curl -H "Authorization: Bearer $TOKEN" https://your-domain/api/v1/agents
 ```
 
 ## Kubernetes Deployment

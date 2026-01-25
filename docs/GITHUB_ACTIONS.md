@@ -264,6 +264,9 @@ For large codebases:
 3. **Permissions**: Use minimal required permissions
 4. **Artifact Retention**: Review artifacts are retained 30-90 days
 
+Note: The OpenAPI sync workflow on `main` requires `contents: write` so it can
+commit generated spec updates.
+
 ---
 
 ## Example Workflow Files

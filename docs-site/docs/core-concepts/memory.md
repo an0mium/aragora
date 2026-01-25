@@ -7,6 +7,85 @@ description: Memory Tier Operations Guide
 
 This guide covers operational aspects of the Continuum Memory System for SREs and operators. For developer documentation, see [MEMORY_STRATEGY.md](./memory-strategy).
 
+## Developer Quick Start
+
+### Basic Usage
+
+```python
+from aragora.memory.continuum import ContinuumMemory
+from aragora.memory.tier_manager import MemoryTier
+
+# Initialize the memory system
+memory = ContinuumMemory()
+
+# Store a memory with automatic tier selection
+await memory.store(
+    content="Agent X performs well on technical debates",
+    importance=0.7,
+    domain="agent_performance",
+    metadata={"agent_id": "agent_x", "topic": "technical"},
+)
+
+# Store with explicit tier selection
+await memory.store(
+    content="Critical security pattern detected",
+    importance=0.9,
+    tier=MemoryTier.FAST,  # Force fast tier for immediate access
+)
+
+# Retrieve relevant memories
+memories = await memory.retrieve(
+    query="How does Agent X perform?",
+    limit=5,
+    min_similarity=0.3,
+)
+
+for mem in memories:
+    print(f"[{mem.tier.value}] {mem.content[:50]}... (score: {mem.relevance:.2f})")
+```
+
+### Choosing the Right Tier
+
+```python
+from aragora.memory.tier_manager import MemoryTier
+
+# FAST: Immediate, volatile context (1 hour half-life)
+# Use for: current debate context, error patterns, hot topics
+await memory.store(content="...", tier=MemoryTier.FAST, importance=0.9)
+
+# MEDIUM: Session-level learning (24 hour half-life)
+# Use for: daily patterns, session insights, user preferences
+await memory.store(content="...", tier=MemoryTier.MEDIUM, importance=0.6)
+
+# SLOW: Strategic patterns (7 day half-life)
+# Use for: proven strategies, cross-debate insights, reliability trends
+await memory.store(content="...", tier=MemoryTier.SLOW, importance=0.4)
+
+# GLACIAL: Long-term knowledge (30 day half-life)
+# Use for: stable facts, compliance rules, historical baselines
+await memory.store(content="...", tier=MemoryTier.GLACIAL, importance=0.2)
+```
+
+### Integration with Arena
+
+```python
+from aragora import Arena, Environment, DebateProtocol
+
+# Enable cross-debate memory in the protocol
+protocol = DebateProtocol(
+    rounds=3,
+    enable_cross_debate_memory=True,  # Inject relevant memories into prompts
+    enable_coordinated_writes=True,   # Atomic memory writes
+)
+
+# Arena automatically:
+# 1. Retrieves relevant memories before each round
+# 2. Stores debate outcomes to appropriate tiers
+# 3. Updates agent performance patterns
+arena = Arena(env, agents, protocol)
+result = await arena.run()
+```
+
 ## Tier Overview
 
 The Continuum Memory System uses four tiers with different update frequencies and retention policies:

@@ -74,7 +74,7 @@ They are used by control plane workflows, inbox automation, and knowledge ingest
 | Collaboration | `enterprise/collaboration` | Asana, Confluence, Jira, Linear, Monday, Notion, Slack, Teams |
 | Documents | `enterprise/documents` | Google Drive, Google Sheets, SharePoint, OneDrive, Dropbox, S3 |
 | Communication | `enterprise/communication` | Gmail, Outlook |
-| Databases | `enterprise/database` | Postgres, MongoDB, Snowflake |
+| Databases | `enterprise/database` | PostgreSQL, MongoDB, MySQL, SQL Server, Snowflake |
 | Git | `enterprise/git` | GitHub |
 | ITSM | `enterprise/itsm` | ServiceNow |
 | Streaming | `enterprise/streaming` | Kafka, RabbitMQ |

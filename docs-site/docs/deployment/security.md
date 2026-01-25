@@ -15,6 +15,7 @@ Comprehensive guide for deploying Aragora securely in production environments.
 - [Network Security](#network-security)
 - [Secrets Management](#secrets-management)
 - [Monitoring and Alerting](#monitoring-and-alerting)
+- [Application Security](#application-security)
 
 ---
 
@@ -519,6 +520,74 @@ Audit log includes:
 - Admin actions
 - Data access patterns
 - API key usage
+
+---
+
+## Application Security
+
+Aragora includes several application-level security features that are enabled by default.
+
+### OIDC Token Validation
+
+Token validation is enforced strictly in production mode:
+
+```bash
+# Environment variable (default: true in production)
+ARAGORA_STRICT_TOKEN_VALIDATION=true
+```
+
+When enabled:
+- ID tokens must have valid signatures (no fallback to userinfo endpoint)
+- Expired tokens are rejected without exception
+- Token claims (iss, aud, exp) are fully validated
+
+### Tenant Isolation
+
+Multi-tenant deployments enforce strict resource isolation:
+
+```python
+# Shared resources are validated at startup
+# Only explicitly allowed resources can be shared across tenants:
+ALLOWED_SHARED_RESOURCES = frozenset([
+    "system_agents",     # System-provided agents
+    "public_templates",  # Public workflow templates
+])
+```
+
+Key protections:
+- Query filters automatically include tenant_id
+- Cross-tenant data access is logged and audited
+- Shared resources are immutable and defined at startup
+
+### RBAC Permission Validation
+
+All route permissions are validated at startup:
+
+```python
+# Environment variable (default: false, set to true for strict mode)
+ARAGORA_RBAC_STRICT_MODE=true
+```
+
+Features:
+- Route permissions validated against SYSTEM_PERMISSIONS registry
+- Undefined permissions logged as warnings (errors in strict mode)
+- Wildcard permissions (e.g., `admin.*`) validated against defined permission prefixes
+- O(1) cache invalidation using version-based keys
+
+### Rate Limiting
+
+Configure per-client and per-endpoint rate limits:
+
+```bash
+# Global rate limits
+ARAGORA_RATE_LIMIT_REQUESTS=1000
+ARAGORA_RATE_LIMIT_WINDOW_SECONDS=60
+
+# Per-tier overrides
+ARAGORA_RATE_LIMIT_FREE_TIER=100
+ARAGORA_RATE_LIMIT_PRO_TIER=1000
+ARAGORA_RATE_LIMIT_ENTERPRISE_TIER=10000
+```
 
 ---
 

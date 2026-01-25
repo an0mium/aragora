@@ -338,6 +338,9 @@ ARAGORA_LOG_MAX_BYTES=10485760  # 10MB
 ARAGORA_LOG_BACKUP_COUNT=5
 ```
 
+Structured logging redacts sensitive fields (auth tokens, payment data, PII,
+session identifiers, and key material) before output.
+
 ### SLO Framework
 **Location**: `aragora/observability/slo.py`
 
@@ -377,7 +380,11 @@ Service Level Objective tracking:
 | **SharePoint** | `aragora/connectors/enterprise/documents/` | Document libraries, metadata |
 | **Confluence** | `aragora/connectors/enterprise/collaboration/` | Pages, spaces, attachments |
 | **Notion** | `aragora/connectors/enterprise/collaboration/` | Databases, pages |
+| **PostgreSQL** | `aragora/connectors/enterprise/database/postgres.py` | Table sync, LISTEN/NOTIFY |
 | **MongoDB** | `aragora/connectors/enterprise/database/mongodb.py` | Document queries |
+| **MySQL** | `aragora/connectors/enterprise/database/mysql.py` | Table sync, binlog CDC |
+| **SQL Server** | `aragora/connectors/enterprise/database/sqlserver.py` | Table sync, CDC/Change Tracking |
+| **Snowflake** | `aragora/connectors/enterprise/database/snowflake.py` | Table sync, time travel |
 
 ### Healthcare (HL7/FHIR)
 **Location**: `aragora/connectors/enterprise/healthcare/`

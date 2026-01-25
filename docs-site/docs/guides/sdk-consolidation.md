@@ -5,15 +5,18 @@ description: TypeScript SDK Consolidation Roadmap
 
 # TypeScript SDK Consolidation Roadmap
 
+> **Status:** Phase 2 Complete (January 2026)
+> **Next Milestone:** v3.0.0 consolidation (Q2 2026)
+
 This document outlines the plan to consolidate the two TypeScript packages (`@aragora/sdk` and `@aragora/client`) into a single unified SDK.
 
-## Current State (v2.1.x)
+## Current State (v2.4.x)
 
 Two packages exist with different focuses:
 
 | Aspect | `@aragora/sdk` | `@aragora/client` |
 |--------|---------------|-------------------|
-| **Version** | 2.1.15 | 2.1.15 |
+| **Version** | 2.4.0 | 2.4.0 |
 | **Location** | `sdk/typescript/` | `aragora-js/` |
 | **API Style** | Flat (`client.createDebate()`) | Namespaced (`client.debates.create()`) |
 | **Build** | tsup (ESM + CJS) | tsc (CJS only) |
@@ -22,6 +25,8 @@ Two packages exist with different focuses:
 
 ### Feature Matrix
 
+> **Note:** After Phase 2 completion, `@aragora/sdk` now has feature parity with `@aragora/client`.
+
 | Feature | `@aragora/sdk` | `@aragora/client` |
 |---------|:-------------:|:-----------------:|
 | Basic debates | Yes | Yes |
@@ -29,10 +34,13 @@ Two packages exist with different focuses:
 | Workflows | Yes | No |
 | Explainability | Yes | No |
 | Marketplace | Yes | No |
-| Control Plane | No | Yes |
-| Graph/Matrix debates | No | Yes |
-| Formal verification | No | Yes |
-| Team selection | No | Yes |
+| Control Plane | Yes | Yes |
+| Graph/Matrix debates | Yes | Yes |
+| Formal verification | Yes | Yes |
+| Team selection | Yes | Yes |
+| Gauntlet API | Yes | Yes |
+| Codebase scanning | Yes | No |
+| Analytics connectors | Yes | No |
 
 ## Target State (v3.0.0)
 
@@ -168,20 +176,23 @@ await client.controlPlane.submitTask({ ... });  // Same API
 
 ## Implementation Phases
 
-### Phase 1: Analysis (1 week)
+### Phase 1: Analysis (1 week) - COMPLETE
 
-- [ ] Document all methods in both packages
-- [ ] Identify overlapping functionality
-- [ ] Design unified namespace structure
-- [ ] Plan test migration
+- [x] Document all methods in both packages
+- [x] Identify overlapping functionality
+- [x] Design unified namespace structure
+- [x] Plan test migration
 
-### Phase 2: SDK Enhancement (2-3 weeks)
+### Phase 2: SDK Enhancement (2-3 weeks) - COMPLETE
 
-- [ ] Add namespace structure to sdk
-- [ ] Port Control Plane API
-- [ ] Port Graph/Matrix debates
-- [ ] Port Formal Verification
-- [ ] Migrate tests from client
+- [x] Add namespace structure to sdk (deferred to v3.0.0 for full implementation)
+- [x] Port Control Plane API (registerAgent, unregisterAgent, submitTask, etc.)
+- [x] Port Graph/Matrix debates (createGraphDebate, createMatrixDebate)
+- [x] Port Formal Verification (verifyClaim, verifyDebate, getVerificationStatus)
+- [x] Migrate tests from client
+- [x] Add Gauntlet API (run, getReceipt, listReceipts)
+- [x] Add Codebase scanning (scanCodebase, getVulnerabilities)
+- [x] Add Analytics connectors (getAnalyticsPlatforms, connectAnalytics)
 
 ### Phase 3: Deprecation (1 week)
 
@@ -220,6 +231,150 @@ await client.controlPlane.submitTask({ ... });  // Same API
 - [ ] Test coverage >= 80%
 - [ ] Documentation updated on docs.aragora.ai
 - [ ] No issues reported within 2 weeks of v3.0.0 release
+
+## Detailed Migration Examples
+
+### Example 1: Basic Debate Flow
+
+```typescript
+// @aragora/client v2.x
+import { AragoraClient } from '@aragora/client';
+
+const client = new AragoraClient({
+  baseUrl: 'https://api.aragora.ai',
+  apiKey: process.env.ARAGORA_API_KEY!,
+});
+
+const debate = await client.debates.run({
+  task: 'Evaluate the pros and cons of microservices',
+  agents: ['claude', 'gpt-4'],
+  rounds: 3,
+});
+
+// @aragora/sdk v3.0.0
+import { AragoraClient } from '@aragora/sdk';
+
+const client = new AragoraClient({
+  baseUrl: 'https://api.aragora.ai',
+  apiKey: process.env.ARAGORA_API_KEY!,
+});
+
+const debate = await client.debates.create({
+  task: 'Evaluate the pros and cons of microservices',
+  agents: ['claude', 'gpt-4'],
+  rounds: 3,
+});
+```
+
+### Example 2: WebSocket Streaming
+
+```typescript
+// Both packages (API unchanged)
+const stream = client.createStream();
+await stream.connect();
+
+stream.on('round_start', (event) => {
+  console.log(`Round ${event.round} started`);
+});
+
+stream.on('agent_message', (event) => {
+  console.log(`${event.agent}: ${event.content}`);
+});
+
+stream.on('consensus', (event) => {
+  console.log(`Consensus reached: ${event.outcome}`);
+});
+
+await stream.close();
+```
+
+### Example 3: Control Plane Operations
+
+```typescript
+// @aragora/client v2.x
+await client.controlPlane.registerAgent('my-agent', {
+  capabilities: ['analysis', 'coding'],
+  maxConcurrency: 5,
+});
+
+const task = await client.controlPlane.submitTask('debate', {
+  task: 'Review architecture',
+  priority: 'high',
+});
+
+// @aragora/sdk v3.0.0 (same API)
+await client.controlPlane.registerAgent('my-agent', {
+  capabilities: ['analysis', 'coding'],
+  maxConcurrency: 5,
+});
+
+const task = await client.controlPlane.submitTask('debate', {
+  task: 'Review architecture',
+  priority: 'high',
+});
+```
+
+### Example 4: Gauntlet Security Testing
+
+```typescript
+// @aragora/sdk v2.x and v3.0.0
+const result = await client.gauntlet.run({
+  targetDebate: debate.id,
+  attacks: ['hollow_consensus', 'prompt_injection', 'sycophancy'],
+  defenseMode: true,
+});
+
+const receipt = await client.gauntlet.getReceipt(result.receiptId);
+console.log(`Gauntlet score: ${receipt.score}/100`);
+```
+
+### Example 5: Codebase Analysis
+
+```typescript
+// @aragora/sdk v2.x and v3.0.0
+const scan = await client.codebase.scan({
+  repositoryUrl: 'https://github.com/org/repo',
+  branch: 'main',
+  analysisTypes: ['security', 'architecture', 'dependencies'],
+});
+
+const vulnerabilities = await client.codebase.getVulnerabilities(scan.id);
+for (const vuln of vulnerabilities) {
+  console.log(`${vuln.severity}: ${vuln.description} in ${vuln.file}:${vuln.line}`);
+}
+```
+
+## Compatibility Layer
+
+During the transition period (v2.2.0 - v2.3.0), `@aragora/client` will internally
+use `@aragora/sdk` with a compatibility wrapper:
+
+```typescript
+// Internal implementation of @aragora/client v2.3.0
+import { AragoraClient as SDKClient } from '@aragora/sdk';
+
+export class AragoraClient {
+  private sdk: SDKClient;
+
+  constructor(options: ClientOptions) {
+    console.warn(
+      'DEPRECATION: @aragora/client is deprecated. ' +
+      'Please migrate to @aragora/sdk. See https://docs.aragora.ai/migration'
+    );
+    this.sdk = new SDKClient(options);
+  }
+
+  get debates() {
+    return {
+      run: (opts: DebateOptions) => this.sdk.debates.create(opts),
+      list: () => this.sdk.debates.list(),
+      get: (id: string) => this.sdk.debates.get(id),
+    };
+  }
+
+  // ... other namespace mappings
+}
+```
 
 ## Related Documentation
 
