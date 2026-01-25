@@ -18,6 +18,7 @@ from .metrics import (
     track_request,
     track_verification,
 )
+from .metrics.tracking import _error_counts, _request_counts, _start_time
 
 __all__ = [
     "MetricsHandler",
@@ -26,6 +27,9 @@ __all__ = [
     "get_verification_stats",
     "get_request_stats",
     "get_start_time",
+    "_request_counts",
+    "_error_counts",
+    "_start_time",
     "format_uptime",
     "format_size",
 ]

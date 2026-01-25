@@ -20,6 +20,9 @@ Endpoints served:
 from .formatters import format_size, format_uptime
 from .handler import MetricsHandler
 from .tracking import (
+    _error_counts,
+    _request_counts,
+    _start_time,
     get_request_stats,
     get_start_time,
     get_verification_stats,
@@ -36,6 +39,9 @@ __all__ = [
     "get_verification_stats",
     "get_request_stats",
     "get_start_time",
+    "_request_counts",
+    "_error_counts",
+    "_start_time",
     # Formatters
     "format_uptime",
     "format_size",
