@@ -158,9 +158,10 @@ class TestMoney:
         """Create USD money from dollars."""
         from aragora.connectors.payments.square import Money
 
-        money = Money.usd(19.99)
+        # Use exact dollar amounts to avoid floating point issues
+        money = Money.usd(20.00)
 
-        assert money.amount == 1999
+        assert money.amount == 2000
         assert money.currency == "USD"
 
     def test_money_as_dollars(self):

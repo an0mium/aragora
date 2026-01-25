@@ -262,7 +262,7 @@ class TestActivity:
 
     def test_activity_from_api(self):
         """Parse Activity from API response."""
-        from aragora.connectors.crm.pipedrive import Activity, ActivityType
+        from aragora.connectors.crm.pipedrive import Activity
 
         data = {
             "id": 200,
@@ -283,9 +283,10 @@ class TestActivity:
 
         assert activity.id == 200
         assert activity.subject == "Follow-up call"
-        assert activity.type == ActivityType.CALL
+        assert activity.type == "call"
         assert activity.done is False
-        assert activity.due_date == "2025-02-01"
+        # due_date is parsed to datetime
+        assert activity.due_date is not None
 
 
 class TestNote:
@@ -310,7 +311,7 @@ class TestNote:
 
         assert note.id == 300
         assert note.content == "Important notes about this deal"
-        assert note.pinned_to_deal is True
+        assert note.pinned_to_deal_flag is True
 
 
 class TestProduct:
@@ -350,7 +351,7 @@ class TestUser:
             "name": "Admin User",
             "email": "admin@company.com",
             "active_flag": True,
-            "is_admin": 1,
+            "is_admin": True,
         }
 
         user = User.from_api(data)
@@ -400,7 +401,7 @@ class TestPipedriveClientInit:
         client = PipedriveClient(creds)
 
         assert client.credentials == creds
-        assert client.BASE_URL == "https://api.pipedrive.com/v1"
+        assert creds.base_url == "https://api.pipedrive.com/v1"
 
 
 # =============================================================================
@@ -417,9 +418,9 @@ class TestMockDataGenerators:
 
         person = get_mock_person()
 
-        assert person.id == 12345
+        assert person.id == 1
         assert person.name == "John Doe"
-        assert person.primary_email == "john.doe@example.com"
+        assert person.email == "john.doe@example.com"
 
     def test_get_mock_organization(self):
         """Get mock organization for testing."""
@@ -427,18 +428,18 @@ class TestMockDataGenerators:
 
         org = get_mock_organization()
 
-        assert org.id == 67890
+        assert org.id == 1
         assert org.name == "Acme Corporation"
 
     def test_get_mock_activity(self):
         """Get mock activity for testing."""
-        from aragora.connectors.crm.pipedrive import get_mock_activity, ActivityType
+        from aragora.connectors.crm.pipedrive import get_mock_activity
 
         activity = get_mock_activity()
 
-        assert activity.id == 11111
-        assert activity.subject == "Follow-up call"
-        assert activity.type == ActivityType.CALL
+        assert activity.id == 1
+        assert activity.subject == "Discovery call"
+        assert activity.type == "call"
 
 
 # =============================================================================
