@@ -235,7 +235,7 @@ def km_staleness_check_task() -> None:
         async def check_staleness() -> None:
             workspace_id = "default"
             try:
-                from aragora.knowledge.mound.facade import get_knowledge_mound
+                from aragora.knowledge.mound import get_knowledge_mound
 
                 mound = get_knowledge_mound()
                 if mound is None:
@@ -316,6 +316,7 @@ def snooze_processor_task() -> None:
 
                 result = await handle_process_due_snoozes()
                 # Handle both dict and HandlerResult responses
+                data: dict[str, Any] = {}
                 if hasattr(result, "body"):
                     # HandlerResult - parse the JSON body
                     try:

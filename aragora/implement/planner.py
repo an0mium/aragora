@@ -284,7 +284,7 @@ async def decompose_failed_task(
     gemini = GeminiCLIAgent(
         name="task-decomposer",
         model=gemini_model,
-        role="decomposer",
+        role="planner",
         timeout=120,
     )
 
