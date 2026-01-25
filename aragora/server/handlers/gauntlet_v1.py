@@ -458,7 +458,7 @@ class GauntletReceiptExportHandler(BaseHandler):
             )
 
             # Map format string to enum
-            format_map: dict[str, ReceiptExportFormat] = {
+            format_map: dict[str, ReceiptExportFormat] = {  # type: ignore[no-redef]
                 "json": ReceiptExportFormat.JSON,
                 "markdown": ReceiptExportFormat.MARKDOWN,
                 "html": ReceiptExportFormat.HTML,

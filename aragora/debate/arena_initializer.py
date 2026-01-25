@@ -35,7 +35,7 @@ try:
 
     PROMPT_EVOLVER_AVAILABLE = True
 except ImportError:
-    PromptEvolver: Optional[Type[Any]] = None
+    PromptEvolver: Optional[Type[Any]] = None  # type: ignore[no-redef]
     PROMPT_EVOLVER_AVAILABLE = False
 
 

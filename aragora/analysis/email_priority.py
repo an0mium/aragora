@@ -27,7 +27,7 @@ try:
 except ImportError:
     HAS_ARAGORA_RLM = False
     HAS_OFFICIAL_RLM = False
-    AragoraRLM: Optional[Type[Any]] = None
+    AragoraRLM: Optional[Type[Any]] = None  # type: ignore[no-redef]
 
 logger = logging.getLogger(__name__)
 
