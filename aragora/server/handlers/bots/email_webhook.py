@@ -23,6 +23,7 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
+from aragora.audit.unified import audit_data, audit_security
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -124,6 +125,13 @@ class EmailWebhookHandler(BaseHandler):
 
             if not verify_sendgrid_signature(body, timestamp, signature):
                 logger.warning("SendGrid signature verification failed")
+                audit_security(
+                    event_type="email_webhook_auth_failed",
+                    actor_id="unknown",
+                    resource_type="sendgrid_webhook",
+                    resource_id="signature",
+                    reason="signature_verification_failed",
+                )
                 return error_response("Invalid signature", 401)
 
             # Parse form data
@@ -136,6 +144,15 @@ class EmailWebhookHandler(BaseHandler):
             logger.info(
                 f"SendGrid inbound email from {email_data.from_email}: "
                 f"subject='{email_data.subject[:50]}'"
+            )
+
+            audit_data(
+                user_id=f"email:{email_data.from_email}",
+                resource_type="inbound_email",
+                resource_id=email_data.message_id,
+                action="create",
+                provider="sendgrid",
+                subject_preview=email_data.subject[:50],
             )
 
             # Process asynchronously
@@ -187,6 +204,13 @@ class EmailWebhookHandler(BaseHandler):
             # Verify signature
             if not verify_ses_signature(notification):
                 logger.warning("SES signature verification failed")
+                audit_security(
+                    event_type="email_webhook_auth_failed",
+                    actor_id="unknown",
+                    resource_type="ses_webhook",
+                    resource_id="signature",
+                    reason="signature_verification_failed",
+                )
                 return error_response("Invalid signature", 401)
 
             # Handle subscription confirmation
@@ -212,6 +236,15 @@ class EmailWebhookHandler(BaseHandler):
             logger.info(
                 f"SES inbound email from {email_data.from_email}: "
                 f"subject='{email_data.subject[:50]}'"
+            )
+
+            audit_data(
+                user_id=f"email:{email_data.from_email}",
+                resource_type="inbound_email",
+                resource_id=email_data.message_id,
+                action="create",
+                provider="ses",
+                subject_preview=email_data.subject[:50],
             )
 
             # Process asynchronously
