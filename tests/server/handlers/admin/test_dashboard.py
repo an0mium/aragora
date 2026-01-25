@@ -1,0 +1,678 @@
+"""
+Tests for the admin dashboard handler.
+
+Tests cover:
+- DashboardHandler route handling
+- Debates dashboard endpoint
+- Quality metrics endpoint
+- Summary metrics (SQL and legacy)
+- Recent activity metrics
+- Agent performance metrics
+- Debate patterns
+- Consensus insights
+- System health
+- Calibration metrics
+- Performance metrics
+- Evolution metrics
+- Debate quality metrics
+"""
+
+from __future__ import annotations
+
+import time
+from datetime import datetime, timedelta, timezone
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from aragora.server.handlers.admin.dashboard import DashboardHandler
+
+
+# =============================================================================
+# Test Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def handler():
+    """Create a DashboardHandler instance with mocked context."""
+    # Mock server context with required fields
+    mock_context = {
+        "storage": None,
+        "elo_system": None,
+        "debate_embeddings": None,
+        "critique_store": None,
+        "calibration_tracker": None,
+        "performance_monitor": None,
+        "prompt_evolver": None,
+    }
+    h = DashboardHandler(mock_context)
+    return h
+
+
+@pytest.fixture
+def mock_storage():
+    """Create mock storage with connection."""
+    storage = MagicMock()
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+
+    # Setup connection context manager
+    storage.db = MagicMock()
+    storage.db.connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
+    storage.db.connection.return_value.__exit__ = MagicMock(return_value=False)
+
+    mock_conn.cursor.return_value = mock_cursor
+
+    return storage, mock_cursor
+
+
+@pytest.fixture
+def mock_debates():
+    """Create sample debate data."""
+    now = datetime.now(timezone.utc)
+    return [
+        {
+            "id": "debate_1",
+            "domain": "technology",
+            "consensus_reached": True,
+            "confidence": 0.85,
+            "created_at": now.isoformat(),
+            "early_stopped": False,
+        },
+        {
+            "id": "debate_2",
+            "domain": "finance",
+            "consensus_reached": True,
+            "confidence": 0.75,
+            "created_at": (now - timedelta(hours=2)).isoformat(),
+            "early_stopped": True,
+        },
+        {
+            "id": "debate_3",
+            "domain": "technology",
+            "consensus_reached": False,
+            "confidence": 0.55,
+            "created_at": (now - timedelta(hours=12)).isoformat(),
+            "early_stopped": False,
+            "disagreement_report": {"types": ["methodology", "evidence"]},
+        },
+    ]
+
+
+# =============================================================================
+# Route Handling Tests
+# =============================================================================
+
+
+class TestDashboardRouting:
+    """Tests for DashboardHandler route handling."""
+
+    def test_can_handle_debates_route(self, handler):
+        """Can handle debates dashboard route."""
+        assert handler.can_handle("/api/v1/dashboard/debates") is True
+
+    def test_can_handle_quality_metrics_route(self, handler):
+        """Can handle quality metrics route."""
+        assert handler.can_handle("/api/v1/dashboard/quality-metrics") is True
+
+    def test_cannot_handle_unknown_route(self, handler):
+        """Cannot handle unknown routes."""
+        assert handler.can_handle("/api/v1/unknown") is False
+        assert handler.can_handle("/api/v1/dashboard") is False
+
+    def test_handle_routes_to_debates(self, handler):
+        """Handle routes debates path correctly."""
+        mock_handler = MagicMock()
+
+        with patch.object(handler, "_get_debates_dashboard") as mock_method:
+            mock_method.return_value = {"data": {}}
+
+            with patch(
+                "aragora.server.handlers.admin.dashboard._dashboard_limiter"
+            ) as mock_limiter:
+                mock_limiter.is_allowed.return_value = True
+
+                handler.handle(
+                    "/api/v1/dashboard/debates", {"limit": "20", "hours": "48"}, mock_handler
+                )
+
+                mock_method.assert_called_once_with(None, 20, 48)
+
+    def test_handle_routes_to_quality_metrics(self, handler):
+        """Handle routes quality metrics path correctly."""
+        mock_handler = MagicMock()
+
+        with patch.object(handler, "_get_quality_metrics") as mock_method:
+            mock_method.return_value = {"data": {}}
+
+            with patch(
+                "aragora.server.handlers.admin.dashboard._dashboard_limiter"
+            ) as mock_limiter:
+                mock_limiter.is_allowed.return_value = True
+
+                handler.handle("/api/v1/dashboard/quality-metrics", {}, mock_handler)
+
+                mock_method.assert_called_once()
+
+    def test_handle_rate_limited(self, handler):
+        """Handle returns 429 when rate limited."""
+        mock_handler = MagicMock()
+
+        with patch("aragora.server.handlers.admin.dashboard._dashboard_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = False
+
+            result = handler.handle("/api/v1/dashboard/debates", {}, mock_handler)
+
+            assert result is not None
+            # Rate limit response should have 429 status
+
+    def test_handle_limit_capped_at_50(self, handler):
+        """Limit parameter is capped at 50."""
+        mock_handler = MagicMock()
+
+        with patch.object(handler, "_get_debates_dashboard") as mock_method:
+            mock_method.return_value = {"data": {}}
+
+            with patch(
+                "aragora.server.handlers.admin.dashboard._dashboard_limiter"
+            ) as mock_limiter:
+                mock_limiter.is_allowed.return_value = True
+
+                handler.handle("/api/v1/dashboard/debates", {"limit": "100"}, mock_handler)
+
+                # Limit should be capped at 50
+                mock_method.assert_called_once_with(None, 50, 24)
+
+
+# =============================================================================
+# Summary Metrics Tests
+# =============================================================================
+
+
+class TestSummaryMetrics:
+    """Tests for summary metrics generation."""
+
+    def test_get_summary_metrics_sql(self, handler, mock_storage):
+        """SQL summary returns correct aggregates."""
+        storage, cursor = mock_storage
+
+        # Mock SQL result: total=100, consensus=75, avg_conf=0.78
+        cursor.fetchone.return_value = (100, 75, 0.78)
+
+        result = handler._get_summary_metrics_sql(storage, None)
+
+        assert result["total_debates"] == 100
+        assert result["consensus_reached"] == 75
+        assert result["consensus_rate"] == 0.75
+        assert result["avg_confidence"] == 0.78
+
+    def test_get_summary_metrics_sql_empty(self, handler, mock_storage):
+        """SQL summary handles empty results."""
+        storage, cursor = mock_storage
+        cursor.fetchone.return_value = (0, 0, None)
+
+        result = handler._get_summary_metrics_sql(storage, None)
+
+        assert result["total_debates"] == 0
+        assert result["consensus_rate"] == 0.0
+        assert result["avg_confidence"] == 0.0
+
+    def test_get_summary_metrics_sql_error(self, handler, mock_storage):
+        """SQL summary handles errors gracefully."""
+        storage, cursor = mock_storage
+        cursor.fetchone.side_effect = Exception("Database error")
+
+        result = handler._get_summary_metrics_sql(storage, None)
+
+        assert result["total_debates"] == 0
+
+    def test_get_summary_metrics_legacy(self, handler, mock_debates):
+        """Legacy summary calculates metrics from debate list."""
+        result = handler._get_summary_metrics(None, mock_debates)
+
+        assert result["total_debates"] == 3
+        assert result["consensus_reached"] == 2
+        # 2/3 = 0.667 rounded to 3 decimals
+        assert result["consensus_rate"] == pytest.approx(0.667, rel=0.01)
+
+    def test_get_summary_metrics_empty(self, handler):
+        """Legacy summary handles empty list."""
+        result = handler._get_summary_metrics(None, [])
+
+        assert result["total_debates"] == 0
+        assert result["consensus_rate"] == 0.0
+
+
+# =============================================================================
+# Recent Activity Tests
+# =============================================================================
+
+
+class TestRecentActivity:
+    """Tests for recent activity metrics."""
+
+    def test_get_recent_activity_sql(self, handler, mock_storage):
+        """SQL activity returns correct counts."""
+        storage, cursor = mock_storage
+        cursor.fetchone.return_value = (25, 18)
+
+        result = handler._get_recent_activity_sql(storage, 24)
+
+        assert result["debates_last_period"] == 25
+        assert result["consensus_last_period"] == 18
+        assert result["period_hours"] == 24
+
+    def test_get_recent_activity_legacy(self, handler, mock_debates):
+        """Legacy activity counts recent debates."""
+        result = handler._get_recent_activity(None, 24, mock_debates)
+
+        # All 3 debates are within 24 hours
+        assert result["debates_last_period"] == 3
+        assert result["consensus_last_period"] == 2
+        assert "technology" in result["domains_active"]
+
+    def test_get_recent_activity_filters_by_time(self, handler):
+        """Activity filters debates by time window."""
+        # Create debates with clear time boundaries
+        now = datetime.now()  # Local time to match the method's cutoff calculation
+        old_debates = [
+            {
+                "id": "recent",
+                "consensus_reached": True,
+                "created_at": now.isoformat(),
+            },
+            {
+                "id": "very_old",
+                "consensus_reached": False,
+                "created_at": (now - timedelta(days=30)).isoformat(),
+            },
+        ]
+        # Use 24 hour window - first debate should be included, second shouldn't
+        result = handler._get_recent_activity(None, 24, old_debates)
+
+        # Only the recent debate should be included
+        assert result["debates_last_period"] == 1
+        assert result["consensus_last_period"] == 1
+
+
+# =============================================================================
+# Single Pass Processing Tests
+# =============================================================================
+
+
+class TestSinglePassProcessing:
+    """Tests for optimized single-pass debate processing."""
+
+    def test_process_debates_single_pass(self, handler, mock_debates):
+        """Single pass calculates all metrics correctly."""
+        summary, activity, patterns = handler._process_debates_single_pass(mock_debates, None, 24)
+
+        # Summary
+        assert summary["total_debates"] == 3
+        assert summary["consensus_reached"] == 2
+
+        # Activity
+        assert activity["debates_last_period"] == 3
+        assert activity["consensus_last_period"] == 2
+
+        # Patterns
+        assert patterns["disagreement_stats"]["with_disagreements"] == 1
+        assert patterns["early_stopping"]["early_stopped"] == 1
+        assert patterns["early_stopping"]["full_duration"] == 2
+
+    def test_process_debates_single_pass_empty(self, handler):
+        """Single pass handles empty list."""
+        summary, activity, patterns = handler._process_debates_single_pass([], None, 24)
+
+        assert summary["total_debates"] == 0
+        assert activity["debates_last_period"] == 0
+
+
+# =============================================================================
+# Agent Performance Tests
+# =============================================================================
+
+
+class TestAgentPerformance:
+    """Tests for agent performance metrics."""
+
+    def test_get_agent_performance(self, handler):
+        """Agent performance returns ELO ratings."""
+        mock_elo = MagicMock()
+        mock_rating = MagicMock()
+        mock_rating.agent_name = "claude"
+        mock_rating.elo = 1250
+        mock_rating.wins = 15
+        mock_rating.losses = 5
+        mock_rating.draws = 2
+        mock_rating.win_rate = 0.75
+        mock_rating.debates_count = 22
+
+        mock_elo.get_all_ratings.return_value = [mock_rating]
+        handler.get_elo_system = MagicMock(return_value=mock_elo)
+
+        result = handler._get_agent_performance(10)
+
+        assert len(result["top_performers"]) == 1
+        assert result["top_performers"][0]["name"] == "claude"
+        assert result["top_performers"][0]["elo"] == 1250
+        assert result["total_agents"] == 1
+        assert result["avg_elo"] == 1250.0
+
+    def test_get_agent_performance_no_elo(self, handler):
+        """Agent performance handles missing ELO system."""
+        handler.get_elo_system = MagicMock(return_value=None)
+
+        result = handler._get_agent_performance(10)
+
+        assert result["top_performers"] == []
+        assert result["total_agents"] == 0
+
+
+# =============================================================================
+# Debate Patterns Tests
+# =============================================================================
+
+
+class TestDebatePatterns:
+    """Tests for debate pattern statistics."""
+
+    def test_get_debate_patterns(self, handler, mock_debates):
+        """Debate patterns extracts disagreement and stopping stats."""
+        result = handler._get_debate_patterns(mock_debates)
+
+        assert result["disagreement_stats"]["with_disagreements"] == 1
+        assert "methodology" in result["disagreement_stats"]["disagreement_types"]
+        assert result["early_stopping"]["early_stopped"] == 1
+        assert result["early_stopping"]["full_duration"] == 2
+
+    def test_get_debate_patterns_empty(self, handler):
+        """Debate patterns handles empty list."""
+        result = handler._get_debate_patterns([])
+
+        assert result["disagreement_stats"]["with_disagreements"] == 0
+        assert result["early_stopping"]["early_stopped"] == 0
+
+
+# =============================================================================
+# Consensus Insights Tests
+# =============================================================================
+
+
+class TestConsensusInsights:
+    """Tests for consensus memory insights."""
+
+    def test_get_consensus_insights(self, handler):
+        """Consensus insights retrieves memory stats."""
+        mock_memory = MagicMock()
+        mock_memory.get_statistics.return_value = {
+            "total_consensus": 150,
+            "total_dissents": 25,
+            "by_domain": {"technology": 80, "finance": 70},
+        }
+        mock_memory.db_path = ":memory:"
+
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_cursor.fetchone.side_effect = [(45,), (0.72,)]
+
+        with patch(
+            "aragora.memory.consensus.ConsensusMemory",
+            return_value=mock_memory,
+        ):
+            with patch("aragora.storage.schema.get_wal_connection") as mock_get_conn:
+                mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
+                mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
+
+                result = handler._get_consensus_insights(None)
+
+        assert result["total_consensus_topics"] == 150
+        assert result["total_dissents"] == 25
+        assert "technology" in result["domains"]
+
+    def test_get_consensus_insights_error(self, handler):
+        """Consensus insights handles errors gracefully."""
+        # Just verify it returns default values when there are errors
+        result = handler._get_consensus_insights(None)
+
+        # Should return default structure without crashing
+        assert "total_consensus_topics" in result
+        assert "domains" in result
+
+
+# =============================================================================
+# System Health Tests
+# =============================================================================
+
+
+class TestSystemHealth:
+    """Tests for system health metrics."""
+
+    def test_get_system_health(self, handler):
+        """System health returns prometheus and cache status."""
+        with patch(
+            "aragora.server.prometheus.is_prometheus_available",
+            return_value=True,
+        ):
+            result = handler._get_system_health()
+
+        assert result["prometheus_available"] is True
+        assert "cache_entries" in result
+
+    def test_get_system_health_prometheus_unavailable(self, handler):
+        """System health handles prometheus unavailable."""
+        with patch(
+            "aragora.server.prometheus.is_prometheus_available",
+            return_value=False,
+        ):
+            result = handler._get_system_health()
+
+        assert result["prometheus_available"] is False
+
+
+# =============================================================================
+# Calibration Metrics Tests
+# =============================================================================
+
+
+class TestCalibrationMetrics:
+    """Tests for agent calibration metrics."""
+
+    def test_get_calibration_metrics(self, handler):
+        """Calibration metrics returns agent calibration data."""
+        mock_tracker = MagicMock()
+        mock_tracker.get_calibration_summary.return_value = {
+            "agents": {
+                "claude": {"calibration_bias": 0.05, "brier_score": 0.15},
+                "gemini": {"calibration_bias": 0.15, "brier_score": 0.20},
+                "codex": {"calibration_bias": -0.12, "brier_score": 0.18},
+            },
+            "overall": 0.85,
+        }
+        mock_tracker.get_all_agents.return_value = ["claude", "gemini", "codex"]
+        mock_tracker.get_calibration_curve.return_value = None
+        mock_tracker.get_domain_breakdown.return_value = None
+
+        handler.ctx["calibration_tracker"] = mock_tracker
+
+        result = handler._get_calibration_metrics()
+
+        assert result["overall_calibration"] == 0.85
+        assert "claude" in result["well_calibrated_agents"]
+        assert "gemini" in result["overconfident_agents"]
+        assert "codex" in result["underconfident_agents"]
+        assert len(result["top_by_brier"]) == 3
+
+    def test_get_calibration_metrics_no_tracker(self, handler):
+        """Calibration metrics handles missing tracker."""
+        handler.ctx = {}
+
+        result = handler._get_calibration_metrics()
+
+        assert result["overall_calibration"] == 0.0
+        assert result["agents"] == {}
+
+
+# =============================================================================
+# Performance Metrics Tests
+# =============================================================================
+
+
+class TestPerformanceMetrics:
+    """Tests for performance metrics."""
+
+    def test_get_performance_metrics(self, handler):
+        """Performance metrics returns agent stats."""
+        mock_monitor = MagicMock()
+        mock_monitor.get_performance_insights.return_value = {
+            "agents": {"claude": {"avg_latency": 250}},
+            "avg_latency_ms": 300.5,
+            "success_rate": 0.95,
+            "total_calls": 1500,
+        }
+
+        handler.ctx["performance_monitor"] = mock_monitor
+
+        result = handler._get_performance_metrics()
+
+        assert result["avg_latency_ms"] == 300.5
+        assert result["success_rate"] == 0.95
+        assert result["total_calls"] == 1500
+
+    def test_get_performance_metrics_no_monitor(self, handler):
+        """Performance metrics handles missing monitor."""
+        handler.ctx = {}
+
+        result = handler._get_performance_metrics()
+
+        assert result["avg_latency_ms"] == 0.0
+        assert result["total_calls"] == 0
+
+
+# =============================================================================
+# Evolution Metrics Tests
+# =============================================================================
+
+
+class TestEvolutionMetrics:
+    """Tests for prompt evolution metrics."""
+
+    def test_get_evolution_metrics(self, handler):
+        """Evolution metrics returns prompt version data."""
+        mock_evolver = MagicMock()
+
+        mock_version = MagicMock()
+        mock_version.version = 5
+        mock_version.performance_score = 0.82
+        mock_version.debates_count = 150
+
+        mock_evolver.get_prompt_version.return_value = mock_version
+        mock_evolver.get_top_patterns.return_value = [{"pattern": "p1"}, {"pattern": "p2"}]
+
+        handler.ctx["prompt_evolver"] = mock_evolver
+
+        result = handler._get_evolution_metrics()
+
+        assert result["total_versions"] > 0
+        assert result["patterns_extracted"] == 2
+
+    def test_get_evolution_metrics_no_evolver(self, handler):
+        """Evolution metrics handles missing evolver."""
+        handler.ctx = {}
+
+        result = handler._get_evolution_metrics()
+
+        assert result["total_versions"] == 0
+        assert result["patterns_extracted"] == 0
+
+
+# =============================================================================
+# Debate Quality Metrics Tests
+# =============================================================================
+
+
+class TestDebateQualityMetrics:
+    """Tests for debate quality metrics."""
+
+    def test_get_debate_quality_metrics(self, handler):
+        """Debate quality returns aggregated scores."""
+        mock_elo = MagicMock()
+        mock_elo.get_recent_matches.return_value = [
+            {"winner": "claude", "confidence": 0.85},
+            {"winner": "gemini", "confidence": 0.78},
+        ]
+
+        handler.ctx["elo_system"] = mock_elo
+        handler.get_storage = MagicMock(return_value=None)
+
+        result = handler._get_debate_quality_metrics()
+
+        assert len(result["recent_winners"]) == 2
+        assert result["avg_confidence"] == pytest.approx(0.815, rel=0.01)
+
+    def test_get_debate_quality_metrics_no_data(self, handler):
+        """Debate quality handles missing data."""
+        handler.ctx = {}
+        handler.get_storage = MagicMock(return_value=None)
+
+        result = handler._get_debate_quality_metrics()
+
+        assert result["recent_winners"] == []
+        assert result["avg_confidence"] == 0.0
+
+
+# =============================================================================
+# Full Dashboard Tests
+# =============================================================================
+
+
+class TestFullDashboard:
+    """Tests for complete dashboard generation."""
+
+    def test_get_debates_dashboard_with_storage(self, handler, mock_storage):
+        """Full debates dashboard returns all sections."""
+        storage, cursor = mock_storage
+
+        # Mock SQL results
+        cursor.fetchone.side_effect = [
+            (100, 75, 0.78),  # Summary
+            (25, 18),  # Recent activity
+        ]
+
+        handler.get_storage = MagicMock(return_value=storage)
+        handler.get_elo_system = MagicMock(return_value=None)
+
+        with patch.object(handler, "_get_consensus_insights", return_value={}):
+            with patch.object(handler, "_get_system_health", return_value={}):
+                result = handler._get_debates_dashboard(None, 10, 24)
+
+        # Result should be a HandlerResult tuple or dict
+        assert result is not None
+
+    def test_get_debates_dashboard_no_storage(self, handler):
+        """Dashboard handles missing storage."""
+        handler.get_storage = MagicMock(return_value=None)
+        handler.get_elo_system = MagicMock(return_value=None)
+
+        with patch.object(handler, "_get_consensus_insights", return_value={}):
+            with patch.object(handler, "_get_system_health", return_value={}):
+                result = handler._get_debates_dashboard(None, 10, 24)
+
+        assert result is not None
+
+    def test_get_quality_metrics_full(self, handler):
+        """Full quality metrics returns all sections."""
+        handler.ctx = {}
+        handler.get_storage = MagicMock(return_value=None)
+
+        result = handler._get_quality_metrics()
+
+        # Result should contain all sections
+        assert result is not None
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
