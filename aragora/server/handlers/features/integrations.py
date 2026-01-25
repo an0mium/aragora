@@ -459,39 +459,51 @@ def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
     async def get_status(request: web.Request) -> web.Response:
         user_id = request.get("user_id", "default")  # type: ignore[union-attr]
         result = await handler.get_status(user_id)
-        return web.json_response(result["body"], status=result["status"])  # type: ignore[index]
+        return web.Response(
+            body=result.body, status=result.status_code, content_type=result.content_type
+        )
 
     async def get_integration(request: web.Request) -> web.Response:
         integration_type = request.match_info["type"]
         user_id = request.get("user_id", "default")  # type: ignore[union-attr]
         result = await handler.get_integration(integration_type, user_id)
-        return web.json_response(result["body"], status=result["status"])  # type: ignore[index]
+        return web.Response(
+            body=result.body, status=result.status_code, content_type=result.content_type
+        )
 
     async def configure_integration(request: web.Request) -> web.Response:
         integration_type = request.match_info["type"]
         user_id = request.get("user_id", "default")  # type: ignore[union-attr]
         data = await request.json()
         result = await handler.configure_integration(integration_type, data, user_id)
-        return web.json_response(result["body"], status=result["status"])  # type: ignore[index]
+        return web.Response(
+            body=result.body, status=result.status_code, content_type=result.content_type
+        )
 
     async def update_integration(request: web.Request) -> web.Response:
         integration_type = request.match_info["type"]
         user_id = request.get("user_id", "default")  # type: ignore[union-attr]
         data = await request.json()
         result = await handler.update_integration(integration_type, data, user_id)
-        return web.json_response(result["body"], status=result["status"])  # type: ignore[index]
+        return web.Response(
+            body=result.body, status=result.status_code, content_type=result.content_type
+        )
 
     async def delete_integration(request: web.Request) -> web.Response:
         integration_type = request.match_info["type"]
         user_id = request.get("user_id", "default")  # type: ignore[union-attr]
         result = await handler.delete_integration(integration_type, user_id)
-        return web.json_response(result["body"], status=result["status"])  # type: ignore[index]
+        return web.Response(
+            body=result.body, status=result.status_code, content_type=result.content_type
+        )
 
     async def test_integration(request: web.Request) -> web.Response:
         integration_type = request.match_info["type"]
         user_id = request.get("user_id", "default")  # type: ignore[union-attr]
         result = await handler.test_integration(integration_type, user_id)
-        return web.json_response(result["body"], status=result["status"])  # type: ignore[index]
+        return web.Response(
+            body=result.body, status=result.status_code, content_type=result.content_type
+        )
 
     # Register versioned routes (v1)
     app.router.add_get("/api/v1/integrations/status", get_status)
