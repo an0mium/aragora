@@ -36,7 +36,15 @@ class TestAgentSpecCreation:
 
     def test_valid_roles(self):
         """Verify valid roles are defined."""
-        expected_roles = {"proposer", "critic", "synthesizer", "judge"}
+        expected_roles = {
+            "proposer",
+            "critic",
+            "synthesizer",
+            "judge",
+            "planner",
+            "analyst",
+            "implementer",
+        }
         assert VALID_ROLES == expected_roles
 
 
@@ -145,11 +153,13 @@ class TestAgentSpecCreateTeam:
 
     def test_create_team_from_dicts(self):
         """Create team from list of dicts."""
-        team = AgentSpec.create_team([
-            {"provider": "anthropic-api", "persona": "philosopher", "role": "proposer"},
-            {"provider": "openai-api", "persona": "skeptic", "role": "critic"},
-            {"provider": "gemini", "role": "synthesizer"},
-        ])
+        team = AgentSpec.create_team(
+            [
+                {"provider": "anthropic-api", "persona": "philosopher", "role": "proposer"},
+                {"provider": "openai-api", "persona": "skeptic", "role": "critic"},
+                {"provider": "gemini", "role": "synthesizer"},
+            ]
+        )
 
         assert len(team) == 3
         assert team[0].provider == "anthropic-api"

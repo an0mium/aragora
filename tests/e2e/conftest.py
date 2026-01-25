@@ -23,6 +23,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import pytest_asyncio
 
+pytestmark = pytest.mark.e2e
+
+
+def pytest_collection_modifyitems(config, items):
+    for item in items:
+        if "tests/e2e" in str(item.fspath):
+            item.add_marker(pytest.mark.e2e)
+
 
 # ============================================================================
 # Configuration
