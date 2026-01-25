@@ -278,10 +278,13 @@ class TestYouTubeFetcher:
 
     @requires_yt_dlp
     @pytest.mark.asyncio
-    async def test_download_audio_success(self, fetcher, mock_yt_dlp, tmp_path):
+    async def test_download_audio_success(self, mock_yt_dlp, tmp_path):
         """Test successful audio extraction."""
-        # Create a mock downloaded file
-        audio_file = tmp_path / "audio.mp3"
+        # Create fetcher with custom cache dir
+        fetcher = YouTubeFetcher(cache_dir=tmp_path)
+
+        # Create a mock downloaded file in the cache dir
+        audio_file = tmp_path / "dQw4w9WgXcQ.mp3"
         audio_file.write_bytes(b"\xff\xfb\x90\x00" + b"\x00" * 100)
 
         mock_yt_dlp.extract_info.return_value["requested_downloads"] = [
@@ -296,11 +299,10 @@ class TestYouTubeFetcher:
 
             result = await fetcher.download_audio(
                 "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                output_dir=tmp_path,
             )
 
             assert result is not None
-            assert result.exists() or True  # Path may be modified by yt-dlp
+            assert result.exists()
 
     @requires_yt_dlp
     @pytest.mark.asyncio
@@ -315,7 +317,7 @@ class TestYouTubeFetcher:
             mock_class.return_value.__enter__ = MagicMock(return_value=mock_instance)
             mock_class.return_value.__exit__ = MagicMock(return_value=False)
 
-            with pytest.raises(ValueError, match="duration"):
+            with pytest.raises(ValueError, match="too long"):
                 await fetcher.download_audio("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
 
     @pytest.mark.asyncio
