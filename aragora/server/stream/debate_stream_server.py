@@ -47,6 +47,13 @@ TRUSTED_PROXIES = frozenset(
 # Connection rate limiting per IP
 WS_CONNECTIONS_PER_IP_PER_MINUTE = int(os.getenv("ARAGORA_WS_CONN_RATE", "30"))
 
+# Global rate limit disable for testing/load tests
+WS_RATE_LIMITING_DISABLED = os.environ.get("ARAGORA_DISABLE_ALL_RATE_LIMITS", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
 # Token revalidation interval for long-lived connections (5 minutes)
 WS_TOKEN_REVALIDATION_INTERVAL = 300.0
 
@@ -87,6 +94,10 @@ class WebSocketMessageRateLimiter:
         Returns:
             True if message is allowed, False if rate limited
         """
+        # Bypass rate limiting if globally disabled (for load tests)
+        if WS_RATE_LIMITING_DISABLED:
+            return True
+
         now = time.time()
         elapsed = now - self._last_update
         self._last_update = now
@@ -255,6 +266,10 @@ class DebateStreamServer(ServerBase):
         Returns:
             Tuple of (allowed: bool, error_message: str)
         """
+        # Bypass rate limiting if globally disabled (for load tests)
+        if WS_RATE_LIMITING_DISABLED:
+            return True, ""
+
         if ip == "unknown":
             return True, ""  # Can't rate limit unknown IPs
 
