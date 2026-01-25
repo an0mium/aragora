@@ -49,12 +49,6 @@ SLACK_SCOPES = os.environ.get("SLACK_SCOPES", DEFAULT_SCOPES)
 SLACK_OAUTH_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize"
 SLACK_OAUTH_TOKEN_URL = "https://slack.com/api/oauth.v2.access"
 
-# State token TTL (10 minutes)
-STATE_TOKEN_TTL_SECONDS = 600
-
-# Fallback in-memory storage (development only)
-_oauth_states_fallback: Dict[str, Dict[str, Any]] = {}
-
 # Lazy import for audit logger
 _slack_oauth_audit: Any = None
 
@@ -73,84 +67,11 @@ def _get_oauth_audit_logger() -> Any:
     return _slack_oauth_audit
 
 
-async def _get_redis_client() -> Optional[Any]:
-    """Get async Redis client for state storage."""
-    try:
-        from aragora.storage.redis_ha import get_async_redis_client
+def _get_state_store():
+    """Get the centralized OAuth state store."""
+    from aragora.server.oauth_state_store import get_oauth_state_store
 
-        return await get_async_redis_client()
-    except ImportError:
-        return None
-    except Exception as e:
-        # Handle connection errors, etc.
-        logger.debug(f"Redis client unavailable: {e}")
-        return None
-
-
-async def _store_oauth_state(state: str, data: Dict[str, Any]) -> bool:
-    """Store OAuth state token with TTL.
-
-    Uses Redis in production, falls back to in-memory in development.
-    """
-    redis = await _get_redis_client()
-
-    if redis:
-        try:
-            key = f"slack_oauth_state:{state}"
-            await redis.setex(key, STATE_TOKEN_TTL_SECONDS, json.dumps(data))
-            return True
-        except Exception as e:
-            logger.warning(f"Redis state storage failed: {e}")
-            # Fall through to in-memory fallback
-
-    # In-memory fallback (development only)
-    if os.getenv("ARAGORA_ENV") == "production":
-        logger.error("Redis unavailable in production - OAuth state storage will not persist")
-        return False
-
-    logger.debug("Using in-memory OAuth state storage (development mode)")
-    _oauth_states_fallback[state] = {**data, "created_at": time.time()}
-
-    # Clean up expired states
-    current_time = time.time()
-    expired = [
-        s
-        for s, d in _oauth_states_fallback.items()
-        if current_time - d["created_at"] > STATE_TOKEN_TTL_SECONDS
-    ]
-    for s in expired:
-        del _oauth_states_fallback[s]
-
-    return True
-
-
-async def _validate_oauth_state(state: str) -> Optional[Dict[str, Any]]:
-    """Validate and consume OAuth state token.
-
-    Returns state data if valid, None otherwise. State is consumed (one-time use).
-    """
-    redis = await _get_redis_client()
-
-    if redis:
-        try:
-            key = f"slack_oauth_state:{state}"
-            data = await redis.get(key)
-            if data:
-                await redis.delete(key)  # One-time use
-                return json.loads(data)
-            return None
-        except Exception as e:
-            logger.warning(f"Redis state validation failed: {e}")
-            # Fall through to in-memory fallback
-
-    # In-memory fallback
-    data = _oauth_states_fallback.pop(state, None)
-    if data:
-        # Check expiration
-        if time.time() - data.get("created_at", 0) > STATE_TOKEN_TTL_SECONDS:
-            return None
-        return data
-    return None
+    return get_oauth_state_store()
 
 
 class SlackOAuthHandler(BaseHandler):
@@ -209,13 +130,14 @@ class SlackOAuthHandler(BaseHandler):
                 503,
             )
 
-        # Generate state token for CSRF protection
-        state = secrets.token_urlsafe(32)
         tenant_id = query_params.get("tenant_id")
 
-        # Store state with metadata (Redis in production, in-memory fallback in dev)
-        state_data = {"tenant_id": tenant_id}
-        if not await _store_oauth_state(state, state_data):
+        # Generate state using centralized OAuth state store
+        state_store = _get_state_store()
+        try:
+            state = state_store.generate(metadata={"tenant_id": tenant_id, "provider": "slack"})
+        except Exception as e:
+            logger.error(f"Failed to generate OAuth state: {e}")
             return error_response("Failed to initialize OAuth flow", 503)
 
         # Build OAuth URL
@@ -288,12 +210,13 @@ class SlackOAuthHandler(BaseHandler):
         if not state:
             return error_response("Missing state parameter", 400)
 
-        # Verify state token (Redis in production, in-memory fallback in dev)
-        state_data = await _validate_oauth_state(state)
+        # Verify state token using centralized state store
+        state_store = _get_state_store()
+        state_data = state_store.validate_and_consume(state)
         if not state_data:
             return error_response("Invalid or expired state token", 400)
 
-        tenant_id = state_data.get("tenant_id")
+        tenant_id = state_data.metadata.get("tenant_id") if state_data.metadata else None
 
         if not SLACK_CLIENT_ID or not SLACK_CLIENT_SECRET:
             return error_response("Slack OAuth not configured", 503)
