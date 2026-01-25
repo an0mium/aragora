@@ -16,6 +16,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Auditing](#auditing)
 - [Belief](#belief)
 - [Breakpoints](#breakpoints)
+- [Budgets](#budgets)
 - [Checkpoints](#checkpoints)
 - [Code Review](#code-review)
 - [Composite](#composite)
@@ -49,6 +50,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Moments](#moments)
 - [Nomic](#nomic)
 - [Oauth](#oauth)
+- [Onboarding](#onboarding)
 - [Orchestration](#orchestration)
 - [Organizations](#organizations)
 - [Partner](#partner)
@@ -57,12 +59,14 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Policy](#policy)
 - [Privacy](#privacy)
 - [Queue](#queue)
+- [Receipts](#receipts)
 - [Replays](#replays)
 - [Repository](#repository)
 - [Reviews](#reviews)
 - [RLMContext](#rlmcontext)
 - [Selection](#selection)
 - [Shared Inbox](#shared-inbox)
+- [Slo](#slo)
 - [Template Marketplace](#template-marketplace)
 - [Threat Intel](#threat-intel)
 - [Tournaments](#tournaments)
@@ -81,7 +85,6 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Security](#security)
 - [Audit Bridge](#audit-bridge)
 - [Pr Review](#pr-review)
-- [GraphQL](#graphql)
 
 ---
 
@@ -265,43 +268,43 @@ Flip trends over time
 
 Handler for analytics metrics dashboard endpoints.
 
-### `GET` `/api/v1/analytics/debates/overview` 🔒
+### `GET` `/api/analytics/debates/overview` 🔒
 
 Get debate overview statistics
 
-### `GET` `/api/v1/analytics/debates/trends` 🔒
+### `GET` `/api/analytics/debates/trends` 🔒
 
 Get agent performance trends over time
 
-### `GET` `/api/v1/analytics/debates/topics` 🔒
+### `GET` `/api/analytics/debates/topics` 🔒
 
 Get topic distribution for debates
 
-### `GET` `/api/v1/analytics/debates/outcomes` 🔒
+### `GET` `/api/analytics/debates/outcomes` 🔒
 
 Get debate outcome distribution (win/loss/draw)
 
-### `GET` `/api/v1/analytics/agents/leaderboard` 🔒
+### `GET` `/api/analytics/agents/leaderboard` 🔒
 
 Get agent leaderboard with ELO rankings and win rates
 
-### `GET` `/api/v1/analytics/agents/comparison` 🔒
+### `GET` `/api/analytics/agents/comparison` 🔒
 
 Compare multiple agents
 
-### `GET` `/api/v1/analytics/agents/trends` 🔒
+### `GET` `/api/analytics/agents/trends` 🔒
 
 Get agent performance trends over time
 
-### `GET` `/api/v1/analytics/usage/tokens` 🔒
+### `GET` `/api/analytics/usage/tokens` 🔒
 
 Get token consumption trends
 
-### `GET` `/api/v1/analytics/usage/costs` 🔒
+### `GET` `/api/analytics/usage/costs` 🔒
 
 Get cost breakdown by provider and model
 
-### `GET` `/api/v1/analytics/usage/active_users` 🔒
+### `GET` `/api/analytics/usage/active_users` 🔒
 
 Get active user counts
 
@@ -506,6 +509,60 @@ Resolve a pending breakpoint
 ### `GET` `/api/breakpoints/{id}/status`
 
 Get status of a specific breakpoint
+
+---
+
+## Budgets
+
+Budget Management API Handler.
+
+### `GET` `/api/v1/budgets`
+
+List budgets for org
+
+### `POST` `/api/v1/budgets`
+
+Create a budget
+
+### `GET` `/api/v1/budgets/:id`
+
+Get budget details
+
+### `PATCH` `/api/v1/budgets/:id`
+
+Update a budget
+
+### `DELETE` `/api/v1/budgets/:id`
+
+Delete (close) a budget
+
+### `GET` `/api/v1/budgets/:id/alerts`
+
+Get alerts for a budget
+
+### `POST` `/api/v1/budgets/:id/alerts/:alert_id/acknowledge`
+
+Acknowledge alert
+
+### `POST` `/api/v1/budgets/:id/override`
+
+Add override for user
+
+### `DELETE` `/api/v1/budgets/:id/override/:user_id`
+
+Remove override
+
+### `POST` `/api/v1/budgets/:id/reset`
+
+Reset budget period
+
+### `GET` `/api/v1/budgets/summary`
+
+Get org budget summary
+
+### `POST` `/api/v1/budgets/check`
+
+Pre-flight cost check
 
 ---
 
@@ -1531,6 +1588,40 @@ Unlink OAuth provider from account
 
 ---
 
+## Onboarding
+
+Onboarding Orchestration Handler.
+
+### `GET` `/api/v1/onboarding/flow`
+
+Get current onboarding state
+
+### `POST` `/api/v1/onboarding/flow`
+
+Initialize onboarding
+
+### `PUT` `/api/v1/onboarding/flow/step`
+
+Update current step
+
+### `GET` `/api/v1/onboarding/templates`
+
+Get recommended starter templates
+
+### `POST` `/api/v1/onboarding/first-debate`
+
+Start guided first debate
+
+### `POST` `/api/v1/onboarding/quick-start`
+
+Apply quick-start configuration
+
+### `GET` `/api/v1/onboarding/analytics`
+
+Get onboarding funnel analytics
+
+---
+
 ## Orchestration
 
 Unified Orchestration Handler for Aragora Control Plane.
@@ -1596,6 +1687,22 @@ List pending invitations for current user
 ### `POST` `/api/invitations/{token}/accept`
 
 Accept an invitation
+
+### `GET` `/api/user/organizations`
+
+List organizations for current user
+
+### `POST` `/api/user/organizations/switch`
+
+Switch active organization
+
+### `POST` `/api/user/organizations/default`
+
+Set default organization
+
+### `DELETE` `/api/user/organizations/{org_id}`
+
+Leave organization
 
 ---
 
@@ -1851,6 +1958,40 @@ Worker status
 
 ---
 
+## Receipts
+
+Decision Receipt HTTP Handlers for Aragora.
+
+### `GET` `/api/v2/receipts`
+
+List receipts with filters
+
+### `GET` `/api/v2/receipts/:receipt_id`
+
+Get specific receipt
+
+### `GET` `/api/v2/receipts/:receipt_id/export`
+
+Export (format=json|html|md|pdf)
+
+### `POST` `/api/v2/receipts/:receipt_id/verify`
+
+Verify integrity checksum
+
+### `POST` `/api/v2/receipts/:receipt_id/verify-signature`
+
+Verify cryptographic signature
+
+### `POST` `/api/v2/receipts/verify-batch`
+
+Batch signature verification
+
+### `GET` `/api/v2/receipts/stats`
+
+Receipt statistics
+
+---
+
 ## Replays
 
 Replays and learning evolution endpoint handlers.
@@ -2024,6 +2165,32 @@ Delete routing rule
 ### `POST` `/api/v1/inbox/routing/rules/:id/test`
 
 Test routing rule
+
+---
+
+## Slo
+
+SLO (Service Level Objective) endpoint handlers.
+
+### `GET` `/api/slos/status`
+
+Overall SLO compliance status
+
+### `GET` `/api/slos/{slo_name}`
+
+Individual SLO details
+
+### `GET` `/api/slos/error-budget`
+
+Error budget timeline
+
+### `GET` `/api/slos/violations`
+
+Recent SLO violations
+
+### `GET` `/api/v1/slos/status`
+
+Versioned endpoint
 
 ---
 
@@ -2251,6 +2418,10 @@ GET /api/v1/billing/usage/summary
 
 Export usage data as CSV
 
+### `GET` `/api/v1/quotas`
+
+GET /api/v1/quotas
+
 ---
 
 ## Verticals
@@ -2358,6 +2529,10 @@ GET /api/v1/workflow-approvals/*
 ### `GET` `/api/v1/workflow-executions`
 
 GET /api/v1/workflow-executions
+
+### `GET` `/api/v1/workflow-executions/*`
+
+GET /api/v1/workflow-executions/*
 
 ---
 
@@ -2580,138 +2755,6 @@ Submit review
 ### `GET` `/api/v1/github/pr/{pr_number}/reviews`
 
 List reviews
-
----
-
-## GraphQL
-
-GraphQL API for efficient data fetching with support for queries, mutations, and subscriptions.
-
-### `POST` `/graphql`
-
-Execute GraphQL queries and mutations
-
-**Request Body:**
-```json
-{
-    "query": "query { debates(limit: 5) { debates { id topic status } } }",
-    "variables": {},
-    "operationName": null
-}
-```
-
-**Response:**
-```json
-{
-    "data": {
-        "debates": {
-            "debates": [
-                { "id": "abc123", "topic": "AI Ethics", "status": "COMPLETED" }
-            ]
-        }
-    }
-}
-```
-
-### `GET` `/graphql`
-
-GraphiQL interactive playground (development mode only)
-
-Opens the GraphiQL IDE for exploring the API and testing queries interactively.
-
-**Note:** GraphiQL is disabled in production by default. Set `ARAGORA_GRAPHIQL_ENABLED=true` to enable.
-
-### `GET` `/graphql/schema`
-
-Get the GraphQL schema in SDL format
-
-**Query Parameters:**
-- `format`: Response format (`sdl` or `json`, default: `sdl`)
-
-**Response (SDL):**
-```graphql
-type Query {
-    debate(id: ID!): Debate
-    debates(status: DebateStatus, limit: Int, offset: Int): DebateConnection!
-    # ...
-}
-```
-
-### Example Queries
-
-**Get recent debates with participants:**
-```graphql
-query GetDebates {
-    debates(limit: 10) {
-        debates {
-            id
-            topic
-            status
-            consensusReached
-            participants {
-                name
-                elo
-            }
-        }
-        total
-        hasMore
-    }
-}
-```
-
-**Get agent leaderboard:**
-```graphql
-query GetLeaderboard {
-    leaderboard(limit: 10) {
-        name
-        elo
-        stats {
-            wins
-            losses
-            winRate
-        }
-    }
-}
-```
-
-**Start a new debate:**
-```graphql
-mutation StartDebate {
-    startDebate(input: {
-        question: "What is the best programming language for beginners?"
-        agents: "claude,gpt4,gemini"
-        rounds: 3
-    }) {
-        id
-        topic
-        status
-    }
-}
-```
-
-**Get system health:**
-```graphql
-query SystemHealth {
-    systemHealth {
-        status
-        uptimeSeconds
-        version
-        components {
-            name
-            status
-            latencyMs
-        }
-    }
-}
-```
-
-### Configuration
-
-| Environment Variable | Default | Description |
-|---------------------|---------|-------------|
-| `ARAGORA_GRAPHQL_ENABLED` | `true` | Enable GraphQL API |
-| `ARAGORA_GRAPHQL_INTROSPECTION` | `true` (dev) / `false` (prod) | Allow schema introspection |
-| `ARAGORA_GRAPHIQL_ENABLED` | `true` (dev) / `false` (prod) | Enable GraphiQL playground |
 
 ---
 
