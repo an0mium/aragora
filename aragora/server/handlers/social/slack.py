@@ -863,7 +863,7 @@ class SlackHandler(BaseHandler):
             results: list[dict] = []
 
             if db and hasattr(db, "search"):
-                results = db.search(query, limit=5)
+                results = db.search(query, limit=5)  # type: ignore[assignment]
             elif db and hasattr(db, "list"):
                 # Fallback: manual search through recent debates
                 all_debates = db.list(limit=50)
