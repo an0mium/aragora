@@ -49,6 +49,8 @@ class ArenaExtensions:
     workspace_id: str = ""  # For cost attribution
     usage_tracker: Any = None  # UsageTracker instance
     cost_tracker: Any = None  # CostTracker instance for per-agent costs
+    debate_budget_limit_usd: Optional[float] = None  # Per-debate cost limit
+    enforce_budget_limit: bool = True  # Raise error when budget exceeded
 
     # LLM-as-Judge evaluation
     llm_judge: Any = None  # LLMJudge instance
@@ -118,6 +120,73 @@ class ArenaExtensions:
         """Get the last evaluation result."""
         return self._last_evaluation
 
+    @property
+    def has_debate_budget(self) -> bool:
+        """Check if per-debate budget limit is configured."""
+        return self.debate_budget_limit_usd is not None and self.debate_budget_limit_usd > 0
+
+    def setup_debate_budget(self, debate_id: str) -> None:
+        """Set up budget tracking for a new debate.
+
+        Call this at the start of a debate to enable per-debate cost limits.
+        If debate_budget_limit_usd is set, this will configure the cost
+        tracker to enforce that limit.
+
+        Args:
+            debate_id: The debate ID to track
+        """
+        if not self.has_debate_budget:
+            return
+
+        try:
+            from decimal import Decimal
+            from aragora.billing.cost_tracker import get_cost_tracker
+
+            if self.cost_tracker is None:
+                self.cost_tracker = get_cost_tracker()
+
+            limit = Decimal(str(self.debate_budget_limit_usd))
+            self.cost_tracker.set_debate_limit(debate_id, limit)
+            logger.info(
+                "debate_budget_set debate=%s limit=$%.4f",
+                debate_id,
+                self.debate_budget_limit_usd,
+            )
+        except Exception as e:
+            logger.warning("debate_budget_setup_failed: %s", e)
+
+    def check_debate_budget(self, debate_id: str) -> dict:
+        """Check if the debate is within its budget.
+
+        Args:
+            debate_id: The debate ID to check
+
+        Returns:
+            Budget status dict with 'allowed', 'current_cost', 'limit', 'message'
+        """
+        if not self.has_debate_budget or self.cost_tracker is None:
+            return {"allowed": True, "message": "No budget limit configured"}
+
+        try:
+            return self.cost_tracker.check_debate_budget(debate_id)
+        except Exception as e:
+            logger.warning("debate_budget_check_failed: %s", e)
+            return {"allowed": True, "message": f"Budget check failed: {e}"}
+
+    def cleanup_debate_budget(self, debate_id: str) -> None:
+        """Clean up budget tracking after a debate completes.
+
+        Args:
+            debate_id: The debate ID to clean up
+        """
+        if self.cost_tracker is None:
+            return
+
+        try:
+            self.cost_tracker.clear_debate_budget(debate_id)
+        except Exception as e:
+            logger.debug("debate_budget_cleanup_failed: %s", e)
+
     def on_debate_complete(
         self,
         ctx: "DebateContext",
@@ -152,6 +221,9 @@ class ArenaExtensions:
 
         # Emit debate completion notifications (omnichannel delivery)
         self._emit_debate_notifications(ctx, result)
+
+        # Clean up per-debate budget tracking
+        self.cleanup_debate_budget(ctx.debate_id)
 
         # Trigger broadcast if configured (not implemented here - kept in Arena for now)
         # The broadcast pipeline requires more complex integration
@@ -244,6 +316,10 @@ class ArenaExtensions:
             debate_id: The debate ID
             tokens_in: Input tokens used
             tokens_out: Output tokens generated
+
+        Raises:
+            DebateBudgetExceededError: If enforce_budget_limit is True and
+                the debate has exceeded its budget
         """
         # Get or create cost tracker
         if self.cost_tracker is None:
@@ -256,7 +332,8 @@ class ArenaExtensions:
                 return
 
         try:
-            from aragora.billing.cost_tracker import TokenUsage
+            from decimal import Decimal
+            from aragora.billing.cost_tracker import TokenUsage, DebateBudgetExceededError
 
             # Extract agent info
             agent_name = getattr(agent, "name", str(agent))
@@ -282,6 +359,27 @@ class ArenaExtensions:
             )
             usage.calculate_cost()
 
+            # Check budget before recording if limit is set
+            if self.has_debate_budget and self.enforce_budget_limit:
+                budget_status = self.cost_tracker.check_debate_budget(
+                    debate_id,
+                    estimated_cost_usd=usage.cost_usd,
+                )
+                if not budget_status.get("allowed", True):
+                    current_cost = Decimal(budget_status.get("current_cost", "0"))
+                    limit = Decimal(budget_status.get("limit", "0"))
+                    logger.warning(
+                        "debate_budget_exceeded debate=%s current=$%.4f limit=$%.4f",
+                        debate_id,
+                        current_cost,
+                        limit,
+                    )
+                    raise DebateBudgetExceededError(
+                        debate_id=debate_id,
+                        current_cost=current_cost,
+                        limit=limit,
+                    )
+
             # Record asynchronously if in async context, otherwise sync
             try:
                 loop = asyncio.get_running_loop()
@@ -296,6 +394,9 @@ class ArenaExtensions:
                 usage.cost_usd,
                 tokens_in + tokens_out,
             )
+        except DebateBudgetExceededError:
+            # Re-raise budget exceeded errors
+            raise
         except Exception as e:
             logger.debug("agent_cost_recording_failed: %s", e)
 

@@ -86,6 +86,26 @@ from aragora.billing.multi_org import (
     ROLE_PERMISSIONS,
     get_multi_org_manager,
 )
+from aragora.billing.invoice_export import (
+    InvoiceExporter,
+    InvoiceCompanyInfo,
+    InvoiceCustomerInfo,
+    InvoiceExportConfig,
+    export_invoice_pdf,
+    export_invoice_html,
+)
+from aragora.billing.discounts import (
+    DiscountType,
+    DiscountCodeStatus,
+    DiscountCode,
+    DiscountUsage,
+    VolumeTier,
+    VolumeDiscount,
+    ApplyCodeResult,
+    DiscountManager,
+    get_discount_manager,
+)
+from aragora.billing.cost_tracker import DebateBudgetExceededError
 
 __all__ = [
     # Models
@@ -160,4 +180,23 @@ __all__ = [
     "MultiOrgManager",
     "ROLE_PERMISSIONS",
     "get_multi_org_manager",
+    # Invoice Export
+    "InvoiceExporter",
+    "InvoiceCompanyInfo",
+    "InvoiceCustomerInfo",
+    "InvoiceExportConfig",
+    "export_invoice_pdf",
+    "export_invoice_html",
+    # Discounts
+    "DiscountType",
+    "DiscountCodeStatus",
+    "DiscountCode",
+    "DiscountUsage",
+    "VolumeTier",
+    "VolumeDiscount",
+    "ApplyCodeResult",
+    "DiscountManager",
+    "get_discount_manager",
+    # Budget Errors
+    "DebateBudgetExceededError",
 ]

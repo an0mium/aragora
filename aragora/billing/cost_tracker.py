@@ -55,6 +55,24 @@ class BudgetAlertLevel(str, Enum):
     EXCEEDED = "exceeded"  # Over budget
 
 
+class DebateBudgetExceededError(Exception):
+    """Raised when a debate exceeds its cost budget."""
+
+    def __init__(
+        self,
+        debate_id: str,
+        current_cost: Decimal,
+        limit: Decimal,
+        message: str = "",
+    ):
+        self.debate_id = debate_id
+        self.current_cost = current_cost
+        self.limit = limit
+        super().__init__(
+            message or f"Debate {debate_id} exceeded budget: ${current_cost:.4f} > ${limit:.4f}"
+        )
+
+
 class CostGranularity(str, Enum):
     """Cost aggregation granularity."""
 
@@ -344,6 +362,9 @@ class CostTracker:
         self._budgets: Dict[str, Budget] = {}  # budget_id -> Budget
         self._workspace_budgets: Dict[str, str] = {}  # workspace_id -> budget_id
         self._org_budgets: Dict[str, str] = {}  # org_id -> budget_id
+        # Per-debate budget tracking
+        self._debate_costs: Dict[str, Decimal] = {}
+        self._debate_limits: Dict[str, Decimal] = {}
 
         # Alert management
         self._alert_callbacks: List[AlertCallback] = []
@@ -360,6 +381,9 @@ class CostTracker:
                 "by_model": defaultdict(lambda: Decimal("0")),
             }
         )
+
+        # Per-debate cost tracking
+        self._debate_costs: Dict[str, Decimal] = {}
 
     async def record(self, usage: TokenUsage) -> None:
         """
@@ -388,6 +412,12 @@ class CostTracker:
         stats["api_calls"] += 1
         stats["by_agent"][usage.agent_name] += usage.cost_usd
         stats["by_model"][usage.model] += usage.cost_usd
+
+        # Update per-debate cost tracking
+        if usage.debate_id:
+            if usage.debate_id not in self._debate_costs:
+                self._debate_costs[usage.debate_id] = Decimal("0")
+            self._debate_costs[usage.debate_id] += usage.cost_usd
 
         # Update budget tracking
         await self._update_budget(usage)
@@ -741,6 +771,124 @@ class CostTracker:
             "cost_by_agent": {k: str(v) for k, v in by_agent.items()},
         }
 
+    def set_debate_limit(
+        self,
+        debate_id: str,
+        limit_usd: Decimal,
+    ) -> None:
+        """
+        Set a cost limit for a specific debate.
+
+        When the debate's accumulated cost exceeds this limit, further
+        operations will be blocked.
+
+        Args:
+            debate_id: Debate ID to set limit for
+            limit_usd: Maximum cost in USD for this debate
+        """
+        self._debate_limits[debate_id] = limit_usd
+        if debate_id not in self._debate_costs:
+            self._debate_costs[debate_id] = Decimal("0")
+        logger.info(f"Set debate cost limit: debate={debate_id} limit=${limit_usd}")
+
+    def check_debate_budget(
+        self,
+        debate_id: str,
+        estimated_cost_usd: Decimal = Decimal("0"),
+    ) -> Dict[str, Any]:
+        """
+        Check if a debate is within its budget.
+
+        Args:
+            debate_id: Debate ID to check
+            estimated_cost_usd: Estimated cost of the next operation
+
+        Returns:
+            Dict with:
+                - allowed: bool - whether operation can proceed
+                - current_cost: str - current total cost
+                - limit: str - cost limit (or "unlimited")
+                - remaining: str - remaining budget
+                - message: str - human-readable status
+        """
+        current_cost = self._debate_costs.get(debate_id, Decimal("0"))
+        limit = self._debate_limits.get(debate_id)
+
+        if limit is None:
+            return {
+                "allowed": True,
+                "current_cost": str(current_cost),
+                "limit": "unlimited",
+                "remaining": "unlimited",
+                "message": "No limit set for this debate",
+            }
+
+        remaining = limit - current_cost
+        projected_total = current_cost + estimated_cost_usd
+
+        if projected_total > limit:
+            return {
+                "allowed": False,
+                "current_cost": str(current_cost),
+                "limit": str(limit),
+                "remaining": str(max(Decimal("0"), remaining)),
+                "message": f"Debate budget exceeded: ${current_cost:.4f} spent of ${limit:.4f} limit",
+            }
+
+        return {
+            "allowed": True,
+            "current_cost": str(current_cost),
+            "limit": str(limit),
+            "remaining": str(remaining),
+            "message": f"Within budget: ${current_cost:.4f} of ${limit:.4f} ({(current_cost / limit * 100):.1f}%)",
+        }
+
+    def record_debate_cost(
+        self,
+        debate_id: str,
+        cost_usd: Decimal,
+    ) -> Dict[str, Any]:
+        """
+        Record cost against a debate's budget.
+
+        Args:
+            debate_id: Debate ID
+            cost_usd: Cost to record
+
+        Returns:
+            Budget status after recording
+        """
+        if debate_id not in self._debate_costs:
+            self._debate_costs[debate_id] = Decimal("0")
+
+        self._debate_costs[debate_id] += cost_usd
+
+        return self.check_debate_budget(debate_id)
+
+    def get_debate_budget_status(self, debate_id: str) -> Dict[str, Any]:
+        """
+        Get the current budget status for a debate.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            Budget status dict
+        """
+        return self.check_debate_budget(debate_id)
+
+    def clear_debate_budget(self, debate_id: str) -> None:
+        """
+        Clear budget tracking for a completed debate.
+
+        Call this when a debate ends to free memory.
+
+        Args:
+            debate_id: Debate ID to clear
+        """
+        self._debate_costs.pop(debate_id, None)
+        self._debate_limits.pop(debate_id, None)
+
     def query_km_cost_patterns(
         self,
         workspace_id: str,
@@ -953,6 +1101,7 @@ __all__ = [
     "BudgetAlertLevel",
     "CostReport",
     "CostGranularity",
+    "DebateBudgetExceededError",
     "get_cost_tracker",
     "record_usage",
 ]
