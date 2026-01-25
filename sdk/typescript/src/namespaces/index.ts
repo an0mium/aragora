@@ -17,3 +17,6 @@ export { KnowledgeAPI, type KnowledgeSearchOptions, type KnowledgeMoundQueryOpti
 export { TournamentsAPI, type MatchResultSubmission } from './tournaments';
 export { AuthAPI, type SessionInfo, type ApiKeyInfo, type OAuthProviderInfo } from './auth';
 export { VerificationAPI, type DebateConclusionVerifyOptions } from './verification';
+export { AuditAPI, type AuditEventFilterOptions, type AuditExportOptions } from './audit';
+export { TenantsAPI } from './tenants';
+export { OrganizationsAPI } from './organizations';
