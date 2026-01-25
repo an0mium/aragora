@@ -419,11 +419,13 @@ class TestSlackWorkspaceStoreErrors:
 
     def test_save_handles_error(self, temp_db_path, sample_workspace):
         """Test save handles database errors gracefully."""
+        import sqlite3
+
         store = SlackWorkspaceStore(db_path=temp_db_path)
 
         # Replace the thread local connection with a mock
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = Exception("DB error")
+        mock_conn.execute.side_effect = sqlite3.Error("DB error")
         store._local.connection = mock_conn
 
         result = store.save(sample_workspace)
@@ -432,11 +434,13 @@ class TestSlackWorkspaceStoreErrors:
 
     def test_get_handles_error(self, temp_db_path):
         """Test get handles database errors gracefully."""
+        import sqlite3
+
         store = SlackWorkspaceStore(db_path=temp_db_path)
 
         # Replace the thread local connection with a mock
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = Exception("DB error")
+        mock_conn.execute.side_effect = sqlite3.Error("DB error")
         store._local.connection = mock_conn
 
         result = store.get("T12345678")
@@ -445,11 +449,13 @@ class TestSlackWorkspaceStoreErrors:
 
     def test_list_active_handles_error(self, temp_db_path):
         """Test list_active handles database errors gracefully."""
+        import sqlite3
+
         store = SlackWorkspaceStore(db_path=temp_db_path)
 
         # Replace the thread local connection with a mock
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = Exception("DB error")
+        mock_conn.execute.side_effect = sqlite3.Error("DB error")
         store._local.connection = mock_conn
 
         result = store.list_active()
