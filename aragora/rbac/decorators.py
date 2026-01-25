@@ -107,13 +107,13 @@ def require_permission(
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             context = _get_context_from_args(args, kwargs, context_param)
-            if not context:
+            if context is None:
                 raise PermissionDeniedError(
                     f"No AuthorizationContext found for permission check: {permission_key}"
                 )
 
             # Get resource ID if specified
-            resource_id = None
+            resource_id: str | None = None
             if resource_id_param:
                 resource_id = kwargs.get(resource_id_param)
                 if resource_id is None:
@@ -129,7 +129,7 @@ def require_permission(
 
             # Check permission
             perm_checker = checker or get_permission_checker()
-            decision = perm_checker.check_permission(context, permission_key, resource_id)  # type: ignore[arg-type]
+            decision = perm_checker.check_permission(context, permission_key, resource_id)
 
             if not decision.allowed:
                 if on_denied:
@@ -141,19 +141,19 @@ def require_permission(
         @functools.wraps(func)
         async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             context = _get_context_from_args(args, kwargs, context_param)
-            if not context:
+            if context is None:
                 raise PermissionDeniedError(
                     f"No AuthorizationContext found for permission check: {permission_key}"
                 )
 
             # Get resource ID if specified
-            resource_id = None
+            resource_id: str | None = None
             if resource_id_param:
                 resource_id = kwargs.get(resource_id_param)
 
             # Check permission
             perm_checker = checker or get_permission_checker()
-            decision = perm_checker.check_permission(context, permission_key, resource_id)  # type: ignore[arg-type]
+            decision = perm_checker.check_permission(context, permission_key, resource_id)
 
             if not decision.allowed:
                 if on_denied:
