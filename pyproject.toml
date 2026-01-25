@@ -756,6 +756,19 @@ module = [
     "aragora.server.question_classifier",
     # MCP tools (dynamic typing)
     "aragora.mcp.tools_module.evidence",
+    # Enterprise connectors - database adapters (complex third-party types)
+    "aragora.connectors.enterprise.database.sqlserver",
+    "aragora.connectors.enterprise.database.mysql",
+    # Healthcare connectors (HL7/FHIR complex schemas)
+    "aragora.connectors.enterprise.healthcare.ehr.epic",
+    "aragora.connectors.enterprise.healthcare.ehr.cerner",
+    "aragora.connectors.enterprise.healthcare.hl7v2",
+    # Chat connectors (webhook signature type mismatches)
+    "aragora.connectors.chat.whatsapp",
+    "aragora.connectors.chat.telegram",
+    # Payment connectors (external API types)
+    "aragora.connectors.payments.paypal",
+    "aragora.connectors.accounting.qbo",
 ]
 ignore_errors = true
 

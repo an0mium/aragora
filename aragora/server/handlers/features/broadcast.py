@@ -10,7 +10,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Coroutine, Optional, Type, TypeVar
+from typing import Any, Coroutine, Optional, TypeVar
 
 T = TypeVar("T")
 
@@ -46,8 +46,8 @@ try:
     PIPELINE_AVAILABLE = True
 except ImportError:
     PIPELINE_AVAILABLE = False
-    BroadcastPipeline: Optional[Type[Any]] = None
-    BroadcastOptions: Optional[Type[Any]] = None
+    BroadcastPipeline = None  # type: ignore[misc,assignment]
+    BroadcastOptions = None  # type: ignore[misc,assignment]
 
 try:
     from mutagen.mp3 import MP3
