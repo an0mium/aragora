@@ -16,8 +16,6 @@ Environment Variables:
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import hmac
 import json
 import logging
 import os
@@ -310,7 +308,7 @@ class SlackHandler(BaseHandler):
     def _verify_signature(self, handler: Any, body: str, signing_secret: str) -> bool:
         """Verify Slack request signature.
 
-        Slack uses HMAC-SHA256 to sign requests.
+        Uses centralized webhook verification for consistent security handling.
         See: https://api.slack.com/authentication/verifying-requests-from-slack
 
         Args:
@@ -318,39 +316,18 @@ class SlackHandler(BaseHandler):
             body: Pre-read request body
             signing_secret: Signing secret to use (workspace-specific or global)
         """
-        if not signing_secret:
-            return True  # Skip verification if no secret configured
+        from aragora.connectors.chat.webhook_security import verify_slack_signature
 
         try:
-            timestamp = handler.headers.get("X-Slack-Request-Timestamp", "")
-            signature = handler.headers.get("X-Slack-Signature", "")
-
-            if not timestamp or not signature:
-                return False
-
-            # Prevent replay attacks (allow 5 minute window)
-            request_time = int(timestamp)
-            if abs(time.time() - request_time) > 300:
-                logger.warning("Slack request timestamp too old")
-                return False
-
-            # Compute signature
-            sig_basestring = f"v0:{timestamp}:{body}"
-            expected_sig = (
-                "v0="
-                + hmac.new(
-                    signing_secret.encode(),
-                    sig_basestring.encode(),
-                    hashlib.sha256,
-                ).hexdigest()
+            result = verify_slack_signature(
+                timestamp=handler.headers.get("X-Slack-Request-Timestamp", ""),
+                body=body,
+                signature=handler.headers.get("X-Slack-Signature", ""),
+                signing_secret=signing_secret or "",
             )
-
-            # Timing-safe comparison
-            return hmac.compare_digest(expected_sig, signature)
-
-        except (ValueError, TypeError) as e:
-            logger.warning(f"Invalid Slack signature format: {e}")
-            return False
+            if not result.verified and result.error:
+                logger.warning(f"Slack signature verification failed: {result.error}")
+            return result.verified
         except Exception as e:
             logger.exception(f"Unexpected signature verification error: {e}")
             return False

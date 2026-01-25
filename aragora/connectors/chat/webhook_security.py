@@ -172,6 +172,116 @@ def log_verification_attempt(
     return result
 
 
+def verify_slack_signature(
+    timestamp: str,
+    body: str | bytes,
+    signature: str,
+    signing_secret: str,
+) -> WebhookVerificationResult:
+    """
+    Verify Slack webhook signature using HMAC-SHA256.
+
+    This is the canonical implementation used by both SlackConnector
+    and SlackHandler to ensure consistent verification.
+
+    Args:
+        timestamp: X-Slack-Request-Timestamp header value
+        body: Request body (str or bytes)
+        signature: X-Slack-Signature header value
+        signing_secret: Slack signing secret
+
+    Returns:
+        WebhookVerificationResult with verification status
+
+    Example:
+        from aragora.connectors.chat.webhook_security import verify_slack_signature
+
+        result = verify_slack_signature(
+            timestamp=headers.get("X-Slack-Request-Timestamp", ""),
+            body=body,
+            signature=headers.get("X-Slack-Signature", ""),
+            signing_secret=SLACK_SIGNING_SECRET,
+        )
+        if not result.verified:
+            return error_response(401, result.error)
+    """
+    import hashlib
+    import hmac
+    import time
+
+    # Check required inputs
+    if not timestamp or not signature:
+        return log_verification_attempt(
+            source="slack",
+            success=False,
+            method="hmac-sha256",
+            error="Missing timestamp or signature header",
+        )
+
+    if not signing_secret:
+        # Check if unverified webhooks are allowed (dev mode only)
+        if should_allow_unverified("slack"):
+            return log_verification_attempt(
+                source="slack",
+                success=True,
+                method="bypassed",
+                error="No signing secret - verification skipped (dev mode)",
+            )
+        return log_verification_attempt(
+            source="slack",
+            success=False,
+            method="hmac-sha256",
+            error="signing_secret not configured",
+        )
+
+    # Check timestamp to prevent replay attacks (5 minute window)
+    try:
+        request_time = int(timestamp)
+        if abs(time.time() - request_time) > 300:
+            return log_verification_attempt(
+                source="slack",
+                success=False,
+                method="hmac-sha256",
+                error="Request timestamp too old (>5 minutes)",
+            )
+    except ValueError:
+        return log_verification_attempt(
+            source="slack",
+            success=False,
+            method="hmac-sha256",
+            error="Invalid timestamp format",
+        )
+
+    # Normalize body to string
+    body_str = body.decode("utf-8") if isinstance(body, bytes) else body
+
+    # Compute expected signature
+    sig_basestring = f"v0:{timestamp}:{body_str}"
+    expected_sig = (
+        "v0="
+        + hmac.new(
+            signing_secret.encode(),
+            sig_basestring.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+    )
+
+    # Timing-safe comparison
+    if hmac.compare_digest(expected_sig, signature):
+        return log_verification_attempt(
+            source="slack",
+            success=True,
+            method="hmac-sha256",
+        )
+    else:
+        return log_verification_attempt(
+            source="slack",
+            success=False,
+            method="hmac-sha256",
+            error="Signature mismatch",
+        )
+
+
 __all__ = [
     "WebhookVerificationError",
     "WebhookVerificationResult",
@@ -179,4 +289,5 @@ __all__ = [
     "should_allow_unverified",
     "is_production_environment",
     "log_verification_attempt",
+    "verify_slack_signature",
 ]

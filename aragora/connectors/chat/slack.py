@@ -19,13 +19,10 @@ Resilience Features:
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import hmac
 import json
 import logging
 import os
 import random
-import time
 from datetime import datetime
 from typing import Any, Optional
 
@@ -221,7 +218,7 @@ class SlackConnector(ChatPlatformConnector):
                     ok: bool = data.get("ok", False)
                     return ok
                 return False
-        except Exception:
+        except Exception:  # noqa: BLE001 - Health check: any error means unhealthy
             return False
 
     def _get_headers(self) -> dict[str, str]:
@@ -1007,44 +1004,17 @@ class SlackConnector(ChatPlatformConnector):
         """Verify Slack webhook signature.
 
         SECURITY: Fails closed in production if signing_secret is not configured.
-        Uses centralized webhook_security module for production-safe bypass handling.
+        Uses centralized webhook_security module for consistent verification.
         """
-        from aragora.connectors.chat.webhook_security import should_allow_unverified
+        from aragora.connectors.chat.webhook_security import verify_slack_signature
 
-        if not self.signing_secret:
-            # SECURITY: Use centralized bypass check (ignores flag in production)
-            if should_allow_unverified("slack"):
-                logger.warning("Slack webhook verification skipped (dev mode)")
-                return True
-            logger.error("Slack webhook rejected - signing_secret not configured")
-            return False
-
-        timestamp = headers.get("X-Slack-Request-Timestamp", "")
-        signature = headers.get("X-Slack-Signature", "")
-
-        if not timestamp or not signature:
-            return False
-
-        # Check timestamp to prevent replay attacks
-        try:
-            request_time = int(timestamp)
-            if abs(time.time() - request_time) > 300:
-                return False
-        except ValueError:
-            return False
-
-        # Compute expected signature
-        sig_basestring = f"v0:{timestamp}:{body.decode('utf-8')}"
-        expected = (
-            "v0="
-            + hmac.new(
-                self.signing_secret.encode(),
-                sig_basestring.encode(),
-                hashlib.sha256,
-            ).hexdigest()
+        result = verify_slack_signature(
+            timestamp=headers.get("X-Slack-Request-Timestamp", ""),
+            body=body,
+            signature=headers.get("X-Slack-Signature", ""),
+            signing_secret=self.signing_secret or "",
         )
-
-        return hmac.compare_digest(expected, signature)
+        return result.verified
 
     def parse_webhook_event(
         self,
