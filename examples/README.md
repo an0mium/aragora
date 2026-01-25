@@ -111,29 +111,75 @@ Demonstrates using the Aragora TypeScript/JavaScript SDK to integrate debates in
 
 ### Python Debate CLI
 
-A command-line tool demonstrating the Python SDK:
+A full-featured CLI tool demonstrating the Python SDK with auth, tournaments, and onboarding:
 
 ```bash
 cd examples/python-debate
+pip install aragora-client python-dotenv
+
+# Run debates
 python main.py debate "Should we use Kubernetes?"
 python main.py stream "Design a rate limiter"
+
+# View rankings
 python main.py rankings
+
+# Tournaments
+python main.py tournament create --name "Q1 Showdown" --agents claude gpt gemini
+python main.py tournament list
+
+# Authentication
+python main.py auth login --email user@example.com
+python main.py auth apikeys list
+
+# Onboarding
+python main.py onboarding
 ```
 
 See [python-debate/README.md](./python-debate/README.md) for details.
 
 ### TypeScript Web App
 
-A web app demonstrating the TypeScript SDK:
+A web app demonstrating the TypeScript SDK with real-time streaming, tabs, and auth:
 
 ```bash
 cd examples/typescript-web
 npm install
 npm run dev
-# Open http://localhost:3000
+# Open http://localhost:5173
 ```
 
+**Features:**
+- Real-time debate streaming via WebSocket
+- Tournament creation and management
+- Agent rankings leaderboard
+- Authentication with token persistence
+
 See [typescript-web/README.md](./typescript-web/README.md) for details.
+
+### Node.js Slack Bot
+
+A Slack bot that enables AI debates directly from Slack channels:
+
+```bash
+cd examples/nodejs-slack-bot
+npm install
+cp .env.example .env
+# Edit .env with your Slack credentials
+npm run dev
+```
+
+**Slack Commands:**
+- `/debate <topic>` - Start a multi-agent debate
+- `/rankings` - View agent leaderboard
+- `/tournament <name>` - Create a tournament
+
+**Features:**
+- Real-time debate streaming to threads
+- Interactive buttons and modals
+- Socket Mode for development
+
+See [nodejs-slack-bot/README.md](./nodejs-slack-bot/README.md) for setup instructions.
 
 ## Full Documentation
 

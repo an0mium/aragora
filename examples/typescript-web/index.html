@@ -11,17 +11,24 @@
     <header>
       <h1>Aragora Web Demo</h1>
       <p>Multi-agent AI debate platform</p>
+      <div id="auth-status"></div>
     </header>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="debates">Debates</button>
+      <button class="tab-btn" data-tab="tournaments">Tournaments</button>
+      <button class="tab-btn" data-tab="rankings">Rankings</button>
+      <button class="tab-btn" data-tab="auth">Account</button>
+    </nav>
 
     <main>
       <!-- Server Status -->
       <section id="status-section">
-        <h2>Server Status</h2>
-        <div id="server-status">Checking...</div>
+        <div id="server-status">Checking server...</div>
       </section>
 
-      <!-- Create Debate -->
-      <section id="debate-section">
+      <!-- Debates Tab -->
+      <section id="debates-tab" class="tab-content active">
         <h2>Create Debate</h2>
         <form id="debate-form">
           <div class="form-group">
@@ -41,6 +48,8 @@
                 <option value="openai-api" selected>GPT (OpenAI)</option>
                 <option value="gemini">Gemini (Google)</option>
                 <option value="grok">Grok (xAI)</option>
+                <option value="mistral">Mistral</option>
+                <option value="deepseek">DeepSeek</option>
               </select>
             </div>
             <div class="form-group">
@@ -48,26 +57,74 @@
               <input type="number" id="rounds" name="rounds" value="2" min="1" max="5" />
             </div>
           </div>
+          <div class="form-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="use-streaming" name="streaming" checked />
+              Stream in real-time (WebSocket)
+            </label>
+          </div>
           <button type="submit" id="start-btn">Start Debate</button>
         </form>
+
+        <!-- Debate Results -->
+        <div id="results-section" class="hidden">
+          <h3>Debate Progress</h3>
+          <div id="debate-status">
+            <span class="status-badge status-pending">Initializing</span>
+            <span id="debate-id"></span>
+          </div>
+          <div id="debate-log"></div>
+          <div id="consensus-result" class="hidden">
+            <h4>Consensus Reached</h4>
+            <div id="consensus-content"></div>
+          </div>
+        </div>
       </section>
 
-      <!-- Debate Results -->
-      <section id="results-section" class="hidden">
-        <h2>Debate Results</h2>
-        <div id="debate-status">
-          <span class="status-badge">Running</span>
-          <span id="debate-id"></span>
+      <!-- Tournaments Tab -->
+      <section id="tournaments-tab" class="tab-content hidden">
+        <h2>Tournaments</h2>
+
+        <div class="panel">
+          <h3>Create Tournament</h3>
+          <form id="tournament-form">
+            <div class="form-group">
+              <label for="tournament-name">Tournament Name</label>
+              <input type="text" id="tournament-name" placeholder="Q1 AI Showdown" required />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="tournament-agents">Participants</label>
+                <select id="tournament-agents" multiple>
+                  <option value="anthropic-api" selected>Claude</option>
+                  <option value="openai-api" selected>GPT</option>
+                  <option value="gemini" selected>Gemini</option>
+                  <option value="grok">Grok</option>
+                  <option value="mistral">Mistral</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="tournament-format">Format</label>
+                <select id="tournament-format">
+                  <option value="single_elimination">Single Elimination</option>
+                  <option value="double_elimination">Double Elimination</option>
+                  <option value="round_robin">Round Robin</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit">Create Tournament</button>
+          </form>
         </div>
-        <div id="debate-log"></div>
-        <div id="consensus-result" class="hidden">
-          <h3>Consensus</h3>
-          <div id="consensus-content"></div>
+
+        <div class="panel">
+          <h3>Active Tournaments</h3>
+          <button id="refresh-tournaments">Refresh</button>
+          <div id="tournaments-list"></div>
         </div>
       </section>
 
-      <!-- Agent Rankings -->
-      <section id="rankings-section">
+      <!-- Rankings Tab -->
+      <section id="rankings-tab" class="tab-content hidden">
         <h2>Agent Rankings</h2>
         <button id="load-rankings">Load Rankings</button>
         <table id="rankings-table" class="hidden">
@@ -77,10 +134,53 @@
               <th>Agent</th>
               <th>ELO</th>
               <th>W/L</th>
+              <th>Win Rate</th>
             </tr>
           </thead>
           <tbody></tbody>
         </table>
+      </section>
+
+      <!-- Auth Tab -->
+      <section id="auth-tab" class="tab-content hidden">
+        <h2>Account</h2>
+
+        <!-- Login Form (shown when logged out) -->
+        <div id="login-panel" class="panel">
+          <h3>Login</h3>
+          <form id="login-form">
+            <div class="form-group">
+              <label for="login-email">Email</label>
+              <input type="email" id="login-email" placeholder="user@example.com" required />
+            </div>
+            <div class="form-group">
+              <label for="login-password">Password</label>
+              <input type="password" id="login-password" required />
+            </div>
+            <button type="submit">Login</button>
+          </form>
+        </div>
+
+        <!-- Account Info (shown when logged in) -->
+        <div id="account-panel" class="panel hidden">
+          <h3>Account Info</h3>
+          <div id="user-info"></div>
+          <button id="logout-btn">Logout</button>
+        </div>
+
+        <!-- API Keys Panel -->
+        <div id="apikeys-panel" class="panel hidden">
+          <h3>API Keys</h3>
+          <button id="load-apikeys">Load API Keys</button>
+          <div id="apikeys-list"></div>
+          <form id="create-apikey-form" class="hidden">
+            <div class="form-group">
+              <label for="apikey-name">Key Name</label>
+              <input type="text" id="apikey-name" placeholder="My CI/CD Key" required />
+            </div>
+            <button type="submit">Create API Key</button>
+          </form>
+        </div>
       </section>
     </main>
 

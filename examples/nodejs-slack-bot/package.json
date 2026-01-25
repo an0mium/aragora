@@ -1,0 +1,22 @@
+{
+  "name": "aragora-slack-bot",
+  "version": "1.0.0",
+  "description": "Aragora Slack Bot - Run AI debates from Slack",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@slack/bolt": "^3.17.0",
+    "aragora-js": "^0.1.0",
+    "dotenv": "^16.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.6.0",
+    "typescript": "^5.3.0"
+  }
+}
