@@ -201,7 +201,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
 
         token_url = self.TOKEN_URL.format(tenant_id=tenant_id)
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(
                 token_url,
                 data={

@@ -47,24 +47,35 @@ from aragora.http_client import DEFAULT_TIMEOUT
 logger = logging.getLogger(__name__)
 
 # Circuit breaker for email providers (lazy import to avoid circular deps)
+# Thread-safe storage using a lock to prevent race conditions in multi-worker environments
+import threading
+
 _circuit_breakers: dict[str, Any] = {}
+_circuit_breakers_lock = threading.Lock()
 
 
 def _get_email_circuit_breaker(provider: str, threshold: int = 5, cooldown: float = 60.0) -> Any:
-    """Get or create circuit breaker for email provider."""
-    if provider not in _circuit_breakers:
-        try:
-            from aragora.resilience import get_circuit_breaker
+    """Get or create circuit breaker for email provider (thread-safe)."""
+    # Quick check without lock for common case (circuit breaker already exists)
+    if provider in _circuit_breakers:
+        return _circuit_breakers.get(provider)
 
-            _circuit_breakers[provider] = get_circuit_breaker(
-                name=f"email_{provider}",
-                failure_threshold=threshold,
-                cooldown_seconds=cooldown,
-            )
-            logger.debug(f"Circuit breaker initialized for email provider: {provider}")
-        except ImportError:
-            logger.debug("Circuit breaker module not available for email")
-            _circuit_breakers[provider] = None
+    # Acquire lock for creation to prevent race conditions
+    with _circuit_breakers_lock:
+        # Double-check after acquiring lock
+        if provider not in _circuit_breakers:
+            try:
+                from aragora.resilience import get_circuit_breaker
+
+                _circuit_breakers[provider] = get_circuit_breaker(
+                    name=f"email_{provider}",
+                    failure_threshold=threshold,
+                    cooldown_seconds=cooldown,
+                )
+                logger.debug(f"Circuit breaker initialized for email provider: {provider}")
+            except ImportError:
+                logger.debug("Circuit breaker module not available for email")
+                _circuit_breakers[provider] = None
     return _circuit_breakers.get(provider)
 
 
