@@ -571,6 +571,13 @@ module = [
     "aragora.agents.types",
     "aragora.rbac.models",
     "aragora.rbac.defaults",
+    # Added strict - Phase 21 RBAC expansion (Jan 2026)
+    "aragora.rbac.checker",
+    "aragora.rbac.middleware",
+    "aragora.rbac.audit",
+    "aragora.rbac.enforcer",
+    "aragora.rbac.ownership",
+    "aragora.rbac.types",
     # Added strict - Phase 24 extracted modules (Jan 2026)
     "aragora.server.prometheus_nomic",
     "aragora.server.prometheus_control_plane",

@@ -53,6 +53,7 @@ class KMCheckpointMetadata:
     created_at: str
     description: str
     workspace_id: str
+    name: str = ""  # Human-readable checkpoint name (defaults to id if not set)
     mound_version: str = "1.0"
 
     # Statistics
@@ -73,6 +74,9 @@ class KMCheckpointMetadata:
     # Incremental checkpoint info
     incremental: bool = False
     parent_checkpoint_id: Optional[str] = None
+
+    # Tags for categorization/filtering
+    tags: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -165,26 +169,32 @@ class KMCheckpointStore:
 
     async def create_checkpoint(
         self,
+        name: Optional[str] = None,
         description: str = "",
+        tags: Optional[List[str]] = None,
         include_vectors: bool = False,
         include_culture: bool = True,
         include_staleness: bool = True,
         incremental: bool = False,
         parent_checkpoint_id: Optional[str] = None,
-    ) -> str:
+        return_metadata: bool = False,
+    ) -> str | KMCheckpointMetadata:
         """
         Create a checkpoint of current KM state.
 
         Args:
+            name: Human-readable checkpoint name (defaults to ID if not provided)
             description: Human-readable description
+            tags: List of tags for categorization/filtering
             include_vectors: Include vector embeddings (large)
             include_culture: Include culture patterns
             include_staleness: Include staleness tracking state
             incremental: Create incremental checkpoint (only changes)
             parent_checkpoint_id: Parent checkpoint for incremental
+            return_metadata: If True, return KMCheckpointMetadata; otherwise return ID string
 
         Returns:
-            Checkpoint ID
+            Checkpoint ID (str) or KMCheckpointMetadata if return_metadata=True
         """
         start_time = time.time()
 
@@ -221,7 +231,9 @@ class KMCheckpointStore:
         content.workspace_metadata = {
             "workspace_id": self.mound.workspace_id,
             "config": {
-                "backend": self.mound.config.backend.value if hasattr(self.mound.config.backend, "value") else str(self.mound.config.backend),
+                "backend": self.mound.config.backend.value
+                if hasattr(self.mound.config.backend, "value")
+                else str(self.mound.config.backend),
                 "enable_staleness_detection": self.mound.config.enable_staleness_detection,
                 "enable_culture_accumulator": self.mound.config.enable_culture_accumulator,
             },
@@ -243,6 +255,7 @@ class KMCheckpointStore:
         # Create metadata
         metadata = KMCheckpointMetadata(
             id=checkpoint_id,
+            name=name or checkpoint_id,  # Use ID as name if not provided
             created_at=datetime.now().isoformat(),
             description=description,
             workspace_id=self.mound.workspace_id,
@@ -258,6 +271,7 @@ class KMCheckpointStore:
             includes_staleness=include_staleness,
             incremental=incremental,
             parent_checkpoint_id=parent_checkpoint_id,
+            tags=tags or [],
         )
 
         # Write checkpoint files
@@ -282,7 +296,7 @@ class KMCheckpointStore:
         # Prune old checkpoints
         await self._prune_old_checkpoints()
 
-        return checkpoint_id
+        return metadata if return_metadata else checkpoint_id
 
     async def restore_checkpoint(
         self,
@@ -500,8 +514,7 @@ class KMCheckpointStore:
             "relationship_count_diff": meta2.relationship_count - meta1.relationship_count,
             "size_diff_bytes": meta2.size_bytes - meta1.size_bytes,
             "time_diff_seconds": (
-                datetime.fromisoformat(meta2.created_at) -
-                datetime.fromisoformat(meta1.created_at)
+                datetime.fromisoformat(meta2.created_at) - datetime.fromisoformat(meta1.created_at)
             ).total_seconds(),
         }
 
@@ -535,10 +548,16 @@ class KMCheckpointStore:
                         "topics": node.topics or [],
                     }
                     if hasattr(node, "created_at") and node.created_at:
-                        node_dict["created_at"] = node.created_at.isoformat() if hasattr(node.created_at, "isoformat") else str(node.created_at)
+                        node_dict["created_at"] = (
+                            node.created_at.isoformat()
+                            if hasattr(node.created_at, "isoformat")
+                            else str(node.created_at)
+                        )
                     if hasattr(node, "provenance") and node.provenance:
                         node_dict["provenance"] = {
-                            "source_type": node.provenance.source_type.value if hasattr(node.provenance.source_type, "value") else str(node.provenance.source_type),
+                            "source_type": node.provenance.source_type.value
+                            if hasattr(node.provenance.source_type, "value")
+                            else str(node.provenance.source_type),
                             "source_id": node.provenance.source_id,
                         }
                     nodes.append(node_dict)
@@ -558,12 +577,14 @@ class KMCheckpointStore:
             if hasattr(self.mound._meta_store, "get_all_relationships"):
                 raw_rels = self.mound._meta_store.get_all_relationships()
                 for rel in raw_rels:
-                    relationships.append({
-                        "from_node_id": rel.from_node_id,
-                        "to_node_id": rel.to_node_id,
-                        "relationship_type": rel.relationship_type,
-                        "metadata": getattr(rel, "metadata", {}),
-                    })
+                    relationships.append(
+                        {
+                            "from_node_id": rel.from_node_id,
+                            "to_node_id": rel.to_node_id,
+                            "relationship_type": rel.relationship_type,
+                            "metadata": getattr(rel, "metadata", {}),
+                        }
+                    )
 
         return relationships
 
@@ -654,7 +675,7 @@ class KMCheckpointStore:
             return 0
 
         # Delete oldest checkpoints
-        to_delete = checkpoints[self.max_checkpoints:]
+        to_delete = checkpoints[self.max_checkpoints :]
         deleted = 0
 
         for ckpt in to_delete:
