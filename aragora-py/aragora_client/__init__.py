@@ -37,6 +37,7 @@ from aragora_client.control_plane import (
     ResourceUtilization,
     Task,
 )
+from aragora_client.cross_pollination import CrossPollinationAPI
 from aragora_client.exceptions import (
     AragoraAuthenticationError,
     AragoraConnectionError,
@@ -233,4 +234,6 @@ __all__ = [
     "MarketplaceAuthor",
     "MarketplaceReview",
     "MarketplacePurchase",
+    # Cross-Pollination
+    "CrossPollinationAPI",
 ]

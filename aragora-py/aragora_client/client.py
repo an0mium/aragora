@@ -11,6 +11,7 @@ import httpx
 from aragora_client.audit import AuditAPI
 from aragora_client.auth import AuthAPI
 from aragora_client.control_plane import ControlPlaneAPI
+from aragora_client.cross_pollination import CrossPollinationAPI
 from aragora_client.exceptions import (
     AragoraAuthenticationError,
     AragoraConnectionError,
@@ -1545,6 +1546,7 @@ class AragoraClient:
         self.workflows = WorkflowsAPI(self)
         self.explainability = ExplainabilityAPI(self)
         self.marketplace = MarketplaceAPI(self)
+        self.cross_pollination = CrossPollinationAPI(self)
 
     async def __aenter__(self) -> AragoraClient:
         """Enter async context."""
