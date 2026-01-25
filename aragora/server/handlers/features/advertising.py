@@ -171,7 +171,7 @@ class AdvertisingHandler(SecureHandler):
                 return self._error_response(403, f"Permission denied: {permission} required")
         return None
 
-    async def handle_request(self, request: Any) -> Any:
+    async def handle_request(self, request: Any) -> dict[str, Any]:
         """Route request to appropriate handler."""
         method = request.method
         path = str(request.path)

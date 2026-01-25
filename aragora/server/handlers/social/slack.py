@@ -82,6 +82,10 @@ def _get_workspace_rate_limiter() -> Any:
 
             # Use the same limiter infrastructure but with workspace-specific configuration
             _slack_workspace_limiter = get_user_rate_limiter()
+            if _slack_workspace_limiter:
+                _slack_workspace_limiter.action_limits["slack_workspace_command"] = (
+                    SLACK_WORKSPACE_RATE_LIMIT_RPM
+                )
         except Exception as e:
             logger.debug(f"Workspace rate limiter not available: {e}")
             _slack_workspace_limiter = None

@@ -394,6 +394,18 @@ class MarketplaceHandler(BaseHandler):
         # Pre-load templates
         _load_templates()
 
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        """Check if this handler can handle the given path."""
+        # Check exact routes
+        if path in self.ROUTES:
+            return True
+        # Check template-specific paths with IDs
+        if path.startswith("/api/v1/marketplace/templates/"):
+            return True
+        if path.startswith("/api/v1/marketplace/deployments/"):
+            return True
+        return False
+
     async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
         """Route requests to appropriate handler methods."""
         try:

@@ -206,7 +206,7 @@ class CRMHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/crm/")
 
-    async def handle_request(self, request: Any) -> Any:
+    async def handle_request(self, request: Any) -> HandlerResult:
         """Route request to appropriate handler."""
         method = request.method
         path = str(request.path)
