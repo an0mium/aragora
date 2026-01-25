@@ -38,7 +38,7 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
   } = useOnboardingStore();
 
   const { stepIndex, totalSteps } = useOnboardingStep();
-  const { percentage: _percentage } = useOnboardingProgress();
+  const { percentage } = useOnboardingProgress();
   const needsOnboarding = useOnboardingStore(selectIsOnboardingNeeded);
 
   // Handle skip
