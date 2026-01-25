@@ -62,7 +62,7 @@ def _build_graph_nodes(manager: ProvenanceManager) -> List[Dict[str, Any]]:
 
 def _build_graph_edges(manager: ProvenanceManager) -> List[Dict[str, Any]]:
     """Build visualization edges from provenance relationships."""
-    edges = []
+    edges: List[Dict[str, Any]] = []
 
     # Chain links (previous_hash relationships)
     for i, record in enumerate(manager.chain.records):
