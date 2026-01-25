@@ -10,6 +10,7 @@ import httpx
 from aragora_client.audit import AuditAPI
 from aragora_client.auth import AuthAPI
 from aragora_client.control_plane import ControlPlaneAPI
+from aragora_client.onboarding import OnboardingAPI
 from aragora_client.exceptions import (
     AragoraAuthenticationError,
     AragoraConnectionError,
@@ -476,6 +477,7 @@ class AragoraClient:
         self.rbac = RBACAPI(self)
         self.tournaments = TournamentsAPI(self)
         self.audit = AuditAPI(self)
+        self.onboarding = OnboardingAPI(self)
 
     async def __aenter__(self) -> AragoraClient:
         """Enter async context."""

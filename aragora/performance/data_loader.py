@@ -57,6 +57,8 @@ class LoaderStats:
     cache_hits: int = 0
     batch_sizes: List[int] = field(default_factory=list)
     total_load_time_ms: float = 0.0
+    queue_overflows: int = 0  # Count of requests rejected due to queue overflow
+    max_queue_size_seen: int = 0  # Peak queue size observed
 
     @property
     def avg_batch_size(self) -> float:
@@ -81,6 +83,8 @@ class LoaderStats:
             "cache_hit_rate": f"{self.cache_hit_rate:.1f}%",
             "avg_batch_size": round(self.avg_batch_size, 1),
             "total_load_time_ms": round(self.total_load_time_ms, 2),
+            "queue_overflows": self.queue_overflows,
+            "max_queue_size_seen": self.max_queue_size_seen,
         }
 
 
@@ -108,6 +112,8 @@ class DataLoader(Generic[K, V]):
         cache: bool = True,
         cache_key_fn: Optional[Callable[[K], str]] = None,
         name: str = "DataLoader",
+        batch_timeout_ms: float = 50.0,
+        max_queue_size: int = 10000,
     ):
         """
         Initialize DataLoader.
@@ -118,16 +124,21 @@ class DataLoader(Generic[K, V]):
             cache: Whether to cache results (default True)
             cache_key_fn: Function to convert key to cache key string
             name: Name for logging and metrics
+            batch_timeout_ms: Maximum time to wait before dispatching batch (default 50ms)
+            max_queue_size: Maximum pending requests before backpressure (default 10000)
         """
         self._batch_fn = batch_fn
         self._max_batch_size = max_batch_size
         self._cache_enabled = cache
         self._cache_key_fn = cache_key_fn or str
         self._name = name
+        self._batch_timeout_ms = batch_timeout_ms
+        self._max_queue_size = max_queue_size
 
         # Pending batch requests
         self._queue: List[BatchRequest[K]] = []
         self._batch_scheduled = False
+        self._batch_timer: Optional[asyncio.TimerHandle] = None
 
         # Request-level cache
         self._cache: Dict[str, V] = {}
@@ -140,6 +151,11 @@ class DataLoader(Generic[K, V]):
         """Get loader statistics."""
         return self._stats
 
+    @property
+    def pending_queue_size(self) -> int:
+        """Get current pending queue size for monitoring."""
+        return len(self._queue)
+
     async def load(self, key: K) -> V:
         """
         Load a single item by key.
@@ -151,6 +167,9 @@ class DataLoader(Generic[K, V]):
 
         Returns:
             The loaded value
+
+        Raises:
+            RuntimeError: If queue is full (backpressure)
         """
         self._stats.loads += 1
 
@@ -161,16 +180,37 @@ class DataLoader(Generic[K, V]):
                 self._stats.cache_hits += 1
                 return self._cache[cache_key]
 
+        # Check queue size limit (backpressure)
+        if len(self._queue) >= self._max_queue_size:
+            self._stats.queue_overflows += 1
+            raise RuntimeError(
+                f"DataLoader '{self._name}' queue overflow: {len(self._queue)} pending requests "
+                f"(max: {self._max_queue_size}). Consider increasing max_queue_size or reducing load."
+            )
+
         # Create future for this request
         loop = asyncio.get_event_loop()
         future: asyncio.Future[V] = loop.create_future()
 
-        # Add to queue
+        # Add to queue and track max size
         self._queue.append(BatchRequest(key=key, future=future))
+        if len(self._queue) > self._stats.max_queue_size_seen:
+            self._stats.max_queue_size_seen = len(self._queue)
 
-        # Schedule batch execution if not already scheduled
+        # Schedule batch execution with timeout if not already scheduled
         if not self._batch_scheduled:
             self._batch_scheduled = True
+            # Use call_later with timeout instead of call_soon for bounded waiting
+            self._batch_timer = loop.call_later(
+                self._batch_timeout_ms / 1000.0,
+                lambda: asyncio.create_task(self._dispatch_batch()),
+            )
+
+        # If batch is full, dispatch immediately (cancel timer and dispatch now)
+        if len(self._queue) >= self._max_batch_size:
+            if self._batch_timer is not None:
+                self._batch_timer.cancel()
+                self._batch_timer = None
             loop.call_soon(lambda: asyncio.create_task(self._dispatch_batch()))
 
         return await future
@@ -191,18 +231,26 @@ class DataLoader(Generic[K, V]):
         """Dispatch queued requests as a batch."""
         self._batch_scheduled = False
 
+        # Cancel any pending timer
+        if self._batch_timer is not None:
+            self._batch_timer.cancel()
+            self._batch_timer = None
+
         if not self._queue:
             return
 
-        # Take all pending requests
+        # Take all pending requests up to max batch size
         batch = self._queue[: self._max_batch_size]
         self._queue = self._queue[self._max_batch_size :]
 
-        # If more items remain, schedule another batch
+        # If more items remain, schedule another batch with timeout
         if self._queue:
             loop = asyncio.get_event_loop()
             self._batch_scheduled = True
-            loop.call_soon(lambda: asyncio.create_task(self._dispatch_batch()))
+            self._batch_timer = loop.call_later(
+                self._batch_timeout_ms / 1000.0,
+                lambda: asyncio.create_task(self._dispatch_batch()),
+            )
 
         # Execute batch
         keys = [req.key for req in batch]
@@ -266,7 +314,21 @@ class DataLoader(Generic[K, V]):
             self._cache.clear()
 
     def clear_all(self) -> None:
-        """Clear entire cache and reset stats."""
+        """Clear entire cache, cancel pending batches, and reset stats."""
+        # Cancel any pending batch timer
+        if self._batch_timer is not None:
+            self._batch_timer.cancel()
+            self._batch_timer = None
+
+        # Reject any pending requests
+        for req in self._queue:
+            if not req.future.done():
+                req.future.set_exception(
+                    RuntimeError(f"DataLoader '{self._name}' cleared while request pending")
+                )
+
+        self._queue.clear()
+        self._batch_scheduled = False
         self._cache.clear()
         self._stats = LoaderStats()
 

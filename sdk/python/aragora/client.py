@@ -570,6 +570,106 @@ class AragoraClient:
             params={"format": format},
         )
 
+    async def delete_gauntlet(self, gauntlet_id: str) -> Dict[str, Any]:
+        """Delete a gauntlet run.
+
+        Args:
+            gauntlet_id: The gauntlet run ID to delete
+
+        Returns:
+            Deletion confirmation
+        """
+        return await self._request("DELETE", f"/api/v1/gauntlet/{gauntlet_id}")
+
+    async def list_gauntlet_personas(
+        self,
+        category: Optional[str] = None,
+        enabled: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """List available gauntlet personas.
+
+        Args:
+            category: Filter by category ('adversarial', 'compliance', etc.)
+            enabled: Filter by enabled status
+
+        Returns:
+            List of available personas with their configurations
+        """
+        params: Dict[str, Any] = {}
+        if category:
+            params["category"] = category
+        if enabled is not None:
+            params["enabled"] = enabled
+        return await self._request(
+            "GET",
+            "/api/v1/gauntlet/personas",
+            params=params if params else None,
+        )
+
+    async def list_gauntlet_results(
+        self,
+        gauntlet_id: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """List gauntlet run results.
+
+        Args:
+            gauntlet_id: Filter by specific gauntlet ID
+            status: Filter by status ('completed', 'failed', etc.)
+            limit: Results per page
+            offset: Pagination offset
+
+        Returns:
+            List of gauntlet results with summaries
+        """
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        if gauntlet_id:
+            params["gauntlet_id"] = gauntlet_id
+        if status:
+            params["status"] = status
+        return await self._request("GET", "/api/v1/gauntlet/results", params=params)
+
+    async def get_gauntlet_heatmap(
+        self,
+        gauntlet_id: str,
+        format: str = "json",
+    ) -> Dict[str, Any]:
+        """Get heatmap visualization data for a gauntlet run.
+
+        Args:
+            gauntlet_id: The gauntlet run ID
+            format: Output format ('json' or 'svg')
+
+        Returns:
+            Heatmap data showing agent vs persona performance matrix
+        """
+        return await self._request(
+            "GET",
+            f"/api/v1/gauntlet/{gauntlet_id}/heatmap",
+            params={"format": format},
+        )
+
+    async def compare_gauntlets(
+        self,
+        gauntlet_id_1: str,
+        gauntlet_id_2: str,
+    ) -> Dict[str, Any]:
+        """Compare two gauntlet runs.
+
+        Args:
+            gauntlet_id_1: First gauntlet run ID
+            gauntlet_id_2: Second gauntlet run ID
+
+        Returns:
+            Comparison analysis with differences highlighted
+        """
+        return await self._request(
+            "GET",
+            f"/api/v1/gauntlet/{gauntlet_id_1}/compare/{gauntlet_id_2}",
+        )
+
     # =========================================================================
     # Agents
     # =========================================================================
@@ -641,6 +741,87 @@ class AragoraClient:
     async def get_agent_domains(self, agent_name: str) -> Dict[str, Any]:
         """Get agent's domain expertise ratings."""
         return await self._request("GET", f"/api/agents/{agent_name}/domains")
+
+    async def get_agent_consistency(self, agent_name: str) -> Dict[str, Any]:
+        """Get agent's position consistency metrics.
+
+        Returns metrics on how consistently the agent maintains positions
+        across similar topics and debates.
+        """
+        return await self._request("GET", f"/api/v1/agent/{agent_name}/consistency")
+
+    async def get_agent_flips(
+        self,
+        agent_name: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """Get instances where agent changed positions.
+
+        Args:
+            agent_name: Agent identifier
+            limit: Results per page
+            offset: Pagination offset
+
+        Returns:
+            List of position flips with context and reasoning
+        """
+        return await self._request(
+            "GET",
+            f"/api/v1/agent/{agent_name}/flips",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def get_agent_moments(
+        self,
+        agent_name: str,
+        moment_type: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """Get notable moments from agent's debate history.
+
+        Args:
+            agent_name: Agent identifier
+            moment_type: Filter by type ('breakthrough', 'consensus', 'flip', etc.)
+            limit: Results per page
+            offset: Pagination offset
+
+        Returns:
+            List of notable moments with context
+        """
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        if moment_type:
+            params["type"] = moment_type
+        return await self._request(
+            "GET",
+            f"/api/v1/agent/{agent_name}/moments",
+            params=params,
+        )
+
+    async def get_agent_opponent_briefing(
+        self,
+        agent_name: str,
+        opponent_name: str,
+    ) -> Dict[str, Any]:
+        """Get tactical briefing for debating against a specific opponent.
+
+        Args:
+            agent_name: Agent requesting the briefing
+            opponent_name: Target opponent agent
+
+        Returns:
+            Briefing with opponent's tendencies, weaknesses, and recommended strategies
+        """
+        return await self._request(
+            "GET",
+            f"/api/v1/agent/{agent_name}/opponent-briefing/{opponent_name}",
+        )
+
+    async def get_leaderboard(self) -> Dict[str, Any]:
+        """Get agent leaderboard rankings."""
+        return await self._request("GET", "/api/leaderboard")
+
 
     # =========================================================================
     # Health
@@ -2627,6 +2808,90 @@ class AragoraClient:
         """
         return await self._request("POST", f"/api/v1/receipts/{receipt_id}/verify", json={})
 
+    # =========================================================================
+    # Analytics
+    # =========================================================================
+
+    async def get_disagreement_analytics(
+        self,
+        period: str = "30d",
+    ) -> Dict[str, Any]:
+        """Get analytics on agent disagreements.
+
+        Args:
+            period: Time period ('7d', '30d', '90d', 'all')
+
+        Returns:
+            Disagreement patterns, common topics, and resolution rates
+        """
+        return await self._request(
+            "GET",
+            "/api/v1/analytics/disagreements",
+            params={"period": period},
+        )
+
+    async def get_consensus_quality_analytics(
+        self,
+        period: str = "30d",
+    ) -> Dict[str, Any]:
+        """Get analytics on consensus quality.
+
+        Args:
+            period: Time period ('7d', '30d', '90d', 'all')
+
+        Returns:
+            Consensus quality metrics including strength, stability, and confidence
+        """
+        return await self._request(
+            "GET",
+            "/api/v1/analytics/consensus-quality",
+            params={"period": period},
+        )
+
+    async def get_role_rotation_analytics(
+        self,
+        period: str = "30d",
+    ) -> Dict[str, Any]:
+        """Get analytics on role rotation effectiveness.
+
+        Args:
+            period: Time period ('7d', '30d', '90d', 'all')
+
+        Returns:
+            Role rotation patterns and impact on debate outcomes
+        """
+        return await self._request(
+            "GET",
+            "/api/v1/analytics/role-rotation",
+            params={"period": period},
+        )
+
+    async def get_early_stop_analytics(
+        self,
+        period: str = "30d",
+    ) -> Dict[str, Any]:
+        """Get analytics on early stopping patterns.
+
+        Args:
+            period: Time period ('7d', '30d', '90d', 'all')
+
+        Returns:
+            Early stop rates, triggers, and quality impact
+        """
+        return await self._request(
+            "GET",
+            "/api/v1/analytics/early-stops",
+            params={"period": period},
+        )
+
+    async def get_ranking_stats(self) -> Dict[str, Any]:
+        """Get overall ranking statistics.
+
+        Returns:
+            Ranking distribution, rating changes, and leaderboard trends
+        """
+        return await self._request("GET", "/api/v1/ranking/stats")
+
 
 # Sync wrapper for convenience
 class AragoraClientSync:
@@ -3247,3 +3512,78 @@ class AragoraClientSync:
 
     def verify_decision_receipt(self, receipt_id: str) -> Dict[str, Any]:
         return self._run(self._async_client.verify_decision_receipt(receipt_id))
+
+    # =========================================================================
+    # Gauntlet (Extended)
+    # =========================================================================
+
+    def run_gauntlet(self, input: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.run_gauntlet(input, **kwargs))
+
+    def get_gauntlet_status(self, gauntlet_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_gauntlet_status(gauntlet_id))
+
+    def delete_gauntlet(self, gauntlet_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.delete_gauntlet(gauntlet_id))
+
+    def list_gauntlet_personas(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.list_gauntlet_personas(**kwargs))
+
+    def list_gauntlet_results(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.list_gauntlet_results(**kwargs))
+
+    def get_gauntlet_heatmap(self, gauntlet_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.get_gauntlet_heatmap(gauntlet_id, **kwargs))
+
+    def compare_gauntlets(self, gauntlet_id_1: str, gauntlet_id_2: str) -> Dict[str, Any]:
+        return self._run(self._async_client.compare_gauntlets(gauntlet_id_1, gauntlet_id_2))
+
+    def list_gauntlet_receipts(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.list_gauntlet_receipts(**kwargs))
+
+    def get_gauntlet_receipt(self, receipt_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_gauntlet_receipt(receipt_id))
+
+    def verify_gauntlet_receipt(self, receipt_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.verify_gauntlet_receipt(receipt_id))
+
+    def export_gauntlet_receipt(self, receipt_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.export_gauntlet_receipt(receipt_id, **kwargs))
+
+    # =========================================================================
+    # Agent Deep Dive
+    # =========================================================================
+
+    def get_agent_consistency(self, agent_name: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_agent_consistency(agent_name))
+
+    def get_agent_flips(self, agent_name: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.get_agent_flips(agent_name, **kwargs))
+
+    def get_agent_moments(self, agent_name: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.get_agent_moments(agent_name, **kwargs))
+
+    def get_agent_opponent_briefing(self, agent_name: str, opponent_name: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_agent_opponent_briefing(agent_name, opponent_name))
+
+    def get_leaderboard(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_leaderboard())
+
+    # =========================================================================
+    # Analytics
+    # =========================================================================
+
+    def get_disagreement_analytics(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.get_disagreement_analytics(**kwargs))
+
+    def get_consensus_quality_analytics(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.get_consensus_quality_analytics(**kwargs))
+
+    def get_role_rotation_analytics(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.get_role_rotation_analytics(**kwargs))
+
+    def get_early_stop_analytics(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.get_early_stop_analytics(**kwargs))
+
+    def get_ranking_stats(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_ranking_stats())

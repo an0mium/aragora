@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useOnboardingStore } from '@/store';
+import { useDebateWebSocket } from '@/hooks/debate-websocket/useDebateWebSocket';
 
 const EXAMPLE_TOPICS = [
   'Should we adopt TypeScript for our frontend?',
@@ -11,6 +13,7 @@ const EXAMPLE_TOPICS = [
 ];
 
 export function FirstDebateStep() {
+  const router = useRouter();
   const {
     selectedTemplate,
     firstDebateTopic,
@@ -25,6 +28,40 @@ export function FirstDebateStep() {
   } = useOnboardingStore();
 
   const [localError, setLocalError] = useState<string | null>(null);
+  const [receiptId, setReceiptId] = useState<string | null>(null);
+  const [autoNavigate, setAutoNavigate] = useState(true);
+
+  // Use WebSocket for real-time debate progress
+  const {
+    status: wsStatus,
+    messages: wsMessages,
+  } = useDebateWebSocket({
+    debateId: firstDebateId || '',
+    enabled: !!firstDebateId && debateStatus === 'running',
+  });
+
+  // Update debate status based on WebSocket events
+  useEffect(() => {
+    if (wsStatus === 'complete' && debateStatus === 'running') {
+      setDebateStatus('completed');
+      updateProgress({ firstDebateCompleted: true });
+    }
+    if (wsStatus === 'error') {
+      setDebateError('Debate connection lost');
+      setDebateStatus('error');
+    }
+  }, [wsStatus, debateStatus, setDebateStatus, setDebateError, updateProgress]);
+
+  // Auto-navigate to receipt when debate completes
+  useEffect(() => {
+    if (debateStatus === 'completed' && firstDebateId && autoNavigate) {
+      // Wait 2 seconds to show completion message, then navigate
+      const timer = setTimeout(() => {
+        router.push(`/receipts?debate=${firstDebateId}`);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [debateStatus, firstDebateId, autoNavigate, router]);
 
   const handleStartDebate = useCallback(async () => {
     if (!firstDebateTopic.trim()) {
@@ -37,14 +74,16 @@ export function FirstDebateStep() {
     setDebateError(null);
 
     try {
-      // Create the debate via API
+      // Create the debate via API with receipt generation enabled
       const response = await fetch('/api/debate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           task: firstDebateTopic,
-          agents: ['claude', 'gpt-4'], // Default agents
+          agents: ['claude', 'gpt-4'], // Express: 2 agents
           rounds: selectedTemplate?.rounds || 2,
+          enable_receipt_generation: true, // Enable for onboarding
+          receipt_min_confidence: 0.5,
         }),
       });
 
@@ -55,15 +94,11 @@ export function FirstDebateStep() {
 
       const data = await response.json();
       setFirstDebateId(data.debate_id);
+      if (data.receipt_id) {
+        setReceiptId(data.receipt_id);
+      }
       setDebateStatus('running');
       updateProgress({ firstDebateStarted: true });
-
-      // Simulate debate completion after a short time for onboarding
-      // In production, this would use WebSocket streaming
-      setTimeout(() => {
-        setDebateStatus('completed');
-        updateProgress({ firstDebateCompleted: true });
-      }, 3000);
 
     } catch (err) {
       setDebateError(err instanceof Error ? err.message : 'Failed to start debate');
@@ -140,11 +175,17 @@ export function FirstDebateStep() {
       {debateStatus === 'running' && (
         <div className="p-4 border border-acid-cyan/30 rounded-lg bg-acid-cyan/5">
           <div className="text-sm font-mono text-acid-cyan mb-2">
-            Debate in progress...
+            Debate in progress... {wsMessages.length > 0 && `(${wsMessages.length} messages)`}
           </div>
           <div className="text-xs text-text-muted">
-            AI agents are debating your topic. This usually takes 2-3 minutes.
+            AI agents are debating your topic. Express debates take ~2 minutes.
           </div>
+          {/* Show latest message preview */}
+          {wsMessages.length > 0 && (
+            <div className="mt-2 text-xs text-acid-cyan/70 italic truncate">
+              &quot;{wsMessages[wsMessages.length - 1]?.content?.slice(0, 100)}...&quot;
+            </div>
+          )}
           <div className="mt-3 w-full h-1 bg-acid-cyan/20 rounded-full overflow-hidden">
             <div className="h-full bg-acid-cyan animate-progress-indeterminate" />
           </div>
@@ -157,13 +198,30 @@ export function FirstDebateStep() {
             Debate completed!
           </div>
           <div className="text-xs text-text-muted">
-            Your first debate has finished. Click Continue to see your decision receipt.
+            {autoNavigate ? (
+              <>Redirecting to your decision receipt...</>
+            ) : (
+              <>Your first debate has finished. Click Continue to see your decision receipt.</>
+            )}
           </div>
-          {firstDebateId && (
-            <div className="text-xs text-text-muted mt-2">
-              Debate ID: {firstDebateId}
+          {autoNavigate && (
+            <div className="mt-2 w-full h-1 bg-acid-green/20 rounded-full overflow-hidden">
+              <div className="h-full bg-acid-green animate-progress-fill" />
             </div>
           )}
+          <div className="flex items-center justify-between mt-3">
+            {firstDebateId && (
+              <div className="text-xs text-text-muted">
+                Debate ID: {firstDebateId}
+              </div>
+            )}
+            <button
+              onClick={() => setAutoNavigate(false)}
+              className="text-xs text-acid-cyan hover:underline"
+            >
+              Cancel redirect
+            </button>
+          </div>
         </div>
       )}
 

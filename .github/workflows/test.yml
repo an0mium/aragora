@@ -107,6 +107,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,research]"
           pip install pytest-timeout pytest-xdist
+          # Optional dependencies to reduce test skips
+          pip install httpx mcp z3-solver supabase asyncpg websockets PyJWT || true
 
       - name: Run ${{ matrix.category.name }} tests
         run: |
@@ -158,6 +160,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,research]"
           pip install pytest-cov pytest-timeout pytest-xdist
+          # Optional dependencies to reduce test skips
+          pip install httpx mcp z3-solver supabase asyncpg websockets PyJWT || true
 
       - name: Run tests (parallel with xdist)
         run: |

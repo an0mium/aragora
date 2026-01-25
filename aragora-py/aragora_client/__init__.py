@@ -45,6 +45,13 @@ from aragora_client.exceptions import (
     AragoraTimeoutError,
     AragoraValidationError,
 )
+from aragora_client.onboarding import (
+    OnboardingAPI,
+    OnboardingFlow,
+    OnboardingInvitation,
+    OnboardingStep,
+    OnboardingTemplate,
+)
 from aragora_client.rbac import (
     RBACAPI,
     Permission,
@@ -160,4 +167,10 @@ __all__ = [
     "AuditExportResponse",
     "AuditIntegrityResult",
     "AuditRetentionPolicy",
+    # Onboarding
+    "OnboardingAPI",
+    "OnboardingFlow",
+    "OnboardingStep",
+    "OnboardingTemplate",
+    "OnboardingInvitation",
 ]

@@ -665,6 +665,25 @@ def downgrade(conn: sqlite3.Connection) -> None:
     # Example: Drop a table (if you created one in upgrade)
     # conn.execute("DROP TABLE IF EXISTS audit_log")
 
+    # Example: Remove columns added in upgrade (SQLite table recreation pattern)
+    # SQLite doesn't support DROP COLUMN, so we recreate the table:
+    # conn.executescript('''
+    #     -- Backup current data
+    #     CREATE TABLE tablename_backup AS SELECT * FROM tablename;
+    #     -- Drop original table
+    #     DROP TABLE tablename;
+    #     -- Recreate table WITHOUT the new columns
+    #     CREATE TABLE tablename (
+    #         -- original columns only
+    #     );
+    #     -- Copy data back (original columns only)
+    #     INSERT INTO tablename (col1, col2, ...) SELECT col1, col2, ... FROM tablename_backup;
+    #     -- Drop backup
+    #     DROP TABLE tablename_backup;
+    #     -- Recreate indexes
+    #     CREATE INDEX IF NOT EXISTS ... ON tablename(...);
+    # ''')
+
     # TODO: Replace this pass if you need rollback support
     pass
 '''

@@ -203,6 +203,18 @@ STARTER_TEMPLATES: List[StarterTemplate] = [
         tags=["quick", "general", "starter"],
         difficulty="beginner",
     ),
+    StarterTemplate(
+        id="express_onboarding",
+        name="Express Debate (2 min)",
+        description="Ultra-fast first debate to see Aragora in action. Perfect for onboarding.",
+        use_cases=[UseCase.GENERAL.value],
+        agents_count=2,
+        rounds=2,
+        estimated_minutes=2,
+        example_prompt="What's more important for a startup: fast iteration speed or code quality?",
+        tags=["onboarding", "express", "fast", "starter"],
+        difficulty="beginner",
+    ),
 ]
 
 
@@ -658,12 +670,15 @@ async def handle_first_debate(
             else:
                 topic = "What are the trade-offs between building vs buying software solutions?"
 
-        # Prepare debate configuration
+        # Prepare debate configuration with receipt generation enabled
         debate_config = {
             "topic": topic,
             "rounds": template.rounds if template else 2,
             "agents_count": template.agents_count if template else 3,
             "is_onboarding": True,
+            # Enable receipt generation for onboarding - users should see a receipt
+            "enable_receipt_generation": True,
+            "receipt_min_confidence": 0.5,  # Lower threshold for first debate
         }
 
         # Create the debate (in production, this would call the debate service)

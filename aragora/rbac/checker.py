@@ -94,6 +94,10 @@ class PermissionChecker:
         # Workspace-scoped role assignments (workspace_id -> user_id -> roles)
         self._workspace_roles: dict[str, dict[str, set[str]]] = {}
 
+        # Cache versioning for O(1) invalidation (instead of iterating all keys)
+        self._global_cache_version: int = 0
+        self._user_cache_versions: dict[str, int] = {}
+
         # If distributed cache provided, register for invalidation callbacks
         if self._cache_backend:
             self._cache_backend.add_invalidation_callback(self._on_remote_invalidation)

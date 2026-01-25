@@ -1007,6 +1007,47 @@ export class AragoraClient {
   }
 
   // ===========================================================================
+  // ELO Rankings
+  // ===========================================================================
+
+  /**
+   * Get ELO rankings for all agents.
+   */
+  async getEloRankings(params?: {
+    domain?: string;
+    limit?: number;
+  } & PaginationParams): Promise<{ rankings: Array<{ agent: string; elo: number; rank: number }> }> {
+    return this.request<{ rankings: Array<{ agent: string; elo: number; rank: number }> }>(
+      'GET',
+      '/api/v1/ranking/elo',
+      { params }
+    );
+  }
+
+  /**
+   * Get ELO rating for a specific agent.
+   */
+  async getAgentElo(agentName: string): Promise<{ agent: string; elo: number; history: Array<{ date: string; elo: number }> }> {
+    return this.request<{ agent: string; elo: number; history: Array<{ date: string; elo: number }> }>(
+      'GET',
+      `/api/v1/ranking/elo/${encodeURIComponent(agentName)}`
+    );
+  }
+
+  /**
+   * Get ELO history for an agent.
+   */
+  async getEloHistory(agentName: string, params?: {
+    period?: '7d' | '30d' | '90d' | 'all';
+  }): Promise<{ agent: string; history: Array<{ date: string; elo: number; change: number; opponent?: string }> }> {
+    return this.request<{ agent: string; history: Array<{ date: string; elo: number; change: number; opponent?: string }> }>(
+      'GET',
+      `/api/v1/ranking/elo/${encodeURIComponent(agentName)}/history`,
+      { params }
+    );
+  }
+
+  // ===========================================================================
   // Control Plane
   // ===========================================================================
 
@@ -1227,6 +1268,196 @@ export class AragoraClient {
       tasks_pending: number;
       tasks_running: number;
     }>('GET', '/api/control-plane/health');
+  }
+
+  // ===========================================================================
+  // Policies
+  // ===========================================================================
+
+  /**
+   * Create a new policy.
+   */
+  async createPolicy(body: {
+    name: string;
+    description?: string;
+    rules: Array<{
+      condition: string;
+      action: 'allow' | 'deny' | 'require_approval';
+      priority?: number;
+    }>;
+    enabled?: boolean;
+    scope?: 'global' | 'tenant' | 'user';
+  }): Promise<{ policy_id: string; created: boolean }> {
+    return this.request<{ policy_id: string; created: boolean }>(
+      'POST',
+      '/api/control-plane/policies',
+      { body }
+    );
+  }
+
+  /**
+   * Get a policy by ID.
+   */
+  async getPolicy(policyId: string): Promise<{
+    policy_id: string;
+    name: string;
+    description?: string;
+    rules: Array<{
+      condition: string;
+      action: string;
+      priority: number;
+    }>;
+    enabled: boolean;
+    scope: string;
+    created_at: string;
+    updated_at: string;
+  }> {
+    return this.request<{
+      policy_id: string;
+      name: string;
+      description?: string;
+      rules: Array<{
+        condition: string;
+        action: string;
+        priority: number;
+      }>;
+      enabled: boolean;
+      scope: string;
+      created_at: string;
+      updated_at: string;
+    }>('GET', `/api/control-plane/policies/${encodeURIComponent(policyId)}`);
+  }
+
+  /**
+   * Update a policy.
+   */
+  async updatePolicy(policyId: string, body: {
+    name?: string;
+    description?: string;
+    rules?: Array<{
+      condition: string;
+      action: 'allow' | 'deny' | 'require_approval';
+      priority?: number;
+    }>;
+    enabled?: boolean;
+  }): Promise<{ updated: boolean }> {
+    return this.request<{ updated: boolean }>(
+      'PATCH',
+      `/api/control-plane/policies/${encodeURIComponent(policyId)}`,
+      { body }
+    );
+  }
+
+  /**
+   * Delete a policy.
+   */
+  async deletePolicy(policyId: string): Promise<{ deleted: boolean }> {
+    return this.request<{ deleted: boolean }>(
+      'DELETE',
+      `/api/control-plane/policies/${encodeURIComponent(policyId)}`
+    );
+  }
+
+  /**
+   * List all policies.
+   */
+  async listPolicies(params?: {
+    scope?: 'global' | 'tenant' | 'user';
+    enabled?: boolean;
+  } & PaginationParams): Promise<{ policies: Array<{
+    policy_id: string;
+    name: string;
+    enabled: boolean;
+    scope: string;
+    rules_count: number;
+  }> }> {
+    return this.request<{ policies: Array<{
+      policy_id: string;
+      name: string;
+      enabled: boolean;
+      scope: string;
+      rules_count: number;
+    }> }>('GET', '/api/control-plane/policies', { params });
+  }
+
+  // ===========================================================================
+  // Task Scheduler
+  // ===========================================================================
+
+  /**
+   * Schedule a task for future execution.
+   */
+  async scheduleTask(body: {
+    task_type: string;
+    payload: Record<string, unknown>;
+    schedule_at?: string;  // ISO 8601 datetime
+    cron?: string;         // Cron expression for recurring tasks
+    priority?: 'low' | 'normal' | 'high' | 'critical';
+    max_retries?: number;
+    timeout_seconds?: number;
+  }): Promise<{ schedule_id: string; next_run_at: string }> {
+    return this.request<{ schedule_id: string; next_run_at: string }>(
+      'POST',
+      '/api/control-plane/schedule',
+      { body }
+    );
+  }
+
+  /**
+   * Get scheduled task details.
+   */
+  async getScheduledTask(scheduleId: string): Promise<{
+    schedule_id: string;
+    task_type: string;
+    status: 'active' | 'paused' | 'completed' | 'failed';
+    schedule_at?: string;
+    cron?: string;
+    next_run_at?: string;
+    last_run_at?: string;
+    run_count: number;
+  }> {
+    return this.request<{
+      schedule_id: string;
+      task_type: string;
+      status: 'active' | 'paused' | 'completed' | 'failed';
+      schedule_at?: string;
+      cron?: string;
+      next_run_at?: string;
+      last_run_at?: string;
+      run_count: number;
+    }>('GET', `/api/control-plane/schedule/${encodeURIComponent(scheduleId)}`);
+  }
+
+  /**
+   * List scheduled tasks.
+   */
+  async listScheduledTasks(params?: {
+    status?: 'active' | 'paused' | 'completed' | 'failed';
+    task_type?: string;
+  } & PaginationParams): Promise<{ schedules: Array<{
+    schedule_id: string;
+    task_type: string;
+    status: string;
+    next_run_at?: string;
+    cron?: string;
+  }> }> {
+    return this.request<{ schedules: Array<{
+      schedule_id: string;
+      task_type: string;
+      status: string;
+      next_run_at?: string;
+      cron?: string;
+    }> }>('GET', '/api/control-plane/schedule', { params });
+  }
+
+  /**
+   * Cancel a scheduled task.
+   */
+  async cancelScheduledTask(scheduleId: string): Promise<{ cancelled: boolean }> {
+    return this.request<{ cancelled: boolean }>(
+      'DELETE',
+      `/api/control-plane/schedule/${encodeURIComponent(scheduleId)}`
+    );
   }
 
   // ===========================================================================

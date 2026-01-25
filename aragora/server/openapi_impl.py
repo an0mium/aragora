@@ -21,6 +21,7 @@ Usage:
 
 import copy
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,7 @@ from aragora.server.openapi.schemas import COMMON_SCHEMAS
 
 # Import all endpoint definitions from endpoints subpackage
 from aragora.server.openapi.endpoints import ALL_ENDPOINTS
+from aragora.server.versioning.compat import strip_version_prefix
 
 # API version
 API_VERSION = "1.0.0"
@@ -67,9 +69,86 @@ def _mark_legacy_paths_deprecated(paths: dict[str, Any]) -> dict[str, Any]:
     return paths
 
 
+def _normalize_route(route: str) -> str:
+    return route.rstrip("*").rstrip("/")
+
+
+def _pattern_prefix(pattern: str) -> str:
+    cleaned = pattern.lstrip("^")
+    escaped = False
+    for idx, ch in enumerate(cleaned):
+        if escaped:
+            escaped = False
+            continue
+        if ch == "\\":
+            escaped = True
+            continue
+        if ch in ".^$*+?{}[]()|":
+            return cleaned[:idx].rstrip("/")
+    return cleaned.rstrip("/")
+
+
+def _collect_handler_paths() -> set[str]:
+    from aragora.server.handlers import ALL_HANDLERS
+
+    handled_paths: set[str] = set()
+    for handler_cls in ALL_HANDLERS:
+        for attr_name in ("ROUTES", "ROUTE_PREFIXES"):
+            routes = getattr(handler_cls, attr_name, None)
+            if routes:
+                for route in routes:
+                    handled_paths.add(_normalize_route(route))
+        patterns = getattr(handler_cls, "ROUTE_PATTERNS", None)
+        if patterns:
+            for pattern in patterns:
+                prefix = _pattern_prefix(pattern)
+                if prefix:
+                    handled_paths.add(prefix)
+    return handled_paths
+
+
+def _is_path_handled(
+    spec_path: str,
+    base_path: str,
+    legacy_path: str,
+    legacy_base: str,
+    handled_paths: set[str],
+    handled_legacy_paths: set[str],
+) -> bool:
+    for handled in handled_paths:
+        if spec_path.startswith(handled) or handled.startswith(base_path):
+            return True
+    for handled in handled_legacy_paths:
+        if legacy_path.startswith(handled) or handled.startswith(legacy_base):
+            return True
+    return False
+
+
+def _filter_unhandled_paths(paths: dict[str, Any]) -> dict[str, Any]:
+    handled_paths = _collect_handler_paths()
+    handled_legacy_paths = {strip_version_prefix(path) for path in handled_paths}
+    filtered: dict[str, Any] = {}
+    for spec_path, spec in paths.items():
+        normalized = re.sub(r"\{[^}]+\}", "*", spec_path)
+        base_path = normalized.split("*")[0].rstrip("/")
+        legacy_path = strip_version_prefix(spec_path)
+        legacy_base = re.sub(r"\{[^}]+\}", "*", legacy_path).split("*")[0].rstrip("/")
+        if _is_path_handled(
+            spec_path,
+            base_path,
+            legacy_path,
+            legacy_base,
+            handled_paths,
+            handled_legacy_paths,
+        ):
+            filtered[spec_path] = spec
+    return filtered
+
+
 def generate_openapi_schema() -> dict[str, Any]:
     """Generate complete OpenAPI 3.1 schema."""
     paths = _mark_legacy_paths_deprecated(_add_v1_aliases(ALL_ENDPOINTS))
+    paths = _filter_unhandled_paths(paths)
     return {
         "openapi": "3.1.0",
         "info": {

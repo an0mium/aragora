@@ -217,20 +217,18 @@ export class AragoraWebSocket {
   on(event: 'consensus', handler: EventHandler<ConsensusEvent>): () => void;
   on(event: 'debate_end', handler: EventHandler<DebateEndEvent>): () => void;
   on(event: 'message', handler: EventHandler<WebSocketEvent>): () => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on<K extends keyof EventHandlers>(event: K, handler: EventHandlers[K][number]): () => void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (this.handlers[event] as any[]).push(handler);
+    // TypeScript can't infer indexed mapped type assignments - cast to unknown[] is safe here
+    (this.handlers[event] as unknown[]).push(handler);
     return () => this.off(event, handler);
   }
 
   /**
    * Remove an event handler.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   off<K extends keyof EventHandlers>(event: K, handler: EventHandlers[K][number]): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handlers = this.handlers[event] as any[];
+    // TypeScript can't infer indexed mapped type assignments - cast to unknown[] is safe here
+    const handlers = this.handlers[event] as unknown[];
     const index = handlers.indexOf(handler);
     if (index !== -1) {
       handlers.splice(index, 1);
@@ -239,18 +237,22 @@ export class AragoraWebSocket {
 
   /**
    * Wait for a specific event to occur.
+   * Returns a promise that resolves with the event data.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  once<T>(event: keyof EventHandlers): Promise<T> {
+  once<K extends keyof EventHandlers>(event: K): Promise<Parameters<EventHandlers[K][number]>[0]> {
+    type EventData = Parameters<EventHandlers[K][number]>[0];
     return new Promise((resolve) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const handler = (data: any) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        this.off(event, handler as any);
-        resolve(data as T);
+      // Handler that removes itself after first call
+      const handler = (data: EventData) => {
+        // Remove handler - use unknown[] for indexed type compatibility
+        (this.handlers[event] as unknown[]).splice(
+          (this.handlers[event] as unknown[]).indexOf(handler),
+          1
+        );
+        resolve(data);
       };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.on(event as any, handler as any);
+      // Add handler - use unknown[] for indexed type compatibility
+      (this.handlers[event] as unknown[]).push(handler);
     });
   }
 
@@ -290,11 +292,11 @@ export class AragoraWebSocket {
       // Emit to generic message handlers
       this.emit('message', event);
 
-      // Emit to specific event type handlers
+      // Emit to specific event type handlers - event.data type varies by event type
       const eventType = event.type as keyof EventHandlers;
       if (eventType in this.handlers) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        this.emit(eventType, event.data as any);
+        // Cast to unknown is safe - emit() will pass to correctly-typed handlers
+        this.emit(eventType, event.data as Parameters<EventHandlers[typeof eventType][number]>[0]);
       }
     } catch (error) {
       this.emit('error', new Error(`Failed to parse message: ${data}`));
@@ -377,14 +379,13 @@ export interface StreamOptions extends WebSocketOptions {
  * Helper to extract loop/debate ID from an event.
  */
 function getEventDebateId(event: WebSocketEvent): string | undefined {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data = event.data as Record<string, any> | undefined;
+  const data = event.data as Record<string, unknown> | undefined;
+  const loopId = 'loop_id' in event ? (event as { loop_id?: string }).loop_id : undefined;
   return (
     event.debate_id ||
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (event as any).loop_id ||
-    data?.debate_id ||
-    data?.loop_id
+    loopId ||
+    (typeof data?.debate_id === 'string' ? data.debate_id : undefined) ||
+    (typeof data?.loop_id === 'string' ? data.loop_id : undefined)
   );
 }
 
