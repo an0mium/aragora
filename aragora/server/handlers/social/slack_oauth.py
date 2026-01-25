@@ -309,7 +309,7 @@ class SlackOAuthHandler(BaseHandler):
             import httpx
 
             data = None
-            last_error = None
+            last_error: Exception | None = None
 
             for attempt in range(max_retries):
                 try:

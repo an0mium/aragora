@@ -17,6 +17,7 @@ from aragora.server.http_utils import run_async as _run_async
 from ..base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     get_int_param,
     handle_errors,
@@ -62,7 +63,9 @@ class InsightsHandler(BaseHandler):
         """Handle GET requests - routes to handle_get with context."""
         return self.handle_get(path, query_params, handler, self.ctx)
 
-    def handle_get(self, path: str, query: dict, handler, ctx: dict) -> Optional[HandlerResult]:
+    def handle_get(
+        self, path: str, query: dict, handler, ctx: ServerContext
+    ) -> Optional[HandlerResult]:
         """Handle GET requests for insights endpoints."""
         # Normalize path to handle both /api/... and /api/v1/... paths
         normalized = strip_version_prefix(path)

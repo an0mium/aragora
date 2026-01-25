@@ -12,8 +12,8 @@ Full integration with PayPal REST API:
 from __future__ import annotations
 
 import base64
-import hashlib
 import logging
+import zlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -1053,7 +1053,7 @@ class PayPalClient:
 
         # Build expected signature input
         expected_sig_input = (
-            f"{transmission_id}|{timestamp}|{webhook_id}|{hashlib.crc32(event_body.encode())}"
+            f"{transmission_id}|{timestamp}|{webhook_id}|{zlib.crc32(event_body.encode())}"
         )
 
         # In production, verify against PayPal's certificate

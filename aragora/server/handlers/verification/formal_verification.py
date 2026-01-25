@@ -20,11 +20,12 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Optional, cast
 
 from ..base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     get_clamped_int_param,
     handle_errors,
@@ -248,8 +249,8 @@ class FormalVerificationHandler(BaseHandler):
         "/api/v1/verify/history",
     ]
 
-    def __init__(self, server_context: Optional[dict] = None):
-        super().__init__(server_context or {})
+    def __init__(self, server_context: Optional[ServerContext] = None):
+        super().__init__(server_context or cast(ServerContext, {}))
         self._manager = None
 
     def _get_manager(self):

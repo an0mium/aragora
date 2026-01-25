@@ -518,7 +518,7 @@ def get_user_repository() -> Optional[UserRepository]:
     repo = getattr(store, "_user_repo", None)
     if repo is None:
         repo = UserRepository(
-            store._transaction,
+            store._transaction,  # type: ignore[union-attr]
             getattr(store, "_get_connection", None),
         )
     _user_repository = repo
