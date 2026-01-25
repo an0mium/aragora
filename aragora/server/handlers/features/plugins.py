@@ -536,6 +536,11 @@ class PluginsHandler(BaseHandler):
         """
         import uuid
 
+        from aragora.server.validation.schema import (
+            PLUGIN_MANIFEST_SCHEMA,
+            validate_against_schema,
+        )
+
         user_id = self.get_user_id(handler)
         if not user_id:
             return error_response("Authentication required", 401)
@@ -549,21 +554,24 @@ class PluginsHandler(BaseHandler):
         if not manifest:
             return error_response("Missing 'manifest' field", 400)
 
-        # Validate required manifest fields
-        required_fields = ["name", "version", "description", "entry_point"]
-        missing = [f for f in required_fields if not manifest.get(f)]
-        if missing:
-            return error_response(f"Missing required manifest fields: {', '.join(missing)}", 400)
-
-        # Validate name format (alphanumeric with hyphens)
-        import re
+        # Validate manifest against schema (enforces name format, length limits, entry_point pattern)
+        validation_result = validate_against_schema(manifest, PLUGIN_MANIFEST_SCHEMA)
+        if not validation_result.is_valid:
+            return error_response(validation_result.error, 400)
 
         name = manifest.get("name", "")
-        if not re.match(r"^[a-z][a-z0-9-]*$", name):
-            return error_response(
-                "Plugin name must start with lowercase letter and contain only lowercase letters, numbers, and hyphens",
-                400,
-            )
+
+        # Validate manifest structure using plugin module if available
+        if PLUGINS_AVAILABLE:
+            try:
+                from aragora.plugins.manifest import PluginManifest
+
+                temp_manifest = PluginManifest.from_dict(manifest)
+                is_valid, errors = temp_manifest.validate()
+                if not is_valid:
+                    return error_response(f"Manifest validation failed: {', '.join(errors)}", 400)
+            except Exception as e:
+                return error_response(f"Invalid manifest format: {str(e)}", 400)
 
         # Check for duplicate name
         if PLUGINS_AVAILABLE and get_registry:

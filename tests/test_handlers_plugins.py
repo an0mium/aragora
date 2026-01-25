@@ -519,3 +519,340 @@ class TestSunsetHeaders:
             assert result is not None
             if result.headers:
                 assert "Sunset" not in result.headers
+
+
+# ============================================================================
+# Plugin Submission Security Tests
+# ============================================================================
+
+
+class TestPluginSubmissionSecurity:
+    """Security tests for plugin submission endpoint (POST /api/v1/plugins/submit).
+
+    Tests validate that the submission handler properly enforces:
+    - Name length limits (max 64 chars)
+    - Name format (lowercase, starts with letter)
+    - Entry point format (module.path:function)
+    - Version format (semver)
+    - Schema validation via PLUGIN_MANIFEST_SCHEMA
+    """
+
+    @pytest.fixture
+    def mock_handler_with_body(self, plugins_handler):
+        """Create a mock handler with configurable JSON body."""
+
+        def create_handler(body_data, user_id="test-user-123"):
+            handler = Mock()
+            handler.command = "POST"
+            handler.path = "/api/v1/plugins/submit"
+            # Set up rfile to return JSON body
+            body_bytes = json.dumps(body_data).encode("utf-8")
+            handler.rfile = Mock()
+            handler.rfile.read.return_value = body_bytes
+            handler.headers = {
+                "Content-Length": str(len(body_bytes)),
+                "Content-Type": "application/json",
+            }
+
+            # Mock auth token extraction
+            with (
+                patch.object(plugins_handler, "get_user_id", return_value=user_id),
+                patch.object(plugins_handler, "read_json_body", return_value=body_data),
+            ):
+                yield handler
+
+        return create_handler
+
+    def _submit_plugin(self, plugins_handler, manifest_data, user_id="test-user-123"):
+        """Helper to submit a plugin with the given manifest."""
+        body = {"manifest": manifest_data}
+
+        with (
+            patch.object(plugins_handler, "get_user_id", return_value=user_id),
+            patch.object(plugins_handler, "read_json_body", return_value=body),
+        ):
+            return plugins_handler.handle("/api/v1/plugins/submit", {"command": "POST"}, None)
+
+    def test_submit_plugin_name_too_long(self, plugins_handler):
+        """Reject plugin names exceeding 64 characters."""
+        manifest = {
+            "name": "a" * 65,  # 65 chars, exceeds limit
+            "version": "1.0.0",
+            "description": "A test plugin",
+            "entry_point": "my_plugin:main",
+        }
+        result = self._submit_plugin(plugins_handler, manifest)
+
+        assert result is not None
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "error" in data
+
+    def test_submit_plugin_name_at_max_length(self, plugins_handler):
+        """Accept plugin names at exactly 64 characters."""
+        import aragora.server.handlers.features.plugins as mod
+
+        # Skip if plugins not available
+        original_available = mod.PLUGINS_AVAILABLE
+        mod.PLUGINS_AVAILABLE = False  # Disable manifest.validate() check
+
+        try:
+            manifest = {
+                "name": "a" + "b" * 62 + "c",  # 64 chars: starts with letter, ends with letter
+                "version": "1.0.0",
+                "description": "A test plugin",
+                "entry_point": "my_plugin:main",
+            }
+            result = self._submit_plugin(plugins_handler, manifest)
+
+            # Should pass schema validation (name length OK)
+            # May fail on other checks but not on name length
+            if result.status_code == 400:
+                data = json.loads(result.body)
+                # Should not fail on name length
+                assert "max_length" not in data.get("error", "").lower()
+        finally:
+            mod.PLUGINS_AVAILABLE = original_available
+
+    def test_submit_plugin_name_starts_with_number(self, plugins_handler):
+        """Reject plugin names starting with a number."""
+        manifest = {
+            "name": "1plugin",  # Starts with number
+            "version": "1.0.0",
+            "description": "A test plugin",
+            "entry_point": "my_plugin:main",
+        }
+        result = self._submit_plugin(plugins_handler, manifest)
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_submit_plugin_name_uppercase_rejected(self, plugins_handler):
+        """Reject plugin names with uppercase letters."""
+        manifest = {
+            "name": "MyPlugin",  # Has uppercase
+            "version": "1.0.0",
+            "description": "A test plugin",
+            "entry_point": "my_plugin:main",
+        }
+        result = self._submit_plugin(plugins_handler, manifest)
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_submit_plugin_name_special_chars_rejected(self, plugins_handler):
+        """Reject plugin names with special characters."""
+        invalid_names = [
+            "my_plugin",  # Underscore not allowed
+            "my.plugin",  # Dot not allowed
+            "my plugin",  # Space not allowed
+            "my@plugin",  # @ not allowed
+            "../evil",  # Path traversal
+        ]
+        for name in invalid_names:
+            manifest = {
+                "name": name,
+                "version": "1.0.0",
+                "description": "A test plugin",
+                "entry_point": "my_plugin:main",
+            }
+            result = self._submit_plugin(plugins_handler, manifest)
+
+            assert result is not None, f"Name '{name}' should be rejected"
+            assert result.status_code == 400, f"Name '{name}' should return 400"
+
+    def test_submit_plugin_entry_point_invalid_format(self, plugins_handler):
+        """Reject invalid entry_point format (must be module:function)."""
+        invalid_entry_points = [
+            "no_colon_here",  # Missing colon
+            ":function",  # Missing module
+            "module:",  # Missing function
+            "module:func:extra",  # Extra colon
+            "../../evil:run",  # Path traversal attempt
+            "123module:func",  # Module starts with number
+        ]
+        for entry_point in invalid_entry_points:
+            manifest = {
+                "name": "test-plugin",
+                "version": "1.0.0",
+                "description": "A test plugin",
+                "entry_point": entry_point,
+            }
+            result = self._submit_plugin(plugins_handler, manifest)
+
+            assert result is not None, f"Entry point '{entry_point}' should be rejected"
+            assert result.status_code == 400, f"Entry point '{entry_point}' should return 400"
+
+    def test_submit_plugin_entry_point_valid_formats(self, plugins_handler):
+        """Accept valid entry_point formats."""
+        import aragora.server.handlers.features.plugins as mod
+
+        original_available = mod.PLUGINS_AVAILABLE
+        mod.PLUGINS_AVAILABLE = False  # Disable manifest.validate() check
+
+        try:
+            valid_entry_points = [
+                "module:function",
+                "my_module:my_function",
+                "package.module:function",
+                "deep.nested.module:handler",
+                "_private:_handler",
+            ]
+            for entry_point in valid_entry_points:
+                manifest = {
+                    "name": "test-plugin",
+                    "version": "1.0.0",
+                    "description": "A test plugin",
+                    "entry_point": entry_point,
+                }
+                result = self._submit_plugin(plugins_handler, manifest)
+
+                # Should not fail on entry_point validation
+                if result.status_code == 400:
+                    data = json.loads(result.body)
+                    assert (
+                        "entry_point" not in data.get("error", "").lower()
+                    ), f"Entry point '{entry_point}' should be valid"
+        finally:
+            mod.PLUGINS_AVAILABLE = original_available
+
+    def test_submit_plugin_version_invalid_format(self, plugins_handler):
+        """Reject invalid version formats (must be semver)."""
+        invalid_versions = [
+            "1.0",  # Missing patch
+            "v1.0.0",  # Leading 'v'
+            "1.0.0.0",  # Extra component
+            "1.a.0",  # Non-numeric
+            "latest",  # Not semver
+            "",  # Empty
+        ]
+        for version in invalid_versions:
+            manifest = {
+                "name": "test-plugin",
+                "version": version,
+                "description": "A test plugin",
+                "entry_point": "my_plugin:main",
+            }
+            result = self._submit_plugin(plugins_handler, manifest)
+
+            assert result is not None, f"Version '{version}' should be rejected"
+            assert result.status_code == 400, f"Version '{version}' should return 400"
+
+    def test_submit_plugin_version_valid_semver(self, plugins_handler):
+        """Accept valid semver versions."""
+        import aragora.server.handlers.features.plugins as mod
+
+        original_available = mod.PLUGINS_AVAILABLE
+        mod.PLUGINS_AVAILABLE = False
+
+        try:
+            valid_versions = [
+                "1.0.0",
+                "0.1.0",
+                "10.20.30",
+                "1.0.0-alpha",
+                "1.0.0-beta.1",
+                "1.0.0+build.123",
+            ]
+            for version in valid_versions:
+                manifest = {
+                    "name": "test-plugin",
+                    "version": version,
+                    "description": "A test plugin",
+                    "entry_point": "my_plugin:main",
+                }
+                result = self._submit_plugin(plugins_handler, manifest)
+
+                if result.status_code == 400:
+                    data = json.loads(result.body)
+                    assert (
+                        "version" not in data.get("error", "").lower()
+                    ), f"Version '{version}' should be valid"
+        finally:
+            mod.PLUGINS_AVAILABLE = original_available
+
+    def test_submit_plugin_description_too_long(self, plugins_handler):
+        """Reject descriptions exceeding 1000 characters."""
+        manifest = {
+            "name": "test-plugin",
+            "version": "1.0.0",
+            "description": "x" * 1001,  # Exceeds limit
+            "entry_point": "my_plugin:main",
+        }
+        result = self._submit_plugin(plugins_handler, manifest)
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_submit_plugin_missing_required_fields(self, plugins_handler):
+        """Reject submissions missing required manifest fields."""
+        # Missing name
+        result = self._submit_plugin(
+            plugins_handler,
+            {
+                "version": "1.0.0",
+                "description": "Test",
+                "entry_point": "mod:func",
+            },
+        )
+        assert result.status_code == 400
+
+        # Missing version
+        result = self._submit_plugin(
+            plugins_handler,
+            {
+                "name": "test-plugin",
+                "description": "Test",
+                "entry_point": "mod:func",
+            },
+        )
+        assert result.status_code == 400
+
+        # Missing entry_point
+        result = self._submit_plugin(
+            plugins_handler,
+            {
+                "name": "test-plugin",
+                "version": "1.0.0",
+                "description": "Test",
+            },
+        )
+        assert result.status_code == 400
+
+    def test_submit_plugin_valid_manifest(self, plugins_handler):
+        """Accept a fully valid manifest submission."""
+        import aragora.server.handlers.features.plugins as mod
+
+        original_available = mod.PLUGINS_AVAILABLE
+        mod.PLUGINS_AVAILABLE = False
+
+        try:
+            manifest = {
+                "name": "my-awesome-plugin",
+                "version": "1.0.0",
+                "description": "An awesome plugin for testing",
+                "entry_point": "my_plugin.main:handler",
+                "author": "Test Author",
+                "category": "analysis",
+            }
+            result = self._submit_plugin(plugins_handler, manifest)
+
+            # Should succeed (200) or conflict (409 if already submitted)
+            assert result is not None
+            assert result.status_code in [200, 409]
+        finally:
+            mod.PLUGINS_AVAILABLE = original_available
+
+    def test_submit_plugin_category_invalid(self, plugins_handler):
+        """Reject invalid category values."""
+        manifest = {
+            "name": "test-plugin",
+            "version": "1.0.0",
+            "description": "A test plugin",
+            "entry_point": "my_plugin:main",
+            "category": "invalid-category",  # Not in allowed values
+        }
+        result = self._submit_plugin(plugins_handler, manifest)
+
+        assert result is not None
+        assert result.status_code == 400
