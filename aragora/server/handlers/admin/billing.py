@@ -18,7 +18,6 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from aragora.billing.jwt_auth import extract_user_from_request
 from aragora.audit.unified import audit_admin, audit_data
 
 # Module-level imports for test mocking compatibility
@@ -555,24 +554,24 @@ class BillingHandler(SecureHandler):
         )
 
     @handle_errors("export usage CSV")
-    def _export_usage_csv(self, handler) -> HandlerResult:
-        """Export usage data as CSV."""
+    @require_permission("org:billing")
+    def _export_usage_csv(self, handler, user=None) -> HandlerResult:
+        """Export usage data as CSV.
+
+        Requires org:billing permission (owner only).
+        """
         import csv
         import io
 
         user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
-
         if not user_store:
             return error_response("Service unavailable", 503)
 
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user or not user.org_id:
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user or not db_user.org_id:
             return error_response("No organization found", 404)
 
-        org = user_store.get_organization_by_id(user.org_id)
+        org = user_store.get_organization_by_id(db_user.org_id)
         if not org:
             return error_response("Organization not found", 404)
 
@@ -637,21 +636,21 @@ class BillingHandler(SecureHandler):
         )
 
     @handle_errors("get usage forecast")
-    def _get_usage_forecast(self, handler) -> HandlerResult:
-        """Get usage forecast and cost projection."""
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
+    @require_permission("org:billing")
+    def _get_usage_forecast(self, handler, user=None) -> HandlerResult:
+        """Get usage forecast and cost projection.
 
+        Requires org:billing permission (owner only).
+        """
+        user_store = self._get_user_store()
         if not user_store:
             return error_response("Service unavailable", 503)
 
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user or not user.org_id:
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user or not db_user.org_id:
             return error_response("No organization found", 404)
 
-        org = user_store.get_organization_by_id(user.org_id)
+        org = user_store.get_organization_by_id(db_user.org_id)
         if not org:
             return error_response("Organization not found", 404)
 
@@ -734,23 +733,23 @@ class BillingHandler(SecureHandler):
         )
 
     @handle_errors("get invoices")
-    def _get_invoices(self, handler) -> HandlerResult:
-        """Get invoice history from Stripe."""
+    @require_permission("org:billing")
+    def _get_invoices(self, handler, user=None) -> HandlerResult:
+        """Get invoice history from Stripe.
+
+        Requires org:billing permission (owner only).
+        """
         from aragora.billing.stripe_client import StripeConfigError
 
         user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
-
         if not user_store:
             return error_response("Service unavailable", 503)
 
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user or not user.org_id:
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user or not db_user.org_id:
             return error_response("No organization found", 404)
 
-        org = user_store.get_organization_by_id(user.org_id)
+        org = user_store.get_organization_by_id(db_user.org_id)
         if not org or not org.stripe_customer_id:
             return error_response("No billing account found", 404)
 
