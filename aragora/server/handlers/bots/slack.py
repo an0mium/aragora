@@ -21,6 +21,7 @@ import time
 from typing import Any, Optional
 from urllib.parse import parse_qs
 
+from aragora.audit.unified import audit_data
 from aragora.server.handlers.base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
@@ -372,6 +373,15 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
 
                         logger.info(f"User {user_name} voted for {agent} in debate {debate_id}")
 
+                        audit_data(
+                            user_id=f"slack:{user_id}",
+                            resource_type="debate_vote",
+                            resource_id=debate_id,
+                            action="create",
+                            vote_option=agent,
+                            platform="slack",
+                        )
+
                         # Return ephemeral confirmation
                         return json_response(
                             {
@@ -479,6 +489,15 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
                 logger.info(
                     f"Started debate {debate_id} from Slack modal: "
                     f"task='{task[:50]}...', agents={agents}, rounds={rounds}"
+                )
+
+                audit_data(
+                    user_id=f"slack:{user.get('id', 'unknown')}",
+                    resource_type="debate",
+                    resource_id=debate_id,
+                    action="create",
+                    platform="slack",
+                    task_preview=task[:100],
                 )
 
                 return json_response({"response_action": "clear"})

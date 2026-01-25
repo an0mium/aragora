@@ -23,6 +23,7 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
+from aragora.audit.unified import audit_security
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -143,6 +144,12 @@ class ZoomHandler(BaseHandler):
             # Verify signature if bot is configured
             if bot and signature and not bot.verify_webhook(body, timestamp, signature):
                 logger.warning("Zoom webhook signature verification failed")
+                audit_security(
+                    event_type="zoom_webhook_auth_failed",
+                    actor_id="unknown",
+                    resource_type="zoom_webhook",
+                    resource_id="signature",
+                )
                 return error_response("Invalid signature", 401)
 
             # Parse event

@@ -21,6 +21,7 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
+from aragora.audit.unified import audit_security
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -189,11 +190,25 @@ class TeamsHandler(BaseHandler):
                     await adapter.authenticate_request(activity, auth_header)
                 except (ValueError, KeyError) as auth_error:
                     logger.warning(f"Teams auth failed due to invalid token: {auth_error}")
+                    audit_security(
+                        event_type="teams_webhook_auth_failed",
+                        actor_id="unknown",
+                        resource_type="teams_webhook",
+                        resource_id="auth_token",
+                        reason="invalid_token",
+                    )
                     response_status = 401
                     response_body = {"error": "Invalid authentication token"}
                     return
                 except Exception as auth_error:
                     logger.exception(f"Unexpected Teams auth error: {auth_error}")
+                    audit_security(
+                        event_type="teams_webhook_auth_failed",
+                        actor_id="unknown",
+                        resource_type="teams_webhook",
+                        resource_id="auth_token",
+                        reason="unexpected_error",
+                    )
                     response_status = 401
                     response_body = {"error": "Unauthorized"}
                     return

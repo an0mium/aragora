@@ -20,6 +20,7 @@ import logging
 import os
 from typing import Any, Coroutine, Dict, Optional
 
+from aragora.audit.unified import audit_data
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -273,6 +274,15 @@ class GoogleChatHandler(BaseHandler):
                 user_id=f"gchat:{user_id}",
                 vote=vote_option,
                 source="google_chat",
+            )
+
+            audit_data(
+                user_id=f"gchat:{user_id}",
+                resource_type="debate_vote",
+                resource_id=debate_id,
+                action="create",
+                vote_option=vote_option,
+                platform="google_chat",
             )
 
             emoji = "✅" if vote_option == "agree" else "❌"
