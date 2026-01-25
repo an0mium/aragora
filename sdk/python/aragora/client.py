@@ -506,6 +506,38 @@ class AragoraClient:
     # Gauntlet
     # =========================================================================
 
+    async def run_gauntlet(
+        self,
+        input: str,
+        profile: str = "comprehensive",
+        agents: Optional[List[str]] = None,
+        rounds: int = 3,
+        timeout: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Run a gauntlet evaluation.
+
+        Args:
+            input: The input to evaluate
+            profile: Evaluation profile ('comprehensive', 'quick', 'deep')
+            agents: Optional list of agents to use
+            rounds: Number of debate rounds
+            timeout: Optional timeout in seconds
+        """
+        body: Dict[str, Any] = {
+            "input": input,
+            "profile": profile,
+            "rounds": rounds,
+        }
+        if agents:
+            body["agents"] = agents
+        if timeout:
+            body["timeout"] = timeout
+        return await self._request("POST", "/api/v1/gauntlet/run", json=body)
+
+    async def get_gauntlet_status(self, gauntlet_id: str) -> Dict[str, Any]:
+        """Get status of a running gauntlet."""
+        return await self._request("GET", f"/api/v1/gauntlet/{gauntlet_id}")
+
     async def list_gauntlet_receipts(
         self,
         verdict: Optional[str] = None,
@@ -549,6 +581,66 @@ class AragoraClient:
     async def get_agent(self, agent_name: str) -> Dict[str, Any]:
         """Get agent details."""
         return await self._request("GET", f"/api/agents/{agent_name}")
+
+    async def get_agent_calibration(self, agent_name: str) -> Dict[str, Any]:
+        """Get agent calibration metrics."""
+        return await self._request("GET", f"/api/agents/{agent_name}/calibration")
+
+    async def get_agent_performance(
+        self,
+        agent_name: str,
+        timeframe: str = "30d",
+    ) -> Dict[str, Any]:
+        """Get agent performance metrics over time.
+
+        Args:
+            agent_name: Agent identifier
+            timeframe: Timeframe ('7d', '30d', '90d', 'all')
+        """
+        return await self._request(
+            "GET",
+            f"/api/agents/{agent_name}/performance",
+            params={"timeframe": timeframe},
+        )
+
+    async def get_agent_head_to_head(
+        self,
+        agent_name: str,
+        opponent_name: str,
+    ) -> Dict[str, Any]:
+        """Get head-to-head statistics between two agents."""
+        return await self._request(
+            "GET",
+            f"/api/agents/{agent_name}/head-to-head/{opponent_name}",
+        )
+
+    async def get_agent_network(self, agent_name: str) -> Dict[str, Any]:
+        """Get agent's interaction network."""
+        return await self._request("GET", f"/api/agents/{agent_name}/network")
+
+    async def get_agent_positions(
+        self,
+        agent_name: str,
+        domain: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get agent's position history on topics.
+
+        Args:
+            agent_name: Agent identifier
+            domain: Optional domain filter
+        """
+        params = {}
+        if domain:
+            params["domain"] = domain
+        return await self._request(
+            "GET",
+            f"/api/agents/{agent_name}/positions",
+            params=params if params else None,
+        )
+
+    async def get_agent_domains(self, agent_name: str) -> Dict[str, Any]:
+        """Get agent's domain expertise ratings."""
+        return await self._request("GET", f"/api/agents/{agent_name}/domains")
 
     # =========================================================================
     # Health

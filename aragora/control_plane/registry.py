@@ -245,6 +245,12 @@ class AgentRegistry:
 
     async def connect(self) -> None:
         """Connect to Redis and start cleanup task."""
+        # Check for explicit in-memory mode via special URL
+        if self._redis_url.startswith("memory://"):
+            logger.info("AgentRegistry using in-memory mode (memory:// URL specified)")
+            self._redis = None
+            return
+
         try:
             import redis.asyncio as aioredis
 
@@ -264,7 +270,7 @@ class AgentRegistry:
             logger.warning("redis package not installed, using in-memory fallback")
             self._redis = None
         except Exception as e:
-            logger.error(f"Failed to connect to Redis: {e}")
+            logger.warning(f"Redis not available, using in-memory fallback: {e}")
             self._redis = None
 
     async def close(self) -> None:

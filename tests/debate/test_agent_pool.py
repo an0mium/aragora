@@ -61,13 +61,17 @@ def pool(agents):
 def mock_elo():
     """Create a mock ELO system."""
     elo = MagicMock()
-    elo.get_rating.side_effect = lambda name: {
-        "agent_a": 1200,
-        "agent_b": 1100,
-        "agent_c": 1000,
-        "agent_d": 900,
-        "agent_e": 800,
-    }.get(name, 1000)
+    # Create mock AgentRating objects with elo attribute
+    # Use spec to prevent auto-creation of calibration_score attribute
+    ratings = {
+        "agent_a": MagicMock(elo=1200, spec=["elo"]),
+        "agent_b": MagicMock(elo=1100, spec=["elo"]),
+        "agent_c": MagicMock(elo=1000, spec=["elo"]),
+        "agent_d": MagicMock(elo=900, spec=["elo"]),
+        "agent_e": MagicMock(elo=800, spec=["elo"]),
+    }
+    default_rating = MagicMock(elo=1000, spec=["elo"])
+    elo.get_rating.side_effect = lambda name: ratings.get(name, default_rating)
     elo.get_domain_rating.side_effect = lambda name, domain: None
     return elo
 

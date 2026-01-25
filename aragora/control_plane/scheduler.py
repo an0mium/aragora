@@ -336,8 +336,20 @@ class TaskScheduler:
         ) as span:
             start = time.time()
 
+            # Check for explicit in-memory mode via special URL
+            if self._redis_url.startswith("memory://"):
+                add_span_attributes(span, {"backend": "memory", "explicit": True})
+                logger.info(
+                    "scheduler_using_memory",
+                    event="scheduler_memory_mode",
+                    reason="memory:// URL specified",
+                )
+                self._redis = None
+                return
+
             try:
                 import redis.asyncio as aioredis
+                from redis.exceptions import ResponseError as RedisResponseError
 
                 self._redis = aioredis.from_url(
                     self._redis_url,
@@ -345,9 +357,6 @@ class TaskScheduler:
                     decode_responses=True,
                 )
                 await self._redis.ping()
-
-                # Import redis exceptions for specific error handling
-                from redis.exceptions import ResponseError as RedisResponseError
 
                 # Create consumer groups for each priority stream
                 for priority in TaskPriority:
@@ -396,12 +405,33 @@ class TaskScheduler:
                         f"Failed to connect to Redis: {e}",
                     ) from e
                 add_span_attributes(span, {"backend": "memory", "fallback": True, "error": str(e)})
-                logger.error(
+                logger.warning(
                     "Scheduler Redis error - using in-memory fallback",
                     event="scheduler_redis_error",
                     error=str(e),
                 )
                 self._redis = None
+            except Exception as e:
+                # Catch redis-specific exceptions (RedisConnectionError, RedisTimeoutError)
+                # These are not subclasses of built-in exceptions
+                error_name = type(e).__name__
+                if "ConnectionError" in error_name or "TimeoutError" in error_name:
+                    if is_distributed_state_required():
+                        raise DistributedStateError(
+                            "task_scheduler",
+                            f"Failed to connect to Redis: {e}",
+                        ) from e
+                    add_span_attributes(
+                        span, {"backend": "memory", "fallback": True, "error": str(e)}
+                    )
+                    logger.warning(
+                        "Scheduler Redis connection failed - using in-memory fallback",
+                        event="scheduler_redis_error",
+                        error=str(e),
+                    )
+                    self._redis = None
+                else:
+                    raise
 
     async def close(self) -> None:
         """Close Redis connection."""
@@ -1235,8 +1265,7 @@ class TaskScheduler:
                         )
                     else:
                         logger.debug(
-                            f"Task {task.id} rejected by policy for {worker_id}: "
-                            f"{result.reason}"
+                            f"Task {task.id} rejected by policy for {worker_id}: {result.reason}"
                         )
                     continue
 
