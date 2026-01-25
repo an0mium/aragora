@@ -658,6 +658,27 @@ module = [
     "aragora.storage.teams_tenant_store",
     "aragora.storage.slack_workspace_store",
     "aragora.storage.discord_guild_store",
+    # Added strict - Phase 31 knowledge and handler cleanup (Jan 2026)
+    "aragora.server.handlers.inbox.__init__",
+    "aragora.knowledge.mound.adapters.__init__",
+    "aragora.knowledge.mound.ops.staleness",
+    "aragora.knowledge.mound.converters",
+    "aragora.knowledge.__init__",
+    "aragora.server.handlers.debates.response_formatting",
+    "aragora.server.handlers.knowledge_base.mound.extraction",
+    "aragora.server.handlers.utils.url_security",
+    "aragora.server.handlers.knowledge_base.mound.export",
+    "aragora.server.handlers.knowledge_base.mound.contradiction",
+    "aragora.knowledge.mound.ops.__init__",
+    "aragora.knowledge.mound.culture.patterns",
+    "aragora.server.handlers.bots.zoom",
+    "aragora.server.handlers.knowledge_base.mound.sync",
+    "aragora.knowledge.mound.verticals.registry",
+    "aragora.server.handlers.features.provenance",
+    "aragora.server.handlers.autonomous.approvals",
+    "aragora.knowledge.unified.types",
+    "aragora.server.handlers.knowledge_base.mound.dedup",
+    "aragora.server.handlers.bots.teams",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
