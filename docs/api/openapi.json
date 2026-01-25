@@ -6330,20 +6330,6 @@
         }
       }
     },
-    "/api/plugins": {
-      "get": {
-        "tags": [
-          "Plugins"
-        ],
-        "summary": "List plugins",
-        "responses": {
-          "200": {
-            "description": "Plugin list"
-          }
-        },
-        "deprecated": true
-      }
-    },
     "/api/v1/plugins": {
       "get": {
         "tags": [
@@ -6357,28 +6343,80 @@
         }
       }
     },
-    "/api/plugins/{name}": {
+    "/api/v1/plugins/installed": {
       "get": {
         "tags": [
           "Plugins"
         ],
-        "summary": "Get plugin details",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "summary": "List installed plugins",
         "responses": {
           "200": {
-            "description": "Plugin details"
+            "description": "Installed plugins list"
           }
         },
-        "deprecated": true
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/plugins/marketplace": {
+      "get": {
+        "tags": [
+          "Plugins"
+        ],
+        "summary": "Get marketplace listings",
+        "responses": {
+          "200": {
+            "description": "Marketplace data with categories"
+          }
+        }
+      }
+    },
+    "/api/v1/plugins/submit": {
+      "post": {
+        "tags": [
+          "Plugins"
+        ],
+        "summary": "Submit plugin for review",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Submission confirmation"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/plugins/submissions": {
+      "get": {
+        "tags": [
+          "Plugins"
+        ],
+        "summary": "List user's plugin submissions",
+        "responses": {
+          "200": {
+            "description": "Submissions list"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/v1/plugins/{name}": {
@@ -6394,7 +6432,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Plugin name (lowercase alphanumeric with hyphens)"
           }
         ],
         "responses": {
@@ -6402,44 +6441,6 @@
             "description": "Plugin details"
           }
         }
-      }
-    },
-    "/api/plugins/{name}/run": {
-      "post": {
-        "tags": [
-          "Plugins"
-        ],
-        "summary": "Run plugin",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Plugin result"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "deprecated": true
       }
     },
     "/api/v1/plugins/{name}/run": {
@@ -6455,7 +6456,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Plugin name (lowercase alphanumeric with hyphens)"
           }
         ],
         "requestBody": {
@@ -6477,6 +6479,305 @@
             "bearerAuth": []
           }
         ]
+      }
+    },
+    "/api/v1/plugins/{name}/install": {
+      "post": {
+        "tags": [
+          "Plugins"
+        ],
+        "summary": "Install plugin",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Plugin name (lowercase alphanumeric with hyphens)"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Installation result"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Plugins"
+        ],
+        "summary": "Uninstall plugin",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Plugin name (lowercase alphanumeric with hyphens)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Uninstallation result"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/plugins": {
+      "get": {
+        "tags": [
+          "Plugins"
+        ],
+        "summary": "List plugins",
+        "responses": {
+          "200": {
+            "description": "Plugin list"
+          }
+        },
+        "deprecated": true,
+        "description": "Deprecated: Use /api/v1/plugins instead. Sunset: 2026-12-31."
+      }
+    },
+    "/api/plugins/installed": {
+      "get": {
+        "tags": [
+          "Plugins"
+        ],
+        "summary": "List installed plugins",
+        "responses": {
+          "200": {
+            "description": "Installed plugins list"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "description": "Deprecated: Use /api/v1/plugins/installed instead. Sunset: 2026-12-31."
+      }
+    },
+    "/api/plugins/marketplace": {
+      "get": {
+        "tags": [
+          "Plugins"
+        ],
+        "summary": "Get marketplace listings",
+        "responses": {
+          "200": {
+            "description": "Marketplace data with categories"
+          }
+        },
+        "deprecated": true,
+        "description": "Deprecated: Use /api/v1/plugins/marketplace instead. Sunset: 2026-12-31."
+      }
+    },
+    "/api/plugins/submit": {
+      "post": {
+        "tags": [
+          "Plugins"
+        ],
+        "summary": "Submit plugin for review",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Submission confirmation"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "description": "Deprecated: Use /api/v1/plugins/submit instead. Sunset: 2026-12-31."
+      }
+    },
+    "/api/plugins/submissions": {
+      "get": {
+        "tags": [
+          "Plugins"
+        ],
+        "summary": "List user's plugin submissions",
+        "responses": {
+          "200": {
+            "description": "Submissions list"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "description": "Deprecated: Use /api/v1/plugins/submissions instead. Sunset: 2026-12-31."
+      }
+    },
+    "/api/plugins/{name}": {
+      "get": {
+        "tags": [
+          "Plugins"
+        ],
+        "summary": "Get plugin details",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Plugin name (lowercase alphanumeric with hyphens)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plugin details"
+          }
+        },
+        "deprecated": true,
+        "description": "Deprecated: Use /api/v1/plugins/{name} instead. Sunset: 2026-12-31."
+      }
+    },
+    "/api/plugins/{name}/run": {
+      "post": {
+        "tags": [
+          "Plugins"
+        ],
+        "summary": "Run plugin",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Plugin name (lowercase alphanumeric with hyphens)"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plugin result"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "description": "Deprecated: Use /api/v1/plugins/{name}/run instead. Sunset: 2026-12-31."
+      }
+    },
+    "/api/plugins/{name}/install": {
+      "post": {
+        "tags": [
+          "Plugins"
+        ],
+        "summary": "Install plugin",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Plugin name (lowercase alphanumeric with hyphens)"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Installation result"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "description": "Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset: 2026-12-31."
+      },
+      "delete": {
+        "tags": [
+          "Plugins"
+        ],
+        "summary": "Uninstall plugin",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Plugin name (lowercase alphanumeric with hyphens)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Uninstallation result"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "description": "Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset: 2026-12-31."
       }
     },
     "/api/laboratory/emergent-traits": {
@@ -27205,6 +27506,621 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/webhooks": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "List webhooks",
+        "description": "List all webhooks for the authenticated user/organization.",
+        "responses": {
+          "200": {
+            "description": "List of webhooks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "webhooks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "Unique webhook ID"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Human-readable webhook name"
+                          },
+                          "url": {
+                            "type": "string",
+                            "format": "uri",
+                            "description": "Webhook delivery URL"
+                          },
+                          "events": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "List of event types to subscribe to"
+                          },
+                          "enabled": {
+                            "type": "boolean",
+                            "description": "Whether webhook is active"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updated_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "secret": {
+                            "type": "string",
+                            "description": "HMAC secret for signature verification (only shown on creation)"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "url",
+                          "events",
+                          "enabled"
+                        ]
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Create webhook",
+        "description": "Register a new webhook to receive event notifications.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Human-readable webhook name"
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Webhook delivery URL"
+                  },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of event types to subscribe to"
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "name",
+                  "url",
+                  "events"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Webhook created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "Unique webhook ID"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Human-readable webhook name"
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "Webhook delivery URL"
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "List of event types to subscribe to"
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Whether webhook is active"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "secret": {
+                      "type": "string",
+                      "description": "HMAC secret for signature verification (only shown on creation)"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "url",
+                    "events",
+                    "enabled"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid webhook configuration"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/webhooks/events": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "List available event types",
+        "description": "Get all event types that can be subscribed to via webhooks.",
+        "responses": {
+          "200": {
+            "description": "List of event types",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "description": "Event type name"
+                          },
+                          "description": {
+                            "type": "string",
+                            "description": "Event description"
+                          },
+                          "category": {
+                            "type": "string",
+                            "description": "Event category"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/{id}": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Get webhook",
+        "description": "Get details of a specific webhook.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Webhook ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "Unique webhook ID"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Human-readable webhook name"
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "Webhook delivery URL"
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "List of event types to subscribe to"
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Whether webhook is active"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "secret": {
+                      "type": "string",
+                      "description": "HMAC secret for signature verification (only shown on creation)"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "url",
+                    "events",
+                    "enabled"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Update webhook",
+        "description": "Update webhook configuration.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Webhook ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "Unique webhook ID"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Human-readable webhook name"
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "Webhook delivery URL"
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "List of event types to subscribe to"
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Whether webhook is active"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "secret": {
+                      "type": "string",
+                      "description": "HMAC secret for signature verification (only shown on creation)"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "url",
+                    "events",
+                    "enabled"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Delete webhook",
+        "description": "Delete a webhook subscription.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Webhook ID"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Webhook deleted"
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/webhooks/{id}/test": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Test webhook",
+        "description": "Send a test event to verify webhook configuration.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Webhook ID"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "event_type": {
+                    "type": "string",
+                    "description": "Event type to simulate (default: test)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Test delivery result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "status_code": {
+                      "type": "integer"
+                    },
+                    "response_time_ms": {
+                      "type": "number"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/webhooks/slo/status": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Get SLO webhook status",
+        "description": "Get status of SLO (Service Level Objective) webhook notifications.",
+        "responses": {
+          "200": {
+            "description": "SLO webhook status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "last_delivery": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "delivery_success_rate": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/webhooks/slo/test": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Test SLO webhook",
+        "description": "Send a test SLO violation notification.",
+        "responses": {
+          "200": {
+            "description": "Test delivery result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     }
   },
