@@ -49,21 +49,26 @@ class TestAuditEventsHandler:
     async def test_handle_audit_events_with_date_range(self, mock_audit_log):
         """Test querying events with date range."""
         from aragora.server.handlers.audit_export import handle_audit_events
+        from urllib.parse import quote
 
+        # Use URL-encoded dates to preserve the + sign in timezone offset
         start = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
         end = datetime.now(timezone.utc).isoformat()
 
         request = make_mocked_request(
             "GET",
-            f"/api/v1/audit/events?start_date={start}&end_date={end}",
+            f"/api/v1/audit/events?start_date={quote(start)}&end_date={quote(end)}",
         )
+
+        mock_query = MagicMock()
+        mock_query.limit = 100
+        mock_query.offset = 0
 
         with patch(
             "aragora.server.handlers.audit_export.get_audit_log",
             return_value=mock_audit_log,
         ):
-            with patch("aragora.audit.AuditQuery") as MockQuery:
-                MockQuery.return_value = MagicMock()
+            with patch("aragora.audit.AuditQuery", return_value=mock_query):
                 response = await handle_audit_events(request)
 
         assert response.status == 200
@@ -116,12 +121,15 @@ class TestAuditEventsHandler:
             "/api/v1/audit/events?action=login&actor_id=user123&limit=50",
         )
 
+        mock_query = MagicMock()
+        mock_query.limit = 50
+        mock_query.offset = 0
+
         with patch(
             "aragora.server.handlers.audit_export.get_audit_log",
             return_value=mock_audit_log,
         ):
-            with patch("aragora.audit.AuditQuery") as MockQuery:
-                MockQuery.return_value = MagicMock()
+            with patch("aragora.audit.AuditQuery", return_value=mock_query):
                 response = await handle_audit_events(request)
 
         assert response.status == 200
