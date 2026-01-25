@@ -4,7 +4,71 @@
 > ```bash
 > pip install aragora-client
 > ```
-> See the [aragora-client documentation](https://docs.aragora.ai/sdk/python) for migration details.
+
+## Migration Guide
+
+### Quick Migration
+
+Replace your import:
+
+```python
+# Old (deprecated)
+from aragora import AragoraClient
+
+# New
+from aragora_client import AragoraClient
+```
+
+### API Changes
+
+| Old API (`aragora`) | New API (`aragora-client`) |
+|---------------------|---------------------------|
+| `client.create_debate(question=...)` | `client.debates.create(task=...)` |
+| `client.get_debate(id)` | `client.debates.get(id)` |
+| `client.list_debates()` | `client.debates.list()` |
+| `AragoraClientSync` | Not available (async only) |
+| Raw dict returns | Typed dataclass returns |
+
+### Full Example Migration
+
+**Before (deprecated):**
+```python
+from aragora import AragoraClient
+
+async with AragoraClient(base_url="...", api_key="...") as client:
+    debate = await client.create_debate(
+        question="Should we use microservices?",
+        agents=["claude", "gpt-4"],
+        rounds=3
+    )
+    result = await client.get_debate(debate["debate_id"])
+    print(result["status"])
+```
+
+**After (recommended):**
+```python
+from aragora_client import AragoraClient
+
+async with AragoraClient(base_url="...", api_key="...") as client:
+    debate = await client.debates.run(
+        task="Should we use microservices?",
+        agents=["anthropic-api", "openai-api"],
+    )
+    print(debate.status)  # Typed attribute access
+    print(debate.consensus.conclusion)
+```
+
+### New Features in aragora-client
+
+The new SDK includes enterprise features not available in the deprecated package:
+
+- **Control Plane API**: Agent registry, task scheduling, health monitoring
+- **Authentication API**: OAuth, MFA, API key management
+- **Graph Debates**: Automatic branching for complex topics
+- **Matrix Debates**: Scenario-based comparative analysis
+- **Formal Verification**: Z3/Lean integration
+- **WebSocket Streaming**: Real-time debate events
+- **Typed Responses**: Full type hints and dataclasses
 
 ---
 
