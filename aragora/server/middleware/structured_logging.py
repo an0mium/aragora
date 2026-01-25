@@ -222,9 +222,10 @@ def redact_sensitive(data: Dict[str, Any], depth: int = 0) -> Dict[str, Any]:
     result: Dict[str, Any] = {}
     for key, value in data.items():
         key_lower = key.lower()
-        if any(sensitive in key_lower for sensitive in REDACT_FIELDS):
-            result[key] = "[REDACTED]"
-        elif isinstance(value, dict):
+        is_sensitive_key = any(sensitive in key_lower for sensitive in REDACT_FIELDS)
+
+        # Always recurse into dicts/lists to redact nested sensitive values
+        if isinstance(value, dict):
             result[key] = redact_sensitive(value, depth + 1)
         elif isinstance(value, list):
             result[key] = [
@@ -233,6 +234,9 @@ def redact_sensitive(data: Dict[str, Any], depth: int = 0) -> Dict[str, Any]:
                 else (redact_string(item) if isinstance(item, str) else item)
                 for item in value
             ]
+        elif is_sensitive_key:
+            # Redact scalar values with sensitive field names
+            result[key] = "[REDACTED]"
         elif isinstance(value, str):
             # Check string values for secret patterns
             result[key] = redact_string(value)

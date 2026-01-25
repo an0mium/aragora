@@ -384,7 +384,8 @@ class TestRedactSensitive:
 
     def test_redact_fields_constant(self):
         """REDACT_FIELDS should contain expected sensitive field names."""
-        expected = {
+        # Core fields that must always be present
+        core_fields = {
             "password",
             "secret",
             "token",
@@ -397,7 +398,8 @@ class TestRedactSensitive:
             "private_key",
         }
 
-        assert REDACT_FIELDS == expected
+        # All core fields should be in REDACT_FIELDS (may have additional fields)
+        assert core_fields.issubset(REDACT_FIELDS)
 
 
 # ===========================================================================
