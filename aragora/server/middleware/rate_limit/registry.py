@@ -89,6 +89,83 @@ class RateLimiterRegistry:
                 2,
                 key_type="ip",  # Video generation
             )
+
+            # Gauntlet endpoints (stress testing - strict limits)
+            self._default_limiter.configure_endpoint(
+                "/api/gauntlet/*",
+                5,
+                key_type="ip",  # Adversarial stress testing
+            )
+            self._default_limiter.configure_endpoint(
+                "/api/gauntlet/run",
+                3,
+                key_type="ip",  # Gauntlet runs are expensive
+            )
+
+            # Billing endpoints (financial operations)
+            self._default_limiter.configure_endpoint(
+                "/api/billing/*",
+                20,
+                key_type="token",  # Rate limit by auth token
+            )
+            self._default_limiter.configure_endpoint(
+                "/api/billing/checkout",
+                5,
+                key_type="token",  # Checkout creation
+            )
+            self._default_limiter.configure_endpoint(
+                "/api/webhooks/stripe",
+                100,
+                key_type="ip",  # Stripe webhooks (higher limit)
+            )
+
+            # Admin endpoints (administrative operations)
+            self._default_limiter.configure_endpoint(
+                "/api/admin/*",
+                30,
+                key_type="token",  # Admin operations
+            )
+            self._default_limiter.configure_endpoint(
+                "/api/admin/security/*",
+                10,
+                key_type="token",  # Security operations (stricter)
+            )
+
+            # Streaming endpoints (concurrent connections)
+            self._default_limiter.configure_endpoint(
+                "/api/stream/*",
+                10,
+                key_type="ip",  # WebSocket/SSE streams
+            )
+            self._default_limiter.configure_endpoint(
+                "/api/v1/stream/*",
+                10,
+                key_type="ip",  # Versioned streaming endpoints
+            )
+
+            # Knowledge mound endpoints
+            self._default_limiter.configure_endpoint(
+                "/api/knowledge/*",
+                30,
+                key_type="ip",  # Knowledge operations
+            )
+            self._default_limiter.configure_endpoint(
+                "/api/knowledge/search",
+                20,
+                key_type="ip",  # Search is more expensive
+            )
+
+            # OAuth endpoints (auth flows)
+            self._default_limiter.configure_endpoint(
+                "/api/oauth/*",
+                20,
+                key_type="ip",  # OAuth operations
+            )
+            self._default_limiter.configure_endpoint(
+                "/api/auth/*",
+                30,
+                key_type="ip",  # Auth operations
+            )
         return self._default_limiter
 
     @property
