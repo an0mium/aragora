@@ -469,6 +469,53 @@ class TeamsConnector(ChatPlatformConnector):
             self._record_failure(e)
             return False
 
+    async def send_typing_indicator(
+        self,
+        channel_id: str,
+        service_url: Optional[str] = None,
+        **kwargs: Any,
+    ) -> bool:
+        """Send typing indicator to a Teams conversation.
+
+        Uses Bot Framework activity with type="typing".
+        """
+        if not HTTPX_AVAILABLE:
+            return False
+
+        # Check circuit breaker
+        can_proceed, _ = self._check_circuit_breaker()
+        if not can_proceed:
+            return False
+
+        try:
+            token = await self._get_access_token()
+            base_url = service_url or BOT_FRAMEWORK_API_BASE
+
+            activity = {
+                "type": "typing",
+            }
+
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                response = await client.post(
+                    f"{base_url}/v3/conversations/{channel_id}/activities",
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": "application/json",
+                    },
+                    json=activity,
+                )
+
+                if response.status_code in (200, 201, 202):
+                    self._record_success()
+                    return True
+                else:
+                    logger.debug(f"Teams typing indicator failed: {response.status_code}")
+                    return False
+
+        except Exception as e:
+            logger.debug(f"Teams typing indicator error: {e}")
+            return False
+
     async def respond_to_command(
         self,
         command: BotCommand,

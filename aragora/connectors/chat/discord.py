@@ -261,6 +261,32 @@ class DiscordConnector(ChatPlatformConnector):
             logger.error(f"Discord delete_message error: {e}")
             return False
 
+    async def send_typing_indicator(
+        self,
+        channel_id: str,
+        **kwargs: Any,
+    ) -> bool:
+        """Send typing indicator to a Discord channel.
+
+        Uses POST /channels/{channel_id}/typing endpoint.
+        Typing indicators last for 10 seconds or until a message is sent.
+        """
+        if not HTTPX_AVAILABLE:
+            return False
+
+        try:
+            success, _, _ = await self._http_request(
+                method="POST",
+                url=f"{DISCORD_API_BASE}/channels/{channel_id}/typing",
+                headers=self._get_headers(),
+                operation="send_typing",
+            )
+            return success
+
+        except Exception as e:
+            logger.debug(f"Discord typing indicator error: {e}")
+            return False
+
     async def send_ephemeral(
         self,
         channel_id: str,

@@ -485,6 +485,27 @@ class ChatPlatformConnector(ABC):
         logger.warning(f"{self.platform_name} does not support ephemeral messages")
         return await self.send_message(channel_id, text, blocks, **kwargs)
 
+    async def send_typing_indicator(
+        self,
+        channel_id: str,
+        **kwargs: Any,
+    ) -> bool:
+        """
+        Send a typing indicator to show the bot is processing.
+
+        Not all platforms support this; default implementation returns False.
+        Typing indicators typically expire after a few seconds.
+
+        Args:
+            channel_id: Target channel to show typing in
+            **kwargs: Platform-specific options
+
+        Returns:
+            True if typing indicator was sent, False if not supported
+        """
+        logger.debug(f"{self.platform_name} does not support typing indicators")
+        return False
+
     # ==========================================================================
     # Command Handling
     # ==========================================================================

@@ -285,6 +285,45 @@ class TelegramConnector(ChatPlatformConnector):
             self._record_failure(e)
             raise
 
+    async def send_typing_indicator(
+        self,
+        channel_id: str,
+        **kwargs: Any,
+    ) -> bool:
+        """Send typing indicator (chat action) to a Telegram chat.
+
+        Uses sendChatAction with action="typing".
+        Typing indicators expire after ~5 seconds.
+        """
+        if not HTTPX_AVAILABLE:
+            return False
+
+        # Check circuit breaker
+        can_proceed, _ = self._check_circuit_breaker()
+        if not can_proceed:
+            return False
+
+        try:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                response = await client.post(
+                    f"{self._api_base}/sendChatAction",
+                    json={
+                        "chat_id": channel_id,
+                        "action": "typing",
+                    },
+                )
+                data = response.json()
+
+                if data.get("ok"):
+                    self._record_success()
+                    return True
+                else:
+                    logger.debug(f"Telegram typing indicator failed: {data.get('description')}")
+                    return False
+        except Exception as e:
+            logger.debug(f"Telegram typing indicator error: {e}")
+            return False
+
     async def upload_file(  # type: ignore[override]
         self,
         channel_id: str,
