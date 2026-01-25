@@ -22,6 +22,12 @@ from aragora.connectors.enterprise.base import (
     SyncItem,
     SyncState,
 )
+from aragora.connectors.enterprise.database.cdc import (
+    ChangeEvent,
+    CDCSourceType,
+    CDCStreamManager,
+    ChangeEventHandler,
+)
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
@@ -71,6 +77,30 @@ class PostgreSQLConnector(EnterpriseConnector):
 
         self._pool = None
         self._listener_task = None
+
+        # CDC support
+        self._cdc_manager: Optional[CDCStreamManager] = None
+        self._change_handlers: List[ChangeEventHandler] = []
+
+    @property
+    def cdc_manager(self) -> CDCStreamManager:
+        """Get or create the CDC stream manager."""
+        if self._cdc_manager is None:
+            from aragora.connectors.enterprise.database.cdc import CompositeHandler
+
+            handler = CompositeHandler(self._change_handlers)
+            self._cdc_manager = CDCStreamManager(
+                connector_id=self.connector_id,
+                source_type=CDCSourceType.POSTGRESQL,
+                handler=handler,
+            )
+        return self._cdc_manager
+
+    def add_change_handler(self, handler: ChangeEventHandler) -> None:
+        """Add a handler for change events."""
+        self._change_handlers.append(handler)
+        # Reset CDC manager to pick up new handler
+        self._cdc_manager = None
 
     @property
     def source_type(self) -> SourceType:
@@ -403,16 +433,27 @@ class PostgreSQLConnector(EnterpriseConnector):
         self._listener_task = asyncio.create_task(listener_loop())
 
     async def _handle_notification(self, connection, pid, channel, payload):
-        """Handle NOTIFY message."""
+        """Handle NOTIFY message and emit ChangeEvent."""
         try:
-            data = json.loads(payload) if payload else {}
-            table = data.get("table")
-            operation = data.get("operation")
+            # Create unified ChangeEvent from NOTIFY payload
+            event = ChangeEvent.from_postgres_notify(
+                payload=payload,
+                channel=channel,
+                connector_id=self.connector_id,
+                database=self.database,
+                schema=self.schema,
+            )
 
-            logger.info(f"[{self.name}] Notification: {operation} on {table}")
+            logger.info(
+                f"[{self.name}] CDC event: {event.operation.value} on {event.qualified_table}"
+            )
 
-            # Trigger incremental sync
-            asyncio.create_task(self.sync(max_items=10))
+            # Process through CDC manager if handlers are configured
+            if self._change_handlers:
+                await self.cdc_manager.process_event(event)
+            else:
+                # Fallback to sync-based processing
+                asyncio.create_task(self.sync(max_items=10))
 
         except Exception as e:
             logger.warning(f"[{self.name}] Notification handler error: {e}")
@@ -439,9 +480,27 @@ class PostgreSQLConnector(EnterpriseConnector):
         table = payload.get("table")
         operation = payload.get("operation")
 
-        if table and operation:
-            logger.info(f"[{self.name}] Webhook: {operation} on {table}")
-            asyncio.create_task(self.sync(max_items=10))
-            return True
+        if not table or not operation:
+            return False
 
-        return False
+        # Create unified ChangeEvent from webhook payload
+        event = ChangeEvent.from_postgres_notify(
+            payload=json.dumps(payload),
+            channel=f"webhook_{table}",
+            connector_id=self.connector_id,
+            database=self.database,
+            schema=self.schema,
+        )
+
+        logger.info(
+            f"[{self.name}] Webhook CDC event: {event.operation.value} on {event.qualified_table}"
+        )
+
+        # Process through CDC manager if handlers are configured
+        if self._change_handlers:
+            await self.cdc_manager.process_event(event)
+        else:
+            # Fallback to sync-based processing
+            asyncio.create_task(self.sync(max_items=10))
+
+        return True
