@@ -92,6 +92,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
   const [recommendations, setRecommendations] = useState<AgentRecommendation[]>([]);
   const [detectedDomain, setDetectedDomain] = useState<string>('general');
   const [selectedVertical, setSelectedVertical] = useState<string>('general');
+  const [localError, setLocalError] = useState<string | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Combined question pool: AI philosophy + Multi-agent debate + Technical architecture
@@ -314,6 +315,11 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
     }
 
     setIsSubmitting(true);
+    setLocalError(null);
+
+    // Create AbortController for request timeout (30 seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
       const modeConfig = DEBATE_MODES[debateMode];
@@ -334,6 +340,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
       const response = await fetch(requestUrl, {
         method: 'POST',
         headers,
+        signal: controller.signal,
         body: JSON.stringify({
           question: trimmedQuestion,
           agents: agents.split(',').map(a => a.trim()).filter(Boolean),
@@ -345,6 +352,8 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
           ...(debateMode === 'matrix' && { scenarios: 3 }),
         }),
       });
+
+      clearTimeout(timeoutId);
 
       // Debug: Log response details
       const responseContentType = response.headers.get('content-type') || '';
@@ -440,8 +449,10 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
         errorMessage = 'An unexpected error occurred. Please try again.';
       }
 
+      setLocalError(errorMessage);
       onError?.(errorMessage);
     } finally {
+      clearTimeout(timeoutId);
       setIsSubmitting(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedVertical changes are handled separately
@@ -761,6 +772,23 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
           </div>
         )}
       </form>
+
+      {/* Error display */}
+      {localError && (
+        <div className="mt-4 p-3 bg-red-900/20 border border-red-500/40 rounded font-mono text-sm">
+          <div className="flex items-start gap-2">
+            <span className="text-red-400 shrink-0">[ERROR]</span>
+            <span className="text-red-300">{localError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setLocalError(null)}
+            className="mt-2 text-xs text-red-400/70 hover:text-red-300 transition-colors"
+          >
+            [DISMISS]
+          </button>
+        </div>
+      )}
 
       {/* Status hint - only show offline/connecting states */}
       {apiStatus !== 'online' && (

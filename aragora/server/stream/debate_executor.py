@@ -177,6 +177,13 @@ def execute_debate_thread(
     """
     import asyncio as _asyncio
 
+    # Debug: Log thread start
+    logger.info(
+        f"[debate] Thread started for {debate_id}: "
+        f"question={question[:50]}..., agents={agents_str}, rounds={rounds}"
+    )
+    thread_start_time = time.time()
+
     try:
         # Parse agents with bounds check
         agent_list = [s.strip() for s in agents_str.split(",") if s.strip()]
@@ -233,6 +240,10 @@ def execute_debate_thread(
             agent = wrap_agent_for_streaming(agent, emitter, debate_id)
             agents.append(agent)
 
+        # Debug: Log agent creation complete
+        agent_names = [a.name for a in agents]
+        logger.info(f"[debate] {debate_id}: Created {len(agents)} agents: {agent_names}")
+
         # Create environment and protocol
         env = Environment(task=question, context="", max_rounds=rounds)
         protocol = DebateProtocol(
@@ -273,6 +284,12 @@ def execute_debate_thread(
             usage_tracker=usage_tracker,
         )
 
+        # Debug: Log arena creation
+        setup_time = time.time() - thread_start_time
+        logger.info(
+            f"[debate] {debate_id}: Arena created in {setup_time:.2f}s, starting execution..."
+        )
+
         # Run debate with timeout protection
         # Use protocol timeout if configured, otherwise use global default
         protocol_timeout = getattr(arena.protocol, "timeout_seconds", 0)
@@ -288,6 +305,14 @@ def execute_debate_thread(
             return await _asyncio.wait_for(arena.run(), timeout=timeout)
 
         result = _asyncio.run(run_with_timeout())
+
+        # Debug: Log successful completion
+        total_time = time.time() - thread_start_time
+        logger.info(
+            f"[debate] {debate_id}: Completed in {total_time:.2f}s, "
+            f"consensus={result.consensus_reached}, confidence={result.confidence:.2f}"
+        )
+
         with _active_debates_lock:
             _active_debates[debate_id]["status"] = "completed"
             _active_debates[debate_id]["completed_at"] = time.time()
