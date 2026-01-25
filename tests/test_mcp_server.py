@@ -16,7 +16,6 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from typing import Any, Dict
 
-
 # Check if MCP is available
 try:
     from mcp.types import (
@@ -47,7 +46,6 @@ except ImportError:
     ListResourceTemplatesRequest = None  # type: ignore[assignment,misc]
     ReadResourceRequest = None  # type: ignore[assignment,misc]
     ReadResourceRequestParams = None  # type: ignore[assignment,misc]
-
 
 pytestmark = pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP package not installed")
 
@@ -127,7 +125,6 @@ class TestAragoraMCPServerInitialization:
             finally:
                 mcp_server.MCP_AVAILABLE = original_available
 
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     def test_server_creation_with_mcp(self):
         """Test successful server creation when MCP is available."""
         from aragora.mcp.server import AragoraMCPServer
@@ -137,7 +134,6 @@ class TestAragoraMCPServerInitialization:
         assert server.server is not None
         assert server._debates_cache == {}
 
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     def test_server_has_correct_name(self):
         """Test server is registered with correct name."""
         from aragora.mcp.server import AragoraMCPServer
@@ -159,7 +155,6 @@ class TestMCPToolListing:
         return AragoraMCPServer()
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_list_tools_returns_expected_tools(self, server):
         """Test that list_tools returns expected core tools."""
         tools = await _get_tools(server)
@@ -171,7 +166,6 @@ class TestMCPToolListing:
         assert len(tools) >= 4  # At least the core tools
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_run_debate_tool_schema(self, server):
         """Test run_debate tool has correct schema."""
         tools = await _get_tools(server)
@@ -186,7 +180,6 @@ class TestMCPToolListing:
         assert run_debate.inputSchema["required"] == ["question"]
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_run_gauntlet_tool_schema(self, server):
         """Test run_gauntlet tool has correct schema."""
         tools = await _get_tools(server)
@@ -200,7 +193,6 @@ class TestMCPToolListing:
         assert run_gauntlet.inputSchema["required"] == ["content"]
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_list_agents_tool_schema(self, server):
         """Test list_agents tool has minimal schema."""
         tools = await _get_tools(server)
@@ -211,7 +203,6 @@ class TestMCPToolListing:
         assert list_agents.inputSchema["properties"] == {}
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_get_debate_tool_schema(self, server):
         """Test get_debate tool has correct schema."""
         tools = await _get_tools(server)
@@ -233,7 +224,6 @@ class TestMCPResourceListing:
         return AragoraMCPServer()
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_list_resources_empty_initially(self, server):
         """Test that resources list is empty initially."""
         resources = await _get_resources(server)
@@ -241,7 +231,6 @@ class TestMCPResourceListing:
         assert resources == []
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_list_resources_after_debate(self, server):
         """Test that resources include cached debates."""
         # Add a debate to the cache
@@ -258,7 +247,6 @@ class TestMCPResourceListing:
         assert "Test debate" in resources[0].name
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_list_resource_templates(self, server):
         """Test resource templates are listed."""
         templates = await _get_resource_templates(server)
@@ -281,7 +269,6 @@ class TestMCPResourceReading:
         return AragoraMCPServer()
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_read_cached_debate(self, server):
         """Test reading a cached debate resource."""
         debate_data = {
@@ -298,7 +285,6 @@ class TestMCPResourceReading:
         assert parsed["final_answer"] == "42"
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_read_missing_debate(self, server):
         """Test reading a non-existent debate resource."""
         result = await _read_resource(server, "debate://missing")
@@ -308,7 +294,6 @@ class TestMCPResourceReading:
         assert "not found" in parsed["error"]
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_read_unknown_resource_type(self, server):
         """Test reading an unknown resource type."""
         result = await _read_resource(server, "unknown://something")
@@ -329,7 +314,6 @@ class TestMCPToolExecution:
         return AragoraMCPServer()
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_list_agents_tool_execution(self, server):
         """Test list_agents tool returns agents list."""
         with patch("aragora.agents.base.list_available_agents") as mock_list:
@@ -341,7 +325,6 @@ class TestMCPToolExecution:
             assert result["count"] == 3
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_list_agents_fallback_on_error(self, server):
         """Test list_agents returns fallback on error."""
         with patch("aragora.agents.base.list_available_agents") as mock_list:
@@ -354,7 +337,6 @@ class TestMCPToolExecution:
             assert "note" in result
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_get_debate_from_cache(self, server):
         """Test get_debate retrieves from cache."""
         server._debates_cache["cached_123"] = {
@@ -368,7 +350,6 @@ class TestMCPToolExecution:
         assert result["final_answer"] == "Cached result"
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_get_debate_missing_id(self, server):
         """Test get_debate with missing ID returns error."""
         result = await server._get_debate({})
@@ -377,7 +358,6 @@ class TestMCPToolExecution:
         assert "required" in result["error"]
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_get_debate_not_found(self, server):
         """Test get_debate returns error for non-existent debate."""
         with patch("aragora.server.storage.get_debates_db") as mock_db:
@@ -389,7 +369,6 @@ class TestMCPToolExecution:
             assert "not found" in result["error"]
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_run_debate_missing_question(self, server):
         """Test run_debate with missing question returns error."""
         result = await server._run_debate({})
@@ -398,7 +377,6 @@ class TestMCPToolExecution:
         assert "Question is required" in result["error"]
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_run_debate_no_valid_agents(self, server):
         """Test run_debate with no valid agents returns error."""
         with patch("aragora.agents.base.create_agent") as mock_create:
@@ -415,7 +393,6 @@ class TestMCPToolExecution:
             assert "No valid agents" in result["error"]
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_run_gauntlet_missing_content(self, server):
         """Test run_gauntlet with missing content returns error."""
         result = await server._run_gauntlet({})
@@ -435,7 +412,6 @@ class TestMCPToolCallHandler:
         return AragoraMCPServer()
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_call_tool_unknown_tool(self, server):
         """Test calling unknown tool returns error."""
         result = await _call_tool(server, "unknown_tool", {})
@@ -446,7 +422,6 @@ class TestMCPToolCallHandler:
         assert "Unknown tool" in parsed["error"]
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_call_tool_handles_exceptions(self, server):
         """Test tool call handler catches exceptions and uses fallback."""
         # Mock list_available_agents to raise an exception
@@ -465,7 +440,6 @@ class TestMCPToolCallHandler:
             assert "note" in parsed  # Fallback includes a note about unavailability
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_call_tool_returns_text_content(self, server):
         """Test tool calls return TextContent objects."""
         with patch("aragora.agents.base.list_available_agents") as mock_list:
@@ -484,7 +458,6 @@ class TestMCPServerRun:
     """Test server run functionality."""
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_run_server_without_mcp_exits(self):
         """Test run_server exits with error when MCP unavailable."""
         from aragora.mcp import server as mcp_server
@@ -511,7 +484,6 @@ class TestMCPDebateCaching:
         return AragoraMCPServer()
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_debate_cached_after_run(self, server):
         """Test that debates are cached after successful run."""
         # Create mock result
@@ -554,7 +526,6 @@ class TestMCPDebateCaching:
             assert server._debates_cache[debate_id]["task"] == "Test question?"
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_debate_id_format(self, server):
         """Test debate ID has correct format."""
         mock_result = MagicMock()
@@ -593,7 +564,6 @@ class TestMCPRoundsValidation:
         return AragoraMCPServer()
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_rounds_clamped_to_minimum(self, server):
         """Test rounds below 1 are clamped to 1."""
         mock_result = MagicMock()
@@ -624,7 +594,6 @@ class TestMCPRoundsValidation:
             assert call_kwargs["max_rounds"] == 1
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     async def test_rounds_clamped_to_maximum(self, server):
         """Test rounds above 10 are clamped to 10."""
         mock_result = MagicMock()
@@ -663,7 +632,6 @@ class TestMCPRoundsValidation:
 class TestMCPRateLimiting:
     """Tests for rate limiting functionality."""
 
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     def test_rate_limiter_allows_within_limit(self):
         """Test rate limiter allows requests within limit."""
         from aragora.mcp.server import RateLimiter
@@ -676,7 +644,6 @@ class TestMCPRateLimiting:
             assert allowed is True
             assert error is None
 
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     def test_rate_limiter_blocks_over_limit(self):
         """Test rate limiter blocks requests over limit."""
         from aragora.mcp.server import RateLimiter
@@ -692,7 +659,6 @@ class TestMCPRateLimiting:
         assert allowed is False
         assert "Rate limit exceeded" in error
 
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     def test_rate_limiter_get_remaining(self):
         """Test rate limiter returns correct remaining count."""
         from aragora.mcp.server import RateLimiter
@@ -724,7 +690,6 @@ class TestMCPInputValidation:
 
         return AragoraMCPServer()
 
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     def test_validate_question_length(self, server):
         """Test validation rejects overly long questions."""
         long_question = "x" * 15000  # Over MAX_QUESTION_LENGTH
@@ -734,7 +699,6 @@ class TestMCPInputValidation:
         assert error is not None
         assert "maximum length" in error.lower()
 
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     def test_validate_content_length(self, server):
         """Test validation rejects overly long content."""
         long_content = "x" * 150000  # Over MAX_CONTENT_LENGTH
@@ -744,7 +708,6 @@ class TestMCPInputValidation:
         assert error is not None
         assert "maximum length" in error.lower()
 
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     def test_validate_query_length(self, server):
         """Test validation rejects overly long queries."""
         long_query = "x" * 1500  # Over MAX_QUERY_LENGTH
@@ -754,7 +717,6 @@ class TestMCPInputValidation:
         assert error is not None
         assert "maximum length" in error.lower()
 
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     def test_validate_rounds_type(self, server):
         """Test validation rejects invalid rounds type."""
         error = server._validate_input("run_debate", {"question": "Q?", "rounds": "five"})
@@ -762,14 +724,12 @@ class TestMCPInputValidation:
         assert error is not None
         assert "rounds" in error.lower()
 
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     def test_validate_valid_input_passes(self, server):
         """Test validation passes for valid input."""
         error = server._validate_input("run_debate", {"question": "What is 2+2?", "rounds": 3})
 
         assert error is None
 
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP required")
     def test_sanitize_strips_whitespace(self, server):
         """Test sanitization strips whitespace from strings."""
         args = {"question": "  What is 2+2?  ", "rounds": 3}
