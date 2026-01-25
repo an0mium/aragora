@@ -90,7 +90,7 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
     }
 
     nextStep();
-  }, [nextStep, router, setFirstDebateId, setDebateStatus]);
+  }, [apiBase, nextStep, router, setFirstDebateId, setDebateStatus]);
 
   // Don't render if onboarding not needed
   if (!needsOnboarding) return null;
