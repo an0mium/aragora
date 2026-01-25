@@ -117,6 +117,14 @@ jobs:
           echo "Verifying server imports..."
           python -c "from aragora.server.unified_server import run_unified_server; print('Server imports OK')"
 
+          # Initialize demo data (agents, consensus) so server starts in normal mode
+          echo "Initializing demo data..."
+          python -c "
+          from aragora.fixtures import ensure_demo_data
+          ensure_demo_data()
+          print('Demo data initialized')
+          "
+
           aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV

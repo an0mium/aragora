@@ -172,15 +172,72 @@ def load_demo_consensus(consensus_memory: Optional["ConsensusMemory"] = None) ->
     return seeded
 
 
+def ensure_demo_agents() -> int:
+    """
+    Create demo agents in ELO system for load testing.
+
+    This ensures the server can start in normal mode (not degraded)
+    with agent data available for endpoints like /api/v1/agents.
+
+    Returns:
+        Number of demo agents initialized.
+    """
+    try:
+        import os
+
+        from aragora.ranking.elo import EloSystem
+
+        nomic_dir = Path(os.environ.get("NOMIC_DIR", ".nomic"))
+        nomic_dir.mkdir(exist_ok=True)
+
+        elo = EloSystem(nomic_dir)
+
+        # Check if agents already exist
+        try:
+            existing = elo.get_leaderboard(limit=5)
+            if existing:
+                logger.debug(f"ELO system already has {len(existing)} agents, skipping seed")
+                return 0
+        except Exception:
+            pass  # Proceed with seeding
+
+        # Create demo agents with simulated match history
+        demo_agents = ["demo-anthropic", "demo-openai", "demo-gemini", "demo-grok"]
+        for i, agent in enumerate(demo_agents):
+            opponent = demo_agents[(i + 1) % len(demo_agents)]
+            try:
+                elo.record_match(
+                    winner=agent,
+                    loser=opponent,
+                    domain="general",
+                )
+            except Exception as e:
+                logger.debug(f"Failed to record demo match for {agent}: {e}")
+
+        logger.info(f"Demo agents initialized: {len(demo_agents)} agents")
+        return len(demo_agents)
+    except ImportError:
+        logger.debug("EloSystem not available, skipping demo agents")
+        return 0
+    except Exception as e:
+        logger.warning(f"Failed to initialize demo agents: {e}")
+        return 0
+
+
 def ensure_demo_data():
     """
     Ensure demo data is loaded. Safe to call multiple times.
 
     Called automatically on server startup if database is empty.
+    Initializes both consensus data and demo agents for the ELO system.
     """
     try:
         seeded = load_demo_consensus()
         if seeded > 0:
             logger.info(f"Demo data initialized: {seeded} consensus records")
+
+        agents = ensure_demo_agents()
+        if agents > 0:
+            logger.info(f"Demo agents initialized: {agents} agents")
     except Exception as e:
         logger.warning(f"Failed to ensure demo data: {e}")
