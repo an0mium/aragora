@@ -32,13 +32,13 @@ function StatsTabPanelComponent({ stats, loading }: StatsTabPanelProps) {
             <div className="p-3 bg-bg border border-border rounded-lg">
               <div className="text-xs text-text-muted">Mean ELO</div>
               <div className="text-xl font-bold text-accent">
-                {stats.mean_elo?.toFixed(0) || 'N/A'}
+                {stats.mean_elo != null ? (Number(stats.mean_elo) || 0).toFixed(0) : 'N/A'}
               </div>
             </div>
             <div className="p-3 bg-bg border border-border rounded-lg">
               <div className="text-xs text-text-muted">Median ELO</div>
               <div className="text-xl font-bold text-text">
-                {stats.median_elo?.toFixed(0) || 'N/A'}
+                {stats.median_elo != null ? (Number(stats.median_elo) || 0).toFixed(0) : 'N/A'}
               </div>
             </div>
             <div className="p-3 bg-bg border border-border rounded-lg">

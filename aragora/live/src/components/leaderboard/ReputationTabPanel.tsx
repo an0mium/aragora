@@ -55,21 +55,21 @@ function ReputationTabPanelComponent({ reputations, loading }: ReputationTabPane
                       : 'text-red-400'
                 }`}
               >
-                {(rep.score * 100).toFixed(0)}%
+                {((Number(rep.score) || 0) * 100).toFixed(0)}%
               </span>
             </div>
             <div className="flex gap-3 text-xs text-text-muted">
               <span title="Vote weight in consensus">
-                Vote: <span className="text-text">{rep.vote_weight.toFixed(2)}x</span>
+                Vote: <span className="text-text">{(Number(rep.vote_weight) || 0).toFixed(2)}x</span>
               </span>
               <span title="Proposal acceptance rate">
                 Accept:{' '}
                 <span className="text-text">
-                  {(rep.proposal_acceptance_rate * 100).toFixed(0)}%
+                  {((Number(rep.proposal_acceptance_rate) || 0) * 100).toFixed(0)}%
                 </span>
               </span>
               <span title="Critique value score">
-                Critique: <span className="text-text">{rep.critique_value.toFixed(2)}</span>
+                Critique: <span className="text-text">{(Number(rep.critique_value) || 0).toFixed(2)}</span>
               </span>
             </div>
           </div>

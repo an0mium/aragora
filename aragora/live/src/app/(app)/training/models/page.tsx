@@ -394,7 +394,7 @@ export default function ModelRegistryPage() {
                             <div className="p-2 bg-surface rounded">
                               <div className="text-xs text-text-muted">ELO</div>
                               <div className="text-lg font-mono text-acid-green">
-                                {jobMetrics.elo_rating.toFixed(0)}
+                                {(Number(jobMetrics.elo_rating) || 0).toFixed(0)}
                               </div>
                             </div>
                           )}
@@ -402,7 +402,7 @@ export default function ModelRegistryPage() {
                             <div className="p-2 bg-surface rounded">
                               <div className="text-xs text-text-muted">Win Rate</div>
                               <div className="text-lg font-mono text-acid-cyan">
-                                {(jobMetrics.win_rate * 100).toFixed(1)}%
+                                {((Number(jobMetrics.win_rate) || 0) * 100).toFixed(1)}%
                               </div>
                             </div>
                           )}
@@ -410,7 +410,7 @@ export default function ModelRegistryPage() {
                             <div className="p-2 bg-surface rounded">
                               <div className="text-xs text-text-muted">Accuracy</div>
                               <div className="text-lg font-mono text-yellow-400">
-                                {(jobMetrics.vertical_accuracy * 100).toFixed(1)}%
+                                {((Number(jobMetrics.vertical_accuracy) || 0) * 100).toFixed(1)}%
                               </div>
                             </div>
                           )}
@@ -418,7 +418,7 @@ export default function ModelRegistryPage() {
                             <div className="p-2 bg-surface rounded">
                               <div className="text-xs text-text-muted">Final Loss</div>
                               <div className="text-lg font-mono text-text">
-                                {jobMetrics.final_loss.toFixed(4)}
+                                {(Number(jobMetrics.final_loss) || 0).toFixed(4)}
                               </div>
                             </div>
                           )}

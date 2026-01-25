@@ -860,7 +860,7 @@ class SlackHandler(BaseHandler):
             from aragora.server.storage import get_debates_db
 
             db = get_debates_db()
-            results = []
+            results: list[dict] = []
 
             if db and hasattr(db, "search"):
                 results = db.search(query, limit=5)

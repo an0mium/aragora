@@ -82,9 +82,9 @@ function RankingsTabPanelComponent({
               {agent.consistency !== undefined && (
                 <span
                   className={`text-xs px-1.5 py-0.5 rounded ${getConsistencyColor(agent.consistency)} bg-surface`}
-                  title={`Consistency: ${(agent.consistency * 100).toFixed(0)}%`}
+                  title={`Consistency: ${((Number(agent.consistency) || 0) * 100).toFixed(0)}%`}
                 >
-                  {(agent.consistency * 100).toFixed(0)}%
+                  {((Number(agent.consistency) || 0) * 100).toFixed(0)}%
                 </span>
               )}
             </div>

@@ -245,12 +245,12 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
                 {comparison.agents[0].consistency_score !== undefined && (
                   <tr className="border-b border-zinc-200 dark:border-zinc-700">
                     <td className="py-2 px-3 text-white">
-                      {(comparison.agents[0].consistency_score * 100).toFixed(0)}%
+                      {((Number(comparison.agents[0].consistency_score) || 0) * 100).toFixed(0)}%
                     </td>
                     <td className="py-2 px-3 text-center text-zinc-500 dark:text-zinc-400">Consistency</td>
                     <td className="py-2 px-3 text-right text-white">
                       {comparison.agents[1].consistency_score !== undefined
-                        ? `${(comparison.agents[1].consistency_score * 100).toFixed(0)}%`
+                        ? `${((Number(comparison.agents[1].consistency_score) || 0) * 100).toFixed(0)}%`
                         : '-'}
                     </td>
                   </tr>

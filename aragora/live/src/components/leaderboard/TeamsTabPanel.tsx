@@ -65,14 +65,14 @@ function TeamsTabPanelComponent({ teams, loading }: TeamsTabPanelProps) {
           {/* Success Rate */}
           <div
             className={`text-sm font-mono font-bold ${
-              team.success_rate >= 0.7
+              (Number(team.success_rate) || 0) >= 0.7
                 ? 'text-green-400'
-                : team.success_rate >= 0.5
+                : (Number(team.success_rate) || 0) >= 0.5
                   ? 'text-yellow-400'
                   : 'text-red-400'
             }`}
           >
-            {(team.success_rate * 100).toFixed(0)}%
+            {((Number(team.success_rate) || 0) * 100).toFixed(0)}%
           </div>
         </div>
       ))}

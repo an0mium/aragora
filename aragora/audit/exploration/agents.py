@@ -535,7 +535,7 @@ class VerifierAgent(ExplorationAgent):
         model: str = "gpt-4-turbo",
         **kwargs,
     ):
-        super().__init__(name=name, model=model, role="verifier", **kwargs)
+        super().__init__(name=name, model=model, role="critic", **kwargs)
         self.system_prompt = """You are a critical verifier. Your job is to:
 1. Challenge claims and findings
 2. Look for contradictions and errors
