@@ -38,9 +38,30 @@ from typing import Any, Callable, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
+
 # Environment configuration
-N1_DETECTION_MODE = os.environ.get("ARAGORA_N1_DETECTION", "off").lower()
-N1_THRESHOLD = int(os.environ.get("ARAGORA_N1_THRESHOLD", "5"))
+def _parse_detection_mode(raw: str) -> str:
+    value = raw.lower()
+    if value not in {"off", "warn", "error"}:
+        logger.warning("Invalid ARAGORA_N1_DETECTION='%s', using 'off'", raw)
+        return "off"
+    return value
+
+
+def _parse_threshold(raw: str) -> int:
+    try:
+        value = int(raw)
+        if value < 1:
+            logger.warning("ARAGORA_N1_THRESHOLD=%s too low, using 1", value)
+            return 1
+        return value
+    except ValueError:
+        logger.warning("Invalid ARAGORA_N1_THRESHOLD='%s', using default 5", raw)
+        return 5
+
+
+N1_DETECTION_MODE = _parse_detection_mode(os.environ.get("ARAGORA_N1_DETECTION", "off"))
+N1_THRESHOLD = _parse_threshold(os.environ.get("ARAGORA_N1_THRESHOLD", "5"))
 
 # Context variable for tracking queries across async boundaries
 _current_detector: contextvars.ContextVar[Optional["N1QueryDetector"]] = contextvars.ContextVar(

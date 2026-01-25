@@ -36,9 +36,24 @@ from typing import Generator, Optional
 
 logger = logging.getLogger(__name__)
 
+
 # Sample rate for including trace_id in metrics (default 1%)
 # High cardinality labels need sampling to avoid memory issues
-TRACE_METRIC_SAMPLE_RATE = float(os.environ.get("ARAGORA_TRACE_METRIC_SAMPLE_RATE", "0.01"))
+def _parse_sample_rate(raw: str) -> float:
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning("Invalid ARAGORA_TRACE_METRIC_SAMPLE_RATE='%s', using 0.01", raw)
+        return 0.01
+    if value < 0 or value > 1:
+        logger.warning("ARAGORA_TRACE_METRIC_SAMPLE_RATE=%s out of range, using 0.01", value)
+        return 0.01
+    return value
+
+
+TRACE_METRIC_SAMPLE_RATE = _parse_sample_rate(
+    os.environ.get("ARAGORA_TRACE_METRIC_SAMPLE_RATE", "0.01")
+)
 
 
 @dataclass

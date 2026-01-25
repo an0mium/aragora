@@ -15,9 +15,15 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from aragora.exceptions import AragoraError
 
-class ControlPlaneError(Exception):
-    """Base exception for all control plane errors."""
+
+class ControlPlaneError(AragoraError):
+    """Base exception for all control plane errors.
+
+    Inherits from AragoraError to provide unified exception hierarchy
+    while adding control-plane-specific attributes for recovery logic.
+    """
 
     def __init__(
         self,
@@ -25,9 +31,11 @@ class ControlPlaneError(Exception):
         details: Optional[Dict[str, Any]] = None,
         recoverable: bool = True,
     ):
-        super().__init__(message)
-        self.message = message
-        self.details = details or {}
+        # Add recoverable flag to details for AragoraError
+        full_details = details.copy() if details else {}
+        full_details["recoverable"] = recoverable
+
+        super().__init__(message, full_details)
         self.recoverable = recoverable
 
 

@@ -429,8 +429,14 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             # Cache the results
             _km_similarity_cache.set(cache_key, results)
             return results
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"Failed to query KM for similar memories (network): {e}")
+            return []
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Failed to query KM for similar memories (data): {e}")
+            return []
         except Exception as e:
-            logger.warning(f"Failed to query KM for similar memories: {e}")
+            logger.exception(f"Unexpected error querying KM for similar memories: {e}")
             return []
 
     def register_migrations(self, manager: SchemaManager) -> None:
@@ -523,8 +529,12 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         if self._km_adapter and importance >= 0.7:
             try:
                 self._km_adapter.store_memory(entry)
+            except (ConnectionError, TimeoutError, OSError) as e:
+                logger.debug(f"Failed to sync memory to KM (network): {e}")
+            except (ValueError, KeyError, TypeError) as e:
+                logger.debug(f"Failed to sync memory to KM (data): {e}")
             except Exception as e:
-                logger.debug(f"Failed to sync memory to KM: {e}")
+                logger.warning(f"Unexpected error syncing memory to KM: {e}")
 
         return entry
 
@@ -1094,8 +1104,14 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             logger.debug(f"Pre-warmed {count} memories for query: '{query[:50]}...'")
             return count
 
+        except sqlite3.Error as e:
+            logger.warning(f"Memory pre-warm failed (database): {e}")
+            return 0
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"Memory pre-warm failed (network): {e}")
+            return 0
         except Exception as e:
-            logger.warning(f"Memory pre-warm failed: {e}")
+            logger.exception(f"Unexpected error during memory pre-warm: {e}")
             return 0
 
     def invalidate_reference(self, node_id: str) -> bool:
@@ -1167,8 +1183,14 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
             return updated_count > 0
 
+        except sqlite3.Error as e:
+            logger.warning(f"Failed to invalidate KM reference {node_id} (database): {e}")
+            return False
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Failed to invalidate KM reference {node_id} (data): {e}")
+            return False
         except Exception as e:
-            logger.warning(f"Failed to invalidate KM reference {node_id}: {e}")
+            logger.exception(f"Unexpected error invalidating KM reference {node_id}: {e}")
             return False
 
     def update_outcome(

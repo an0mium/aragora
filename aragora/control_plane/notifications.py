@@ -608,9 +608,14 @@ class NotificationDispatcher:
 
     async def _worker_loop(self) -> None:
         """Background worker loop for processing queued notifications."""
+        # Guard: start_worker checks redis availability, but mypy doesn't track this
+        if self._redis is None:
+            logger.error("Redis not available in worker loop")
+            return
+
         # Ensure consumer group exists
         try:
-            await self._redis.xgroup_create(  # type: ignore[union-attr]
+            await self._redis.xgroup_create(
                 self._config.queue_stream_key,
                 self._config.queue_consumer_group,
                 id="0",
@@ -626,7 +631,7 @@ class NotificationDispatcher:
         while not self._shutdown:
             try:
                 # Read from queue
-                messages = await self._redis.xreadgroup(  # type: ignore[union-attr]
+                messages = await self._redis.xreadgroup(
                     self._config.queue_consumer_group,
                     consumer_name,
                     {self._config.queue_stream_key: ">"},
@@ -653,6 +658,11 @@ class NotificationDispatcher:
         fields: Dict[bytes, bytes],
     ) -> None:
         """Process a single queued notification."""
+        # Guard: called from _worker_loop which already checked redis
+        if self._redis is None:
+            logger.error("Redis not available for message processing")
+            return
+
         try:
             data = json.loads(fields[b"data"].decode())
             queued = QueuedNotification.from_dict(data)
@@ -666,24 +676,24 @@ class NotificationDispatcher:
 
             if result.success:
                 # Acknowledge and remove
-                await self._redis.xack(  # type: ignore[union-attr]
+                await self._redis.xack(
                     self._config.queue_stream_key,
                     self._config.queue_consumer_group,
                     message_id,
                 )
-                await self._redis.xdel(self._config.queue_stream_key, message_id)  # type: ignore[union-attr]
+                await self._redis.xdel(self._config.queue_stream_key, message_id)
                 logger.info(f"Delivered queued notification {queued.id}")
             else:
                 # Re-queue with incremented attempt if not max retries
                 if queued.attempt < self._config.retry_config.max_retries:
                     queued.attempt += 1
                     queued.last_error = result.error
-                    await self._redis.xack(  # type: ignore[union-attr]
+                    await self._redis.xack(
                         self._config.queue_stream_key,
                         self._config.queue_consumer_group,
                         message_id,
                     )
-                    await self._redis.xdel(self._config.queue_stream_key, message_id)  # type: ignore[union-attr]
+                    await self._redis.xdel(self._config.queue_stream_key, message_id)
                     await self._queue_notification(
                         queued.message,
                         queued.channel_config,
@@ -693,12 +703,12 @@ class NotificationDispatcher:
                 else:
                     # Move to dead letter queue
                     await self._move_to_dlq(queued, result.error)
-                    await self._redis.xack(  # type: ignore[union-attr]
+                    await self._redis.xack(
                         self._config.queue_stream_key,
                         self._config.queue_consumer_group,
                         message_id,
                     )
-                    await self._redis.xdel(self._config.queue_stream_key, message_id)  # type: ignore[union-attr]
+                    await self._redis.xdel(self._config.queue_stream_key, message_id)
 
         except Exception as e:
             logger.error(f"Error processing queued message: {e}")

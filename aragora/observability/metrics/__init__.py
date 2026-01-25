@@ -74,8 +74,61 @@ from aragora.observability.metrics.webhook import (  # noqa: F401, E402
 
 # Explicit re-exports for mypy compatibility (dynamic imports aren't tracked)
 from _aragora_metrics_impl import (  # noqa: F401, E402
+    # Server/startup
     start_metrics_server,
+    # Core recording functions
+    measure_async_latency,
+    measure_latency,
+    record_request,
+    record_agent_call,
+    record_agent_participation,
+    record_memory_operation,
+    record_cache_hit,
+    record_cache_miss,
+    set_consensus_rate,
+    # Debate metrics
+    record_debate_completion,
+    record_phase_duration,
+    record_round_latency,
+    record_adaptive_round_change,
+    record_calibration_adjustment,
+    record_evidence_citation_bonus,
+    record_process_evaluation_bonus,
+    # Checkpoint metrics
+    record_checkpoint_operation,
+    track_checkpoint_operation,
+    record_checkpoint_restore_result,
+    # Ranking/ELO metrics
+    record_learning_bonus,
+    record_voting_accuracy_update,
+    # RBAC/Security metrics
     record_rbac_check,
+    # TTS metrics
     record_tts_synthesis,
     record_tts_latency,
+    # Migration metrics
+    record_migration_record,
+    record_migration_error,
+    # User mapping metrics
+    record_user_mapping_operation,
+    record_user_mapping_cache_hit,
+    record_user_mapping_cache_miss,
+    # Governance metrics
+    record_governance_verification,
+    record_governance_decision,
+    record_governance_approval,
+    # RLM metrics
+    record_rlm_cache_hit,
+    record_rlm_cache_miss,
+    # Knowledge Mound metrics
+    record_km_event_emitted,
+    record_km_operation,
+    record_km_cache_access,
+    record_km_adapter_sync,
+    # Task queue metrics
+    record_task_queue_operation,
+    record_task_queue_recovery,
+    record_task_queue_cleanup,
+    # Backup metrics
+    BACKUP_RESTORE_SUCCESS,
 )
