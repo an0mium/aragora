@@ -62,13 +62,16 @@ MONITOR_RESPONSE=$(curl -s -X POST "$API_BASE/accounts/$CLOUDFLARE_ACCOUNT_ID/lo
         "description": "'"$MONITOR_NAME"'",
         "method": "GET",
         "path": "/api/health",
-        "port": 8080,
+        "port": 80,
         "timeout": 5,
         "retries": 2,
         "interval": 60,
         "expected_codes": "200",
         "follow_redirects": true,
-        "allow_insecure": false
+        "allow_insecure": false,
+        "header": {
+            "Host": ["api.aragora.ai"]
+        }
     }')
 
 MONITOR_ID=$(echo "$MONITOR_RESPONSE" | jq -r '.result.id // empty')
@@ -156,8 +159,12 @@ LB_RESPONSE=$(curl -s -X POST "$API_BASE/zones/$CLOUDFLARE_ZONE_ID/load_balancer
         "default_pools": ["'"$POOL_ID"'"],
         "fallback_pool": "'"$POOL_ID"'",
         "steering_policy": "random",
-        "session_affinity": "none",
-        "session_affinity_ttl": 1800
+        "session_affinity": "ip_cookie",
+        "session_affinity_ttl": 1800,
+        "session_affinity_attributes": {
+            "samesite": "Auto",
+            "secure": "Auto"
+        }
     }')
 
 LB_ID=$(echo "$LB_RESPONSE" | jq -r '.result.id // empty')
