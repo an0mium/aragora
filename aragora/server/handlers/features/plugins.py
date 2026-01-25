@@ -56,6 +56,9 @@ SUBMISSION_STATUS_REJECTED = "rejected"
 class PluginsHandler(BaseHandler):
     """Handler for plugins endpoints."""
 
+    # RFC 8594 Sunset header for deprecated legacy paths
+    _SUNSET_DATE = "Sat, 31 Dec 2026 23:59:59 GMT"
+
     def get_user_id(self, handler) -> Optional[str]:
         """Extract user ID from authenticated request.
 
@@ -70,7 +73,37 @@ class PluginsHandler(BaseHandler):
             return None
         return getattr(user, "user_id", None)
 
+    def _is_legacy_path(self, path: str) -> bool:
+        """Check if path uses legacy (non-versioned) format.
+
+        Legacy: /api/plugins/...
+        Versioned: /api/v1/plugins/...
+        """
+        return path.startswith("/api/plugins/") or path == "/api/plugins"
+
+    def _get_plugin_name_index(self, path: str) -> int:
+        """Get the path segment index for plugin name based on path format.
+
+        Uses path.strip("/").split("/") indexing:
+        Legacy path /api/plugins/{name}: ['api', 'plugins', '{name}'] -> index 2
+        Versioned path /api/v1/plugins/{name}: ['api', 'v1', 'plugins', '{name}'] -> index 3
+        """
+        return 2 if self._is_legacy_path(path) else 3
+
+    def _add_sunset_header_if_legacy(self, path: str, response: HandlerResult) -> HandlerResult:
+        """Add HTTP Sunset header if request uses legacy (non-versioned) path.
+
+        Per RFC 8594, the Sunset header indicates when an API will be retired.
+        """
+        if self._is_legacy_path(path):
+            if response.headers is None:
+                response.headers = {}
+            response.headers["Sunset"] = self._SUNSET_DATE
+            response.headers["Deprecation"] = "true"
+        return response
+
     ROUTES = [
+        # Versioned paths (preferred)
         "/api/v1/plugins",
         "/api/v1/plugins/installed",
         "/api/v1/plugins/marketplace",
@@ -79,79 +112,123 @@ class PluginsHandler(BaseHandler):
         "/api/v1/plugins/*",
         "/api/v1/plugins/*/install",
         "/api/v1/plugins/*/run",
+        # Legacy paths (deprecated, will sunset 2026-12-31)
+        "/api/plugins",
+        "/api/plugins/installed",
+        "/api/plugins/marketplace",
+        "/api/plugins/submit",
+        "/api/plugins/submissions",
+        "/api/plugins/*",
+        "/api/plugins/*/install",
+        "/api/plugins/*/run",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path in (
+        # Check exact match paths (both versioned and legacy)
+        exact_paths = (
             "/api/v1/plugins",
             "/api/v1/plugins/installed",
             "/api/v1/plugins/marketplace",
             "/api/v1/plugins/submit",
             "/api/v1/plugins/submissions",
-        ):
+            "/api/plugins",
+            "/api/plugins/installed",
+            "/api/plugins/marketplace",
+            "/api/plugins/submit",
+            "/api/plugins/submissions",
+        )
+        if path in exact_paths:
             return True
-        # Match /api/v1/plugins/{name}, /api/v1/plugins/{name}/run, /api/v1/plugins/{name}/install
+
+        # Match versioned: /api/v1/plugins/{name}, /api/v1/plugins/{name}/run, etc.
         if path.startswith("/api/v1/plugins/"):
             parts = path.split("/")
             # /api/v1/plugins/{name} has 5 parts: ['', 'api', 'v1', 'plugins', '{name}']
             # /api/v1/plugins/{name}/run or /install has 6 parts
             return len(parts) in (5, 6)
+
+        # Match legacy: /api/plugins/{name}, /api/plugins/{name}/run, etc.
+        if path.startswith("/api/plugins/"):
+            parts = path.split("/")
+            # /api/plugins/{name} has 4 parts: ['', 'api', 'plugins', '{name}']
+            # /api/plugins/{name}/run or /install has 5 parts
+            return len(parts) in (4, 5)
+
         return False
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
-        if path == "/api/v1/plugins":
-            return self._list_plugins()
+        response: Optional[HandlerResult] = None
 
-        if path == "/api/v1/plugins/installed":
-            return self._list_installed(handler)
+        if path in ("/api/v1/plugins", "/api/plugins"):
+            response = self._list_plugins()
 
-        if path == "/api/v1/plugins/marketplace":
-            return self._get_marketplace()
+        elif path in ("/api/v1/plugins/installed", "/api/plugins/installed"):
+            response = self._list_installed(handler)
 
-        if path == "/api/v1/plugins/submissions":
-            return self._list_submissions(handler)
+        elif path in ("/api/v1/plugins/marketplace", "/api/plugins/marketplace"):
+            response = self._get_marketplace()
 
-        # Get plugin details: /api/plugins/{name}
-        if path.startswith("/api/v1/plugins/") and not path.endswith(("/run", "/install")):
-            plugin_name, err = self.extract_path_param(path, 3, "plugin_name")
+        elif path in ("/api/v1/plugins/submissions", "/api/plugins/submissions"):
+            response = self._list_submissions(handler)
+
+        # Get plugin details: /api/v1/plugins/{name} or /api/plugins/{name}
+        elif path.startswith(("/api/v1/plugins/", "/api/plugins/")) and not path.endswith(
+            ("/run", "/install")
+        ):
+            idx = self._get_plugin_name_index(path)
+            plugin_name, err = self.extract_path_param(path, idx, "plugin_name")
             if err:
-                return err
-            return self._get_plugin(plugin_name)
+                return self._add_sunset_header_if_legacy(path, err)
+            response = self._get_plugin(plugin_name)
 
+        if response is not None:
+            return self._add_sunset_header_if_legacy(path, response)
         return None
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        # Submit plugin: /api/plugins/submit
-        if path == "/api/v1/plugins/submit":
-            return self._submit_plugin(handler)
+        response: Optional[HandlerResult] = None
 
-        # Run plugin: /api/plugins/{name}/run
-        if path.startswith("/api/v1/plugins/") and path.endswith("/run"):
-            plugin_name, err = self.extract_path_param(path, 3, "plugin_name")
+        # Submit plugin: /api/v1/plugins/submit or /api/plugins/submit
+        if path in ("/api/v1/plugins/submit", "/api/plugins/submit"):
+            response = self._submit_plugin(handler)
+
+        # Run plugin: /api/v1/plugins/{name}/run or /api/plugins/{name}/run
+        elif path.startswith(("/api/v1/plugins/", "/api/plugins/")) and path.endswith("/run"):
+            idx = self._get_plugin_name_index(path)
+            plugin_name, err = self.extract_path_param(path, idx, "plugin_name")
             if err:
-                return err
-            return self._run_plugin(plugin_name, handler)
+                return self._add_sunset_header_if_legacy(path, err)
+            response = self._run_plugin(plugin_name, handler)
 
-        # Install plugin: /api/plugins/{name}/install
-        if path.startswith("/api/v1/plugins/") and path.endswith("/install"):
-            plugin_name, err = self.extract_path_param(path, 3, "plugin_name")
+        # Install plugin: /api/v1/plugins/{name}/install or /api/plugins/{name}/install
+        elif path.startswith(("/api/v1/plugins/", "/api/plugins/")) and path.endswith("/install"):
+            idx = self._get_plugin_name_index(path)
+            plugin_name, err = self.extract_path_param(path, idx, "plugin_name")
             if err:
-                return err
-            return self._install_plugin(plugin_name, handler)
+                return self._add_sunset_header_if_legacy(path, err)
+            response = self._install_plugin(plugin_name, handler)
 
+        if response is not None:
+            return self._add_sunset_header_if_legacy(path, response)
         return None
 
     def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route DELETE requests to appropriate methods."""
-        # Uninstall plugin: /api/plugins/{name}/install
-        if path.startswith("/api/v1/plugins/") and path.endswith("/install"):
-            plugin_name, err = self.extract_path_param(path, 3, "plugin_name")
+        response: Optional[HandlerResult] = None
+
+        # Uninstall plugin: /api/v1/plugins/{name}/install or /api/plugins/{name}/install
+        if path.startswith(("/api/v1/plugins/", "/api/plugins/")) and path.endswith("/install"):
+            idx = self._get_plugin_name_index(path)
+            plugin_name, err = self.extract_path_param(path, idx, "plugin_name")
             if err:
-                return err
-            return self._uninstall_plugin(plugin_name, handler)
+                return self._add_sunset_header_if_legacy(path, err)
+            response = self._uninstall_plugin(plugin_name, handler)
+
+        if response is not None:
+            return self._add_sunset_header_if_legacy(path, response)
         return None
 
     @handle_errors("list plugins")

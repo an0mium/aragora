@@ -1478,7 +1478,7 @@ class UnifiedInboxHandler(BaseHandler):
             return value
         try:
             return datetime.fromisoformat(str(value))
-        except Exception:
+        except ValueError:
             return None
 
     # =========================================================================

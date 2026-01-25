@@ -7,6 +7,7 @@ Tokens can be set via environment variables or runtime configuration.
 
 import hashlib
 import hmac
+import logging
 import os
 import secrets
 import threading
@@ -23,13 +24,37 @@ from aragora.config import (
 from aragora.exceptions import AuthenticationError
 from aragora.server.cors_config import cors_config
 
+_logger = logging.getLogger(__name__)
+
+
+def _parse_cleanup_interval() -> int:
+    """Parse cleanup interval with validation and bounds checking.
+
+    Returns a safe integer value for ARAGORA_AUTH_CLEANUP_INTERVAL,
+    with bounds checking (10s minimum, 86400s/24h maximum).
+    """
+    raw = os.environ.get("ARAGORA_AUTH_CLEANUP_INTERVAL", "300")
+    try:
+        value = int(raw)
+        if value < 10:
+            _logger.warning(f"ARAGORA_AUTH_CLEANUP_INTERVAL={value} too low, using 10")
+            return 10
+        if value > 86400:
+            _logger.warning(f"ARAGORA_AUTH_CLEANUP_INTERVAL={value} too high, using 86400")
+            return 86400
+        return value
+    except ValueError:
+        _logger.warning(f"Invalid ARAGORA_AUTH_CLEANUP_INTERVAL='{raw}', using default 300")
+        return 300
+
 
 class AuthConfig:
     """Configuration for authentication."""
 
     # Cleanup interval in seconds (default: 5 minutes)
     # Configurable via ARAGORA_AUTH_CLEANUP_INTERVAL env var (useful for tests)
-    CLEANUP_INTERVAL_SECONDS = int(os.environ.get("ARAGORA_AUTH_CLEANUP_INTERVAL", "300"))
+    # Uses safe parsing with bounds checking (10s-86400s)
+    CLEANUP_INTERVAL_SECONDS = _parse_cleanup_interval()
 
     def __init__(self):
         self.enabled = False

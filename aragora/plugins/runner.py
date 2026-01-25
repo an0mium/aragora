@@ -52,6 +52,9 @@ class PluginContext:
     working_dir: str = "."
     debate_id: Optional[str] = None
     claim_id: Optional[str] = None
+    timeout_seconds: Optional[float] = None
+    cleanup_on_error: bool = False
+    resource_limits: dict[str, Any] = field(default_factory=dict)
 
     # Capabilities (set by runner based on manifest)
     allowed_operations: set = field(default_factory=set)
@@ -331,7 +334,7 @@ class PluginRunner:
             return result
 
         # Execute with timeout
-        timeout = timeout_override or self.manifest.timeout_seconds
+        timeout = timeout_override or context.timeout_seconds or self.manifest.timeout_seconds
 
         try:
             # Run in executor to handle sync functions

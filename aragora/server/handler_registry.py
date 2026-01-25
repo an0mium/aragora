@@ -54,6 +54,7 @@ DebatesHandler: HandlerType = None
 AgentsHandler: HandlerType = None
 PulseHandler: HandlerType = None
 AnalyticsHandler: HandlerType = None
+AnalyticsDashboardHandler: HandlerType = None
 MetricsHandler: HandlerType = None
 ConsensusHandler: HandlerType = None
 BeliefHandler: HandlerType = None
@@ -177,6 +178,9 @@ try:
     )
     from aragora.server.handlers import (
         AnalyticsHandler as _AnalyticsHandler,
+    )
+    from aragora.server.handlers import (
+        AnalyticsDashboardHandler as _AnalyticsDashboardHandler,
     )
     from aragora.server.handlers import (
         AudioHandler as _AudioHandler,
@@ -467,6 +471,7 @@ try:
     AgentsHandler = _AgentsHandler
     PulseHandler = _PulseHandler
     AnalyticsHandler = _AnalyticsHandler
+    AnalyticsDashboardHandler = _AnalyticsDashboardHandler
     MetricsHandler = _MetricsHandler
     ConsensusHandler = _ConsensusHandler
     BeliefHandler = _BeliefHandler
@@ -585,6 +590,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_agents_handler", AgentsHandler),
     ("_pulse_handler", PulseHandler),
     ("_analytics_handler", AnalyticsHandler),
+    ("_analytics_dashboard_handler", AnalyticsDashboardHandler),
     ("_metrics_handler", MetricsHandler),
     ("_slo_handler", SLOHandler),
     ("_consensus_handler", ConsensusHandler),
@@ -722,6 +728,7 @@ class RouteIndex:
                 "/api/matches/recent",
             ],
             "_pulse_handler": ["/api/pulse/"],
+            "_analytics_dashboard_handler": ["/api/analytics/"],
             "_consensus_handler": ["/api/consensus/"],
             "_belief_handler": ["/api/belief-network/", "/api/laboratory/"],
             "_decision_handler": ["/api/decisions"],
@@ -742,7 +749,7 @@ class RouteIndex:
             "_introspection_handler": ["/api/introspection/"],
             "_calibration_handler": ["/api/agent/"],
             "_evolution_handler": ["/api/evolution/"],
-            "_plugins_handler": ["/api/plugins/"],
+            "_plugins_handler": ["/api/plugins/", "/api/v1/plugins/"],
             "_audio_handler": ["/audio/", "/api/podcast/"],
             "_social_handler": ["/api/youtube/"],
             "_broadcast_handler": ["/api/podcast/"],
@@ -1187,6 +1194,7 @@ class HandlerRegistryMixin:
     _agents_handler: Optional["BaseHandler"] = None
     _pulse_handler: Optional["BaseHandler"] = None
     _analytics_handler: Optional["BaseHandler"] = None
+    _analytics_dashboard_handler: Optional["BaseHandler"] = None
     _metrics_handler: Optional["BaseHandler"] = None
     _slo_handler: Optional["BaseHandler"] = None
     _consensus_handler: Optional["BaseHandler"] = None
@@ -1417,6 +1425,8 @@ class HandlerRegistryMixin:
         try:
             # Use matched path if available, otherwise fall back to normalized path
             dispatch_path = matched_path or normalized_path
+            if normalized_path != dispatch_path and handler.can_handle(normalized_path):
+                dispatch_path = normalized_path
 
             # Dispatch to appropriate handler method based on HTTP method
             if method == "POST" and hasattr(handler, "handle_post"):

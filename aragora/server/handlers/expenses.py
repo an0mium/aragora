@@ -28,6 +28,7 @@ Endpoints:
 from __future__ import annotations
 
 import base64
+import binascii
 import logging
 import threading
 from datetime import datetime
@@ -91,7 +92,7 @@ async def handle_upload_receipt(
         # Decode base64 image
         try:
             image_data = base64.b64decode(receipt_b64)
-        except Exception:
+        except (ValueError, binascii.Error):
             return error_response("Invalid base64 receipt_data", status=400)
 
         employee_id = data.get("employee_id")
