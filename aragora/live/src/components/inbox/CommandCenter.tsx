@@ -67,7 +67,7 @@ export function CommandCenter() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apiBase]);
 
   useEffect(() => {
     fetchEmails();
@@ -94,7 +94,7 @@ export function CommandCenter() {
       logger.error('Failed to fetch sender profile:', error);
       setSenderProfile(null);
     }
-  }, []);
+  }, [apiBase]);
 
   // Quick actions
   const handleQuickAction = useCallback(async (action: string, emailIds?: string[]) => {
@@ -119,7 +119,7 @@ export function CommandCenter() {
     } catch (error) {
       logger.error('Failed to execute action:', error);
     }
-  }, [selectedEmail, fetchEmails]);
+  }, [selectedEmail, fetchEmails, apiBase]);
 
   // Bulk actions
   const handleBulkAction = useCallback(async (action: string, filter: string) => {

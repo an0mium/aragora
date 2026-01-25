@@ -184,7 +184,7 @@ export function usePulseScheduler() {
       setState(s => ({ ...s, statusLoading: false, statusError: errorMsg }));
       return null;
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   // ---------------------------------------------------------------------------
   // Poll Status
@@ -200,7 +200,7 @@ export function usePulseScheduler() {
     pollingRef.current = setInterval(() => {
       fetchStatus();
     }, intervalMs);
-  }, [fetchStatus, getAuthHeaders]);
+  }, [fetchStatus]);
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
@@ -367,7 +367,7 @@ export function usePulseScheduler() {
       setState(s => ({ ...s, actionLoading: false, actionError: errorMsg }));
       return false;
     }
-  }, [fetchStatus]);
+  }, [fetchStatus, getAuthHeaders]);
 
   // ---------------------------------------------------------------------------
   // Fetch History
