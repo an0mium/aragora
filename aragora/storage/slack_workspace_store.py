@@ -89,10 +89,20 @@ class SlackWorkspace:
         scopes_str = row["scopes"] or ""
         scopes = scopes_str.split(",") if scopes_str else []
 
-        # Handle signing_secret column which may not exist in older DBs
+        # Handle optional columns which may not exist in older DBs
         signing_secret = None
+        refresh_token = None
+        token_expires_at = None
         try:
             signing_secret = row["signing_secret"]
+        except (IndexError, KeyError):
+            pass
+        try:
+            refresh_token = row["refresh_token"]
+        except (IndexError, KeyError):
+            pass
+        try:
+            token_expires_at = row["token_expires_at"]
         except (IndexError, KeyError):
             pass
 
@@ -107,6 +117,8 @@ class SlackWorkspace:
             tenant_id=row["tenant_id"],
             is_active=bool(row["is_active"]),
             signing_secret=signing_secret,
+            refresh_token=refresh_token,
+            token_expires_at=token_expires_at,
         )
 
 
@@ -129,7 +141,9 @@ class SlackWorkspaceStore:
         scopes TEXT,
         tenant_id TEXT,
         is_active INTEGER DEFAULT 1,
-        signing_secret TEXT
+        signing_secret TEXT,
+        refresh_token TEXT,
+        token_expires_at REAL
     );
 
     CREATE INDEX IF NOT EXISTS idx_slack_workspaces_tenant
@@ -142,6 +156,16 @@ class SlackWorkspaceStore:
     # Migration to add signing_secret column to existing databases
     MIGRATION_ADD_SIGNING_SECRET = """
     ALTER TABLE slack_workspaces ADD COLUMN signing_secret TEXT;
+    """
+
+    # Migration to add refresh_token column for OAuth token refresh
+    MIGRATION_ADD_REFRESH_TOKEN = """
+    ALTER TABLE slack_workspaces ADD COLUMN refresh_token TEXT;
+    """
+
+    # Migration to add token_expires_at column for expiration tracking
+    MIGRATION_ADD_TOKEN_EXPIRES_AT = """
+    ALTER TABLE slack_workspaces ADD COLUMN token_expires_at REAL;
     """
 
     def __init__(self, db_path: Optional[str] = None):
@@ -195,14 +219,26 @@ class SlackWorkspaceStore:
                 conn.executescript(self.SCHEMA)
                 conn.commit()
 
-                # Run migration to add signing_secret column if needed
+                # Run migrations for optional columns if needed
                 try:
                     cursor = conn.execute("PRAGMA table_info(slack_workspaces)")
                     columns = {row[1] for row in cursor.fetchall()}
+
                     if "signing_secret" not in columns:
                         conn.execute(self.MIGRATION_ADD_SIGNING_SECRET)
                         conn.commit()
                         logger.info("Added signing_secret column to slack_workspaces")
+
+                    if "refresh_token" not in columns:
+                        conn.execute(self.MIGRATION_ADD_REFRESH_TOKEN)
+                        conn.commit()
+                        logger.info("Added refresh_token column to slack_workspaces")
+
+                    if "token_expires_at" not in columns:
+                        conn.execute(self.MIGRATION_ADD_TOKEN_EXPIRES_AT)
+                        conn.commit()
+                        logger.info("Added token_expires_at column to slack_workspaces")
+
                 except sqlite3.Error as e:
                     logger.debug(f"Migration check: {e}")
 
@@ -316,14 +352,18 @@ class SlackWorkspaceStore:
             encrypted_secret = (
                 self._encrypt_token(workspace.signing_secret) if workspace.signing_secret else None
             )
+            encrypted_refresh = (
+                self._encrypt_token(workspace.refresh_token) if workspace.refresh_token else None
+            )
             scopes_str = ",".join(workspace.scopes)
 
             conn.execute(
                 """
                 INSERT OR REPLACE INTO slack_workspaces
                 (workspace_id, workspace_name, access_token, bot_user_id,
-                 installed_at, installed_by, scopes, tenant_id, is_active, signing_secret)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 installed_at, installed_by, scopes, tenant_id, is_active, signing_secret,
+                 refresh_token, token_expires_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     workspace.workspace_id,
@@ -336,6 +376,8 @@ class SlackWorkspaceStore:
                     workspace.tenant_id,
                     1 if workspace.is_active else 0,
                     encrypted_secret,
+                    encrypted_refresh,
+                    workspace.token_expires_at,
                 ),
             )
             conn.commit()
