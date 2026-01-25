@@ -308,6 +308,48 @@ PERM_DECISION_READ = _permission(
     ResourceType.DECISION, Action.READ, "View Decisions", "View decision results and status"
 )
 
+# Policy permissions (governance)
+PERM_POLICY_READ = _permission(
+    ResourceType.POLICY, Action.READ, "View Policies", "View governance policies"
+)
+PERM_POLICY_CREATE = _permission(
+    ResourceType.POLICY, Action.CREATE, "Create Policies", "Create new governance policies"
+)
+PERM_POLICY_UPDATE = _permission(
+    ResourceType.POLICY, Action.UPDATE, "Update Policies", "Modify governance policies"
+)
+PERM_POLICY_DELETE = _permission(
+    ResourceType.POLICY, Action.DELETE, "Delete Policies", "Remove governance policies"
+)
+
+# Compliance permissions
+PERM_COMPLIANCE_READ = _permission(
+    ResourceType.COMPLIANCE, Action.READ, "View Compliance", "View compliance status and violations"
+)
+PERM_COMPLIANCE_UPDATE = _permission(
+    ResourceType.COMPLIANCE, Action.UPDATE, "Update Compliance", "Update violation status"
+)
+PERM_COMPLIANCE_CHECK = _permission(
+    ResourceType.COMPLIANCE, Action.CHECK, "Run Compliance Checks", "Execute compliance validation"
+)
+
+# Control plane permissions
+PERM_CONTROL_PLANE_READ = _permission(
+    ResourceType.CONTROL_PLANE, Action.READ, "View Control Plane", "View tasks, agents, and status"
+)
+PERM_CONTROL_PLANE_SUBMIT = _permission(
+    ResourceType.CONTROL_PLANE, Action.SUBMIT, "Submit Tasks", "Submit tasks to the control plane"
+)
+PERM_CONTROL_PLANE_CANCEL = _permission(
+    ResourceType.CONTROL_PLANE, Action.CANCEL, "Cancel Tasks", "Cancel pending control plane tasks"
+)
+PERM_CONTROL_PLANE_DELIBERATE = _permission(
+    ResourceType.CONTROL_PLANE,
+    Action.DELIBERATE,
+    "Start Deliberations",
+    "Start multi-agent deliberation processes",
+)
+
 
 # ============================================================================
 # ENTERPRISE PERMISSIONS - Data Governance
@@ -676,6 +718,20 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         # Decisions
         PERM_DECISION_CREATE,
         PERM_DECISION_READ,
+        # Policies (governance)
+        PERM_POLICY_READ,
+        PERM_POLICY_CREATE,
+        PERM_POLICY_UPDATE,
+        PERM_POLICY_DELETE,
+        # Compliance
+        PERM_COMPLIANCE_READ,
+        PERM_COMPLIANCE_UPDATE,
+        PERM_COMPLIANCE_CHECK,
+        # Control Plane
+        PERM_CONTROL_PLANE_READ,
+        PERM_CONTROL_PLANE_SUBMIT,
+        PERM_CONTROL_PLANE_CANCEL,
+        PERM_CONTROL_PLANE_DELIBERATE,
         # Enterprise - Data Governance
         PERM_DATA_CLASSIFICATION_READ,
         PERM_DATA_CLASSIFICATION_CLASSIFY,

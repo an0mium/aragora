@@ -13,9 +13,83 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Pattern
 
 from .checker import PermissionChecker, get_permission_checker
+from .defaults import SYSTEM_PERMISSIONS
 from .models import AuthorizationContext
 
 logger = logging.getLogger(__name__)
+
+
+def validate_route_permissions(
+    route_permissions: list["RoutePermission"],
+    strict: bool = False,
+) -> list[str]:
+    """
+    Validate that all route permissions are defined in SYSTEM_PERMISSIONS.
+
+    SECURITY: This prevents configuration errors where routes reference
+    undefined permissions, which could lead to:
+    - Routes accidentally being unprotected (if permission check silently fails)
+    - Confusion about which permissions are required
+
+    Args:
+        route_permissions: List of route permission rules to validate
+        strict: If True, raise ValueError on validation failure
+
+    Returns:
+        List of warning messages for undefined permissions
+    """
+    warnings: list[str] = []
+
+    # Build set of valid permission prefixes for wildcard validation
+    valid_prefixes: set[str] = set()
+    for perm_key in SYSTEM_PERMISSIONS:
+        prefix = perm_key.rsplit(".", 1)[0]  # e.g., "admin.config" -> "admin"
+        valid_prefixes.add(prefix)
+
+    for rule in route_permissions:
+        perm_key = rule.permission_key
+
+        # Skip empty permission keys (unauthenticated or auth-only routes)
+        if not perm_key:
+            continue
+
+        # Handle wildcard permissions (e.g., "admin.*")
+        if perm_key.endswith(".*"):
+            prefix = perm_key[:-2]  # Strip ".*"
+            if prefix not in valid_prefixes:
+                msg = (
+                    f"SECURITY: Wildcard permission '{perm_key}' references undefined "
+                    f"permission prefix '{prefix}'. No permissions with this prefix exist "
+                    f"in SYSTEM_PERMISSIONS. Route pattern: {rule.pattern.pattern if hasattr(rule.pattern, 'pattern') else rule.pattern}"
+                )
+                warnings.append(msg)
+                logger.warning(msg)
+        else:
+            # Standard permission - must exist exactly
+            if perm_key not in SYSTEM_PERMISSIONS:
+                msg = (
+                    f"SECURITY: Route permission '{perm_key}' is not defined in "
+                    f"SYSTEM_PERMISSIONS. This route may have undefined access control. "
+                    f"Route pattern: {rule.pattern.pattern if hasattr(rule.pattern, 'pattern') else rule.pattern}"
+                )
+                warnings.append(msg)
+                logger.warning(msg)
+
+    if warnings and strict:
+        raise ValueError(
+            f"Route permission validation failed with {len(warnings)} undefined permissions. "
+            f"See logs for details."
+        )
+
+    if warnings:
+        logger.error(
+            f"SECURITY: {len(warnings)} route permission(s) reference undefined permissions. "
+            f"These routes may have incorrect access control."
+        )
+    else:
+        logger.info("Route permission validation passed: all permissions are defined.")
+
+    return warnings
 
 
 @dataclass
@@ -285,12 +359,17 @@ class RBACMiddleware:
     permissions before handlers are invoked.
     """
 
-    def __init__(self, config: RBACMiddlewareConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: RBACMiddlewareConfig | None = None,
+        validate_permissions: bool = True,
+    ) -> None:
         """
         Initialize the middleware.
 
         Args:
             config: Middleware configuration
+            validate_permissions: If True, validate route permissions at startup
         """
         self.config = config or RBACMiddlewareConfig()
         self._checker = self.config.permission_checker or get_permission_checker()
@@ -298,6 +377,12 @@ class RBACMiddleware:
         # Add default route permissions if none specified
         if not self.config.route_permissions:
             self.config.route_permissions = DEFAULT_ROUTE_PERMISSIONS.copy()
+
+        # SECURITY: Validate all route permissions are defined
+        if validate_permissions:
+            self._validation_warnings = validate_route_permissions(self.config.route_permissions)
+        else:
+            self._validation_warnings = []
 
     def check_request(
         self,

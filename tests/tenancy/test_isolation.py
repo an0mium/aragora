@@ -36,7 +36,7 @@ class TestTenantIsolationConfig:
         assert config.namespace_separator == "_"
         assert config.strict_validation is True
         assert config.audit_access is True
-        assert config.shared_resources == []
+        assert config.shared_resources == frozenset()
 
     def test_custom_config(self):
         """Test custom configuration."""
@@ -44,13 +44,13 @@ class TestTenantIsolationConfig:
             level=IsolationLevel.SOFT,
             tenant_column="org_id",
             auto_filter=False,
-            shared_resources=["metrics", "health"],
+            shared_resources=frozenset({"system_config", "feature_flags"}),
         )
 
         assert config.level == IsolationLevel.SOFT
         assert config.tenant_column == "org_id"
         assert config.auto_filter is False
-        assert config.shared_resources == ["metrics", "health"]
+        assert config.shared_resources == frozenset({"system_config", "feature_flags"})
 
 
 class TestIsolationLevel:
@@ -138,15 +138,15 @@ class TestTenantDataIsolation:
 
     def test_filter_query_shared_resource(self):
         """Test filter_query skips shared resources."""
-        config = TenantIsolationConfig(shared_resources=["metrics"])
+        config = TenantIsolationConfig(shared_resources=frozenset({"system_config"}))
         isolation = TenantDataIsolation(config)
-        query = {"type": "cpu"}
+        query = {"type": "global"}
 
         with TenantContext(tenant_id="tenant_abc"):
-            result = isolation.filter_query(query, "metrics")
+            result = isolation.filter_query(query, "system_config")
 
         # Query should be unchanged for shared resources
-        assert result == {"type": "cpu"}
+        assert result == {"type": "global"}
 
     def test_filter_sql_with_where(self):
         """Test filter_sql adds to existing WHERE clause."""

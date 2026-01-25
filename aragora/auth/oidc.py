@@ -461,8 +461,13 @@ class OIDCProvider(SSOProvider):
                 # Validate and decode ID token
                 claims = await self._validate_id_token(id_token)
             except Exception as e:
-                logger.warning(f"ID token validation failed: {e}")
-                # Fall back to userinfo endpoint
+                # SECURITY: In production, token validation failures should not silently
+                # fall back to userinfo - this could allow signature bypass attacks
+                if _is_production_mode():
+                    logger.error(f"ID token validation failed in production mode: {e}")
+                    raise SSOAuthenticationError(f"ID token validation required in production: {e}")
+                logger.warning(f"ID token validation failed (dev mode fallback): {e}")
+                # Development mode: Fall back to userinfo endpoint
 
         # Fetch from userinfo endpoint if needed
         if not claims.get("email"):

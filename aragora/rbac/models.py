@@ -40,6 +40,11 @@ class ResourceType(str, Enum):
     FINDINGS = "findings"  # Audit findings management
     DECISION = "decisions"  # Unified decision routing
 
+    # Governance and orchestration
+    POLICY = "policies"  # Governance policies
+    COMPLIANCE = "compliance"  # Compliance management
+    CONTROL_PLANE = "control_plane"  # Control plane orchestration
+
     # Enterprise data governance
     DATA_CLASSIFICATION = "data_classification"  # Data sensitivity classification
     DATA_RETENTION = "data_retention"  # Data retention policies
@@ -133,6 +138,12 @@ class Action(str, Enum):
     ENFORCE = "enforce"  # Enforce compliance policies
     STREAM = "stream"  # Stream to external systems (SIEM)
     SEARCH = "search"  # Advanced search capabilities
+    CHECK = "check"  # Run compliance checks
+
+    # Control plane actions
+    SUBMIT = "submit"  # Submit tasks/requests
+    CANCEL = "cancel"  # Cancel pending operations
+    DELIBERATE = "deliberate"  # Start deliberation process
 
     # Connector lifecycle actions
     AUTHORIZE = "authorize"  # Grant OAuth/API credentials

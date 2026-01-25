@@ -97,9 +97,22 @@ class TenantIsolationConfig:
     audit_access: bool = True
     """Log all cross-tenant access attempts."""
 
-    # Resources that bypass isolation
-    shared_resources: list[str] = field(default_factory=list)
-    """Resource types that are shared across tenants."""
+    # Resources that bypass isolation (SECURITY: validated against allow-list)
+    shared_resources: frozenset[str] = field(default_factory=frozenset)
+    """Resource types that are shared across tenants (immutable)."""
+
+
+# SECURITY: Explicit allow-list of resource types that can be shared
+# Any resource type not in this list CANNOT be added to shared_resources
+ALLOWED_SHARED_RESOURCES: frozenset[str] = frozenset(
+    {
+        "system_config",  # Read-only system configuration
+        "feature_flags",  # Feature flag definitions
+        "templates",  # Shared document/workflow templates
+        "public_knowledge",  # Public knowledge articles
+        "agent_definitions",  # Shared agent configurations
+    }
+)
 
 
 @dataclass
@@ -128,6 +141,18 @@ class TenantDataIsolation:
         self.config = config or TenantIsolationConfig()
         self._audit_log: list[IsolationAuditEntry] = []
         self._encryption_keys: dict[str, bytes] = {}
+
+        # SECURITY: Validate that all shared_resources are in the allow-list
+        invalid_shared = self.config.shared_resources - ALLOWED_SHARED_RESOURCES
+        if invalid_shared:
+            logger.error(
+                f"SECURITY: Invalid shared resources configured: {invalid_shared}. "
+                f"Only these resources can be shared: {ALLOWED_SHARED_RESOURCES}"
+            )
+            raise ValueError(
+                f"Invalid shared resources: {invalid_shared}. "
+                f"Only explicitly allowed resources can bypass isolation."
+            )
 
     def get_tenant_filter(
         self,
@@ -177,6 +202,23 @@ class TenantDataIsolation:
             return query
 
         if resource_type in self.config.shared_resources:
+            # SECURITY: Log access to shared resources for audit trail
+            if self.config.audit_access:
+                tid = tenant_id or get_current_tenant_id() or "unknown"
+                logger.info(
+                    f"Shared resource access: tenant={tid} resource={resource_type} "
+                    "(bypass isolation allowed)"
+                )
+                self._audit_log.append(
+                    IsolationAuditEntry(
+                        timestamp=datetime.utcnow(),
+                        tenant_id=tid,
+                        resource_type=resource_type,
+                        action="shared_access",
+                        allowed=True,
+                        reason="Resource in allowed shared_resources list",
+                    )
+                )
             return query
 
         tenant_filter = self.get_tenant_filter(tenant_id)
