@@ -13,8 +13,6 @@ Tests cover:
 - Mock data generators
 """
 
-from datetime import datetime, timezone
-
 import pytest
 
 

@@ -360,6 +360,14 @@ class OrganizationsHandler(SecureHandler):
         if not success:
             return error_response("Failed to leave organization", 500)
 
+        audit_data(
+            user_id=user.id,
+            resource_type="organization",
+            resource_id=org_id,
+            action="delete",
+            left_organization=True,
+        )
+
         return json_response({"success": True})
 
     def _check_org_access(self, user, org_id: str, min_role: str = "member") -> tuple[bool, str]:
