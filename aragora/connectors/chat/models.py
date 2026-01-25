@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 
 class MessageType(str, Enum):
@@ -32,6 +32,17 @@ class InteractionType(str, Enum):
     SHORTCUT = "shortcut"
 
 
+class UserRole(str, Enum):
+    """User role in a channel or workspace."""
+
+    OWNER = "owner"
+    ADMIN = "admin"
+    MODERATOR = "moderator"
+    MEMBER = "member"
+    GUEST = "guest"
+    UNKNOWN = "unknown"
+
+
 @dataclass
 class ChatUser:
     """Represents a user across chat platforms."""
@@ -43,7 +54,48 @@ class ChatUser:
     email: Optional[str] = None
     avatar_url: Optional[str] = None
     is_bot: bool = False
-    metadata: dict = field(default_factory=dict)
+    # Enrichment fields for context injection
+    timezone: Optional[str] = None  # IANA timezone (e.g., "America/New_York")
+    language: Optional[str] = None  # ISO 639-1 code (e.g., "en", "es")
+    locale: Optional[str] = None  # Full locale (e.g., "en-US")
+    role: UserRole = UserRole.UNKNOWN
+    # Status and activity
+    status: Optional[str] = None  # "online", "away", "dnd", "offline"
+    last_active: Optional[datetime] = None
+    # Metadata
+    metadata: dict[str, Any] = field(default_factory=dict)
+    # Cache timestamp for TTL
+    _enriched_at: Optional[datetime] = field(default=None, repr=False)
+
+    @property
+    def is_enriched(self) -> bool:
+        """Check if user has enrichment data."""
+        return self.timezone is not None or self.language is not None
+
+    def to_context_dict(self) -> dict[str, Any]:
+        """Export enrichment data for debate prompt context."""
+        return {
+            "user_id": self.id,
+            "username": self.username,
+            "display_name": self.display_name,
+            "timezone": self.timezone,
+            "language": self.language,
+            "locale": self.locale,
+            "role": self.role.value if self.role else None,
+            "status": self.status,
+            "is_bot": self.is_bot,
+        }
+
+
+class ChannelType(str, Enum):
+    """Channel/conversation type."""
+
+    PUBLIC = "public"  # Public channel anyone can join
+    PRIVATE = "private"  # Private channel with restricted access
+    DM = "dm"  # Direct message between two users
+    GROUP_DM = "group_dm"  # Group direct message
+    THREAD = "thread"  # Thread within a channel
+    UNKNOWN = "unknown"
 
 
 @dataclass
@@ -56,7 +108,37 @@ class ChatChannel:
     is_private: bool = False
     is_dm: bool = False
     team_id: Optional[str] = None  # Workspace/Guild/Organization
-    metadata: dict = field(default_factory=dict)
+    # Enrichment fields for context injection
+    channel_type: ChannelType = ChannelType.UNKNOWN
+    topic: Optional[str] = None  # Channel topic/purpose
+    description: Optional[str] = None  # Longer channel description
+    member_count: Optional[int] = None
+    # Timestamps
+    created_at: Optional[datetime] = None
+    last_activity: Optional[datetime] = None
+    # Metadata
+    metadata: dict[str, Any] = field(default_factory=dict)
+    # Cache timestamp for TTL
+    _enriched_at: Optional[datetime] = field(default=None, repr=False)
+
+    @property
+    def is_enriched(self) -> bool:
+        """Check if channel has enrichment data."""
+        return self.topic is not None or self.member_count is not None
+
+    def to_context_dict(self) -> dict[str, Any]:
+        """Export enrichment data for debate prompt context."""
+        return {
+            "channel_id": self.id,
+            "channel_name": self.name,
+            "channel_type": self.channel_type.value if self.channel_type else None,
+            "topic": self.topic,
+            "description": self.description,
+            "member_count": self.member_count,
+            "team_id": self.team_id,
+            "is_private": self.is_private,
+            "is_dm": self.is_dm,
+        }
 
 
 @dataclass
@@ -79,13 +161,13 @@ class ChatMessage:
     edited_at: Optional[datetime] = None
 
     # Rich content
-    blocks: Optional[list[dict]] = None  # Platform-specific rich content
-    attachments: list[dict] = field(default_factory=list)
+    blocks: Optional[list[dict[str, Any]]] = None  # Platform-specific rich content
+    attachments: list[dict[str, Any]] = field(default_factory=list)
 
     # Platform-specific
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -117,12 +199,12 @@ class BotCommand:
     name: str
     text: str  # Full command text
     args: list[str] = field(default_factory=list)
-    options: dict = field(default_factory=dict)
+    options: dict[str, Any] = field(default_factory=dict)
     user: Optional[ChatUser] = None
     channel: Optional[ChatChannel] = None
     platform: str = ""
     response_url: Optional[str] = None  # For async responses
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -139,7 +221,7 @@ class UserInteraction:
     message_id: Optional[str] = None
     platform: str = ""
     response_url: Optional[str] = None
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -148,10 +230,10 @@ class MessageBlock:
 
     type: str
     text: Optional[str] = None
-    fields: list[dict] = field(default_factory=list)
-    elements: list[dict] = field(default_factory=list)
-    accessory: Optional[dict] = None
-    metadata: dict = field(default_factory=dict)
+    fields: list[dict[str, Any]] = field(default_factory=list)
+    elements: list[dict[str, Any]] = field(default_factory=list)
+    accessory: Optional[dict[str, Any]] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -163,7 +245,7 @@ class MessageButton:
     value: Optional[str] = None
     style: str = "default"  # default, primary, danger
     url: Optional[str] = None  # For link buttons
-    confirm: Optional[dict] = None  # Confirmation dialog
+    confirm: Optional[dict[str, Any]] = None  # Confirmation dialog
 
 
 @dataclass
@@ -176,7 +258,7 @@ class FileAttachment:
     size: int
     url: Optional[str] = None
     content: Optional[bytes] = None
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -190,7 +272,7 @@ class VoiceMessage:
     file: FileAttachment
     transcription: Optional[str] = None
     platform: str = ""
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -199,13 +281,13 @@ class SendMessageRequest:
 
     channel_id: str
     text: str
-    blocks: Optional[list[dict]] = None
+    blocks: Optional[list[dict[str, Any]]] = None
     thread_id: Optional[str] = None
     reply_to_id: Optional[str] = None
-    attachments: list[dict] = field(default_factory=list)
+    attachments: list[dict[str, Any]] = field(default_factory=list)
     ephemeral: bool = False  # Only visible to specific user
     ephemeral_user_id: Optional[str] = None
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -217,7 +299,7 @@ class SendMessageResponse:
     channel_id: Optional[str] = None
     timestamp: Optional[str] = None
     error: Optional[str] = None
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 # Alias for backwards compatibility
@@ -231,13 +313,13 @@ class WebhookEvent:
     platform: str
     event_type: str
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    raw_payload: dict = field(default_factory=dict)
+    raw_payload: dict[str, Any] = field(default_factory=dict)
     message: Optional[ChatMessage] = None
     command: Optional[BotCommand] = None
     interaction: Optional[UserInteraction] = None
     voice_message: Optional[VoiceMessage] = None
     challenge: Optional[str] = None  # For URL verification
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def is_verification(self) -> bool:
@@ -287,7 +369,7 @@ class ChatEvidence:
     source_message: Optional[ChatMessage] = None
 
     # Additional metadata
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def reliability_score(self) -> float:
@@ -301,9 +383,10 @@ class ChatEvidence:
     @property
     def source_url(self) -> Optional[str]:
         """Get a URL to the original message if available."""
-        return self.metadata.get("permalink")
+        url: Optional[str] = self.metadata.get("permalink")
+        return url
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -391,7 +474,7 @@ class ChannelContext:
 
     # Metadata
     fetched_at: datetime = field(default_factory=datetime.utcnow)
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_context_string(self, max_messages: int = 50) -> str:
         """
@@ -417,7 +500,7 @@ class ChannelContext:
 
         return "\n".join(lines)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "channel": {
@@ -478,3 +561,198 @@ class ChannelContext:
             source_message=message,
             metadata=message.metadata,
         )
+
+
+# =============================================================================
+# Metadata Cache for TTL-based enrichment caching
+# =============================================================================
+
+
+@dataclass
+class MetadataCacheEntry:
+    """Cache entry for user or channel metadata."""
+
+    data: dict[str, Any]
+    enriched_at: datetime
+    ttl_seconds: int = 3600  # Default 1 hour TTL
+
+    @property
+    def is_expired(self) -> bool:
+        """Check if cache entry has expired."""
+        from datetime import timedelta
+
+        return datetime.utcnow() > self.enriched_at + timedelta(seconds=self.ttl_seconds)
+
+
+class MetadataCache:
+    """
+    Simple in-memory cache for user and channel metadata with TTL.
+
+    Used to avoid repeated API calls for enrichment data that doesn't
+    change frequently (timezone, language, role, channel topic, etc.).
+    """
+
+    def __init__(self, default_ttl: int = 3600):
+        """
+        Initialize metadata cache.
+
+        Args:
+            default_ttl: Default TTL in seconds (default: 1 hour)
+        """
+        self.default_ttl = default_ttl
+        self._user_cache: dict[str, MetadataCacheEntry] = {}
+        self._channel_cache: dict[str, MetadataCacheEntry] = {}
+
+    def get_user(self, user_id: str, platform: str) -> Optional[dict[str, Any]]:
+        """
+        Get cached user metadata.
+
+        Args:
+            user_id: User ID
+            platform: Platform name
+
+        Returns:
+            Cached metadata dict or None if not cached/expired
+        """
+        key = f"{platform}:{user_id}"
+        entry = self._user_cache.get(key)
+        if entry and not entry.is_expired:
+            return entry.data
+        elif entry:
+            # Expired, clean up
+            del self._user_cache[key]
+        return None
+
+    def set_user(
+        self,
+        user_id: str,
+        platform: str,
+        metadata: dict[str, Any],
+        ttl: Optional[int] = None,
+    ) -> None:
+        """
+        Cache user metadata.
+
+        Args:
+            user_id: User ID
+            platform: Platform name
+            metadata: Metadata to cache
+            ttl: TTL in seconds (default: use cache default)
+        """
+        key = f"{platform}:{user_id}"
+        self._user_cache[key] = MetadataCacheEntry(
+            data=metadata,
+            enriched_at=datetime.utcnow(),
+            ttl_seconds=ttl or self.default_ttl,
+        )
+
+    def get_channel(self, channel_id: str, platform: str) -> Optional[dict[str, Any]]:
+        """
+        Get cached channel metadata.
+
+        Args:
+            channel_id: Channel ID
+            platform: Platform name
+
+        Returns:
+            Cached metadata dict or None if not cached/expired
+        """
+        key = f"{platform}:{channel_id}"
+        entry = self._channel_cache.get(key)
+        if entry and not entry.is_expired:
+            return entry.data
+        elif entry:
+            # Expired, clean up
+            del self._channel_cache[key]
+        return None
+
+    def set_channel(
+        self,
+        channel_id: str,
+        platform: str,
+        metadata: dict[str, Any],
+        ttl: Optional[int] = None,
+    ) -> None:
+        """
+        Cache channel metadata.
+
+        Args:
+            channel_id: Channel ID
+            platform: Platform name
+            metadata: Metadata to cache
+            ttl: TTL in seconds (default: use cache default)
+        """
+        key = f"{platform}:{channel_id}"
+        self._channel_cache[key] = MetadataCacheEntry(
+            data=metadata,
+            enriched_at=datetime.utcnow(),
+            ttl_seconds=ttl or self.default_ttl,
+        )
+
+    def invalidate_user(self, user_id: str, platform: str) -> None:
+        """Invalidate cached user metadata."""
+        key = f"{platform}:{user_id}"
+        self._user_cache.pop(key, None)
+
+    def invalidate_channel(self, channel_id: str, platform: str) -> None:
+        """Invalidate cached channel metadata."""
+        key = f"{platform}:{channel_id}"
+        self._channel_cache.pop(key, None)
+
+    def clear(self) -> None:
+        """Clear all cached metadata."""
+        self._user_cache.clear()
+        self._channel_cache.clear()
+
+    def stats(self) -> dict[str, Any]:
+        """Get cache statistics."""
+        return {
+            "user_entries": len(self._user_cache),
+            "channel_entries": len(self._channel_cache),
+            "default_ttl_seconds": self.default_ttl,
+        }
+
+
+# Global metadata cache instance
+_metadata_cache: Optional[MetadataCache] = None
+
+
+def get_metadata_cache() -> MetadataCache:
+    """Get or create global metadata cache."""
+    global _metadata_cache
+    if _metadata_cache is None:
+        _metadata_cache = MetadataCache()
+    return _metadata_cache
+
+
+def build_chat_context(
+    user: Optional[ChatUser] = None,
+    channel: Optional[ChatChannel] = None,
+    include_user: bool = True,
+    include_channel: bool = True,
+) -> dict[str, Any]:
+    """
+    Build context dict from user and channel for debate prompt injection.
+
+    Args:
+        user: ChatUser with enrichment data
+        channel: ChatChannel with enrichment data
+        include_user: Whether to include user context
+        include_channel: Whether to include channel context
+
+    Returns:
+        Context dict suitable for debate prompt injection
+    """
+    context: dict[str, Any] = {}
+
+    if include_user and user:
+        user_ctx = user.to_context_dict()
+        # Filter out None values
+        context["user"] = {k: v for k, v in user_ctx.items() if v is not None}
+
+    if include_channel and channel:
+        channel_ctx = channel.to_context_dict()
+        # Filter out None values
+        context["channel"] = {k: v for k, v in channel_ctx.items() if v is not None}
+
+    return context
