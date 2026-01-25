@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from aragora.agents.base import CritiqueMixin
 from aragora.core import Agent, Message
+from aragora.core_types import AgentRole
 from aragora.resilience import CircuitBreaker, get_circuit_breaker
 
 
@@ -21,7 +22,7 @@ class APIAgent(CritiqueMixin, Agent):
         self,
         name: str,
         model: str,
-        role: str = "proposer",
+        role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,
         base_url: str | None = None,
@@ -35,7 +36,7 @@ class APIAgent(CritiqueMixin, Agent):
         top_p: float | None = None,
         frequency_penalty: float | None = None,
     ):
-        super().__init__(name, model, role)  # type: ignore[arg-type]
+        super().__init__(name, model, role)
         self.timeout = timeout
         self.api_key = api_key
         self.base_url = base_url

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from aragora.agents.registry import AgentRegistry
 from aragora.core import Agent, Critique, Message, Vote
+from aragora.core_types import AgentRole
 
 _TASK_LABELS = ("Task:", "Original Task:")
 _MAX_TASK_LEN = 140
@@ -90,8 +91,8 @@ def _seed_from_name(name: str) -> int:
 class DemoAgent(Agent):
     """Deterministic agent for demos and smoke tests."""
 
-    def __init__(self, name: str, role: str = "proposer", model: str = "demo"):
-        super().__init__(name=name, model=model, role=role)  # type: ignore[arg-type]
+    def __init__(self, name: str, role: AgentRole = "proposer", model: str = "demo"):
+        super().__init__(name=name, model=model, role=role)
         self.agent_type = "demo"
         self._variant = _seed_from_name(name) % len(_PROPOSAL_VARIANTS)
 

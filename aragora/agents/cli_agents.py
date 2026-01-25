@@ -29,6 +29,7 @@ from aragora.agents.errors import (
 )
 from aragora.agents.registry import AgentRegistry
 from aragora.core import Agent, Critique, Message
+from aragora.core_types import AgentRole
 from aragora.resilience import CircuitBreaker, get_circuit_breaker
 
 if TYPE_CHECKING:
@@ -107,14 +108,14 @@ class CLIAgent(CritiqueMixin, Agent):
         self,
         name: str,
         model: str,
-        role: str = "proposer",
+        role: AgentRole = "proposer",
         timeout: int = 300,  # Increased default for complex operations
         enable_fallback: bool | None = None,  # None = use config setting
         circuit_breaker: CircuitBreaker | None = None,
         enable_circuit_breaker: bool = True,
         prefer_api: bool = False,  # Skip CLI, use OpenRouter directly
     ):
-        super().__init__(name, model, role)  # type: ignore[arg-type]
+        super().__init__(name, model, role)
         self.timeout = timeout
         # Use config setting if not explicitly provided
         if enable_fallback is None:

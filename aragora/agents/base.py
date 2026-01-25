@@ -19,6 +19,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal, Union
 
 from aragora.core import Agent, Critique, Message
+from aragora.core_types import AgentRole
 
 if TYPE_CHECKING:
     from aragora.agents.api_agents import APIAgent
@@ -49,7 +50,7 @@ class BaseDebateAgent(Agent):
         self,
         name: str = "agent",
         model: str = "default",
-        role: str = "proposer",
+        role: AgentRole = "proposer",
         persona: str = "",
         focus: str = "",
     ):
@@ -58,11 +59,11 @@ class BaseDebateAgent(Agent):
         Args:
             name: Agent name
             model: Model identifier (default: "default" for non-LLM agents)
-            role: Role in debate (proposer, critic, synthesizer)
+            role: Role in debate (proposer, critic, synthesizer, judge)
             persona: Character/style description for the agent
             focus: Specific area of focus for analysis
         """
-        super().__init__(name=name, model=model, role=role)  # type: ignore[arg-type]
+        super().__init__(name=name, model=model, role=role)
         self.persona = persona or self.persona
         self.focus = focus or self.focus
 
