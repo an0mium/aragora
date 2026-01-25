@@ -255,7 +255,7 @@ class TestGraphDebatesHandlerIntegration:
             handler = GraphDebatesHandler({})
 
             # Test route recognition
-            assert "/api/debates/graph" in handler.ROUTES
+            assert "/api/v1/debates/graph" in handler.ROUTES
         except ImportError:
             pytest.skip("GraphDebatesHandler not available")
 
@@ -341,17 +341,14 @@ class TestGraphSerialization:
     def test_graph_to_dict(self):
         """Test graph can be serialized to dict."""
         try:
-            from aragora.debate.graph_orchestrator import DebateGraph, GraphNode
+            from aragora.debate.graph_orchestrator import DebateGraph
+            from aragora.debate.graph import NodeType
 
             graph = DebateGraph()
             graph.add_node(
-                GraphNode(
-                    id="node-1",
-                    content="Test",
-                    agent="claude",
-                    round_num=1,
-                    branch_id="main",
-                )
+                node_type=NodeType.PROPOSAL,
+                agent_id="claude",
+                content="Test",
             )
 
             result = graph.to_dict()
@@ -364,17 +361,18 @@ class TestGraphSerialization:
     def test_branch_to_dict(self):
         """Test branch can be serialized to dict."""
         try:
-            from aragora.debate.graph_orchestrator import Branch
+            from aragora.debate.graph_orchestrator import GraphBranch
 
-            branch = Branch(
+            branch = GraphBranch(
                 id="branch-1",
-                parent_id="main",
-                fork_reason="Disagreement on approach",
+                name="Alternative",
+                start_node_id="node-1",
+                hypothesis="Disagreement on approach",
             )
 
             result = branch.to_dict()
 
             assert result["id"] == "branch-1"
-            assert result["parent_id"] == "main"
+            assert result["name"] == "Alternative"
         except ImportError:
             pytest.skip("Graph orchestrator not available")
