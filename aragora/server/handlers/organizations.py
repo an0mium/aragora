@@ -28,6 +28,9 @@ from typing import Optional
 from aragora.billing.models import OrganizationInvitation
 from aragora.server.validation.schema import ORG_INVITE_SCHEMA, validate_against_schema
 
+# Audit logging
+from aragora.audit.unified import audit_admin, audit_data
+
 # RBAC imports - graceful fallback if not available
 try:
     from aragora.rbac import AuthorizationContext, check_permission
@@ -502,6 +505,13 @@ class OrganizationsHandler(SecureHandler):
             return error_response("Failed to update organization", 500)
 
         logger.info(f"Organization {org_id} updated by user {user.id}")
+        audit_admin(
+            admin_id=user.id,
+            action="update_organization",
+            target_type="organization",
+            target_id=org_id,
+            changes=list(updates.keys()),
+        )
 
         org = user_store.get_organization_by_id(org_id)
         return json_response(
@@ -611,6 +621,14 @@ class OrganizationsHandler(SecureHandler):
                 return error_response("Failed to add user to organization", 500)
 
             logger.info(f"User {existing_user.id} added to org {org_id} by {user.id}")
+            audit_admin(
+                admin_id=user.id,
+                action="add_member",
+                target_type="organization_member",
+                target_id=existing_user.id,
+                org_id=org_id,
+                role=role,
+            )
 
             return json_response(
                 {
@@ -645,6 +663,15 @@ class OrganizationsHandler(SecureHandler):
         logger.info(
             f"Invitation created: {email} invited to org {org_id} by {user.id} "
             f"(token={invitation.token[:8]}...)"
+        )
+        audit_admin(
+            admin_id=user.id,
+            action="create_invitation",
+            target_type="invitation",
+            target_id=invitation.id,
+            org_id=org_id,
+            invited_email=email,
+            role=role,
         )
 
         return json_response(
@@ -703,6 +730,13 @@ class OrganizationsHandler(SecureHandler):
             return error_response("Failed to remove user from organization", 500)
 
         logger.info(f"User {target_user_id} removed from org {org_id} by {user.id}")
+        audit_admin(
+            admin_id=user.id,
+            action="remove_member",
+            target_type="organization_member",
+            target_id=target_user_id,
+            org_id=org_id,
+        )
 
         return json_response(
             {
@@ -756,6 +790,15 @@ class OrganizationsHandler(SecureHandler):
 
         logger.info(
             f"User {target_user_id} role changed to {new_role} in org {org_id} by {user.id}"
+        )
+        audit_admin(
+            admin_id=user.id,
+            action="update_member_role",
+            target_type="organization_member",
+            target_id=target_user_id,
+            org_id=org_id,
+            old_role=target_user.role,
+            new_role=new_role,
         )
 
         return json_response(
@@ -860,6 +903,14 @@ class OrganizationsHandler(SecureHandler):
         user_store.update_invitation_status(invitation_id, "revoked")
 
         logger.info(f"Invitation {invitation_id} revoked by {user.id}")
+        audit_admin(
+            admin_id=user.id,
+            action="revoke_invitation",
+            target_type="invitation",
+            target_id=invitation_id,
+            org_id=org_id,
+            invited_email=invitation.email,
+        )
 
         return json_response(
             {
@@ -952,6 +1003,14 @@ class OrganizationsHandler(SecureHandler):
         logger.info(
             f"User {user.id} accepted invitation to org {invitation.org_id} "
             f"with role {invitation.role}"
+        )
+        audit_data(
+            user_id=user.id,
+            resource_type="organization",
+            resource_id=invitation.org_id,
+            action="create",
+            membership_role=invitation.role,
+            invitation_id=invitation.id,
         )
 
         return json_response(

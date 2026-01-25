@@ -78,22 +78,44 @@ class PluginsHandler(BaseHandler):
 
         Legacy: /api/plugins/...
         Versioned: /api/v1/plugins/...
+
+        Note: The handler_registry may normalize versioned paths to legacy format
+        before dispatching. To detect the original format, we check for the absence
+        of version prefix patterns. A truly legacy path will NOT contain '/v1/'.
         """
+        # If path contains version prefix, it's versioned (even if partially normalized)
+        if "/v1/" in path or path.startswith("/api/v1/"):
+            return False
+        # Otherwise, it's legacy format (either original or normalized from versioned)
         return path.startswith("/api/plugins/") or path == "/api/plugins"
 
-    def _get_plugin_name_index(self, path: str) -> int:
-        """Get the path segment index for plugin name based on path format.
+    def _normalize_plugin_path(self, path: str) -> str:
+        """Normalize plugin path to canonical format for consistent extraction.
 
-        Uses path.strip("/").split("/") indexing:
-        Legacy path /api/plugins/{name}: ['api', 'plugins', '{name}'] -> index 2
-        Versioned path /api/v1/plugins/{name}: ['api', 'v1', 'plugins', '{name}'] -> index 3
+        Converts versioned paths to legacy format for uniform segment indexing.
+        /api/v1/plugins/{name} -> /api/plugins/{name}
         """
-        return 2 if self._is_legacy_path(path) else 3
+        if path.startswith("/api/v1/plugins"):
+            return path.replace("/api/v1/plugins", "/api/plugins", 1)
+        return path
+
+    def _get_plugin_name_index(self, path: str) -> int:
+        """Get the path segment index for plugin name.
+
+        Always returns index 2 since we normalize paths before extraction.
+        Uses path.strip("/").split("/") indexing:
+        Normalized path /api/plugins/{name}: ['api', 'plugins', '{name}'] -> index 2
+        """
+        # Always use index 2 since we normalize paths before extraction
+        return 2
 
     def _add_sunset_header_if_legacy(self, path: str, response: HandlerResult) -> HandlerResult:
         """Add HTTP Sunset header if request uses legacy (non-versioned) path.
 
         Per RFC 8594, the Sunset header indicates when an API will be retired.
+
+        Note: Only adds header for truly legacy paths, not for versioned paths
+        that were normalized by the handler registry.
         """
         if self._is_legacy_path(path):
             if response.headers is None:
@@ -177,8 +199,10 @@ class PluginsHandler(BaseHandler):
         elif path.startswith(("/api/v1/plugins/", "/api/plugins/")) and not path.endswith(
             ("/run", "/install")
         ):
-            idx = self._get_plugin_name_index(path)
-            plugin_name, err = self.extract_path_param(path, idx, "plugin_name")
+            # Normalize path for consistent extraction (always use index 2)
+            normalized = self._normalize_plugin_path(path)
+            idx = self._get_plugin_name_index(normalized)
+            plugin_name, err = self.extract_path_param(normalized, idx, "plugin_name")
             if err:
                 return self._add_sunset_header_if_legacy(path, err)
             response = self._get_plugin(plugin_name)
@@ -197,16 +221,20 @@ class PluginsHandler(BaseHandler):
 
         # Run plugin: /api/v1/plugins/{name}/run or /api/plugins/{name}/run
         elif path.startswith(("/api/v1/plugins/", "/api/plugins/")) and path.endswith("/run"):
-            idx = self._get_plugin_name_index(path)
-            plugin_name, err = self.extract_path_param(path, idx, "plugin_name")
+            # Normalize path for consistent extraction (always use index 2)
+            normalized = self._normalize_plugin_path(path)
+            idx = self._get_plugin_name_index(normalized)
+            plugin_name, err = self.extract_path_param(normalized, idx, "plugin_name")
             if err:
                 return self._add_sunset_header_if_legacy(path, err)
             response = self._run_plugin(plugin_name, handler)
 
         # Install plugin: /api/v1/plugins/{name}/install or /api/plugins/{name}/install
         elif path.startswith(("/api/v1/plugins/", "/api/plugins/")) and path.endswith("/install"):
-            idx = self._get_plugin_name_index(path)
-            plugin_name, err = self.extract_path_param(path, idx, "plugin_name")
+            # Normalize path for consistent extraction (always use index 2)
+            normalized = self._normalize_plugin_path(path)
+            idx = self._get_plugin_name_index(normalized)
+            plugin_name, err = self.extract_path_param(normalized, idx, "plugin_name")
             if err:
                 return self._add_sunset_header_if_legacy(path, err)
             response = self._install_plugin(plugin_name, handler)
@@ -221,8 +249,10 @@ class PluginsHandler(BaseHandler):
 
         # Uninstall plugin: /api/v1/plugins/{name}/install or /api/plugins/{name}/install
         if path.startswith(("/api/v1/plugins/", "/api/plugins/")) and path.endswith("/install"):
-            idx = self._get_plugin_name_index(path)
-            plugin_name, err = self.extract_path_param(path, idx, "plugin_name")
+            # Normalize path for consistent extraction (always use index 2)
+            normalized = self._normalize_plugin_path(path)
+            idx = self._get_plugin_name_index(normalized)
+            plugin_name, err = self.extract_path_param(normalized, idx, "plugin_name")
             if err:
                 return self._add_sunset_header_if_legacy(path, err)
             response = self._uninstall_plugin(plugin_name, handler)
