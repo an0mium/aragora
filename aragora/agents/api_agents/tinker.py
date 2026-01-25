@@ -15,6 +15,7 @@ from typing import Any, AsyncIterator, Coroutine, TypeVar
 from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.registry import AgentRegistry
 from aragora.core import Critique, Message
+from aragora.core_types import AgentRole
 from aragora.training.tinker_client import TinkerClient, TinkerConfig, TinkerModel
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ class TinkerAgent(APIAgent):
         self,
         name: str = "tinker",
         model: str = "llama-3.3-70b",
-        role: str = "proposer",
+        role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,
         model_id: str | None = None,
@@ -342,7 +343,7 @@ class TinkerLlamaAgent(TinkerAgent):
     def __init__(
         self,
         name: str = "tinker-llama",
-        role: str = "proposer",
+        role: AgentRole = "proposer",
         **kwargs,
     ):
         super().__init__(
@@ -366,7 +367,7 @@ class TinkerQwenAgent(TinkerAgent):
     def __init__(
         self,
         name: str = "tinker-qwen",
-        role: str = "proposer",
+        role: AgentRole = "proposer",
         **kwargs,
     ):
         super().__init__(
@@ -390,7 +391,7 @@ class TinkerDeepSeekAgent(TinkerAgent):
     def __init__(
         self,
         name: str = "tinker-deepseek",
-        role: str = "proposer",
+        role: AgentRole = "proposer",
         **kwargs,
     ):
         super().__init__(

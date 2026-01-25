@@ -17,6 +17,7 @@ from typing import AsyncGenerator, Optional
 import aiohttp
 
 from aragora.agents.api_agents.base import APIAgent
+from aragora.core_types import AgentRole
 from aragora.agents.api_agents.common import (
     AgentAPIError,
     AgentConnectionError,
@@ -48,7 +49,7 @@ class OllamaAgent(APIAgent):
         self,
         name: str = "ollama",
         model: str = "llama3.2",
-        role: str = "proposer",
+        role: AgentRole = "proposer",
         timeout: int = 180,
         base_url: str | None = None,
     ):

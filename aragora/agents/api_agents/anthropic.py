@@ -10,6 +10,7 @@ import re
 from typing import AsyncGenerator
 
 from aragora.agents.api_agents.base import APIAgent
+from aragora.core_types import AgentRole
 from aragora.agents.api_agents.common import (
     AgentAPIError,
     AgentConnectionError,
@@ -77,7 +78,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         self,
         name: str = "claude-api",
         model: str = "claude-opus-4-5-20251101",
-        role: str = "proposer",
+        role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,
         enable_fallback: bool | None = None,  # None = use config setting

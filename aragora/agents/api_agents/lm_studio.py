@@ -14,6 +14,7 @@ from typing import AsyncGenerator, Optional
 import aiohttp
 
 from aragora.agents.api_agents.base import APIAgent
+from aragora.core_types import AgentRole
 from aragora.agents.api_agents.common import (
     AgentAPIError,
     AgentConnectionError,
@@ -45,7 +46,7 @@ class LMStudioAgent(APIAgent):
         self,
         name: str = "lm-studio",
         model: str = "local-model",
-        role: str = "proposer",
+        role: AgentRole = "proposer",
         timeout: int = 180,
         base_url: str | None = None,
         max_tokens: int = 4096,

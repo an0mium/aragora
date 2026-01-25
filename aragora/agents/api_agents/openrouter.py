@@ -10,6 +10,7 @@ from typing import AsyncGenerator
 import aiohttp
 
 from aragora.agents.api_agents.base import APIAgent
+from aragora.core_types import AgentRole
 from aragora.agents.api_agents.common import (
     AgentAPIError,
     AgentConnectionError,
@@ -82,7 +83,7 @@ class OpenRouterAgent(APIAgent):
     def __init__(
         self,
         name: str = "openrouter",
-        role: str = "proposer",  # Use valid debate role (not "analyst")
+        role: AgentRole = "proposer",
         model: str = "deepseek/deepseek-chat",
         system_prompt: str | None = None,
         timeout: int = 300,
@@ -481,7 +482,7 @@ class DeepSeekAgent(OpenRouterAgent):
     def __init__(
         self,
         name: str = "deepseek",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "deepseek/deepseek-v3.2",
         system_prompt: str | None = None,
     ):
@@ -507,7 +508,7 @@ class DeepSeekReasonerAgent(OpenRouterAgent):
     def __init__(
         self,
         name: str = "deepseek-r1",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "deepseek/deepseek-reasoner",
         system_prompt: str | None = None,
     ):
@@ -524,7 +525,10 @@ class DeepSeekV3Agent(OpenRouterAgent):
     """DeepSeek V3.2 via OpenRouter - integrated thinking + tool-use, GPT-5 class reasoning."""
 
     def __init__(
-        self, name: str = "deepseek-v3", role: str = "analyst", system_prompt: str | None = None
+        self,
+        name: str = "deepseek-v3",
+        role: AgentRole = "analyst",
+        system_prompt: str | None = None,
     ):
         super().__init__(
             name=name,
@@ -548,7 +552,7 @@ class LlamaAgent(OpenRouterAgent):
     def __init__(
         self,
         name: str = "llama",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "meta-llama/llama-3.3-70b-instruct",
         system_prompt: str | None = None,
     ):
@@ -574,7 +578,7 @@ class MistralAgent(OpenRouterAgent):
     def __init__(
         self,
         name: str = "mistral",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "mistralai/mistral-large-2411",
         system_prompt: str | None = None,
     ):
@@ -600,7 +604,7 @@ class QwenAgent(OpenRouterAgent):
     def __init__(
         self,
         name: str = "qwen",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "qwen/qwen3-235b-a22b",
         system_prompt: str | None = None,
     ):
@@ -626,7 +630,7 @@ class QwenMaxAgent(OpenRouterAgent):
     def __init__(
         self,
         name: str = "qwen-max",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "qwen/qwen3-max",
         system_prompt: str | None = None,
     ):
@@ -652,7 +656,7 @@ class YiAgent(OpenRouterAgent):
     def __init__(
         self,
         name: str = "yi",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "01-ai/yi-large",
         system_prompt: str | None = None,
     ):
@@ -678,7 +682,7 @@ class KimiK2Agent(OpenRouterAgent):
     def __init__(
         self,
         name: str = "kimi",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "moonshotai/kimi-k2-0905",
         system_prompt: str | None = None,
     ):
@@ -704,7 +708,7 @@ class KimiThinkingAgent(OpenRouterAgent):
     def __init__(
         self,
         name: str = "kimi-thinking",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "moonshotai/kimi-k2-thinking",
         system_prompt: str | None = None,
     ):
@@ -734,7 +738,7 @@ class KimiLegacyAgent(APIAgent):
     def __init__(
         self,
         name: str = "kimi",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "moonshot-v1-8k",
         system_prompt: str | None = None,
         api_key: str | None = None,
@@ -849,7 +853,7 @@ class Llama4MaverickAgent(OpenRouterAgent):
     def __init__(
         self,
         name: str = "llama4-maverick",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "meta-llama/llama-4-maverick",
         system_prompt: str | None = None,
     ):
@@ -875,7 +879,7 @@ class Llama4ScoutAgent(OpenRouterAgent):
     def __init__(
         self,
         name: str = "llama4-scout",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "meta-llama/llama-4-scout",
         system_prompt: str | None = None,
     ):
@@ -904,7 +908,7 @@ class SonarAgent(OpenRouterAgent):
     def __init__(
         self,
         name: str = "sonar",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "perplexity/sonar-reasoning",
         system_prompt: str | None = None,
     ):
@@ -933,7 +937,7 @@ class CommandRAgent(OpenRouterAgent):
     def __init__(
         self,
         name: str = "command-r",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "cohere/command-r-plus",
         system_prompt: str | None = None,
     ):
@@ -962,7 +966,7 @@ class JambaAgent(OpenRouterAgent):
     def __init__(
         self,
         name: str = "jamba",
-        role: str = "analyst",
+        role: AgentRole = "analyst",
         model: str = "ai21/jamba-1.6-large",
         system_prompt: str | None = None,
     ):

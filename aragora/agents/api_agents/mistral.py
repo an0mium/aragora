@@ -5,6 +5,7 @@ Uses Mistral's native OpenAI-compatible API at api.mistral.ai.
 """
 
 from aragora.agents.api_agents.base import APIAgent
+from aragora.core_types import AgentRole
 from aragora.agents.api_agents.common import get_api_key
 from aragora.agents.api_agents.openai_compatible import OpenAICompatibleMixin
 from aragora.agents.registry import AgentRegistry
@@ -51,7 +52,7 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):  # type: ignore[misc]
         self,
         name: str = "mistral-api",
         model: str = "mistral-large-2512",
-        role: str = "proposer",
+        role: AgentRole = "proposer",
         timeout: int = 180,  # Increased from 60s - allow more time for complex responses
         api_key: str | None = None,
         enable_fallback: bool | None = None,  # None = use config setting
@@ -94,7 +95,7 @@ class CodestralAgent(MistralAPIAgent):
         self,
         name: str = "codestral",
         model: str = "codestral-latest",
-        role: str = "proposer",
+        role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,
     ):

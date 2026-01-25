@@ -14,6 +14,7 @@ from typing import AsyncGenerator
 import aiohttp
 
 from aragora.agents.api_agents.base import APIAgent
+from aragora.core_types import AgentRole
 from aragora.agents.api_agents.common import (
     AgentAPIError,
     AgentConnectionError,
@@ -85,7 +86,7 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
         self,
         name: str = "gemini",
         model: str = "gemini-3-pro-preview",  # Gemini 3 Pro Preview - advanced reasoning
-        role: str = "proposer",
+        role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,
         enable_fallback: bool | None = None,  # None = use config setting
