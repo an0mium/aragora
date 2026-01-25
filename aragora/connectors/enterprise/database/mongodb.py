@@ -22,6 +22,13 @@ from aragora.connectors.enterprise.base import (
     SyncItem,
     SyncState,
 )
+from aragora.connectors.enterprise.database.cdc import (
+    ChangeEvent,
+    CDCSourceType,
+    CDCStreamManager,
+    ChangeEventHandler,
+    ResumeTokenStore,
+)
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
@@ -67,6 +74,38 @@ class MongoDBConnector(EnterpriseConnector):
         self._client = None
         self._db = None
         self._change_stream_task = None
+
+        # CDC support
+        self._cdc_manager: Optional[CDCStreamManager] = None
+        self._change_handlers: List[ChangeEventHandler] = []
+        self._resume_token_store: Optional[ResumeTokenStore] = None
+
+    @property
+    def cdc_manager(self) -> CDCStreamManager:
+        """Get or create the CDC stream manager."""
+        if self._cdc_manager is None:
+            from aragora.connectors.enterprise.database.cdc import CompositeHandler
+
+            handler = CompositeHandler(self._change_handlers)
+            self._cdc_manager = CDCStreamManager(
+                connector_id=self.connector_id,
+                source_type=CDCSourceType.MONGODB,
+                handler=handler,
+                token_store=self._resume_token_store,
+            )
+        return self._cdc_manager
+
+    def add_change_handler(self, handler: ChangeEventHandler) -> None:
+        """Add a handler for change events."""
+        self._change_handlers.append(handler)
+        # Reset CDC manager to pick up new handler
+        self._cdc_manager = None
+
+    def set_resume_token_store(self, store: ResumeTokenStore) -> None:
+        """Set custom resume token store for persistence."""
+        self._resume_token_store = store
+        # Reset CDC manager to use new store
+        self._cdc_manager = None
 
     @property
     def source_type(self) -> SourceType:
@@ -365,35 +404,70 @@ class MongoDBConnector(EnterpriseConnector):
         return None
 
     async def start_change_stream(self):
-        """Start change stream for real-time updates."""
+        """Start change stream for real-time updates with resume token support."""
         if not self.use_change_streams:
             return
 
         await self._get_client()
 
+        # Mark CDC stream as running
+        self.cdc_manager.start()
+
         async def change_stream_loop():
             try:
-                pipeline = [{"$match": {"operationType": {"$in": ["insert", "update", "replace"]}}}]
+                pipeline = [
+                    {
+                        "$match": {
+                            "operationType": {"$in": ["insert", "update", "replace", "delete"]}
+                        }
+                    }
+                ]
 
-                async with self._db.watch(pipeline) as stream:
+                # Get resume token from store for reliable streaming
+                resume_token = self.cdc_manager.get_resume_token()
+                resume_after = None
+                if resume_token:
+                    try:
+                        resume_after = json.loads(resume_token)
+                        logger.info(f"[{self.name}] Resuming change stream from token")
+                    except json.JSONDecodeError:
+                        logger.warning(f"[{self.name}] Invalid resume token, starting fresh")
+
+                # Start change stream with resume support
+                watch_kwargs: Dict[str, Any] = {"pipeline": pipeline}
+                if resume_after:
+                    watch_kwargs["resume_after"] = resume_after
+
+                async with self._db.watch(**watch_kwargs) as stream:
                     logger.info(f"[{self.name}] Change stream started")
                     async for change in stream:
                         await self._handle_change(change)
             except Exception as e:
                 logger.error(f"[{self.name}] Change stream error: {e}")
+                self.cdc_manager.stop()
 
         self._change_stream_task = asyncio.create_task(change_stream_loop())
 
     async def _handle_change(self, change: Dict[str, Any]):
-        """Handle a change stream event."""
-        operation = change.get("operationType")
-        collection = change.get("ns", {}).get("coll")
-        change.get("documentKey", {})
+        """Handle a change stream event and emit ChangeEvent."""
+        try:
+            # Create unified ChangeEvent from MongoDB change stream
+            event = ChangeEvent.from_mongodb_change(
+                change=change,
+                connector_id=self.connector_id,
+            )
 
-        logger.info(f"[{self.name}] Change: {operation} on {collection}")
+            logger.info(f"[{self.name}] CDC event: {event.operation.value} on {event.table}")
 
-        # Trigger incremental sync
-        asyncio.create_task(self.sync(max_items=10))
+            # Process through CDC manager if handlers are configured
+            if self._change_handlers:
+                await self.cdc_manager.process_event(event)
+            else:
+                # Fallback to sync-based processing
+                asyncio.create_task(self.sync(max_items=10))
+
+        except Exception as e:
+            logger.warning(f"[{self.name}] Change handler error: {e}")
 
     async def stop_change_stream(self):
         """Stop the change stream."""
@@ -404,6 +478,10 @@ class MongoDBConnector(EnterpriseConnector):
             except asyncio.CancelledError:
                 pass
             self._change_stream_task = None
+
+        # Stop CDC manager
+        if self._cdc_manager:
+            self._cdc_manager.stop()
 
     async def close(self):
         """Close MongoDB client."""
