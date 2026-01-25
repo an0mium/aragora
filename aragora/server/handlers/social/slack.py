@@ -365,6 +365,16 @@ class SlackHandler(BaseHandler):
                 )
             elif subcommand == "agents":
                 return self._command_agents()
+            elif subcommand == "ask":
+                return self._command_ask(
+                    args, user_id, channel_id, response_url, workspace, team_id
+                )
+            elif subcommand == "search":
+                return self._command_search(args)
+            elif subcommand == "leaderboard":
+                return self._command_leaderboard()
+            elif subcommand == "recent":
+                return self._command_recent()
             else:
                 return self._slack_response(
                     f"Unknown command: `{subcommand}`. Use `/aragora help` for available commands.",
@@ -382,16 +392,26 @@ class SlackHandler(BaseHandler):
         """Show help message."""
         help_text = """*Aragora Slash Commands*
 
+*Core Commands:*
 `/aragora debate "topic"` - Start a multi-agent debate on a topic
+`/aragora ask "question"` - Quick Q&A without full debate
 `/aragora gauntlet "statement"` - Run adversarial stress-test validation
-`/aragora status` - Get system status
+
+*Discovery:*
+`/aragora search "query"` - Search debates and evidence
+`/aragora recent` - Show recent debates
+`/aragora leaderboard` - View agent rankings
+
+*Info:*
 `/aragora agents` - List available agents
+`/aragora status` - Get system status
 `/aragora help` - Show this help message
 
 *Examples:*
 - `/aragora debate "Should AI be regulated?"`
+- `/aragora ask "What is the capital of France?"`
 - `/aragora gauntlet "We should migrate to microservices"`
-- `/aragora status`
+- `/aragora search "machine learning"`
 """
         return self._slack_response(help_text, response_type="ephemeral")
 
@@ -496,6 +516,458 @@ class SlackHandler(BaseHandler):
             logger.exception(f"Unexpected agents command error: {e}")
             return self._slack_response(
                 f"Error listing agents: {str(e)[:100]}",
+                response_type="ephemeral",
+            )
+
+    def _command_ask(
+        self,
+        args: str,
+        user_id: str,
+        channel_id: str,
+        response_url: str,
+        workspace: Optional[Any] = None,
+        team_id: Optional[str] = None,
+    ) -> HandlerResult:
+        """Quick Q&A without full debate - uses single agent for fast answers.
+
+        Args:
+            args: The question to answer
+            user_id: Slack user ID
+            channel_id: Slack channel ID
+            response_url: URL for async responses
+            workspace: Resolved workspace object (for multi-workspace)
+            team_id: Slack team/workspace ID
+        """
+        if not args:
+            return self._slack_response(
+                'Please provide a question. Example: `/aragora ask "What is the capital of France?"`',
+                response_type="ephemeral",
+            )
+
+        # Strip quotes if present
+        question = args.strip().strip("\"'")
+
+        if len(question) < 5:
+            return self._slack_response(
+                "Question is too short. Please provide more detail.",
+                response_type="ephemeral",
+            )
+
+        if len(question) > 500:
+            return self._slack_response(
+                "Question is too long. Please limit to 500 characters.",
+                response_type="ephemeral",
+            )
+
+        # Acknowledge immediately
+        blocks: List[Dict[str, Any]] = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Processing question:*\n_{question[:200]}{'...' if len(question) > 200 else ''}_",
+                },
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"Asked by <@{user_id}> | Thinking...",
+                    },
+                ],
+            },
+        ]
+
+        # Queue the question asynchronously
+        if response_url:
+            create_tracked_task(
+                self._answer_question_async(question, response_url, user_id, channel_id),
+                name=f"slack-ask-{question[:30]}",
+            )
+
+        return self._slack_blocks_response(
+            blocks,
+            text=f"Processing: {question[:50]}...",
+            response_type="in_channel",
+        )
+
+    async def _answer_question_async(
+        self,
+        question: str,
+        response_url: str,
+        user_id: str,
+        channel_id: str,
+    ) -> None:
+        """Answer a question asynchronously using a single agent."""
+        import aiohttp
+
+        try:
+            # Call the quick answer API endpoint
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "http://localhost:8080/api/quick-answer",
+                    json={
+                        "question": question,
+                        "metadata": {
+                            "source": "slack",
+                            "channel_id": channel_id,
+                            "user_id": user_id,
+                        },
+                    },
+                    timeout=aiohttp.ClientTimeout(total=60),
+                ) as resp:
+                    if resp.status != 200:
+                        # Fallback to debate API if quick-answer not available
+                        data = {"answer": None, "error": "Quick answer service unavailable"}
+                    else:
+                        data = await resp.json()
+
+                    answer = data.get("answer")
+                    if not answer:
+                        # Fallback: use single-round debate
+                        async with session.post(
+                            "http://localhost:8080/api/debates",
+                            json={
+                                "task": question,
+                                "rounds": 1,
+                                "agents": ["anthropic-api"],
+                            },
+                            timeout=aiohttp.ClientTimeout(total=60),
+                        ) as debate_resp:
+                            if debate_resp.status == 200 or debate_resp.status == 201:
+                                debate_data = await debate_resp.json()
+                                answer = debate_data.get(
+                                    "final_answer", "Unable to generate answer."
+                                )
+                            else:
+                                answer = "Unable to generate answer at this time."
+
+                    # Build response blocks
+                    blocks = [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": f"*Question:*\n_{question[:200]}{'...' if len(question) > 200 else ''}_",
+                            },
+                        },
+                        {
+                            "type": "divider",
+                        },
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": f"*Answer:*\n{answer[:2000] if answer else 'No answer available'}",
+                            },
+                        },
+                        {
+                            "type": "context",
+                            "elements": [
+                                {
+                                    "type": "mrkdwn",
+                                    "text": f"Asked by <@{user_id}>",
+                                },
+                            ],
+                        },
+                    ]
+
+                    await self._post_to_response_url(
+                        response_url,
+                        {
+                            "response_type": "in_channel",
+                            "text": f"Answer: {answer[:100] if answer else 'No answer'}...",
+                            "blocks": blocks,
+                            "replace_original": False,
+                        },
+                    )
+
+        except Exception as e:
+            logger.error(f"Async question answering failed: {e}", exc_info=True)
+            await self._post_to_response_url(
+                response_url,
+                {
+                    "response_type": "in_channel",
+                    "text": f"Failed to answer question: {str(e)[:100]}",
+                    "replace_original": False,
+                },
+            )
+
+    def _command_search(self, args: str) -> HandlerResult:
+        """Search debates and evidence."""
+        if not args:
+            return self._slack_response(
+                'Please provide a search query. Example: `/aragora search "machine learning"`',
+                response_type="ephemeral",
+            )
+
+        query = args.strip().strip("\"'")
+
+        if len(query) < 2:
+            return self._slack_response(
+                "Search query is too short.",
+                response_type="ephemeral",
+            )
+
+        try:
+            from aragora.server.storage import get_debates_db
+
+            db = get_debates_db()
+            results = []
+
+            if db and hasattr(db, "search"):
+                results = db.search(query, limit=5)
+            elif db and hasattr(db, "list"):
+                # Fallback: manual search through recent debates
+                all_debates = db.list(limit=50)
+                query_lower = query.lower()
+                for d in all_debates:
+                    task = d.get("task", "")
+                    answer = d.get("final_answer", "")
+                    if query_lower in task.lower() or query_lower in answer.lower():
+                        results.append(d)
+                        if len(results) >= 5:
+                            break
+
+            if not results:
+                return self._slack_response(
+                    f"No results found for: `{query}`",
+                    response_type="ephemeral",
+                )
+
+            blocks: List[Dict[str, Any]] = [
+                {
+                    "type": "header",
+                    "text": {
+                        "type": "plain_text",
+                        "text": f"Search Results: {query[:30]}",
+                        "emoji": True,
+                    },
+                },
+            ]
+
+            for i, item in enumerate(results[:5]):
+                # Handle both dict and object formats
+                if isinstance(item, dict):
+                    topic = item.get("task", "Unknown")[:60]
+                    consensus = "" if item.get("consensus_reached") else ""
+                    debate_id = str(item.get("id", "unknown"))
+                    confidence = item.get("confidence", 0)
+                else:
+                    # Object format
+                    topic = str(getattr(item, "task", "Unknown"))[:60]
+                    consensus = "" if getattr(item, "consensus_reached", False) else ""
+                    debate_id = str(getattr(item, "id", "unknown"))
+                    confidence = getattr(item, "confidence", 0)
+
+                blocks.append(
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"*{i + 1}. {consensus} {topic}*\nConfidence: {confidence:.0%} | ID: `{debate_id[:8]}`",
+                        },
+                    }
+                )
+
+            blocks.append(
+                {
+                    "type": "context",
+                    "elements": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"Found {len(results)} result(s)",
+                        },
+                    ],
+                }
+            )
+
+            return self._slack_blocks_response(
+                blocks,
+                text=f"Found {len(results)} results for '{query}'",
+                response_type="ephemeral",
+            )
+
+        except ImportError as e:
+            logger.warning(f"Storage not available for search: {e}")
+            return self._slack_response(
+                "Search service temporarily unavailable",
+                response_type="ephemeral",
+            )
+        except Exception as e:
+            logger.exception(f"Unexpected search error: {e}")
+            return self._slack_response(
+                f"Search failed: {str(e)[:100]}",
+                response_type="ephemeral",
+            )
+
+    def _command_leaderboard(self) -> HandlerResult:
+        """Show agent rankings leaderboard."""
+        try:
+            from aragora.ranking.elo import EloSystem
+
+            store = EloSystem()
+            agents = store.get_all_ratings()
+
+            if not agents:
+                return self._slack_response(
+                    "No agents ranked yet. Start some debates first!",
+                    response_type="ephemeral",
+                )
+
+            # Sort by ELO
+            agents = sorted(agents, key=lambda a: getattr(a, "elo", 1500), reverse=True)
+
+            blocks: List[Dict[str, Any]] = [
+                {
+                    "type": "header",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "Agent Leaderboard",
+                        "emoji": True,
+                    },
+                },
+            ]
+
+            # Build leaderboard table
+            leaderboard_text = "```\n"
+            leaderboard_text += f"{'Rank':<5} {'Agent':<20} {'ELO':<8} {'W/L':<10}\n"
+            leaderboard_text += "-" * 45 + "\n"
+
+            for i, agent in enumerate(agents[:10]):
+                name = getattr(agent, "name", "Unknown")[:18]
+                elo = getattr(agent, "elo", 1500)
+                wins = getattr(agent, "wins", 0)
+                losses = getattr(agent, "losses", 0)
+                medal = ["", "", ""][i] if i < 3 else f"{i + 1}."
+                leaderboard_text += f"{medal:<5} {name:<20} {elo:<8.0f} {wins}/{losses}\n"
+
+            leaderboard_text += "```"
+
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": leaderboard_text,
+                    },
+                }
+            )
+
+            blocks.append(
+                {
+                    "type": "context",
+                    "elements": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"Total agents: {len(agents)} | Rankings based on debate performance",
+                        },
+                    ],
+                }
+            )
+
+            return self._slack_blocks_response(
+                blocks,
+                text="Agent Leaderboard",
+                response_type="in_channel",
+            )
+
+        except ImportError as e:
+            logger.warning(f"ELO system not available for leaderboard: {e}")
+            return self._slack_response(
+                "Leaderboard service temporarily unavailable",
+                response_type="ephemeral",
+            )
+        except Exception as e:
+            logger.exception(f"Unexpected leaderboard error: {e}")
+            return self._slack_response(
+                f"Leaderboard failed: {str(e)[:100]}",
+                response_type="ephemeral",
+            )
+
+    def _command_recent(self) -> HandlerResult:
+        """Show recent debates."""
+        try:
+            from aragora.server.storage import get_debates_db
+
+            db = get_debates_db()
+            if not db or not hasattr(db, "list"):
+                return self._slack_response(
+                    "Debate history not available",
+                    response_type="ephemeral",
+                )
+
+            debates = db.list(limit=10)
+
+            if not debates:
+                return self._slack_response(
+                    'No recent debates found. Start one with `/aragora debate "Your topic"`',
+                    response_type="ephemeral",
+                )
+
+            blocks: List[Dict[str, Any]] = [
+                {
+                    "type": "header",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "Recent Debates",
+                        "emoji": True,
+                    },
+                },
+            ]
+
+            for i, debate in enumerate(debates[:10]):
+                topic = debate.get("task", "Unknown topic")[:50]
+                consensus = "" if debate.get("consensus_reached") else ""
+                confidence = debate.get("confidence", 0)
+                debate_id = debate.get("id", "unknown")
+                created = debate.get("created_at", "")[:10]  # Date only
+
+                blocks.append(
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"*{i + 1}. {consensus} {topic}{'...' if len(debate.get('task', '')) > 50 else ''}*\n{confidence:.0%} confidence | {created} | `{debate_id[:8]}`",
+                        },
+                        "accessory": {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "Details"},
+                            "action_id": "view_details",
+                            "value": debate_id,
+                        },
+                    }
+                )
+
+            blocks.append(
+                {
+                    "type": "context",
+                    "elements": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"Showing {len(debates)} most recent debates",
+                        },
+                    ],
+                }
+            )
+
+            return self._slack_blocks_response(
+                blocks,
+                text="Recent Debates",
+                response_type="ephemeral",
+            )
+
+        except ImportError as e:
+            logger.warning(f"Storage not available for recent debates: {e}")
+            return self._slack_response(
+                "Recent debates service temporarily unavailable",
+                response_type="ephemeral",
+            )
+        except Exception as e:
+            logger.exception(f"Unexpected recent debates error: {e}")
+            return self._slack_response(
+                f"Failed to get recent debates: {str(e)[:100]}",
                 response_type="ephemeral",
             )
 
