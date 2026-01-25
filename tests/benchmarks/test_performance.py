@@ -55,8 +55,13 @@ class TestDebatePerformance:
             patch.object(
                 Arena, "_fetch_knowledge_context", new_callable=AsyncMock, return_value=None
             ),
+            patch.object(Arena, "_init_km_context", new_callable=AsyncMock, return_value=None),
         ):
             arena = Arena(benchmark_environment, benchmark_agents, protocol)
+
+            # Mock prompt_builder.classify_question_async to avoid LLM calls
+            if arena.prompt_builder:
+                arena.prompt_builder.classify_question_async = AsyncMock(return_value=None)
 
             start = time.perf_counter()
             result = await asyncio.wait_for(arena.run(), timeout=30.0)
@@ -78,10 +83,15 @@ class TestDebatePerformance:
             patch.object(
                 Arena, "_fetch_knowledge_context", new_callable=AsyncMock, return_value=None
             ),
+            patch.object(Arena, "_init_km_context", new_callable=AsyncMock, return_value=None),
         ):
             for num_rounds in [1, 2, 3]:
                 protocol = DebateProtocol(rounds=num_rounds, consensus="any")
                 arena = Arena(benchmark_environment, benchmark_agents, protocol)
+
+                # Mock prompt_builder.classify_question_async to avoid LLM calls
+                if arena.prompt_builder:
+                    arena.prompt_builder.classify_question_async = AsyncMock(return_value=None)
 
                 start = time.perf_counter()
                 await asyncio.wait_for(arena.run(), timeout=60.0)
