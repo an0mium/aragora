@@ -72,6 +72,39 @@ from aragora.observability.metrics.webhook import (  # noqa: F401, E402
     WebhookDeliveryTimer,
 )
 
+from aragora.observability.metrics.debate import (  # noqa: F401, E402
+    init_debate_metrics,
+    record_debate_completion as record_debate_completion_v2,
+    record_phase_duration as record_phase_duration_v2,
+    record_agent_participation as record_agent_participation_v2,
+    record_slow_debate,
+    record_slow_round as record_slow_round_v2,
+    record_round_latency as record_round_latency_v2,
+    set_active_debates,
+    increment_active_debates,
+    decrement_active_debates,
+    set_consensus_rate as set_consensus_rate_v2,
+    track_debate as track_debate_v2,
+    track_phase as track_phase_v2,
+)
+
+from aragora.observability.metrics.request import (  # noqa: F401, E402
+    init_request_metrics,
+    record_request as record_request_v2,
+    record_latency,
+    measure_latency as measure_latency_v2,
+    measure_async_latency as measure_async_latency_v2,
+)
+
+from aragora.observability.metrics.agent import (  # noqa: F401, E402
+    init_agent_metrics,
+    record_agent_call as record_agent_call_v2,
+    record_agent_latency,
+    record_agent_error,
+    record_token_usage,
+    track_agent_call,
+)
+
 # Explicit re-exports for mypy compatibility (dynamic imports aren't tracked)
 from _aragora_metrics_impl import (  # noqa: F401, E402
     # Server/startup
