@@ -3087,7 +3087,62 @@ export interface paths {
          *
          *     **Filtering:** Results are filtered to debates owned by or shared with the authenticated user.
          */
-        get: operations["listDebates"];
+        get: {
+            parameters: {
+                query?: {
+                    /**
+                     * @description Maximum number of debates to return
+                     * @example 20
+                     */
+                    limit?: number;
+                    /**
+                     * @description Number of debates to skip
+                     * @example 0
+                     */
+                    offset?: number;
+                    /** @description Filter by debate status */
+                    status?: "running" | "completed" | "failed" | "paused";
+                    /** @description Filter debates created after this timestamp */
+                    since?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of debates */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: components["schemas"]["Debate"][];
+                            total?: number;
+                        };
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Too many requests - Rate limit exceeded */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
         put?: never;
         /**
          * Create a new debate
@@ -3102,7 +3157,66 @@ export interface paths {
          *
          *     **WebSocket:** After creation, connect to the returned `websocket_url` to stream real-time debate progress.
          */
-        post: operations["createDebate"];
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DebateCreateRequest"];
+                };
+            };
+            responses: {
+                /** @description Debate created successfully */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DebateCreateResponse"];
+                    };
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Payment required - Quota exceeded, upgrade required */
+                402: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Too many requests - Rate limit exceeded */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -35606,122 +35720,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    listDebates: {
-        parameters: {
-            query?: {
-                /**
-                 * @description Maximum number of debates to return
-                 * @example 20
-                 */
-                limit?: number;
-                /**
-                 * @description Number of debates to skip
-                 * @example 0
-                 */
-                offset?: number;
-                /** @description Filter by debate status */
-                status?: "running" | "completed" | "failed" | "paused";
-                /** @description Filter debates created after this timestamp */
-                since?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of debates */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        items?: components["schemas"]["Debate"][];
-                        total?: number;
-                    };
-                };
-            };
-            /** @description Unauthorized - Authentication required or token invalid */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Too many requests - Rate limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createDebate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DebateCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description Debate created successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DebateCreateResponse"];
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized - Authentication required or token invalid */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Payment required - Quota exceeded, upgrade required */
-            402: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Too many requests - Rate limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     listDebates: {
         parameters: {
             query?: {

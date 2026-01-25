@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { PriorityInboxList, type PrioritizedEmail } from './PriorityInboxList';
 import { TriageRulesPanel } from './TriageRulesPanel';
 import { QuickActionsBar } from './QuickActionsBar';
@@ -60,7 +61,7 @@ export function CommandCenter() {
         });
       }
     } catch (error) {
-      console.error('Failed to fetch emails:', error);
+      logger.error('Failed to fetch emails:', error);
     } finally {
       setLoading(false);
     }
@@ -86,7 +87,7 @@ export function CommandCenter() {
         setSenderProfile(profile);
       }
     } catch (error) {
-      console.error('Failed to fetch sender profile:', error);
+      logger.error('Failed to fetch sender profile:', error);
       setSenderProfile(null);
     }
   }, []);
@@ -112,7 +113,7 @@ export function CommandCenter() {
         }
       }
     } catch (error) {
-      console.error('Failed to execute action:', error);
+      logger.error('Failed to execute action:', error);
     }
   }, [selectedEmail, fetchEmails]);
 

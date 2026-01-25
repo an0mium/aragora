@@ -53,6 +53,20 @@ route:
         alertname: (PostgreSQL|Redis).*
       receiver: 'slack-infrastructure'
 
+    # SLO alerts - critical burn rate
+    - match:
+        slo: availability
+        severity: critical
+      receiver: 'pagerduty-slo'
+      repeat_interval: 30m
+
+    # SLO alerts - all SLO-related to dedicated channel
+    - match_re:
+        alertname: SLO.*
+      receiver: 'slack-slo'
+      group_by: ['alertname', 'slo']
+      repeat_interval: 2h
+
 # Receivers configuration
 receivers:
   # Default Slack notifications
@@ -121,6 +135,52 @@ receivers:
           severity: '{{ .CommonLabels.severity }}'
           description: '{{ .Annotations.description }}'
           runbook: '{{ .Annotations.runbook_url }}'
+
+  # SLO-specific Slack channel
+  - name: 'slack-slo'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#aragora-slo'
+        username: 'SLO Monitor'
+        icon_emoji: ':chart_with_upwards_trend:'
+        color: '{{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}danger{{ else }}warning{{ end }}{{ else }}good{{ end }}'
+        title: '[SLO {{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+        text: |
+          *SLO:* {{ .CommonLabels.slo }}
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Runbook:* {{ .Annotations.runbook_url }}
+          {{ end }}
+        send_resolved: true
+
+  # PagerDuty for critical SLO violations
+  - name: 'pagerduty-slo'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SLO_SERVICE_KEY}'
+        severity: critical
+        class: 'slo_violation'
+        description: 'SLO {{ .CommonLabels.slo }}: {{ .Annotations.summary }}'
+        details:
+          alertname: '{{ .GroupLabels.alertname }}'
+          slo: '{{ .CommonLabels.slo }}'
+          severity: '{{ .CommonLabels.severity }}'
+          description: '{{ .Annotations.description }}'
+          runbook: '{{ .Annotations.runbook_url }}'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#aragora-slo'
+        username: 'SLO Alert (CRITICAL)'
+        icon_emoji: ':fire:'
+        color: 'danger'
+        title: ':fire: CRITICAL SLO VIOLATION'
+        text: |
+          *SLO:* {{ .CommonLabels.slo }}
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
+        send_resolved: true
 
 # Inhibition rules - suppress notifications
 inhibit_rules:

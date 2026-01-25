@@ -14,6 +14,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useApi } from './useApi';
 import { useBackend } from '@/components/BackendSelector';
+import { logger } from '@/utils/logger';
 import {
   useWorkflowBuilderStore,
   type WorkflowDefinition,
@@ -323,7 +324,7 @@ export function useWorkflowBuilder({
       const data = await api.get('/api/workflow-templates') as { templates: WorkflowTemplate[] };
       setTemplates(data.templates || []);
     } catch (error) {
-      console.error('Failed to load templates:', error);
+      logger.error('Failed to load templates:', error);
     }
   }, [api, setTemplates]);
 
@@ -358,7 +359,7 @@ export function useWorkflowBuilder({
       const data = await api.get('/api/workflows') as { workflows: WorkflowDefinition[] };
       setWorkflows(data.workflows || []);
     } catch (error) {
-      console.error('Failed to load workflows:', error);
+      logger.error('Failed to load workflows:', error);
     }
   }, [api, setWorkflows]);
 

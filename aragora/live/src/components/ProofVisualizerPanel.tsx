@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { fetchWithRetry } from '@/utils/retry';
 import { API_BASE_URL } from '@/config';
 import { ProofTreeVisualization } from './ProofTreeVisualization';
@@ -124,7 +125,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
         setBackendStatus(data);
       }
     } catch (err) {
-      console.error('Failed to fetch verification status:', err);
+      logger.error('Failed to fetch verification status:', err);
     } finally {
       setStatusLoading(false);
     }
@@ -153,7 +154,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
         setHistoryTotal(data.total || 0);
       }
     } catch (err) {
-      console.error('Failed to fetch verification history:', err);
+      logger.error('Failed to fetch verification history:', err);
     } finally {
       setHistoryLoading(false);
     }
@@ -169,7 +170,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
         setShowProofTree(false);
       }
     } catch (err) {
-      console.error('Failed to fetch history entry:', err);
+      logger.error('Failed to fetch history entry:', err);
     }
   };
 
@@ -206,7 +207,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
         fetchHistory();
       }
     } catch (err) {
-      console.error('Verification failed:', err);
+      logger.error('Verification failed:', err);
       setSingleResult({
         status: 'error',
         error_message: String(err),
@@ -240,7 +241,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
       const data = await response.json();
       setBatchResult(data);
     } catch (err) {
-      console.error('Batch verification failed:', err);
+      logger.error('Batch verification failed:', err);
       setBatchResult({
         status: 'error',
         error: 'Batch verification failed. Please try again.',
@@ -271,7 +272,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
       const data = await response.json();
       setTranslationResult(data);
     } catch (err) {
-      console.error('Translation failed:', err);
+      logger.error('Translation failed:', err);
       setTranslationResult({
         status: 'error',
         error: 'Translation failed. Please try again.',

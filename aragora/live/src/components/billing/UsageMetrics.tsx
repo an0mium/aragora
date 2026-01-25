@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 
 const API_BASE = API_BASE_URL;
 
@@ -45,7 +46,7 @@ export function UsageMetrics({ compact = false, className = '' }: UsageMetricsPr
         setUsage(data.usage);
       }
     } catch (err) {
-      console.error('Failed to fetch usage:', err);
+      logger.error('Failed to fetch usage:', err);
     } finally {
       setLoading(false);
     }

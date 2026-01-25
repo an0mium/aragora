@@ -228,6 +228,7 @@ ignore = ["E402", "E501"]
 "aragora/nomic/gates.py" = ["T201"]  # Interactive approval prompts
 "scripts/*" = ["T201", "F401", "F841"]
 "tests/*" = ["T201", "F401", "F841"]
+"examples/*" = ["T201"]  # Example code uses print for demonstration
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -13,6 +13,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useApi } from './useApi';
 import { useBackend } from '@/components/BackendSelector';
+import { logger } from '@/utils/logger';
 
 // Execution types
 export type ExecutionStatus =
@@ -332,7 +333,7 @@ export function useWorkflowExecution({
           const data = JSON.parse(event.data) as ExecutionEvent;
           handleEvent(data);
         } catch (error) {
-          console.error('Failed to parse execution event:', error);
+          logger.error('Failed to parse execution event:', error);
         }
       };
 

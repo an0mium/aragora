@@ -6,6 +6,7 @@ import { useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { ErrorWithRetry } from '@/components/RetryButton';
 import { fetchWithRetry } from '@/utils/retry';
+import { logger } from '@/utils/logger';
 import type {
   GenesisStats,
   GenesisEvent,
@@ -133,7 +134,7 @@ export default function GenesisPage() {
         setAllGenomes(data.genomes || []);
       }
     } catch (err) {
-      console.error('Failed to fetch genomes:', err);
+      logger.error('Failed to fetch genomes:', err);
     }
   }, [backendConfig.api]);
 
@@ -156,7 +157,7 @@ export default function GenesisPage() {
         setLineage([]);
       }
     } catch (err) {
-      console.error('Failed to fetch lineage:', err);
+      logger.error('Failed to fetch lineage:', err);
       setLineage([]);
     }
   }, [backendConfig.api]);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { useAuth } from '@/context/AuthContext';
 
 interface ModelAlternative {
@@ -119,7 +120,7 @@ export function OptimizationRecommendations({ workspaceId = 'default' }: Props) 
         setSummary(data.summary || null);
       }
     } catch (error) {
-      console.error('Failed to fetch recommendations:', error);
+      logger.error('Failed to fetch recommendations:', error);
     } finally {
       setLoading(false);
     }
@@ -147,7 +148,7 @@ export function OptimizationRecommendations({ workspaceId = 'default' }: Props) 
         await fetchRecommendations();
       }
     } catch (error) {
-      console.error('Failed to apply recommendation:', error);
+      logger.error('Failed to apply recommendation:', error);
     } finally {
       setApplying(null);
     }
@@ -169,7 +170,7 @@ export function OptimizationRecommendations({ workspaceId = 'default' }: Props) 
         await fetchRecommendations();
       }
     } catch (error) {
-      console.error('Failed to dismiss recommendation:', error);
+      logger.error('Failed to dismiss recommendation:', error);
     }
   };
 

@@ -14,7 +14,8 @@ Context for Claude Code when working with the Aragora codebase.
 | Agents | `aragora/agents/` | `cli_agents.py`, `api_agents/` |
 | Server | `aragora/server/` | `unified_server.py`, `handlers/`, `startup.py` |
 | Memory | `aragora/memory/` | `continuum.py`, `consensus.py`, `coordinator.py` |
-| Nomic loop | `scripts/` | `nomic_loop.py`, `run_nomic_with_stream.py` |
+| Nomic loop | `scripts/` | `nomic_loop.py`, `run_nomic_with_stream.py`, `self_develop.py` |
+| Self-improvement | `aragora/nomic/` | `meta_planner.py`, `branch_coordinator.py`, `task_decomposer.py` |
 | Reasoning | `aragora/reasoning/` | `belief.py`, `provenance.py`, `claims.py` |
 | Workflow | `aragora/workflow/` | `engine.py`, `patterns/`, `nodes/`, `templates/` |
 | RLM | `aragora/rlm/` | `factory.py`, `bridge.py`, `handler.py` |
@@ -129,6 +130,60 @@ The autonomous self-improvement cycle (`scripts/nomic_loop.py`):
 | 4 | Verify | Tests and checks |
 
 **Safety features:** Automatic backups, protected file checksums, rollback on failure, human approval for dangerous changes.
+
+## Self-Improvement CLI
+
+The self-improvement system uses the Nomic Loop components programmatically. Two CLI tools are available:
+
+### Quick Start (Dry Run)
+
+Preview goal decomposition without executing:
+
+```bash
+# Fast heuristic decomposition for concrete goals
+python scripts/self_develop.py --goal "Refactor dashboard.tsx and api.py" --dry-run
+
+# Debate-based decomposition for abstract goals (slower, more nuanced)
+python scripts/self_develop.py --goal "Maximize utility for SME businesses" --dry-run --debate
+```
+
+### Full Autonomous Run
+
+```bash
+# Run with human approval at checkpoints
+python scripts/self_develop.py --goal "Improve test coverage" --require-approval
+
+# Focus on specific tracks
+python scripts/self_develop.py --goal "Enhance SDK" --tracks developer qa
+
+# Parallel execution across tracks
+python scripts/self_develop.py --goal "Improve SME experience" --tracks sme developer --max-parallel 2
+```
+
+### Staged Execution
+
+Run individual Nomic Loop phases for fine-grained control:
+
+```bash
+# Run phases individually
+python scripts/nomic_staged.py debate      # Multi-agent debate on improvements
+python scripts/nomic_staged.py design      # Design the implementation
+python scripts/nomic_staged.py implement   # Generate implementation instructions
+python scripts/nomic_staged.py verify      # Verify changes work
+python scripts/nomic_staged.py commit      # Commit the changes
+
+# Run debate + design + implement, then pause before verify
+python scripts/nomic_staged.py all
+```
+
+### Key Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| MetaPlanner | `aragora/nomic/meta_planner.py` | Debate-driven goal prioritization |
+| BranchCoordinator | `aragora/nomic/branch_coordinator.py` | Parallel branch management |
+| TaskDecomposer | `aragora/nomic/task_decomposer.py` | Break complex tasks into subtasks |
+| AutonomousOrchestrator | `aragora/nomic/autonomous_orchestrator.py` | End-to-end orchestration |
 
 ## Common Patterns
 

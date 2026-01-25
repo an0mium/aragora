@@ -4,6 +4,7 @@
  */
 
 import type { EventHandlerContext, ParsedEventData } from './types';
+import { logger } from '@/utils/logger';
 
 /**
  * Handle acknowledgment event

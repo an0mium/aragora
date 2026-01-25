@@ -131,7 +131,7 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
         }
       }
     } catch (err) {
-      console.error('Failed to fetch evidence:', err);
+      logger.error('Failed to fetch evidence:', err);
       setEvidence([]);
       setEvidenceError('Unable to fetch evidence. Please check your connection.');
     }
@@ -164,7 +164,7 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
         }
       }
     } catch (err) {
-      console.error('Failed to fetch graph nodes:', err);
+      logger.error('Failed to fetch graph nodes:', err);
       setGraphNodes([]);
       setGraphError('Unable to fetch argument graph. Please check your connection.');
     }

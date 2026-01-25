@@ -148,8 +148,8 @@ export function useDebateWebSocket({
     const checkStall = () => {
       const timeSinceLastEvent = Date.now() - lastEventTimestampRef.current;
       if (timeSinceLastEvent > STALL_WARNING_MS) {
-        console.warn(`[WS] Debate may be stalled - no events for ${Math.round(timeSinceLastEvent / 1000)}s`);
-        console.warn('[WS] Check server logs for consensus_phase or synthesis_or_hooks_failed errors');
+        logger.warn(`[WS] Debate may be stalled - no events for ${Math.round(timeSinceLastEvent / 1000)}s`);
+        logger.warn('[WS] Check server logs for consensus_phase or synthesis_or_hooks_failed errors');
       }
     };
 
@@ -376,9 +376,9 @@ export function useDebateWebSocket({
         if (gap <= 2) {
           logger.debug(`Sequence reorder: expected ${lastSeqRef.current + 1}, got ${data.seq}`);
         } else if (gap <= 5) {
-          console.warn(`[WebSocket] Sequence gap: ${gap} events (minor, likely reordering)`);
+          logger.warn(`[WebSocket] Sequence gap: ${gap} events (minor, likely reordering)`);
         } else {
-          console.error(`[WebSocket] Large sequence gap: ${gap} events missed - may have lost data`);
+          logger.error(`[WebSocket] Large sequence gap: ${gap} events missed - may have lost data`);
         }
       }
       lastSeqRef.current = data.seq as number;

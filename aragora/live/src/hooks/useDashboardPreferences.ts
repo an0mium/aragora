@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 
 export type DashboardMode = 'focus' | 'explorer';
 
@@ -35,7 +36,7 @@ export function useDashboardPreferences() {
         setPreferences({ ...DEFAULT_PREFERENCES, ...parsed });
       }
     } catch (e) {
-      console.error('Failed to load dashboard preferences:', e);
+      logger.error('Failed to load dashboard preferences:', e);
     }
     setIsLoaded(true);
   }, []);
@@ -46,7 +47,7 @@ export function useDashboardPreferences() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
     } catch (e) {
-      console.error('Failed to save dashboard preferences:', e);
+      logger.error('Failed to save dashboard preferences:', e);
     }
   }, [preferences, isLoaded]);
 

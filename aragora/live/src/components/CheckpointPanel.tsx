@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchWithRetry } from '@/utils/retry';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 
 interface Checkpoint {
   checkpoint_id: string;

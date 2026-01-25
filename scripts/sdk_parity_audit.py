@@ -33,6 +33,12 @@ class Endpoint:
 
 def normalize_path(path: str) -> str:
     path = path.split("?", 1)[0]
+    if (
+        path.startswith("/api/")
+        and not path.startswith("/api/v1/")
+        and not path.startswith("/api/v2/")
+    ):
+        path = path.replace("/api/", "/api/v1/", 1)
     return re.sub(r"{[^}]+}", "{param}", path)
 
 
@@ -41,15 +47,24 @@ def normalize_template(path: str) -> str:
     return normalize_path(path)
 
 
-def load_openapi(path: Path) -> set[Endpoint]:
+def load_openapi(path: Path) -> tuple[set[Endpoint], int]:
     data = json.loads(path.read_text())
     endpoints: set[Endpoint] = set()
+    deprecated_count = 0
     for raw_path, methods in data.get("paths", {}).items():
+        path_deprecated = isinstance(methods, dict) and methods.get("deprecated") is True
         for method, _ in methods.items():
             method_upper = method.upper()
             if method_upper in HTTP_METHODS:
+                operation = methods[method]
+                operation_deprecated = (
+                    isinstance(operation, dict) and operation.get("deprecated") is True
+                )
+                if path_deprecated or operation_deprecated:
+                    deprecated_count += 1
+                    continue
                 endpoints.add(Endpoint(method_upper, raw_path).normalized())
-    return endpoints
+    return endpoints, deprecated_count
 
 
 REQUEST_RE = re.compile(
@@ -185,6 +200,7 @@ def render_report(
     ts_sdk: set[Endpoint],
     py_sdk: set[Endpoint],
     ts_client: set[Endpoint],
+    deprecated_count: int,
 ) -> str:
     openapi_total = len(openapi)
     ts_total = len(ts_sdk)
@@ -216,11 +232,14 @@ def render_report(
         f"| Total endpoints | {openapi_total} | {ts_total} | {py_total} |",
         f"| Covered endpoints | - | {ts_covered} | {py_covered} |",
         f"| Coverage | - | {ts_coverage:.1f}% | {py_coverage:.1f}% |",
+        f"| Deprecated endpoints (excluded) | {deprecated_count} | - | - |",
         "",
         "## Scope Notes",
         "",
-        "- `sdk/typescript` targets `/api` plus legacy `/api/v1` endpoints.",
-        "- `aragora-py` targets `/api/v1` endpoints only.",
+        "- Coverage excludes deprecated endpoints from the OpenAPI total.",
+        "- `/api` is normalized to `/api/v1` for SDK comparisons.",
+        "- `sdk/typescript` primarily targets `/api` with `/api/v1` aliases.",
+        "- `aragora-py` targets `/api/v1` endpoints.",
         "- `aragora-js` is a lightweight `/api/v1` client (reported below for reference).",
         "",
         "## Coverage by Category (sdk/typescript)",
@@ -273,12 +292,12 @@ def main() -> None:
     py_sdk_dir = Path(args.py_sdk)
     ts_client_dir = Path(args.ts_client)
 
-    openapi = load_openapi(openapi_path)
+    openapi, deprecated_count = load_openapi(openapi_path)
     ts_sdk = parse_ts_sdk(iter_files(ts_sdk_dir, ".ts"))
     py_sdk = parse_python_sdk(iter_files(py_sdk_dir, ".py"))
     ts_client = parse_ts_client(iter_files(ts_client_dir, ".ts"))
 
-    report = render_report(openapi, ts_sdk, py_sdk, ts_client)
+    report = render_report(openapi, ts_sdk, py_sdk, ts_client, deprecated_count)
 
     if args.output:
         Path(args.output).write_text(report)

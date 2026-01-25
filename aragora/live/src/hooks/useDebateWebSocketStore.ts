@@ -158,7 +158,7 @@ export function useDebateWebSocketStore({
       if (data.seq && data.seq > 0) {
         const gap = updateSequence(data.seq);
         if (gap) {
-          console.warn(`[WebSocket] Sequence gap detected: ${gap.gap} events missed`);
+          logger.warn(`[WebSocket] Sequence gap detected: ${gap.gap} events missed`);
         }
       }
 

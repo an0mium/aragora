@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -39,7 +40,7 @@ export function usePWA(): UsePWAReturn {
         .register('/sw.js')
         .then((registration) => {
 
-          console.log('[PWA] Service worker registered:', registration.scope);
+          logger.debug('[PWA] Service worker registered:', registration.scope);
 
           // Check for updates periodically
           setInterval(() => {
@@ -47,7 +48,7 @@ export function usePWA(): UsePWAReturn {
           }, 60 * 60 * 1000); // Every hour
         })
         .catch((error) => {
-          console.error('[PWA] Service worker registration failed:', error);
+          logger.error('[PWA] Service worker registration failed:', error);
         });
     }
 
@@ -93,7 +94,7 @@ export function usePWA(): UsePWAReturn {
         return true;
       }
     } catch (error) {
-      console.error('[PWA] Install prompt error:', error);
+      logger.error('[PWA] Install prompt error:', error);
     }
 
     return false;

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useAuth } from '@/context/AuthContext';
+import { logger } from '@/utils/logger';
 
 type Status = 'processing' | 'success' | 'error';
 
@@ -17,9 +18,9 @@ function OAuthCallbackContent() {
   useEffect(() => {
     const processCallback = async () => {
       // Debug: Log the full URL to help diagnose OAuth callback issues
-      console.log('[OAuth Callback] Full URL:', window.location.href);
-      console.log('[OAuth Callback] Hash:', window.location.hash);
-      console.log('[OAuth Callback] Search:', window.location.search);
+      logger.debug('[OAuth Callback] Full URL:', window.location.href);
+      logger.debug('[OAuth Callback] Hash:', window.location.hash);
+      logger.debug('[OAuth Callback] Search:', window.location.search);
 
       // Parse query params directly from window.location (more reliable in static export)
       const urlParams = new URLSearchParams(window.location.search);
@@ -35,18 +36,18 @@ function OAuthCallbackContent() {
 
       // Parse tokens from URL query params (primary) or fragment (legacy fallback)
       let tokenString = window.location.search.substring(1); // Remove leading '?'
-      console.log('[OAuth Callback] Query params:', tokenString ? `${tokenString.substring(0, 50)}...` : '(empty)');
+      logger.debug('[OAuth Callback] Query params:', tokenString ? `${tokenString.substring(0, 50)}...` : '(empty)');
 
       // Legacy fallback: Check hash fragment if query params are empty
       if (!tokenString) {
         tokenString = window.location.hash.substring(1);
-        console.log('[OAuth Callback] Hash fragment:', tokenString ? `${tokenString.substring(0, 50)}...` : '(empty)');
+        logger.debug('[OAuth Callback] Hash fragment:', tokenString ? `${tokenString.substring(0, 50)}...` : '(empty)');
       }
 
       if (!tokenString) {
         setStatus('error');
         setMessage('No authentication data received');
-        console.error('[OAuth Callback] No query params or hash fragment with tokens found');
+        logger.error('[OAuth Callback] No query params or hash fragment with tokens found');
         return;
       }
 
@@ -56,11 +57,11 @@ function OAuthCallbackContent() {
 
       if (accessToken && refreshToken) {
         try {
-          console.log('[OAuth Callback] Calling setTokens with access_token:', accessToken.substring(0, 20) + '...');
+          logger.debug('[OAuth Callback] Calling setTokens with access_token:', accessToken.substring(0, 20) + '...');
           // Store tokens and wait for user profile to be fetched
           // This is async - we must await it before redirecting
           await setTokens(accessToken, refreshToken);
-          console.log('[OAuth Callback] setTokens completed successfully');
+          logger.debug('[OAuth Callback] setTokens completed successfully');
           setStatus('success');
           setMessage('Authentication successful');
           // Clear the hash from URL for security
@@ -69,15 +70,15 @@ function OAuthCallbackContent() {
           // Verify tokens are stored before redirect
           const storedTokens = localStorage.getItem('aragora_tokens');
           const storedUser = localStorage.getItem('aragora_user');
-          console.log('[OAuth Callback] Pre-redirect check - tokens:', !!storedTokens, 'user:', !!storedUser);
+          logger.debug('[OAuth Callback] Pre-redirect check - tokens:', !!storedTokens, 'user:', !!storedUser);
 
           // Slightly longer delay to ensure state is settled before navigation
           setTimeout(() => {
-            console.log('[OAuth Callback] Redirecting to home...');
+            logger.debug('[OAuth Callback] Redirecting to home...');
             router.push('/');
           }, 750);
         } catch (err) {
-          console.error('[OAuth Callback] Failed to set tokens:', err);
+          logger.error('[OAuth Callback] Failed to set tokens:', err);
           setStatus('error');
           // Provide more descriptive error messages
           if (err instanceof Error) {
@@ -97,7 +98,7 @@ function OAuthCallbackContent() {
       } else {
         setStatus('error');
         setMessage('Missing authentication tokens');
-        console.error('[OAuth Callback] Tokens missing from URL params. access_token:', !!accessToken, 'refresh_token:', !!refreshToken);
+        logger.error('[OAuth Callback] Tokens missing from URL params. access_token:', !!accessToken, 'refresh_token:', !!refreshToken);
       }
     };
 

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 
 const API_BASE = API_BASE_URL;
 
@@ -112,6 +113,7 @@ interface UsePulseSchedulerState {
  * scheduler.updateConfig({ max_debates_per_hour: 10 });
  */
 export function usePulseScheduler() {
+  const { tokens, isAuthenticated, isLoading: authLoading } = useAuth();
   const [state, setState] = useState<UsePulseSchedulerState>({
     status: null,
     statusLoading: false,
@@ -126,6 +128,16 @@ export function usePulseScheduler() {
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
+  const getAuthHeaders = useCallback((): HeadersInit | null => {
+    if (authLoading || !isAuthenticated || !tokens?.access_token) {
+      return null;
+    }
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${tokens.access_token}`,
+    };
+  }, [authLoading, isAuthenticated, tokens?.access_token]);
+
   // Cleanup polling on unmount
   useEffect(() => {
     return () => {
@@ -133,7 +145,7 @@ export function usePulseScheduler() {
         clearInterval(pollingRef.current);
       }
     };
-  }, []);
+  }, [getAuthHeaders]);
 
   // ---------------------------------------------------------------------------
   // Fetch Status
@@ -143,7 +155,12 @@ export function usePulseScheduler() {
     setState(s => ({ ...s, statusLoading: true, statusError: null }));
 
     try {
-      const response = await fetch(`${API_BASE}/api/pulse/scheduler/status`);
+      const headers = getAuthHeaders();
+      if (!headers) {
+        setState(s => ({ ...s, statusLoading: false, statusError: 'Authentication required' }));
+        return null;
+      }
+      const response = await fetch(`${API_BASE}/api/pulse/scheduler/status`, { headers });
 
       if (!response.ok) {
         if (response.status === 503) {
@@ -183,7 +200,7 @@ export function usePulseScheduler() {
     pollingRef.current = setInterval(() => {
       fetchStatus();
     }, intervalMs);
-  }, [fetchStatus]);
+  }, [fetchStatus, getAuthHeaders]);
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
@@ -200,9 +217,14 @@ export function usePulseScheduler() {
     setState(s => ({ ...s, actionLoading: true, actionError: null }));
 
     try {
+      const headers = getAuthHeaders();
+      if (!headers) {
+        setState(s => ({ ...s, actionLoading: false, actionError: 'Authentication required' }));
+        return false;
+      }
       const response = await fetch(`${API_BASE}/api/pulse/scheduler/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
       });
 
       if (!response.ok) {
@@ -219,15 +241,20 @@ export function usePulseScheduler() {
       setState(s => ({ ...s, actionLoading: false, actionError: errorMsg }));
       return false;
     }
-  }, [fetchStatus]);
+  }, [fetchStatus, getAuthHeaders]);
 
   const stop = useCallback(async (graceful: boolean = true): Promise<boolean> => {
     setState(s => ({ ...s, actionLoading: true, actionError: null }));
 
     try {
+      const headers = getAuthHeaders();
+      if (!headers) {
+        setState(s => ({ ...s, actionLoading: false, actionError: 'Authentication required' }));
+        return false;
+      }
       const response = await fetch(`${API_BASE}/api/pulse/scheduler/stop`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ graceful }),
       });
 
@@ -245,15 +272,20 @@ export function usePulseScheduler() {
       setState(s => ({ ...s, actionLoading: false, actionError: errorMsg }));
       return false;
     }
-  }, [fetchStatus]);
+  }, [fetchStatus, getAuthHeaders]);
 
   const pause = useCallback(async (): Promise<boolean> => {
     setState(s => ({ ...s, actionLoading: true, actionError: null }));
 
     try {
+      const headers = getAuthHeaders();
+      if (!headers) {
+        setState(s => ({ ...s, actionLoading: false, actionError: 'Authentication required' }));
+        return false;
+      }
       const response = await fetch(`${API_BASE}/api/pulse/scheduler/pause`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
       });
 
       if (!response.ok) {
@@ -270,15 +302,20 @@ export function usePulseScheduler() {
       setState(s => ({ ...s, actionLoading: false, actionError: errorMsg }));
       return false;
     }
-  }, [fetchStatus]);
+  }, [fetchStatus, getAuthHeaders]);
 
   const resume = useCallback(async (): Promise<boolean> => {
     setState(s => ({ ...s, actionLoading: true, actionError: null }));
 
     try {
+      const headers = getAuthHeaders();
+      if (!headers) {
+        setState(s => ({ ...s, actionLoading: false, actionError: 'Authentication required' }));
+        return false;
+      }
       const response = await fetch(`${API_BASE}/api/pulse/scheduler/resume`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
       });
 
       if (!response.ok) {
@@ -295,7 +332,7 @@ export function usePulseScheduler() {
       setState(s => ({ ...s, actionLoading: false, actionError: errorMsg }));
       return false;
     }
-  }, [fetchStatus]);
+  }, [fetchStatus, getAuthHeaders]);
 
   // ---------------------------------------------------------------------------
   // Update Config
@@ -305,9 +342,14 @@ export function usePulseScheduler() {
     setState(s => ({ ...s, actionLoading: true, actionError: null }));
 
     try {
+      const headers = getAuthHeaders();
+      if (!headers) {
+        setState(s => ({ ...s, actionLoading: false, actionError: 'Authentication required' }));
+        return false;
+      }
       const response = await fetch(`${API_BASE}/api/pulse/scheduler/config`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(updates),
       });
 
@@ -339,6 +381,11 @@ export function usePulseScheduler() {
     setState(s => ({ ...s, historyLoading: true, historyError: null }));
 
     try {
+      const headers = getAuthHeaders();
+      if (!headers) {
+        setState(s => ({ ...s, historyLoading: false, historyError: 'Authentication required' }));
+        return [];
+      }
       const params = new URLSearchParams({
         limit: String(limit),
         offset: String(offset),
@@ -347,7 +394,7 @@ export function usePulseScheduler() {
         params.set('platform', platform);
       }
 
-      const response = await fetch(`${API_BASE}/api/pulse/scheduler/history?${params}`);
+      const response = await fetch(`${API_BASE}/api/pulse/scheduler/history?${params}`, { headers });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -368,7 +415,7 @@ export function usePulseScheduler() {
       setState(s => ({ ...s, historyLoading: false, historyError: errorMsg }));
       return [];
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   // ---------------------------------------------------------------------------
   // Clear Errors

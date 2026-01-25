@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { logger } from '@/utils/logger';
 
 interface RLMStreamEvent {
   type: 'context_start' | 'chunk_loaded' | 'compression_progress' | 'context_complete' | 'error';
@@ -103,7 +104,7 @@ export function RLMStreamingPanel({ debateId, onContextReady }: RLMStreamingPane
             break;
         }
       } catch (err) {
-        console.error('Failed to parse RLM event:', err);
+        logger.error('Failed to parse RLM event:', err);
       }
     };
 

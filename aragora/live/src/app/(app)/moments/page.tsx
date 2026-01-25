@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { MomentsEmptyState } from '@/components/ui/EmptyState';
+import { logger } from '@/utils/logger';
 
 interface Moment {
   id: string;
@@ -85,7 +86,7 @@ export default function MomentsPage() {
         setSummary(data);
       }
     } catch (err) {
-      console.error('Failed to fetch summary:', err);
+      logger.error('Failed to fetch summary:', err);
     } finally {
       setSummaryLoading(false);
     }
@@ -102,7 +103,7 @@ export default function MomentsPage() {
         setTimelineTotal(data.total || 0);
       }
     } catch (err) {
-      console.error('Failed to fetch timeline:', err);
+      logger.error('Failed to fetch timeline:', err);
     } finally {
       setTimelineLoading(false);
     }
@@ -118,7 +119,7 @@ export default function MomentsPage() {
         setTrending(data.trending || []);
       }
     } catch (err) {
-      console.error('Failed to fetch trending:', err);
+      logger.error('Failed to fetch trending:', err);
     } finally {
       setTrendingLoading(false);
     }
@@ -135,7 +136,7 @@ export default function MomentsPage() {
         setTypeMoments(data.moments || []);
       }
     } catch (err) {
-      console.error('Failed to fetch by type:', err);
+      logger.error('Failed to fetch by type:', err);
     } finally {
       setTypeLoading(false);
     }

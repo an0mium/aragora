@@ -4,6 +4,8 @@
  * Provides real-time streaming of debate events and updates.
  */
 
+import { logger } from '@/utils/logger';
+
 // =============================================================================
 // Types
 // =============================================================================

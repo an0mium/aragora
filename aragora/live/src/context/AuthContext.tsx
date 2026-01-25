@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 
 interface User {
   id: string;
@@ -451,7 +452,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Set tokens from OAuth callback - fetches user profile from API
   const setTokens = useCallback(async (accessToken: string, refreshTokenValue: string) => {
-    console.log('[AuthContext] setTokens called');
+    logger.debug('[AuthContext] setTokens called');
 
     // Calculate expiry (default 1 hour from now if not provided)
     const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
@@ -464,12 +465,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // IMPORTANT: Store tokens IMMEDIATELY (optimistically) before validation
     // This ensures tokens survive page navigation even if validation is slow
-    console.log('[AuthContext] Storing tokens optimistically...');
+    logger.debug('[AuthContext] Storing tokens optimistically...');
     localStorage.setItem(TOKENS_KEY, JSON.stringify(tokens));
 
     // Fetch user profile using the access token to validate and get user info
     try {
-      console.log('[AuthContext] Fetching user profile to validate tokens...');
+      logger.debug('[AuthContext] Fetching user profile to validate tokens...');
 
       // Retry logic for network resilience
       let response: Response | null = null;
@@ -485,7 +486,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           break; // Success, exit retry loop
         } catch (fetchErr) {
           lastError = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr));
-          console.warn(`[AuthContext] /me fetch attempt ${attempt} failed:`, lastError.message);
+          logger.warn(`[AuthContext] /me fetch attempt ${attempt} failed:`, lastError.message);
           if (attempt < 3) {
             // Exponential backoff: 500ms, 1000ms
             await new Promise(r => setTimeout(r, 500 * attempt));
@@ -495,11 +496,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!response) {
         // All retries failed - but tokens are stored, user can retry
-        console.error('[AuthContext] All /me fetch attempts failed:', lastError?.message);
+        logger.error('[AuthContext] All /me fetch attempts failed:', lastError?.message);
         throw new Error('Network error: Unable to validate tokens. Please try again.');
       }
 
-      console.log('[AuthContext] /me response:', {
+      logger.debug('[AuthContext] /me response:', {
         status: response.status,
         ok: response.ok,
         contentType: response.headers.get('content-type'),
@@ -511,7 +512,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const organization = data.organization || null;
         const organizations = data.organizations || [];
 
-        console.log('[AuthContext] User profile fetched successfully:', user?.email);
+        logger.debug('[AuthContext] User profile fetched successfully:', user?.email);
 
         // Store user info alongside already-stored tokens
         localStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -533,7 +534,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await new Promise(r => setTimeout(r, 50));
       } else if (response.status === 401) {
         // 401 means tokens are invalid - clear optimistically stored tokens
-        console.error('[AuthContext] Token validation failed: 401 Unauthorized');
+        logger.error('[AuthContext] Token validation failed: 401 Unauthorized');
         const contentType = response.headers.get('content-type') || '';
         let errorDetail = '';
         if (contentType.includes('application/json')) {
@@ -542,7 +543,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             errorDetail = errData.error || errData.message || '';
           } catch { /* ignore */ }
         }
-        console.error('[AuthContext] Error detail:', errorDetail || '(no detail)');
+        logger.error('[AuthContext] Error detail:', errorDetail || '(no detail)');
 
         // Clear the optimistically stored tokens
         clearAuth();
@@ -550,12 +551,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         // Other error (500, 404, etc.) - keep tokens but report error
         // User may be able to retry or the backend may recover
-        console.error('[AuthContext] Unexpected /me response:', response.status);
+        logger.error('[AuthContext] Unexpected /me response:', response.status);
         // Don't clear tokens on server errors - let user retry
         throw new Error(`Server error (${response.status}). Please try again.`);
       }
     } catch (err) {
-      console.error('[AuthContext] setTokens error:', err);
+      logger.error('[AuthContext] setTokens error:', err);
       // Re-throw so callback page can handle it
       throw err;
     }

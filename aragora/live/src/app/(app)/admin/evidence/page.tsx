@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { getClient, EvidenceSnippet, EvidenceStatistics } from '@/lib/aragora-client';
+import { logger } from '@/utils/logger';
 
 type TabId = 'search' | 'collect' | 'browse';
 
@@ -53,7 +54,7 @@ export default function EvidencePage() {
       const response = await client.evidence.statistics();
       setStats(response.statistics);
     } catch (err) {
-      console.error('Failed to load evidence stats:', err);
+      logger.error('Failed to load evidence stats:', err);
     }
   };
 

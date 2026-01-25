@@ -238,6 +238,14 @@ from .approval_gate import (
     require_approval,
     resolve_approval,
 )
+from .slo_tracking import (
+    get_tracking_stats as get_slo_tracking_stats,
+    slo_context,
+    slo_middleware,
+    sync_slo_measurements,
+    track_slo,
+    track_slo_async,
+)
 
 __all__ = [
     # Auth
@@ -436,4 +444,11 @@ __all__ = [
     "recover_pending_approvals",
     "require_approval",
     "resolve_approval",
+    # SLO tracking
+    "slo_context",
+    "slo_middleware",
+    "sync_slo_measurements",
+    "track_slo",
+    "track_slo_async",
+    "get_slo_tracking_stats",
 ]

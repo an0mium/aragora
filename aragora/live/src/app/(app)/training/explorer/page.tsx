@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -69,7 +70,7 @@ export default function TrainingExplorerPage() {
       const data = await response.json();
       setStats(data);
     } catch (err) {
-      console.error('Failed to fetch stats:', err);
+      logger.error('Failed to fetch stats:', err);
       throw err;
     }
   }, [backendUrl]);
@@ -81,7 +82,7 @@ export default function TrainingExplorerPage() {
       const data = await response.json();
       setFormats(data.formats || {});
     } catch (err) {
-      console.error('Failed to fetch formats:', err);
+      logger.error('Failed to fetch formats:', err);
     }
   }, [backendUrl]);
 
@@ -98,7 +99,7 @@ export default function TrainingExplorerPage() {
       const data = await response.json();
       setPreviewData(data.records || data.examples || []);
     } catch (err) {
-      console.error('Failed to fetch preview:', err);
+      logger.error('Failed to fetch preview:', err);
       setError(err instanceof Error ? err.message : 'Failed to load preview');
     } finally {
       setPreviewLoading(false);

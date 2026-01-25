@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -70,7 +71,7 @@ export default function IntrospectionPage() {
       const data = await response.json();
       setAgents(data.agents || []);
     } catch (err) {
-      console.error('Failed to fetch agents:', err);
+      logger.error('Failed to fetch agents:', err);
       throw err;
     }
   }, [backendUrl]);
@@ -82,7 +83,7 @@ export default function IntrospectionPage() {
       const data = await response.json();
       setLeaderboard(data.leaderboard || []);
     } catch (err) {
-      console.error('Failed to fetch leaderboard:', err);
+      logger.error('Failed to fetch leaderboard:', err);
       throw err;
     }
   }, [backendUrl]);
@@ -94,7 +95,7 @@ export default function IntrospectionPage() {
       const data = await response.json();
       setIntrospection(data);
     } catch (err) {
-      console.error('Failed to fetch introspection:', err);
+      logger.error('Failed to fetch introspection:', err);
       throw err;
     }
   }, [backendUrl]);

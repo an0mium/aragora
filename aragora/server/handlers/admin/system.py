@@ -45,6 +45,7 @@ from ..base import (
 )
 from ..utils.rate_limit import rate_limit
 from ..utils.decorators import require_permission
+from aragora.server.versioning.compat import strip_version_prefix
 
 # Cache TTLs for system endpoints (in seconds)
 CACHE_TTL_HISTORY = 60  # History queries
@@ -55,41 +56,42 @@ class SystemHandler(BaseHandler):
 
     ROUTES = [
         # Debug endpoint
-        "/api/v1/debug/test",
+        "/api/debug/test",
         # History endpoints
-        "/api/v1/history/cycles",
-        "/api/v1/history/events",
-        "/api/v1/history/debates",
-        "/api/v1/history/summary",
+        "/api/history/cycles",
+        "/api/history/events",
+        "/api/history/debates",
+        "/api/history/summary",
         # System maintenance
-        "/api/v1/system/maintenance",
+        "/api/system/maintenance",
         # Auth stats
-        "/api/v1/auth/stats",
-        "/api/v1/auth/revoke",
+        "/api/auth/stats",
+        "/api/auth/revoke",
         # Resilience monitoring
-        "/api/v1/circuit-breakers",
+        "/api/circuit-breakers",
         # Prometheus metrics
         "/metrics",
     ]
 
     # History endpoints require authentication (can expose debate data)
     HISTORY_ENDPOINTS = [
-        "/api/v1/history/cycles",
-        "/api/v1/history/events",
-        "/api/v1/history/debates",
-        "/api/v1/history/summary",
+        "/api/history/cycles",
+        "/api/history/events",
+        "/api/history/debates",
+        "/api/history/summary",
     ]
 
     # History endpoint configuration: path -> (method_name, default_limit, max_limit)
     _HISTORY_CONFIG: dict[str, tuple[str, int, int]] = {
-        "/api/v1/history/cycles": ("_get_history_cycles", 50, 200),
-        "/api/v1/history/events": ("_get_history_events", 100, 500),
-        "/api/v1/history/debates": ("_get_history_debates", 50, 200),
-        "/api/v1/history/summary": ("_get_history_summary", 0, 0),  # No limit param
+        "/api/history/cycles": ("_get_history_cycles", 50, 200),
+        "/api/history/events": ("_get_history_events", 100, 500),
+        "/api/history/debates": ("_get_history_debates", 50, 200),
+        "/api/history/summary": ("_get_history_summary", 0, 0),  # No limit param
     }
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
+        path = strip_version_prefix(path)
         return path in self.ROUTES
 
     def _check_history_auth(self, handler) -> Optional[HandlerResult]:
@@ -133,19 +135,20 @@ class SystemHandler(BaseHandler):
         Uses dispatch tables to reduce cyclomatic complexity.
         Note: Health, nomic, and docs endpoints are now handled by dedicated handlers.
         """
+        path = strip_version_prefix(path)
         # Simple routes with no parameters
         simple_routes = {
-            "/api/v1/debug/test": lambda: self._handle_debug_test(handler),
-            "/api/v1/auth/stats": lambda: self._get_auth_stats(handler),
+            "/api/debug/test": lambda: self._handle_debug_test(handler),
+            "/api/auth/stats": lambda: self._get_auth_stats(handler),
             "/metrics": self._get_prometheus_metrics,
-            "/api/v1/circuit-breakers": self._get_circuit_breaker_metrics,
+            "/api/circuit-breakers": self._get_circuit_breaker_metrics,
         }
 
         if path in simple_routes:
             return simple_routes[path]()
 
         # System maintenance (requires admin:system permission)
-        if path == "/api/v1/system/maintenance":
+        if path == "/api/system/maintenance":
             return self._handle_maintenance(query_params, handler)
 
         # History endpoints (require auth)
@@ -198,7 +201,8 @@ class SystemHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests for auth endpoints."""
-        if path == "/api/v1/auth/revoke":
+        path = strip_version_prefix(path)
+        if path == "/api/auth/revoke":
             return self._revoke_token(handler, handler)
         return None
 

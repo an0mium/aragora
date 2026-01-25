@@ -22,6 +22,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.versioning.compat import strip_version_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -556,14 +557,14 @@ class FeaturesHandler(BaseHandler):
     """Handler for feature availability endpoints."""
 
     ROUTES = {
-        "/api/v1/features": "_get_features_summary",
-        "/api/v1/features/available": "_get_available",
-        "/api/v1/features/all": "_get_all_features",
-        "/api/v1/features/handlers": "_get_handler_stability",
-        "/api/v1/features/config": "_handle_config",  # User preferences
-        "/api/v1/features/discover": "_get_api_discovery",  # Full API catalog
-        "/api/v1/features/endpoints": "_get_all_endpoints",  # All endpoints list
-        "/api/v1/features/{feature_id}": "_get_feature_status",
+        "/api/features": "_get_features_summary",
+        "/api/features/available": "_get_available",
+        "/api/features/all": "_get_all_features",
+        "/api/features/handlers": "_get_handler_stability",
+        "/api/features/config": "_handle_config",  # User preferences
+        "/api/features/discover": "_get_api_discovery",  # Full API catalog
+        "/api/features/endpoints": "_get_all_endpoints",  # All endpoints list
+        "/api/features/{feature_id}": "_get_feature_status",
     }
 
     # Default feature preferences (all toggleable features)
@@ -598,11 +599,12 @@ class FeaturesHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
+        path = strip_version_prefix(path)
         # Direct route match
         if path in self.ROUTES:
             return True
         # Handle parameterized routes: /api/features/{feature_id}
-        if path.startswith("/api/v1/features/") and path not in self.ROUTES:
+        if path.startswith("/api/features/") and path not in self.ROUTES:
             # Check it's not a nested path we don't handle
             parts = path.split("/")
             if len(parts) == 4:  # /api/features/{feature_id}
@@ -611,6 +613,7 @@ class FeaturesHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET/POST requests to appropriate methods."""
+        path = strip_version_prefix(path)
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _features_limiter.is_allowed(client_ip):
@@ -628,7 +631,7 @@ class FeaturesHandler(BaseHandler):
                 return method()
 
         # Parameterized route: /api/features/{feature_id}
-        if path.startswith("/api/v1/features/"):
+        if path.startswith("/api/features/"):
             parts = path.split("/")
             if len(parts) == 4:
                 feature_id = parts[3]

@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { logger } from '@/utils/logger';
 import {
   useOnboardingStore,
   useOnboardingStep,
@@ -83,7 +84,7 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
         setDebateStatus('error');
       }
     } catch (error) {
-      console.error('Failed to create first debate:', error);
+      logger.error('Failed to create first debate:', error);
       setDebateStatus('error');
     }
 

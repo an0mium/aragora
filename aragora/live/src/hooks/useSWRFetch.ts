@@ -3,15 +3,51 @@
 import useSWR, { SWRConfiguration, mutate, useSWRConfig } from 'swr';
 import { API_BASE_URL } from '@/config';
 
+const TOKENS_KEY = 'aragora_tokens';
+
+function getAccessToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const stored = localStorage.getItem(TOKENS_KEY);
+  if (!stored) return null;
+  try {
+    const parsed = JSON.parse(stored) as { access_token?: string };
+    return parsed.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+function isInternalApiRequest(url: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const apiOrigin = new URL(API_BASE_URL, window.location.origin).origin;
+    const isApiPath = parsed.pathname.startsWith('/api/');
+    const isTrustedOrigin = parsed.origin === window.location.origin || parsed.origin === apiOrigin;
+    return isApiPath && isTrustedOrigin;
+  } catch {
+    return false;
+  }
+}
+
+function getAuthHeaders(url: string): HeadersInit {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  const token = getAccessToken();
+  if (token && isInternalApiRequest(url)) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 /**
  * Global fetcher function for SWR
  * Uses fetchWithRetry for resilience
  */
 export async function swrFetcher<T>(url: string): Promise<T> {
   const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(url),
   });
 
   if (!response.ok) {

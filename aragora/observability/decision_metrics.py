@@ -187,10 +187,11 @@ def _init_noop_metrics() -> None:
     global DECISION_CONSENSUS_RATE, DECISION_AGENTS_USED
 
     class NoopMetric:
-        """No-op metric that accepts any method call."""
+        """No-op metric that accepts any method call and supports chaining."""
 
         def __getattr__(self, name: str) -> Any:
-            return lambda *args, **kwargs: None
+            # Return self to allow method chaining like .labels().inc()
+            return lambda *args, **kwargs: self
 
     noop = NoopMetric()
     DECISION_REQUESTS = noop
@@ -405,10 +406,7 @@ def get_decision_metrics() -> Dict[str, Any]:
                     metrics[metric.name] = {
                         "help": metric.documentation,
                         "type": metric.type,
-                        "samples": [
-                            {"labels": dict(s.labels), "value": s.value}
-                            for s in samples
-                        ],
+                        "samples": [{"labels": dict(s.labels), "value": s.value} for s in samples],
                     }
 
         return metrics

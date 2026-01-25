@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { API_BASE_URL } from '@/config';
 import { usePWA } from '@/hooks/usePWA';
 import { YouTubeInput } from '@/components/YouTubeInput';
+import { logger } from '@/utils/logger';
 
 type TranscribeState = 'idle' | 'uploading' | 'processing' | 'complete' | 'error';
 type InputMode = 'file' | 'youtube' | 'url';

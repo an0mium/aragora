@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import dynamic from 'next/dynamic';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
@@ -101,7 +102,7 @@ export default function UncertaintyPage() {
         setLeaderboard(data.agents || []);
       }
     } catch (error) {
-      console.error('Failed to fetch leaderboard:', error);
+      logger.error('Failed to fetch leaderboard:', error);
     } finally {
       setLeaderboardLoading(false);
     }
@@ -117,7 +118,7 @@ export default function UncertaintyPage() {
         setVisualization(data);
       }
     } catch (error) {
-      console.error('Failed to fetch visualization:', error);
+      logger.error('Failed to fetch visualization:', error);
     } finally {
       setVizLoading(false);
     }
@@ -134,7 +135,7 @@ export default function UncertaintyPage() {
         setAgentCalibration(data);
       }
     } catch (error) {
-      console.error('Failed to fetch agent calibration:', error);
+      logger.error('Failed to fetch agent calibration:', error);
     } finally {
       setAgentLoading(false);
     }

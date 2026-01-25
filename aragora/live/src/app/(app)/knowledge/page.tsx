@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { API_BASE_URL } from '@/config';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { KnowledgeEmptyState } from '@/components/ui/EmptyState';
@@ -223,7 +224,7 @@ export default function KnowledgeMoundPage() {
         setVerificationResult(data);
       }
     } catch (err) {
-      console.error('Verification failed:', err);
+      logger.error('Verification failed:', err);
     } finally {
       setVerifying(false);
     }
@@ -239,7 +240,7 @@ export default function KnowledgeMoundPage() {
         setContradictions(data.contradictions || []);
       }
     } catch (err) {
-      console.error('Failed to fetch contradictions:', err);
+      logger.error('Failed to fetch contradictions:', err);
     } finally {
       setLoadingContradictions(false);
     }
@@ -269,7 +270,7 @@ export default function KnowledgeMoundPage() {
         fetchStats();
       }
     } catch (err) {
-      console.error('Failed to add fact:', err);
+      logger.error('Failed to add fact:', err);
     } finally {
       setAddingFact(false);
     }
@@ -300,7 +301,7 @@ export default function KnowledgeMoundPage() {
       }
     } catch (err) {
       setIndexingStatus('Indexing failed. Check network connection.');
-      console.error('Failed to index repository:', err);
+      logger.error('Failed to index repository:', err);
     } finally {
       setIndexing(false);
     }
@@ -318,7 +319,7 @@ export default function KnowledgeMoundPage() {
         setStaleItems([]);
       }
     } catch (err) {
-      console.error('Failed to fetch stale items:', err);
+      logger.error('Failed to fetch stale items:', err);
       setStaleItems([]);
     } finally {
       setLoadingStale(false);
@@ -359,7 +360,7 @@ export default function KnowledgeMoundPage() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Export failed:', err);
+      logger.error('Export failed:', err);
     } finally {
       setExporting(false);
     }

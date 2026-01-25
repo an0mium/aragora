@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { getClient, GalleryEntry } from '@/lib/aragora-client';
+import { logger } from '@/utils/logger';
 
 // Use GalleryEntry from SDK
 type GalleryDebate = GalleryEntry;
@@ -41,7 +42,7 @@ export default function GalleryPage() {
       }
       setHasMore(newDebates.length === 12);
     } catch (err) {
-      console.error('Failed to load gallery:', err);
+      logger.error('Failed to load gallery:', err);
     } finally {
       setLoading(false);
     }

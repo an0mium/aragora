@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aragora Web Demo</title>
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Aragora Web Demo</h1>
+      <p>Multi-agent AI debate platform</p>
+    </header>
+
+    <main>
+      <!-- Server Status -->
+      <section id="status-section">
+        <h2>Server Status</h2>
+        <div id="server-status">Checking...</div>
+      </section>
+
+      <!-- Create Debate -->
+      <section id="debate-section">
+        <h2>Create Debate</h2>
+        <form id="debate-form">
+          <div class="form-group">
+            <label for="topic">Topic</label>
+            <textarea
+              id="topic"
+              name="topic"
+              rows="3"
+              placeholder="What should we debate?"
+            >Should we use microservices or a monolith for our new project?</textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="agents">Agents</label>
+              <select id="agents" name="agents" multiple>
+                <option value="anthropic-api" selected>Claude (Anthropic)</option>
+                <option value="openai-api" selected>GPT (OpenAI)</option>
+                <option value="gemini">Gemini (Google)</option>
+                <option value="grok">Grok (xAI)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="rounds">Rounds</label>
+              <input type="number" id="rounds" name="rounds" value="2" min="1" max="5" />
+            </div>
+          </div>
+          <button type="submit" id="start-btn">Start Debate</button>
+        </form>
+      </section>
+
+      <!-- Debate Results -->
+      <section id="results-section" class="hidden">
+        <h2>Debate Results</h2>
+        <div id="debate-status">
+          <span class="status-badge">Running</span>
+          <span id="debate-id"></span>
+        </div>
+        <div id="debate-log"></div>
+        <div id="consensus-result" class="hidden">
+          <h3>Consensus</h3>
+          <div id="consensus-content"></div>
+        </div>
+      </section>
+
+      <!-- Agent Rankings -->
+      <section id="rankings-section">
+        <h2>Agent Rankings</h2>
+        <button id="load-rankings">Load Rankings</button>
+        <table id="rankings-table" class="hidden">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Agent</th>
+              <th>ELO</th>
+              <th>W/L</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        <a href="https://github.com/an0mium/aragora" target="_blank">GitHub</a> |
+        <a href="../../docs/guides/typescript-quickstart.md">Documentation</a>
+      </p>
+    </footer>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

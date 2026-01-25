@@ -248,8 +248,8 @@ async def broadcast_deliberation_event(event: dict[str, Any]) -> None:
     for queue in _stream_clients:
         try:
             await queue.put(event)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to broadcast event to stream client: {e}")
 
 
 def register_deliberation(deliberation_id: str, data: dict[str, Any]) -> None:

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { logger } from '@/utils/logger';
 import Link from 'next/link';
 import { API_BASE_URL } from '@/config';
 import { ExecutionDAGView, StepDetailPanel } from '@/components/workflow-runtime';
@@ -133,7 +134,7 @@ export default function WorkflowRuntimePage() {
       });
       fetchExecutions();
     } catch (err) {
-      console.error('Approval failed:', err);
+      logger.error('Approval failed:', err);
     }
   };
 
@@ -146,7 +147,7 @@ export default function WorkflowRuntimePage() {
       });
       fetchExecutions();
     } catch (err) {
-      console.error('Rejection failed:', err);
+      logger.error('Rejection failed:', err);
     }
   };
 
@@ -157,7 +158,7 @@ export default function WorkflowRuntimePage() {
       });
       fetchExecutions();
     } catch (err) {
-      console.error('Retry failed:', err);
+      logger.error('Retry failed:', err);
     }
   };
 

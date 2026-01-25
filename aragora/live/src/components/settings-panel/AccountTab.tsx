@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { MFASettings } from '@/components/settings/MFASettings';
 import { SessionHistory } from '@/components/session/SessionHistory';
 
@@ -64,7 +65,7 @@ export function AccountTab({ user, isAuthenticated, backendApi }: AccountTabProp
           setLinkedProviders(data.providers || []);
         }
       } catch (error) {
-        console.warn('Failed to fetch OAuth data:', error);
+        logger.warn('Failed to fetch OAuth data:', error);
       } finally {
         setOauthLoading(false);
       }
@@ -97,7 +98,7 @@ export function AccountTab({ user, isAuthenticated, backendApi }: AccountTabProp
         setTimeout(() => setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'idle' })), 3000);
       }
     } catch (error) {
-      console.error('OAuth link error:', error);
+      logger.error('OAuth link error:', error);
       setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'error' }));
       setTimeout(() => setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'idle' })), 3000);
     }
@@ -129,7 +130,7 @@ export function AccountTab({ user, isAuthenticated, backendApi }: AccountTabProp
         setTimeout(() => setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'idle' })), 3000);
       }
     } catch (error) {
-      console.error('OAuth unlink error:', error);
+      logger.error('OAuth unlink error:', error);
       setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'error' }));
       setTimeout(() => setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'idle' })), 3000);
     }
@@ -159,12 +160,12 @@ export function AccountTab({ user, isAuthenticated, backendApi }: AccountTabProp
         }, 1500);
       } else {
         const data = await response.json().catch(() => ({}));
-        console.error('Logout all failed:', data);
+        logger.error('Logout all failed:', data);
         setLogoutAllStatus('error');
         setTimeout(() => setLogoutAllStatus('idle'), 3000);
       }
     } catch (error) {
-      console.error('Logout all error:', error);
+      logger.error('Logout all error:', error);
       setLogoutAllStatus('error');
       setTimeout(() => setLogoutAllStatus('idle'), 3000);
     }

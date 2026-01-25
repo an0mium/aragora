@@ -5,6 +5,7 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
 import { useToastContext } from '@/context/ToastContext';
+import { logger } from '@/utils/logger';
 
 interface PolicyRule {
   id: string;

@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 
 type ComplianceFramework = 'soc2' | 'gdpr' | 'hipaa' | 'iso27001' | 'general';
 type ReportFormat = 'json' | 'markdown' | 'pdf';
@@ -197,7 +198,7 @@ export function ReportBuilder({
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Export failed:', err);
+      logger.error('Export failed:', err);
     }
   }, [apiBase, report, exportFormat]);
 

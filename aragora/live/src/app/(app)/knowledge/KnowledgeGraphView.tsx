@@ -5,6 +5,7 @@ import { API_BASE_URL } from '@/config';
 import type { KnowledgeNode, KnowledgeRelationship } from './types';
 import type { GraphNode, GraphEdge, NodeType, RelationshipType } from '@/store/knowledge-explorer/types';
 import { GraphViewer } from '@/components/control-plane/KnowledgeExplorer/GraphViewer';
+import { logger } from '@/utils/logger';
 
 // API response types for D3 graph export
 interface ApiNode {

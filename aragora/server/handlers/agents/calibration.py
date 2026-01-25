@@ -15,6 +15,7 @@ import logging
 from typing import Optional
 
 from aragora.utils.optional_imports import try_import_class
+from aragora.server.versioning.compat import strip_version_prefix
 
 from ..base import (
     SAFE_AGENT_PATTERN,
@@ -47,24 +48,26 @@ class CalibrationHandler(BaseHandler):
     """Handler for calibration-related endpoints."""
 
     ROUTES = [
-        "/api/v1/agent/*/calibration-curve",
-        "/api/v1/agent/*/calibration-summary",
-        "/api/v1/calibration/leaderboard",
-        "/api/v1/calibration/visualization",
+        "/api/agent/*/calibration-curve",
+        "/api/agent/*/calibration-summary",
+        "/api/calibration/leaderboard",
+        "/api/calibration/visualization",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path.startswith("/api/v1/agent/") and (
+        path = strip_version_prefix(path)
+        if path.startswith("/api/agent/") and (
             path.endswith("/calibration-curve") or path.endswith("/calibration-summary")
         ):
             return True
-        if path in ("/api/v1/calibration/leaderboard", "/api/v1/calibration/visualization"):
+        if path in ("/api/calibration/leaderboard", "/api/calibration/visualization"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route calibration requests to appropriate methods."""
+        path = strip_version_prefix(path)
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _calibration_limiter.is_allowed(client_ip):
@@ -72,7 +75,7 @@ class CalibrationHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Handle leaderboard endpoint
-        if path == "/api/v1/calibration/leaderboard":
+        if path == "/api/calibration/leaderboard":
             limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
             metric = get_string_param(query_params, "metric") or "brier"
             min_predictions = get_clamped_int_param(
@@ -81,11 +84,11 @@ class CalibrationHandler(BaseHandler):
             return self._get_calibration_leaderboard(limit, metric, min_predictions)
 
         # Handle visualization endpoint
-        if path == "/api/v1/calibration/visualization":
+        if path == "/api/calibration/visualization":
             limit = get_clamped_int_param(query_params, "limit", 5, min_val=1, max_val=10)
             return self._get_calibration_visualization(limit)
 
-        if not path.startswith("/api/v1/agent/"):
+        if not path.startswith("/api/agent/"):
             return None
 
         # Extract agent name: /api/agent/{name}/calibration-*

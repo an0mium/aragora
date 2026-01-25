@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 import {
   StatCard,
   VerdictBadge,
@@ -68,7 +69,7 @@ export function GauntletDashboard({
         setHeatmapError('Failed to load heatmap data.');
       }
     } catch (err) {
-      console.error('Failed to fetch heatmap:', err);
+      logger.error('Failed to fetch heatmap:', err);
       setHeatmapError('Unable to load heatmap. Please try again.');
     }
   }, [apiBase]);

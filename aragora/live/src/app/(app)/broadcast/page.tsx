@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
+import { logger } from '@/utils/logger';
 
 interface Episode {
   id: string;
@@ -91,7 +92,7 @@ export default function BroadcastPage() {
         });
       }
     } catch (e) {
-      console.error('Failed to fetch broadcast status:', e);
+      logger.error('Failed to fetch broadcast status:', e);
       setStatus({
         available: false,
         tts_backends: [],
@@ -149,7 +150,7 @@ export default function BroadcastPage() {
         setDebates(data.debates || []);
       }
     } catch (e) {
-      console.error('Failed to fetch debates:', e);
+      logger.error('Failed to fetch debates:', e);
     }
   }, [backendUrl]);
 

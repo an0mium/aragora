@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { withErrorBoundary } from './PanelErrorBoundary';
 import { fetchWithRetry } from '@/utils/retry';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 
 interface VerificationEntry {
   id: string;

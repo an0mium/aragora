@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useOnboardingStore, type SelectedTemplate } from '@/store';
+import { logger } from '@/utils/logger';
 
 // Fallback templates when API is not available
 const DEFAULT_TEMPLATES: SelectedTemplate[] = [

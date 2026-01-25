@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 
 const API_BASE = API_BASE_URL;
 
@@ -43,7 +44,7 @@ export function SubscriptionCard({
         setSubscription(data.subscription);
       }
     } catch (err) {
-      console.error('Failed to fetch subscription:', err);
+      logger.error('Failed to fetch subscription:', err);
     } finally {
       setLoading(false);
     }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useBackend } from '@/components/BackendSelector';
+import { logger } from '@/utils/logger';
 
 interface Tool {
   name: string;
@@ -261,7 +262,7 @@ export default function VerticalsAdminPage() {
         setVerticals(data.verticals || []);
       }
     } catch (error) {
-      console.error('Failed to fetch verticals:', error);
+      logger.error('Failed to fetch verticals:', error);
     } finally {
       setIsLoading(false);
     }
@@ -301,7 +302,7 @@ export default function VerticalsAdminPage() {
         });
       }
     } catch (error) {
-      console.error('Failed to fetch vertical config:', error);
+      logger.error('Failed to fetch vertical config:', error);
     }
   }, [backendConfig.api]);
 

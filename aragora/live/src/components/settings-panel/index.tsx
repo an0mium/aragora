@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useBackend } from '@/components/BackendSelector';
+import { logger } from '@/utils/logger';
 
 import type { FeatureConfig, UserPreferences, SettingsTab } from './types';
 import { DEFAULT_FEATURE_CONFIG, DEFAULT_PREFERENCES, getStoredPreferences, storePreferences } from './types';
@@ -69,7 +70,7 @@ export function SettingsPanel() {
           }
         }
       } catch (error) {
-        console.warn('Failed to fetch feature config:', error);
+        logger.warn('Failed to fetch feature config:', error);
       } finally {
         setFeatureLoading(false);
       }

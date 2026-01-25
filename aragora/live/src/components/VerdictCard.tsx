@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import type { StreamEvent } from '@/types/events';
+import { logger } from '@/utils/logger';
 
 interface VerdictCardProps {
   events: StreamEvent[];
@@ -62,7 +63,7 @@ export function VerdictCard({ events, debateId, apiUrl }: VerdictCardProps) {
           setSummary(data.summary);
         }
       } catch (error) {
-        console.error('Failed to fetch debate summary:', error);
+        logger.error('Failed to fetch debate summary:', error);
       } finally {
         setSummaryLoading(false);
       }

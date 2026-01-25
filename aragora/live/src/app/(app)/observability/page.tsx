@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useBackend } from '@/components/BackendSelector';
+import { logger } from '@/utils/logger';
 
 interface SystemMetrics {
   uptime_seconds: number;
@@ -190,7 +191,7 @@ export default function ObservabilityPage() {
 
       setLastUpdate(new Date());
     } catch (error) {
-      console.error('Failed to fetch metrics:', error);
+      logger.error('Failed to fetch metrics:', error);
     } finally {
       setIsLoading(false);
     }

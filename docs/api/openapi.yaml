@@ -2286,7 +2286,6 @@
         ],
         "summary": "List debates",
         "description": "Get list of all debates for the authenticated user.\n\n**Rate Limit:** 60 requests per minute (free), 300/min (pro), 1000/min (enterprise)\n\n**Pagination:** Use `limit` and `offset` for pagination. Maximum 100 items per request.\n\n**Filtering:** Results are filtered to debates owned by or shared with the authenticated user.",
-        "operationId": "listDebates",
         "parameters": [
           {
             "name": "limit",
@@ -2422,7 +2421,6 @@
         ],
         "summary": "Create a new debate",
         "description": "Start a new multi-agent debate on a given topic.\n\n**Rate Limit:** 10 debates per day (free), 100/day (pro), unlimited (enterprise)\n\n**Concurrent Limit:** 1 concurrent debate (free), 5 (pro), 20 (enterprise)\n\n**Authentication:** Required. The debate will be owned by the authenticated user.\n\n**WebSocket:** After creation, connect to the returned `websocket_url` to stream real-time debate progress.",
-        "operationId": "createDebate",
         "security": [
           {
             "bearerAuth": []

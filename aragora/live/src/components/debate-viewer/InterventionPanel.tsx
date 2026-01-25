@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { API_BASE_URL } from '@/config';
 
 interface InterventionPanelProps {
@@ -68,7 +69,7 @@ export function InterventionPanel({
         }
       }
     } catch (error) {
-      console.error('Failed to toggle pause:', error);
+      logger.error('Failed to toggle pause:', error);
     } finally {
       setPauseLoading(false);
     }
@@ -98,7 +99,7 @@ export function InterventionPanel({
         setInjection('');
       }
     } catch (error) {
-      console.error('Failed to inject argument:', error);
+      logger.error('Failed to inject argument:', error);
     } finally {
       setInjecting(false);
     }
@@ -128,7 +129,7 @@ export function InterventionPanel({
         setFollowUpQuestion('');
       }
     } catch (error) {
-      console.error('Failed to add follow-up:', error);
+      logger.error('Failed to add follow-up:', error);
     } finally {
       setInjecting(false);
     }
@@ -152,7 +153,7 @@ export function InterventionPanel({
         );
         onWeightChange?.(agent, weight);
       } catch (error) {
-        console.error('Failed to update weight:', error);
+        logger.error('Failed to update weight:', error);
       }
     },
     [apiBase, debateId, onWeightChange]
@@ -174,7 +175,7 @@ export function InterventionPanel({
         );
         onThresholdChange?.(threshold);
       } catch (error) {
-        console.error('Failed to update threshold:', error);
+        logger.error('Failed to update threshold:', error);
       }
     },
     [apiBase, debateId, onThresholdChange]

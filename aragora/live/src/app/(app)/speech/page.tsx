@@ -7,6 +7,7 @@ import { AudioRecorder } from '@/components/AudioRecorder';
 import { TranscriptionViewer, TranscriptionResult } from '@/components/TranscriptionViewer';
 import { useBackend } from '@/components/BackendSelector';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { logger } from '@/utils/logger';
 
 type TranscriptionState = 'idle' | 'uploading' | 'transcribing' | 'complete' | 'error';
 
@@ -71,7 +72,7 @@ export default function SpeechPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to fetch providers:', err);
+      logger.error('Failed to fetch providers:', err);
     } finally {
       setProvidersLoading(false);
     }
@@ -86,7 +87,7 @@ export default function SpeechPage() {
         setEpisodes(data.episodes || []);
       }
     } catch (err) {
-      console.error('Failed to fetch episodes:', err);
+      logger.error('Failed to fetch episodes:', err);
     } finally {
       setEpisodesLoading(false);
     }

@@ -153,6 +153,7 @@ from .memory import MemoryHandler  # memory/ subdirectory
 from .memory import MemoryAnalyticsHandler  # Moved to memory/
 from .memory import CoordinatorHandler  # Memory coordinator API
 from .metrics import MetricsHandler
+from .slo import SLOHandler
 from .moments import MomentsHandler
 from .nomic import NomicHandler
 from .oauth import OAuthHandler
@@ -258,6 +259,7 @@ ALL_HANDLERS = [
     AnalyticsMetricsHandler,  # Debate metrics and agent performance analytics
     CrossPlatformAnalyticsHandler,  # Cross-platform analytics aggregation
     MetricsHandler,
+    SLOHandler,  # SLO tracking and monitoring
     CrossPollinationStatsHandler,  # Cross-subsystem event observability
     CrossPollinationSubscribersHandler,
     CrossPollinationBridgeHandler,
@@ -428,6 +430,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "CrossPlatformAnalyticsHandler": Stability.EXPERIMENTAL,  # Cross-platform analytics aggregation
     "ConsensusHandler": Stability.STABLE,
     "MetricsHandler": Stability.STABLE,
+    "SLOHandler": Stability.EXPERIMENTAL,  # SLO tracking and monitoring
     "MemoryHandler": Stability.STABLE,
     "CoordinatorHandler": Stability.STABLE,
     "LeaderboardViewHandler": Stability.STABLE,
@@ -632,6 +635,7 @@ __all__ = [
     "AnalyticsMetricsHandler",
     "CrossPlatformAnalyticsHandler",
     "MetricsHandler",
+    "SLOHandler",
     "ConsensusHandler",
     "BeliefHandler",
     "ControlPlaneHandler",

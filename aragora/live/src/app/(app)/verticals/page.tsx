@@ -6,6 +6,7 @@ import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
+import { logger } from '@/utils/logger';
 
 interface Vertical {
   id: string;
@@ -92,7 +93,7 @@ export default function VerticalsPage() {
       const data = await response.json();
       setVerticals(data.verticals || []);
     } catch (err) {
-      console.error('Failed to fetch verticals:', err);
+      logger.error('Failed to fetch verticals:', err);
       throw err;
     }
   }, [backendUrl]);
@@ -114,7 +115,7 @@ export default function VerticalsPage() {
         setVerticalCompliance(complianceData.frameworks || []);
       }
     } catch (err) {
-      console.error('Failed to fetch vertical detail:', err);
+      logger.error('Failed to fetch vertical detail:', err);
     }
   }, [backendUrl]);
 

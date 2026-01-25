@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 
 interface InboxStats {
   urgent_count: number;

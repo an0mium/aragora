@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { DEFAULT_AGENTS, DEFAULT_ROUNDS } from '@/config';
 import { VerticalSelector } from './VerticalSelector';
 import { useAuth } from '@/context/AuthContext';
+import { logger } from '@/utils/logger';
 
 interface DebateInputProps {
   apiBase: string;
@@ -301,13 +302,13 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
 
     // Check auth state before submitting
     if (authLoading) {
-      console.log('[DebateInput] Auth still loading, waiting...');
+      logger.debug('[DebateInput] Auth still loading, waiting...');
       onError?.('Please wait, authentication is loading...');
       return;
     }
 
     if (!isAuthenticated || !tokens?.access_token) {
-      console.log('[DebateInput] Not authenticated, redirecting to login');
+      logger.debug('[DebateInput] Not authenticated, redirecting to login');
       onError?.('Please log in to start a debate');
       return;
     }
@@ -323,7 +324,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
 
       // Debug: Log request details
       const requestUrl = `${apiBase}${modeConfig.endpoint}`;
-      console.log('[DebateInput] Starting debate request:', {
+      logger.debug('[DebateInput] Starting debate request:', {
         endpoint: requestUrl,
         hasAuth: !!tokens?.access_token,
         mode: debateMode,
@@ -347,7 +348,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
 
       // Debug: Log response details
       const responseContentType = response.headers.get('content-type') || '';
-      console.log('[DebateInput] Response received:', {
+      logger.debug('[DebateInput] Response received:', {
         status: response.status,
         statusText: response.statusText,
         contentType: responseContentType,
@@ -365,7 +366,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
         } else {
           // Server returned HTML or other non-JSON response - log for debugging
           const text = await response.text();
-          console.error('[DebateInput] Non-JSON error response:', {
+          logger.error('[DebateInput] Non-JSON error response:', {
             status: response.status,
             contentType: responseContentType,
             bodyPreview: text.substring(0, 300),
@@ -390,7 +391,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
       // Validate content-type before JSON parsing
       if (!responseContentType.includes('application/json')) {
         const text = await response.text();
-        console.error('[DebateInput] Unexpected content-type on success:', {
+        logger.error('[DebateInput] Unexpected content-type on success:', {
           expected: 'application/json',
           got: responseContentType,
           bodyPreview: text.substring(0, 300),
@@ -403,7 +404,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
 
       if (data.success && (data.debate_id || data.matrix_id)) {
         const debateId = data.debate_id || data.matrix_id;
-        console.log('[DebateInput] Debate started successfully:', { debateId, mode: debateMode });
+        logger.debug('[DebateInput] Debate started successfully:', { debateId, mode: debateMode });
 
         // Navigate to visualization page for Graph/Matrix modes
         if (debateMode === 'graph') {
@@ -416,12 +417,12 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
         onDebateStarted?.(debateId, trimmedQuestion);
         setQuestion('');
       } else {
-        console.warn('[DebateInput] Debate creation failed:', data);
+        logger.warn('[DebateInput] Debate creation failed:', data);
         onError?.(data.error || 'Failed to start debate');
       }
     } catch (err) {
       // Enhanced error logging
-      console.error('[DebateInput] Error during debate creation:', err);
+      logger.error('[DebateInput] Error during debate creation:', err);
 
       let errorMessage: string;
 

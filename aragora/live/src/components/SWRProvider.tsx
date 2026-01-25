@@ -3,6 +3,7 @@
 import { SWRConfig } from 'swr';
 import { ReactNode } from 'react';
 import { swrFetcher } from '@/hooks/useSWRFetch';
+import { logger } from '@/utils/logger';
 
 interface SWRProviderProps {
   children: ReactNode;
@@ -38,7 +39,7 @@ export function SWRProvider({ children }: SWRProviderProps) {
         onError: (error, key) => {
           // Log errors in development
           if (process.env.NODE_ENV === 'development') {
-            console.error(`SWR Error [${key}]:`, error);
+            logger.error(`SWR Error [${key}]:`, error);
           }
         },
       }}

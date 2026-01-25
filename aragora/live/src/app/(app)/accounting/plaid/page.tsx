@@ -18,6 +18,7 @@ import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useBackend } from '@/components/BackendSelector';
 import { useAuth } from '@/context/AuthContext';
+import { logger } from '@/utils/logger';
 
 // Plaid Link types (from react-plaid-link)
 interface PlaidLinkOnSuccessMetadata {
@@ -149,7 +150,7 @@ function PlaidLinkContent() {
 
   const onEvent: PlaidLinkOnEvent = useCallback((eventName, metadata) => {
     // Log events for debugging
-    console.log('[Plaid Link Event]', eventName, metadata);
+    logger.debug('[Plaid Link Event]', eventName, metadata);
   }, []);
 
   const openPlaidLink = useCallback(() => {
@@ -170,7 +171,7 @@ function PlaidLinkContent() {
       handler.open();
     } else {
       // Plaid SDK not loaded - show manual fallback or demo mode
-      console.warn('Plaid Link SDK not loaded. Using demo mode.');
+      logger.warn('Plaid Link SDK not loaded. Using demo mode.');
       // Simulate success for demo
       setTimeout(() => {
         onSuccess('demo_public_token', {

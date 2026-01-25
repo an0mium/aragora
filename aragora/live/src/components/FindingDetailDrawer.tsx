@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { useBackend } from '@/components/BackendSelector';
 import { useAuth } from '@/context/AuthContext';
 
@@ -110,7 +111,7 @@ export function FindingDetailDrawer({ finding, isOpen, onClose, onUpdate }: Prop
         setWorkflow(data);
       }
     } catch (err) {
-      console.error('Failed to fetch workflow:', err);
+      logger.error('Failed to fetch workflow:', err);
     }
   }, [finding, backendConfig.api, tokens?.access_token]);
 
@@ -141,7 +142,7 @@ export function FindingDetailDrawer({ finding, isOpen, onClose, onUpdate }: Prop
         onUpdate?.();
       }
     } catch (err) {
-      console.error('Failed to update status:', err);
+      logger.error('Failed to update status:', err);
     } finally {
       setUpdating(false);
     }
@@ -168,7 +169,7 @@ export function FindingDetailDrawer({ finding, isOpen, onClose, onUpdate }: Prop
         fetchWorkflow();
       }
     } catch (err) {
-      console.error('Failed to add comment:', err);
+      logger.error('Failed to add comment:', err);
     } finally {
       setUpdating(false);
     }
@@ -197,7 +198,7 @@ export function FindingDetailDrawer({ finding, isOpen, onClose, onUpdate }: Prop
         onUpdate?.();
       }
     } catch (err) {
-      console.error('Failed to assign:', err);
+      logger.error('Failed to assign:', err);
     } finally {
       setUpdating(false);
     }
@@ -224,7 +225,7 @@ export function FindingDetailDrawer({ finding, isOpen, onClose, onUpdate }: Prop
         onUpdate?.();
       }
     } catch (err) {
-      console.error('Failed to set priority:', err);
+      logger.error('Failed to set priority:', err);
     } finally {
       setUpdating(false);
     }

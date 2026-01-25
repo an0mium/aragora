@@ -258,6 +258,7 @@ class TestDebateWithMemory:
         assert isinstance(stats, dict)
 
 
+@pytest.mark.integration_minimal
 class TestDebateWithEvents:
     """Test debates with event emission."""
 
@@ -512,6 +513,7 @@ class TestDebateResult:
         assert result.rounds_used >= 0
 
 
+@pytest.mark.integration_minimal
 class TestDebateErrorHandling:
     """Test error handling and edge cases."""
 

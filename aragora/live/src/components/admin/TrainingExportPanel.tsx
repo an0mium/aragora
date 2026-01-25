@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 
 interface ExportStats {
   available_exporters: string[];
@@ -80,7 +81,7 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
         setStats(data);
       }
     } catch (err) {
-      console.error('Failed to fetch training stats:', err);
+      logger.error('Failed to fetch training stats:', err);
     }
   }, [apiBase]);
 
@@ -92,7 +93,7 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
         setFormats(data);
       }
     } catch (err) {
-      console.error('Failed to fetch training formats:', err);
+      logger.error('Failed to fetch training formats:', err);
     }
   }, [apiBase]);
 

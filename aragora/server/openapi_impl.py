@@ -63,6 +63,7 @@ def _mark_legacy_paths_deprecated(paths: dict[str, Any]) -> dict[str, Any]:
                     "deprecated",
                     True,
                 )
+                operation.pop("operationId", None)
     return paths
 
 

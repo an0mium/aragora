@@ -5,6 +5,7 @@ import { ErrorWithRetry } from './RetryButton';
 import { fetchWithRetry } from '@/utils/retry';
 import { API_BASE_URL } from '@/config';
 import { PluginRunModal } from './PluginRunModal';
+import { logger } from '@/utils/logger';
 
 interface PluginManifest {
   name: string;

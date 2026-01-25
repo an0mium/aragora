@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useCallback } from 'react';
 import { useBackend } from '@/components/BackendSelector';
+import { logger } from '@/utils/logger';
 
 interface UseCaseCard {
   id: string;

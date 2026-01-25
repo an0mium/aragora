@@ -1,0 +1,18 @@
+{
+  "name": "aragora-web-demo",
+  "version": "1.0.0",
+  "description": "Aragora TypeScript SDK Web Demo",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "aragora-js": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0"
+  }
+}

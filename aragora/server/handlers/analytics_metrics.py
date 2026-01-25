@@ -1008,8 +1008,8 @@ class AnalyticsMetricsHandler(BaseHandler):
                         "draws": h2h.get("draws", 0),
                         "total_matches": h2h.get("total", 0),
                     }
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Error computing head-to-head for {agent_a} vs {agent_b}: {e}")
 
         return json_response(
             {

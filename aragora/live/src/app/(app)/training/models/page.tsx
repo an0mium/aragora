@@ -7,6 +7,7 @@ import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
+import { logger } from '@/utils/logger';
 
 interface TrainingJob {
   id: string;
@@ -106,7 +107,7 @@ export default function ModelRegistryPage() {
         setJobArtifacts(artifactsData);
       }
     } catch (err) {
-      console.error('Failed to fetch job details:', err);
+      logger.error('Failed to fetch job details:', err);
     } finally {
       setLoadingDetail(false);
     }

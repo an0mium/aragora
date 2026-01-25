@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """
-Auto-generate OpenAPI spec from handler code.
+Generate OpenAPI spec for Aragora.
 
-This script extracts endpoint definitions from handler classes and generates
-an OpenAPI 3.0 specification. It uses:
-1. ROUTES attributes from handlers for path definitions
-2. Method docstrings for descriptions
-3. Handler class docstrings for tag descriptions
+By default this script uses the canonical OpenAPI registry in
+aragora.server.openapi (openapi_impl). The legacy handler-introspection
+generator is still available via --legacy-handlers for comparison only.
 
 Usage:
     python scripts/generate_openapi.py
     python scripts/generate_openapi.py --output docs/api/openapi.json
     python scripts/generate_openapi.py --format yaml
+    python scripts/generate_openapi.py --legacy-handlers
 """
 
 import argparse
@@ -340,7 +339,7 @@ def save_schema(schema: Dict[str, Any], output_path: str, fmt: str = "json") -> 
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate OpenAPI spec from handler code")
+    parser = argparse.ArgumentParser(description="Generate OpenAPI spec (canonical by default)")
     parser.add_argument(
         "--output",
         "-o",
@@ -354,12 +353,22 @@ def main():
         default="json",
         help="Output format (default: json)",
     )
+    parser.add_argument(
+        "--legacy-handlers",
+        action="store_true",
+        help="Generate spec by introspecting handlers (legacy; may drift from canonical OpenAPI)",
+    )
     parser.add_argument("--stdout", action="store_true", help="Print to stdout instead of file")
     args = parser.parse_args()
 
-    print("Generating OpenAPI spec from handlers...", file=sys.stderr)
+    if args.legacy_handlers:
+        print("Generating OpenAPI spec from handlers (legacy)...", file=sys.stderr)
+        schema = generate_openapi_schema()
+    else:
+        from aragora.server.openapi import generate_openapi_schema as canonical_generate
 
-    schema = generate_openapi_schema()
+        print("Generating OpenAPI spec from canonical registry...", file=sys.stderr)
+        schema = canonical_generate()
 
     if args.stdout:
         if args.format == "yaml":

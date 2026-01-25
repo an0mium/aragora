@@ -2,6 +2,7 @@
 
 import { useCallback, useRef } from 'react';
 import { useToastContext } from '@/context/ToastContext';
+import { logger } from '@/utils/logger';
 
 /**
  * Error classification for user-friendly messages
@@ -168,7 +169,7 @@ export function useErrorHandler(): UseErrorHandlerReturn {
 
     // Log to console
     if (logToConsole) {
-      console.error('[ErrorHandler]', {
+      logger.error('[ErrorHandler]', {
         type: errorType,
         message: errorObj.message,
         stack: errorObj.stack,

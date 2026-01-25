@@ -143,6 +143,9 @@ CodebaseAuditHandler: HandlerType = None
 LegalHandler: HandlerType = None
 DevOpsHandler: HandlerType = None
 ReceiptsHandler: HandlerType = None
+SLOHandler: HandlerType = None
+ConnectorsHandler: HandlerType = None
+MarketplaceHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
 # Import handlers with graceful fallback
@@ -444,6 +447,15 @@ try:
     from aragora.server.handlers.receipts import (
         ReceiptsHandler as _ReceiptsHandler,
     )
+    from aragora.server.handlers import (
+        SLOHandler as _SLOHandler,
+    )
+    from aragora.server.handlers import (
+        ConnectorsHandler as _ConnectorsHandler,
+    )
+    from aragora.server.handlers import (
+        MarketplaceHandler as _MarketplaceHandler,
+    )
 
     # Assign imported classes to module-level variables
     SystemHandler = _SystemHandler
@@ -544,6 +556,9 @@ try:
     LegalHandler = _LegalHandler
     DevOpsHandler = _DevOpsHandler
     ReceiptsHandler = _ReceiptsHandler
+    SLOHandler = _SLOHandler
+    ConnectorsHandler = _ConnectorsHandler
+    MarketplaceHandler = _MarketplaceHandler
     HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
@@ -570,6 +585,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_pulse_handler", PulseHandler),
     ("_analytics_handler", AnalyticsHandler),
     ("_metrics_handler", MetricsHandler),
+    ("_slo_handler", SLOHandler),
     ("_consensus_handler", ConsensusHandler),
     ("_belief_handler", BeliefHandler),
     ("_decision_explain_handler", DecisionExplainHandler),
@@ -657,6 +673,8 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_legal_handler", LegalHandler),
     ("_devops_handler", DevOpsHandler),
     ("_receipts_handler", ReceiptsHandler),
+    ("_connectors_handler", ConnectorsHandler),
+    ("_marketplace_handler", MarketplaceHandler),
 ]
 
 
@@ -821,6 +839,31 @@ class RouteIndex:
             "_receipts_handler": [
                 "/api/v2/receipts",
                 "/api/v2/receipts/",
+            ],
+            "_routing_handler": [
+                "/api/routing/",
+                "/api/v1/routing/",
+            ],
+            "_workflow_handler": [
+                "/api/workflows",
+                "/api/workflow-templates",
+                "/api/workflow-executions",
+                "/api/v1/workflows",
+            ],
+            "_slo_handler": [
+                "/api/slos",
+                "/api/slos/",
+                "/api/v1/slos",
+            ],
+            "_connectors_handler": [
+                "/api/connectors",
+                "/api/connectors/",
+                "/api/v1/connectors",
+            ],
+            "_marketplace_handler": [
+                "/api/marketplace",
+                "/api/marketplace/",
+                "/api/v1/marketplace",
             ],
         }
 
@@ -1144,6 +1187,7 @@ class HandlerRegistryMixin:
     _pulse_handler: Optional["BaseHandler"] = None
     _analytics_handler: Optional["BaseHandler"] = None
     _metrics_handler: Optional["BaseHandler"] = None
+    _slo_handler: Optional["BaseHandler"] = None
     _consensus_handler: Optional["BaseHandler"] = None
     _belief_handler: Optional["BaseHandler"] = None
     _critique_handler: Optional["BaseHandler"] = None
@@ -1211,6 +1255,8 @@ class HandlerRegistryMixin:
     _crm_handler: Optional["BaseHandler"] = None
     _support_handler: Optional["BaseHandler"] = None
     _ecommerce_handler: Optional["BaseHandler"] = None
+    _connectors_handler: Optional["BaseHandler"] = None
+    _marketplace_handler: Optional["BaseHandler"] = None
     _handlers_initialized: bool = False
 
     @classmethod

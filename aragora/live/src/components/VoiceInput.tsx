@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 
 interface VoiceInputProps {
   debateId: string;
@@ -136,12 +137,12 @@ export function VoiceInput({
           const data = JSON.parse(event.data);
           handleServerMessageRef.current(data);
         } catch {
-          console.error('Failed to parse WebSocket message:', event.data);
+          logger.error('Failed to parse WebSocket message:', event.data);
         }
       };
 
       ws.onerror = (event) => {
-        console.error('WebSocket error:', event);
+        logger.error('WebSocket error:', event);
         handleErrorRef.current('Connection error');
       };
 
@@ -219,7 +220,7 @@ export function VoiceInput({
 
       case 'warning':
 
-        console.warn('Voice warning:', data.message);
+        logger.warn('Voice warning:', data.message);
         break;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -267,14 +268,14 @@ export function VoiceInput({
     };
 
     audio.onerror = () => {
-      console.error('Error playing TTS audio');
+      logger.error('Error playing TTS audio');
       setTtsStatus('idle');
       URL.revokeObjectURL(url);
       audioChunksRef.current = [];
     };
 
     audio.play().catch((err) => {
-      console.error('Failed to play TTS audio:', err);
+      logger.error('Failed to play TTS audio:', err);
       setTtsStatus('idle');
     });
   }, [currentAgent, onTTSEnd]);
@@ -321,7 +322,7 @@ export function VoiceInput({
       source.connect(processor);
       processor.connect(audioContext.destination);
     } catch (err) {
-      console.error('Audio capture error:', err);
+      logger.error('Audio capture error:', err);
       handleErrorRef.current('Failed to capture audio');
     }
   }, []);

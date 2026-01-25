@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 
 interface VoiceInputProps {
   onTranscript: (text: string) => void;

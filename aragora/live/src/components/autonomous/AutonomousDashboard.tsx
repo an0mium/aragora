@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/config';
+import { logger } from '@/utils/logger';
 import { ApprovalPanel } from './ApprovalPanel';
 import { AlertsPanel } from './AlertsPanel';
 import { TriggersPanel } from './TriggersPanel';
@@ -85,7 +86,7 @@ export function AutonomousDashboard({ apiBase }: AutonomousDashboardProps) {
         fetchOverview();
       };
     } catch {
-      console.warn('WebSocket not available');
+      logger.warn('WebSocket not available');
     }
 
     return () => {

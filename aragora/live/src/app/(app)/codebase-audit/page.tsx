@@ -15,6 +15,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useBackend } from '@/components/BackendSelector';
 import { useAuth } from '@/context/AuthContext';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { logger } from '@/utils/logger';
 
 // Types matching backend models
 type ScanType = 'comprehensive' | 'sast' | 'bugs' | 'secrets' | 'dependencies' | 'metrics';
@@ -142,7 +143,7 @@ export default function CodebaseAuditPage() {
       const data = await response.json();
       setSummary(data.summary || getDemoSummary());
     } catch (err) {
-      console.error('Dashboard fetch error:', err);
+      logger.error('Dashboard fetch error:', err);
       setSummary(getDemoSummary());
     } finally {
       setLoading(false);
@@ -170,7 +171,7 @@ export default function CodebaseAuditPage() {
       const data = await response.json();
       setFindings(data.findings || getDemoFindings());
     } catch (err) {
-      console.error('Findings fetch error:', err);
+      logger.error('Findings fetch error:', err);
       setFindings(getDemoFindings());
     }
   }, [backendConfig.api, tokens?.access_token, findingsFilter]);
@@ -188,7 +189,7 @@ export default function CodebaseAuditPage() {
       const data = await response.json();
       setScans(data.scans || []);
     } catch (err) {
-      console.error('Scans fetch error:', err);
+      logger.error('Scans fetch error:', err);
       setScans([]);
     }
   }, [backendConfig.api, tokens?.access_token]);
@@ -208,7 +209,7 @@ export default function CodebaseAuditPage() {
       const data = await response.json();
       setMetrics(data.metrics || getDemoMetrics());
     } catch (err) {
-      console.error('Metrics fetch error:', err);
+      logger.error('Metrics fetch error:', err);
       setMetrics(getDemoMetrics());
     }
   }, [backendConfig.api, tokens?.access_token]);

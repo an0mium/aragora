@@ -15,6 +15,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { useWebSocketBase, WebSocketConnectionStatus } from './useWebSocketBase';
 import { useBackend } from '@/components/BackendSelector';
 import { NOMIC_LOOP_WS_URL } from '@/config';
+import { logger } from '@/utils/logger';
 
 // Event types from the nomic loop stream (matches backend NomicLoopEventType)
 export type NomicLoopEventType =
@@ -415,13 +416,13 @@ export function useNomicLoopWebSocket({
 
         case 'error':
           // Log errors but don't disrupt state
-          console.error('[NomicLoop] Error event:', data.error, data.context);
+          logger.error('[NomicLoop] Error event:', data.error, data.context);
           break;
 
         default:
           // Unknown event type - log for debugging
 
-          console.debug('[NomicLoop] Unknown event type:', event.type);
+          logger.debug('[NomicLoop] Unknown event type:', event.type);
           break;
       }
     },

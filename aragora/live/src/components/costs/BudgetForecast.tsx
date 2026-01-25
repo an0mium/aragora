@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { logger } from '@/utils/logger';
 import {
   LineChart,
   Line,
@@ -97,7 +98,7 @@ export function BudgetForecast({ workspaceId = 'default', forecastDays = 30 }: P
         setData(result);
       }
     } catch (error) {
-      console.error('Failed to fetch forecast:', error);
+      logger.error('Failed to fetch forecast:', error);
     } finally {
       setLoading(false);
     }
@@ -381,7 +382,7 @@ function SimulationPanel({ workspaceId }: SimulationPanelProps) {
         });
       }
     } catch (error) {
-      console.error('Simulation failed:', error);
+      logger.error('Simulation failed:', error);
     } finally {
       setSimulating(false);
     }

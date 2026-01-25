@@ -30,6 +30,7 @@ from .base import (
     json_response,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.versioning.compat import strip_version_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -61,20 +62,21 @@ class TournamentHandler(BaseHandler):
     """Handler for tournament-related endpoints."""
 
     ROUTES = [
-        "/api/v1/tournaments",
-        "/api/v1/tournaments/*",
-        "/api/v1/tournaments/*/standings",
-        "/api/v1/tournaments/*/bracket",
-        "/api/v1/tournaments/*/matches",
-        "/api/v1/tournaments/*/advance",
-        "/api/v1/tournaments/*/matches/*/result",
+        "/api/tournaments",
+        "/api/tournaments/*",
+        "/api/tournaments/*/standings",
+        "/api/tournaments/*/bracket",
+        "/api/tournaments/*/matches",
+        "/api/tournaments/*/advance",
+        "/api/tournaments/*/matches/*/result",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path == "/api/v1/tournaments":
+        path = strip_version_prefix(path)
+        if path == "/api/tournaments":
             return True
-        if not path.startswith("/api/v1/tournaments/"):
+        if not path.startswith("/api/tournaments/"):
             return False
 
         # Parse path segments
@@ -98,6 +100,7 @@ class TournamentHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route tournament requests to appropriate handler methods."""
+        path = strip_version_prefix(path)
         logger.debug(f"Tournament request: {path}")
 
         # Rate limit check
@@ -106,7 +109,7 @@ class TournamentHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for tournament endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/v1/tournaments":
+        if path == "/api/tournaments":
             return self._list_tournaments()
 
         parts = path.split("/")
@@ -145,6 +148,7 @@ class TournamentHandler(BaseHandler):
 
     def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
         """Handle POST requests for tournament creation and updates."""
+        path = strip_version_prefix(path)
         logger.debug(f"Tournament POST request: {path}")
 
         # Rate limit check
@@ -154,7 +158,7 @@ class TournamentHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # POST /api/tournaments - Create tournament
-        if path == "/api/v1/tournaments":
+        if path == "/api/tournaments":
             return self._create_tournament(body)
 
         parts = path.split("/")

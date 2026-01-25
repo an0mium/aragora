@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { useAuth } from '@/context/AuthContext';
 import { API_BASE_URL } from '@/config';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
@@ -90,7 +91,7 @@ export default function DeveloperPortal() {
         });
       }
     } catch (err) {
-      console.error('Failed to fetch API key info:', err);
+      logger.error('Failed to fetch API key info:', err);
     } finally {
       setLoading(false);
     }
@@ -128,7 +129,7 @@ export default function DeveloperPortal() {
         setDailyUsage(mockDaily);
       }
     } catch (err) {
-      console.error('Failed to fetch usage stats:', err);
+      logger.error('Failed to fetch usage stats:', err);
     }
   }, [accessToken]);
 
@@ -210,7 +211,7 @@ export default function DeveloperPortal() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy:', err);
+      logger.error('Failed to copy:', err);
     }
   };
 

@@ -168,3 +168,159 @@ groups:
           summary: "High number of WebSocket connections"
           description: "There are more than 500 active WebSocket connections."
           runbook_url: "https://docs.aragora.ai/runbook#high-ws-connections"
+
+  # ==========================================================================
+  # SLO Recording Rules
+  # Pre-compute SLO metrics for efficient alerting and dashboards
+  # ==========================================================================
+
+  - name: aragora-slo-recording
+    interval: 30s
+    rules:
+      # API Availability SLO (99.9% target)
+      - record: slo:api_availability:ratio5m
+        expr: |
+          1 - (
+            sum(rate(aragora_http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(aragora_http_requests_total[5m]))
+          )
+
+      # API p99 Latency SLO (500ms target)
+      - record: slo:api_latency_p99:seconds
+        expr: |
+          histogram_quantile(0.99, sum(rate(aragora_http_request_duration_seconds_bucket[5m])) by (le))
+
+      # Debate Success Rate SLO (95% target)
+      - record: slo:debate_success:ratio5m
+        expr: |
+          sum(rate(aragora_debates_completed_total[5m]))
+          /
+          sum(rate(aragora_debates_started_total[5m]))
+
+      # Error budget remaining (availability)
+      - record: slo:api_availability:error_budget_remaining
+        expr: |
+          1 - (
+            (1 - slo:api_availability:ratio5m) / 0.001
+          )
+
+      # Error budget remaining (debate success)
+      - record: slo:debate_success:error_budget_remaining
+        expr: |
+          1 - (
+            (1 - slo:debate_success:ratio5m) / 0.05
+          )
+
+      # Burn rate (1h window)
+      - record: slo:api_availability:burn_rate_1h
+        expr: |
+          (1 - slo:api_availability:ratio5m) / 0.001
+
+      # Burn rate (6h window)
+      - record: slo:api_availability:burn_rate_6h
+        expr: |
+          (1 - (
+            1 - (
+              sum(increase(aragora_http_requests_total{status=~"5.."}[6h]))
+              /
+              sum(increase(aragora_http_requests_total[6h]))
+            )
+          )) / 0.001
+
+  # ==========================================================================
+  # SLO Alerting Rules
+  # Multi-window, multi-burn-rate alerts for SLO violations
+  # ==========================================================================
+
+  - name: aragora-slo-alerts
+    rules:
+      # SLO: API Availability - Critical (fast burn)
+      - alert: SLOAvailabilityBudgetBurning
+        expr: |
+          slo:api_availability:burn_rate_1h > 14.4
+          and
+          slo:api_availability:burn_rate_6h > 6
+        for: 2m
+        labels:
+          severity: critical
+          slo: availability
+        annotations:
+          summary: "API availability SLO error budget is burning fast"
+          description: "Error budget is depleting rapidly. 1h burn rate: {{ $value | printf \"%.1f\" }}x expected."
+          runbook_url: "https://docs.aragora.ai/runbook#slo-availability"
+
+      # SLO: API Availability - Warning (slow burn)
+      - alert: SLOAvailabilityBudgetBurning
+        expr: |
+          slo:api_availability:burn_rate_1h > 3
+          and
+          slo:api_availability:error_budget_remaining < 0.5
+        for: 15m
+        labels:
+          severity: warning
+          slo: availability
+        annotations:
+          summary: "API availability SLO error budget is depleting"
+          description: "Error budget is below 50%. Remaining: {{ $value | printf \"%.1f\" }}%."
+          runbook_url: "https://docs.aragora.ai/runbook#slo-availability"
+
+      # SLO: API Availability - Exhausted
+      - alert: SLOAvailabilityBudgetExhausted
+        expr: slo:api_availability:error_budget_remaining < 0
+        for: 5m
+        labels:
+          severity: critical
+          slo: availability
+        annotations:
+          summary: "API availability SLO error budget exhausted"
+          description: "Error budget is completely exhausted. Availability is below 99.9%."
+          runbook_url: "https://docs.aragora.ai/runbook#slo-availability-exhausted"
+
+      # SLO: API Latency - Warning
+      - alert: SLOLatencyWarning
+        expr: slo:api_latency_p99:seconds > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          slo: latency
+        annotations:
+          summary: "API p99 latency exceeding SLO target"
+          description: "p99 latency is {{ $value | humanizeDuration }} (target: 500ms)."
+          runbook_url: "https://docs.aragora.ai/runbook#slo-latency"
+
+      # SLO: API Latency - Critical
+      - alert: SLOLatencyCritical
+        expr: slo:api_latency_p99:seconds > 1
+        for: 5m
+        labels:
+          severity: critical
+          slo: latency
+        annotations:
+          summary: "API p99 latency critically high"
+          description: "p99 latency is {{ $value | humanizeDuration }} (2x SLO target)."
+          runbook_url: "https://docs.aragora.ai/runbook#slo-latency-critical"
+
+      # SLO: Debate Success - Warning
+      - alert: SLODebateSuccessWarning
+        expr: slo:debate_success:ratio5m < 0.95
+        for: 15m
+        labels:
+          severity: warning
+          slo: debate_success
+        annotations:
+          summary: "Debate success rate below SLO target"
+          description: "Debate success rate is {{ $value | printf \"%.1f\" }}% (target: 95%)."
+          runbook_url: "https://docs.aragora.ai/runbook#slo-debate-success"
+
+      # SLO: Debate Success - Budget Exhausted
+      - alert: SLODebateSuccessBudgetExhausted
+        expr: slo:debate_success:error_budget_remaining < 0
+        for: 10m
+        labels:
+          severity: critical
+          slo: debate_success
+        annotations:
+          summary: "Debate success SLO error budget exhausted"
+          description: "Debate success rate is significantly below 95% target."
+          runbook_url: "https://docs.aragora.ai/runbook#slo-debate-exhausted"

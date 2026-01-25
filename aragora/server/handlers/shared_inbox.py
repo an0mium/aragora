@@ -1264,8 +1264,8 @@ async def handle_update_routing_rule(
                         "success": True,
                         "rule": rule_data,
                     }
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to get rule {rule_id} from store: {e}")
 
         # Return from in-memory cache if available
         with _storage_lock:
@@ -1596,8 +1596,8 @@ async def apply_routing_rules_to_message(
         if rules_store:
             try:
                 rules_store.increment_rule_stats(rule["id"], matched=0, applied=1)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to increment rule stats for {rule['id']}: {e}")
 
     return {
         "applied": bool(applied_actions),

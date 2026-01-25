@@ -5,6 +5,8 @@
  * Allows gating experimental features and A/B testing.
  */
 
+import { logger } from '@/utils/logger';
+
 export type FeatureStatus = 'stable' | 'beta' | 'alpha' | 'deprecated';
 
 export interface FeatureFlag {

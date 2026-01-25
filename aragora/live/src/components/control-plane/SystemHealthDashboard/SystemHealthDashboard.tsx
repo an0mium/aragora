@@ -5,6 +5,7 @@ import { HealthOverview, type SystemHealth } from './HealthOverview';
 import { CircuitBreakerStatus, type CircuitBreaker } from './CircuitBreakerStatus';
 import { TaskQueueMetrics, type QueueMetrics } from './TaskQueueMetrics';
 import { useAuth } from '@/context/AuthContext';
+import { logger } from '@/utils/logger';
 
 export interface SystemHealthDashboardProps {
   /** API base URL for fetching health data */

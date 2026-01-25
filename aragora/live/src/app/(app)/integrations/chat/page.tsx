@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useBackend } from '@/components/BackendSelector';
+import { logger } from '@/utils/logger';
 
 interface IntegrationStatus {
   name: string;
@@ -286,7 +287,7 @@ export default function ChatIntegrationsPage() {
       // Refresh statuses
       await fetchStatuses();
     } catch (err) {
-      console.error('Toggle failed:', err);
+      logger.error('Toggle failed:', err);
     }
   };
 

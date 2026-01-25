@@ -5,6 +5,7 @@ import { ErrorWithRetry } from './RetryButton';
 import { withErrorBoundary } from './PanelErrorBoundary';
 import { fetchWithRetry } from '@/utils/retry';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 
 interface TierStats {
   count: number;
@@ -182,7 +183,7 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
         setSearchError('Search failed. Please try again.');
       }
     } catch (err) {
-      console.error('Search failed:', err);
+      logger.error('Search failed:', err);
       setSearchError('Unable to search memories. Please check your connection.');
     }
   }, [apiBase, searchQuery, selectedTiers, minImportance]);
@@ -208,7 +209,7 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
         setCritiqueError('Failed to load critiques. Please try again.');
       }
     } catch (err) {
-      console.error('Fetching critiques failed:', err);
+      logger.error('Fetching critiques failed:', err);
       setCritiques([]);
       setCritiqueError('Unable to load critiques. Please check your connection.');
     }

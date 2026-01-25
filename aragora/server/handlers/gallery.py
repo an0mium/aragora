@@ -30,6 +30,7 @@ from .base import (
     json_response,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.versioning.compat import strip_version_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -83,20 +84,22 @@ class GalleryHandler(BaseHandler):
     """Handler for public gallery endpoints."""
 
     ROUTES = [
-        "/api/v1/gallery",
+        "/api/gallery",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
+        path = strip_version_prefix(path)
         if path in self.ROUTES:
             return True
         # Dynamic routes for specific debate
-        if path.startswith("/api/v1/gallery/") and len(path.split("/")) >= 4:
+        if path.startswith("/api/gallery/") and len(path.split("/")) >= 4:
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route gallery requests to appropriate methods."""
+        path = strip_version_prefix(path)
         logger.debug(f"Gallery request: {path} params={query_params}")
 
         # Rate limit check
@@ -105,17 +108,17 @@ class GalleryHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for gallery endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/v1/gallery":
+        if path == "/api/gallery":
             return self._list_public_debates(query_params)
 
         # Parse debate_id from path
-        # Path: /api/v1/gallery/{debate_id} -> parts: ['', 'api', 'v1', 'gallery', '{debate_id}']
+        # Path: /api/gallery/{debate_id} -> parts: ['', 'api', 'gallery', '{debate_id}']
         parts = path.split("/")
-        if len(parts) >= 5 and parts[1] == "api" and parts[2] == "v1" and parts[3] == "gallery":
-            debate_id = parts[4]
+        if len(parts) >= 4 and parts[1] == "api" and parts[2] == "gallery":
+            debate_id = parts[3]
 
             # Check for sub-routes
-            if len(parts) == 6 and parts[5] == "embed":
+            if len(parts) == 5 and parts[4] == "embed":
                 return self._get_embed(debate_id)
 
             return self._get_debate(debate_id)
@@ -178,8 +181,8 @@ class GalleryHandler(BaseHandler):
             "consensus_reached": debate.get("consensus_reached", False),
             "winner": debate.get("winner"),
             "preview": debate.get("preview", "")[:300],
-            "embed_url": f"/api/v1/gallery/{debate_id}/embed",
-            "full_url": f"/api/v1/gallery/{debate_id}",
+            "embed_url": f"/api/gallery/{debate_id}/embed",
+            "full_url": f"/api/gallery/{debate_id}",
         }
 
         return json_response(embed)

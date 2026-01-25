@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 
 interface Provider {
   id: string;
@@ -69,23 +70,23 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
 
   useEffect(() => {
     const fetchProviders = async () => {
-      console.log('[SocialLoginButtons] Fetching providers from:', `${API_BASE_URL}/api/auth/oauth/providers`);
+      logger.debug('[SocialLoginButtons] Fetching providers from:', `${API_BASE_URL}/api/auth/oauth/providers`);
       try {
         // Use explicit API URL from config (handles production vs dev)
         const response = await fetch(`${API_BASE_URL}/api/auth/oauth/providers`);
-        console.log('[SocialLoginButtons] Response status:', response.status);
+        logger.debug('[SocialLoginButtons] Response status:', response.status);
         if (response.ok) {
           const data = await response.json();
-          console.log('[SocialLoginButtons] Providers received:', data.providers?.length || 0);
+          logger.debug('[SocialLoginButtons] Providers received:', data.providers?.length || 0);
           setProviders(data.providers || []);
         } else {
           // No OAuth providers configured - this is OK
-          console.log('[SocialLoginButtons] Non-OK response, hiding buttons');
+          logger.debug('[SocialLoginButtons] Non-OK response, hiding buttons');
           setProviders([]);
         }
       } catch (err) {
         // API not available - hide social buttons
-        console.error('[SocialLoginButtons] Fetch error:', err);
+        logger.error('[SocialLoginButtons] Fetch error:', err);
         setProviders([]);
       } finally {
         setLoading(false);
@@ -101,9 +102,9 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
     const oauthUrl = `${API_BASE_URL}${provider.auth_url}?redirect_url=${encodeURIComponent(callbackUrl)}`;
 
     // Debug: Log the redirect URL
-    console.log('[OAuth] Redirecting to:', oauthUrl);
-    console.log('[OAuth] API_BASE_URL:', API_BASE_URL);
-    console.log('[OAuth] provider.auth_url:', provider.auth_url);
+    logger.debug('[OAuth] Redirecting to:', oauthUrl);
+    logger.debug('[OAuth] API_BASE_URL:', API_BASE_URL);
+    logger.debug('[OAuth] provider.auth_url:', provider.auth_url);
 
     // Redirect to OAuth provider via our API
     window.location.href = oauthUrl;

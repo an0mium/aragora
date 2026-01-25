@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { useShortcutsStore } from '@/store/shortcutsStore';
 import { useUIStore } from '@/store/uiStore';
 import { useCommandPaletteStore } from '@/store/commandPaletteStore';
+import { logger } from '@/utils/logger';
 import {
   DEFAULT_SHORTCUTS,
   parseKeyEvent,
@@ -210,7 +211,7 @@ export function KeyboardShortcutsProvider({ children }: KeyboardShortcutsProvide
         // TODO: Implement debate-specific and list-specific shortcuts
         // These need to be wired up to the actual components
         default:
-          console.debug(`Shortcut not implemented: ${id}`);
+          logger.debug(`Shortcut not implemented: ${id}`);
       }
     },
     [router, commandPaletteToggle, isHelpOpen, openHelp, closeHelp, togglePanel]

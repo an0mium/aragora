@@ -7,11 +7,33 @@ import { WS_URL, API_BASE_URL } from '@/config';
 
 const DEFAULT_WS_URL = WS_URL;
 const MAX_EVENTS = 5000;
+const TOKENS_KEY = 'aragora_tokens';
 
 // Circuit breaker configuration
 const MAX_RECONNECT_ATTEMPTS = 15;
 const INITIAL_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
+
+function getAccessToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const stored = localStorage.getItem(TOKENS_KEY);
+  if (!stored) return null;
+  try {
+    const parsed = JSON.parse(stored) as { access_token?: string };
+    return parsed.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+function getAuthHeaders(): HeadersInit {
+  const headers: HeadersInit = { 'Content-Type': 'application/json' };
+  const token = getAccessToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
 
 export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
   const [events, setEvents] = useState<StreamEvent[]>([]);
@@ -307,7 +329,7 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/replays/${debateId}/fork`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ event_id: eventId, config: configOverrides }),
       });
       if (!response.ok) {
@@ -345,7 +367,7 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
 
 // Fetch nomic state from REST API
 export async function fetchNomicState(apiUrl: string = API_BASE_URL): Promise<NomicState> {
-  const response = await fetch(`${apiUrl}/api/nomic/state`);
+  const response = await fetch(`${apiUrl}/api/nomic/state`, { headers: getAuthHeaders() });
   if (!response.ok) {
     throw new Error(`Failed to fetch state: ${response.status}`);
   }
@@ -357,7 +379,9 @@ export async function fetchNomicLog(
   apiUrl: string = API_BASE_URL,
   lines: number = 100
 ): Promise<string[]> {
-  const response = await fetch(`${apiUrl}/api/nomic/log?lines=${lines}`);
+  const response = await fetch(`${apiUrl}/api/nomic/log?lines=${lines}`, {
+    headers: getAuthHeaders(),
+  });
   if (!response.ok) {
     throw new Error(`Failed to fetch log: ${response.status}`);
   }

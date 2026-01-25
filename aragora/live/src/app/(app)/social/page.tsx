@@ -7,6 +7,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
 import { HistoryEmptyState } from '@/components/ui/EmptyState';
+import { logger } from '@/utils/logger';
 
 interface ConnectorStatus {
   name: string;
@@ -96,7 +97,7 @@ export default function SocialPage() {
 
       setConnectors(connectorList);
     } catch (err) {
-      console.error('Failed to fetch connector status:', err);
+      logger.error('Failed to fetch connector status:', err);
       throw err;
     }
   }, [backendUrl]);
@@ -119,7 +120,7 @@ export default function SocialPage() {
         has_video: d.metadata?.has_video || false,
       })) || []);
     } catch (err) {
-      console.error('Failed to fetch debates:', err);
+      logger.error('Failed to fetch debates:', err);
     }
   }, [backendUrl]);
 

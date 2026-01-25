@@ -7,6 +7,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
 import { DeliveryModal } from '@/components/receipts';
+import { logger } from '@/utils/logger';
 
 interface GauntletResult {
   id: string;
@@ -96,7 +97,7 @@ export default function ReceiptsPage() {
       const data = await response.json();
       setResults(data.results || []);
     } catch (err) {
-      console.error('Failed to fetch results:', err);
+      logger.error('Failed to fetch results:', err);
       throw err;
     }
   }, [backendUrl]);

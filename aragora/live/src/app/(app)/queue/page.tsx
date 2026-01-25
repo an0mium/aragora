@@ -7,6 +7,7 @@ import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
+import { logger } from '@/utils/logger';
 
 interface QueueStats {
   pending: number;
@@ -108,7 +109,7 @@ export default function QueuePage() {
         fetchData();
       }
     } catch (err) {
-      console.error('Failed to retry job:', err);
+      logger.error('Failed to retry job:', err);
     }
   };
 
@@ -121,7 +122,7 @@ export default function QueuePage() {
         fetchData();
       }
     } catch (err) {
-      console.error('Failed to cancel job:', err);
+      logger.error('Failed to cancel job:', err);
     }
   };
 

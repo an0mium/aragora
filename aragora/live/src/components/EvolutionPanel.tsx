@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { ErrorWithRetry } from './RetryButton';
 import { withErrorBoundary } from './PanelErrorBoundary';
 import { fetchWithRetry } from '@/utils/retry';
@@ -102,7 +103,7 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
         setError('Failed to load evolution stats. Please try again.');
       }
     } catch (err) {
-      console.error('Failed to fetch genesis stats:', err);
+      logger.error('Failed to fetch genesis stats:', err);
       setError('Unable to connect to evolution API. Please check your connection.');
     }
   }, [apiBase]);
@@ -115,7 +116,7 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
         setGenomes(data.genomes || []);
       }
     } catch (err) {
-      console.error('Failed to fetch genomes:', err);
+      logger.error('Failed to fetch genomes:', err);
       // Don't override main error if already set
     }
   }, [apiBase]);
@@ -128,7 +129,7 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
         setEvents(data.events || []);
       }
     } catch (err) {
-      console.error('Failed to fetch events:', err);
+      logger.error('Failed to fetch events:', err);
       // Don't override main error if already set
     }
   }, [apiBase]);
@@ -141,7 +142,7 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
         setPatterns(data.patterns || []);
       }
     } catch (err) {
-      console.error('Failed to fetch patterns:', err);
+      logger.error('Failed to fetch patterns:', err);
       // Don't override main error if already set
     }
   }, [apiBase]);
@@ -154,7 +155,7 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
         setAbTests(data.tests || []);
       }
     } catch (err) {
-      console.error('Failed to fetch A/B tests:', err);
+      logger.error('Failed to fetch A/B tests:', err);
     }
   }, [apiBase]);
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { PanelTemplate } from '@/components/shared/PanelTemplate';
 import { useKnowledgeQuery } from '@/hooks/useKnowledgeQuery';
 import { useSharing } from '@/hooks/useSharing';
@@ -176,7 +177,7 @@ export function KnowledgeExplorer({
           await syncPull(regionId);
         }
       } catch (error) {
-        console.error(`Failed to sync ${direction} with region ${regionId}:`, error);
+        logger.error(`Failed to sync ${direction} with region ${regionId}:`, error);
       }
     },
     [syncPush, syncPull]
@@ -340,14 +341,14 @@ export function KnowledgeExplorer({
           try {
             await acceptSharedItem(item.id);
           } catch (error) {
-            console.error('Failed to accept shared item:', error);
+            logger.error('Failed to accept shared item:', error);
           }
         }}
         onDecline={async (item) => {
           try {
             await declineSharedItem(item.id);
           } catch (error) {
-            console.error('Failed to decline shared item:', error);
+            logger.error('Failed to decline shared item:', error);
           }
         }}
       />
@@ -363,19 +364,19 @@ export function KnowledgeExplorer({
           try {
             await toggleRegionEnabled(regionId, enabled);
           } catch (error) {
-            console.error(`Failed to toggle region ${regionId}:`, error);
+            logger.error(`Failed to toggle region ${regionId}:`, error);
           }
         }}
         onAddRegion={() => {
           // Open add region dialog - handled by parent component
           // The admin page has RegionDialog for this
 
-          console.log('Add region clicked - use RegionDialog in admin page');
+          logger.debug('Add region clicked - use RegionDialog in admin page');
         }}
         onEditRegion={(regionId) => {
           // Open edit region dialog - handled by parent component
 
-          console.log('Edit region:', regionId);
+          logger.debug('Edit region:', regionId);
         }}
       />
     ),
@@ -389,7 +390,7 @@ export function KnowledgeExplorer({
           if (type === 'category') {
             // Could switch to a specific view based on category
 
-            console.log('Drill down to category:', id);
+            logger.debug('Drill down to category:', id);
           } else if (type === 'bucket') {
             // Switch to stale tab filtered by age bucket
             setActiveTab('stale');

@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 
 interface FetchState<T> {
   data: T | null;
@@ -185,7 +186,7 @@ export function useAuthFetch() {
       init: RequestInit = {}
     ): Promise<T | null> => {
       if (!isAuthenticated || !tokens?.access_token) {
-        console.warn(`[useAuthFetch] Skipped ${endpoint} - not authenticated`);
+        logger.warn(`[useAuthFetch] Skipped ${endpoint} - not authenticated`);
         return null;
       }
 

@@ -5,6 +5,8 @@
  * following the same patterns as useNomicStream's circuit breaker.
  */
 
+import { API_BASE_URL } from '@/config';
+
 export interface RetryConfig {
   /** Maximum number of retry attempts (default: 3) */
   maxAttempts?: number;
@@ -52,6 +54,45 @@ const DEFAULT_CONFIG: Required<RetryConfig> = {
   },
   onRetry: () => {},
 };
+
+const TOKENS_KEY = 'aragora_tokens';
+
+function getAccessToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const stored = localStorage.getItem(TOKENS_KEY);
+  if (!stored) return null;
+  try {
+    const parsed = JSON.parse(stored) as { access_token?: string };
+    return parsed.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+function isInternalApiRequest(url: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const apiOrigin = new URL(API_BASE_URL, window.location.origin).origin;
+    const isApiPath = parsed.pathname.startsWith('/api/');
+    const isTrustedOrigin = parsed.origin === window.location.origin || parsed.origin === apiOrigin;
+    return isApiPath && isTrustedOrigin;
+  } catch {
+    return false;
+  }
+}
+
+function withAuthHeaders(url: string, init: RequestInit): RequestInit {
+  const token = getAccessToken();
+  if (!token || !isInternalApiRequest(url)) {
+    return init;
+  }
+  const headers = new Headers(init.headers || {});
+  if (!headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return { ...init, headers };
+}
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -126,10 +167,10 @@ export async function fetchWithRetry(
     }
   }
 
-  const fetchOptions: RequestInit = {
+  const fetchOptions: RequestInit = withAuthHeaders(url, {
     ...options,
     signal: internalController.signal,
-  };
+  });
 
   const result = await retryAsync(
     async () => {

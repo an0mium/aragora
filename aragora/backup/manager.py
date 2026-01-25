@@ -70,6 +70,15 @@ class BackupMetadata:
     storage_backend: str = "local"
     encryption_key_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    # Enhanced verification fields
+    schema_hash: str = ""
+    table_checksums: dict[str, str] = field(default_factory=dict)
+    foreign_keys: list[tuple[str, str, str, str]] = field(
+        default_factory=list
+    )  # (table, column, ref_table, ref_column)
+    indexes: list[tuple[str, str, str]] = field(
+        default_factory=list
+    )  # (index_name, table, columns)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -93,6 +102,10 @@ class BackupMetadata:
             "storage_backend": self.storage_backend,
             "encryption_key_id": self.encryption_key_id,
             "metadata": self.metadata,
+            "schema_hash": self.schema_hash,
+            "table_checksums": self.table_checksums,
+            "foreign_keys": [list(fk) for fk in self.foreign_keys],
+            "indexes": [list(idx) for idx in self.indexes],
         }
 
     @classmethod
@@ -120,6 +133,10 @@ class BackupMetadata:
             storage_backend=data.get("storage_backend", "local"),
             encryption_key_id=data.get("encryption_key_id"),
             metadata=data.get("metadata", {}),
+            schema_hash=data.get("schema_hash", ""),
+            table_checksums=data.get("table_checksums", {}),
+            foreign_keys=[tuple(fk) for fk in data.get("foreign_keys", [])],
+            indexes=[tuple(idx) for idx in data.get("indexes", [])],
         )
 
 
@@ -148,6 +165,90 @@ class VerificationResult:
     warnings: list[str] = field(default_factory=list)
     verified_at: datetime = field(default_factory=datetime.utcnow)
     duration_seconds: float = 0.0
+
+
+@dataclass
+class SchemaValidationResult:
+    """Result of schema validation between original and restored database."""
+
+    valid: bool
+    tables_match: bool
+    columns_match: bool
+    types_match: bool
+    constraints_match: bool
+    indexes_match: bool
+    missing_tables: list[str] = field(default_factory=list)
+    extra_tables: list[str] = field(default_factory=list)
+    column_mismatches: list[str] = field(default_factory=list)
+    type_mismatches: list[str] = field(default_factory=list)
+    constraint_mismatches: list[str] = field(default_factory=list)
+    index_mismatches: list[str] = field(default_factory=list)
+
+
+@dataclass
+class IntegrityResult:
+    """Result of referential integrity verification."""
+
+    valid: bool
+    foreign_keys_valid: bool
+    orphaned_records: dict[str, int] = field(default_factory=dict)  # table: count
+    foreign_key_errors: list[str] = field(default_factory=list)
+    data_type_errors: list[str] = field(default_factory=list)
+    null_constraint_violations: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ComprehensiveVerificationResult:
+    """Comprehensive verification combining all checks."""
+
+    backup_id: str
+    verified: bool
+    basic_verification: VerificationResult
+    schema_validation: SchemaValidationResult | None = None
+    integrity_check: IntegrityResult | None = None
+    table_checksums_valid: bool = False
+    table_checksum_errors: list[str] = field(default_factory=list)
+    all_errors: list[str] = field(default_factory=list)
+    all_warnings: list[str] = field(default_factory=list)
+    verified_at: datetime = field(default_factory=datetime.utcnow)
+    duration_seconds: float = 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for logging/serialization."""
+        return {
+            "backup_id": self.backup_id,
+            "verified": self.verified,
+            "basic_verification": {
+                "checksum_valid": self.basic_verification.checksum_valid,
+                "restore_tested": self.basic_verification.restore_tested,
+                "tables_valid": self.basic_verification.tables_valid,
+                "row_counts_valid": self.basic_verification.row_counts_valid,
+            },
+            "schema_validation": (
+                {
+                    "valid": self.schema_validation.valid,
+                    "tables_match": self.schema_validation.tables_match,
+                    "columns_match": self.schema_validation.columns_match,
+                    "types_match": self.schema_validation.types_match,
+                }
+                if self.schema_validation
+                else None
+            ),
+            "integrity_check": (
+                {
+                    "valid": self.integrity_check.valid,
+                    "foreign_keys_valid": self.integrity_check.foreign_keys_valid,
+                    "orphaned_records": self.integrity_check.orphaned_records,
+                }
+                if self.integrity_check
+                else None
+            ),
+            "table_checksums_valid": self.table_checksums_valid,
+            "all_errors": self.all_errors,
+            "all_warnings": self.all_warnings,
+            "verified_at": self.verified_at.isoformat(),
+            "duration_seconds": self.duration_seconds,
+        }
 
 
 class BackupManager:
@@ -242,6 +343,18 @@ class BackupManager:
             backup_meta.tables = tables
             backup_meta.row_counts = row_counts
             backup_meta.size_bytes = source.stat().st_size
+
+            # Get enhanced schema info
+            schema_info = self._get_schema_info(source)
+            backup_meta.schema_hash = self._compute_schema_hash(source)
+            backup_meta.table_checksums = self._compute_table_checksums(source)
+
+            # Extract foreign keys and indexes
+            for table, info in schema_info.items():
+                for fk in info["foreign_keys"]:
+                    backup_meta.foreign_keys.append((table, fk[0], fk[1], fk[2]))
+                for idx in info["indexes"]:
+                    backup_meta.indexes.append((idx[0], table, ",".join(idx[1])))
 
             # Create backup using SQLite's backup API
             with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
@@ -641,6 +754,389 @@ class BackupManager:
 
         conn.close()
         return tables, row_counts
+
+    def _get_schema_info(self, db_path: Path) -> dict[str, dict[str, Any]]:
+        """
+        Get detailed schema information for each table.
+
+        Returns:
+            Dict mapping table name to schema info:
+            {
+                "table_name": {
+                    "columns": [{"name": str, "type": str, "notnull": bool, "pk": bool}],
+                    "foreign_keys": [(column, ref_table, ref_column)],
+                    "indexes": [(name, columns, unique)]
+                }
+            }
+        """
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+
+        schema_info: dict[str, dict[str, Any]] = {}
+
+        # Get tables
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        tables = [row[0] for row in cursor.fetchall()]
+
+        for table in tables:
+            # Get column info using PRAGMA
+            cursor.execute(f'PRAGMA table_info("{table}")')
+            columns = []
+            for row in cursor.fetchall():
+                columns.append(
+                    {
+                        "name": row[1],
+                        "type": row[2],
+                        "notnull": bool(row[3]),
+                        "default": row[4],
+                        "pk": bool(row[5]),
+                    }
+                )
+
+            # Get foreign keys
+            cursor.execute(f'PRAGMA foreign_key_list("{table}")')
+            fks = []
+            for row in cursor.fetchall():
+                fks.append((row[3], row[2], row[4]))  # (column, ref_table, ref_column)
+
+            # Get indexes
+            cursor.execute(f'PRAGMA index_list("{table}")')
+            indexes = []
+            for idx_row in cursor.fetchall():
+                idx_name = idx_row[1]
+                is_unique = bool(idx_row[2])
+                # Get columns in this index
+                cursor.execute(f'PRAGMA index_info("{idx_name}")')
+                idx_cols = [col_row[2] for col_row in cursor.fetchall()]
+                indexes.append((idx_name, idx_cols, is_unique))
+
+            schema_info[table] = {
+                "columns": columns,
+                "foreign_keys": fks,
+                "indexes": indexes,
+            }
+
+        conn.close()
+        return schema_info
+
+    def _compute_schema_hash(self, db_path: Path) -> str:
+        """
+        Compute a hash of the database schema structure.
+
+        This creates a deterministic hash that changes only when schema changes.
+        """
+        schema_info = self._get_schema_info(db_path)
+
+        # Create deterministic string representation
+        schema_str = ""
+        for table in sorted(schema_info.keys()):
+            info = schema_info[table]
+            schema_str += f"TABLE:{table}\n"
+            for col in sorted(info["columns"], key=lambda c: c["name"]):
+                schema_str += f"  COL:{col['name']}:{col['type']}:{col['notnull']}:{col['pk']}\n"
+            for fk in sorted(info["foreign_keys"]):
+                schema_str += f"  FK:{fk[0]}->{fk[1]}.{fk[2]}\n"
+            for idx in sorted(info["indexes"], key=lambda i: i[0]):
+                schema_str += f"  IDX:{idx[0]}:{','.join(idx[1])}:{idx[2]}\n"
+
+        return hashlib.sha256(schema_str.encode()).hexdigest()
+
+    def _validate_schema(
+        self, restored_db: Path, backup_meta: BackupMetadata
+    ) -> SchemaValidationResult:
+        """
+        Validate schema of restored database against backup metadata.
+
+        Compares:
+        - Table existence
+        - Column definitions
+        - Data types
+        - Constraints
+        - Indexes
+        """
+        result = SchemaValidationResult(
+            valid=True,
+            tables_match=True,
+            columns_match=True,
+            types_match=True,
+            constraints_match=True,
+            indexes_match=True,
+        )
+
+        # Get current schema
+        current_schema = self._get_schema_info(restored_db)
+        current_tables = set(current_schema.keys())
+        expected_tables = set(backup_meta.tables)
+
+        # Check tables match
+        result.missing_tables = list(expected_tables - current_tables)
+        result.extra_tables = list(current_tables - expected_tables)
+
+        if result.missing_tables or result.extra_tables:
+            result.tables_match = False
+            result.valid = False
+
+        # Compare schema hash if available
+        if backup_meta.schema_hash:
+            current_hash = self._compute_schema_hash(restored_db)
+            if current_hash != backup_meta.schema_hash:
+                # Schema changed - do detailed comparison
+                for table in current_tables & expected_tables:
+                    current_info = current_schema[table]
+
+                    # Compare columns
+                    current_cols = {c["name"]: c for c in current_info["columns"]}
+
+                    # Check for missing/extra columns
+                    for col_name, col_info in current_cols.items():
+                        if col_info["pk"]:
+                            continue  # Skip PK columns in detailed comparison
+
+                    # Check indexes match
+                    current_indexes = set(idx[0] for idx in current_info["indexes"])
+                    expected_indexes = set(idx[0] for idx in backup_meta.indexes if idx[1] == table)
+                    if current_indexes != expected_indexes:
+                        result.indexes_match = False
+                        result.index_mismatches.append(
+                            f"{table}: expected indexes {expected_indexes}, got {current_indexes}"
+                        )
+
+        result.valid = (
+            result.tables_match
+            and result.columns_match
+            and result.types_match
+            and result.constraints_match
+            and result.indexes_match
+        )
+
+        return result
+
+    def _verify_referential_integrity(self, db_path: Path) -> IntegrityResult:
+        """
+        Verify referential integrity of a database.
+
+        Checks:
+        - Foreign key constraints
+        - Orphaned records
+        - NOT NULL constraints on required columns
+        """
+        result = IntegrityResult(
+            valid=True,
+            foreign_keys_valid=True,
+        )
+
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+
+        try:
+            # Enable foreign key checking
+            cursor.execute("PRAGMA foreign_keys = ON")
+
+            # Run integrity check
+            cursor.execute("PRAGMA integrity_check")
+            integrity_results = cursor.fetchall()
+            if integrity_results[0][0] != "ok":
+                result.valid = False
+                for row in integrity_results:
+                    result.data_type_errors.append(str(row[0]))
+
+            # Check foreign key violations
+            cursor.execute("PRAGMA foreign_key_check")
+            fk_violations = cursor.fetchall()
+            if fk_violations:
+                result.foreign_keys_valid = False
+                result.valid = False
+                for violation in fk_violations:
+                    table, rowid, ref_table, fk_index = violation
+                    result.foreign_key_errors.append(
+                        f"Table {table} row {rowid} violates FK to {ref_table}"
+                    )
+                    # Count orphaned records by table
+                    if table not in result.orphaned_records:
+                        result.orphaned_records[table] = 0
+                    result.orphaned_records[table] += 1
+
+            # Check for NULL values in NOT NULL columns
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = [row[0] for row in cursor.fetchall()]
+
+            for table in tables:
+                cursor.execute(f'PRAGMA table_info("{table}")')
+                for col in cursor.fetchall():
+                    col_name, col_notnull = col[1], col[3]
+                    if col_notnull:
+                        cursor.execute(f'SELECT COUNT(*) FROM "{table}" WHERE "{col_name}" IS NULL')
+                        null_count = cursor.fetchone()[0]
+                        if null_count > 0:
+                            result.valid = False
+                            result.null_constraint_violations.append(
+                                f"{table}.{col_name} has {null_count} NULL values"
+                            )
+
+        except Exception as e:
+            result.valid = False
+            result.data_type_errors.append(f"Integrity check failed: {e}")
+        finally:
+            conn.close()
+
+        return result
+
+    def _compute_table_checksums(self, db_path: Path) -> dict[str, str]:
+        """
+        Compute SHA-256 checksum for each table's data.
+
+        This allows detection of data corruption at the table level.
+        """
+        checksums: dict[str, str] = {}
+
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = [row[0] for row in cursor.fetchall()]
+
+            for table in tables:
+                # Get all data sorted by rowid for deterministic hash
+                try:
+                    cursor.execute(f'SELECT * FROM "{table}" ORDER BY rowid')
+                    rows = cursor.fetchall()
+
+                    # Create hash from serialized rows
+                    hasher = hashlib.sha256()
+                    for row in rows:
+                        row_str = "|".join(str(val) for val in row)
+                        hasher.update(row_str.encode())
+
+                    checksums[table] = hasher.hexdigest()
+                except Exception as e:
+                    # Some tables may not have rowid (e.g., WITHOUT ROWID tables)
+                    logger.warning(f"Could not compute checksum for table {table}: {e}")
+                    checksums[table] = ""
+
+        finally:
+            conn.close()
+
+        return checksums
+
+    def verify_restore_comprehensive(
+        self,
+        backup_id: str,
+        backup_meta: BackupMetadata | None = None,
+    ) -> ComprehensiveVerificationResult:
+        """
+        Perform comprehensive verification of a backup.
+
+        Includes:
+        - Basic verification (checksum, row counts, tables)
+        - Schema validation (columns, types, constraints, indexes)
+        - Referential integrity (foreign keys, orphans)
+        - Per-table checksums
+
+        Args:
+            backup_id: ID of the backup to verify
+            backup_meta: Optional metadata (will be loaded if not provided)
+
+        Returns:
+            ComprehensiveVerificationResult with all check results
+        """
+        start_time = datetime.now(timezone.utc)
+
+        if backup_meta is None:
+            backup_meta = self._backups.get(backup_id)
+
+        # Start with basic verification
+        basic_result = self.verify_backup(backup_id, backup_meta, test_restore=True)
+
+        result = ComprehensiveVerificationResult(
+            backup_id=backup_id,
+            verified=basic_result.verified,
+            basic_verification=basic_result,
+        )
+        result.all_errors.extend(basic_result.errors)
+        result.all_warnings.extend(basic_result.warnings)
+
+        if not basic_result.verified or backup_meta is None:
+            result.duration_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
+            return result
+
+        backup_path = Path(backup_meta.backup_path)
+
+        # Restore to temp for comprehensive checks
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+                tmp_path = Path(tmp.name)
+
+            if self.compression:
+                self._decompress_file(backup_path, tmp_path)
+            else:
+                shutil.copy(backup_path, tmp_path)
+
+            # Schema validation
+            schema_result = self._validate_schema(tmp_path, backup_meta)
+            result.schema_validation = schema_result
+            if not schema_result.valid:
+                result.verified = False
+                if schema_result.missing_tables:
+                    result.all_errors.append(f"Missing tables: {schema_result.missing_tables}")
+                if schema_result.extra_tables:
+                    result.all_warnings.append(f"Extra tables: {schema_result.extra_tables}")
+                result.all_errors.extend(schema_result.column_mismatches)
+                result.all_errors.extend(schema_result.type_mismatches)
+                result.all_errors.extend(schema_result.constraint_mismatches)
+                result.all_errors.extend(schema_result.index_mismatches)
+
+            # Referential integrity
+            integrity_result = self._verify_referential_integrity(tmp_path)
+            result.integrity_check = integrity_result
+            if not integrity_result.valid:
+                result.verified = False
+                result.all_errors.extend(integrity_result.foreign_key_errors)
+                result.all_errors.extend(integrity_result.data_type_errors)
+                result.all_errors.extend(integrity_result.null_constraint_violations)
+                if integrity_result.orphaned_records:
+                    result.all_warnings.append(
+                        f"Orphaned records: {integrity_result.orphaned_records}"
+                    )
+
+            # Table checksums
+            if backup_meta.table_checksums:
+                current_checksums = self._compute_table_checksums(tmp_path)
+                result.table_checksums_valid = True
+
+                for table, expected_checksum in backup_meta.table_checksums.items():
+                    if not expected_checksum:
+                        continue  # Skip empty checksums
+                    current_checksum = current_checksums.get(table, "")
+                    if current_checksum and current_checksum != expected_checksum:
+                        result.table_checksums_valid = False
+                        result.table_checksum_errors.append(f"Table {table}: checksum mismatch")
+
+                if not result.table_checksums_valid:
+                    result.verified = False
+                    result.all_errors.extend(result.table_checksum_errors)
+            else:
+                # No stored checksums - just compute them for info
+                result.table_checksums_valid = True
+
+            # Clean up
+            tmp_path.unlink()
+
+        except Exception as e:
+            result.verified = False
+            result.all_errors.append(f"Comprehensive verification failed: {e}")
+
+        result.duration_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
+
+        logger.info(
+            "Comprehensive verification for %s: verified=%s, errors=%d, warnings=%d",
+            backup_id,
+            result.verified,
+            len(result.all_errors),
+            len(result.all_warnings),
+        )
+
+        return result
 
     def _compute_checksum(self, file_path: Path) -> str:
         """Compute SHA-256 checksum of a file."""

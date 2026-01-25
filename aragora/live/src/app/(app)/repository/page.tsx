@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
+import { logger } from '@/utils/logger';
 
 interface IndexProgress {
   repository_id: string;
@@ -129,7 +130,7 @@ export default function RepositoryPage() {
       }
       setRepositories(repos);
     } catch (err) {
-      console.error('Failed to fetch repositories:', err);
+      logger.error('Failed to fetch repositories:', err);
     } finally {
       setLoadingRepos(false);
     }
@@ -157,7 +158,7 @@ export default function RepositoryPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to poll progress:', err);
+      logger.error('Failed to poll progress:', err);
     }
   }, [backendConfig.api, pollingInterval, fetchRepositories]);
 

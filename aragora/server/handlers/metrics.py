@@ -31,6 +31,7 @@ from aragora.persistence.db_config import LEGACY_DB_NAMES, DatabaseType
 from .base import BaseHandler, HandlerResult, error_response, json_response, safe_error_message
 from .admin.cache import _cache, get_cache_stats
 from .utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.versioning.compat import strip_version_prefix
 
 # Rate limiter for metrics endpoints (60 requests per minute - monitoring may poll frequently)
 _metrics_limiter = RateLimiter(requests_per_minute=60)
@@ -115,22 +116,24 @@ class MetricsHandler(BaseHandler):
     """Handler for operational metrics endpoints."""
 
     ROUTES = [
-        "/api/v1/metrics",
-        "/api/v1/metrics/health",
-        "/api/v1/metrics/cache",
-        "/api/v1/metrics/verification",
-        "/api/v1/metrics/system",
-        "/api/v1/metrics/background",
-        "/api/v1/metrics/debate",
+        "/api/metrics",
+        "/api/metrics/health",
+        "/api/metrics/cache",
+        "/api/metrics/verification",
+        "/api/metrics/system",
+        "/api/metrics/background",
+        "/api/metrics/debate",
         "/metrics",  # Prometheus-format endpoint
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
+        path = strip_version_prefix(path)
         return path in self.ROUTES
 
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route metrics requests to appropriate methods."""
+        path = strip_version_prefix(path)
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _metrics_limiter.is_allowed(client_ip):
@@ -153,25 +156,25 @@ class MetricsHandler(BaseHandler):
                     logger.warning(f"Unauthorized /metrics access attempt from {client_ip}")
                     return error_response("Unauthorized. Provide valid metrics token.", 401)
 
-        if path == "/api/v1/metrics":
+        if path == "/api/metrics":
             return self._get_metrics()
 
-        if path == "/api/v1/metrics/health":
+        if path == "/api/metrics/health":
             return self._get_health()
 
-        if path == "/api/v1/metrics/cache":
+        if path == "/api/metrics/cache":
             return self._get_cache_stats()
 
-        if path == "/api/v1/metrics/verification":
+        if path == "/api/metrics/verification":
             return self._get_verification_stats()
 
-        if path == "/api/v1/metrics/system":
+        if path == "/api/metrics/system":
             return self._get_system_info()
 
-        if path == "/api/v1/metrics/background":
+        if path == "/api/metrics/background":
             return self._get_background_stats()
 
-        if path == "/api/v1/metrics/debate":
+        if path == "/api/metrics/debate":
             debate_id = query_params.get("debate_id", [None])[0]
             return self._get_debate_perf_stats(debate_id)
 

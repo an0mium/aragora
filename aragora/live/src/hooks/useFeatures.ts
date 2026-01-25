@@ -107,13 +107,15 @@ export function useFeatures(
    */
   const isAvailable = useCallback(
     (featureId: string): boolean => {
+      if (state.loading) {
+        return false;
+      }
       if (!state.features) {
-        // Default to true for graceful degradation while loading
-        return true;
+        return false;
       }
       return state.features.available.includes(featureId);
     },
-    [state.features]
+    [state.features, state.loading]
   );
 
   /**

@@ -20,6 +20,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
+from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
     BaseHandler,
@@ -38,23 +39,24 @@ class VerticalsHandler(BaseHandler):
     """Handler for vertical specialist endpoints."""
 
     ROUTES = [
-        "/api/v1/verticals",
-        "/api/v1/verticals/suggest",
-        "/api/v1/verticals/*",
-        "/api/v1/verticals/*/config",
-        "/api/v1/verticals/*/tools",
-        "/api/v1/verticals/*/compliance",
-        "/api/v1/verticals/*/debate",
-        "/api/v1/verticals/*/agent",
+        "/api/verticals",
+        "/api/verticals/suggest",
+        "/api/verticals/*",
+        "/api/verticals/*/config",
+        "/api/verticals/*/tools",
+        "/api/verticals/*/compliance",
+        "/api/verticals/*/debate",
+        "/api/verticals/*/agent",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the request."""
-        if path == "/api/v1/verticals":
+        path = strip_version_prefix(path)
+        if path == "/api/verticals":
             return True
-        if path == "/api/v1/verticals/suggest":
+        if path == "/api/verticals/suggest":
             return True
-        if path.startswith("/api/v1/verticals/"):
+        if path.startswith("/api/verticals/"):
             return True
         return False
 
@@ -63,6 +65,7 @@ class VerticalsHandler(BaseHandler):
         self, path: str, method: str, handler: Any = None
     ) -> Optional[HandlerResult]:
         """Route request to appropriate handler method."""
+        path = strip_version_prefix(path)
         query_params: Dict[str, Any] = {}
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
@@ -71,15 +74,15 @@ class VerticalsHandler(BaseHandler):
             query_params = parse_qs(query_str)
 
         # GET /api/verticals - List all verticals
-        if path == "/api/v1/verticals" and method == "GET":
+        if path == "/api/verticals" and method == "GET":
             return self._list_verticals(query_params)
 
         # GET /api/verticals/suggest - Suggest vertical for task
-        if path == "/api/v1/verticals/suggest" and method == "GET":
+        if path == "/api/verticals/suggest" and method == "GET":
             return self._suggest_vertical(query_params)
 
         # Handle specific vertical endpoints
-        if path.startswith("/api/v1/verticals/"):
+        if path.startswith("/api/verticals/"):
             parts = path.split("/")
 
             # GET /api/verticals/:id/tools

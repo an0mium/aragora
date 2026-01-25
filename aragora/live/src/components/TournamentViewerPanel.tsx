@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ErrorWithRetry } from './RetryButton';
 import { fetchWithRetry } from '@/utils/retry';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 
 interface Tournament {
   tournament_id: string;
@@ -157,7 +158,7 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
         setSelectedTournament(tournamentId);
       }
     } catch (err) {
-      console.error('Failed to fetch standings:', err);
+      logger.error('Failed to fetch standings:', err);
     }
   }, [apiBase]);
 

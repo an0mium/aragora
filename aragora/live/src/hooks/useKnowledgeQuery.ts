@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useApi } from './useApi';
 import { useBackend } from '@/components/BackendSelector';
+import { logger } from '@/utils/logger';
 import {
   useKnowledgeExplorerStore,
   type KnowledgeNode,
@@ -369,7 +370,7 @@ export function useKnowledgeQuery({
       const response = await api.get('/api/knowledge/mound/stats') as MoundStats;
       setStats(response);
     } catch (error) {
-      console.error('Failed to load knowledge mound stats:', error);
+      logger.error('Failed to load knowledge mound stats:', error);
       setStats(null);
     }
   }, [api, setStats, setStatsLoading]);

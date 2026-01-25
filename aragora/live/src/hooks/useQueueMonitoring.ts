@@ -10,6 +10,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import type { QueueStats, QueueJob, QueueWorker } from '../components/queue';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -63,7 +64,7 @@ export function useQueueMonitoring(
       const data = await response.json();
       setStats(data.stats);
     } catch (err) {
-      console.error('Failed to fetch queue stats:', err);
+      logger.error('Failed to fetch queue stats:', err);
       // Don't set error for stats - may not be available
     }
   }, []);
@@ -96,7 +97,7 @@ export function useQueueMonitoring(
         }))
       );
     } catch (err) {
-      console.error('Failed to fetch jobs:', err);
+      logger.error('Failed to fetch jobs:', err);
     }
   }, [statusFilter]);
 
@@ -117,7 +118,7 @@ export function useQueueMonitoring(
         }))
       );
     } catch (err) {
-      console.error('Failed to fetch workers:', err);
+      logger.error('Failed to fetch workers:', err);
     }
   }, []);
 

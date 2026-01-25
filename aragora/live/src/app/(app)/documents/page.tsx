@@ -8,6 +8,7 @@ import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { FolderUploadDialog } from '@/components/FolderUploadDialog';
 import { CloudStoragePicker, type CloudFile } from '@/components/upload';
 import { useAuth } from '@/context/AuthContext';
+import { logger } from '@/utils/logger';
 
 interface Document {
   id: string;

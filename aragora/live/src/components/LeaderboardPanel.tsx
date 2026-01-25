@@ -6,6 +6,7 @@ import { withErrorBoundary } from './PanelErrorBoundary';
 import type { StreamEvent } from '@/types/events';
 import { API_BASE_URL } from '@/config';
 import { useAuth } from '@/context/AuthContext';
+import { logger } from '@/utils/logger';
 import {
   RankingsTabPanel,
   MatchesTabPanel,
@@ -72,6 +73,16 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
 
       if (!res.ok) {
         const errorText = await res.text().catch(() => 'Unknown error');
+        if (res.status === 401 || res.status === 403) {
+          setError('Authentication required');
+          setLoading(false);
+          return;
+        }
+        if (res.status === 404) {
+          setError('Leaderboard endpoint unavailable');
+          setLoading(false);
+          return;
+        }
         throw new Error(`${res.status}: ${errorText.slice(0, 100)}`);
       }
 
@@ -125,7 +136,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
       // Check if this was a rate limit error - don't fallback to 6 endpoints if rate limited
       const errMessage = err instanceof Error ? err.message : String(err);
       if (errMessage.includes('429') || errMessage.toLowerCase().includes('rate limit')) {
-        console.warn('Rate limited on consolidated endpoint, not falling back to legacy endpoints');
+        logger.warn('Rate limited on consolidated endpoint, not falling back to legacy endpoints');
         setError('Too many requests. Please wait a moment.');
         setLoading(false);
         return;
@@ -133,14 +144,14 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
 
       // Fallback: consolidated endpoint failed, try legacy endpoints
       // But only if we have auth - otherwise don't make more unauthenticated requests
-      console.warn('Consolidated endpoint failed:', err);
+      logger.warn('Consolidated endpoint failed:', err);
       if (!tokens?.access_token) {
-        console.warn('Skipping legacy fallback - no auth token');
+        logger.warn('Skipping legacy fallback - no auth token');
         setError('Authentication required');
         setLoading(false);
         return;
       }
-      console.warn('Attempting legacy endpoints fallback');
+      logger.warn('Attempting legacy endpoints fallback');
       const errors: Record<string, string> = {};
       const endpoints = [
         { key: 'rankings', url: `${apiBase}/api/leaderboard?limit=10${loopId ? `&loop_id=${loopId}` : ''}${selectedDomain ? `&domain=${selectedDomain}` : ''}` },

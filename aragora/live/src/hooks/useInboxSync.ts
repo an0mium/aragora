@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { logger } from '@/utils/logger';
 
 export type SyncStatus = 'idle' | 'connecting' | 'syncing' | 'completed' | 'error';
 
@@ -151,12 +152,12 @@ export function useInboxSync({
               break;
           }
         } catch (err) {
-          console.error('Failed to parse inbox sync event:', err);
+          logger.error('Failed to parse inbox sync event:', err);
         }
       };
 
       ws.onerror = (error) => {
-        console.error('Inbox WebSocket error:', error);
+        logger.error('Inbox WebSocket error:', error);
         setIsConnected(false);
       };
 
@@ -172,7 +173,7 @@ export function useInboxSync({
         }
       };
     } catch (err) {
-      console.error('Failed to connect to inbox WebSocket:', err);
+      logger.error('Failed to connect to inbox WebSocket:', err);
       setSyncProgress(prev => ({
         ...prev,
         status: 'error',

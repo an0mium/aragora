@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import type { TrendingTopic } from './TrendingTopicCard';
+import { logger } from '@/utils/logger';
 
 export interface TopicDetailDrawerProps {
   topic: TrendingTopic | null;
@@ -70,7 +71,7 @@ export function TopicDetailDrawer({
         onClose();
       }
     } catch (err) {
-      console.error('Failed to start debate:', err);
+      logger.error('Failed to start debate:', err);
     } finally {
       setIsStarting(false);
     }

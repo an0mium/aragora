@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 
 // Node types in the provenance graph
 type NodeType = 'question' | 'agent' | 'argument' | 'evidence' | 'vote' | 'consensus' | 'synthesis';
@@ -388,7 +389,7 @@ export function ProvenanceGraph({
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Failed to export provenance:', err);
+      logger.error('Failed to export provenance:', err);
     }
   };
 

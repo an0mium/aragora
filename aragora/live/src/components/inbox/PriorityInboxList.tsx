@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { EmailDetailModal } from './EmailDetailModal';
+import { logger } from '@/utils/logger';
 
 // Priority levels from the email prioritization service
 export type EmailPriority = 'critical' | 'high' | 'medium' | 'low' | 'defer' | 'spam' | 'blocked';

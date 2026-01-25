@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { VerdictBadge } from './VerdictBadge';
 import type { GauntletResult } from './types';
+import { logger } from '@/utils/logger';
 
 interface CompareViewProps {
   result1: GauntletResult;

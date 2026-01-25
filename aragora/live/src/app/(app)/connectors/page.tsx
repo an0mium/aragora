@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToastContext } from '@/context/ToastContext';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 import {
   type Connector,
   type ConnectorDetails,
@@ -466,7 +467,7 @@ function ConnectorDetailsModal({
           setDetails(data);
         }
       } catch (error) {
-        console.error('Failed to fetch connector details:', error);
+        logger.error('Failed to fetch connector details:', error);
       } finally {
         setLoading(false);
       }

@@ -107,8 +107,38 @@ Demonstrates using the Aragora TypeScript/JavaScript SDK to integrate debates in
 - Set `OPENROUTER_API_KEY` for automatic fallback
 - Wait and retry
 
+## SDK Demo Apps
+
+### Python Debate CLI
+
+A command-line tool demonstrating the Python SDK:
+
+```bash
+cd examples/python-debate
+python main.py debate "Should we use Kubernetes?"
+python main.py stream "Design a rate limiter"
+python main.py rankings
+```
+
+See [python-debate/README.md](./python-debate/README.md) for details.
+
+### TypeScript Web App
+
+A web app demonstrating the TypeScript SDK:
+
+```bash
+cd examples/typescript-web
+npm install
+npm run dev
+# Open http://localhost:3000
+```
+
+See [typescript-web/README.md](./typescript-web/README.md) for details.
+
 ## Full Documentation
 
+- [Python SDK Quickstart](../docs/guides/python-quickstart.md)
+- [TypeScript SDK Quickstart](../docs/guides/typescript-quickstart.md)
 - [CLAUDE.md](../CLAUDE.md) - Architecture overview
 - [docs/STATUS.md](../docs/STATUS.md) - Feature status
 - [scripts/nomic_loop.py](../scripts/nomic_loop.py) - Full nomic loop implementation

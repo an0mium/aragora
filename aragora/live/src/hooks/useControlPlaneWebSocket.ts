@@ -14,6 +14,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { useWebSocketBase, WebSocketConnectionStatus } from './useWebSocketBase';
 import { useBackend } from '@/components/BackendSelector';
 import { CONTROL_PLANE_WS_URL } from '@/config';
+import { logger } from '@/utils/logger';
 
 // Event types from the control plane stream (matches backend ControlPlaneEventType)
 export type ControlPlaneEventType =
@@ -582,13 +583,13 @@ export function useControlPlaneWebSocket({
 
         case 'error':
           // Log errors but don't disrupt state
-          console.error('[ControlPlane] Error event:', data.error, data.context);
+          logger.error('[ControlPlane] Error event:', data.error, data.context);
           break;
 
         default:
           // Unknown event type - log for debugging
 
-          console.debug('[ControlPlane] Unknown event type:', event.type);
+          logger.debug('[ControlPlane] Unknown event type:', event.type);
           break;
       }
     },
