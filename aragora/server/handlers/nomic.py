@@ -46,6 +46,8 @@ from .base import (
 )
 from .utils.rate_limit import rate_limit
 
+from aragora.audit.unified import audit_admin, audit_security
+
 logger = logging.getLogger(__name__)
 
 
@@ -553,6 +555,16 @@ class NomicHandler(BaseHandler):
                 dry_run=body.get("dry_run", False),
             )
 
+            # Audit log
+            audit_admin(
+                admin_id="system",
+                action="nomic_loop_started",
+                target_type="nomic_loop",
+                target_id=str(process.pid),
+                target_cycles=cycles,
+                auto_approve=auto_approve,
+            )
+
             return json_response(
                 {
                     "status": "started",
@@ -623,6 +635,16 @@ class NomicHandler(BaseHandler):
                 reason="user_requested",
             )
 
+            # Audit log
+            audit_admin(
+                admin_id="system",
+                action="nomic_loop_stopped",
+                target_type="nomic_loop",
+                target_id=str(pid),
+                graceful=graceful,
+                reason="user_requested",
+            )
+
             return json_response(
                 {
                     "status": "stopping" if graceful else "killed",
@@ -673,6 +695,16 @@ class NomicHandler(BaseHandler):
                 current_cycle=state.get("cycle", 0),
             )
 
+            # Audit log
+            audit_admin(
+                admin_id="system",
+                action="nomic_loop_paused",
+                target_type="nomic_loop",
+                target_id=str(state.get("pid", "unknown")),
+                current_phase=state.get("phase", "unknown"),
+                current_cycle=state.get("cycle", 0),
+            )
+
             return json_response(
                 {
                     "status": "paused",
@@ -717,6 +749,16 @@ class NomicHandler(BaseHandler):
             # Emit loop resumed event
             self._emit_event(
                 "emit_loop_resumed",
+                current_phase=state.get("phase", "unknown"),
+                current_cycle=state.get("cycle", 0),
+            )
+
+            # Audit log
+            audit_admin(
+                admin_id="system",
+                action="nomic_loop_resumed",
+                target_type="nomic_loop",
+                target_id=str(state.get("pid", "unknown")),
                 current_phase=state.get("phase", "unknown"),
                 current_cycle=state.get("cycle", 0),
             )
@@ -778,6 +820,17 @@ class NomicHandler(BaseHandler):
                     phase=current_phase,
                     cycle=state.get("cycle", 0),
                     reason="user_requested",
+                )
+
+                # Audit log
+                audit_admin(
+                    admin_id="system",
+                    action="nomic_phase_skipped",
+                    target_type="nomic_phase",
+                    target_id=current_phase,
+                    previous_phase=current_phase,
+                    next_phase=next_phase,
+                    current_cycle=state.get("cycle", 0),
                 )
 
                 return json_response(
@@ -878,6 +931,14 @@ class NomicHandler(BaseHandler):
                 approved_by=body.get("approved_by", "user"),
             )
 
+            # Audit log (security-sensitive: approves code changes)
+            audit_security(
+                event_type="nomic_proposal_approved",
+                actor_id=body.get("approved_by", "user"),
+                resource_type="nomic_proposal",
+                resource_id=proposal_id,
+            )
+
             return json_response(
                 {
                     "status": "approved",
@@ -937,6 +998,15 @@ class NomicHandler(BaseHandler):
                 proposal_id=proposal_id,
                 rejected_by=body.get("rejected_by", "user"),
                 reason=body.get("reason", ""),
+            )
+
+            # Audit log (security-sensitive: rejects code changes)
+            audit_security(
+                event_type="nomic_proposal_rejected",
+                actor_id=body.get("rejected_by", "user"),
+                resource_type="nomic_proposal",
+                resource_id=proposal_id,
+                rejection_reason=body.get("reason", ""),
             )
 
             return json_response(
