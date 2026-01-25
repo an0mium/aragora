@@ -23,6 +23,7 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
+from aragora.audit.unified import audit_security
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -159,6 +160,12 @@ class WhatsAppHandler(BaseHandler):
 
             if not _verify_whatsapp_signature(signature, body):
                 logger.warning("WhatsApp signature verification failed")
+                audit_security(
+                    event_type="whatsapp_webhook_auth_failed",
+                    actor_id="unknown",
+                    resource_type="whatsapp_webhook",
+                    resource_id="signature",
+                )
                 return error_response("Invalid signature", 401)
 
             # Parse webhook payload

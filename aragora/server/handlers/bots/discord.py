@@ -19,6 +19,7 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
+from aragora.audit.unified import audit_security
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -128,6 +129,12 @@ class DiscordHandler(BaseHandler):
             # Verify signature
             if not _verify_discord_signature(signature, timestamp, body):
                 logger.warning("Discord signature verification failed")
+                audit_security(
+                    event_type="discord_webhook_auth_failed",
+                    actor_id="unknown",
+                    resource_type="discord_webhook",
+                    resource_id="signature",
+                )
                 return error_response("Invalid signature", 401)
 
             # Parse interaction

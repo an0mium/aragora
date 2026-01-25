@@ -22,6 +22,7 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
+from aragora.audit.unified import audit_data, audit_security
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -106,6 +107,12 @@ class TelegramHandler(BaseHandler):
             token = path.split("/")[-1]
             if not _verify_webhook_token(token):
                 logger.warning("Telegram webhook token verification failed")
+                audit_security(
+                    event_type="telegram_webhook_auth_failed",
+                    actor_id="unknown",
+                    resource_type="telegram_webhook",
+                    resource_id="token_path",
+                )
                 return error_response("Unauthorized", 401)
             return self._handle_webhook(handler, skip_secret_check=True)
 
@@ -137,6 +144,12 @@ class TelegramHandler(BaseHandler):
                 secret_token = handler.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
                 if not _verify_telegram_secret(secret_token):
                     logger.warning("Telegram secret token verification failed")
+                    audit_security(
+                        event_type="telegram_webhook_auth_failed",
+                        actor_id="unknown",
+                        resource_type="telegram_webhook",
+                        resource_id="secret_header",
+                    )
                     return error_response("Unauthorized", 401)
 
             # Read body
@@ -283,6 +296,14 @@ class TelegramHandler(BaseHandler):
             self._answer_callback_query(callback_id, f"Vote recorded: {vote_option}")
 
             logger.info(f"Vote recorded from Telegram user {user_id} on {debate_id}: {vote_option}")
+            audit_data(
+                user_id=f"telegram:{user_id}",
+                resource_type="debate_vote",
+                resource_id=debate_id,
+                action="create",
+                vote_option=vote_option,
+                platform="telegram",
+            )
             return json_response({"ok": True, "vote_recorded": True})
 
         except ImportError:
