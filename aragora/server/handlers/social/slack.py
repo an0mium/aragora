@@ -10,6 +10,7 @@ Environment Variables:
 - SLACK_SIGNING_SECRET - Required for webhook verification
 - SLACK_BOT_TOKEN - Optional for advanced API calls
 - SLACK_WEBHOOK_URL - For sending notifications
+- ARAGORA_API_BASE_URL - Base URL for internal API calls (default: http://localhost:8080)
 """
 
 from __future__ import annotations
@@ -27,9 +28,49 @@ from urllib.parse import parse_qs, urlparse
 
 logger = logging.getLogger(__name__)
 
+# Lazy import for audit logger (avoid circular imports)
+_slack_audit: Any = None
+
+
+def _get_audit_logger() -> Any:
+    """Get or create Slack audit logger (lazy initialization)."""
+    global _slack_audit
+    if _slack_audit is None:
+        try:
+            from aragora.audit.slack_audit import get_slack_audit_logger
+
+            _slack_audit = get_slack_audit_logger()
+        except Exception as e:
+            logger.debug(f"Slack audit logger not available: {e}")
+            _slack_audit = None
+    return _slack_audit
+
+
+# Lazy import for user rate limiter
+_slack_user_limiter: Any = None
+
+
+def _get_user_rate_limiter() -> Any:
+    """Get or create user rate limiter for per-user rate limiting."""
+    global _slack_user_limiter
+    if _slack_user_limiter is None:
+        try:
+            from aragora.server.middleware.rate_limit.user_limiter import (
+                get_user_rate_limiter,
+            )
+
+            _slack_user_limiter = get_user_rate_limiter()
+        except Exception as e:
+            logger.debug(f"User rate limiter not available: {e}")
+            _slack_user_limiter = None
+    return _slack_user_limiter
+
 
 # Allowed domains for Slack response URLs (SSRF protection)
 SLACK_ALLOWED_DOMAINS = frozenset({"hooks.slack.com", "api.slack.com"})
+
+# Base URL for internal API calls (configurable for production)
+ARAGORA_API_BASE_URL = os.environ.get("ARAGORA_API_BASE_URL", "http://localhost:8080")
 
 
 def _validate_slack_url(url: str) -> bool:
@@ -204,6 +245,16 @@ class SlackHandler(BaseHandler):
         # Verify Slack signature for security
         if signing_secret and not self._verify_signature(handler, body, signing_secret):
             logger.warning(f"Slack signature verification failed for team_id={team_id}")
+            # Audit log signature failure (potential attack)
+            audit = _get_audit_logger()
+            if audit:
+                ip_address = handler.client_address[0] if handler.client_address else ""
+                user_agent = handler.headers.get("User-Agent", "")
+                audit.log_signature_failure(
+                    workspace_id=team_id or "",
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                )
             return error_response("Invalid signature", 401)
 
         # Store workspace and body in handler for downstream methods
@@ -328,6 +379,13 @@ class SlackHandler(BaseHandler):
         - /aragora status - Get system status
         - /aragora help - Show available commands
         """
+        start_time = time.time()
+        command = ""
+        subcommand = ""
+        user_id = ""
+        channel_id = ""
+        team_id: Optional[str] = None
+
         try:
             # Parse form-encoded body (already read and stored in handle())
             body = getattr(handler, "_slack_body", "")
@@ -345,44 +403,76 @@ class SlackHandler(BaseHandler):
 
             # Parse the subcommand
             if not text:
-                return self._command_help()
-
-            parts = text.split(maxsplit=1)
-            subcommand = parts[0].lower()
-            args = parts[1] if len(parts) > 1 else ""
-
-            if subcommand == "help":
-                return self._command_help()
-            elif subcommand == "status":
-                return self._command_status()
-            elif subcommand == "debate":
-                return self._command_debate(
-                    args, user_id, channel_id, response_url, workspace, team_id
-                )
-            elif subcommand == "gauntlet":
-                return self._command_gauntlet(
-                    args, user_id, channel_id, response_url, workspace, team_id
-                )
-            elif subcommand == "agents":
-                return self._command_agents()
-            elif subcommand == "ask":
-                return self._command_ask(
-                    args, user_id, channel_id, response_url, workspace, team_id
-                )
-            elif subcommand == "search":
-                return self._command_search(args)
-            elif subcommand == "leaderboard":
-                return self._command_leaderboard()
-            elif subcommand == "recent":
-                return self._command_recent()
+                result = self._command_help()
+                subcommand = "help"
             else:
-                return self._slack_response(
-                    f"Unknown command: `{subcommand}`. Use `/aragora help` for available commands.",
-                    response_type="ephemeral",
+                parts = text.split(maxsplit=1)
+                subcommand = parts[0].lower()
+                args = parts[1] if len(parts) > 1 else ""
+
+                if subcommand == "help":
+                    result = self._command_help()
+                elif subcommand == "status":
+                    result = self._command_status()
+                elif subcommand == "debate":
+                    result = self._command_debate(
+                        args, user_id, channel_id, response_url, workspace, team_id
+                    )
+                elif subcommand == "gauntlet":
+                    result = self._command_gauntlet(
+                        args, user_id, channel_id, response_url, workspace, team_id
+                    )
+                elif subcommand == "agents":
+                    result = self._command_agents()
+                elif subcommand == "ask":
+                    result = self._command_ask(
+                        args, user_id, channel_id, response_url, workspace, team_id
+                    )
+                elif subcommand == "search":
+                    result = self._command_search(args)
+                elif subcommand == "leaderboard":
+                    result = self._command_leaderboard()
+                elif subcommand == "recent":
+                    result = self._command_recent()
+                else:
+                    result = self._slack_response(
+                        f"Unknown command: `{subcommand}`. Use `/aragora help` for available commands.",
+                        response_type="ephemeral",
+                    )
+
+            # Audit log successful command
+            audit = _get_audit_logger()
+            if audit:
+                response_time_ms = (time.time() - start_time) * 1000
+                audit.log_command(
+                    workspace_id=team_id or "",
+                    user_id=user_id,
+                    command=f"{command} {subcommand}".strip(),
+                    args=args if "args" in dir() else "",
+                    result="success",
+                    channel_id=channel_id,
+                    response_time_ms=response_time_ms,
                 )
+
+            return result
 
         except Exception as e:
             logger.error(f"Slash command error: {e}", exc_info=True)
+
+            # Audit log error
+            audit = _get_audit_logger()
+            if audit:
+                response_time_ms = (time.time() - start_time) * 1000
+                audit.log_command(
+                    workspace_id=team_id or "",
+                    user_id=user_id,
+                    command=f"{command} {subcommand}".strip(),
+                    result="error",
+                    channel_id=channel_id,
+                    response_time_ms=response_time_ms,
+                    error=str(e)[:200],
+                )
+
             return self._slack_response(
                 f"Error processing command: {str(e)[:100]}",
                 response_type="ephemeral",
@@ -606,7 +696,7 @@ class SlackHandler(BaseHandler):
             # Call the quick answer API endpoint
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    "http://localhost:8080/api/quick-answer",
+                    f"{ARAGORA_API_BASE_URL}/api/quick-answer",
                     json={
                         "question": question,
                         "metadata": {
@@ -627,7 +717,7 @@ class SlackHandler(BaseHandler):
                     if not answer:
                         # Fallback: use single-round debate
                         async with session.post(
-                            "http://localhost:8080/api/debates",
+                            f"{ARAGORA_API_BASE_URL}/api/debates",
                             json={
                                 "task": question,
                                 "rounds": 1,
@@ -1070,7 +1160,7 @@ class SlackHandler(BaseHandler):
             # Call the gauntlet API
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    "http://localhost:8080/api/gauntlet/run",
+                    f"{ARAGORA_API_BASE_URL}/api/gauntlet/run",
                     json={
                         "statement": statement,
                         "intensity": "medium",
@@ -1285,15 +1375,40 @@ class SlackHandler(BaseHandler):
 
             # Post initial "starting" message to create thread
             starting_blocks = self._build_starting_blocks(topic, user_id, debate_id)
-            await self._post_to_response_url(
-                response_url,
-                {
-                    "response_type": "in_channel",
-                    "text": f"Starting debate: {topic}",
-                    "blocks": starting_blocks,
-                    "replace_original": False,
-                },
-            )
+            starting_text = f"Starting debate: {topic}"
+
+            # Use Web API if bot token available (to capture thread_ts for tracking)
+            if SLACK_BOT_TOKEN and channel_id:
+                thread_ts = await self._post_message_async(
+                    channel=channel_id,
+                    text=starting_text,
+                    blocks=starting_blocks,
+                )
+                if thread_ts:
+                    logger.debug(f"Debate {debate_id} started thread: {thread_ts}")
+                else:
+                    # Fall back to response_url if Web API failed
+                    logger.warning("Web API post failed, falling back to response_url")
+                    await self._post_to_response_url(
+                        response_url,
+                        {
+                            "response_type": "in_channel",
+                            "text": starting_text,
+                            "blocks": starting_blocks,
+                            "replace_original": False,
+                        },
+                    )
+            else:
+                # No bot token - use response_url (can't track thread_ts)
+                await self._post_to_response_url(
+                    response_url,
+                    {
+                        "response_type": "in_channel",
+                        "text": starting_text,
+                        "blocks": starting_blocks,
+                        "replace_original": False,
+                    },
+                )
 
             # Store active debate for tracking (if workspace_id available)
             if workspace_id:
@@ -1341,6 +1456,8 @@ class SlackHandler(BaseHandler):
 
             # Track progress for thread updates
             last_round = 0
+            # Capture thread_ts for closure (may be None if Web API not used)
+            debate_thread_ts = thread_ts
 
             def on_round_complete(round_num: int, agent: str, response: str) -> None:
                 nonlocal last_round
@@ -1349,7 +1466,13 @@ class SlackHandler(BaseHandler):
                     # Post round update to thread (fire-and-forget)
                     create_tracked_task(
                         self._post_round_update(
-                            response_url, topic, round_num, protocol.rounds, agent
+                            response_url,
+                            topic,
+                            round_num,
+                            protocol.rounds,
+                            agent,
+                            channel_id=channel_id,
+                            thread_ts=debate_thread_ts,
                         ),
                         name=f"slack-round-{debate_id}-{round_num}",
                     )
@@ -1383,30 +1506,50 @@ class SlackHandler(BaseHandler):
 
             # Build and post result blocks
             result_blocks = self._build_result_blocks(topic, result, user_id, receipt_url)
+            result_text = f"Debate complete: {topic}"
 
-            await self._post_to_response_url(
-                response_url,
-                {
-                    "response_type": "in_channel",
-                    "text": f"Debate complete: {topic}",
-                    "blocks": result_blocks,
-                    "replace_original": False,
-                },
-            )
+            # Use Web API with thread_ts for proper threading when available
+            if SLACK_BOT_TOKEN and channel_id and thread_ts:
+                await self._post_message_async(
+                    channel=channel_id,
+                    text=result_text,
+                    thread_ts=thread_ts,
+                    blocks=result_blocks,
+                )
+            else:
+                await self._post_to_response_url(
+                    response_url,
+                    {
+                        "response_type": "in_channel",
+                        "text": result_text,
+                        "blocks": result_blocks,
+                        "replace_original": False,
+                    },
+                )
 
             # Update debate status to completed
             self._update_debate_status(debate_id, "completed", receipt_id=receipt_id)
 
         except Exception as e:
             logger.error(f"Async debate creation failed: {e}", exc_info=True)
-            await self._post_to_response_url(
-                response_url,
-                {
-                    "response_type": "in_channel",
-                    "text": f"Debate failed: {str(e)[:100]}",
-                    "replace_original": False,
-                },
-            )
+            error_text = f"Debate failed: {str(e)[:100]}"
+
+            # Use Web API with thread_ts for error message when available
+            if SLACK_BOT_TOKEN and channel_id and thread_ts:
+                await self._post_message_async(
+                    channel=channel_id,
+                    text=error_text,
+                    thread_ts=thread_ts,
+                )
+            else:
+                await self._post_to_response_url(
+                    response_url,
+                    {
+                        "response_type": "in_channel",
+                        "text": error_text,
+                        "replace_original": False,
+                    },
+                )
             self._update_debate_status(debate_id, "failed", error=str(e)[:200])
 
     def _build_starting_blocks(
@@ -1447,11 +1590,24 @@ class SlackHandler(BaseHandler):
         round_num: int,
         total_rounds: int,
         agent: str,
+        channel_id: Optional[str] = None,
+        thread_ts: Optional[str] = None,
     ) -> None:
-        """Post a round progress update to the thread."""
+        """Post a round progress update to the thread.
+
+        Args:
+            response_url: Slack response URL (webhook)
+            topic: Debate topic
+            round_num: Current round number
+            total_rounds: Total rounds in debate
+            agent: Name of agent that responded
+            channel_id: Optional channel ID for Web API posting
+            thread_ts: Optional thread timestamp for threaded replies
+        """
         progress = round_num / total_rounds
         progress_bar = "" * int(progress * 10) + "" * (10 - int(progress * 10))
 
+        text = f"Round {round_num} complete"
         blocks = [
             {
                 "type": "section",
@@ -1462,15 +1618,25 @@ class SlackHandler(BaseHandler):
             },
         ]
 
-        await self._post_to_response_url(
-            response_url,
-            {
-                "response_type": "in_channel",
-                "text": f"Round {round_num} complete",
-                "blocks": blocks,
-                "replace_original": False,
-            },
-        )
+        # Use Web API with thread_ts when available for proper threading
+        if SLACK_BOT_TOKEN and channel_id and thread_ts:
+            await self._post_message_async(
+                channel=channel_id,
+                text=text,
+                thread_ts=thread_ts,
+                blocks=blocks,
+            )
+        else:
+            # Fall back to response_url (not threaded)
+            await self._post_to_response_url(
+                response_url,
+                {
+                    "response_type": "in_channel",
+                    "text": text,
+                    "blocks": blocks,
+                    "replace_original": False,
+                },
+            )
 
     def _build_result_blocks(
         self,
@@ -1644,8 +1810,21 @@ class SlackHandler(BaseHandler):
             action_type = payload.get("type")
             user = payload.get("user", {})
             user_id = user.get("id", "unknown")
+            team = payload.get("team", {})
+            team_id = team.get("id", _team_id or "")
 
             logger.info(f"Interactive action from {user_id}: {action_type}")
+
+            # Audit log the interactive action
+            audit = _get_audit_logger()
+            if audit:
+                audit.log_event(
+                    workspace_id=team_id,
+                    event_type=f"interactive:{action_type}",
+                    payload_summary={"action_type": action_type},
+                    user_id=user_id,
+                    success=True,
+                )
 
             if action_type == "block_actions":
                 actions = payload.get("actions", [])
@@ -1825,15 +2004,21 @@ class SlackHandler(BaseHandler):
 
         This handles events like app_mention, message, etc.
         """
+        team_id = ""
+        event_type = ""
+        inner_type = ""
+        user_id = ""
+        channel_id = ""
+
         try:
             # Use pre-read body from handle()
             body = getattr(handler, "_slack_body", "")
             # Workspace context available for future use
             _workspace = getattr(handler, "_slack_workspace", None)  # noqa: F841
-            _team_id = getattr(handler, "_slack_team_id", None)  # noqa: F841
+            team_id = getattr(handler, "_slack_team_id", None) or ""
             event = json.loads(body)
 
-            event_type = event.get("type")
+            event_type = event.get("type", "")
 
             # Handle URL verification challenge
             if event_type == "url_verification":
@@ -1843,7 +2028,21 @@ class SlackHandler(BaseHandler):
             # Handle event callbacks
             if event_type == "event_callback":
                 inner_event = event.get("event", {})
-                inner_type = inner_event.get("type")
+                inner_type = inner_event.get("type", "")
+                user_id = inner_event.get("user", "")
+                channel_id = inner_event.get("channel", "")
+
+                # Audit log the event
+                audit = _get_audit_logger()
+                if audit:
+                    audit.log_event(
+                        workspace_id=team_id,
+                        event_type=inner_type,
+                        payload_summary={"event_type": inner_type},
+                        user_id=user_id,
+                        channel_id=channel_id,
+                        success=True,
+                    )
 
                 if inner_type == "app_mention":
                     return self._handle_app_mention(inner_event)
@@ -1855,13 +2054,28 @@ class SlackHandler(BaseHandler):
 
         except json.JSONDecodeError as e:
             logger.warning(f"Invalid JSON in Slack event: {e}")
+            self._audit_event_error(team_id, event_type or "unknown", str(e))
             return json_response({"ok": True})  # Always 200 for events
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid event data: {e}")
+            self._audit_event_error(team_id, event_type or inner_type or "unknown", str(e))
             return json_response({"ok": True})  # Always 200 for events
         except Exception as e:
             logger.exception(f"Unexpected events handler error: {e}")
+            self._audit_event_error(team_id, event_type or inner_type or "unknown", str(e))
             return json_response({"ok": True})  # Always 200 for events
+
+    def _audit_event_error(self, workspace_id: str, event_type: str, error: str) -> None:
+        """Helper to audit log event errors."""
+        audit = _get_audit_logger()
+        if audit:
+            audit.log_event(
+                workspace_id=workspace_id,
+                event_type=event_type,
+                payload_summary={"error_type": "processing_error"},
+                success=False,
+                error=error[:200],
+            )
 
     def _handle_app_mention(self, event: Dict[str, Any]) -> HandlerResult:
         """Handle @mentions of the app."""
@@ -1904,21 +2118,34 @@ class SlackHandler(BaseHandler):
         channel: str,
         text: str,
         thread_ts: Optional[str] = None,
-    ) -> None:
-        """Post a message to Slack using the Web API."""
+        blocks: Optional[List[Dict[str, Any]]] = None,
+    ) -> Optional[str]:
+        """Post a message to Slack using the Web API.
+
+        Args:
+            channel: Channel ID to post to
+            text: Message text
+            thread_ts: Optional thread timestamp to reply to
+            blocks: Optional Block Kit blocks for rich formatting
+
+        Returns:
+            Message timestamp (ts) if successful, None otherwise
+        """
         import aiohttp
 
         if not SLACK_BOT_TOKEN:
             logger.warning("Cannot post message: SLACK_BOT_TOKEN not configured")
-            return
+            return None
 
         try:
-            payload = {
+            payload: Dict[str, Any] = {
                 "channel": channel,
                 "text": text,
             }
             if thread_ts:
                 payload["thread_ts"] = thread_ts
+            if blocks:
+                payload["blocks"] = blocks
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -1933,10 +2160,15 @@ class SlackHandler(BaseHandler):
                     result = await response.json()
                     if not result.get("ok"):
                         logger.warning(f"Slack API error: {result.get('error')}")
+                        return None
+                    # Return message timestamp for thread tracking
+                    return result.get("ts")
         except (ConnectionError, TimeoutError) as e:
             logger.warning(f"Connection error posting Slack message: {e}")
+            return None
         except Exception as e:
             logger.exception(f"Unexpected error posting Slack message: {e}")
+            return None
 
     def _handle_message_event(self, event: Dict[str, Any]) -> HandlerResult:
         """Handle direct messages to the app."""

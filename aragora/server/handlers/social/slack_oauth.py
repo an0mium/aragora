@@ -9,8 +9,9 @@ Endpoints:
 Environment Variables:
 - SLACK_CLIENT_ID: App client ID
 - SLACK_CLIENT_SECRET: App client secret
-- SLACK_REDIRECT_URI: OAuth callback URL (defaults to /api/integrations/slack/callback)
+- SLACK_REDIRECT_URI: OAuth callback URL (REQUIRED in production, falls back to localhost in dev)
 - SLACK_SCOPES: OAuth scopes (default: channels:history,chat:write,commands,users:read)
+- ARAGORA_ENV: Environment mode ('production' enforces SLACK_REDIRECT_URI)
 
 See: https://api.slack.com/authentication/oauth-v2
 """
@@ -38,6 +39,7 @@ from ..base import (
 SLACK_CLIENT_ID = os.environ.get("SLACK_CLIENT_ID", "")
 SLACK_CLIENT_SECRET = os.environ.get("SLACK_CLIENT_SECRET", "")
 SLACK_REDIRECT_URI = os.environ.get("SLACK_REDIRECT_URI", "")
+ARAGORA_ENV = os.environ.get("ARAGORA_ENV", "development")
 
 # Default OAuth scopes for Aragora Slack app
 DEFAULT_SCOPES = "channels:history,chat:write,commands,users:read,team:read,channels:read"
@@ -52,6 +54,23 @@ STATE_TOKEN_TTL_SECONDS = 600
 
 # Fallback in-memory storage (development only)
 _oauth_states_fallback: Dict[str, Dict[str, Any]] = {}
+
+# Lazy import for audit logger
+_slack_oauth_audit: Any = None
+
+
+def _get_oauth_audit_logger() -> Any:
+    """Get or create Slack audit logger for OAuth (lazy initialization)."""
+    global _slack_oauth_audit
+    if _slack_oauth_audit is None:
+        try:
+            from aragora.audit.slack_audit import get_slack_audit_logger
+
+            _slack_oauth_audit = get_slack_audit_logger()
+        except Exception as e:
+            logger.debug(f"Slack OAuth audit logger not available: {e}")
+            _slack_oauth_audit = None
+    return _slack_oauth_audit
 
 
 async def _get_redis_client() -> Optional[Any]:
@@ -198,10 +217,17 @@ class SlackOAuthHandler(BaseHandler):
         # Build OAuth URL
         redirect_uri = SLACK_REDIRECT_URI
         if not redirect_uri:
-            # Try to construct from request
+            # SLACK_REDIRECT_URI is required in production to prevent open redirect attacks
+            if ARAGORA_ENV == "production":
+                return error_response(
+                    "SLACK_REDIRECT_URI must be configured in production",
+                    500,
+                )
+            # Development fallback only - construct from request host parameter
             host = query_params.get("host", "localhost:8080")
             scheme = "https" if "localhost" not in host else "http"
             redirect_uri = f"{scheme}://{host}/api/integrations/slack/callback"
+            logger.warning(f"Using fallback redirect_uri in development: {redirect_uri}")
 
         oauth_params = {
             "client_id": SLACK_CLIENT_ID,
@@ -238,6 +264,15 @@ class SlackOAuthHandler(BaseHandler):
         if "error" in query_params:
             error_code = query_params.get("error")
             logger.warning(f"Slack OAuth error: {error_code}")
+            # Audit log OAuth denial
+            audit = _get_oauth_audit_logger()
+            if audit:
+                audit.log_oauth(
+                    workspace_id="",
+                    action="install",
+                    success=False,
+                    error=f"User denied: {error_code}",
+                )
             return error_response(f"Slack authorization denied: {error_code}", 400)
 
         code = query_params.get("code")
@@ -322,12 +357,42 @@ class SlackOAuthHandler(BaseHandler):
 
             store = get_slack_workspace_store()
             if not store.save(workspace):
+                # Audit log save failure
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="install",
+                        success=False,
+                        error="Failed to save workspace credentials",
+                        user_id=installed_by or "",
+                    )
                 return error_response("Failed to save workspace", 500)
 
             logger.info(f"Slack workspace installed: {workspace_name} ({workspace_id})")
 
+            # Audit log successful installation
+            audit = _get_oauth_audit_logger()
+            if audit:
+                audit.log_oauth(
+                    workspace_id=workspace_id,
+                    action="install",
+                    success=True,
+                    user_id=installed_by or "",
+                    scopes=scope.split(",") if scope else [],
+                )
+
         except ImportError as e:
             logger.error(f"Workspace store not available: {e}")
+            # Audit log storage unavailable error
+            audit = _get_oauth_audit_logger()
+            if audit:
+                audit.log_oauth(
+                    workspace_id=workspace_id,
+                    action="install",
+                    success=False,
+                    error=f"Workspace storage not available: {e}",
+                )
             return error_response("Workspace storage not available", 503)
 
         # Return success page
@@ -448,6 +513,15 @@ class SlackOAuthHandler(BaseHandler):
                     store.deactivate(workspace_id)
                     logger.info(f"Slack workspace uninstalled: {workspace_id}")
 
+                    # Audit log uninstallation
+                    audit = _get_oauth_audit_logger()
+                    if audit:
+                        audit.log_oauth(
+                            workspace_id=workspace_id,
+                            action="uninstall",
+                            success=True,
+                        )
+
                 except ImportError:
                     logger.warning("Could not deactivate workspace - store unavailable")
 
@@ -465,6 +539,16 @@ class SlackOAuthHandler(BaseHandler):
                     store = get_slack_workspace_store()
                     store.deactivate(workspace_id)
                     logger.info(f"Slack tokens revoked for workspace: {workspace_id}")
+
+                    # Audit log token revocation
+                    audit = _get_oauth_audit_logger()
+                    if audit:
+                        audit.log_oauth(
+                            workspace_id=workspace_id,
+                            action="token_refresh",
+                            success=False,
+                            error="Tokens revoked by user",
+                        )
 
                 except ImportError:
                     logger.warning("Could not deactivate workspace - store unavailable")

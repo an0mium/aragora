@@ -204,20 +204,57 @@ class SlackWorkspaceStore:
 
                 self._initialized = True
 
+    def _derive_key_v2(self) -> bytes:
+        """Derive encryption key using PBKDF2HMAC (secure KDF).
+
+        Uses a deterministic salt derived from the key itself to ensure
+        consistent encryption/decryption across restarts while still
+        benefiting from the iterative key stretching of PBKDF2.
+        """
+        import base64
+        import hashlib
+
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+        # Use SHA-256 of key as deterministic salt (16 bytes)
+        # This provides domain separation while remaining deterministic
+        salt = hashlib.sha256(b"aragora-slack-token-salt:" + ENCRYPTION_KEY.encode()).digest()[:16]
+
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=480000,  # OWASP recommended minimum for PBKDF2-SHA256
+        )
+        return base64.urlsafe_b64encode(kdf.derive(ENCRYPTION_KEY.encode()))
+
+    def _derive_key_v1(self) -> bytes:
+        """Derive key using legacy SHA-256 method (for backward compatibility)."""
+        import base64
+        import hashlib
+
+        return base64.urlsafe_b64encode(hashlib.sha256(ENCRYPTION_KEY.encode()).digest())
+
     def _encrypt_token(self, token: str) -> str:
-        """Encrypt token if encryption key is configured."""
+        """Encrypt token using PBKDF2-derived key.
+
+        Tokens are prefixed with version identifier for future migration support:
+        - v2: PBKDF2HMAC with 480k iterations
+        - (no prefix): Legacy SHA-256 single-pass
+        """
         if not ENCRYPTION_KEY:
             return token
 
         try:
             from cryptography.fernet import Fernet
-            import base64
-            import hashlib
 
-            # Derive Fernet key from encryption key
-            key = base64.urlsafe_b64encode(hashlib.sha256(ENCRYPTION_KEY.encode()).digest())
+            # Use secure PBKDF2 key derivation
+            key = self._derive_key_v2()
             f = Fernet(key)
-            return f.encrypt(token.encode()).decode()
+            encrypted = f.encrypt(token.encode()).decode()
+            # Prefix with version for future-proofing
+            return f"v2:{encrypted}"
         except ImportError:
             logger.warning("cryptography not installed, storing token unencrypted")
             return token
@@ -226,22 +263,34 @@ class SlackWorkspaceStore:
             return token
 
     def _decrypt_token(self, encrypted: str) -> str:
-        """Decrypt token if encryption key is configured."""
+        """Decrypt token with support for multiple KDF versions.
+
+        Supports:
+        - v2: prefix - PBKDF2HMAC derived key
+        - No prefix - Legacy SHA-256 derived key
+        """
         if not ENCRYPTION_KEY:
             return encrypted
 
-        # Check if it looks like an encrypted token
+        # Check if it looks like an unencrypted token
         if encrypted.startswith("xoxb-") or encrypted.startswith("xoxp-"):
             return encrypted  # Not encrypted
 
         try:
             from cryptography.fernet import Fernet
-            import base64
-            import hashlib
 
-            key = base64.urlsafe_b64encode(hashlib.sha256(ENCRYPTION_KEY.encode()).digest())
+            # Check for version prefix
+            if encrypted.startswith("v2:"):
+                # New PBKDF2 encryption
+                key = self._derive_key_v2()
+                ciphertext = encrypted[3:]  # Strip "v2:" prefix
+            else:
+                # Legacy SHA-256 encryption
+                key = self._derive_key_v1()
+                ciphertext = encrypted
+
             f = Fernet(key)
-            return f.decrypt(encrypted.encode()).decode()
+            return f.decrypt(ciphertext.encode()).decode()
         except ImportError:
             return encrypted
         except Exception as e:
