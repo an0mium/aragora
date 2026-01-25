@@ -24,6 +24,7 @@ import logging
 import os
 import sqlite3
 import threading
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -484,20 +485,278 @@ class SlackWorkspaceStore:
             return {"total_workspaces": 0, "active_workspaces": 0}
 
 
+# Supabase-backed implementation for production
+class SupabaseSlackWorkspaceStore:
+    """
+    Supabase-backed storage for Slack workspace OAuth credentials.
+
+    Uses Supabase PostgreSQL for production deployments with proper
+    encryption and multi-region support.
+
+    Schema:
+        CREATE TABLE slack_workspaces (
+            workspace_id TEXT PRIMARY KEY,
+            workspace_name TEXT NOT NULL,
+            access_token TEXT NOT NULL,  -- Encrypted in Supabase vault
+            bot_user_id TEXT NOT NULL,
+            installed_at TIMESTAMPTZ NOT NULL,
+            installed_by TEXT,
+            scopes TEXT[],
+            tenant_id TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
+            signing_secret TEXT,  -- Encrypted in Supabase vault
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+    """
+
+    def __init__(self):
+        """Initialize Supabase workspace store."""
+        self._client = None
+        self._init_client()
+
+    def _init_client(self) -> None:
+        """Initialize Supabase client."""
+        try:
+            from aragora.persistence.supabase_client import SupabaseClient
+
+            client = SupabaseClient()
+            if client.is_configured:
+                self._client = client.client
+                logger.info("Slack workspace store using Supabase backend")
+            else:
+                logger.warning("Supabase not configured for Slack workspace store")
+        except ImportError:
+            logger.debug("Supabase client not available")
+
+    @property
+    def is_configured(self) -> bool:
+        """Check if Supabase is configured."""
+        return self._client is not None
+
+    def save(self, workspace: SlackWorkspace) -> bool:
+        """Save or update a workspace."""
+        if not self.is_configured:
+            return False
+
+        try:
+            data = {
+                "workspace_id": workspace.workspace_id,
+                "workspace_name": workspace.workspace_name,
+                "access_token": workspace.access_token,
+                "bot_user_id": workspace.bot_user_id,
+                "installed_at": datetime.fromtimestamp(
+                    workspace.installed_at, tz=timezone.utc
+                ).isoformat(),
+                "installed_by": workspace.installed_by,
+                "scopes": workspace.scopes,
+                "tenant_id": workspace.tenant_id,
+                "is_active": workspace.is_active,
+                "signing_secret": workspace.signing_secret,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+            self._client.table("slack_workspaces").upsert(
+                data, on_conflict="workspace_id"
+            ).execute()
+
+            logger.info(f"Saved Slack workspace to Supabase: {workspace.workspace_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to save workspace to Supabase: {e}")
+            return False
+
+    def get(self, workspace_id: str) -> Optional[SlackWorkspace]:
+        """Get a workspace by ID."""
+        if not self.is_configured:
+            return None
+
+        try:
+            result = (
+                self._client.table("slack_workspaces")
+                .select("*")
+                .eq("workspace_id", workspace_id)
+                .single()
+                .execute()
+            )
+
+            if result.data:
+                return self._row_to_workspace(result.data)
+            return None
+
+        except Exception as e:
+            logger.error(f"Failed to get workspace from Supabase: {e}")
+            return None
+
+    def get_by_tenant(self, tenant_id: str) -> List[SlackWorkspace]:
+        """Get all workspaces for a tenant."""
+        if not self.is_configured:
+            return []
+
+        try:
+            result = (
+                self._client.table("slack_workspaces")
+                .select("*")
+                .eq("tenant_id", tenant_id)
+                .eq("is_active", True)
+                .order("installed_at", desc=True)
+                .execute()
+            )
+
+            return [self._row_to_workspace(row) for row in result.data]
+
+        except Exception as e:
+            logger.error(f"Failed to get workspaces for tenant from Supabase: {e}")
+            return []
+
+    def list_active(self, limit: int = 100, offset: int = 0) -> List[SlackWorkspace]:
+        """List all active workspaces."""
+        if not self.is_configured:
+            return []
+
+        try:
+            result = (
+                self._client.table("slack_workspaces")
+                .select("*")
+                .eq("is_active", True)
+                .order("installed_at", desc=True)
+                .range(offset, offset + limit - 1)
+                .execute()
+            )
+
+            return [self._row_to_workspace(row) for row in result.data]
+
+        except Exception as e:
+            logger.error(f"Failed to list workspaces from Supabase: {e}")
+            return []
+
+    def deactivate(self, workspace_id: str) -> bool:
+        """Deactivate a workspace."""
+        if not self.is_configured:
+            return False
+
+        try:
+            self._client.table("slack_workspaces").update(
+                {
+                    "is_active": False,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            ).eq("workspace_id", workspace_id).execute()
+
+            logger.info(f"Deactivated Slack workspace in Supabase: {workspace_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to deactivate workspace in Supabase: {e}")
+            return False
+
+    def delete(self, workspace_id: str) -> bool:
+        """Permanently delete a workspace."""
+        if not self.is_configured:
+            return False
+
+        try:
+            self._client.table("slack_workspaces").delete().eq(
+                "workspace_id", workspace_id
+            ).execute()
+
+            logger.info(f"Deleted Slack workspace from Supabase: {workspace_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to delete workspace from Supabase: {e}")
+            return False
+
+    def count(self, active_only: bool = True) -> int:
+        """Count workspaces."""
+        if not self.is_configured:
+            return 0
+
+        try:
+            query = self._client.table("slack_workspaces").select("*", count="exact")
+            if active_only:
+                query = query.eq("is_active", True)
+
+            result = query.execute()
+            return result.count or 0
+
+        except Exception as e:
+            logger.error(f"Failed to count workspaces in Supabase: {e}")
+            return 0
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get workspace statistics."""
+        if not self.is_configured:
+            return {"total_workspaces": 0, "active_workspaces": 0}
+
+        try:
+            total = self.count(active_only=False)
+            active = self.count(active_only=True)
+
+            return {
+                "total_workspaces": total,
+                "active_workspaces": active,
+                "inactive_workspaces": total - active,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get stats from Supabase: {e}")
+            return {"total_workspaces": 0, "active_workspaces": 0}
+
+    def _row_to_workspace(self, row: Dict[str, Any]) -> SlackWorkspace:
+        """Convert Supabase row to SlackWorkspace."""
+        installed_at = row.get("installed_at")
+        if isinstance(installed_at, str):
+            # Parse ISO format
+            installed_at = datetime.fromisoformat(installed_at.replace("Z", "+00:00")).timestamp()
+        elif isinstance(installed_at, (int, float)):
+            pass  # Already a timestamp
+        else:
+            installed_at = time.time()
+
+        return SlackWorkspace(
+            workspace_id=row["workspace_id"],
+            workspace_name=row["workspace_name"],
+            access_token=row["access_token"],
+            bot_user_id=row["bot_user_id"],
+            installed_at=installed_at,
+            installed_by=row.get("installed_by"),
+            scopes=row.get("scopes") or [],
+            tenant_id=row.get("tenant_id"),
+            is_active=row.get("is_active", True),
+            signing_secret=row.get("signing_secret"),
+        )
+
+
 # Singleton instance
-_workspace_store: Optional[SlackWorkspaceStore] = None
+_workspace_store: Optional[Any] = None
 
 
-def get_slack_workspace_store(db_path: Optional[str] = None) -> SlackWorkspaceStore:
+def get_slack_workspace_store(db_path: Optional[str] = None) -> Any:
     """Get or create the workspace store singleton.
 
+    Uses Supabase backend in production when configured,
+    falls back to SQLite for development.
+
     Args:
-        db_path: Optional path to database file
+        db_path: Optional path to database file (SQLite only)
 
     Returns:
-        SlackWorkspaceStore instance
+        Workspace store instance (Supabase or SQLite backed)
     """
     global _workspace_store
     if _workspace_store is None:
+        # Try Supabase first in production
+        if ARAGORA_ENV == "production" or os.getenv("USE_SUPABASE_SLACK_STORE"):
+            supabase_store = SupabaseSlackWorkspaceStore()
+            if supabase_store.is_configured:
+                _workspace_store = supabase_store
+                logger.info("Using Supabase-backed Slack workspace store")
+                return _workspace_store
+
+        # Fall back to SQLite
         _workspace_store = SlackWorkspaceStore(db_path)
+        logger.info("Using SQLite-backed Slack workspace store")
+
     return _workspace_store

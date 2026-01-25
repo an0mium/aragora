@@ -140,6 +140,66 @@ CREATE POLICY "Allow public read" ON stream_events FOR SELECT USING (true);
 CREATE POLICY "Allow public read" ON agent_metrics FOR SELECT USING (true);
 
 -- ============================================================================
+-- SLACK WORKSPACES
+-- OAuth credentials for multi-workspace Slack integration
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS slack_workspaces (
+    workspace_id TEXT PRIMARY KEY,
+    workspace_name TEXT NOT NULL,
+    access_token TEXT NOT NULL,  -- Encrypted bot token (xoxb-*)
+    bot_user_id TEXT NOT NULL,
+    installed_at TIMESTAMPTZ NOT NULL,
+    installed_by TEXT,           -- User ID who installed
+    scopes TEXT[],               -- OAuth scopes granted
+    tenant_id TEXT,              -- Link to Aragora tenant
+    is_active BOOLEAN DEFAULT TRUE,
+    signing_secret TEXT,         -- Workspace-specific signing secret
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX idx_slack_workspaces_tenant ON slack_workspaces(tenant_id);
+CREATE INDEX idx_slack_workspaces_active ON slack_workspaces(is_active);
+
+-- Enable RLS
+ALTER TABLE slack_workspaces ENABLE ROW LEVEL SECURITY;
+
+-- Service role only (tokens are sensitive)
+CREATE POLICY "Allow service role only" ON slack_workspaces
+    FOR ALL USING (auth.role() = 'service_role');
+
+-- ============================================================================
+-- USAGE METRICS
+-- Token usage and cost tracking for billing
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS usage_metrics (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workspace_id TEXT,           -- Slack workspace or tenant
+    tenant_id TEXT,              -- Aragora tenant
+    debate_id UUID,              -- Associated debate
+    provider TEXT NOT NULL,      -- anthropic, openai, etc.
+    model TEXT NOT NULL,         -- claude-3-opus, gpt-4, etc.
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cost_usd DECIMAL(10,6) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for billing queries
+CREATE INDEX idx_usage_metrics_workspace ON usage_metrics(workspace_id, created_at);
+CREATE INDEX idx_usage_metrics_tenant ON usage_metrics(tenant_id, created_at);
+CREATE INDEX idx_usage_metrics_provider ON usage_metrics(provider, created_at);
+
+-- Enable RLS
+ALTER TABLE usage_metrics ENABLE ROW LEVEL SECURITY;
+
+-- Allow all for service role
+CREATE POLICY "Allow all for service role" ON usage_metrics FOR ALL USING (true);
+
+-- ============================================================================
 -- VIEWS FOR ANALYTICS
 -- ============================================================================
 
