@@ -194,6 +194,9 @@ logger.warning(
 )
 ```
 
+Structured logging will redact sensitive fields by name and secret patterns;
+avoid logging raw credentials or tokens in connector code.
+
 ## Metrics to Emit
 
 Each connector should emit these Prometheus metrics:

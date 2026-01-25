@@ -88,7 +88,7 @@ Fixed: 5 high-risk handlers in Phase 3.
 **Comprehensive:** Payment webhooks, chat E2E, CDC-KM integration
 
 **Potential gaps to investigate:**
-- MySQL/SQL Server CDC (PostgreSQL and MongoDB covered)
+- Production hardening for MySQL/SQL Server CDC (baseline connectors added)
 - CDC event concurrency/race conditions
 - Full CDC → Debate context injection (mocked only)
 

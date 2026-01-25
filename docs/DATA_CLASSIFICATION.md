@@ -214,6 +214,12 @@ REDACTED_FIELDS = [
 ]
 ```
 
+### Logging Redaction
+
+Structured logging redacts values by field name and secret patterns, covering
+auth tokens, payment data, PII, session identifiers, and key material. See
+`aragora/server/middleware/structured_logging.py` for the canonical list.
+
 ---
 
 ## Data Lifecycle
