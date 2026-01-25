@@ -224,6 +224,117 @@ fast_tier = await client.memory.tier_stats("fast")
 snapshot = await client.memory.snapshot()
 ```
 
+### Authentication API
+
+Complete authentication including OAuth, MFA, and API key management.
+
+```python
+# Register a new user
+user = await client.auth.register(
+    email="user@example.com",
+    password="secure-password",
+    name="John Doe",
+)
+
+# Login
+token = await client.auth.login("user@example.com", "secure-password")
+print(f"Access token: {token.access_token}")
+
+# Get current user
+user = await client.auth.get_current_user()
+print(f"User: {user.email} (role: {user.role})")
+
+# OAuth authentication
+oauth_url = await client.auth.get_oauth_url(
+    provider="google",  # "google" | "github" | "microsoft"
+    redirect_uri="https://yourapp.com/callback",
+)
+# Redirect user to oauth_url, then complete:
+token = await client.auth.complete_oauth(provider="google", code="auth-code")
+
+# MFA setup (TOTP)
+setup = await client.auth.setup_mfa(method="totp")
+print(f"Scan QR code: {setup.qr_code_url}")
+print(f"Or enter secret: {setup.secret}")
+
+# Verify MFA setup
+await client.auth.verify_mfa_setup(code="123456")
+
+# API key management
+keys = await client.auth.list_api_keys()
+new_key = await client.auth.create_api_key(
+    name="CI/CD Pipeline",
+    scopes=["debates:read", "debates:write"],
+    expires_in_days=90,
+)
+print(f"API Key: {new_key.key}")  # Only shown once!
+
+# Session management
+sessions = await client.auth.list_sessions()
+await client.auth.revoke_session("session-123")
+await client.auth.revoke_all_sessions()  # Logout everywhere
+
+# Logout
+await client.auth.logout()
+```
+
+### Control Plane API
+
+Enterprise agent orchestration with registry, scheduling, and health monitoring.
+
+```python
+# List registered agents
+agents = await client.control_plane.list_agents()
+for agent in agents:
+    print(f"{agent.agent_id}: {agent.status} (capabilities: {agent.capabilities})")
+
+# Register a new agent
+await client.control_plane.register_agent(
+    agent_id="custom-agent-1",
+    capabilities=["reasoning", "code_review"],
+    metadata={"version": "1.0.0", "region": "us-east"},
+)
+
+# Get agent health status
+health = await client.control_plane.get_agent_health("anthropic-api")
+print(f"Status: {health.status}")
+print(f"Last heartbeat: {health.last_heartbeat}")
+print(f"CPU: {health.resource_usage.get('cpu', 'N/A')}")
+
+# Submit a task to the control plane scheduler
+task = await client.control_plane.submit_task(
+    task_type="debate",
+    payload={"question": "Should we migrate to Kubernetes?"},
+    priority=8,  # 1-10, higher = more urgent
+    required_capabilities=["reasoning"],
+)
+print(f"Task ID: {task.task_id}")
+
+# Wait for task completion
+result = await client.control_plane.wait_for_task(
+    task.task_id,
+    timeout=300.0,
+    poll_interval=2.0,
+)
+print(f"Result: {result.result}")
+
+# Get control plane status overview
+status = await client.control_plane.get_status()
+print(f"Active agents: {status.active_agents}")
+print(f"Pending tasks: {status.pending_tasks}")
+
+# Get resource utilization across all agents
+utilization = await client.control_plane.get_resource_utilization()
+print(f"Total CPU: {utilization.total_cpu_percent}%")
+print(f"Total Memory: {utilization.total_memory_mb}MB")
+
+# Trigger manual health check
+await client.control_plane.trigger_health_check("anthropic-api")
+
+# Unregister an agent
+await client.control_plane.unregister_agent("custom-agent-1")
+```
+
 ### Health Check
 
 ```python
