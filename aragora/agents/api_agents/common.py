@@ -13,7 +13,7 @@ import random
 import re
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import AsyncGenerator, Callable, Optional
 
 import aiohttp
@@ -75,15 +75,8 @@ class ConnectionPoolState:
 
     connector: Optional[aiohttp.TCPConnector] = None
     loop_id: Optional[int] = None
-    pending_close_tasks: set = None  # type: ignore[assignment]  # Set in __post_init__
-    lock: threading.Lock = None  # type: ignore[assignment]  # Set in __post_init__
-
-    def __post_init__(self) -> None:
-        """Initialize mutable defaults after dataclass creation."""
-        if self.pending_close_tasks is None:
-            self.pending_close_tasks = set()
-        if self.lock is None:
-            self.lock = threading.Lock()
+    pending_close_tasks: set = field(default_factory=set)
+    lock: threading.Lock = field(default_factory=threading.Lock)
 
     def reset(self) -> None:
         """Reset pool state (for testing or shutdown)."""
