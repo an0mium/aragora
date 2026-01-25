@@ -110,7 +110,7 @@ jobs:
           pip install -e ".[dev,research]"
           pip install pytest-timeout pytest-xdist
           # Optional dependencies to reduce test skips
-          pip install httpx mcp z3-solver supabase asyncpg websockets PyJWT || true
+          pip install httpx mcp z3-solver supabase asyncpg websockets PyJWT aiosqlite redis tiktoken || true
 
       - name: Run ${{ matrix.category.name }} tests
         run: |
@@ -163,7 +163,7 @@ jobs:
           pip install -e ".[dev,research]"
           pip install pytest-cov pytest-timeout pytest-xdist
           # Optional dependencies to reduce test skips
-          pip install httpx mcp z3-solver supabase asyncpg websockets PyJWT || true
+          pip install httpx mcp z3-solver supabase asyncpg websockets PyJWT aiosqlite redis tiktoken || true
 
       - name: Run tests (parallel with xdist)
         run: |
@@ -431,10 +431,11 @@ jobs:
         continue-on-error: true
 
   nightly-optional:
-    name: Nightly Optional Deps
+    name: Optional Deps (Full)
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    if: github.event_name == 'schedule'
+    # Run on schedule, push to main, or workflow_dispatch
+    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
 
     services:
       postgres:
