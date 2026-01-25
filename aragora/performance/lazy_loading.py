@@ -533,6 +533,13 @@ class LazyLoader:
                 prefetch_fn = self._prefetch_fns[prefetch_key]
                 results = await prefetch_fn(objects)
 
+                # Record metric for manual prefetch
+                _init_metrics()
+                if _prefetch_operations_counter:
+                    _prefetch_operations_counter.labels(
+                        property_name=prop_name, type="manual"
+                    ).inc()
+
                 for obj in objects:
                     if obj in results:
                         lazy_value = descriptor.__get__(obj, obj_type)
@@ -540,7 +547,15 @@ class LazyLoader:
                             lazy_value.set(results[obj])
             else:
                 # Fall back to individual loads (still benefits from N+1 warning)
-                logger.debug(f"No prefetch function for '{prefetch_key}', " f"loading individually")
+                logger.debug(f"No prefetch function for '{prefetch_key}', loading individually")
+
+                # Record metric for fallback prefetch
+                _init_metrics()
+                if _prefetch_operations_counter:
+                    _prefetch_operations_counter.labels(
+                        property_name=prop_name, type="fallback"
+                    ).inc()
+
                 lazy_values = [
                     lv
                     for obj in objects
@@ -586,12 +601,13 @@ def register_prefetch(
 
 
 def get_lazy_load_stats() -> Dict[str, Any]:
-    """Get lazy loading statistics."""
+    """Get lazy loading statistics including N+1 detection config."""
     return {
         "total_loads": _lazy_load_stats.total_loads,
         "n_plus_one_detections": _lazy_load_stats.n_plus_one_detections,
         "prefetch_hits": _lazy_load_stats.prefetch_hits,
         "avg_load_time_ms": round(_lazy_load_stats.avg_load_time_ms, 2),
+        "config": get_n_plus_one_config(),
     }
 
 
@@ -606,8 +622,13 @@ __all__ = [
     "LazyValue",
     "LazyDescriptor",
     "LazyLoader",
+    "AutoPrefetchBatcher",
     "prefetch",
     "register_prefetch",
     "get_lazy_load_stats",
+    "get_n_plus_one_config",
     "reset_lazy_load_stats",
+    "N_PLUS_ONE_THRESHOLD",
+    "N_PLUS_ONE_WINDOW_MS",
+    "N_PLUS_ONE_AUTO_PREFETCH",
 ]
