@@ -38,6 +38,10 @@ USER_RATE_LIMITS: Dict[str, int] = {
     "knowledge_query": 20,  # Knowledge base queries
     "memory_cleanup": 5,  # Memory management operations
     "plugin_install": 3,  # Plugin installation
+    # Slack integration limits (per workspace:user)
+    "slack_command": 10,  # Slash commands per user
+    "slack_debate": 5,  # Debate creation via Slack
+    "slack_gauntlet": 3,  # Gauntlet runs via Slack
 }
 
 

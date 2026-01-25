@@ -1037,9 +1037,21 @@ Slack integration uses the existing `SLACK_*` variables with additional bidirect
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `SLACK_BOT_TOKEN` | Required | Slack bot OAuth token (xoxb-...) | - |
-| `SLACK_SIGNING_SECRET` | Required | Request signing secret | - |
+| `SLACK_CLIENT_ID` | Required | OAuth app client ID | - |
+| `SLACK_CLIENT_SECRET` | Required | OAuth app client secret | - |
+| `SLACK_SIGNING_SECRET` | Required | Request signing secret (webhook verification) | - |
+| `SLACK_REDIRECT_URI` | **Required in Production** | OAuth callback URL (enforced when `ARAGORA_ENV=production`) | Auto-construct in dev |
+| `SLACK_BOT_TOKEN` | Optional | Bot token for direct API calls (xoxb-...) | - |
 | `SLACK_APP_TOKEN` | Optional | App-level token for Socket Mode (xapp-...) | - |
+| `SLACK_SCOPES` | Optional | OAuth scopes (comma-separated) | See default scopes |
+| `ARAGORA_API_BASE_URL` | **Required in Production** | Base URL for internal API calls | `http://localhost:8080` |
+| `ARAGORA_ENCRYPTION_KEY` | **Required in Production** | Encryption key for token storage | - |
+| `ARAGORA_ENV` | Optional | Environment mode (`production` enforces requirements) | `development` |
+
+**Production Requirements:**
+- `SLACK_REDIRECT_URI` must be set when `ARAGORA_ENV=production` (prevents open redirect attacks)
+- `ARAGORA_API_BASE_URL` should point to your production API endpoint
+- `ARAGORA_ENCRYPTION_KEY` required for secure token storage (PBKDF2-HMAC with 480k iterations)
 
 **Additional Commands:**
 - `/aragora debate "topic"` - Start a multi-agent debate

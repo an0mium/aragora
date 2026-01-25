@@ -401,6 +401,31 @@ class SlackHandler(BaseHandler):
 
             logger.info(f"Slack command from {user_id}: {command} {text}")
 
+            # Per-user rate limiting (workspace_id:user_id as key)
+            user_limiter = _get_user_rate_limiter()
+            if user_limiter and user_id:
+                # Create unique key for this Slack user
+                user_key = f"slack:{team_id or 'unknown'}:{user_id}"
+                rate_result = user_limiter.allow(user_key, "slack_command")
+                if not rate_result.allowed:
+                    logger.warning(
+                        f"Slack user rate limited: {user_key} "
+                        f"(retry_after={rate_result.retry_after}s)"
+                    )
+                    # Audit log rate limit event
+                    audit = _get_audit_logger()
+                    if audit:
+                        audit.log_rate_limit(
+                            workspace_id=team_id or "",
+                            user_id=user_id,
+                            command=command,
+                            limit_type="user",
+                        )
+                    return self._slack_response(
+                        f"You're sending commands too quickly. Please wait {int(rate_result.retry_after)} seconds.",
+                        response_type="ephemeral",
+                    )
+
             # Parse the subcommand
             if not text:
                 result = self._command_help()
