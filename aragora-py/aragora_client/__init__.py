@@ -89,6 +89,13 @@ from aragora_client.tenancy import (
     Tenant,
     TenantMember,
 )
+from aragora_client.threat_intel import (
+    EmailScanResult,
+    HashReputation,
+    IPReputation,
+    ThreatIntelAPI,
+    ThreatResult,
+)
 from aragora_client.tournaments import (
     Tournament,
     TournamentBracket,
@@ -236,4 +243,10 @@ __all__ = [
     "MarketplacePurchase",
     # Cross-Pollination
     "CrossPollinationAPI",
+    # Threat Intelligence
+    "ThreatIntelAPI",
+    "ThreatResult",
+    "IPReputation",
+    "HashReputation",
+    "EmailScanResult",
 ]

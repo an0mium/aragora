@@ -26,6 +26,7 @@ from aragora_client.marketplace import MarketplaceAPI
 from aragora_client.onboarding import OnboardingAPI
 from aragora_client.rbac import RBACAPI
 from aragora_client.tenancy import TenancyAPI
+from aragora_client.threat_intel import ThreatIntelAPI
 from aragora_client.tournaments import TournamentsAPI
 from aragora_client.types import (
     AgentProfile,
@@ -1547,6 +1548,7 @@ class AragoraClient:
         self.explainability = ExplainabilityAPI(self)
         self.marketplace = MarketplaceAPI(self)
         self.cross_pollination = CrossPollinationAPI(self)
+        self.threat_intel = ThreatIntelAPI(self)
 
     async def __aenter__(self) -> AragoraClient:
         """Enter async context."""
