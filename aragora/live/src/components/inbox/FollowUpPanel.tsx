@@ -78,7 +78,7 @@ export function FollowUpPanel({
     } finally {
       setLoading(false);
     }
-  }, [showResolved, isAuthenticated, authLoading, getAuthHeaders]);
+  }, [apiBase, showResolved, isAuthenticated, authLoading, getAuthHeaders]);
 
   useEffect(() => {
     fetchFollowups();

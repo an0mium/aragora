@@ -97,7 +97,7 @@ export function SnoozePanel({
     } finally {
       setLoading(false);
     }
-  }, [emailId, emailSubject, emailSender, emailPriority]);
+  }, [baseUrl, emailId, emailSubject, emailSender, emailPriority]);
 
   const setDefaultSuggestions = () => {
     const now = new Date();
@@ -397,7 +397,7 @@ export function SnoozedEmailsList({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [baseUrl]);
 
   useEffect(() => {
     fetchSnoozed();
