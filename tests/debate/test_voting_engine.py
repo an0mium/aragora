@@ -616,10 +616,16 @@ class TestNLIContradictionDetection:
         try:
             from aragora.debate.similarity.backends import SentenceTransformerBackend
 
+            # Clear ALL class-level caches including model caches
+            # This ensures we get fresh real models, not cached mocks
+            SentenceTransformerBackend.clear_cache()
+            SentenceTransformerBackend._nli_model_cache = None
+            SentenceTransformerBackend._nli_model_name_cache = None
             return SentenceTransformerBackend(use_nli=True)
         except ImportError:
             pytest.skip("sentence-transformers not installed")
 
+    @pytest.mark.slow
     def test_nli_detects_accept_reject(self, nli_backend):
         """NLI should detect accept/reject as contradictions."""
         assert nli_backend.is_contradictory(
@@ -634,6 +640,7 @@ class TestNLIContradictionDetection:
             "We should proceed cautiously", "We should move quickly without hesitation"
         )
 
+    @pytest.mark.slow
     def test_nli_detects_agreement_disagreement(self, nli_backend):
         """NLI should detect agreement vs disagreement."""
         assert nli_backend.is_contradictory(

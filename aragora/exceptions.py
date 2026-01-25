@@ -1099,3 +1099,83 @@ class DocumentChunkError(DocumentProcessingError):
 #
 # The exceptions in this file (AgentNotFoundError, AgentConfigurationError,
 # APIKeyError) are for configuration-time errors, not runtime failures.
+
+
+# ============================================================================
+# Unified Exception Hierarchy
+# ============================================================================
+# All domain-specific exception base classes inherit from AragoraError:
+#
+#   AragoraError (base)
+#   ├── DebateError, ValidationError, StorageError, MemoryError, etc. (this file)
+#   ├── ConnectorError (aragora.connectors.exceptions)
+#   │   └── ConnectorAPIError, ConnectorTimeoutError, ConnectorRateLimitError, ...
+#   ├── ControlPlaneError (aragora.control_plane.exceptions)
+#   │   └── TaskNotFoundError, PolicyConflictError, ResourceQuotaExceededError, ...
+#   ├── AgentError (aragora.agents.errors.exceptions)
+#   │   └── AgentTimeoutError, AgentRateLimitError, CLIAgentError, ...
+#   └── HandlerError (aragora.server.handlers.exceptions)
+#       └── HandlerNotFoundError, HandlerValidationError, HandlerAuthorizationError, ...
+#
+# This enables catching all Aragora exceptions with a single handler:
+#   try:
+#       await some_operation()
+#   except AragoraError as e:
+#       logger.error(f"Operation failed: {e}", extra=e.details)
+#
+# Re-exports for unified imports (import from this module for convenience):
+
+# Connector exceptions (re-exports for unified imports)
+try:
+    from aragora.connectors.exceptions import (  # noqa: F401
+        ConnectorAPIError,
+        ConnectorAuthError,
+        ConnectorConfigError,
+        ConnectorError,
+        ConnectorNetworkError,
+        ConnectorNotFoundError,
+        ConnectorParseError,
+        ConnectorQuotaError,
+        ConnectorRateLimitError,
+        ConnectorTimeoutError,
+        ConnectorValidationError,
+    )
+except ImportError:
+    pass  # Optional: connectors module may not be installed
+
+# Control plane exceptions (re-exports for unified imports)
+try:
+    from aragora.control_plane.exceptions import (  # noqa: F401
+        AgentOverloadedError,
+        AgentUnavailableError,
+        ControlPlaneError,
+        InvalidTaskStateError,
+        PolicyConflictError,
+        PolicyEvaluationError,
+        PolicyNotFoundError,
+        RateLimitExceededError as ControlPlaneRateLimitError,
+        RegionRoutingError,
+        RegionUnavailableError,
+        ResourceQuotaExceededError,
+        SchedulerConnectionError,
+        TaskClaimError,
+        TaskNotFoundError,
+        TaskTimeoutError,
+    )
+except ImportError:
+    pass  # Optional: control_plane module may not be installed
+
+# Handler exceptions (re-exports for unified imports)
+try:
+    from aragora.server.handlers.exceptions import (  # noqa: F401
+        HandlerAuthorizationError,
+        HandlerConflictError,
+        HandlerDatabaseError,
+        HandlerError,
+        HandlerExternalServiceError,
+        HandlerNotFoundError,
+        HandlerRateLimitError,
+        HandlerValidationError,
+    )
+except ImportError:
+    pass  # Optional: server module may not be installed

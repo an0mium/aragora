@@ -289,7 +289,15 @@ class TestPostgresPatternOperations:
     async def test_store_pattern(self, mock_db):
         """store_pattern should create a new pattern record."""
         db, mock_conn = mock_db
-        mock_conn.fetchrow.return_value = {"issue_type": "security"}
+        # Mock fetchrow to return different values for each call:
+        # 1. _update_surprise_score: SELECT issue_type
+        # 2. _calculate_surprise: SELECT base_rate
+        # 3. _update_surprise_score: SELECT base_rate
+        mock_conn.fetchrow.side_effect = [
+            {"issue_type": "security"},
+            {"base_rate": 0.5},
+            {"base_rate": 0.5},
+        ]
         mock_conn.fetch.return_value = []
 
         result = await db.store_pattern(
@@ -338,7 +346,15 @@ class TestPostgresPatternOperations:
         """fail_pattern should increment failure count."""
         db, mock_conn = mock_db
         mock_conn.execute.return_value = "UPDATE 1"
-        mock_conn.fetchrow.return_value = {"issue_type": "general"}
+        # Mock fetchrow to return different values for each call:
+        # 1. _update_surprise_score: SELECT issue_type
+        # 2. _calculate_surprise: SELECT base_rate
+        # 3. _update_surprise_score: SELECT base_rate
+        mock_conn.fetchrow.side_effect = [
+            {"issue_type": "general"},
+            {"base_rate": 0.5},
+            {"base_rate": 0.5},
+        ]
 
         await db.fail_pattern("Some issue text")
 

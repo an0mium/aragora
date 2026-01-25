@@ -213,6 +213,10 @@ class TestSentenceTransformerBackend:
     @pytest.mark.slow
     def test_semantic_similarity_captured(self):
         """Should understand semantic similarity (requires real embeddings)."""
+        # Clear ALL caches to ensure we get real models, not mocks from earlier tests
+        SentenceTransformerBackend.clear_cache()
+        SentenceTransformerBackend._model_cache = None
+        SentenceTransformerBackend._model_name_cache = None
         backend = SentenceTransformerBackend()
         text1 = "I prefer TypeScript for type safety"
         text2 = "TypeScript is better because it has types"
@@ -599,6 +603,10 @@ class TestBatchSimilarityMethods:
     @requires_sentence_transformers
     def test_compute_pairwise_similarities_basic(self):
         """Test pairwise similarities (requires real embeddings)."""
+        # Clear ALL caches to ensure we get real models, not mocks from earlier tests
+        SentenceTransformerBackend.clear_cache()
+        SentenceTransformerBackend._model_cache = None
+        SentenceTransformerBackend._model_name_cache = None
         backend = SentenceTransformerBackend()
         texts_a = ["hello world", "good morning", "python programming"]
         texts_b = ["hello world", "good evening", "javascript coding"]
