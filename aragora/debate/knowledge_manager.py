@@ -17,8 +17,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult, Environment
+    from aragora.debate.knowledge_mound_ops import KnowledgeMoundOperations
     from aragora.knowledge.mound import KnowledgeMound
-    from aragora.knowledge.mound.operations import KnowledgeMoundOperations
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ class ArenaKnowledgeManager:
             pulse_manager: PulseManager for trending topics
             memory: Legacy memory instance
         """
-        from aragora.knowledge.mound.operations import KnowledgeMoundOperations
+        from aragora.debate.knowledge_mound_ops import KnowledgeMoundOperations
 
         # Initialize KM metrics for observability
         self._km_metrics = None
