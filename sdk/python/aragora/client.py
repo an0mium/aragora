@@ -822,7 +822,6 @@ class AragoraClient:
         """Get agent leaderboard rankings."""
         return await self._request("GET", "/api/leaderboard")
 
-
     # =========================================================================
     # Health
     # =========================================================================
@@ -2891,6 +2890,471 @@ class AragoraClient:
             Ranking distribution, rating changes, and leaderboard trends
         """
         return await self._request("GET", "/api/v1/ranking/stats")
+
+    # =========================================================================
+    # Knowledge Mound
+    # =========================================================================
+
+    async def query_knowledge_mound(
+        self,
+        query: str,
+        types: Optional[List[str]] = None,
+        depth: int = 2,
+        include_relationships: bool = True,
+        limit: int = 50,
+    ) -> Dict[str, Any]:
+        """Query the Knowledge Mound graph."""
+        return await self._request(
+            "POST",
+            "/api/v1/knowledge/mound/query",
+            json={
+                "query": query,
+                "types": types,
+                "depth": depth,
+                "include_relationships": include_relationships,
+                "limit": limit,
+            },
+        )
+
+    async def list_knowledge_nodes(
+        self,
+        node_type: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """List Knowledge Mound nodes."""
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        if node_type:
+            params["type"] = node_type
+        return await self._request("GET", "/api/v1/knowledge/mound/nodes", params=params)
+
+    async def create_knowledge_node(
+        self,
+        content: str,
+        node_type: str = "fact",
+        confidence: float = 0.8,
+        source: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        visibility: str = "workspace",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Create a new Knowledge Mound node."""
+        return await self._request(
+            "POST",
+            "/api/v1/knowledge/mound/nodes",
+            json={
+                "content": content,
+                "node_type": node_type,
+                "confidence": confidence,
+                "source": source,
+                "tags": tags or [],
+                "visibility": visibility,
+                "metadata": metadata or {},
+            },
+        )
+
+    async def get_knowledge_node(self, node_id: str) -> Dict[str, Any]:
+        """Get a specific Knowledge Mound node."""
+        return await self._request("GET", f"/api/v1/knowledge/mound/nodes/{node_id}")
+
+    async def get_knowledge_mound_stats(self) -> Dict[str, Any]:
+        """Get Knowledge Mound statistics."""
+        return await self._request("GET", "/api/v1/knowledge/mound/stats")
+
+    async def create_knowledge_relationship(
+        self,
+        source_id: str,
+        target_id: str,
+        relationship_type: str,
+        strength: float = 1.0,
+        confidence: float = 0.8,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Create a relationship between two knowledge nodes."""
+        return await self._request(
+            "POST",
+            "/api/v1/knowledge/mound/relationships",
+            json={
+                "source_id": source_id,
+                "target_id": target_id,
+                "relationship_type": relationship_type,
+                "strength": strength,
+                "confidence": confidence,
+                "metadata": metadata or {},
+            },
+        )
+
+    async def get_node_relationships(
+        self,
+        node_id: str,
+        direction: str = "both",
+    ) -> Dict[str, Any]:
+        """Get relationships for a knowledge node."""
+        return await self._request(
+            "GET",
+            f"/api/v1/knowledge/mound/nodes/{node_id}/relationships",
+            params={"direction": direction},
+        )
+
+    async def traverse_knowledge_graph(
+        self,
+        node_id: str,
+        depth: int = 2,
+        direction: str = "both",
+    ) -> Dict[str, Any]:
+        """Traverse the knowledge graph from a starting node."""
+        return await self._request(
+            "GET",
+            f"/api/v1/knowledge/mound/graph/{node_id}",
+            params={"depth": depth, "direction": direction},
+        )
+
+    async def get_knowledge_lineage(
+        self,
+        node_id: str,
+        max_depth: int = 5,
+    ) -> Dict[str, Any]:
+        """Get the derivation lineage of a knowledge node."""
+        return await self._request(
+            "GET",
+            f"/api/v1/knowledge/mound/graph/{node_id}/lineage",
+            params={"max_depth": max_depth},
+        )
+
+    async def get_stale_knowledge(
+        self,
+        max_age_days: int = 30,
+        limit: int = 50,
+    ) -> Dict[str, Any]:
+        """Get stale knowledge items that need revalidation."""
+        return await self._request(
+            "GET",
+            "/api/v1/knowledge/mound/stale",
+            params={"max_age_days": max_age_days, "limit": limit},
+        )
+
+    async def revalidate_knowledge(
+        self,
+        node_id: str,
+        valid: bool,
+        new_confidence: Optional[float] = None,
+        notes: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Revalidate a knowledge node."""
+        body: Dict[str, Any] = {"valid": valid}
+        if new_confidence is not None:
+            body["new_confidence"] = new_confidence
+        if notes:
+            body["notes"] = notes
+        return await self._request(
+            "POST",
+            f"/api/v1/knowledge/mound/revalidate/{node_id}",
+            json=body,
+        )
+
+    # =========================================================================
+    # Knowledge Mound - Sharing
+    # =========================================================================
+
+    async def share_knowledge(
+        self,
+        item_id: str,
+        target_id: str,
+        target_type: str = "workspace",
+        permission: str = "read",
+        expires_at: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Share a knowledge item with another workspace or user."""
+        body: Dict[str, Any] = {
+            "item_id": item_id,
+            "target_id": target_id,
+            "target_type": target_type,
+            "permission": permission,
+        }
+        if expires_at:
+            body["expires_at"] = expires_at
+        return await self._request("POST", "/api/v1/knowledge/mound/share", json=body)
+
+    async def get_shared_with_me(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """Get items shared with the current user/workspace."""
+        return await self._request(
+            "GET",
+            "/api/v1/knowledge/mound/shared-with-me",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def get_my_shares(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """Get items shared by the current user."""
+        return await self._request(
+            "GET",
+            "/api/v1/knowledge/mound/my-shares",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def revoke_share(self, share_id: str) -> Dict[str, Any]:
+        """Revoke a share."""
+        return await self._request(
+            "DELETE",
+            "/api/v1/knowledge/mound/share",
+            json={"share_id": share_id},
+        )
+
+    # =========================================================================
+    # Knowledge Mound - Federation
+    # =========================================================================
+
+    async def list_federated_regions(self) -> Dict[str, Any]:
+        """List all federated regions."""
+        return await self._request("GET", "/api/v1/knowledge/mound/federation/regions")
+
+    async def get_federation_status(self) -> Dict[str, Any]:
+        """Get federation status and health."""
+        return await self._request("GET", "/api/v1/knowledge/mound/federation/status")
+
+    async def sync_to_region(
+        self,
+        region_id: str,
+        scope: str = "workspace",
+        node_ids: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Push knowledge to a remote region."""
+        body: Dict[str, Any] = {"region_id": region_id, "scope": scope}
+        if node_ids:
+            body["node_ids"] = node_ids
+        return await self._request(
+            "POST",
+            "/api/v1/knowledge/mound/federation/sync/push",
+            json=body,
+        )
+
+    async def pull_from_region(
+        self,
+        region_id: str,
+        since: Optional[str] = None,
+        limit: int = 100,
+    ) -> Dict[str, Any]:
+        """Pull knowledge from a remote region."""
+        body: Dict[str, Any] = {"region_id": region_id, "limit": limit}
+        if since:
+            body["since"] = since
+        return await self._request(
+            "POST",
+            "/api/v1/knowledge/mound/federation/sync/pull",
+            json=body,
+        )
+
+    # =========================================================================
+    # Knowledge Mound - Deduplication
+    # =========================================================================
+
+    async def get_duplicate_clusters(
+        self,
+        threshold: float = 0.9,
+        limit: int = 50,
+    ) -> Dict[str, Any]:
+        """Find duplicate clusters by similarity threshold."""
+        return await self._request(
+            "GET",
+            "/api/v1/knowledge/mound/dedup/clusters",
+            params={"threshold": threshold, "limit": limit},
+        )
+
+    async def get_dedup_report(self) -> Dict[str, Any]:
+        """Generate deduplication analysis report."""
+        return await self._request("GET", "/api/v1/knowledge/mound/dedup/report")
+
+    async def merge_duplicate_cluster(
+        self,
+        cluster_id: str,
+        primary_id: Optional[str] = None,
+        strategy: str = "highest_confidence",
+    ) -> Dict[str, Any]:
+        """Merge a specific duplicate cluster."""
+        return await self._request(
+            "POST",
+            "/api/v1/knowledge/mound/dedup/merge",
+            json={
+                "cluster_id": cluster_id,
+                "primary_id": primary_id,
+                "strategy": strategy,
+            },
+        )
+
+    # =========================================================================
+    # Knowledge Mound - Contradictions
+    # =========================================================================
+
+    async def detect_contradictions(self, scope: str = "workspace") -> Dict[str, Any]:
+        """Trigger contradiction detection scan."""
+        return await self._request(
+            "POST",
+            "/api/v1/knowledge/mound/contradictions/detect",
+            json={"scope": scope},
+        )
+
+    async def list_contradictions(
+        self,
+        status: str = "unresolved",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """List contradictions."""
+        return await self._request(
+            "GET",
+            "/api/v1/knowledge/mound/contradictions",
+            params={"status": status, "limit": limit, "offset": offset},
+        )
+
+    async def resolve_contradiction(
+        self,
+        contradiction_id: str,
+        strategy: str,
+        notes: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Resolve a contradiction."""
+        body: Dict[str, Any] = {"strategy": strategy}
+        if notes:
+            body["notes"] = notes
+        return await self._request(
+            "POST",
+            f"/api/v1/knowledge/mound/contradictions/{contradiction_id}/resolve",
+            json=body,
+        )
+
+    # =========================================================================
+    # Knowledge Mound - Analytics
+    # =========================================================================
+
+    async def analyze_knowledge_coverage(
+        self,
+        topics: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Analyze domain coverage by topic."""
+        params: Dict[str, Any] = {}
+        if topics:
+            params["topics"] = ",".join(topics)
+        return await self._request(
+            "GET",
+            "/api/v1/knowledge/mound/analytics/coverage",
+            params=params,
+        )
+
+    async def analyze_knowledge_usage(
+        self,
+        period: str = "week",
+        since: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Analyze usage patterns over time."""
+        params: Dict[str, Any] = {"period": period}
+        if since:
+            params["since"] = since
+        return await self._request(
+            "GET",
+            "/api/v1/knowledge/mound/analytics/usage",
+            params=params,
+        )
+
+    async def get_knowledge_quality_trend(
+        self,
+        period: str = "week",
+        metrics: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Get quality metrics trend over time."""
+        params: Dict[str, Any] = {"period": period}
+        if metrics:
+            params["metrics"] = ",".join(metrics)
+        return await self._request(
+            "GET",
+            "/api/v1/knowledge/mound/analytics/quality/trend",
+            params=params,
+        )
+
+    # =========================================================================
+    # Knowledge Mound - Export
+    # =========================================================================
+
+    async def export_knowledge_d3(
+        self,
+        scope: str = "workspace",
+        depth: int = 3,
+    ) -> Dict[str, Any]:
+        """Export knowledge graph as D3 JSON format for visualization."""
+        return await self._request(
+            "GET",
+            "/api/v1/knowledge/mound/export/d3",
+            params={"scope": scope, "depth": depth},
+        )
+
+    async def export_knowledge_graphml(
+        self,
+        scope: str = "workspace",
+    ) -> str:
+        """Export knowledge graph as GraphML XML format."""
+        return await self._request(
+            "GET",
+            "/api/v1/knowledge/mound/export/graphml",
+            params={"scope": scope},
+        )
+
+    # =========================================================================
+    # Knowledge Mound - Extraction
+    # =========================================================================
+
+    async def extract_from_debate(
+        self,
+        debate_id: str,
+        confidence_threshold: float = 0.7,
+        auto_promote: bool = False,
+    ) -> Dict[str, Any]:
+        """Extract claims/knowledge from a debate."""
+        return await self._request(
+            "POST",
+            "/api/v1/knowledge/mound/extraction/debate",
+            json={
+                "debate_id": debate_id,
+                "confidence_threshold": confidence_threshold,
+                "auto_promote": auto_promote,
+            },
+        )
+
+    async def promote_extracted_claims(
+        self,
+        claim_ids: List[str],
+        target_tier: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Promote extracted claims to main knowledge."""
+        body: Dict[str, Any] = {"claim_ids": claim_ids}
+        if target_tier:
+            body["target_tier"] = target_tier
+        return await self._request(
+            "POST",
+            "/api/v1/knowledge/mound/extraction/promote",
+            json=body,
+        )
+
+    # =========================================================================
+    # Knowledge Mound - Dashboard
+    # =========================================================================
+
+    async def get_knowledge_dashboard_health(self) -> Dict[str, Any]:
+        """Get Knowledge Mound health status and recommendations."""
+        return await self._request("GET", "/api/v1/knowledge/mound/dashboard/health")
+
+    async def get_knowledge_dashboard_metrics(self) -> Dict[str, Any]:
+        """Get detailed operational metrics."""
+        return await self._request("GET", "/api/v1/knowledge/mound/dashboard/metrics")
+
+    async def get_knowledge_dashboard_adapters(self) -> Dict[str, Any]:
+        """Get adapter status and health."""
+        return await self._request("GET", "/api/v1/knowledge/mound/dashboard/adapters")
 
 
 # Sync wrapper for convenience
