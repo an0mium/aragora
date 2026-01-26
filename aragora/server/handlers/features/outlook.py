@@ -38,6 +38,7 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -630,6 +631,7 @@ async def handle_move_message(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("connectors:delete")
 async def handle_delete_message(
     workspace_id: str,
     user_id: str,

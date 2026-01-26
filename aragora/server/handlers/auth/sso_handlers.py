@@ -30,6 +30,7 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -431,6 +432,7 @@ async def handle_list_providers(
         return error_response(f"List providers failed: {str(e)}", status=500)
 
 
+@require_permission("admin:system")
 async def handle_get_sso_config(
     data: Dict[str, Any],
     user_id: str = "default",
