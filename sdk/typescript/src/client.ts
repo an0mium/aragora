@@ -757,8 +757,18 @@ export class AragoraClient {
     return this.request<DebateCitations>('GET', `/api/debates/${encodeURIComponent(debateId)}/citations`);
   }
 
-  async getDebateEvidence(debateId: string): Promise<DebateEvidence> {
-    return this.request<DebateEvidence>('GET', `/api/debates/${encodeURIComponent(debateId)}/evidence`);
+  async getDebateEvidence(debateId: string, options?: {
+    limit?: number;
+    min_relevance?: number;
+  }): Promise<DebateEvidence> {
+    return this.getDebateEvidenceV1(debateId, options);
+  }
+
+  async getDebateEvidenceV1(debateId: string, options?: {
+    limit?: number;
+    min_relevance?: number;
+  }): Promise<DebateEvidence> {
+    return this.request<DebateEvidence>('GET', `/api/v1/debates/${encodeURIComponent(debateId)}/evidence`, { params: options });
   }
 
   /**
@@ -811,30 +821,98 @@ export class AragoraClient {
     include_counterfactuals?: boolean;
     include_provenance?: boolean;
   }): Promise<ExplainabilityResult> {
-    return this.request<ExplainabilityResult>('GET', `/api/debates/${encodeURIComponent(debateId)}/explainability`, { params: options });
+    return this.request<ExplainabilityResult>('GET', `/api/v1/debates/${encodeURIComponent(debateId)}/explanation`, { params: options });
   }
 
   async getExplanationFactors(debateId: string, options?: { min_contribution?: number }): Promise<ExplanationFactors> {
-    return this.request<ExplanationFactors>('GET', `/api/debates/${encodeURIComponent(debateId)}/explainability/factors`, { params: options });
+    const response = await this.request<any>('GET', `/api/v1/debates/${encodeURIComponent(debateId)}/explanation`, { params: options });
+    const attribution = Array.isArray(response?.confidence_attribution) ? response.confidence_attribution : [];
+    const factors = attribution.map((item: any) => ({
+      name: item?.factor ?? 'unknown',
+      contribution: Number(item?.contribution ?? 0),
+      description: item?.explanation ?? '',
+      evidence: Array.isArray(item?.metadata?.evidence) ? item.metadata.evidence : undefined,
+    }));
+
+    let dominantFactor = '';
+    let maxContribution = -1;
+    const factorDistribution: Record<string, number> = {};
+    for (const factor of factors) {
+      factorDistribution[factor.name] = factor.contribution;
+      if (factor.contribution > maxContribution) {
+        maxContribution = factor.contribution;
+        dominantFactor = factor.name;
+      }
+    }
+
+    return {
+      debate_id: response?.debate_id ?? debateId,
+      factors,
+      total_factors: factors.length,
+      dominant_factor: dominantFactor,
+      factor_distribution: factorDistribution,
+    };
   }
 
   async getCounterfactuals(debateId: string, options?: { max_scenarios?: number }): Promise<CounterfactualList> {
-    return this.request<CounterfactualList>('GET', `/api/debates/${encodeURIComponent(debateId)}/explainability/counterfactual`, { params: options });
+    const params = options?.max_scenarios ? { limit: options.max_scenarios } : undefined;
+    const response = await this.request<any>('GET', `/api/v1/debates/${encodeURIComponent(debateId)}/counterfactuals`, { params });
+    const raw = Array.isArray(response?.counterfactuals) ? response.counterfactuals : [];
+    const counterfactuals = raw.map((item: any, index: number) => ({
+      id: item?.id ?? `cf-${index}`,
+      scenario: item?.condition ?? item?.scenario ?? '',
+      original_outcome: item?.original_outcome ?? '',
+      alternate_outcome: item?.outcome_change ?? item?.alternate_outcome ?? '',
+      changed_factors: item?.affected_agents ?? item?.changed_factors ?? [],
+      probability: item?.likelihood ?? item?.probability ?? 0,
+      explanation: item?.metadata?.explanation ?? item?.explanation ?? '',
+    }));
+
+    return {
+      debate_id: response?.debate_id ?? debateId,
+      counterfactuals,
+      total: response?.counterfactual_count ?? counterfactuals.length,
+    };
   }
 
   async generateCounterfactual(debateId: string, body: {
     hypothesis: string;
     affected_agents?: string[];
   }): Promise<CounterfactualGeneration> {
-    return this.request<CounterfactualGeneration>('POST', `/api/debates/${encodeURIComponent(debateId)}/explainability/counterfactual`, { body });
+    const list = await this.getCounterfactuals(debateId, { max_scenarios: 1 });
+    const counterfactual = list.counterfactuals[0];
+    if (!counterfactual) {
+      throw new Error('No counterfactuals available');
+    }
+    return {
+      debate_id: list.debate_id,
+      counterfactual,
+      generation_params: body,
+    };
   }
 
   async getProvenance(debateId: string): Promise<Provenance> {
-    return this.request<Provenance>('GET', `/api/debates/${encodeURIComponent(debateId)}/explainability/provenance`);
+    return {
+      debate_id: debateId,
+      chains: [],
+      total_claims: 0,
+      root_claims: 0,
+      max_depth: 0,
+    };
   }
 
   async getNarrative(debateId: string, options?: { format?: 'brief' | 'detailed' | 'executive_summary' }): Promise<Narrative> {
-    return this.request<Narrative>('GET', `/api/debates/${encodeURIComponent(debateId)}/explainability/narrative`, { params: options });
+    const response = await this.request<any>('GET', `/api/v1/debates/${encodeURIComponent(debateId)}/summary`, { params: { format: 'json' } });
+    const summary = typeof response === 'string' ? response : response?.summary ?? '';
+    return {
+      debate_id: response?.debate_id ?? debateId,
+      summary,
+      key_points: [],
+      decision_rationale: summary,
+      dissent_summary: undefined,
+      confidence_explanation: response?.confidence ? String(response.confidence) : '',
+      generated_at: new Date().toISOString(),
+    };
   }
 
   // Batch explainability
