@@ -296,8 +296,9 @@ class AudioFileStore:
 
         # Save metadata to JSON
         metadata_path = self._metadata_path(debate_id)
-        with open(metadata_path, "w") as f:
-            json.dump(metadata.to_dict(), f, indent=2)
+        if metadata_path is not None:
+            with open(metadata_path, "w") as f:
+                json.dump(metadata.to_dict(), f, indent=2)
 
         # Update cache
         self._cache[debate_id] = metadata
@@ -370,8 +371,9 @@ class AudioFileStore:
 
         # Save metadata to JSON
         metadata_path = self._metadata_path(debate_id)
-        with open(metadata_path, "w") as f:
-            json.dump(metadata.to_dict(), f, indent=2)
+        if metadata_path is not None:
+            with open(metadata_path, "w") as f:
+                json.dump(metadata.to_dict(), f, indent=2)
 
         # Update cache
         self._cache[debate_id] = metadata
