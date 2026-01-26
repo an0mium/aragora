@@ -778,7 +778,8 @@ class ExpenseHandler(BaseHandler):
             if not user_ctx or not user_ctx.is_authenticated:
                 return error_response("Authentication required", status=401)
             return None
-        except Exception:
+        except (ImportError, AttributeError, ValueError) as e:
+            logger.debug(f"Auth check failed: {e}")
             return error_response("Authentication required", status=401)
 
     def _check_permission(self, handler: Any, permission: str) -> Optional[HandlerResult]:
@@ -804,7 +805,8 @@ class ExpenseHandler(BaseHandler):
             if not decision.allowed:
                 return error_response(f"Permission denied: {decision.reason}", status=403)
             return None
-        except Exception:
+        except (ImportError, AttributeError, ValueError) as e:
+            logger.debug(f"Permission check failed: {e}")
             return error_response("Authentication required", status=401)
 
     async def handle_get(
