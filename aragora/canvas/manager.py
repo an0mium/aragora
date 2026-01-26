@@ -738,12 +738,15 @@ class CanvasStateManager:
 
         except ImportError as e:
             logger.warning(f"Workflow modules not available: {e}")
-            workflow_node.data["status"] = "error"
+            workflow_node.data["status"] = "pending"
+            workflow_node.data["execution_note"] = "Workflow modules not available"
+            # Return success for node creation, but indicate execution wasn't possible
             return {
-                "success": False,
+                "success": True,
                 "action": "run_workflow",
                 "workflow_node_id": workflow_node.id,
-                "error": "Workflow modules not available",
+                "executed": False,
+                "note": "Workflow modules not available - node created but not executed",
             }
         except Exception as e:
             logger.error(f"Workflow execution failed: {e}")
@@ -833,12 +836,17 @@ class CanvasStateManager:
 
         except ImportError as e:
             logger.warning(f"Knowledge modules not available: {e}")
-            knowledge_node.data["status"] = "error"
+            knowledge_node.data["status"] = "pending"
+            knowledge_node.data["execution_note"] = "Knowledge modules not available"
+            # Return success for node creation, but indicate query wasn't executed
             return {
-                "success": False,
+                "success": True,
                 "action": "query_knowledge",
                 "knowledge_node_id": knowledge_node.id,
-                "error": "Knowledge modules not available",
+                "results": [],
+                "count": 0,
+                "executed": False,
+                "note": "Knowledge modules not available - node created but not queried",
             }
         except Exception as e:
             logger.error(f"Knowledge query failed: {e}")

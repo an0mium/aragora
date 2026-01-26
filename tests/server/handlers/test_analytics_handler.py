@@ -17,6 +17,8 @@ import pytest
 
 from aragora.server.handlers.analytics import AnalyticsHandler
 
+pytestmark = pytest.mark.asyncio
+
 
 @pytest.fixture
 def analytics_handler():
@@ -140,21 +142,25 @@ class TestAnalyticsHandlerCanHandle:
 class TestAnalyticsHandlerDisagreements:
     """Test GET /api/analytics/disagreements endpoint."""
 
-    def test_disagreement_stats_no_storage(self, analytics_handler, mock_http_handler):
+    async def test_disagreement_stats_no_storage(self, analytics_handler, mock_http_handler):
         """Test disagreement stats returns empty when no storage."""
-        result = analytics_handler.handle("/api/v1/analytics/disagreements", {}, mock_http_handler)
+        result = await analytics_handler.handle(
+            "/api/v1/analytics/disagreements", {}, mock_http_handler
+        )
 
         assert result is not None
         body = json.loads(result.body)
         assert "stats" in body
 
-    def test_disagreement_stats_with_storage(
+    async def test_disagreement_stats_with_storage(
         self, analytics_handler, mock_http_handler, mock_storage
     ):
         """Test disagreement stats with storage data."""
         analytics_handler.ctx["storage"] = mock_storage
 
-        result = analytics_handler.handle("/api/v1/analytics/disagreements", {}, mock_http_handler)
+        result = await analytics_handler.handle(
+            "/api/v1/analytics/disagreements", {}, mock_http_handler
+        )
 
         assert result is not None
         body = json.loads(result.body)
@@ -169,21 +175,25 @@ class TestAnalyticsHandlerDisagreements:
 class TestAnalyticsHandlerRoleRotation:
     """Test GET /api/analytics/role-rotation endpoint."""
 
-    def test_role_rotation_stats_no_storage(self, analytics_handler, mock_http_handler):
+    async def test_role_rotation_stats_no_storage(self, analytics_handler, mock_http_handler):
         """Test role rotation stats returns empty when no storage."""
-        result = analytics_handler.handle("/api/v1/analytics/role-rotation", {}, mock_http_handler)
+        result = await analytics_handler.handle(
+            "/api/v1/analytics/role-rotation", {}, mock_http_handler
+        )
 
         assert result is not None
         body = json.loads(result.body)
         assert "stats" in body
 
-    def test_role_rotation_stats_with_storage(
+    async def test_role_rotation_stats_with_storage(
         self, analytics_handler, mock_http_handler, mock_storage
     ):
         """Test role rotation stats with storage data."""
         analytics_handler.ctx["storage"] = mock_storage
 
-        result = analytics_handler.handle("/api/v1/analytics/role-rotation", {}, mock_http_handler)
+        result = await analytics_handler.handle(
+            "/api/v1/analytics/role-rotation", {}, mock_http_handler
+        )
 
         assert result is not None
         body = json.loads(result.body)
@@ -196,21 +206,25 @@ class TestAnalyticsHandlerRoleRotation:
 class TestAnalyticsHandlerEarlyStops:
     """Test GET /api/analytics/early-stops endpoint."""
 
-    def test_early_stop_stats_no_storage(self, analytics_handler, mock_http_handler):
+    async def test_early_stop_stats_no_storage(self, analytics_handler, mock_http_handler):
         """Test early stop stats returns empty when no storage."""
-        result = analytics_handler.handle("/api/v1/analytics/early-stops", {}, mock_http_handler)
+        result = await analytics_handler.handle(
+            "/api/v1/analytics/early-stops", {}, mock_http_handler
+        )
 
         assert result is not None
         body = json.loads(result.body)
         assert "stats" in body
 
-    def test_early_stop_stats_with_storage(
+    async def test_early_stop_stats_with_storage(
         self, analytics_handler, mock_http_handler, mock_storage
     ):
         """Test early stop stats with storage data."""
         analytics_handler.ctx["storage"] = mock_storage
 
-        result = analytics_handler.handle("/api/v1/analytics/early-stops", {}, mock_http_handler)
+        result = await analytics_handler.handle(
+            "/api/v1/analytics/early-stops", {}, mock_http_handler
+        )
 
         assert result is not None
         body = json.loads(result.body)
