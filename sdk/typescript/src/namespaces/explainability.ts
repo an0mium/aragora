@@ -142,9 +142,11 @@ export class ExplainabilityAPI {
 
   /**
    * Get existing counterfactual scenarios for a debate.
+   *
+   * @param options.max_scenarios - Maximum number of scenarios to return
    */
   async getCounterfactuals(debateId: string, options?: {
-    limit?: number;
+    max_scenarios?: number;
   }): Promise<CounterfactualList> {
     return this.client.getCounterfactuals(debateId, options);
   }
