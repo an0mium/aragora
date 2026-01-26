@@ -82,6 +82,27 @@ export interface UpdateWebhookRequest {
 }
 
 /**
+ * Webhook delivery attempt
+ */
+export interface WebhookDeliveryAttempt {
+  attempt_number: number;
+  timestamp: string;
+  response_code?: number;
+  response_time_ms: number;
+  error?: string;
+}
+
+/**
+ * Webhook retry policy
+ */
+export interface WebhookRetryPolicy {
+  max_retries: number;
+  initial_delay_ms: number;
+  max_delay_ms: number;
+  backoff_multiplier: number;
+}
+
+/**
  * Interface for the internal client used by WebhooksAPI.
  */
 interface WebhooksClientInterface {
@@ -89,6 +110,7 @@ interface WebhooksClientInterface {
   post<T>(path: string, body?: unknown): Promise<T>;
   put<T>(path: string, body?: unknown): Promise<T>;
   delete<T>(path: string): Promise<T>;
+  request<T = unknown>(method: string, path: string, options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }): Promise<T>;
 }
 
 /**
