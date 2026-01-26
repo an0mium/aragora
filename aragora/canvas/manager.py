@@ -540,11 +540,119 @@ class CanvasStateManager:
         )
         await self._broadcast(canvas.id, event)
 
-        return {
-            "success": True,
-            "action": "start_debate",
-            "debate_node_id": debate_node.id,
-        }
+        # Actually run the debate
+        try:
+            from aragora.core import Environment, DebateProtocol
+            from aragora.debate.orchestrator import Arena
+
+            # Update node status to running
+            debate_node.data["status"] = "running"
+            await self._broadcast(
+                canvas.id,
+                CanvasEvent(
+                    event_type=CanvasEventType.NODE_UPDATED,
+                    canvas_id=canvas.id,
+                    node_id=debate_node.id,
+                    data={"status": "running"},
+                ),
+            )
+
+            # Create environment and run debate
+            env = Environment(task=question)
+            protocol = DebateProtocol(
+                rounds=params.get("rounds", 3),
+                consensus=params.get("consensus", "majority"),
+            )
+
+            # Get agents - use configured defaults or from params
+            agents = await self._get_debate_agents(params.get("agents"))
+
+            arena = Arena(env, agents, protocol)
+            result = await arena.run()
+
+            # Update node with results
+            debate_node.data["status"] = "completed"
+            debate_node.data["result"] = {
+                "decision": result.decision if hasattr(result, "decision") else str(result),
+                "consensus_reached": getattr(result, "consensus_reached", False),
+                "rounds_used": getattr(result, "rounds_used", protocol.rounds),
+            }
+
+            # Broadcast completion
+            await self._broadcast(
+                canvas.id,
+                CanvasEvent(
+                    event_type=CanvasEventType.DEBATE_END,
+                    canvas_id=canvas.id,
+                    node_id=debate_node.id,
+                    data=debate_node.data,
+                ),
+            )
+
+            return {
+                "success": True,
+                "action": "start_debate",
+                "debate_node_id": debate_node.id,
+                "result": debate_node.data["result"],
+            }
+
+        except ImportError as e:
+            logger.warning(f"Debate modules not available: {e}")
+            debate_node.data["status"] = "error"
+            debate_node.data["error"] = "Debate modules not available"
+            return {
+                "success": False,
+                "action": "start_debate",
+                "debate_node_id": debate_node.id,
+                "error": "Debate modules not available",
+            }
+        except Exception as e:
+            logger.error(f"Debate execution failed: {e}")
+            debate_node.data["status"] = "error"
+            debate_node.data["error"] = str(e)
+            await self._broadcast(
+                canvas.id,
+                CanvasEvent(
+                    event_type=CanvasEventType.ERROR,
+                    canvas_id=canvas.id,
+                    node_id=debate_node.id,
+                    data={"error": str(e)},
+                ),
+            )
+            return {
+                "success": False,
+                "action": "start_debate",
+                "debate_node_id": debate_node.id,
+                "error": str(e),
+            }
+
+    async def _get_debate_agents(self, agent_config: Optional[List[str]] = None):
+        """Get agents for debate, using defaults if not specified."""
+        try:
+            from aragora.agents.cli_agents import get_agent
+
+            if agent_config:
+                return [get_agent(name) for name in agent_config if get_agent(name)]
+
+            # Default agents
+            default_agents = ["claude", "gpt4"]
+            agents = []
+            for name in default_agents:
+                agent = get_agent(name)
+                if agent:
+                    agents.append(agent)
+
+            if not agents:
+                # Fallback to any available agent
+                from aragora.agents.registry import get_available_agents
+
+                available = get_available_agents()
+                if available:
+                    agents = [available[0]]
+
+            return agents
+        except ImportError:
+            return []
 
     async def _handle_run_workflow(
         self,
@@ -554,22 +662,111 @@ class CanvasStateManager:
     ) -> Dict[str, Any]:
         """Handle running a workflow from the canvas."""
         workflow_id = params.get("workflow_id")
-        if not workflow_id:
-            return {"success": False, "error": "workflow_id is required"}
+        workflow_definition = params.get("definition")
+
+        if not workflow_id and not workflow_definition:
+            return {"success": False, "error": "workflow_id or definition is required"}
 
         # Create workflow node
         workflow_node = canvas.add_node(
             node_type=CanvasNodeType.WORKFLOW,
             position=Position(params.get("x", 100), params.get("y", 100)),
-            label=f"Workflow: {workflow_id}",
+            label=f"Workflow: {workflow_id or 'custom'}",
             data={"workflow_id": workflow_id, "status": "pending"},
         )
 
-        return {
-            "success": True,
-            "action": "run_workflow",
-            "workflow_node_id": workflow_node.id,
-        }
+        # Actually run the workflow
+        try:
+            from aragora.workflow.engine import WorkflowEngine
+            from aragora.workflow.models import WorkflowDefinition
+
+            # Update status
+            workflow_node.data["status"] = "running"
+            await self._broadcast(
+                canvas.id,
+                CanvasEvent(
+                    event_type=CanvasEventType.NODE_UPDATED,
+                    canvas_id=canvas.id,
+                    node_id=workflow_node.id,
+                    data={"status": "running"},
+                ),
+            )
+
+            # Load or create workflow definition
+            if workflow_definition:
+                definition = WorkflowDefinition(**workflow_definition)
+            elif workflow_id:
+                # Try to load from templates
+                definition = await self._load_workflow_definition(workflow_id)
+                if not definition:
+                    workflow_node.data["status"] = "error"
+                    return {
+                        "success": False,
+                        "error": f"Workflow '{workflow_id}' not found",
+                    }
+            else:
+                return {"success": False, "error": "No workflow definition provided"}
+
+            # Execute workflow
+            engine = WorkflowEngine()
+            inputs = params.get("inputs", {})
+            result = await engine.execute(definition, inputs, workflow_id or "canvas-workflow")
+
+            # Update node with results
+            workflow_node.data["status"] = "completed"
+            workflow_node.data["result"] = {
+                "success": getattr(result, "success", True),
+                "outputs": getattr(result, "outputs", {}),
+            }
+
+            await self._broadcast(
+                canvas.id,
+                CanvasEvent(
+                    event_type=CanvasEventType.NODE_UPDATED,
+                    canvas_id=canvas.id,
+                    node_id=workflow_node.id,
+                    data=workflow_node.data,
+                ),
+            )
+
+            return {
+                "success": True,
+                "action": "run_workflow",
+                "workflow_node_id": workflow_node.id,
+                "result": workflow_node.data["result"],
+            }
+
+        except ImportError as e:
+            logger.warning(f"Workflow modules not available: {e}")
+            workflow_node.data["status"] = "error"
+            return {
+                "success": False,
+                "action": "run_workflow",
+                "workflow_node_id": workflow_node.id,
+                "error": "Workflow modules not available",
+            }
+        except Exception as e:
+            logger.error(f"Workflow execution failed: {e}")
+            workflow_node.data["status"] = "error"
+            workflow_node.data["error"] = str(e)
+            return {
+                "success": False,
+                "action": "run_workflow",
+                "workflow_node_id": workflow_node.id,
+                "error": str(e),
+            }
+
+    async def _load_workflow_definition(self, workflow_id: str):
+        """Load a workflow definition by ID."""
+        try:
+            from aragora.workflow.templates import get_template
+
+            template = get_template(workflow_id)
+            if template:
+                return template.to_definition()
+            return None
+        except ImportError:
+            return None
 
     async def _handle_query_knowledge(
         self,
@@ -586,15 +783,120 @@ class CanvasStateManager:
         knowledge_node = canvas.add_node(
             node_type=CanvasNodeType.KNOWLEDGE,
             position=Position(params.get("x", 100), params.get("y", 100)),
-            label=f"Query: {query[:30]}...",
+            label=f"Query: {query[:30]}..." if len(query) > 30 else f"Query: {query}",
             data={"query": query, "status": "pending"},
         )
 
-        return {
-            "success": True,
-            "action": "query_knowledge",
-            "knowledge_node_id": knowledge_node.id,
-        }
+        # Actually query knowledge
+        try:
+            # Update status
+            knowledge_node.data["status"] = "searching"
+            await self._broadcast(
+                canvas.id,
+                CanvasEvent(
+                    event_type=CanvasEventType.NODE_UPDATED,
+                    canvas_id=canvas.id,
+                    node_id=knowledge_node.id,
+                    data={"status": "searching"},
+                ),
+            )
+
+            # Try to query knowledge mound
+            results = await self._query_knowledge_mound(
+                query,
+                limit=params.get("limit", 10),
+                min_confidence=params.get("min_confidence", 0.0),
+            )
+
+            # Update node with results
+            knowledge_node.data["status"] = "completed"
+            knowledge_node.data["results"] = results
+            knowledge_node.data["result_count"] = len(results)
+
+            await self._broadcast(
+                canvas.id,
+                CanvasEvent(
+                    event_type=CanvasEventType.NODE_UPDATED,
+                    canvas_id=canvas.id,
+                    node_id=knowledge_node.id,
+                    data=knowledge_node.data,
+                ),
+            )
+
+            return {
+                "success": True,
+                "action": "query_knowledge",
+                "knowledge_node_id": knowledge_node.id,
+                "results": results,
+                "count": len(results),
+            }
+
+        except ImportError as e:
+            logger.warning(f"Knowledge modules not available: {e}")
+            knowledge_node.data["status"] = "error"
+            return {
+                "success": False,
+                "action": "query_knowledge",
+                "knowledge_node_id": knowledge_node.id,
+                "error": "Knowledge modules not available",
+            }
+        except Exception as e:
+            logger.error(f"Knowledge query failed: {e}")
+            knowledge_node.data["status"] = "error"
+            knowledge_node.data["error"] = str(e)
+            return {
+                "success": False,
+                "action": "query_knowledge",
+                "knowledge_node_id": knowledge_node.id,
+                "error": str(e),
+            }
+
+    async def _query_knowledge_mound(
+        self,
+        query: str,
+        limit: int = 10,
+        min_confidence: float = 0.0,
+    ) -> List[Dict[str, Any]]:
+        """Query the knowledge mound for relevant information."""
+        try:
+            from aragora.knowledge.mound.core import KnowledgeMound
+
+            mound = KnowledgeMound()
+            results = await mound.search(query, limit=limit)
+
+            # Format results
+            formatted = []
+            for result in results:
+                confidence = getattr(result, "confidence", 0.0)
+                if confidence >= min_confidence:
+                    formatted.append(
+                        {
+                            "id": getattr(result, "id", str(uuid.uuid4())),
+                            "content": getattr(result, "content", str(result)),
+                            "confidence": confidence,
+                            "source": getattr(result, "source", "knowledge_mound"),
+                        }
+                    )
+
+            return formatted
+        except ImportError:
+            # Fallback: try knowledge bridges
+            try:
+                from aragora.knowledge.bridges import KnowledgeBridgeHub
+
+                hub = KnowledgeBridgeHub()
+                results = await hub.search(query, limit=limit)
+                return [
+                    {
+                        "id": str(i),
+                        "content": str(r),
+                        "confidence": 0.5,
+                        "source": "knowledge_bridge",
+                    }
+                    for i, r in enumerate(results)
+                ]
+            except ImportError:
+                return []
 
     # =========================================================================
     # Subscription Management
