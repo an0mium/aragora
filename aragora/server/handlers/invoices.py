@@ -440,6 +440,7 @@ async def handle_match_to_po(
 # =============================================================================
 
 
+@require_permission("finance:read")
 async def handle_get_anomalies(
     invoice_id: str,
     user_id: str = "default",
