@@ -115,7 +115,7 @@ case "$tier" in
 
   lint)
     echo -e "${YELLOW}Running linting checks...${NC}"
-    black --check --diff aragora/ tests/ scripts/
+    # Use ruff format (not black) to match pre-commit config
     ruff_cmd="ruff"
     if ! command -v ruff >/dev/null 2>&1; then
       if command -v python3 >/dev/null 2>&1; then
@@ -124,6 +124,7 @@ case "$tier" in
         ruff_cmd="python -m ruff"
       fi
     fi
+    $ruff_cmd format --check aragora/ tests/ scripts/
     $ruff_cmd check aragora/ tests/ scripts/
     echo -e "${GREEN}Linting passed!${NC}"
     ;;
@@ -159,7 +160,7 @@ case "$tier" in
     echo "  security  Security-related tests"
     echo "  storage   Storage/database tests"
     echo "  privacy   Privacy handler tests only"
-    echo "  lint      Run linting (black, ruff)"
+    echo "  lint      Run linting (ruff format, ruff check)"
     echo "  typecheck Run type checking (mypy)"
     echo "  frontend  Frontend unit tests"
     echo "  e2e       End-to-end tests"
