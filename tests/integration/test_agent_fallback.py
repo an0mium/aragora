@@ -568,24 +568,14 @@ class TestDebateLevelFallbackIntegration:
     @pytest.mark.asyncio
     async def test_debate_with_quota_prone_agent(self):
         """Debate should complete when agent might hit quota but has fallback."""
-
-        class QuotaProneAgent:
-            """Agent that simulates occasional quota errors."""
-
-            def __init__(self, name: str):
-                self.name = name
-                self.call_count = 0
-                self.role = "proposer"
-
-            async def generate(self, prompt: str, context=None) -> str:
-                self.call_count += 1
-                # Simulate occasional failures that would trigger fallback
-                return f"Response from {self.name} (call {self.call_count})"
-
+        # Use MockAgent from conftest which has all required attributes
         agents = [
-            QuotaProneAgent("quota_prone_1"),
-            MockAgent(name="reliable_1", responses=["Reliable response 1"]),
-            MockAgent(name="reliable_2", responses=["Reliable response 2"]),
+            MockAgent(
+                name="quota_prone_1",
+                responses=["Response 1", "Response 2", "Response 3", "Response 4"],
+            ),
+            MockAgent(name="reliable_1", responses=["Reliable response 1", "Reliable 2"]),
+            MockAgent(name="reliable_2", responses=["Reliable response 2", "Reliable 3"]),
         ]
 
         env = Environment(task="Test quota-prone agent in debate")
