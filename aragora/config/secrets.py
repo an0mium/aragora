@@ -96,11 +96,15 @@ class SecretsConfig:
     @classmethod
     def from_env(cls) -> "SecretsConfig":
         """Load config from environment."""
+        use_flag = os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "")
+        if use_flag:
+            use_aws = use_flag.lower() in ("true", "1", "yes")
+        else:
+            use_aws = os.environ.get("ARAGORA_ENV", "").lower() == "production"
         return cls(
             aws_region=os.environ.get("AWS_REGION", "us-east-1"),
             secret_name=os.environ.get("ARAGORA_SECRET_NAME", "aragora/production"),
-            use_aws=os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "").lower()
-            in ("true", "1", "yes"),
+            use_aws=use_aws,
         )
 
 

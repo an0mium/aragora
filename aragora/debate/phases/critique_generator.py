@@ -264,7 +264,30 @@ class CritiqueGenerator:
             )
             if self.circuit_breaker:
                 self.circuit_breaker.record_failure(critic.name)
-            return None
+            # Create placeholder critique so the UI shows a failure instead of a silent drop
+            placeholder = Critique(  # type: ignore[call-arg]
+                agent=critic.name,
+                target_agent=proposal_agent,
+                issues=[f"[Critique failed: {crit_result.error}]"],
+                suggestions=[],
+                severity=0.0,
+                reasoning="Critique generation failed due to an exception.",
+            )
+            result.critiques.append(placeholder)
+            partial_critiques.append(placeholder)
+            new_critiques.append(placeholder)
+
+            if "on_critique" in self.hooks:
+                self.hooks["on_critique"](
+                    agent=critic.name,
+                    target=proposal_agent,
+                    issues=placeholder.issues,
+                    severity=placeholder.severity,
+                    round_num=round_num,
+                    full_content=placeholder.to_prompt(),
+                    error=str(crit_result.error),
+                )
+            return placeholder
 
         if crit_result.critique is None:
             # Handle timeout/error case

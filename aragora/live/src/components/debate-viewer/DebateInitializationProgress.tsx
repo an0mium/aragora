@@ -37,14 +37,36 @@ export function DebateInitializationProgress({ task, agents, streamEvents }: Pro
   }, [streamEvents]);
 
   const initErrors = useMemo(() => {
-    return streamEvents
-      .filter(e => e.type === 'error')
-      .map(e => e.data as Record<string, unknown>)
-      .filter(data => data?.phase === 'initialization')
-      .map(data => ({
-        agent: (data?.agent as string) || 'unknown',
-        message: (data?.error as string) || (data?.message as string) || 'Initialization failed',
-      }));
+    const errors: Array<{ agent: string; message: string }> = [];
+    for (const event of streamEvents) {
+      if (event.type === 'error') {
+        const data = event.data as Record<string, unknown>;
+        const phase = data?.phase as string | undefined;
+        if (phase === 'initialization' || phase === 'setup') {
+          errors.push({
+            agent: (data?.agent as string) || 'unknown',
+            message:
+              (data?.error as string) ||
+              (data?.message as string) ||
+              'Initialization failed',
+          });
+        }
+      }
+      if (event.type === 'agent_error') {
+        const data = event.data as Record<string, unknown>;
+        const errorType = data?.error_type as string | undefined;
+        if (errorType === 'missing_env') {
+          errors.push({
+            agent: (event.agent as string) || (data?.agent as string) || 'unknown',
+            message:
+              (data?.message as string) ||
+              (data?.error as string) ||
+              'Missing credentials for agent',
+          });
+        }
+      }
+    }
+    return errors;
   }, [streamEvents]);
 
   // Get latest phase_progress event for status message

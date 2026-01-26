@@ -256,16 +256,20 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
         severity: float,
         round_num: int,
         full_content: str | None = None,
+        error: str | None = None,
     ) -> None:
+        data = {
+            "target": target,
+            "issues": issues,  # Full issue list
+            "severity": severity,
+            "content": full_content or "\n".join(f"• {issue}" for issue in issues),
+        }
+        if error:
+            data["error"] = error
         emitter.emit(
             StreamEvent(
                 type=StreamEventType.CRITIQUE,
-                data={
-                    "target": target,
-                    "issues": issues,  # Full issue list
-                    "severity": severity,
-                    "content": full_content or "\n".join(f"• {issue}" for issue in issues),
-                },
+                data=data,
                 round=round_num,
                 agent=agent,
                 loop_id=loop_id,
