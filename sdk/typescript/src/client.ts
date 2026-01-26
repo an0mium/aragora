@@ -2055,6 +2055,66 @@ export class AragoraClient {
     return this.request<{ categories: string[] }>('GET', '/api/marketplace/categories');
   }
 
+  async getMarketplaceIndustries(): Promise<{ industries: string[] }> {
+    return this.request<{ industries: string[] }>('GET', '/api/marketplace/industries');
+  }
+
+  async getNewMarketplaceReleases(params?: { limit?: number }): Promise<{ templates: MarketplaceTemplate[] }> {
+    return this.request<{ templates: MarketplaceTemplate[] }>('GET', '/api/marketplace/new', { params });
+  }
+
+  async getMarketplaceReviews(templateId: string, params?: PaginationParams): Promise<{ reviews: TemplateReview[] }> {
+    return this.request<{ reviews: TemplateReview[] }>(
+      'GET',
+      `/api/marketplace/templates/${encodeURIComponent(templateId)}/reviews`,
+      { params }
+    );
+  }
+
+  async purchaseTemplate(templateId: string, licenseType?: string): Promise<{ purchase_id: string; license_key?: string }> {
+    return this.request<{ purchase_id: string; license_key?: string }>(
+      'POST',
+      `/api/marketplace/templates/${encodeURIComponent(templateId)}/purchase`,
+      { body: { license_type: licenseType ?? 'standard' } }
+    );
+  }
+
+  async downloadTemplate(templateId: string): Promise<{ content: Record<string, unknown>; version: string }> {
+    return this.request<{ content: Record<string, unknown>; version: string }>(
+      'GET',
+      `/api/marketplace/templates/${encodeURIComponent(templateId)}/download`
+    );
+  }
+
+  async getMyMarketplacePurchases(params?: PaginationParams): Promise<{ purchases: Array<{ purchase_id: string; template_id: string; purchased_at: string }> }> {
+    return this.request<{ purchases: Array<{ purchase_id: string; template_id: string; purchased_at: string }> }>(
+      'GET',
+      '/api/marketplace/purchases',
+      { params }
+    );
+  }
+
+  async updateMarketplaceTemplate(templateId: string, body: {
+    name?: string;
+    description?: string;
+    tags?: string[];
+    documentation?: string;
+    price?: number;
+  }): Promise<MarketplaceTemplate> {
+    return this.request<MarketplaceTemplate>(
+      'PUT',
+      `/api/marketplace/templates/${encodeURIComponent(templateId)}`,
+      { body }
+    );
+  }
+
+  async unpublishTemplate(templateId: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(
+      'DELETE',
+      `/api/marketplace/templates/${encodeURIComponent(templateId)}`
+    );
+  }
+
   // ===========================================================================
   // Memory & Consensus
   // ===========================================================================

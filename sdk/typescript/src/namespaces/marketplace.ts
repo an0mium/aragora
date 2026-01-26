@@ -5,7 +5,7 @@
  * template publishing, discovery, rating, and deployment.
  */
 
-import type { MarketplaceTemplate, PaginationParams } from '../types';
+import type { MarketplaceTemplate, PaginationParams, TemplateReview } from '../types';
 
 /**
  * Template deployment status.
@@ -49,6 +49,16 @@ export interface MarketplaceListParams {
 }
 
 /**
+ * Marketplace purchase record.
+ */
+export interface MarketplacePurchase {
+  purchase_id: string;
+  template_id: string;
+  purchased_at: string;
+  license_key?: string;
+}
+
+/**
  * Interface for the internal client methods used by MarketplaceAPI.
  */
 interface MarketplaceClientInterface {
@@ -73,6 +83,20 @@ interface MarketplaceClientInterface {
   getFeaturedTemplates(): Promise<{ templates: MarketplaceTemplate[] }>;
   getTrendingTemplates(): Promise<{ templates: MarketplaceTemplate[] }>;
   getMarketplaceCategories(): Promise<{ categories: string[] }>;
+  getMarketplaceIndustries(): Promise<{ industries: string[] }>;
+  getNewMarketplaceReleases(params?: { limit?: number }): Promise<{ templates: MarketplaceTemplate[] }>;
+  getMarketplaceReviews(templateId: string, params?: PaginationParams): Promise<{ reviews: TemplateReview[] }>;
+  purchaseTemplate(templateId: string, licenseType?: string): Promise<{ purchase_id: string; license_key?: string }>;
+  downloadTemplate(templateId: string): Promise<{ content: Record<string, unknown>; version: string }>;
+  getMyMarketplacePurchases(params?: PaginationParams): Promise<{ purchases: MarketplacePurchase[] }>;
+  updateMarketplaceTemplate(templateId: string, body: {
+    name?: string;
+    description?: string;
+    tags?: string[];
+    documentation?: string;
+    price?: number;
+  }): Promise<MarketplaceTemplate>;
+  unpublishTemplate(templateId: string): Promise<{ success: boolean }>;
 }
 
 /**
@@ -171,6 +195,25 @@ export class MarketplaceAPI {
   }
 
   /**
+   * Get all marketplace industries.
+   *
+   * @returns List of industry names
+   */
+  async getIndustries(): Promise<{ industries: string[] }> {
+    return this.client.getMarketplaceIndustries();
+  }
+
+  /**
+   * Get newly released templates.
+   *
+   * @param limit - Maximum number of templates to return
+   * @returns List of new templates
+   */
+  async getNewReleases(limit?: number): Promise<{ templates: MarketplaceTemplate[] }> {
+    return this.client.getNewMarketplaceReleases({ limit });
+  }
+
+  /**
    * Search marketplace templates.
    *
    * @param params - Search parameters
@@ -182,6 +225,56 @@ export class MarketplaceAPI {
   }): Promise<{ results: MarketplaceTemplate[]; total: number }> {
     const result = await this.list({ search: params.q, category: params.category });
     return { results: result.templates, total: result.templates.length };
+  }
+
+  // ===========================================================================
+  // Reviews
+  // ===========================================================================
+
+  /**
+   * Get reviews for a template.
+   *
+   * @param templateId - The template ID
+   * @param params - Pagination parameters
+   * @returns List of reviews
+   */
+  async getReviews(templateId: string, params?: PaginationParams): Promise<{ reviews: TemplateReview[] }> {
+    return this.client.getMarketplaceReviews(templateId, params);
+  }
+
+  // ===========================================================================
+  // Purchases & Downloads
+  // ===========================================================================
+
+  /**
+   * Purchase a template from the marketplace.
+   *
+   * @param templateId - The template ID
+   * @param licenseType - License type (default: 'standard')
+   * @returns Purchase confirmation with ID and optional license key
+   */
+  async purchase(templateId: string, licenseType?: string): Promise<{ purchase_id: string; license_key?: string }> {
+    return this.client.purchaseTemplate(templateId, licenseType);
+  }
+
+  /**
+   * Download a purchased template.
+   *
+   * @param templateId - The template ID
+   * @returns Template content and version
+   */
+  async download(templateId: string): Promise<{ content: Record<string, unknown>; version: string }> {
+    return this.client.downloadTemplate(templateId);
+  }
+
+  /**
+   * Get the current user's purchased templates.
+   *
+   * @param params - Pagination parameters
+   * @returns List of purchases
+   */
+  async getMyPurchases(params?: PaginationParams): Promise<{ purchases: MarketplacePurchase[] }> {
+    return this.client.getMyMarketplacePurchases(params);
   }
 
   // ===========================================================================
@@ -215,6 +308,33 @@ export class MarketplaceAPI {
    */
   async import(templateId: string, workspaceId?: string): Promise<{ imported_id: string }> {
     return this.client.importTemplate(templateId, workspaceId);
+  }
+
+  /**
+   * Update an owned template in the marketplace.
+   *
+   * @param templateId - The template ID
+   * @param body - Fields to update
+   * @returns The updated template
+   */
+  async update(templateId: string, body: {
+    name?: string;
+    description?: string;
+    tags?: string[];
+    documentation?: string;
+    price?: number;
+  }): Promise<MarketplaceTemplate> {
+    return this.client.updateMarketplaceTemplate(templateId, body);
+  }
+
+  /**
+   * Unpublish (remove) an owned template from the marketplace.
+   *
+   * @param templateId - The template ID
+   * @returns Success confirmation
+   */
+  async unpublish(templateId: string): Promise<{ success: boolean }> {
+    return this.client.unpublishTemplate(templateId);
   }
 
   // ===========================================================================
