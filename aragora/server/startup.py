@@ -1770,9 +1770,58 @@ async def run_startup_sequence(
 
         raise RuntimeError(error_msg)
 
+    # Validate database schema (in consolidated mode)
+    schema_validation = {"success": True, "errors": [], "warnings": []}
+    try:
+        from aragora.persistence.validator import validate_consolidated_schema
+
+        schema_result = validate_consolidated_schema()
+        schema_validation = {
+            "success": schema_result.success,
+            "errors": schema_result.errors,
+            "warnings": schema_result.warnings,
+        }
+
+        if not schema_result.success:
+            for error in schema_result.errors:
+                logger.error(f"Database schema validation error: {error}")
+
+            # Only fail if explicitly required (production environments may need migration)
+            require_valid_schema = os.environ.get("ARAGORA_REQUIRE_VALID_SCHEMA", "").lower() in (
+                "true",
+                "1",
+                "yes",
+            )
+
+            if require_valid_schema:
+                error_msg = f"Database schema validation failed: {'; '.join(schema_result.errors)}"
+
+                if graceful_degradation:
+                    set_degraded(
+                        reason=error_msg,
+                        error_code=DegradedErrorCode.DATABASE_UNAVAILABLE,
+                        details={"schema_validation": schema_validation},
+                    )
+                    return _get_degraded_status()
+
+                raise RuntimeError(error_msg)
+            else:
+                logger.warning(
+                    "Database schema validation failed but ARAGORA_REQUIRE_VALID_SCHEMA not set. "
+                    "Server will start with potentially incomplete schema. "
+                    "Run: python -m aragora.persistence.migrations.consolidate --migrate"
+                )
+        else:
+            for warning in schema_result.warnings:
+                logger.warning(f"Database schema: {warning}")
+
+    except ImportError:
+        logger.debug("Database validator not available - skipping schema validation")
+
     status: dict[str, Any] = {
         "backend_connectivity": connectivity,
         "storage_backend": storage_backend,
+        "schema_validation": schema_validation,
         "redis_ha": {"enabled": False, "mode": "standalone", "healthy": False},
         "error_monitoring": False,
         "opentelemetry": False,

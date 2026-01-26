@@ -761,6 +761,27 @@ export class AragoraClient {
     return this.request<DebateEvidence>('GET', `/api/debates/${encodeURIComponent(debateId)}/evidence`);
   }
 
+  /**
+   * Get evidence chain for a debate with filtering options (v1 API).
+   */
+  async getDebateEvidenceV1(debateId: string, options?: {
+    limit?: number;
+    min_relevance?: number;
+  }): Promise<{
+    debate_id: string;
+    evidence_count: number;
+    evidence_quality_score: number;
+    evidence: Array<{
+      id: string;
+      source: string;
+      content: string;
+      relevance_score: number;
+      cited_by: string[];
+    }>;
+  }> {
+    return this.request('GET', `/api/v1/debates/${encodeURIComponent(debateId)}/evidence`, { params: options });
+  }
+
   async forkDebate(debateId: string, options?: { branch_point?: number }): Promise<{ debate_id: string }> {
     return this.request<{ debate_id: string }>('POST', `/api/debates/${encodeURIComponent(debateId)}/fork`, { body: options });
   }
@@ -843,32 +864,8 @@ export class AragoraClient {
   }
 
   /**
-   * Get evidence chain for a debate decision.
-   * @param debateId - The debate ID
-   * @param options - Filter options
-   */
-  async getDebateEvidence(debateId: string, options?: {
-    limit?: number;
-    min_relevance?: number;
-  }): Promise<{
-    debate_id: string;
-    evidence_count: number;
-    evidence_quality_score: number;
-    evidence: Array<{
-      id: string;
-      source: string;
-      content: string;
-      relevance_score: number;
-      cited_by: string[];
-    }>;
-  }> {
-    return this.request('GET', `/api/v1/debates/${encodeURIComponent(debateId)}/evidence`, { params: options });
-  }
-
-  /**
    * Get vote pivots analysis for a debate.
-   * @param debateId - The debate ID
-   * @param options - Filter options
+   * Identifies which agent votes were pivotal in determining the outcome.
    */
   async getDebateVotePivots(debateId: string, options?: {
     min_influence?: number;
@@ -889,7 +886,6 @@ export class AragoraClient {
 
   /**
    * Compare explanations between multiple debates.
-   * @param body - Comparison request
    */
   async compareExplanations(body: {
     debate_ids: string[];

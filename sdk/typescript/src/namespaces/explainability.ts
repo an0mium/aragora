@@ -107,7 +107,7 @@ interface ExplainabilityClientInterface {
     limit?: number;
     offset?: number;
   }): Promise<{ results: Array<{ debate_id: string; status: string; explanation?: unknown }> }>;
-  getDebateEvidence(debateId: string, options?: {
+  getDebateEvidenceV1(debateId: string, options?: {
     limit?: number;
     min_relevance?: number;
   }): Promise<EvidenceResponse>;
@@ -355,7 +355,7 @@ export class ExplainabilityAPI {
     limit?: number;
     min_relevance?: number;
   }): Promise<EvidenceResponse> {
-    return this.client.getDebateEvidence(debateId, options);
+    return this.client.getDebateEvidenceV1(debateId, options);
   }
 
   // ===========================================================================
@@ -441,15 +441,5 @@ export class ExplainabilityAPI {
 }
 
 // Re-export types for convenience
-export type {
-  ExplainabilityResult,
-  ExplanationFactor,
-  CounterfactualScenario,
-  Narrative,
-  Provenance,
-  EvidenceItem,
-  EvidenceResponse,
-  VotePivot,
-  VotePivotsResponse,
-  ComparisonResponse,
-};
+// Re-export types from this namespace
+export type { ExplainabilityResult, ExplanationFactor, CounterfactualScenario, Narrative, Provenance };
