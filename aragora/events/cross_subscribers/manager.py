@@ -736,12 +736,8 @@ class CrossSubscriberManager(
             stats.events_retried = 0
             stats.last_event_time = None
             stats.total_latency_ms = 0.0
-            stats.avg_latency_ms = 0.0
             stats.min_latency_ms = float("inf")
             stats.max_latency_ms = 0.0
-            stats.p50_latency_ms = None
-            stats.p90_latency_ms = None
-            stats.p99_latency_ms = None
             stats.latency_samples.clear()
 
     def reset_circuit_breaker(self, name: str) -> bool:
