@@ -1,0 +1,137 @@
+id: sme_feature_prioritization
+name: Feature Prioritization
+description: |
+  Multi-agent debate to prioritize product features for SME product teams.
+  Evaluates features based on business impact, effort, and strategic alignment
+  using diverse AI perspectives to reduce bias.
+version: "1.0.0"
+category: project
+tags:
+  - sme
+  - product
+  - project
+  - prioritization
+  - roadmap
+icon: list-ordered
+is_template: true
+
+inputs:
+  features: List of features to prioritize with descriptions
+  business_goals: Current business goals and objectives
+  constraints: Resource constraints, timeline, or technical limitations
+  customer_feedback: Relevant customer feedback or requests (optional)
+  competitor_context: Competitive landscape considerations (optional)
+
+outputs:
+  prioritized_list: Ranked list of features with scores
+  rationale: Detailed rationale for prioritization
+  quick_wins: Features recommended for immediate implementation
+  roadmap_suggestion: Suggested implementation timeline
+
+steps:
+  - id: analyze_features
+    name: Analyze Feature List
+    step_type: agent
+    description: Structure and enrich feature data for prioritization
+    config:
+      agent_type: claude
+      prompt_template: |
+        Analyze these features for prioritization debate:
+
+        Features: {features}
+        Business Goals: {business_goals}
+        Constraints: {constraints}
+        Customer Feedback: {customer_feedback}
+        Competitor Context: {competitor_context}
+
+        For each feature, identify:
+        1. Expected business impact (revenue, retention, acquisition)
+        2. Estimated effort (T-shirt size: S/M/L/XL)
+        3. Strategic alignment score
+        4. Risk factors
+        5. Dependencies
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - prioritization_debate
+
+  - id: prioritization_debate
+    name: Feature Prioritization Debate
+    step_type: debate
+    description: Multi-agent debate on optimal feature prioritization
+    config:
+      topic: "Prioritize these features for maximum business impact: {step.analyze_features}"
+      agents:
+        - claude
+        - gpt-4
+        - mistral
+      rounds: 3
+      consensus: qualified_majority
+      evaluation_criteria:
+        - business_impact
+        - effort_vs_reward
+        - strategic_alignment
+        - customer_value
+        - technical_feasibility
+    visual:
+      position: {x: 100, y: 250}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - generate_prioritization
+
+  - id: generate_prioritization
+    name: Generate Prioritized Roadmap
+    step_type: agent
+    description: Create final prioritized feature list and roadmap
+    config:
+      agent_type: claude
+      prompt_template: |
+        Based on the feature prioritization debate, create a final recommendation:
+
+        Debate Results: {step.prioritization_debate}
+
+        Provide:
+        1. Prioritized feature list with scores (1-10)
+        2. Top 3 quick wins (high impact, low effort)
+        3. Strategic initiatives (high impact, higher effort)
+        4. Deprioritized items with reasoning
+        5. Suggested quarterly roadmap
+
+        Format as structured JSON for easy consumption.
+    visual:
+      position: {x: 100, y: 400}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_prioritization
+
+  - id: store_prioritization
+    name: Store Prioritization Decision
+    step_type: memory_write
+    description: Archive prioritization decision for future reference
+    config:
+      collection: feature_prioritizations
+      data:
+        features_evaluated: "{features}"
+        prioritized_list: "{step.generate_prioritization.prioritized_list}"
+        quick_wins: "{step.generate_prioritization.quick_wins}"
+        debate_consensus: "{step.prioritization_debate.synthesis}"
+        timestamp: "{now}"
+    visual:
+      position: {x: 100, y: 550}
+      category: memory
+      color: "#667eea"
+    next_steps: []
+
+entry_step: analyze_features
+
+transitions:
+  - from_step: analyze_features
+    to_step: prioritization_debate
+  - from_step: prioritization_debate
+    to_step: generate_prioritization
+  - from_step: generate_prioritization
+    to_step: store_prioritization

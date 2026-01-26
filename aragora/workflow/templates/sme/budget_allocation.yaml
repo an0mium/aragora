@@ -1,0 +1,143 @@
+id: sme_budget_allocation
+name: Budget Allocation
+description: |
+  Multi-agent debate for strategic budget allocation decisions.
+  Helps SME leaders allocate limited resources across competing
+  priorities with data-driven AI consensus.
+version: "1.0.0"
+category: policy
+tags:
+  - sme
+  - policy
+  - budget
+  - finance
+  - planning
+icon: currency-dollar
+is_template: true
+
+inputs:
+  total_budget: Total budget available for allocation
+  budget_period: Time period (e.g., "Q1 2025", "FY 2025")
+  categories: Budget categories or departments to allocate to
+  priorities: Strategic priorities for the period
+  historical_data: Previous period allocations and outcomes (optional)
+  constraints: Fixed costs or committed expenses (optional)
+
+outputs:
+  allocation_plan: Recommended budget allocation by category
+  rationale: Justification for allocation decisions
+  risk_analysis: Financial risks and mitigations
+  kpis: Key metrics to track budget effectiveness
+
+steps:
+  - id: analyze_budget_context
+    name: Analyze Budget Context
+    step_type: agent
+    description: Analyze financial context and allocation options
+    config:
+      agent_type: claude
+      prompt_template: |
+        Analyze budget context for allocation debate:
+
+        Total Budget: {total_budget}
+        Budget Period: {budget_period}
+        Categories: {categories}
+        Strategic Priorities: {priorities}
+        Historical Data: {historical_data}
+        Fixed Constraints: {constraints}
+
+        Prepare:
+        1. Available discretionary budget (after fixed costs)
+        2. ROI analysis of each category (if historical data available)
+        3. Alignment of categories with strategic priorities
+        4. Industry benchmarks for budget allocation
+        5. Risk factors for each allocation option
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - budget_debate
+
+  - id: budget_debate
+    name: Budget Allocation Debate
+    step_type: debate
+    description: Multi-agent debate on optimal budget allocation
+    config:
+      topic: "Allocate {total_budget} budget for {budget_period} across priorities. Analysis: {step.analyze_budget_context}"
+      agents:
+        - claude
+        - gpt-4
+      rounds: 2
+      consensus: qualified_majority
+      evaluation_criteria:
+        - strategic_alignment
+        - roi_potential
+        - risk_balance
+        - operational_necessity
+        - growth_investment
+    visual:
+      position: {x: 100, y: 250}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - finalize_allocation
+
+  - id: finalize_allocation
+    name: Finalize Budget Allocation
+    step_type: agent
+    description: Create final budget allocation plan
+    config:
+      agent_type: claude
+      prompt_template: |
+        Finalize budget allocation based on debate:
+
+        Debate Results: {step.budget_debate}
+        Total Budget: {total_budget}
+        Categories: {categories}
+
+        Create:
+        1. Final allocation by category (amount and percentage)
+        2. Rationale for each allocation decision
+        3. Contingency reserve recommendation (typically 5-10%)
+        4. Spending guidelines and approval thresholds
+        5. Key performance indicators for each category
+        6. Quarterly review checkpoints
+        7. Reallocation triggers (when to adjust)
+
+        Ensure allocations sum to total budget.
+    visual:
+      position: {x: 100, y: 400}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_allocation
+
+  - id: store_allocation
+    name: Store Budget Allocation
+    step_type: memory_write
+    description: Archive budget allocation for tracking
+    config:
+      collection: budget_allocations
+      data:
+        period: "{budget_period}"
+        total_budget: "{total_budget}"
+        allocation: "{step.finalize_allocation.allocation}"
+        kpis: "{step.finalize_allocation.kpis}"
+        debate_rationale: "{step.budget_debate.synthesis}"
+        timestamp: "{now}"
+    visual:
+      position: {x: 100, y: 550}
+      category: memory
+      color: "#667eea"
+    next_steps: []
+
+entry_step: analyze_budget_context
+
+transitions:
+  - from_step: analyze_budget_context
+    to_step: budget_debate
+  - from_step: budget_debate
+    to_step: finalize_allocation
+  - from_step: finalize_allocation
+    to_step: store_allocation

@@ -1,0 +1,145 @@
+id: sme_contract_review
+name: Contract Review
+description: |
+  Multi-agent debate for reviewing business contracts in SME context.
+  Evaluates terms, identifies risks, and provides negotiation recommendations
+  without requiring dedicated legal counsel.
+version: "1.0.0"
+category: vendor
+tags:
+  - sme
+  - vendor
+  - contracts
+  - legal
+  - review
+icon: document-text
+is_template: true
+
+inputs:
+  contract_document: Contract text or key terms to review
+  contract_type: Type of contract (e.g., "SaaS Agreement", "Service Contract")
+  counterparty: Name of the other party
+  contract_value: Total contract value or commitment
+  key_concerns: Specific areas of concern to focus on (optional)
+  business_context: Relevant business context (optional)
+
+outputs:
+  risk_assessment: Overall risk level with key factors
+  key_terms_summary: Summary of important terms
+  negotiation_points: Recommended negotiation items
+  recommendation: Sign/Negotiate/Walk away recommendation
+
+steps:
+  - id: extract_terms
+    name: Extract Contract Terms
+    step_type: agent
+    description: Extract and categorize key terms from the contract
+    config:
+      agent_type: claude
+      prompt_template: |
+        Extract and analyze key terms from this contract:
+
+        Contract Type: {contract_type}
+        Counterparty: {counterparty}
+        Contract Value: {contract_value}
+        Key Concerns: {key_concerns}
+
+        Contract: {contract_document}
+
+        Extract:
+        1. Payment terms and pricing
+        2. Term length and renewal conditions
+        3. Termination clauses and penalties
+        4. Liability limitations and indemnification
+        5. Service levels or deliverables
+        6. Intellectual property provisions
+        7. Confidentiality requirements
+        8. Unusual or concerning clauses
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - contract_debate
+
+  - id: contract_debate
+    name: Contract Review Debate
+    step_type: debate
+    description: Multi-agent debate on contract terms and risks
+    config:
+      topic: "Review this {contract_type} with {counterparty} for risks and negotiation points. Terms: {step.extract_terms}"
+      agents:
+        - claude
+        - gpt-4
+      rounds: 3
+      consensus: qualified_majority
+      evaluation_criteria:
+        - financial_risk
+        - operational_risk
+        - legal_exposure
+        - flexibility
+        - fairness
+    visual:
+      position: {x: 100, y: 250}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - generate_review
+
+  - id: generate_review
+    name: Generate Contract Review
+    step_type: agent
+    description: Create final contract review with recommendations
+    config:
+      agent_type: claude
+      prompt_template: |
+        Generate a comprehensive contract review:
+
+        Debate Results: {step.contract_debate}
+        Contract Value: {contract_value}
+
+        Provide:
+        1. Overall risk level (Low/Medium/High)
+        2. Key terms summary (plain language)
+        3. Red flags identified
+        4. Top 5 negotiation points in priority order
+        5. Recommended contract modifications
+        6. Final recommendation (Sign as-is / Negotiate / Do not sign)
+
+        For SME context, focus on practical business impact.
+    visual:
+      position: {x: 100, y: 400}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_review
+
+  - id: store_review
+    name: Store Contract Review
+    step_type: memory_write
+    description: Archive contract review for future reference
+    config:
+      collection: contract_reviews
+      data:
+        contract_type: "{contract_type}"
+        counterparty: "{counterparty}"
+        value: "{contract_value}"
+        risk_level: "{step.generate_review.risk_level}"
+        recommendation: "{step.generate_review.recommendation}"
+        debate_summary: "{step.contract_debate.synthesis}"
+        timestamp: "{now}"
+    visual:
+      position: {x: 100, y: 550}
+      category: memory
+      color: "#667eea"
+    next_steps: []
+
+entry_step: extract_terms
+
+transitions:
+  - from_step: extract_terms
+    to_step: contract_debate
+  - from_step: contract_debate
+    to_step: generate_review
+  - from_step: generate_review
+    to_step: store_review

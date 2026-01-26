@@ -1,0 +1,140 @@
+id: sme_sprint_planning
+name: Sprint Planning
+description: |
+  Multi-agent debate for agile sprint planning in SME teams.
+  Helps scope sprints, estimate effort, and balance workload
+  with AI-assisted capacity planning.
+version: "1.0.0"
+category: project
+tags:
+  - sme
+  - agile
+  - project
+  - sprint
+  - planning
+icon: calendar
+is_template: true
+
+inputs:
+  backlog_items: List of backlog items to consider for sprint
+  team_capacity: Available team capacity (story points or hours)
+  sprint_duration: Sprint length (e.g., "2 weeks")
+  sprint_goals: High-level sprint goals or themes
+  carryover: Items carried over from previous sprint (optional)
+  blockers: Known blockers or dependencies (optional)
+
+outputs:
+  sprint_backlog: Selected items for the sprint
+  capacity_allocation: How capacity is allocated across items
+  risk_assessment: Identified risks to sprint success
+  sprint_goal: Clear sprint goal statement
+
+steps:
+  - id: analyze_backlog
+    name: Analyze Backlog Items
+    step_type: agent
+    description: Evaluate and estimate backlog items for sprint consideration
+    config:
+      agent_type: claude
+      prompt_template: |
+        Analyze backlog items for sprint planning:
+
+        Backlog Items: {backlog_items}
+        Team Capacity: {team_capacity}
+        Sprint Duration: {sprint_duration}
+        Sprint Goals: {sprint_goals}
+        Carryover Items: {carryover}
+        Known Blockers: {blockers}
+
+        For each item, assess:
+        1. Story point estimate (if not provided)
+        2. Dependencies and blockers
+        3. Alignment with sprint goals
+        4. Risk factors
+        5. Value delivered
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - planning_debate
+
+  - id: planning_debate
+    name: Sprint Planning Debate
+    step_type: debate
+    description: Multi-agent debate on optimal sprint composition
+    config:
+      topic: "Plan the optimal sprint given capacity of {team_capacity}. Backlog analysis: {step.analyze_backlog}"
+      agents:
+        - claude
+        - gpt-4
+      rounds: 2
+      consensus: qualified_majority
+      evaluation_criteria:
+        - goal_alignment
+        - capacity_fit
+        - risk_balance
+        - value_delivery
+        - dependency_management
+    visual:
+      position: {x: 100, y: 250}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - finalize_sprint
+
+  - id: finalize_sprint
+    name: Finalize Sprint Plan
+    step_type: agent
+    description: Create final sprint plan with clear commitments
+    config:
+      agent_type: claude
+      prompt_template: |
+        Finalize the sprint plan based on the debate:
+
+        Debate Results: {step.planning_debate}
+        Team Capacity: {team_capacity}
+
+        Create:
+        1. Sprint goal statement (one sentence)
+        2. Committed items with estimates
+        3. Stretch goals (if capacity allows)
+        4. Capacity buffer recommendation
+        5. Key risks and mitigations
+        6. Definition of done reminders
+
+        Ensure total commitment is 80-90% of capacity for buffer.
+    visual:
+      position: {x: 100, y: 400}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_sprint_plan
+
+  - id: store_sprint_plan
+    name: Store Sprint Plan
+    step_type: memory_write
+    description: Archive sprint plan for tracking and retrospective
+    config:
+      collection: sprint_plans
+      data:
+        sprint_goal: "{step.finalize_sprint.sprint_goal}"
+        committed_items: "{step.finalize_sprint.committed_items}"
+        capacity_used: "{step.finalize_sprint.capacity_used}"
+        risks: "{step.finalize_sprint.risks}"
+        timestamp: "{now}"
+    visual:
+      position: {x: 100, y: 550}
+      category: memory
+      color: "#667eea"
+    next_steps: []
+
+entry_step: analyze_backlog
+
+transitions:
+  - from_step: analyze_backlog
+    to_step: planning_debate
+  - from_step: planning_debate
+    to_step: finalize_sprint
+  - from_step: finalize_sprint
+    to_step: store_sprint_plan

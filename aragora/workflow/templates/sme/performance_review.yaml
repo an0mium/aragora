@@ -1,0 +1,141 @@
+id: sme_performance_review
+name: Performance Review
+description: |
+  Multi-agent debate for employee performance evaluation.
+  Provides balanced assessment of achievements, areas for improvement,
+  and development recommendations with reduced bias through AI consensus.
+version: "1.0.0"
+category: team
+tags:
+  - sme
+  - performance
+  - team
+  - evaluation
+  - hr
+icon: chart-bar
+is_template: true
+
+inputs:
+  employee_name: Name of the employee being reviewed
+  role: Current job role/title
+  review_period: Time period under review (e.g., "Q4 2024", "Annual 2024")
+  achievements: Notable achievements and contributions
+  goals_status: Status of previously set goals
+  feedback_notes: Peer or manager feedback (optional)
+  self_assessment: Employee's self-assessment (optional)
+
+outputs:
+  rating: Performance rating with justification
+  strengths: Key strengths demonstrated
+  improvements: Areas for improvement
+  development_plan: Recommended development actions
+
+steps:
+  - id: compile_review_data
+    name: Compile Review Data
+    step_type: agent
+    description: Structure all performance data for fair evaluation
+    config:
+      agent_type: claude
+      prompt_template: |
+        Prepare a comprehensive performance review package:
+
+        Employee: {employee_name}
+        Role: {role}
+        Review Period: {review_period}
+
+        Achievements: {achievements}
+        Goals Status: {goals_status}
+        Feedback: {feedback_notes}
+        Self-Assessment: {self_assessment}
+
+        Structure this into:
+        1. Quantifiable achievements
+        2. Goal completion analysis
+        3. Behavioral observations
+        4. Areas needing evaluation
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - performance_debate
+
+  - id: performance_debate
+    name: Performance Evaluation Debate
+    step_type: debate
+    description: Multi-agent debate to ensure fair and balanced evaluation
+    config:
+      topic: "Evaluate {employee_name}'s performance for {review_period}. Data: {step.compile_review_data}"
+      agents:
+        - claude
+        - gemini
+      rounds: 2
+      consensus: qualified_majority
+      evaluation_criteria:
+        - goal_achievement
+        - quality_of_work
+        - collaboration
+        - initiative
+        - growth
+    visual:
+      position: {x: 100, y: 250}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - generate_review
+
+  - id: generate_review
+    name: Generate Performance Review
+    step_type: agent
+    description: Create final performance review document
+    config:
+      agent_type: claude
+      prompt_template: |
+        Generate a fair and actionable performance review:
+
+        Debate Results: {step.performance_debate}
+
+        Create a review including:
+        1. Overall rating (Exceeds/Meets/Below Expectations)
+        2. Key strengths (3-5 items)
+        3. Areas for improvement (2-3 items)
+        4. Specific development recommendations
+        5. Goals for next period
+
+        Ensure feedback is constructive and actionable.
+    visual:
+      position: {x: 100, y: 400}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_review
+
+  - id: store_review
+    name: Store Performance Review
+    step_type: memory_write
+    description: Archive performance review for HR records
+    config:
+      collection: performance_reviews
+      data:
+        employee: "{employee_name}"
+        role: "{role}"
+        period: "{review_period}"
+        rating: "{step.generate_review.rating}"
+        review: "{step.generate_review}"
+        timestamp: "{now}"
+    visual:
+      position: {x: 100, y: 550}
+      category: memory
+      color: "#667eea"
+    next_steps: []
+
+entry_step: compile_review_data
+
+transitions:
+  - from_step: compile_review_data
+    to_step: performance_debate
+  - from_step: performance_debate
+    to_step: generate_review
+  - from_step: generate_review
+    to_step: store_review

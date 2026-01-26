@@ -1,0 +1,146 @@
+id: sme_tool_selection
+name: Tool Selection
+description: |
+  Multi-agent debate for evaluating and selecting software tools and vendors.
+  Provides structured comparison across multiple criteria with diverse
+  AI perspectives to reduce selection bias.
+version: "1.0.0"
+category: vendor
+tags:
+  - sme
+  - vendor
+  - tools
+  - procurement
+  - evaluation
+icon: puzzle
+is_template: true
+
+inputs:
+  tool_category: Type of tool being evaluated (e.g., "CRM", "Project Management")
+  candidates: List of tool options to evaluate
+  requirements: Must-have requirements and nice-to-haves
+  budget: Budget constraints
+  team_size: Number of users/seats needed
+  integration_needs: Required integrations with existing systems (optional)
+  evaluation_criteria: Custom evaluation criteria (optional)
+
+outputs:
+  recommendation: Recommended tool with confidence score
+  comparison_matrix: Feature comparison across candidates
+  total_cost_analysis: TCO analysis for top candidates
+  implementation_risks: Identified risks for each option
+
+steps:
+  - id: research_tools
+    name: Research Tool Options
+    step_type: agent
+    description: Gather comprehensive information on each tool candidate
+    config:
+      agent_type: claude
+      prompt_template: |
+        Research and compile information for tool selection:
+
+        Category: {tool_category}
+        Candidates: {candidates}
+        Requirements: {requirements}
+        Budget: {budget}
+        Team Size: {team_size}
+        Integration Needs: {integration_needs}
+
+        For each candidate, gather:
+        1. Pricing (per user, tiers, annual vs monthly)
+        2. Key features relevant to requirements
+        3. Integration capabilities
+        4. Pros and cons from market research
+        5. Company stability and support reputation
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - selection_debate
+
+  - id: selection_debate
+    name: Tool Selection Debate
+    step_type: debate
+    description: Multi-agent debate comparing tool options
+    config:
+      topic: "Select the best {tool_category} tool for our needs. Research: {step.research_tools}"
+      agents:
+        - claude
+        - gpt-4
+        - gemini
+      rounds: 4
+      consensus: qualified_majority
+      evaluation_criteria:
+        - feature_fit
+        - total_cost_of_ownership
+        - ease_of_use
+        - integration_capability
+        - vendor_reliability
+        - scalability
+    visual:
+      position: {x: 100, y: 250}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - generate_recommendation
+
+  - id: generate_recommendation
+    name: Generate Tool Recommendation
+    step_type: agent
+    description: Create final recommendation with detailed analysis
+    config:
+      agent_type: claude
+      prompt_template: |
+        Generate a comprehensive tool selection recommendation:
+
+        Debate Results: {step.selection_debate}
+        Budget: {budget}
+        Team Size: {team_size}
+
+        Provide:
+        1. Primary recommendation with confidence score (0-100%)
+        2. Runner-up option
+        3. Feature comparison matrix
+        4. 3-year TCO analysis
+        5. Implementation timeline estimate
+        6. Key risks and mitigations
+        7. Negotiation points for procurement
+
+        Format as structured JSON.
+    visual:
+      position: {x: 100, y: 400}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_selection
+
+  - id: store_selection
+    name: Store Tool Selection
+    step_type: memory_write
+    description: Archive selection decision for procurement and audit
+    config:
+      collection: tool_selections
+      data:
+        category: "{tool_category}"
+        selected_tool: "{step.generate_recommendation.recommendation}"
+        alternatives: "{step.generate_recommendation.alternatives}"
+        tco_analysis: "{step.generate_recommendation.tco}"
+        debate_summary: "{step.selection_debate.synthesis}"
+        timestamp: "{now}"
+    visual:
+      position: {x: 100, y: 550}
+      category: memory
+      color: "#667eea"
+    next_steps: []
+
+entry_step: research_tools
+
+transitions:
+  - from_step: research_tools
+    to_step: selection_debate
+  - from_step: selection_debate
+    to_step: generate_recommendation
+  - from_step: generate_recommendation
+    to_step: store_selection

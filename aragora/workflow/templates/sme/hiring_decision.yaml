@@ -1,0 +1,137 @@
+id: sme_hiring_decision
+name: Hiring Decision
+description: |
+  Multi-agent debate to evaluate job candidates for SME businesses.
+  Provides structured analysis of qualifications, culture fit, and hiring
+  recommendations with diverse AI perspectives.
+version: "1.0.0"
+category: team
+tags:
+  - sme
+  - hiring
+  - team
+  - recruitment
+  - decision
+icon: user-plus
+is_template: true
+
+inputs:
+  candidate_name: Name of the candidate being evaluated
+  role: Job role/position being filled
+  qualifications: Candidate qualifications, experience, and skills
+  interview_notes: Notes from interviews (optional)
+  salary_expectations: Candidate's salary expectations (optional)
+  team_context: Current team composition and needs (optional)
+
+outputs:
+  recommendation: Hire/No-hire recommendation with confidence score
+  strengths: Identified candidate strengths
+  concerns: Potential concerns or risks
+  consensus: Multi-agent consensus summary
+
+steps:
+  - id: gather_context
+    name: Gather Hiring Context
+    step_type: agent
+    description: Compile and structure all candidate information for debate
+    config:
+      agent_type: claude
+      prompt_template: |
+        Prepare a structured candidate profile for hiring debate:
+
+        Candidate: {candidate_name}
+        Role: {role}
+        Qualifications: {qualifications}
+        Interview Notes: {interview_notes}
+        Salary Expectations: {salary_expectations}
+        Team Context: {team_context}
+
+        Create a comprehensive summary including:
+        1. Key qualifications relevant to the role
+        2. Experience highlights
+        3. Potential concerns to evaluate
+        4. Questions for the debate to address
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - hiring_debate
+
+  - id: hiring_debate
+    name: Hiring Decision Debate
+    step_type: debate
+    description: Multi-agent debate on whether to hire the candidate
+    config:
+      topic: "Should we hire {candidate_name} for the {role} position? Context: {step.gather_context}"
+      agents:
+        - claude
+        - gpt-4
+      rounds: 3
+      consensus: qualified_majority
+      evaluation_criteria:
+        - technical_fit
+        - culture_fit
+        - growth_potential
+        - compensation_alignment
+    visual:
+      position: {x: 100, y: 250}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - synthesize_decision
+
+  - id: synthesize_decision
+    name: Synthesize Hiring Decision
+    step_type: agent
+    description: Create final hiring recommendation from debate consensus
+    config:
+      agent_type: claude
+      prompt_template: |
+        Based on the multi-agent hiring debate, synthesize a final recommendation:
+
+        Debate Results: {step.hiring_debate}
+
+        Provide:
+        1. Clear recommendation (Hire / Do Not Hire / Further Evaluation Needed)
+        2. Confidence score (0-100%)
+        3. Top 3 strengths
+        4. Top concerns (if any)
+        5. Suggested next steps
+
+        Format as structured JSON for easy parsing.
+    visual:
+      position: {x: 100, y: 400}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_decision
+
+  - id: store_decision
+    name: Store Hiring Decision
+    step_type: memory_write
+    description: Archive hiring decision for compliance and future reference
+    config:
+      collection: hiring_decisions
+      data:
+        candidate: "{candidate_name}"
+        role: "{role}"
+        recommendation: "{step.synthesize_decision.recommendation}"
+        confidence: "{step.synthesize_decision.confidence}"
+        debate_summary: "{step.hiring_debate.synthesis}"
+        timestamp: "{now}"
+    visual:
+      position: {x: 100, y: 550}
+      category: memory
+      color: "#667eea"
+    next_steps: []
+
+entry_step: gather_context
+
+transitions:
+  - from_step: gather_context
+    to_step: hiring_debate
+  - from_step: hiring_debate
+    to_step: synthesize_decision
+  - from_step: synthesize_decision
+    to_step: store_decision

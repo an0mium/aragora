@@ -1,0 +1,148 @@
+id: sme_remote_work_policy
+name: Remote Work Policy
+description: |
+  Multi-agent debate for developing or revising remote work policies.
+  Balances employee flexibility, productivity needs, and business
+  requirements with diverse AI perspectives.
+version: "1.0.0"
+category: policy
+tags:
+  - sme
+  - policy
+  - remote-work
+  - hr
+  - workplace
+icon: home
+is_template: true
+
+inputs:
+  current_policy: Existing policy to revise (optional, for new policy leave empty)
+  company_context: Company size, industry, and culture
+  employee_feedback: Input from employees on remote work preferences
+  business_requirements: Critical business needs (collaboration, security, etc.)
+  constraints: Legal, regulatory, or operational constraints (optional)
+
+outputs:
+  policy_draft: Draft remote work policy document
+  key_provisions: Summary of main policy provisions
+  implementation_plan: Rollout recommendations
+  faq: Anticipated employee questions and answers
+
+steps:
+  - id: gather_inputs
+    name: Gather Policy Inputs
+    step_type: agent
+    description: Compile and analyze all inputs for policy development
+    config:
+      agent_type: claude
+      prompt_template: |
+        Prepare inputs for remote work policy debate:
+
+        Current Policy: {current_policy}
+        Company Context: {company_context}
+        Employee Feedback: {employee_feedback}
+        Business Requirements: {business_requirements}
+        Constraints: {constraints}
+
+        Analyze:
+        1. Key stakeholder needs (employees, management, customers)
+        2. Industry best practices for remote work
+        3. Potential policy options to debate
+        4. Tradeoffs to consider
+        5. Legal/compliance considerations
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - policy_debate
+
+  - id: policy_debate
+    name: Remote Work Policy Debate
+    step_type: debate
+    description: Multi-agent debate on optimal policy provisions
+    config:
+      topic: "Design an effective remote work policy for this organization. Context: {step.gather_inputs}"
+      agents:
+        - claude
+        - gpt-4
+        - gemini
+      rounds: 3
+      consensus: qualified_majority
+      evaluation_criteria:
+        - employee_satisfaction
+        - productivity_impact
+        - collaboration_effectiveness
+        - operational_feasibility
+        - fairness_and_equity
+        - legal_compliance
+    visual:
+      position: {x: 100, y: 250}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - draft_policy
+
+  - id: draft_policy
+    name: Draft Remote Work Policy
+    step_type: agent
+    description: Create comprehensive policy document from debate
+    config:
+      agent_type: claude
+      prompt_template: |
+        Draft a complete remote work policy based on the debate:
+
+        Debate Results: {step.policy_debate}
+        Company Context: {company_context}
+
+        Create a policy document including:
+        1. Policy statement and scope
+        2. Eligibility criteria
+        3. Work schedule expectations
+        4. Communication and availability requirements
+        5. Equipment and expense policies
+        6. Performance management approach
+        7. Security and data protection requirements
+        8. Office attendance requirements (if hybrid)
+        9. Exception request process
+        10. Policy review schedule
+
+        Also provide:
+        - Implementation timeline
+        - Manager guidelines
+        - Employee FAQ (5-10 questions)
+    visual:
+      position: {x: 100, y: 400}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_policy
+
+  - id: store_policy
+    name: Store Policy Draft
+    step_type: memory_write
+    description: Archive policy draft for review and approval
+    config:
+      collection: policy_drafts
+      data:
+        policy_type: remote_work
+        policy_document: "{step.draft_policy.policy}"
+        key_provisions: "{step.draft_policy.key_provisions}"
+        debate_rationale: "{step.policy_debate.synthesis}"
+        status: draft
+        timestamp: "{now}"
+    visual:
+      position: {x: 100, y: 550}
+      category: memory
+      color: "#667eea"
+    next_steps: []
+
+entry_step: gather_inputs
+
+transitions:
+  - from_step: gather_inputs
+    to_step: policy_debate
+  - from_step: policy_debate
+    to_step: draft_policy
+  - from_step: draft_policy
+    to_step: store_policy
