@@ -887,7 +887,7 @@ class WhatsAppConnector(ChatPlatformConnector):
                 error=str(e),
             )
 
-    async def verify_webhook(
+    async def verify_webhook(  # type: ignore[override]
         self,
         mode: str,
         token: str,

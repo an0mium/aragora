@@ -1061,7 +1061,7 @@ class TelegramConnector(ChatPlatformConnector):
             thread_id=reply_to,
         )
 
-    async def respond_to_interaction(
+    async def respond_to_interaction(  # type: ignore[override]
         self,
         interaction: UserInteraction,
         text: str,
