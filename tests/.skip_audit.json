@@ -1,0 +1,4846 @@
+{
+  "total": 583,
+  "by_category": {
+    "flaky_test": 2,
+    "integration_dependency": 26,
+    "known_bug": 13,
+    "missing_feature": 335,
+    "optional_dependency": 192,
+    "performance": 3,
+    "platform_specific": 9,
+    "uncategorized": 3
+  },
+  "by_type": {
+    "skipif": 220,
+    "pytest.skip": 360,
+    "skip": 3
+  },
+  "by_file": {
+    "tests/test_matrix_debates_integration.py": 24,
+    "tests/test_formal.py": 24,
+    "tests/server/handlers/test_workflows_handler.py": 22,
+    "tests/test_handlers_tournaments_extended.py": 20,
+    "tests/test_formal_verification_backends.py": 20,
+    "tests/test_broadcast_pipeline_e2e.py": 20,
+    "tests/rlm/test_compressor.py": 18,
+    "tests/e2e/test_security_api_e2e.py": 18,
+    "tests/test_handlers_plugins.py": 16,
+    "tests/test_connectors_twitter.py": 15,
+    "tests/test_connectors_reddit.py": 15,
+    "tests/test_evolution_feedback_loop.py": 15,
+    "tests/test_supabase_client.py": 13,
+    "tests/test_graph_debates_integration.py": 13,
+    "tests/integration/test_handler_registration.py": 12,
+    "tests/test_handlers_calibration.py": 11,
+    "tests/e2e/test_websocket_real_clients.py": 11,
+    "tests/test_genesis_integration.py": 10,
+    "tests/test_trickster_integration.py": 10,
+    "tests/test_rhetorical_integration.py": 9,
+    "tests/security/test_security_regression.py": 9,
+    "tests/integration/test_security_hardening_e2e.py": 9,
+    "tests/rlm/test_load.py": 9,
+    "tests/knowledge/test_mound_facade.py": 9,
+    "tests/test_nomic_loop_phases.py": 8,
+    "tests/test_handlers_memory_analytics.py": 8,
+    "tests/test_handlers_evolution.py": 7,
+    "tests/test_handlers_introspection.py": 7,
+    "tests/connectors/chat/test_jwt_verify.py": 7,
+    "tests/test_plugin_sandbox.py": 6,
+    "tests/memory/test_postgres_critique.py": 6,
+    "tests/integration/test_knowledge_visibility_sharing.py": 6,
+    "tests/test_handlers_probes.py": 5,
+    "tests/security/test_security_regressions.py": 5,
+    "tests/mcp/test_mcp_server.py": 5,
+    "tests/test_saml.py": 4,
+    "tests/test_calibration_integration.py": 4,
+    "tests/test_handlers_tournaments.py": 4,
+    "tests/test_orchestrator_extended.py": 4,
+    "tests/test_verification.py": 4,
+    "tests/integrations/test_twilio_voice.py": 4,
+    "tests/verification/test_sandbox.py": 4,
+    "tests/rlm/test_true_rlm_priority.py": 4,
+    "tests/benchmarks/test_km_quality_scoring.py": 4,
+    "tests/e2e/test_auth_e2e.py": 4,
+    "tests/test_integration_e2e.py": 3,
+    "tests/test_handlers_audio.py": 3,
+    "tests/test_evolution_hook.py": 3,
+    "tests/test_knowledge_verticals.py": 3,
+    "tests/connectors/enterprise/test_sync_store.py": 3,
+    "tests/memory/test_postgres_consensus.py": 3,
+    "tests/transcription/test_whisper_backend.py": 3,
+    "tests/config/test_secrets.py": 3,
+    "tests/integration/test_enterprise_sso.py": 3,
+    "tests/server/handlers/test_integrations_handler.py": 3,
+    "tests/debate/test_similarity_factory.py": 3,
+    "tests/storage/test_redis_ha.py": 3,
+    "tests/export/test_decision_receipt.py": 3,
+    "tests/test_debate_convergence_comprehensive.py": 2,
+    "tests/test_auth_sso.py": 2,
+    "tests/test_storage_token_blacklist.py": 2,
+    "tests/test_proofs.py": 2,
+    "tests/test_cognitive_limiter_rlm.py": 2,
+    "tests/test_connectors_web.py": 2,
+    "tests/test_broadcast_audio.py": 2,
+    "tests/test_oauth_state_store.py": 2,
+    "tests/test_middleware_timeout.py": 2,
+    "tests/test_debate_convergence.py": 2,
+    "tests/ranking/test_calibration_engine.py": 2,
+    "tests/memory/test_postgres_continuum.py": 2,
+    "tests/security/test_threat_intel_enrichment.py": 2,
+    "tests/server/test_redis_state_startup.py": 2,
+    "tests/server/middleware/test_timeout.py": 2,
+    "tests/server/handlers/test_oauth.py": 2,
+    "tests/utils/test_async_utils.py": 2,
+    "tests/debate/test_voting_engine.py": 2,
+    "tests/rlm/test_rlm_integration.py": 2,
+    "tests/gauntlet/api/test_export.py": 2,
+    "tests/documents/test_token_counter.py": 2,
+    "tests/performance/test_load.py": 2,
+    "tests/integration/conftest.py": 2,
+    "tests/test_storage_backends.py": 1,
+    "tests/test_oidc.py": 1,
+    "tests/test_convergence.py": 1,
+    "tests/test_audio_security.py": 1,
+    "tests/test_handler_registry.py": 1,
+    "tests/test_middleware_user_auth.py": 1,
+    "tests/test_nl_query.py": 1,
+    "tests/test_auth_security_hardening.py": 1,
+    "tests/test_pr_review.py": 1,
+    "tests/test_visualization_replay.py": 1,
+    "tests/middleware/test_token_revocation.py": 1,
+    "tests/ranking/test_postgres_database.py": 1,
+    "tests/analysis/test_code_intelligence.py": 1,
+    "tests/modes/test_custom.py": 1,
+    "tests/security/test_path_traversal.py": 1,
+    "tests/integration/test_km_bidirectional_flows.py": 1,
+    "tests/integration/test_email_sync_integration.py": 1,
+    "tests/integration/test_redis_cluster.py": 1,
+    "tests/integration/test_postgres_stores.py": 1,
+    "tests/integration/test_notification_metrics.py": 1,
+    "tests/integration/test_postgres.py": 1,
+    "tests/server/handlers/test_costs.py": 1,
+    "tests/server/handlers/test_audit_export.py": 1,
+    "tests/server/handlers/test_evidence.py": 1,
+    "tests/storage/test_share_store.py": 1,
+    "tests/storage/test_slack_workspace_store.py": 1,
+    "tests/storage/test_postgres_pool_resilience.py": 1,
+    "tests/integrations/test_langchain_integration.py": 1,
+    "tests/verification/test_formal.py": 1,
+    "tests/benchmarks/test_api_benchmarks.py": 1,
+    "tests/benchmarks/test_performance.py": 1,
+    "tests/persistence/migrations/postgres/test_memory_migrator.py": 1,
+    "tests/documents/test_indexing.py": 1,
+    "tests/e2e/test_api_rate_limiting.py": 1,
+    "tests/broadcast/test_mixer.py": 1,
+    "tests/billing/test_invoice_export.py": 1
+  },
+  "high_skip_files": [
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "count": 24
+    },
+    {
+      "file": "tests/test_formal.py",
+      "count": 24
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "count": 22
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "count": 20
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "count": 20
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "count": 20
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "count": 18
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "count": 18
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "count": 16
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "count": 15
+    }
+  ],
+  "markers": [
+    {
+      "file": "tests/test_supabase_client.py",
+      "line": 142,
+      "marker_type": "skipif",
+      "reason": "supabase not installed",
+      "category": "optional_dependency",
+      "condition": "not SUPABASE_AVAILABLE"
+    },
+    {
+      "file": "tests/test_supabase_client.py",
+      "line": 203,
+      "marker_type": "skipif",
+      "reason": "supabase not installed",
+      "category": "optional_dependency",
+      "condition": "not SUPABASE_AVAILABLE"
+    },
+    {
+      "file": "tests/test_supabase_client.py",
+      "line": 314,
+      "marker_type": "skipif",
+      "reason": "supabase not installed",
+      "category": "optional_dependency",
+      "condition": "not SUPABASE_AVAILABLE"
+    },
+    {
+      "file": "tests/test_supabase_client.py",
+      "line": 386,
+      "marker_type": "skipif",
+      "reason": "supabase not installed",
+      "category": "optional_dependency",
+      "condition": "not SUPABASE_AVAILABLE"
+    },
+    {
+      "file": "tests/test_supabase_client.py",
+      "line": 460,
+      "marker_type": "skipif",
+      "reason": "supabase not installed",
+      "category": "optional_dependency",
+      "condition": "not SUPABASE_AVAILABLE"
+    },
+    {
+      "file": "tests/test_supabase_client.py",
+      "line": 514,
+      "marker_type": "skipif",
+      "reason": "supabase not installed",
+      "category": "optional_dependency",
+      "condition": "not SUPABASE_AVAILABLE"
+    },
+    {
+      "file": "tests/test_supabase_client.py",
+      "line": 540,
+      "marker_type": "skipif",
+      "reason": "supabase not installed",
+      "category": "optional_dependency",
+      "condition": "not SUPABASE_AVAILABLE"
+    },
+    {
+      "file": "tests/test_supabase_client.py",
+      "line": 632,
+      "marker_type": "skipif",
+      "reason": "supabase not installed",
+      "category": "optional_dependency",
+      "condition": "not SUPABASE_AVAILABLE"
+    },
+    {
+      "file": "tests/test_supabase_client.py",
+      "line": 763,
+      "marker_type": "skipif",
+      "reason": "supabase not installed",
+      "category": "optional_dependency",
+      "condition": "not SUPABASE_AVAILABLE"
+    },
+    {
+      "file": "tests/test_supabase_client.py",
+      "line": 775,
+      "marker_type": "skipif",
+      "reason": "supabase not installed",
+      "category": "optional_dependency",
+      "condition": "not SUPABASE_AVAILABLE"
+    },
+    {
+      "file": "tests/test_supabase_client.py",
+      "line": 794,
+      "marker_type": "skipif",
+      "reason": "supabase not installed",
+      "category": "optional_dependency",
+      "condition": "not SUPABASE_AVAILABLE"
+    },
+    {
+      "file": "tests/test_supabase_client.py",
+      "line": 804,
+      "marker_type": "skipif",
+      "reason": "supabase not installed",
+      "category": "optional_dependency",
+      "condition": "not SUPABASE_AVAILABLE"
+    },
+    {
+      "file": "tests/test_supabase_client.py",
+      "line": 814,
+      "marker_type": "skipif",
+      "reason": "supabase not installed",
+      "category": "optional_dependency",
+      "condition": "not SUPABASE_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 582,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 115,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 123,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 144,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 169,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 194,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 211,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 265,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 288,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 309,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 333,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 471,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 484,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 497,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_twitter.py",
+      "line": 514,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_storage_backends.py",
+      "line": 161,
+      "marker_type": "pytest.skip",
+      "reason": "psycopg2 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_debate_convergence_comprehensive.py",
+      "line": 286,
+      "marker_type": "pytest.skip",
+      "reason": "scikit-learn not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_debate_convergence_comprehensive.py",
+      "line": 935,
+      "marker_type": "pytest.skip",
+      "reason": "scikit-learn not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 242,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 270,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 304,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 334,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 375,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 400,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 423,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 448,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 475,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 501,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 519,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 550,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 565,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 586,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 614,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 640,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 664,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 689,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 798,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments_extended.py",
+      "line": 838,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 32,
+      "marker_type": "skipif",
+      "reason": "skipif: requires_z3",
+      "category": "optional_dependency",
+      "condition": "requires_z3"
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 123,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 133,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 144,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 156,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 165,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 178,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 196,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 227,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 243,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 259,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 271,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 280,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 320,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 328,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 523,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 533,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 543,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 554,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal_verification_backends.py",
+      "line": 578,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_genesis_integration.py",
+      "line": 22,
+      "marker_type": "pytest.skip",
+      "reason": "Genesis module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_genesis_integration.py",
+      "line": 34,
+      "marker_type": "pytest.skip",
+      "reason": "Genesis module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_genesis_integration.py",
+      "line": 57,
+      "marker_type": "pytest.skip",
+      "reason": "Genesis module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_genesis_integration.py",
+      "line": 90,
+      "marker_type": "pytest.skip",
+      "reason": "Genome module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_genesis_integration.py",
+      "line": 100,
+      "marker_type": "pytest.skip",
+      "reason": "Genome module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_genesis_integration.py",
+      "line": 132,
+      "marker_type": "pytest.skip",
+      "reason": "Breeding module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_genesis_integration.py",
+      "line": 142,
+      "marker_type": "pytest.skip",
+      "reason": "Breeding module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_genesis_integration.py",
+      "line": 222,
+      "marker_type": "pytest.skip",
+      "reason": "Breeding module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_genesis_integration.py",
+      "line": 271,
+      "marker_type": "pytest.skip",
+      "reason": "Breeding module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_genesis_integration.py",
+      "line": 297,
+      "marker_type": "pytest.skip",
+      "reason": "Breeding module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_oidc.py",
+      "line": 438,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_HTTPX"
+    },
+    {
+      "file": "tests/test_auth_sso.py",
+      "line": 695,
+      "marker_type": "pytest.skip",
+      "reason": "python3-saml is installed, skipping warning test",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_auth_sso.py",
+      "line": 720,
+      "marker_type": "pytest.skip",
+      "reason": "python3-saml is installed, skipping production check",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_plugin_sandbox.py",
+      "line": 548,
+      "marker_type": "skipif",
+      "reason": "Resource limits not supported on Windows",
+      "category": "platform_specific",
+      "condition": "sys.platform == 'win32'"
+    },
+    {
+      "file": "tests/test_plugin_sandbox.py",
+      "line": 559,
+      "marker_type": "skipif",
+      "reason": "Windows-specific test",
+      "category": "integration_dependency",
+      "condition": "sys.platform != 'win32'"
+    },
+    {
+      "file": "tests/test_plugin_sandbox.py",
+      "line": 702,
+      "marker_type": "skipif",
+      "reason": "Resource limits not supported on Windows",
+      "category": "platform_specific",
+      "condition": "sys.platform == 'win32'"
+    },
+    {
+      "file": "tests/test_plugin_sandbox.py",
+      "line": 742,
+      "marker_type": "skipif",
+      "reason": "CPU timeout not supported on Windows",
+      "category": "platform_specific",
+      "condition": "sys.platform == 'win32'"
+    },
+    {
+      "file": "tests/test_plugin_sandbox.py",
+      "line": 192,
+      "marker_type": "pytest.skip",
+      "reason": "Test requires /etc/hostname",
+      "category": "platform_specific",
+      "condition": null
+    },
+    {
+      "file": "tests/test_plugin_sandbox.py",
+      "line": 198,
+      "marker_type": "pytest.skip",
+      "reason": "Cannot create symlinks",
+      "category": "platform_specific",
+      "condition": null
+    },
+    {
+      "file": "tests/test_integration_e2e.py",
+      "line": 463,
+      "marker_type": "pytest.skip",
+      "reason": "Grounded Personas not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_integration_e2e.py",
+      "line": 487,
+      "marker_type": "pytest.skip",
+      "reason": "Grounded Personas not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_integration_e2e.py",
+      "line": 511,
+      "marker_type": "pytest.skip",
+      "reason": "Moment detector not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_storage_token_blacklist.py",
+      "line": 337,
+      "marker_type": "skipif",
+      "reason": "Redis not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_REDIS"
+    },
+    {
+      "file": "tests/test_storage_token_blacklist.py",
+      "line": 357,
+      "marker_type": "pytest.skip",
+      "reason": "Redis not available for testing",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_convergence.py",
+      "line": 25,
+      "marker_type": "pytest.skip",
+      "reason": "sentence-transformers not available or Keras 3 compatibility issue",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_saml.py",
+      "line": 322,
+      "marker_type": "skipif",
+      "reason": "python3-saml is installed - testing simplified fallback parser",
+      "category": "optional_dependency",
+      "condition": "HAS_SAML_LIB"
+    },
+    {
+      "file": "tests/test_saml.py",
+      "line": 338,
+      "marker_type": "skipif",
+      "reason": "python3-saml is installed - testing simplified fallback parser",
+      "category": "optional_dependency",
+      "condition": "HAS_SAML_LIB"
+    },
+    {
+      "file": "tests/test_saml.py",
+      "line": 350,
+      "marker_type": "skipif",
+      "reason": "python3-saml is installed - testing simplified fallback parser",
+      "category": "optional_dependency",
+      "condition": "HAS_SAML_LIB"
+    },
+    {
+      "file": "tests/test_saml.py",
+      "line": 364,
+      "marker_type": "skipif",
+      "reason": "python3-saml is installed - testing simplified fallback parser",
+      "category": "optional_dependency",
+      "condition": "HAS_SAML_LIB"
+    },
+    {
+      "file": "tests/test_graph_debates_integration.py",
+      "line": 75,
+      "marker_type": "pytest.skip",
+      "reason": "Graph orchestrator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_graph_debates_integration.py",
+      "line": 85,
+      "marker_type": "pytest.skip",
+      "reason": "Graph orchestrator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_graph_debates_integration.py",
+      "line": 103,
+      "marker_type": "pytest.skip",
+      "reason": "Graph orchestrator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_graph_debates_integration.py",
+      "line": 145,
+      "marker_type": "pytest.skip",
+      "reason": "Graph orchestrator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_graph_debates_integration.py",
+      "line": 171,
+      "marker_type": "pytest.skip",
+      "reason": "Graph orchestrator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_graph_debates_integration.py",
+      "line": 210,
+      "marker_type": "pytest.skip",
+      "reason": "Graph orchestrator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_graph_debates_integration.py",
+      "line": 239,
+      "marker_type": "pytest.skip",
+      "reason": "Graph orchestrator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_graph_debates_integration.py",
+      "line": 260,
+      "marker_type": "pytest.skip",
+      "reason": "GraphDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_graph_debates_integration.py",
+      "line": 274,
+      "marker_type": "pytest.skip",
+      "reason": "GraphDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_graph_debates_integration.py",
+      "line": 290,
+      "marker_type": "pytest.skip",
+      "reason": "GraphDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_graph_debates_integration.py",
+      "line": 330,
+      "marker_type": "pytest.skip",
+      "reason": "Graph orchestrator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_graph_debates_integration.py",
+      "line": 359,
+      "marker_type": "pytest.skip",
+      "reason": "Graph orchestrator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_graph_debates_integration.py",
+      "line": 378,
+      "marker_type": "pytest.skip",
+      "reason": "Graph orchestrator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_audio_security.py",
+      "line": 213,
+      "marker_type": "pytest.skip",
+      "reason": "AudioHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handler_registry.py",
+      "line": 149,
+      "marker_type": "pytest.skip",
+      "reason": "{...} not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_proofs.py",
+      "line": 190,
+      "marker_type": "skipif",
+      "reason": "Timeout behavior depends on system performance (set RUN_SLOW_TESTS=1 to run)",
+      "category": "performance",
+      "condition": "__import__('os').environ.get('RUN_SLOW_TESTS') != '1'"
+    },
+    {
+      "file": "tests/test_proofs.py",
+      "line": 539,
+      "marker_type": "skipif",
+      "reason": "Timeout behavior depends on system performance (set RUN_SLOW_TESTS=1 to run)",
+      "category": "performance",
+      "condition": "__import__('os').environ.get('RUN_SLOW_TESTS') != '1'"
+    },
+    {
+      "file": "tests/test_handlers_evolution.py",
+      "line": 135,
+      "marker_type": "pytest.skip",
+      "reason": "Evolution module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_evolution.py",
+      "line": 147,
+      "marker_type": "pytest.skip",
+      "reason": "Evolution module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_evolution.py",
+      "line": 164,
+      "marker_type": "pytest.skip",
+      "reason": "Evolution module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_evolution.py",
+      "line": 178,
+      "marker_type": "pytest.skip",
+      "reason": "Evolution module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_evolution.py",
+      "line": 231,
+      "marker_type": "pytest.skip",
+      "reason": "Evolution module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_evolution.py",
+      "line": 271,
+      "marker_type": "pytest.skip",
+      "reason": "Evolution module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_evolution.py",
+      "line": 288,
+      "marker_type": "pytest.skip",
+      "reason": "Evolution module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 76,
+      "marker_type": "pytest.skip",
+      "reason": "Script generator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 88,
+      "marker_type": "pytest.skip",
+      "reason": "Script generator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 103,
+      "marker_type": "pytest.skip",
+      "reason": "Script generator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 123,
+      "marker_type": "pytest.skip",
+      "reason": "Audio engine not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 144,
+      "marker_type": "pytest.skip",
+      "reason": "Audio engine not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 159,
+      "marker_type": "pytest.skip",
+      "reason": "Audio engine not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 178,
+      "marker_type": "pytest.skip",
+      "reason": "Video generator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 189,
+      "marker_type": "pytest.skip",
+      "reason": "Video generator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 215,
+      "marker_type": "pytest.skip",
+      "reason": "RSS generator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 241,
+      "marker_type": "pytest.skip",
+      "reason": "RSS generator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 284,
+      "marker_type": "pytest.skip",
+      "reason": "Broadcast pipeline not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 294,
+      "marker_type": "pytest.skip",
+      "reason": "FFmpeg not available for video generation",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 313,
+      "marker_type": "pytest.skip",
+      "reason": "Broadcast pipeline not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 338,
+      "marker_type": "pytest.skip",
+      "reason": "Broadcast pipeline not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 359,
+      "marker_type": "pytest.skip",
+      "reason": "Broadcast handler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 374,
+      "marker_type": "pytest.skip",
+      "reason": "Broadcast handler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 396,
+      "marker_type": "pytest.skip",
+      "reason": "Broadcast storage not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 412,
+      "marker_type": "pytest.skip",
+      "reason": "Broadcast storage not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 446,
+      "marker_type": "pytest.skip",
+      "reason": "Broadcast pipeline not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_pipeline_e2e.py",
+      "line": 469,
+      "marker_type": "pytest.skip",
+      "reason": "RSS generator not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_middleware_user_auth.py",
+      "line": 671,
+      "marker_type": "pytest.skip",
+      "reason": "PyJWT not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_audio.py",
+      "line": 288,
+      "marker_type": "skipif",
+      "reason": "Podcast module not available",
+      "category": "missing_feature",
+      "condition": "not PODCAST_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_audio.py",
+      "line": 304,
+      "marker_type": "skipif",
+      "reason": "Podcast module not available",
+      "category": "missing_feature",
+      "condition": "not PODCAST_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_audio.py",
+      "line": 339,
+      "marker_type": "skipif",
+      "reason": "Only test when podcast module not available",
+      "category": "missing_feature",
+      "condition": "PODCAST_AVAILABLE"
+    },
+    {
+      "file": "tests/test_nl_query.py",
+      "line": 404,
+      "marker_type": "pytest.skip",
+      "reason": "DocumentQueryEngine.create() requires external dependencies",
+      "category": "integration_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_cognitive_limiter_rlm.py",
+      "line": 745,
+      "marker_type": "skipif",
+      "reason": "Real RLM library not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_OFFICIAL_RLM"
+    },
+    {
+      "file": "tests/test_cognitive_limiter_rlm.py",
+      "line": 757,
+      "marker_type": "skipif",
+      "reason": "Real RLM library not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_OFFICIAL_RLM"
+    },
+    {
+      "file": "tests/test_connectors_web.py",
+      "line": 307,
+      "marker_type": "pytest.skip",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_connectors_web.py",
+      "line": 347,
+      "marker_type": "pytest.skip",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_calibration_integration.py",
+      "line": 325,
+      "marker_type": "skipif",
+      "reason": "Handler patching requires complex setup; tested via integration tests",
+      "category": "known_bug",
+      "condition": "not os.environ.get('RUN_COMPLEX_TESTS')"
+    },
+    {
+      "file": "tests/test_calibration_integration.py",
+      "line": 358,
+      "marker_type": "skipif",
+      "reason": "Handler patching requires complex setup; tested via integration tests",
+      "category": "known_bug",
+      "condition": "not os.environ.get('RUN_COMPLEX_TESTS')"
+    },
+    {
+      "file": "tests/test_calibration_integration.py",
+      "line": 421,
+      "marker_type": "skipif",
+      "reason": "Known issue: Arena initialization calls get_rating during setup - needs isolated unit test",
+      "category": "known_bug",
+      "condition": "not os.environ.get('RUN_COMPLEX_TESTS')"
+    },
+    {
+      "file": "tests/test_calibration_integration.py",
+      "line": 438,
+      "marker_type": "skipif",
+      "reason": "Known issue: Arena initialization calls get_rating during setup - needs isolated unit test",
+      "category": "known_bug",
+      "condition": "not os.environ.get('RUN_COMPLEX_TESTS')"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 622,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 95,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 115,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 143,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 167,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 188,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 204,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 280,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 302,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 323,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 346,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 478,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 491,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 504,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_connectors_reddit.py",
+      "line": 521,
+      "marker_type": "skipif",
+      "reason": "httpx not installed",
+      "category": "optional_dependency",
+      "condition": "not HTTPX_AVAILABLE"
+    },
+    {
+      "file": "tests/test_nomic_loop_phases.py",
+      "line": 241,
+      "marker_type": "pytest.skip",
+      "reason": "Phase modules not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_nomic_loop_phases.py",
+      "line": 249,
+      "marker_type": "pytest.skip",
+      "reason": "Phase modules not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_nomic_loop_phases.py",
+      "line": 257,
+      "marker_type": "pytest.skip",
+      "reason": "Phase modules not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_nomic_loop_phases.py",
+      "line": 265,
+      "marker_type": "pytest.skip",
+      "reason": "Phase modules not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_nomic_loop_phases.py",
+      "line": 273,
+      "marker_type": "pytest.skip",
+      "reason": "Phase modules not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_nomic_loop_phases.py",
+      "line": 286,
+      "marker_type": "pytest.skip",
+      "reason": "Recovery module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_nomic_loop_phases.py",
+      "line": 295,
+      "marker_type": "pytest.skip",
+      "reason": "Recovery module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_nomic_loop_phases.py",
+      "line": 307,
+      "marker_type": "pytest.skip",
+      "reason": "Circuit breaker module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_evolution_hook.py",
+      "line": 174,
+      "marker_type": "pytest.skip",
+      "reason": "PromptEvolver not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_evolution_hook.py",
+      "line": 199,
+      "marker_type": "pytest.skip",
+      "reason": "PromptEvolver not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_evolution_hook.py",
+      "line": 226,
+      "marker_type": "pytest.skip",
+      "reason": "claims module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_tournaments.py",
+      "line": 81,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments.py",
+      "line": 149,
+      "marker_type": "skipif",
+      "reason": "TournamentManager not available",
+      "category": "missing_feature",
+      "condition": "not TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments.py",
+      "line": 176,
+      "marker_type": "skipif",
+      "reason": "Test requires TournamentManager unavailable",
+      "category": "missing_feature",
+      "condition": "TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_handlers_tournaments.py",
+      "line": 183,
+      "marker_type": "skipif",
+      "reason": "Test requires TournamentManager unavailable",
+      "category": "missing_feature",
+      "condition": "TOURNAMENT_AVAILABLE"
+    },
+    {
+      "file": "tests/test_auth_security_hardening.py",
+      "line": 97,
+      "marker_type": "skipif",
+      "reason": "pyotp not installed in test environment",
+      "category": "optional_dependency",
+      "condition": "True"
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 182,
+      "marker_type": "skipif",
+      "reason": "PopulationManager elitism param and evolve_generation not implemented - future API",
+      "category": "missing_feature",
+      "condition": "not os.environ.get('RUN_FUTURE_API_TESTS')"
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 286,
+      "marker_type": "skipif",
+      "reason": "PopulationManager.record_debate_result() and evolve_generation() not implemented - future API",
+      "category": "missing_feature",
+      "condition": "not os.environ.get('RUN_FUTURE_API_TESTS')"
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 316,
+      "marker_type": "skipif",
+      "reason": "PopulationManager.record_debate_result() and evolve_generation() not implemented - future API",
+      "category": "missing_feature",
+      "condition": "not os.environ.get('RUN_FUTURE_API_TESTS')"
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 415,
+      "marker_type": "skipif",
+      "reason": "GenesisLedger.record_generation() renamed to record_mutation() - API changed",
+      "category": "missing_feature",
+      "condition": "not os.environ.get('RUN_FUTURE_API_TESTS')"
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 74,
+      "marker_type": "pytest.skip",
+      "reason": "Pattern extractor not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 85,
+      "marker_type": "pytest.skip",
+      "reason": "Pattern extractor not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 98,
+      "marker_type": "pytest.skip",
+      "reason": "Pattern extractor not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 168,
+      "marker_type": "pytest.skip",
+      "reason": "PopulationManager not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 180,
+      "marker_type": "pytest.skip",
+      "reason": "Selection function not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 223,
+      "marker_type": "pytest.skip",
+      "reason": "EvolutionTracker not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 255,
+      "marker_type": "pytest.skip",
+      "reason": "EvolutionTracker not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 275,
+      "marker_type": "pytest.skip",
+      "reason": "EvolutionTracker not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 361,
+      "marker_type": "pytest.skip",
+      "reason": "Evolution handler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 413,
+      "marker_type": "pytest.skip",
+      "reason": "GenesisLedger not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_evolution_feedback_loop.py",
+      "line": 469,
+      "marker_type": "pytest.skip",
+      "reason": "PopulationManager not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_knowledge_verticals.py",
+      "line": 329,
+      "marker_type": "pytest.skip",
+      "reason": "Healthcare vertical not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_knowledge_verticals.py",
+      "line": 391,
+      "marker_type": "pytest.skip",
+      "reason": "Legal vertical not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_knowledge_verticals.py",
+      "line": 437,
+      "marker_type": "pytest.skip",
+      "reason": "Accounting vertical not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_rhetorical_integration.py",
+      "line": 23,
+      "marker_type": "pytest.skip",
+      "reason": "RhetoricalObserver module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_rhetorical_integration.py",
+      "line": 33,
+      "marker_type": "pytest.skip",
+      "reason": "RhetoricalObserver module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_rhetorical_integration.py",
+      "line": 52,
+      "marker_type": "pytest.skip",
+      "reason": "RhetoricalObserver module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_rhetorical_integration.py",
+      "line": 71,
+      "marker_type": "pytest.skip",
+      "reason": "RhetoricalObserver module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_rhetorical_integration.py",
+      "line": 90,
+      "marker_type": "pytest.skip",
+      "reason": "RhetoricalObserver module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_rhetorical_integration.py",
+      "line": 106,
+      "marker_type": "pytest.skip",
+      "reason": "RhetoricalObserver module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_rhetorical_integration.py",
+      "line": 179,
+      "marker_type": "pytest.skip",
+      "reason": "RhetoricalObserver module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_rhetorical_integration.py",
+      "line": 203,
+      "marker_type": "pytest.skip",
+      "reason": "RhetoricalObserver module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_rhetorical_integration.py",
+      "line": 221,
+      "marker_type": "pytest.skip",
+      "reason": "RhetoricalObserver module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_broadcast_audio.py",
+      "line": 71,
+      "marker_type": "skipif",
+      "reason": "Edge TTS tests fail in CI environment",
+      "category": "integration_dependency",
+      "condition": "'CI' in __import__('os').environ or 'GITHUB_ACTIONS' in __import__('os').environ"
+    },
+    {
+      "file": "tests/test_broadcast_audio.py",
+      "line": 535,
+      "marker_type": "skipif",
+      "reason": "Audio integration tests fail in CI environment",
+      "category": "integration_dependency",
+      "condition": "'CI' in __import__('os').environ or 'GITHUB_ACTIONS' in __import__('os').environ"
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 144,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 155,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 180,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 205,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 220,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 237,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 255,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 284,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 304,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 324,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 348,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 367,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 380,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 401,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 414,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 437,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 453,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 487,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 505,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 539,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 564,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 590,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 644,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_matrix_debates_integration.py",
+      "line": 669,
+      "marker_type": "pytest.skip",
+      "reason": "MatrixDebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_oauth_state_store.py",
+      "line": 378,
+      "marker_type": "pytest.skip",
+      "reason": "redis package not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_oauth_state_store.py",
+      "line": 406,
+      "marker_type": "pytest.skip",
+      "reason": "redis package not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_pr_review.py",
+      "line": 404,
+      "marker_type": "skipif",
+      "reason": "Requires ANTHROPIC_API_KEY or OPENAI_API_KEY",
+      "category": "integration_dependency",
+      "condition": "not HAS_API_KEYS"
+    },
+    {
+      "file": "tests/test_handlers_calibration.py",
+      "line": 142,
+      "marker_type": "pytest.skip",
+      "reason": "Calibration module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_calibration.py",
+      "line": 161,
+      "marker_type": "pytest.skip",
+      "reason": "Calibration module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_calibration.py",
+      "line": 181,
+      "marker_type": "pytest.skip",
+      "reason": "Calibration module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_calibration.py",
+      "line": 201,
+      "marker_type": "pytest.skip",
+      "reason": "Calibration module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_calibration.py",
+      "line": 219,
+      "marker_type": "pytest.skip",
+      "reason": "Calibration module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_calibration.py",
+      "line": 261,
+      "marker_type": "pytest.skip",
+      "reason": "Calibration module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_calibration.py",
+      "line": 282,
+      "marker_type": "pytest.skip",
+      "reason": "Calibration module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_calibration.py",
+      "line": 347,
+      "marker_type": "pytest.skip",
+      "reason": "Calibration module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_calibration.py",
+      "line": 362,
+      "marker_type": "pytest.skip",
+      "reason": "Calibration module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_calibration.py",
+      "line": 404,
+      "marker_type": "pytest.skip",
+      "reason": "Calibration module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_calibration.py",
+      "line": 425,
+      "marker_type": "pytest.skip",
+      "reason": "Calibration module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_introspection.py",
+      "line": 153,
+      "marker_type": "pytest.skip",
+      "reason": "Introspection module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_introspection.py",
+      "line": 189,
+      "marker_type": "pytest.skip",
+      "reason": "Introspection module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_introspection.py",
+      "line": 206,
+      "marker_type": "pytest.skip",
+      "reason": "Introspection module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_introspection.py",
+      "line": 283,
+      "marker_type": "pytest.skip",
+      "reason": "Introspection module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_introspection.py",
+      "line": 306,
+      "marker_type": "pytest.skip",
+      "reason": "Introspection module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_introspection.py",
+      "line": 358,
+      "marker_type": "pytest.skip",
+      "reason": "Introspection module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_introspection.py",
+      "line": 401,
+      "marker_type": "pytest.skip",
+      "reason": "Introspection module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 147,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 163,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 201,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 217,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 238,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 277,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 303,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 318,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 354,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 408,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 425,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 453,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 469,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 484,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 500,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_plugins.py",
+      "line": 514,
+      "marker_type": "pytest.skip",
+      "reason": "Plugins module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 363,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 370,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 376,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 382,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 395,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 430,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 437,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 445,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 454,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 463,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 481,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 504,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 513,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 522,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 531,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 545,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 347,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 358,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 598,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 614,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 639,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 728,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 753,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_formal.py",
+      "line": 781,
+      "marker_type": "pytest.skip",
+      "reason": "z3-solver not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_trickster_integration.py",
+      "line": 20,
+      "marker_type": "pytest.skip",
+      "reason": "Trickster module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_trickster_integration.py",
+      "line": 31,
+      "marker_type": "pytest.skip",
+      "reason": "Trickster module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_trickster_integration.py",
+      "line": 48,
+      "marker_type": "pytest.skip",
+      "reason": "Trickster module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_trickster_integration.py",
+      "line": 73,
+      "marker_type": "pytest.skip",
+      "reason": "Trickster module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_trickster_integration.py",
+      "line": 109,
+      "marker_type": "pytest.skip",
+      "reason": "Trickster module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_trickster_integration.py",
+      "line": 215,
+      "marker_type": "pytest.skip",
+      "reason": "Trickster module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_trickster_integration.py",
+      "line": 245,
+      "marker_type": "pytest.skip",
+      "reason": "Trickster module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_trickster_integration.py",
+      "line": 274,
+      "marker_type": "pytest.skip",
+      "reason": "NoveltyTracker module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_trickster_integration.py",
+      "line": 284,
+      "marker_type": "pytest.skip",
+      "reason": "NoveltyTracker module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_trickster_integration.py",
+      "line": 309,
+      "marker_type": "pytest.skip",
+      "reason": "NoveltyTracker module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_probes.py",
+      "line": 151,
+      "marker_type": "pytest.skip",
+      "reason": "Prober or agent module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_probes.py",
+      "line": 166,
+      "marker_type": "pytest.skip",
+      "reason": "Prober or agent module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_probes.py",
+      "line": 189,
+      "marker_type": "pytest.skip",
+      "reason": "Prober or agent module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_probes.py",
+      "line": 232,
+      "marker_type": "pytest.skip",
+      "reason": "Prober or agent module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_probes.py",
+      "line": 244,
+      "marker_type": "pytest.skip",
+      "reason": "Prober or agent module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_memory_analytics.py",
+      "line": 64,
+      "marker_type": "pytest.skip",
+      "reason": "MemoryAnalyticsHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_memory_analytics.py",
+      "line": 80,
+      "marker_type": "pytest.skip",
+      "reason": "MemoryAnalyticsHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_memory_analytics.py",
+      "line": 101,
+      "marker_type": "pytest.skip",
+      "reason": "MemoryAnalyticsHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_memory_analytics.py",
+      "line": 112,
+      "marker_type": "pytest.skip",
+      "reason": "MemoryAnalyticsHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_memory_analytics.py",
+      "line": 123,
+      "marker_type": "pytest.skip",
+      "reason": "MemoryAnalyticsHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_memory_analytics.py",
+      "line": 137,
+      "marker_type": "pytest.skip",
+      "reason": "MemoryAnalyticsHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_memory_analytics.py",
+      "line": 149,
+      "marker_type": "pytest.skip",
+      "reason": "MemoryAnalyticsHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_handlers_memory_analytics.py",
+      "line": 297,
+      "marker_type": "pytest.skip",
+      "reason": "MemoryAnalyticsHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_middleware_timeout.py",
+      "line": 332,
+      "marker_type": "skipif",
+      "reason": "signal.alarm not available on Windows",
+      "category": "missing_feature",
+      "condition": "__import__('platform').system() == 'Windows'"
+    },
+    {
+      "file": "tests/test_middleware_timeout.py",
+      "line": 336,
+      "marker_type": "skipif",
+      "reason": "signal.alarm conflicts with pytest-timeout plugin",
+      "category": "performance",
+      "condition": "__import__('os').environ.get('PYTEST_TIMEOUT') is not None"
+    },
+    {
+      "file": "tests/test_debate_convergence.py",
+      "line": 185,
+      "marker_type": "pytest.skip",
+      "reason": "scikit-learn not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_debate_convergence.py",
+      "line": 675,
+      "marker_type": "pytest.skip",
+      "reason": "scikit-learn not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_visualization_replay.py",
+      "line": 1114,
+      "marker_type": "skipif",
+      "reason": "Trace support not available",
+      "category": "missing_feature",
+      "condition": "not HAS_TRACE_SUPPORT"
+    },
+    {
+      "file": "tests/test_orchestrator_extended.py",
+      "line": 276,
+      "marker_type": "pytest.skip",
+      "reason": "ConvergenceDetector not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_orchestrator_extended.py",
+      "line": 285,
+      "marker_type": "pytest.skip",
+      "reason": "ConsensusProof not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_orchestrator_extended.py",
+      "line": 327,
+      "marker_type": "pytest.skip",
+      "reason": "ContinuumMemory not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_orchestrator_extended.py",
+      "line": 357,
+      "marker_type": "pytest.skip",
+      "reason": "DebateContext not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/test_verification.py",
+      "line": 99,
+      "marker_type": "skipif",
+      "reason": "Infinite loops can't be interrupted in CPython due to GIL",
+      "category": "platform_specific",
+      "condition": "not os.environ.get('RUN_GIL_TIMEOUT_TESTS')"
+    },
+    {
+      "file": "tests/test_verification.py",
+      "line": 501,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_verification.py",
+      "line": 521,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/test_verification.py",
+      "line": 540,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/connectors/chat/test_jwt_verify.py",
+      "line": 59,
+      "marker_type": "skipif",
+      "reason": "PyJWT not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_JWT"
+    },
+    {
+      "file": "tests/connectors/chat/test_jwt_verify.py",
+      "line": 67,
+      "marker_type": "skipif",
+      "reason": "PyJWT not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_JWT"
+    },
+    {
+      "file": "tests/connectors/chat/test_jwt_verify.py",
+      "line": 89,
+      "marker_type": "skipif",
+      "reason": "PyJWT not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_JWT"
+    },
+    {
+      "file": "tests/connectors/chat/test_jwt_verify.py",
+      "line": 95,
+      "marker_type": "skipif",
+      "reason": "Test only when PyJWT not installed",
+      "category": "optional_dependency",
+      "condition": "HAS_JWT"
+    },
+    {
+      "file": "tests/connectors/chat/test_jwt_verify.py",
+      "line": 117,
+      "marker_type": "skipif",
+      "reason": "PyJWT not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_JWT"
+    },
+    {
+      "file": "tests/connectors/chat/test_jwt_verify.py",
+      "line": 197,
+      "marker_type": "skipif",
+      "reason": "PyJWT not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_JWT"
+    },
+    {
+      "file": "tests/connectors/chat/test_jwt_verify.py",
+      "line": 218,
+      "marker_type": "skipif",
+      "reason": "PyJWT not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_JWT"
+    },
+    {
+      "file": "tests/connectors/enterprise/test_sync_store.py",
+      "line": 351,
+      "marker_type": "skipif",
+      "reason": "aiosqlite required",
+      "category": "optional_dependency",
+      "condition": "not HAS_AIOSQLITE"
+    },
+    {
+      "file": "tests/connectors/enterprise/test_sync_store.py",
+      "line": 288,
+      "marker_type": "skipif",
+      "reason": "aiosqlite required for persistence tests",
+      "category": "optional_dependency",
+      "condition": "not HAS_AIOSQLITE"
+    },
+    {
+      "file": "tests/connectors/enterprise/test_sync_store.py",
+      "line": 305,
+      "marker_type": "skipif",
+      "reason": "aiosqlite required for persistence tests",
+      "category": "optional_dependency",
+      "condition": "not HAS_AIOSQLITE"
+    },
+    {
+      "file": "tests/middleware/test_token_revocation.py",
+      "line": 859,
+      "marker_type": "pytest.skip",
+      "reason": "redis package not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/ranking/test_calibration_engine.py",
+      "line": 721,
+      "marker_type": "pytest.skip",
+      "reason": "Integration test requires full database setup: {...}",
+      "category": "integration_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/ranking/test_calibration_engine.py",
+      "line": 747,
+      "marker_type": "pytest.skip",
+      "reason": "Integration test requires full database setup: {...}",
+      "category": "integration_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/ranking/test_postgres_database.py",
+      "line": 80,
+      "marker_type": "skipif",
+      "reason": "asyncpg required",
+      "category": "optional_dependency",
+      "condition": "not ASYNCPG_AVAILABLE"
+    },
+    {
+      "file": "tests/analysis/test_code_intelligence.py",
+      "line": 392,
+      "marker_type": "pytest.skip",
+      "reason": "Tree-sitter not available, method extraction not supported",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/memory/test_postgres_critique.py",
+      "line": 89,
+      "marker_type": "skipif",
+      "reason": "asyncpg required",
+      "category": "optional_dependency",
+      "condition": "not ASYNCPG_AVAILABLE"
+    },
+    {
+      "file": "tests/memory/test_postgres_critique.py",
+      "line": 259,
+      "marker_type": "skipif",
+      "reason": "asyncpg required",
+      "category": "optional_dependency",
+      "condition": "not ASYNCPG_AVAILABLE"
+    },
+    {
+      "file": "tests/memory/test_postgres_critique.py",
+      "line": 364,
+      "marker_type": "skipif",
+      "reason": "asyncpg required",
+      "category": "optional_dependency",
+      "condition": "not ASYNCPG_AVAILABLE"
+    },
+    {
+      "file": "tests/memory/test_postgres_critique.py",
+      "line": 526,
+      "marker_type": "skipif",
+      "reason": "asyncpg required",
+      "category": "optional_dependency",
+      "condition": "not ASYNCPG_AVAILABLE"
+    },
+    {
+      "file": "tests/memory/test_postgres_critique.py",
+      "line": 687,
+      "marker_type": "skipif",
+      "reason": "asyncpg required",
+      "category": "optional_dependency",
+      "condition": "not ASYNCPG_AVAILABLE"
+    },
+    {
+      "file": "tests/memory/test_postgres_critique.py",
+      "line": 706,
+      "marker_type": "skipif",
+      "reason": "asyncpg required",
+      "category": "optional_dependency",
+      "condition": "not ASYNCPG_AVAILABLE"
+    },
+    {
+      "file": "tests/memory/test_postgres_continuum.py",
+      "line": 85,
+      "marker_type": "skipif",
+      "reason": "asyncpg required",
+      "category": "optional_dependency",
+      "condition": "not ASYNCPG_AVAILABLE"
+    },
+    {
+      "file": "tests/memory/test_postgres_continuum.py",
+      "line": 346,
+      "marker_type": "skipif",
+      "reason": "asyncpg required",
+      "category": "optional_dependency",
+      "condition": "not ASYNCPG_AVAILABLE"
+    },
+    {
+      "file": "tests/memory/test_postgres_consensus.py",
+      "line": 83,
+      "marker_type": "skipif",
+      "reason": "asyncpg required",
+      "category": "optional_dependency",
+      "condition": "not ASYNCPG_AVAILABLE"
+    },
+    {
+      "file": "tests/memory/test_postgres_consensus.py",
+      "line": 202,
+      "marker_type": "skipif",
+      "reason": "asyncpg required",
+      "category": "optional_dependency",
+      "condition": "not ASYNCPG_AVAILABLE"
+    },
+    {
+      "file": "tests/memory/test_postgres_consensus.py",
+      "line": 278,
+      "marker_type": "skipif",
+      "reason": "asyncpg required",
+      "category": "optional_dependency",
+      "condition": "not ASYNCPG_AVAILABLE"
+    },
+    {
+      "file": "tests/modes/test_custom.py",
+      "line": 357,
+      "marker_type": "pytest.skip",
+      "reason": "Symlink creation not supported",
+      "category": "platform_specific",
+      "condition": null
+    },
+    {
+      "file": "tests/transcription/test_whisper_backend.py",
+      "line": 302,
+      "marker_type": "skipif",
+      "reason": "faster-whisper is installed",
+      "category": "optional_dependency",
+      "condition": "FASTER_WHISPER_AVAILABLE"
+    },
+    {
+      "file": "tests/transcription/test_whisper_backend.py",
+      "line": 329,
+      "marker_type": "pytest.skip",
+      "reason": "whisper.cpp binary not in PATH",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/transcription/test_whisper_backend.py",
+      "line": 338,
+      "marker_type": "pytest.skip",
+      "reason": "whisper-cpp is installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/config/test_secrets.py",
+      "line": 229,
+      "marker_type": "skipif",
+      "reason": "boto3 not installed",
+      "category": "optional_dependency",
+      "condition": "not BOTO3_AVAILABLE"
+    },
+    {
+      "file": "tests/config/test_secrets.py",
+      "line": 253,
+      "marker_type": "skipif",
+      "reason": "boto3 not installed",
+      "category": "optional_dependency",
+      "condition": "not BOTO3_AVAILABLE"
+    },
+    {
+      "file": "tests/config/test_secrets.py",
+      "line": 270,
+      "marker_type": "skipif",
+      "reason": "boto3 not installed",
+      "category": "optional_dependency",
+      "condition": "not BOTO3_AVAILABLE"
+    },
+    {
+      "file": "tests/security/test_path_traversal.py",
+      "line": 122,
+      "marker_type": "pytest.skip",
+      "reason": "Symlinks not supported",
+      "category": "platform_specific",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_security_regressions.py",
+      "line": 30,
+      "marker_type": "pytest.skip",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_security_regressions.py",
+      "line": 303,
+      "marker_type": "pytest.skip",
+      "reason": "RBAC module not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_security_regressions.py",
+      "line": 310,
+      "marker_type": "pytest.skip",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_security_regressions.py",
+      "line": 327,
+      "marker_type": "pytest.skip",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_security_regressions.py",
+      "line": 351,
+      "marker_type": "pytest.skip",
+      "reason": "GovernanceStore not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_security_regression.py",
+      "line": 77,
+      "marker_type": "pytest.skip",
+      "reason": "RBAC module not found",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_security_regression.py",
+      "line": 93,
+      "marker_type": "pytest.skip",
+      "reason": "RBAC middleware not found",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_security_regression.py",
+      "line": 118,
+      "marker_type": "pytest.skip",
+      "reason": "Encryption service not found",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_security_regression.py",
+      "line": 132,
+      "marker_type": "pytest.skip",
+      "reason": "Encryption service not found",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_security_regression.py",
+      "line": 154,
+      "marker_type": "pytest.skip",
+      "reason": "Tenant isolation not found",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_security_regression.py",
+      "line": 197,
+      "marker_type": "pytest.skip",
+      "reason": "Production guards not found",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_security_regression.py",
+      "line": 259,
+      "marker_type": "pytest.skip",
+      "reason": "Audit module not found",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_security_regression.py",
+      "line": 360,
+      "marker_type": "pytest.skip",
+      "reason": "Tenant isolation not found",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_security_regression.py",
+      "line": 383,
+      "marker_type": "pytest.skip",
+      "reason": "Webhook security module not found",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_threat_intel_enrichment.py",
+      "line": 631,
+      "marker_type": "pytest.skip",
+      "reason": "ContextGatherer not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/security/test_threat_intel_enrichment.py",
+      "line": 646,
+      "marker_type": "pytest.skip",
+      "reason": "ContextGatherer not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_km_bidirectional_flows.py",
+      "line": 549,
+      "marker_type": "pytest.skip",
+      "reason": "BeliefNetwork not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_handler_registration.py",
+      "line": 57,
+      "marker_type": "pytest.skip",
+      "reason": "Handlers not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_handler_registration.py",
+      "line": 212,
+      "marker_type": "pytest.skip",
+      "reason": "Handlers not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_handler_registration.py",
+      "line": 309,
+      "marker_type": "pytest.skip",
+      "reason": "HealthHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_handler_registration.py",
+      "line": 323,
+      "marker_type": "pytest.skip",
+      "reason": "DebatesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_handler_registration.py",
+      "line": 337,
+      "marker_type": "pytest.skip",
+      "reason": "ControlPlaneHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_handler_registration.py",
+      "line": 357,
+      "marker_type": "pytest.skip",
+      "reason": "Handlers not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_handler_registration.py",
+      "line": 381,
+      "marker_type": "pytest.skip",
+      "reason": "Handlers not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_handler_registration.py",
+      "line": 401,
+      "marker_type": "pytest.skip",
+      "reason": "Handlers not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_handler_registration.py",
+      "line": 433,
+      "marker_type": "pytest.skip",
+      "reason": "HealthHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_handler_registration.py",
+      "line": 476,
+      "marker_type": "pytest.skip",
+      "reason": "KnowledgeHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_handler_registration.py",
+      "line": 503,
+      "marker_type": "pytest.skip",
+      "reason": "Handlers not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_handler_registration.py",
+      "line": 523,
+      "marker_type": "pytest.skip",
+      "reason": "FeaturesHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_email_sync_integration.py",
+      "line": 244,
+      "marker_type": "skipif",
+      "reason": "aragora.prioritization module not yet implemented",
+      "category": "missing_feature",
+      "condition": "not os.environ.get('RUN_FUTURE_API_TESTS')"
+    },
+    {
+      "file": "tests/integration/test_security_hardening_e2e.py",
+      "line": 558,
+      "marker_type": "pytest.skip",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_security_hardening_e2e.py",
+      "line": 603,
+      "marker_type": "pytest.skip",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_security_hardening_e2e.py",
+      "line": 626,
+      "marker_type": "pytest.skip",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_security_hardening_e2e.py",
+      "line": 654,
+      "marker_type": "pytest.skip",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_security_hardening_e2e.py",
+      "line": 107,
+      "marker_type": "pytest.skip",
+      "reason": "RBAC module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_security_hardening_e2e.py",
+      "line": 320,
+      "marker_type": "pytest.skip",
+      "reason": "DecisionRouter not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_security_hardening_e2e.py",
+      "line": 333,
+      "marker_type": "pytest.skip",
+      "reason": "Decision module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_security_hardening_e2e.py",
+      "line": 352,
+      "marker_type": "pytest.skip",
+      "reason": "Chat router not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_security_hardening_e2e.py",
+      "line": 463,
+      "marker_type": "pytest.skip",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_redis_cluster.py",
+      "line": 197,
+      "marker_type": "pytest.skip",
+      "reason": "redis package not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_postgres_stores.py",
+      "line": 62,
+      "marker_type": "pytest.skip",
+      "reason": "PostgreSQL DSN not configured",
+      "category": "integration_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_knowledge_visibility_sharing.py",
+      "line": 958,
+      "marker_type": "skipif",
+      "reason": "Requires running server (set ARAGORA_E2E_LIVE_SERVER=1)",
+      "category": "integration_dependency",
+      "condition": "not os.environ.get('ARAGORA_E2E_LIVE_SERVER')"
+    },
+    {
+      "file": "tests/integration/test_knowledge_visibility_sharing.py",
+      "line": 989,
+      "marker_type": "skipif",
+      "reason": "Requires running server (set ARAGORA_E2E_LIVE_SERVER=1)",
+      "category": "integration_dependency",
+      "condition": "not os.environ.get('ARAGORA_E2E_LIVE_SERVER')"
+    },
+    {
+      "file": "tests/integration/test_knowledge_visibility_sharing.py",
+      "line": 1021,
+      "marker_type": "skipif",
+      "reason": "Requires running server (set ARAGORA_E2E_LIVE_SERVER=1)",
+      "category": "integration_dependency",
+      "condition": "not os.environ.get('ARAGORA_E2E_LIVE_SERVER')"
+    },
+    {
+      "file": "tests/integration/test_knowledge_visibility_sharing.py",
+      "line": 1050,
+      "marker_type": "skipif",
+      "reason": "Requires running server (set ARAGORA_E2E_LIVE_SERVER=1)",
+      "category": "integration_dependency",
+      "condition": "not os.environ.get('ARAGORA_E2E_LIVE_SERVER')"
+    },
+    {
+      "file": "tests/integration/test_knowledge_visibility_sharing.py",
+      "line": 944,
+      "marker_type": "pytest.skip",
+      "reason": "ARAGORA_TEST_SERVER_URL not set",
+      "category": "integration_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_knowledge_visibility_sharing.py",
+      "line": 954,
+      "marker_type": "pytest.skip",
+      "reason": "ARAGORA_TEST_AUTH_TOKEN not set",
+      "category": "integration_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_notification_metrics.py",
+      "line": 118,
+      "marker_type": "pytest.skip",
+      "reason": "aiohttp not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_enterprise_sso.py",
+      "line": 127,
+      "marker_type": "skipif",
+      "reason": "Requires complex httpx mocking - see integration tests with real IdP",
+      "category": "known_bug",
+      "condition": "not os.environ.get('RUN_COMPLEX_TESTS')"
+    },
+    {
+      "file": "tests/integration/test_enterprise_sso.py",
+      "line": 22,
+      "marker_type": "pytest.skip",
+      "reason": "OIDCConfig API changed, tests need update (set RUN_SSO_API_UPDATE_TESTS=1)",
+      "category": "known_bug",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_enterprise_sso.py",
+      "line": 143,
+      "marker_type": "pytest.skip",
+      "reason": "PyJWT not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/test_postgres.py",
+      "line": 37,
+      "marker_type": "pytest.skip",
+      "reason": "DATABASE_URL not set or not PostgreSQL",
+      "category": "integration_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/server/test_redis_state_startup.py",
+      "line": 127,
+      "marker_type": "pytest.skip",
+      "reason": "Redis state module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/server/test_redis_state_startup.py",
+      "line": 139,
+      "marker_type": "pytest.skip",
+      "reason": "Redis state module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/server/middleware/test_timeout.py",
+      "line": 511,
+      "marker_type": "pytest.skip",
+      "reason": "signal.alarm requires integer seconds and main thread - not reliable in test environments",
+      "category": "platform_specific",
+      "condition": null
+    },
+    {
+      "file": "tests/server/middleware/test_timeout.py",
+      "line": 506,
+      "marker_type": "pytest.skip",
+      "reason": "Signal-based timeout not available on Windows",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/server/handlers/test_costs.py",
+      "line": 384,
+      "marker_type": "pytest.skip",
+      "reason": "BudgetAlertLevel not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/server/handlers/test_audit_export.py",
+      "line": 71,
+      "marker_type": "pytest.skip",
+      "reason": "Audit module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 283,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 308,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 334,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 352,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 393,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 422,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 432,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 446,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 459,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 472,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 485,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 498,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 511,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 524,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 537,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 550,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 563,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 576,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 597,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 625,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 642,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_workflows_handler.py",
+      "line": 686,
+      "marker_type": "skipif",
+      "reason": "RBAC not available",
+      "category": "missing_feature",
+      "condition": "not RBAC_AVAILABLE"
+    },
+    {
+      "file": "tests/server/handlers/test_integrations_handler.py",
+      "line": 228,
+      "marker_type": "skip",
+      "reason": "Handler allows None workspace_id - behavior differs from test expectation",
+      "category": "uncategorized",
+      "condition": null
+    },
+    {
+      "file": "tests/server/handlers/test_integrations_handler.py",
+      "line": 413,
+      "marker_type": "skip",
+      "reason": "Handler method signature incompatible with @rate_limit decorator. The decorator expects 'handler' as first arg, but handle() has 'method'. Requires handler refactoring to standardize method signatures. Internal methods (_list_integrations, etc.) are tested directly instead.",
+      "category": "uncategorized",
+      "condition": null
+    },
+    {
+      "file": "tests/server/handlers/test_integrations_handler.py",
+      "line": 433,
+      "marker_type": "skip",
+      "reason": "Handler method signature incompatible with @rate_limit decorator. The decorator expects 'handler' as first arg, but handle() has 'method'. Requires handler refactoring to standardize method signatures. Internal methods (_list_integrations, etc.) are tested directly instead.",
+      "category": "uncategorized",
+      "condition": null
+    },
+    {
+      "file": "tests/server/handlers/test_oauth.py",
+      "line": 444,
+      "marker_type": "pytest.skip",
+      "reason": "_handle_list_providers not implemented",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/server/handlers/test_oauth.py",
+      "line": 462,
+      "marker_type": "pytest.skip",
+      "reason": "_handle_list_providers not implemented",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/server/handlers/test_evidence.py",
+      "line": 526,
+      "marker_type": "pytest.skip",
+      "reason": "Rate limited - expected under heavy load, not a failure",
+      "category": "flaky_test",
+      "condition": null
+    },
+    {
+      "file": "tests/utils/test_async_utils.py",
+      "line": 181,
+      "marker_type": "pytest.skip",
+      "reason": "git not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/utils/test_async_utils.py",
+      "line": 259,
+      "marker_type": "pytest.skip",
+      "reason": "git not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/mcp/test_mcp_server.py",
+      "line": 352,
+      "marker_type": "skipif",
+      "reason": "MCP package not installed",
+      "category": "optional_dependency",
+      "condition": "not MCP_AVAILABLE"
+    },
+    {
+      "file": "tests/mcp/test_mcp_server.py",
+      "line": 153,
+      "marker_type": "skipif",
+      "reason": "MCP package not installed",
+      "category": "optional_dependency",
+      "condition": "not MCP_AVAILABLE"
+    },
+    {
+      "file": "tests/mcp/test_mcp_server.py",
+      "line": 165,
+      "marker_type": "skipif",
+      "reason": "MCP package not installed",
+      "category": "optional_dependency",
+      "condition": "not MCP_AVAILABLE"
+    },
+    {
+      "file": "tests/mcp/test_mcp_server.py",
+      "line": 194,
+      "marker_type": "pytest.skip",
+      "reason": "MCP package not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/mcp/test_mcp_server.py",
+      "line": 275,
+      "marker_type": "pytest.skip",
+      "reason": "MCP package not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/debate/test_voting_engine.py",
+      "line": 626,
+      "marker_type": "pytest.skip",
+      "reason": "sentence-transformers not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/debate/test_voting_engine.py",
+      "line": 673,
+      "marker_type": "pytest.skip",
+      "reason": "sentence-transformers not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/debate/test_similarity_factory.py",
+      "line": 130,
+      "marker_type": "pytest.skip",
+      "reason": "TFIDFBackend requires scikit-learn",
+      "category": "integration_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/debate/test_similarity_factory.py",
+      "line": 232,
+      "marker_type": "pytest.skip",
+      "reason": "TFIDFBackend requires scikit-learn",
+      "category": "integration_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/debate/test_similarity_factory.py",
+      "line": 245,
+      "marker_type": "pytest.skip",
+      "reason": "TFIDFBackend requires scikit-learn",
+      "category": "integration_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/storage/test_share_store.py",
+      "line": 521,
+      "marker_type": "pytest.skip",
+      "reason": "ShareSettings not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/storage/test_slack_workspace_store.py",
+      "line": 403,
+      "marker_type": "pytest.skip",
+      "reason": "cryptography package not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/storage/test_redis_ha.py",
+      "line": 621,
+      "marker_type": "skipif",
+      "reason": "Redis integration tests disabled",
+      "category": "integration_dependency",
+      "condition": "os.environ.get('REDIS_INTEGRATION_TEST') != 'true'"
+    },
+    {
+      "file": "tests/storage/test_redis_ha.py",
+      "line": 634,
+      "marker_type": "pytest.skip",
+      "reason": "Redis not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/storage/test_redis_ha.py",
+      "line": 651,
+      "marker_type": "pytest.skip",
+      "reason": "Redis not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/storage/test_postgres_pool_resilience.py",
+      "line": 156,
+      "marker_type": "skipif",
+      "reason": "asyncio.timeout requires Python 3.11+",
+      "category": "integration_dependency",
+      "condition": "sys.version_info < (3, 11)"
+    },
+    {
+      "file": "tests/integrations/test_twilio_voice.py",
+      "line": 108,
+      "marker_type": "skipif",
+      "reason": "Twilio SDK not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_TWILIO"
+    },
+    {
+      "file": "tests/integrations/test_twilio_voice.py",
+      "line": 131,
+      "marker_type": "skipif",
+      "reason": "Twilio SDK not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_TWILIO"
+    },
+    {
+      "file": "tests/integrations/test_twilio_voice.py",
+      "line": 159,
+      "marker_type": "skipif",
+      "reason": "Twilio SDK not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_TWILIO"
+    },
+    {
+      "file": "tests/integrations/test_twilio_voice.py",
+      "line": 173,
+      "marker_type": "skipif",
+      "reason": "Twilio SDK not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_TWILIO"
+    },
+    {
+      "file": "tests/integrations/test_langchain_integration.py",
+      "line": 366,
+      "marker_type": "skipif",
+      "reason": "LangChain not installed",
+      "category": "optional_dependency",
+      "condition": "not LANGCHAIN_AVAILABLE"
+    },
+    {
+      "file": "tests/verification/test_sandbox.py",
+      "line": 163,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/verification/test_sandbox.py",
+      "line": 198,
+      "marker_type": "pytest.skip",
+      "reason": "Lean is installed, skipping not-installed test",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/verification/test_sandbox.py",
+      "line": 210,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 is installed, skipping not-installed test",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/verification/test_sandbox.py",
+      "line": 226,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/verification/test_formal.py",
+      "line": 190,
+      "marker_type": "pytest.skip",
+      "reason": "Z3 not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 46,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 66,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 80,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 122,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 175,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 259,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 276,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 304,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 330,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 360,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 431,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 482,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 578,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 637,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 686,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 746,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 783,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_compressor.py",
+      "line": 862,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_true_rlm_priority.py",
+      "line": 115,
+      "marker_type": "skipif",
+      "reason": "Only run when official RLM is NOT installed",
+      "category": "optional_dependency",
+      "condition": "os.environ.get('HAS_OFFICIAL_RLM') == 'true'"
+    },
+    {
+      "file": "tests/rlm/test_true_rlm_priority.py",
+      "line": 130,
+      "marker_type": "skipif",
+      "reason": "Only run when official RLM is NOT installed",
+      "category": "optional_dependency",
+      "condition": "os.environ.get('HAS_OFFICIAL_RLM') == 'true'"
+    },
+    {
+      "file": "tests/rlm/test_true_rlm_priority.py",
+      "line": 125,
+      "marker_type": "pytest.skip",
+      "reason": "Official RLM is installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/rlm/test_true_rlm_priority.py",
+      "line": 140,
+      "marker_type": "pytest.skip",
+      "reason": "Official RLM is installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/rlm/test_rlm_integration.py",
+      "line": 567,
+      "marker_type": "pytest.skip",
+      "reason": "RLM cognitive limiter module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/rlm/test_rlm_integration.py",
+      "line": 589,
+      "marker_type": "pytest.skip",
+      "reason": "RLM cognitive limiter module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/rlm/test_load.py",
+      "line": 82,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_load.py",
+      "line": 146,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_load.py",
+      "line": 233,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_load.py",
+      "line": 301,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_load.py",
+      "line": 368,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_load.py",
+      "line": 439,
+      "marker_type": "skipif",
+      "reason": "RLM module not available",
+      "category": "missing_feature",
+      "condition": "not HAS_RLM"
+    },
+    {
+      "file": "tests/rlm/test_load.py",
+      "line": 341,
+      "marker_type": "pytest.skip",
+      "reason": "PromptBuilder RLM support not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/rlm/test_load.py",
+      "line": 314,
+      "marker_type": "pytest.skip",
+      "reason": "RLMCognitiveLoadLimiter not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/rlm/test_load.py",
+      "line": 338,
+      "marker_type": "pytest.skip",
+      "reason": "PromptBuilder not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/knowledge/test_mound_facade.py",
+      "line": 596,
+      "marker_type": "pytest.skip",
+      "reason": "Update path has known serialization issue",
+      "category": "known_bug",
+      "condition": null
+    },
+    {
+      "file": "tests/knowledge/test_mound_facade.py",
+      "line": 692,
+      "marker_type": "pytest.skip",
+      "reason": "Update path has known serialization issue",
+      "category": "known_bug",
+      "condition": null
+    },
+    {
+      "file": "tests/knowledge/test_mound_facade.py",
+      "line": 723,
+      "marker_type": "pytest.skip",
+      "reason": "Update path has known serialization issue",
+      "category": "known_bug",
+      "condition": null
+    },
+    {
+      "file": "tests/knowledge/test_mound_facade.py",
+      "line": 1452,
+      "marker_type": "pytest.skip",
+      "reason": "OrganizationCultureManager not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/knowledge/test_mound_facade.py",
+      "line": 1463,
+      "marker_type": "pytest.skip",
+      "reason": "OrganizationCultureManager not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/knowledge/test_mound_facade.py",
+      "line": 1477,
+      "marker_type": "pytest.skip",
+      "reason": "OrganizationCultureManager not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/knowledge/test_mound_facade.py",
+      "line": 1495,
+      "marker_type": "pytest.skip",
+      "reason": "Culture document functionality not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/knowledge/test_mound_facade.py",
+      "line": 1509,
+      "marker_type": "pytest.skip",
+      "reason": "OrganizationCultureManager not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/knowledge/test_mound_facade.py",
+      "line": 1522,
+      "marker_type": "pytest.skip",
+      "reason": "OrganizationCultureManager not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/benchmarks/test_api_benchmarks.py",
+      "line": 54,
+      "marker_type": "skipif",
+      "reason": "aiohttp event loop incompatibility with benchmark iterations",
+      "category": "known_bug",
+      "condition": "HAS_BENCHMARK"
+    },
+    {
+      "file": "tests/benchmarks/test_performance.py",
+      "line": 390,
+      "marker_type": "pytest.skip",
+      "reason": "Subprocess import failed: {...}",
+      "category": "known_bug",
+      "condition": null
+    },
+    {
+      "file": "tests/benchmarks/test_km_quality_scoring.py",
+      "line": 86,
+      "marker_type": "skipif",
+      "reason": "pytest-benchmark not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_BENCHMARK"
+    },
+    {
+      "file": "tests/benchmarks/test_km_quality_scoring.py",
+      "line": 98,
+      "marker_type": "skipif",
+      "reason": "pytest-benchmark not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_BENCHMARK"
+    },
+    {
+      "file": "tests/benchmarks/test_km_quality_scoring.py",
+      "line": 110,
+      "marker_type": "skipif",
+      "reason": "pytest-benchmark not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_BENCHMARK"
+    },
+    {
+      "file": "tests/benchmarks/test_km_quality_scoring.py",
+      "line": 121,
+      "marker_type": "skipif",
+      "reason": "pytest-benchmark not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_BENCHMARK"
+    },
+    {
+      "file": "tests/persistence/migrations/postgres/test_memory_migrator.py",
+      "line": 279,
+      "marker_type": "skipif",
+      "reason": "asyncpg required",
+      "category": "optional_dependency",
+      "condition": "not ASYNCPG_AVAILABLE"
+    },
+    {
+      "file": "tests/gauntlet/api/test_export.py",
+      "line": 612,
+      "marker_type": "pytest.skip",
+      "reason": "WeasyPrint not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/gauntlet/api/test_export.py",
+      "line": 695,
+      "marker_type": "pytest.skip",
+      "reason": "WeasyPrint not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/documents/test_token_counter.py",
+      "line": 139,
+      "marker_type": "skipif",
+      "reason": "tiktoken not installed",
+      "category": "optional_dependency",
+      "condition": "not TIKTOKEN_AVAILABLE"
+    },
+    {
+      "file": "tests/documents/test_token_counter.py",
+      "line": 152,
+      "marker_type": "skipif",
+      "reason": "tiktoken not installed",
+      "category": "optional_dependency",
+      "condition": "not TIKTOKEN_AVAILABLE"
+    },
+    {
+      "file": "tests/documents/test_indexing.py",
+      "line": 117,
+      "marker_type": "skipif",
+      "reason": "Weaviate client not installed",
+      "category": "optional_dependency",
+      "condition": "not WEAVIATE_AVAILABLE"
+    },
+    {
+      "file": "tests/export/test_decision_receipt.py",
+      "line": 534,
+      "marker_type": "skipif",
+      "reason": "weasyprint not installed",
+      "category": "optional_dependency",
+      "condition": "not _has_weasyprint()"
+    },
+    {
+      "file": "tests/export/test_decision_receipt.py",
+      "line": 547,
+      "marker_type": "skipif",
+      "reason": "weasyprint not installed",
+      "category": "optional_dependency",
+      "condition": "not _has_weasyprint()"
+    },
+    {
+      "file": "tests/export/test_decision_receipt.py",
+      "line": 565,
+      "marker_type": "skipif",
+      "reason": "weasyprint not installed",
+      "category": "optional_dependency",
+      "condition": "not _has_weasyprint()"
+    },
+    {
+      "file": "tests/performance/test_load.py",
+      "line": 556,
+      "marker_type": "skipif",
+      "reason": "Stress tests too flaky on CI runners",
+      "category": "integration_dependency",
+      "condition": "'CI' in __import__('os').environ or 'GITHUB_ACTIONS' in __import__('os').environ"
+    },
+    {
+      "file": "tests/performance/test_load.py",
+      "line": 340,
+      "marker_type": "skipif",
+      "reason": "Performance test too flaky on CI runners",
+      "category": "integration_dependency",
+      "condition": "'CI' in __import__('os').environ or 'GITHUB_ACTIONS' in __import__('os').environ"
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 435,
+      "marker_type": "skipif",
+      "reason": "Security routes not handled in CI environment",
+      "category": "integration_dependency",
+      "condition": "'CI' in __import__('os').environ or 'GITHUB_ACTIONS' in __import__('os').environ"
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 75,
+      "marker_type": "pytest.skip",
+      "reason": "list_keys not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 53,
+      "marker_type": "pytest.skip",
+      "reason": "Encryption service not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 65,
+      "marker_type": "pytest.skip",
+      "reason": "Encryption service not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 82,
+      "marker_type": "pytest.skip",
+      "reason": "Encryption service not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 97,
+      "marker_type": "pytest.skip",
+      "reason": "Encryption service not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 152,
+      "marker_type": "pytest.skip",
+      "reason": "IntegrationStore not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 188,
+      "marker_type": "pytest.skip",
+      "reason": "IntegrationStore not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 248,
+      "marker_type": "pytest.skip",
+      "reason": "GmailTokenStore not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 280,
+      "marker_type": "pytest.skip",
+      "reason": "GmailTokenStore not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 346,
+      "marker_type": "pytest.skip",
+      "reason": "SyncStore not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 402,
+      "marker_type": "pytest.skip",
+      "reason": "Key rotation not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 415,
+      "marker_type": "pytest.skip",
+      "reason": "Key rotation not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 452,
+      "marker_type": "pytest.skip",
+      "reason": "Encryption module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 466,
+      "marker_type": "pytest.skip",
+      "reason": "Handler registry not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 484,
+      "marker_type": "pytest.skip",
+      "reason": "SecurityHandler not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 499,
+      "marker_type": "pytest.skip",
+      "reason": "Key rotation module not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_security_api_e2e.py",
+      "line": 517,
+      "marker_type": "pytest.skip",
+      "reason": "Security metrics not available",
+      "category": "missing_feature",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_api_rate_limiting.py",
+      "line": 230,
+      "marker_type": "skipif",
+      "reason": "Rate limiter not triggering 429 in CI environment",
+      "category": "integration_dependency",
+      "condition": "'CI' in __import__('os').environ or 'GITHUB_ACTIONS' in __import__('os').environ"
+    },
+    {
+      "file": "tests/e2e/test_auth_e2e.py",
+      "line": 626,
+      "marker_type": "skipif",
+      "reason": "PyJWT not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_PYJWT"
+    },
+    {
+      "file": "tests/e2e/test_auth_e2e.py",
+      "line": 282,
+      "marker_type": "pytest.skip",
+      "reason": "Handler does not support token refresh",
+      "category": "known_bug",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_auth_e2e.py",
+      "line": 494,
+      "marker_type": "pytest.skip",
+      "reason": "OAuth handler does not support listing providers",
+      "category": "known_bug",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_auth_e2e.py",
+      "line": 311,
+      "marker_type": "pytest.skip",
+      "reason": "Rate limited during refresh - expected under heavy load",
+      "category": "flaky_test",
+      "condition": null
+    },
+    {
+      "file": "tests/e2e/test_websocket_real_clients.py",
+      "line": 35,
+      "marker_type": "skipif",
+      "reason": "websockets package not installed",
+      "category": "optional_dependency",
+      "condition": "not WEBSOCKETS_AVAILABLE"
+    },
+    {
+      "file": "tests/e2e/test_websocket_real_clients.py",
+      "line": 59,
+      "marker_type": "skipif",
+      "reason": "websockets package not installed",
+      "category": "optional_dependency",
+      "condition": "not WEBSOCKETS_AVAILABLE"
+    },
+    {
+      "file": "tests/e2e/test_websocket_real_clients.py",
+      "line": 115,
+      "marker_type": "skipif",
+      "reason": "websockets package not installed",
+      "category": "optional_dependency",
+      "condition": "not WEBSOCKETS_AVAILABLE"
+    },
+    {
+      "file": "tests/e2e/test_websocket_real_clients.py",
+      "line": 157,
+      "marker_type": "skipif",
+      "reason": "websockets package not installed",
+      "category": "optional_dependency",
+      "condition": "not WEBSOCKETS_AVAILABLE"
+    },
+    {
+      "file": "tests/e2e/test_websocket_real_clients.py",
+      "line": 192,
+      "marker_type": "skipif",
+      "reason": "websockets package not installed",
+      "category": "optional_dependency",
+      "condition": "not WEBSOCKETS_AVAILABLE"
+    },
+    {
+      "file": "tests/e2e/test_websocket_real_clients.py",
+      "line": 223,
+      "marker_type": "skipif",
+      "reason": "websockets package not installed",
+      "category": "optional_dependency",
+      "condition": "not WEBSOCKETS_AVAILABLE"
+    },
+    {
+      "file": "tests/e2e/test_websocket_real_clients.py",
+      "line": 241,
+      "marker_type": "skipif",
+      "reason": "websockets package not installed",
+      "category": "optional_dependency",
+      "condition": "not WEBSOCKETS_AVAILABLE"
+    },
+    {
+      "file": "tests/e2e/test_websocket_real_clients.py",
+      "line": 280,
+      "marker_type": "skipif",
+      "reason": "websockets package not installed",
+      "category": "optional_dependency",
+      "condition": "not WEBSOCKETS_AVAILABLE"
+    },
+    {
+      "file": "tests/e2e/test_websocket_real_clients.py",
+      "line": 294,
+      "marker_type": "skipif",
+      "reason": "websockets package not installed",
+      "category": "optional_dependency",
+      "condition": "not WEBSOCKETS_AVAILABLE"
+    },
+    {
+      "file": "tests/e2e/test_websocket_real_clients.py",
+      "line": 357,
+      "marker_type": "skipif",
+      "reason": "websockets package not installed",
+      "category": "optional_dependency",
+      "condition": "not WEBSOCKETS_AVAILABLE"
+    },
+    {
+      "file": "tests/e2e/test_websocket_real_clients.py",
+      "line": 402,
+      "marker_type": "skipif",
+      "reason": "websockets package not installed",
+      "category": "optional_dependency",
+      "condition": "not WEBSOCKETS_AVAILABLE"
+    },
+    {
+      "file": "tests/broadcast/test_mixer.py",
+      "line": 43,
+      "marker_type": "pytest.skip",
+      "reason": "pydub not installed",
+      "category": "optional_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/billing/test_invoice_export.py",
+      "line": 188,
+      "marker_type": "skipif",
+      "reason": "reportlab not installed",
+      "category": "optional_dependency",
+      "condition": "not HAS_REPORTLAB"
+    },
+    {
+      "file": "tests/integration/conftest.py",
+      "line": 463,
+      "marker_type": "pytest.skip",
+      "reason": "PostgreSQL not configured (set DATABASE_URL)",
+      "category": "integration_dependency",
+      "condition": null
+    },
+    {
+      "file": "tests/integration/conftest.py",
+      "line": 488,
+      "marker_type": "pytest.skip",
+      "reason": "PostgreSQL not configured",
+      "category": "integration_dependency",
+      "condition": null
+    }
+  ],
+  "generated_at": "2026-01-25T23:12:48.844439"
+}
