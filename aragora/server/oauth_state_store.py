@@ -80,6 +80,7 @@ class OAuthStateStore(ABC):
         user_id: Optional[str] = None,
         redirect_url: Optional[str] = None,
         ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """Generate and store a new state token."""
         pass
@@ -113,6 +114,7 @@ class InMemoryOAuthStateStore(OAuthStateStore):
         user_id: Optional[str] = None,
         redirect_url: Optional[str] = None,
         ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """Generate and store a new state token."""
         self.cleanup_expired()
@@ -133,6 +135,7 @@ class InMemoryOAuthStateStore(OAuthStateStore):
                 redirect_url=redirect_url,
                 expires_at=now + ttl_seconds,
                 created_at=now,
+                metadata=metadata,
             )
 
         return state_token

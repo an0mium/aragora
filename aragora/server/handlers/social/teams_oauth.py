@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import logging
 import os
-import secrets
 import time
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode
@@ -50,8 +49,12 @@ TEAMS_SCOPES = os.environ.get("TEAMS_SCOPES", DEFAULT_SCOPES)
 MS_OAUTH_AUTHORIZE_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 MS_OAUTH_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 
-# State token storage (in production, use Redis or database)
-_oauth_states: Dict[str, Dict[str, Any]] = {}
+
+def _get_state_store():
+    """Get the centralized OAuth state store."""
+    from aragora.server.oauth_state_store import get_oauth_state_store
+
+    return get_oauth_state_store()
 
 
 class TeamsOAuthHandler(BaseHandler):
@@ -110,23 +113,15 @@ class TeamsOAuthHandler(BaseHandler):
                 503,
             )
 
-        # Generate state token for CSRF protection
-        state = secrets.token_urlsafe(32)
         org_id = query_params.get("org_id")
 
-        # Store state with metadata
-        _oauth_states[state] = {
-            "created_at": time.time(),
-            "org_id": org_id,
-        }
-
-        # Clean up old states (older than 10 minutes)
-        current_time = time.time()
-        expired_states = [
-            s for s, data in _oauth_states.items() if current_time - data["created_at"] > 600
-        ]
-        for s in expired_states:
-            del _oauth_states[s]
+        # Generate state using centralized OAuth state store
+        state_store = _get_state_store()
+        try:
+            state = state_store.generate(metadata={"org_id": org_id, "provider": "teams"})
+        except Exception as e:
+            logger.error(f"Failed to generate OAuth state: {e}")
+            return error_response("Failed to initialize OAuth flow", 503)
 
         # Build OAuth URL
         redirect_uri = TEAMS_REDIRECT_URI
@@ -186,12 +181,13 @@ class TeamsOAuthHandler(BaseHandler):
         if not state:
             return error_response("Missing state parameter", 400)
 
-        # Verify state token
-        state_data = _oauth_states.pop(state, None)
+        # Verify state token using centralized state store
+        state_store = _get_state_store()
+        state_data = state_store.validate_and_consume(state)
         if not state_data:
             return error_response("Invalid or expired state token", 400)
 
-        org_id = state_data.get("org_id")
+        org_id = state_data.metadata.get("org_id") if state_data.metadata else None
 
         if not TEAMS_CLIENT_ID or not TEAMS_CLIENT_SECRET:
             return error_response("Teams OAuth not configured", 503)

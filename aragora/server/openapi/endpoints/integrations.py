@@ -13,6 +13,129 @@ def _response(description: str, schema: dict | None = None) -> dict:
 
 
 INTEGRATION_ENDPOINTS = {
+    # OAuth Wizard endpoints
+    "/api/v2/integrations/wizard": {
+        "get": {
+            "tags": ["Integrations", "Wizard"],
+            "summary": "Get wizard configuration",
+            "description": "Get the complete OAuth wizard configuration including all providers, status, and setup guidance.",
+            "operationId": "getWizardConfig",
+            "responses": {
+                "200": _response(
+                    "Wizard configuration",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "wizard": {"type": "object"},
+                            "generated_at": {"type": "string", "format": "date-time"},
+                        },
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v2/integrations/wizard/providers": {
+        "get": {
+            "tags": ["Integrations", "Wizard"],
+            "summary": "List available providers",
+            "description": "List all available integration providers with optional filtering.",
+            "operationId": "listWizardProviders",
+            "parameters": [
+                {
+                    "name": "category",
+                    "in": "query",
+                    "description": "Filter by category",
+                    "schema": {"type": "string", "enum": ["communication", "development"]},
+                },
+                {
+                    "name": "configured",
+                    "in": "query",
+                    "description": "Filter by configuration status",
+                    "schema": {"type": "boolean"},
+                },
+            ],
+            "responses": {
+                "200": _response(
+                    "Provider list",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "providers": {"type": "array", "items": {"type": "object"}},
+                            "total": {"type": "integer"},
+                        },
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v2/integrations/wizard/status": {
+        "get": {
+            "tags": ["Integrations", "Wizard"],
+            "summary": "Get all integration statuses",
+            "description": "Get detailed status of all integrations including configuration and connection status.",
+            "operationId": "getWizardStatus",
+            "responses": {
+                "200": _response(
+                    "Integration statuses",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "statuses": {"type": "array", "items": {"type": "object"}},
+                            "summary": {"type": "object"},
+                            "checked_at": {"type": "string", "format": "date-time"},
+                        },
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v2/integrations/wizard/validate": {
+        "post": {
+            "tags": ["Integrations", "Wizard"],
+            "summary": "Validate provider configuration",
+            "description": "Validate configuration for a provider before connecting.",
+            "operationId": "validateWizardConfig",
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["provider"],
+                            "properties": {
+                                "provider": {"type": "string"},
+                                "config": {"type": "object"},
+                            },
+                        },
+                    },
+                },
+            },
+            "responses": {
+                "200": _response(
+                    "Validation results",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "provider": {"type": "string"},
+                            "valid": {"type": "boolean"},
+                            "checks": {"type": "array", "items": {"type": "object"}},
+                            "recommendations": {"type": "array", "items": {"type": "string"}},
+                        },
+                    },
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    # Integration management endpoints
     "/api/v2/integrations": {
         "get": {
             "tags": ["Integrations"],

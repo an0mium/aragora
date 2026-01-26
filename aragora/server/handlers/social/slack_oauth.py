@@ -28,6 +28,8 @@ from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
 
+from aragora.server.oauth_state_store import OAUTH_STATE_TTL_SECONDS
+
 from ..base import (
     BaseHandler,
     HandlerResult,
@@ -51,6 +53,21 @@ SLACK_OAUTH_TOKEN_URL = "https://slack.com/api/oauth.v2.access"
 
 # Lazy import for audit logger
 _slack_oauth_audit: Any = None
+
+# Legacy in-memory fallback for tests/compatibility
+_oauth_states_fallback: dict[str, dict[str, Any]] = {}
+
+
+def _cleanup_oauth_states_fallback(now: Optional[float] = None) -> None:
+    """Remove expired fallback OAuth states."""
+    now = now or time.time()
+    expired = [
+        state
+        for state, data in _oauth_states_fallback.items()
+        if now - data.get("created_at", now) > OAUTH_STATE_TTL_SECONDS
+    ]
+    for state in expired:
+        _oauth_states_fallback.pop(state, None)
 
 
 def _get_oauth_audit_logger() -> Any:
@@ -164,6 +181,13 @@ class SlackOAuthHandler(BaseHandler):
 
         oauth_url = f"{SLACK_OAUTH_AUTHORIZE_URL}?{urlencode(oauth_params)}"
 
+        _cleanup_oauth_states_fallback()
+        _oauth_states_fallback[state] = {
+            "created_at": time.time(),
+            "tenant_id": tenant_id,
+            "provider": "slack",
+        }
+
         logger.info(f"Initiating Slack OAuth flow (state: {state[:8]}...)")
 
         # Return redirect response
@@ -214,9 +238,16 @@ class SlackOAuthHandler(BaseHandler):
         state_store = _get_state_store()
         state_data = state_store.validate_and_consume(state)
         if not state_data:
+            _cleanup_oauth_states_fallback()
+            state_data = _oauth_states_fallback.pop(state, None)
+        if not state_data:
             return error_response("Invalid or expired state token", 400)
 
-        tenant_id = state_data.metadata.get("tenant_id") if state_data.metadata else None
+        if isinstance(state_data, dict):
+            tenant_id = state_data.get("tenant_id")
+        else:
+            metadata = getattr(state_data, "metadata", None)
+            tenant_id = metadata.get("tenant_id") if isinstance(metadata, dict) else None
 
         if not SLACK_CLIENT_ID or not SLACK_CLIENT_SECRET:
             return error_response("Slack OAuth not configured", 503)
