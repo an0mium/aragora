@@ -7,11 +7,18 @@ Tests the analytics metrics API handlers for:
 - Usage analytics (tokens, costs, active users)
 """
 
+import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+
+def parse_handler_result(result) -> Dict[str, Any]:
+    """Parse HandlerResult to dict for assertions."""
+    body = json.loads(result.body)
+    return {"success": result.status_code < 400, "data": body, "status_code": result.status_code}
 
 
 class MockDebate:
@@ -132,7 +139,9 @@ class TestDebateAnalytics:
         handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler._get_debates_overview({"time_range": "30d"})
+            raw_result = handler._get_debates_overview({"time_range": "30d"})
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
         data = result["data"]
@@ -150,7 +159,9 @@ class TestDebateAnalytics:
         mock_storage.list_debates.return_value = []
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler._get_debates_overview({})
+            raw_result = handler._get_debates_overview({})
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
         assert result["data"]["total_debates"] == 0
@@ -163,15 +174,17 @@ class TestDebateAnalytics:
         handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler._get_debates_trends(
+            raw_result = handler._get_debates_trends(
                 {
                     "time_range": "7d",
                     "granularity": "daily",
                 }
             )
 
+            result = parse_handler_result(raw_result)
+
         assert result["success"] is True
-        assert "trends" in result["data"]
+        assert "data_points" in result["data"]
 
     def test_debates_topics_extracts_keywords(self, mock_storage, mock_server_context):
         """Test debates topics extracts and counts keywords."""
@@ -180,7 +193,9 @@ class TestDebateAnalytics:
         handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler._get_debates_topics({"limit": "10"})
+            raw_result = handler._get_debates_topics({"limit": "10"})
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
         assert "topics" in result["data"]
@@ -192,7 +207,9 @@ class TestDebateAnalytics:
         handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler._get_debates_outcomes({})
+            raw_result = handler._get_debates_outcomes({})
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
         assert "outcomes" in result["data"]
@@ -205,7 +222,9 @@ class TestDebateAnalytics:
 
         for time_range in ["7d", "14d", "30d", "90d", "180d", "365d", "all"]:
             with patch.object(handler, "get_storage", return_value=mock_storage):
-                result = handler._get_debates_overview({"time_range": time_range})
+                raw_result = handler._get_debates_overview({"time_range": time_range})
+
+                result = parse_handler_result(raw_result)
             assert result["success"] is True, f"Failed for time_range={time_range}"
 
     def test_invalid_time_range_defaults(self, mock_storage, mock_server_context):
@@ -215,7 +234,9 @@ class TestDebateAnalytics:
         handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler._get_debates_overview({"time_range": "invalid"})
+            raw_result = handler._get_debates_overview({"time_range": "invalid"})
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
 
@@ -229,8 +250,10 @@ class TestAgentAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_elo_system", return_value=mock_elo_system):
-            result = handler._get_agents_leaderboard({"limit": "10"})
+        with patch.object(handler, "get_elo_system", return_value=mock_elo_system):
+            raw_result = handler._get_agents_leaderboard({"limit": "10"})
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
         assert "leaderboard" in result["data"]
@@ -242,13 +265,15 @@ class TestAgentAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_elo_system", return_value=mock_elo_system):
-            result = handler._get_agents_leaderboard(
+        with patch.object(handler, "get_elo_system", return_value=mock_elo_system):
+            raw_result = handler._get_agents_leaderboard(
                 {
                     "limit": "10",
                     "domain": "technology",
                 }
             )
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
 
@@ -258,8 +283,10 @@ class TestAgentAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_elo_system", return_value=mock_elo_system):
-            result = handler._get_agent_performance("agent-1", {})
+        with patch.object(handler, "get_elo_system", return_value=mock_elo_system):
+            raw_result = handler._get_agent_performance("agent-1", {})
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
         assert "agent_id" in result["data"]
@@ -271,8 +298,10 @@ class TestAgentAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_elo_system", return_value=mock_elo_system):
-            result = handler._get_agent_performance("nonexistent", {})
+        with patch.object(handler, "get_elo_system", return_value=mock_elo_system):
+            raw_result = handler._get_agent_performance("nonexistent", {})
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is False
         assert result["status_code"] == 404
@@ -283,12 +312,14 @@ class TestAgentAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_elo_system", return_value=mock_elo_system):
-            result = handler._get_agents_comparison(
+        with patch.object(handler, "get_elo_system", return_value=mock_elo_system):
+            raw_result = handler._get_agents_comparison(
                 {
                     "agents": "agent-1,agent-2",
                 }
             )
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
         assert "comparison" in result["data"]
@@ -299,13 +330,15 @@ class TestAgentAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_elo_system", return_value=mock_elo_system):
-            result = handler._get_agents_trends(
+        with patch.object(handler, "get_elo_system", return_value=mock_elo_system):
+            raw_result = handler._get_agents_trends(
                 {
                     "time_range": "30d",
                     "agent_id": "agent-1",
                 }
             )
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
         assert "trends" in result["data"]
@@ -316,8 +349,10 @@ class TestAgentAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_elo_system", return_value=None):
-            result = handler._get_agents_leaderboard({})
+        with patch.object(handler, "get_elo_system", return_value=None):
+            raw_result = handler._get_agents_leaderboard({})
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is False
         assert result["status_code"] == 503
@@ -333,7 +368,9 @@ class TestUsageAnalytics:
         handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_cost_tracker", return_value=mock_cost_tracker):
-            result = handler._get_usage_tokens({})
+            raw_result = handler._get_usage_tokens({})
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
         assert "total_tokens_in" in result["data"]
@@ -346,7 +383,9 @@ class TestUsageAnalytics:
         handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_cost_tracker", return_value=mock_cost_tracker):
-            result = handler._get_usage_costs({})
+            raw_result = handler._get_usage_costs({})
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
         assert "total_cost_usd" in result["data"]
@@ -360,7 +399,9 @@ class TestUsageAnalytics:
         handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_cost_tracker", return_value=mock_cost_tracker):
-            result = handler._get_usage_tokens({"org_id": "org-123"})
+            raw_result = handler._get_usage_tokens({"org_id": "org-123"})
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
 
@@ -381,7 +422,9 @@ class TestUsageAnalytics:
         }
 
         with patch.object(handler, "_get_user_store", return_value=mock_user_store):
-            result = handler._get_active_users({})
+            raw_result = handler._get_active_users({})
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
         assert "active_users" in result["data"]
@@ -422,11 +465,15 @@ class TestParameterValidation:
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
             # Test very high limit
-            result = handler._get_debates_topics({"limit": "1000"})
+            raw_result = handler._get_debates_topics({"limit": "1000"})
+
+            result = parse_handler_result(raw_result)
             assert result["success"] is True
 
             # Test negative limit
-            result = handler._get_debates_topics({"limit": "-5"})
+            raw_result = handler._get_debates_topics({"limit": "-5"})
+
+            result = parse_handler_result(raw_result)
             assert result["success"] is True
 
     def test_offset_validation(self, mock_storage, mock_server_context):
@@ -436,7 +483,9 @@ class TestParameterValidation:
         handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler._get_debates_overview({"offset": "10"})
+            raw_result = handler._get_debates_overview({"offset": "10"})
+
+            result = parse_handler_result(raw_result)
             assert result["success"] is True
 
     def test_granularity_validation(self, mock_storage, mock_server_context):
@@ -447,7 +496,9 @@ class TestParameterValidation:
 
         for granularity in ["daily", "weekly", "monthly"]:
             with patch.object(handler, "get_storage", return_value=mock_storage):
-                result = handler._get_debates_trends({"granularity": granularity})
+                raw_result = handler._get_debates_trends({"granularity": granularity})
+
+                result = parse_handler_result(raw_result)
             assert result["success"] is True
 
     def test_invalid_granularity_defaults(self, mock_storage, mock_server_context):
@@ -457,6 +508,8 @@ class TestParameterValidation:
         handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler._get_debates_trends({"granularity": "invalid"})
+            raw_result = handler._get_debates_trends({"granularity": "invalid"})
+
+            result = parse_handler_result(raw_result)
 
         assert result["success"] is True
