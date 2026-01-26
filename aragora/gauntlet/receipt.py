@@ -9,7 +9,7 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from html import escape
 from typing import Any, Optional
 
@@ -331,7 +331,7 @@ class DecisionReceipt:
         different attributes than the one from result.py.
         """
         receipt_id = str(uuid.uuid4())
-        timestamp = datetime.now().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
 
         # Build provenance chain from findings
         provenance: list[ProvenanceRecord] = []
@@ -429,7 +429,7 @@ class DecisionReceipt:
             DecisionReceipt for audit trail
         """
         receipt_id = str(uuid.uuid4())
-        timestamp = datetime.now().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
 
         # Extract debate ID
         debate_id = getattr(result, "debate_id", "") or getattr(result, "id", "")

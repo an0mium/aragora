@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 # Import categories from config
@@ -54,7 +54,7 @@ class Vulnerability:
     agent_name: Optional[str] = None
     round_number: Optional[int] = None
     scenario_id: Optional[str] = None
-    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     @property
     def risk_score(self) -> float:

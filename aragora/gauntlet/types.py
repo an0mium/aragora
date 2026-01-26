@@ -14,7 +14,7 @@ This module provides the single source of truth for:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -152,7 +152,7 @@ class BaseFinding:
     verification_method: Optional[str] = None
 
     # Timing
-    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     @property
     def severity_numeric(self) -> float:
