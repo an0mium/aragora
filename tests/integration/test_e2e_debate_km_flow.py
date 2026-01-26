@@ -52,13 +52,15 @@ def mock_knowledge_mound():
         results = []
         for node_id, node in mound._nodes.items():
             if query_text.lower() in node["content"].lower():
-                results.append({
-                    "id": node_id,
-                    "content": node["content"],
-                    "score": 0.9,
-                    "tier": node["tier"],
-                    "metadata": node["metadata"],
-                })
+                results.append(
+                    {
+                        "id": node_id,
+                        "content": node["content"],
+                        "score": 0.9,
+                        "tier": node["tier"],
+                        "metadata": node["metadata"],
+                    }
+                )
         return results[:limit]
 
     mound.query = AsyncMock(side_effect=mock_query)
@@ -268,7 +270,7 @@ class TestKMIngestion:
     """Tests for Knowledge Mound ingestion of consensus."""
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
-    @patch("aragora.events.cross_subscribers.record_km_inbound_event")
+    @patch("aragora.events.cross_subscribers.handlers.validation.record_km_inbound_event")
     def test_consensus_ingested_to_km(
         self, mock_record, mock_get_mound, subscriber_manager, consensus_event, mock_knowledge_mound
     ):
@@ -402,7 +404,7 @@ class TestFullE2EFlow:
     """Tests for the complete end-to-end flow."""
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
-    @patch("aragora.events.cross_subscribers.record_km_inbound_event")
+    @patch("aragora.events.cross_subscribers.handlers.validation.record_km_inbound_event")
     @pytest.mark.asyncio
     async def test_debate_to_query_flow(
         self,
@@ -507,9 +509,7 @@ class TestFullE2EFlow:
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
     @pytest.mark.asyncio
-    async def test_dissent_tracking(
-        self, mock_get_mound, subscriber_manager, mock_knowledge_mound
-    ):
+    async def test_dissent_tracking(self, mock_get_mound, subscriber_manager, mock_knowledge_mound):
         """Test dissenting views are tracked alongside consensus."""
         mock_get_mound.return_value = mock_knowledge_mound
 
@@ -543,9 +543,7 @@ class TestEdgeCasesAndErrors:
     """Tests for edge cases and error handling in E2E flow."""
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
-    def test_km_unavailable_graceful_handling(
-        self, mock_get_mound, subscriber_manager
-    ):
+    def test_km_unavailable_graceful_handling(self, mock_get_mound, subscriber_manager):
         """Test graceful handling when KM is unavailable."""
         mock_get_mound.return_value = None  # KM unavailable
 
