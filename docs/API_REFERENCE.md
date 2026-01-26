@@ -4617,6 +4617,309 @@ Returns usage data as downloadable CSV or JSON.
 
 ---
 
+## SME Usage Dashboard API
+
+Comprehensive usage visibility and ROI tracking for SME users.
+
+### Get Usage Summary
+
+```http
+GET /api/v1/usage/summary
+Authorization: Bearer <token>
+```
+
+Query Parameters:
+- `period`: Time period (`hour`, `day`, `week`, `month`, `quarter`, `year`). Default: `month`
+- `start`: Custom start date (ISO format)
+- `end`: Custom end date (ISO format)
+
+Returns unified usage metrics including debates, costs, tokens, and activity.
+
+**Response:**
+```json
+{
+  "summary": {
+    "period": {
+      "type": "month",
+      "start": "2025-12-27T00:00:00Z",
+      "end": "2026-01-26T23:59:59Z",
+      "days": 30
+    },
+    "debates": {
+      "total": 45,
+      "completed": 40,
+      "consensus_rate": 85.5
+    },
+    "costs": {
+      "total_usd": "12.50",
+      "avg_per_debate_usd": "0.28",
+      "by_provider": {
+        "anthropic": "8.50",
+        "openai": "4.00"
+      }
+    },
+    "tokens": {
+      "total": 750000,
+      "input": 500000,
+      "output": 250000
+    },
+    "activity": {
+      "active_days": 15,
+      "debates_per_day": 1.5,
+      "api_calls": 1500
+    }
+  }
+}
+```
+
+### Get Usage Breakdown
+
+```http
+GET /api/v1/usage/breakdown
+Authorization: Bearer <token>
+```
+
+Query Parameters:
+- `dimension`: Breakdown dimension (`agent`, `model`, `day`, `debate`). Default: `agent`
+- `period`: Time period
+- `start`: Custom start date
+- `end`: Custom end date
+
+Returns detailed usage breakdown by the specified dimension.
+
+**Response:**
+```json
+{
+  "breakdown": {
+    "dimension": "agent",
+    "period": {
+      "start": "2025-12-27T00:00:00Z",
+      "end": "2026-01-26T23:59:59Z"
+    },
+    "items": [
+      {
+        "name": "claude",
+        "cost_usd": "8.50",
+        "percentage": 68.0
+      },
+      {
+        "name": "gpt-4",
+        "cost_usd": "4.00",
+        "percentage": 32.0
+      }
+    ]
+  }
+}
+```
+
+### Get ROI Metrics
+
+```http
+GET /api/v1/usage/roi
+Authorization: Bearer <token>
+```
+
+Query Parameters:
+- `benchmark`: Industry benchmark (`sme`, `enterprise`, `tech_startup`, `consulting`). Default: `sme`
+- `period`: Time period
+- `hourly_rate`: Override hourly rate assumption (USD)
+
+Returns ROI analysis comparing AI-assisted decisions with traditional methods.
+
+**Response:**
+```json
+{
+  "roi": {
+    "period": {
+      "start": "2025-12-27T00:00:00Z",
+      "end": "2026-01-26T23:59:59Z"
+    },
+    "time_savings": {
+      "total_hours_saved": 45.0,
+      "avg_hours_per_debate": 1.5,
+      "value_of_time_saved_usd": "3375.00"
+    },
+    "cost": {
+      "total_ai_cost_usd": "12.50",
+      "avg_cost_per_debate_usd": "0.28",
+      "traditional_cost_estimate_usd": "3500.00"
+    },
+    "roi": {
+      "percentage": 26900,
+      "net_savings_usd": "3362.50",
+      "payback_period_debates": 1
+    },
+    "quality": {
+      "consensus_rate": 85.5,
+      "avg_confidence": 0.87,
+      "decisions_with_high_confidence": 38
+    },
+    "productivity": {
+      "debates_per_active_day": 3.0,
+      "time_per_decision_minutes": 5.2,
+      "traditional_time_per_decision_hours": 4.0
+    },
+    "benchmark": {
+      "name": "sme",
+      "hourly_rate_usd": "75.00",
+      "avg_decision_cost_usd": "300.00",
+      "avg_hours_per_decision": 4.0
+    }
+  }
+}
+```
+
+### Get Budget Status
+
+```http
+GET /api/v1/usage/budget-status
+Authorization: Bearer <token>
+```
+
+Returns current budget utilization and projections.
+
+**Response:**
+```json
+{
+  "budget": {
+    "monthly": {
+      "limit_usd": "100.00",
+      "spent_usd": "45.50",
+      "remaining_usd": "54.50",
+      "percent_used": 45.5,
+      "days_remaining": 15,
+      "projected_end_spend_usd": "91.00"
+    },
+    "daily": {
+      "limit_usd": "10.00",
+      "spent_usd": "1.50"
+    },
+    "alert_level": null
+  }
+}
+```
+
+### Get Usage Forecast
+
+```http
+GET /api/v1/usage/forecast
+Authorization: Bearer <token>
+```
+
+Query Parameters:
+- `benchmark`: Industry benchmark for ROI projections
+
+Returns usage forecast based on current patterns.
+
+**Response:**
+```json
+{
+  "forecast": {
+    "projected_monthly_debates": 60,
+    "projected_monthly_cost_usd": "16.80",
+    "projected_time_savings_hours": 60.0,
+    "projected_roi_percentage": 28000,
+    "confidence": 0.85,
+    "recommendations": [
+      "Current usage pattern is efficient",
+      "Consider increasing debate usage for higher ROI"
+    ]
+  }
+}
+```
+
+### Get Industry Benchmarks
+
+```http
+GET /api/v1/usage/benchmarks
+Authorization: Bearer <token>
+```
+
+Returns industry benchmark comparison data.
+
+**Response:**
+```json
+{
+  "benchmarks": {
+    "sme": {
+      "name": "Small/Medium Enterprise",
+      "hourly_rate_usd": "75.00",
+      "avg_decision_cost_usd": "300.00",
+      "avg_hours_per_decision": 4.0,
+      "avg_participants": 3
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "hourly_rate_usd": "150.00",
+      "avg_decision_cost_usd": "1200.00",
+      "avg_hours_per_decision": 8.0,
+      "avg_participants": 5
+    },
+    "tech_startup": {
+      "name": "Tech Startup",
+      "hourly_rate_usd": "100.00",
+      "avg_decision_cost_usd": "400.00",
+      "avg_hours_per_decision": 4.0,
+      "avg_participants": 4
+    },
+    "consulting": {
+      "name": "Consulting",
+      "hourly_rate_usd": "250.00",
+      "avg_decision_cost_usd": "2000.00",
+      "avg_hours_per_decision": 8.0,
+      "avg_participants": 4
+    }
+  }
+}
+```
+
+### Export Usage Data
+
+```http
+GET /api/v1/usage/export
+Authorization: Bearer <token>
+```
+
+Query Parameters:
+- `format`: Export format (`csv`, `json`, `pdf`). Default: `csv`
+- `period`: Time period
+- `start`: Custom start date
+- `end`: Custom end date
+- `include_roi`: Include ROI metrics (`true`/`false`). Default: `false`
+
+Returns usage data as downloadable file.
+
+**Response (JSON format):**
+```json
+{
+  "organization": "My Company",
+  "period": {
+    "start": "2025-12-27T00:00:00Z",
+    "end": "2026-01-26T23:59:59Z"
+  },
+  "totals": {
+    "cost_usd": "12.50",
+    "tokens": 750000,
+    "api_calls": 1500
+  },
+  "by_agent": {
+    "claude": "8.50",
+    "gpt-4": "4.00"
+  },
+  "by_model": {
+    "claude-3-opus": "5.00",
+    "claude-3-sonnet": "3.50",
+    "gpt-4-turbo": "4.00"
+  },
+  "roi": {
+    "time_saved_hours": 45.0,
+    "net_savings_usd": "3362.50"
+  }
+}
+```
+
+---
+
 ## Job Queue API
 
 Background job queue management for long-running tasks.
