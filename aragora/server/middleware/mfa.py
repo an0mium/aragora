@@ -382,10 +382,143 @@ def _get_user_store_from_handler(handler: Any) -> Any:
     return None
 
 
+def require_mfa_fresh(max_age_minutes: int = 15) -> Callable:
+    """
+    Decorator that requires recent MFA verification for sensitive operations.
+
+    Use this for step-up authentication on sensitive operations like:
+    - User role changes
+    - API key generation
+    - Payment method changes
+    - Security settings modifications
+
+    Args:
+        max_age_minutes: Maximum age of MFA verification (default: 15)
+
+    Usage:
+        @require_mfa_fresh(max_age_minutes=10)
+        def sensitive_operation(self, handler, user: User):
+            # Only accessible if MFA was verified in the last 10 minutes
+            ...
+    """
+
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            from aragora.server.handlers.base import error_response
+
+            # Extract handler from args/kwargs
+            handler = kwargs.get("handler")
+            if handler is None:
+                for arg in args:
+                    if hasattr(arg, "headers"):
+                        handler = arg
+                        break
+
+            if handler is None:
+                return error_response("No request handler", 500)
+
+            # Authenticate user
+            user = get_current_user(handler)
+            if not user:
+                return error_response("Authentication required", 401)
+
+            # Check MFA is enabled
+            user_store = _get_user_store_from_handler(handler)
+            mfa_enabled = False
+
+            if user_store:
+                full_user = user_store.get_user_by_id(user.id)
+                if full_user:
+                    mfa_enabled = getattr(full_user, "mfa_enabled", False)
+            else:
+                mfa_enabled = user.metadata.get("mfa_enabled", False)
+
+            if not mfa_enabled:
+                return error_response(
+                    "MFA must be enabled for this operation. "
+                    "Please enable MFA at /api/auth/mfa/setup",
+                    403,
+                    code="MFA_REQUIRED",
+                )
+
+            # Check MFA freshness
+            session_manager = _get_session_manager_from_handler(handler)
+            token_jti = getattr(user, "token_jti", None) or user.metadata.get("jti")
+
+            if session_manager and token_jti:
+                max_age_seconds = max_age_minutes * 60
+                if not session_manager.is_session_mfa_fresh(user.id, token_jti, max_age_seconds):
+                    logger.warning(
+                        f"MFA step-up required for user {user.id}: "
+                        f"MFA not fresh (max age: {max_age_minutes} min)"
+                    )
+                    return error_response(
+                        "This operation requires recent MFA verification. "
+                        "Please re-verify MFA at /api/auth/mfa/verify",
+                        403,
+                        code="MFA_STEP_UP_REQUIRED",
+                    )
+            else:
+                # No session tracking available - require MFA verification
+                logger.warning(
+                    f"MFA step-up required but session tracking unavailable for user {user.id}"
+                )
+                return error_response(
+                    "This operation requires MFA verification. "
+                    "Please verify MFA at /api/auth/mfa/verify",
+                    403,
+                    code="MFA_STEP_UP_REQUIRED",
+                )
+
+            kwargs["user"] = user
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def _get_session_manager_from_handler(handler: Any) -> Any:
+    """Extract session manager from handler context."""
+    # Try common patterns for accessing session manager
+    if hasattr(handler, "ctx"):
+        ctx = handler.ctx
+        if isinstance(ctx, dict):
+            return ctx.get("session_manager")
+        if hasattr(ctx, "session_manager"):
+            return ctx.session_manager
+
+    if hasattr(handler, "server"):
+        server = handler.server
+        if hasattr(server, "ctx"):
+            ctx = server.ctx
+            if isinstance(ctx, dict):
+                return ctx.get("session_manager")
+
+    if hasattr(handler, "app"):
+        app = handler.app
+        if hasattr(app, "ctx"):
+            ctx = app.ctx
+            if isinstance(ctx, dict):
+                return ctx.get("session_manager")
+        if hasattr(app, "session_manager"):
+            return app.session_manager
+
+    # Fallback: try to get the global session manager
+    try:
+        from aragora.billing.auth.sessions import get_session_manager
+
+        return get_session_manager()
+    except Exception:
+        return None
+
+
 __all__ = [
     "require_mfa",
     "require_admin_mfa",
     "require_admin_with_mfa",
+    "require_mfa_fresh",
     "check_mfa_status",
     "enforce_admin_mfa_policy",
 ]
