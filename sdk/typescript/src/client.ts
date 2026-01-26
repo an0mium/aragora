@@ -147,7 +147,16 @@ import type {
 } from './types';
 import { AragoraError } from './types';
 import { AragoraWebSocket, createWebSocket, streamDebate, type WebSocketOptions, type StreamOptions } from './websocket';
-import { DebatesAPI, AgentsAPI, WorkflowsAPI, SMEAPI } from './namespaces';
+import {
+  DebatesAPI,
+  AgentsAPI,
+  WorkflowsAPI,
+  SMEAPI,
+  BillingAPI,
+  BudgetsAPI,
+  ReceiptsAPI,
+  ExplainabilityAPI,
+} from './namespaces';
 
 interface RequestOptions {
   body?: unknown;
@@ -210,6 +219,30 @@ export class AragoraClient {
    */
   readonly sme: SMEAPI;
 
+  /**
+   * Billing API namespace.
+   * Provides methods for subscription and billing management.
+   */
+  readonly billing: BillingAPI;
+
+  /**
+   * Budgets API namespace.
+   * Provides methods for budget management and cost control.
+   */
+  readonly budgets: BudgetsAPI;
+
+  /**
+   * Receipts API namespace.
+   * Provides methods for decision receipt management and compliance.
+   */
+  readonly receipts: ReceiptsAPI;
+
+  /**
+   * Explainability API namespace.
+   * Provides methods for understanding AI decisions.
+   */
+  readonly explainability: ExplainabilityAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -226,6 +259,10 @@ export class AragoraClient {
     this.agents = new AgentsAPI(this);
     this.workflows = new WorkflowsAPI(this);
     this.sme = new SMEAPI(this);
+    this.billing = new BillingAPI(this);
+    this.budgets = new BudgetsAPI(this);
+    this.receipts = new ReceiptsAPI(this);
+    this.explainability = new ExplainabilityAPI(this);
   }
 
   // ===========================================================================

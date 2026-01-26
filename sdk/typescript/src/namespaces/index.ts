@@ -20,3 +20,9 @@ export { VerificationAPI, type DebateConclusionVerifyOptions } from './verificat
 export { AuditAPI, type AuditEventFilterOptions, type AuditExportOptions } from './audit';
 export { TenantsAPI } from './tenants';
 export { OrganizationsAPI } from './organizations';
+
+// SME Starter Pack APIs
+export { BillingAPI, type BillingPlan, type BillingUsage, type Subscription, type UsageForecast } from './billing';
+export { BudgetsAPI, type Budget, type BudgetAlert, type BudgetSummary, type CreateBudgetRequest, type UpdateBudgetRequest } from './budgets';
+export { ReceiptsAPI, type DecisionReceipt, type GauntletReceiptExport } from './receipts';
+export { ExplainabilityAPI, type ExplainabilityResult, type ExplanationFactor, type CounterfactualScenario, type Provenance, type Narrative } from './explainability';
