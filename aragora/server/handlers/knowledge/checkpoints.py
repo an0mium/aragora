@@ -17,7 +17,7 @@ import time
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.checkpoint import KMCheckpointStore
+    from aragora.knowledge.mound.checkpoint import KMCheckpointMetadata, KMCheckpointStore
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -174,23 +174,23 @@ class KMCheckpointHandler(BaseHandler):
             limit = int(self.get_query_param(handler, "limit", "20"))
             limit = min(max(1, limit), 100)
 
-            checkpoints = store.list_checkpoints(limit=limit)  # type: ignore[call-arg]
+            checkpoints: list[KMCheckpointMetadata] = store.list_checkpoints(limit=limit)
 
             return success_response(
                 {
                     "checkpoints": [
                         {
-                            "name": cp.name,  # type: ignore[attr-defined]
-                            "description": cp.description,  # type: ignore[attr-defined]
-                            "created_at": cp.created_at.isoformat(),  # type: ignore[attr-defined]
-                            "node_count": cp.node_count,  # type: ignore[attr-defined]
-                            "size_bytes": cp.size_bytes,  # type: ignore[attr-defined]
-                            "compressed": cp.compressed,  # type: ignore[attr-defined]
-                            "tags": cp.tags,  # type: ignore[attr-defined]
+                            "name": cp.name,
+                            "description": cp.description,
+                            "created_at": cp.created_at,
+                            "node_count": cp.node_count,
+                            "size_bytes": cp.size_bytes,
+                            "compressed": cp.compressed,
+                            "tags": cp.tags,
                         }
-                        for cp in checkpoints  # type: ignore[attr-defined]
+                        for cp in checkpoints
                     ],
-                    "total": len(checkpoints),  # type: ignore[arg-type]
+                    "total": len(checkpoints),
                 }
             )
         except RuntimeError as e:
@@ -224,7 +224,9 @@ class KMCheckpointHandler(BaseHandler):
         success = False
 
         try:
-            body = self.get_request_body(handler)  # type: ignore[attr-defined]
+            body = self.get_request_body(handler)
+            if body is None:
+                body = {}
             name = body.get("name")
             if not name:
                 return error_response("Checkpoint name is required", status=400)
@@ -235,23 +237,23 @@ class KMCheckpointHandler(BaseHandler):
             store = self._get_checkpoint_store()
 
             with track_checkpoint_operation("create") as ctx:
-                metadata = store.create_checkpoint(  # type: ignore[call-arg]
+                metadata: KMCheckpointMetadata = store.create_checkpoint(
                     name=name,
                     description=description,
                     tags=tags,
                 )
-                ctx["size_bytes"] = metadata.size_bytes  # type: ignore[attr-defined]
+                ctx["size_bytes"] = metadata.size_bytes
 
-            success = True
-            return success_response(  # type: ignore[call-arg]
+            success = True  # noqa: F841
+            return success_response(
                 {
-                    "name": metadata.name,  # type: ignore[attr-defined]
-                    "description": metadata.description,  # type: ignore[attr-defined]
-                    "created_at": metadata.created_at.isoformat(),  # type: ignore[attr-defined]
-                    "node_count": metadata.node_count,  # type: ignore[attr-defined]
-                    "size_bytes": metadata.size_bytes,  # type: ignore[attr-defined]
-                    "compressed": metadata.compressed,  # type: ignore[attr-defined]
-                    "tags": metadata.tags,  # type: ignore[attr-defined]
+                    "name": metadata.name,
+                    "description": metadata.description,
+                    "created_at": metadata.created_at,
+                    "node_count": metadata.node_count,
+                    "size_bytes": metadata.size_bytes,
+                    "compressed": metadata.compressed,
+                    "tags": metadata.tags,
                 },
                 status=201,
             )
