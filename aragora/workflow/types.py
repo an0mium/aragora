@@ -385,6 +385,7 @@ class WorkflowCategory(Enum):
     CODE = "code"
     ACADEMIC = "academic"
     COMPLIANCE = "compliance"
+    SME = "sme"
 
 
 @dataclass

@@ -37,6 +37,7 @@ CATEGORY_DIRS: Dict[WorkflowCategory, str] = {
 # Additional directories that also contain templates (mapped to categories)
 ADDITIONAL_TEMPLATE_DIRS: Dict[str, WorkflowCategory] = {
     "finance": WorkflowCategory.FINANCE,  # Investment/trading templates
+    "sme": WorkflowCategory.SME,  # SME business decision templates
 }
 
 
