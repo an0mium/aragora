@@ -274,6 +274,7 @@ async def handle_list_invoices(
         return error_response(f"Failed to list invoices: {e}", status=500)
 
 
+@require_permission("finance:read")
 async def handle_get_invoice(
     invoice_id: str,
     user_id: str = "default",
@@ -372,6 +373,7 @@ async def handle_reject_invoice(
         return error_response(f"Failed to reject invoice: {e}", status=500)
 
 
+@require_permission("finance:read")
 async def handle_get_pending_approvals(
     user_id: str = "default",
 ) -> HandlerResult:
@@ -402,6 +404,7 @@ async def handle_get_pending_approvals(
 # =============================================================================
 
 
+@require_permission("finance:write")
 async def handle_match_to_po(
     invoice_id: str,
     user_id: str = "default",
