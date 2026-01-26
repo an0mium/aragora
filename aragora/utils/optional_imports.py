@@ -146,7 +146,7 @@ class LazyImport:
     def available(self) -> bool:
         """Check if import succeeded."""
         self._ensure_imported()
-        return self._available
+        return bool(self._available)
 
     def all(self) -> tuple[dict[str, Any], bool]:
         """Get all imports and availability flag."""

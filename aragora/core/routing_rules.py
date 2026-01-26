@@ -119,17 +119,17 @@ class Condition:
         # Evaluate based on operator
         match self.operator:
             case ConditionOperator.EQUALS:
-                return bool(field_value == compare_value)
+                return bool(field_value == compare_value)  # type: ignore[no-any-return]
             case ConditionOperator.NOT_EQUALS:
-                return bool(field_value != compare_value)
+                return bool(field_value != compare_value)  # type: ignore[no-any-return]
             case ConditionOperator.GREATER_THAN:
-                return bool(field_value > compare_value)
+                return bool(field_value > compare_value)  # type: ignore[no-any-return]
             case ConditionOperator.GREATER_THAN_OR_EQUAL:
-                return bool(field_value >= compare_value)
+                return bool(field_value >= compare_value)  # type: ignore[no-any-return]
             case ConditionOperator.LESS_THAN:
-                return bool(field_value < compare_value)
+                return bool(field_value < compare_value)  # type: ignore[no-any-return]
             case ConditionOperator.LESS_THAN_OR_EQUAL:
-                return bool(field_value <= compare_value)
+                return bool(field_value <= compare_value)  # type: ignore[no-any-return]
             case ConditionOperator.CONTAINS:
                 if isinstance(field_value, str):
                     return str(compare_value) in field_value
