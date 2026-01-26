@@ -21,18 +21,18 @@ import type {
 interface BillingClientInterface {
   listBillingPlans(): Promise<BillingPlanList>;
   getBillingUsage(params?: { period?: string }): Promise<BillingUsage>;
-  getBillingSubscription(): Promise<Subscription>;
+  getSubscription(): Promise<Subscription>;
   createCheckoutSession(body: {
     plan_id: string;
-    success_url?: string;
-    cancel_url?: string;
+    success_url: string;
+    cancel_url: string;
   }): Promise<{ session_id: string; checkout_url: string }>;
   createBillingPortalSession(returnUrl?: string): Promise<{ url: string }>;
   cancelSubscription(): Promise<{ cancelled: boolean; effective_date: string }>;
   resumeSubscription(): Promise<{ resumed: boolean }>;
-  listBillingInvoices(params?: PaginationParams): Promise<InvoiceList>;
+  getInvoiceHistory(params?: PaginationParams): Promise<InvoiceList>;
   getUsageForecast(): Promise<UsageForecast>;
-  exportBillingUsage(params?: { format?: string; period?: string }): Promise<{ download_url: string }>;
+  exportUsageData(params?: { start_date?: string; end_date?: string }): Promise<{ download_url: string }>;
 }
 
 /**
@@ -82,7 +82,7 @@ export class BillingAPI {
    * Get current subscription details.
    */
   async getSubscription(): Promise<Subscription> {
-    return this.client.getBillingSubscription();
+    return this.client.getSubscription();
   }
 
   /**
@@ -100,8 +100,8 @@ export class BillingAPI {
    */
   async createCheckout(body: {
     plan_id: string;
-    success_url?: string;
-    cancel_url?: string;
+    success_url: string;
+    cancel_url: string;
   }): Promise<{ session_id: string; checkout_url: string }> {
     return this.client.createCheckoutSession(body);
   }
@@ -151,11 +151,11 @@ export class BillingAPI {
   /**
    * Export usage data.
    *
-   * @param format - Export format ('csv' or 'json')
-   * @param period - Optional period to export
+   * @param startDate - Start date for export range
+   * @param endDate - End date for export range
    */
-  async exportUsage(format?: string, period?: string): Promise<{ download_url: string }> {
-    return this.client.exportBillingUsage({ format, period });
+  async exportUsage(startDate?: string, endDate?: string): Promise<{ download_url: string }> {
+    return this.client.exportUsageData({ start_date: startDate, end_date: endDate });
   }
 
   // ===========================================================================
@@ -166,7 +166,7 @@ export class BillingAPI {
    * List invoices with optional pagination.
    */
   async listInvoices(params?: PaginationParams): Promise<InvoiceList> {
-    return this.client.listBillingInvoices(params);
+    return this.client.getInvoiceHistory(params);
   }
 }
 
