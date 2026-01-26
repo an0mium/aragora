@@ -222,6 +222,11 @@ class SimilarDebate:
     dissents: list[DissentRecord]
     relevance_notes: str = ""
 
+    @property
+    def similarity(self) -> float:
+        """Alias for similarity_score for backward compatibility."""
+        return self.similarity_score
+
 
 class ConsensusMemory(SQLiteStore):
     """
