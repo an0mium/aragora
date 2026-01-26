@@ -176,7 +176,9 @@ class TestUpdateIntegration:
     @pytest.mark.asyncio
     async def test_update_not_found(self, handler):
         """Should return 404 for unconfigured integration."""
-        result = parse_result(await handler.update_integration("slack", {"enabled": False}, "user1"))
+        result = parse_result(
+            await handler.update_integration("slack", {"enabled": False}, "user1")
+        )
         assert result["status"] == 404
 
     @pytest.mark.asyncio
@@ -185,7 +187,9 @@ class TestUpdateIntegration:
         config = IntegrationConfig(type="slack", user_id="user1", enabled=True)
         await setup_memory_store.save(config)
 
-        result = parse_result(await handler.update_integration("slack", {"enabled": False}, "user1"))
+        result = parse_result(
+            await handler.update_integration("slack", {"enabled": False}, "user1")
+        )
         assert result["status"] == 200
         assert result["body"]["integration"]["enabled"] is False
 
@@ -203,9 +207,9 @@ class TestUpdateIntegration:
         )
         await setup_memory_store.save(config)
 
-        result = parse_result(await handler.update_integration(
-            "slack", {"notify_on_error": True}, "user1"
-        ))
+        result = parse_result(
+            await handler.update_integration("slack", {"notify_on_error": True}, "user1")
+        )
         assert result["status"] == 200
 
         saved = await setup_memory_store.get("slack", "user1")
@@ -311,13 +315,9 @@ class TestMultiTenant:
     async def test_user_isolation(self, handler, setup_memory_store):
         """Different users should have isolated configurations."""
         # User 1 config
-        await handler.configure_integration(
-            "slack", {"channel": "#user1"}, "user1"
-        )
+        await handler.configure_integration("slack", {"channel": "#user1"}, "user1")
         # User 2 config
-        await handler.configure_integration(
-            "slack", {"channel": "#user2"}, "user2"
-        )
+        await handler.configure_integration("slack", {"channel": "#user2"}, "user2")
 
         # Verify isolation
         result1 = parse_result(await handler.get_integration("slack", "user1"))
