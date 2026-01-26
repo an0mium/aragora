@@ -584,15 +584,15 @@ class TestMonitoringHandlerRecordMetric:
         assert callable(MonitoringHandler.record_metric)
 
 
-class TestMonitoringHandlerGetTrends:
-    """Tests for MonitoringHandler.get_trends."""
+class TestMonitoringHandlerMethods:
+    """Tests for MonitoringHandler methods."""
 
-    def test_get_trends_method_exists(self):
-        """MonitoringHandler should have get_trends method."""
+    def test_record_metric_is_async(self):
+        """record_metric should be an async method."""
         from aragora.server.handlers.autonomous.monitoring import MonitoringHandler
+        import asyncio
 
-        assert hasattr(MonitoringHandler, "get_trends")
-        assert callable(MonitoringHandler.get_trends)
+        assert asyncio.iscoroutinefunction(MonitoringHandler.record_metric)
 
 
 class TestMonitoringHandlerGetAnomalies:

@@ -37,22 +37,28 @@ from aragora.config import (
 
 logger = logging.getLogger(__name__)
 from .base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
     json_response,
     ttl_cache,
 )
+from .secure import SecureHandler
 from aragora.server.versioning.compat import strip_version_prefix
 from .utils.rate_limit import RateLimiter, get_client_ip
+
+# Permission required for analytics access
+ANALYTICS_PERMISSION = "analytics:read"
 
 # Rate limiter for analytics endpoints (30 requests per minute - cached data)
 _analytics_limiter = RateLimiter(requests_per_minute=30)
 
 
-class AnalyticsHandler(BaseHandler):
-    """Handler for analytics and metrics endpoints."""
+class AnalyticsHandler(SecureHandler):
+    """Handler for analytics and metrics endpoints.
+
+    Requires authentication and analytics:read permission (RBAC).
+    """
 
     ROUTES = [
         "/api/analytics/disagreements",

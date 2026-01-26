@@ -74,6 +74,7 @@ from .features import AudioHandler  # Moved to features/
 from .transcription import TranscriptionHandler
 from .features import BroadcastHandler  # Moved to features/
 from .agents import CalibrationHandler  # Moved to agents/
+from .canvas import CanvasHandler
 from .checkpoints import CheckpointHandler
 from .composite import CompositeHandler
 from .consensus import ConsensusHandler
@@ -673,6 +674,7 @@ __all__ = [
     "PersonaHandler",
     "IntrospectionHandler",
     "CalibrationHandler",
+    "CanvasHandler",
     "CompositeHandler",
     "RoutingHandler",
     "RoutingRulesHandler",

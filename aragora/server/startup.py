@@ -133,6 +133,51 @@ def check_connector_dependencies() -> list[str]:
     return warnings
 
 
+def check_agent_credentials(default_agents: str | None = None) -> list[str]:
+    """Check for missing API keys required by default agents.
+
+    This validates that environment variables or AWS Secrets Manager provide
+    the credentials needed to instantiate the configured default agents.
+    """
+    from aragora.config.settings import get_settings
+
+    warnings: list[str] = []
+    agents_str = default_agents or get_settings().agents.default_agents
+    agent_names = [a.strip() for a in agents_str.split(",") if a.strip()]
+
+    # Agents backed by OpenRouter (single key)
+    openrouter_agents = {
+        "deepseek",
+        "kimi",
+        "mistral",
+        "qwen",
+        "qwen-max",
+    }
+    if any(agent in openrouter_agents for agent in agent_names):
+        if not _get_config_value("OPENROUTER_API_KEY"):
+            warnings.append(
+                "OPENROUTER_API_KEY missing for OpenRouter-backed agents "
+                f"({', '.join(sorted(openrouter_agents & set(agent_names)))}). "
+                "Set via env or AWS Secrets Manager (ARAGORA_USE_SECRETS_MANAGER=1)."
+            )
+
+    # Direct API providers
+    if "openai-api" in agent_names and not _get_config_value("OPENAI_API_KEY"):
+        warnings.append("OPENAI_API_KEY missing for openai-api agent (env or Secrets Manager).")
+    if "anthropic-api" in agent_names and not _get_config_value("ANTHROPIC_API_KEY"):
+        warnings.append(
+            "ANTHROPIC_API_KEY missing for anthropic-api agent (env or Secrets Manager)."
+        )
+    if "gemini" in agent_names and not _get_config_value("GEMINI_API_KEY"):
+        warnings.append("GEMINI_API_KEY missing for gemini agent (env or Secrets Manager).")
+    if "grok" in agent_names and not _get_config_value("XAI_API_KEY"):
+        warnings.append("XAI_API_KEY missing for grok agent (env or Secrets Manager).")
+    if "mistral-api" in agent_names and not _get_config_value("MISTRAL_API_KEY"):
+        warnings.append("MISTRAL_API_KEY missing for mistral-api agent (env or Secrets Manager).")
+
+    return warnings
+
+
 def check_production_requirements() -> list[str]:
     """Check if production requirements are met.
 
@@ -223,6 +268,10 @@ def check_production_requirements() -> list[str]:
     # Check connector dependencies (warnings, not errors)
     connector_warnings = check_connector_dependencies()
     warnings.extend(connector_warnings)
+
+    # Check agent API keys for default agents (warnings, not errors)
+    agent_warnings = check_agent_credentials()
+    warnings.extend(agent_warnings)
 
     # Log all warnings
     for warning in warnings:
@@ -2494,6 +2543,7 @@ async def init_decision_router() -> bool:
 
 __all__ = [
     "check_connector_dependencies",
+    "check_agent_credentials",
     "check_production_requirements",
     "validate_redis_connectivity",
     "validate_database_connectivity",

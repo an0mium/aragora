@@ -637,7 +637,7 @@ class TestHandleMethod:
 
         clear_cache()
 
-        with patch("aragora.server.handlers.debates.handler.auth_config") as mock_auth:
+        with patch("aragora.server.auth.auth_config") as mock_auth:
             mock_auth.enabled = False
 
             mock_handler = MagicMock()
