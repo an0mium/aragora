@@ -224,6 +224,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "network: tests requiring external network calls (skip with -m 'not network')"
     )
+    config.addinivalue_line(
+        "markers", "no_auto_auth: disable automatic auth bypass for handler tests"
+    )
 
 
 # ============================================================================

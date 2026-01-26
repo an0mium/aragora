@@ -61,8 +61,8 @@ from ..base import (
     ttl_cache,
     validate_path_segment,
 )
-from ..secure import SecureHandler
-from ..utils.rate_limit import RateLimiter, rate_limit
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
+from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 # RBAC permission for agent endpoints
 AGENT_PERMISSION = "agent:read"
@@ -166,8 +166,26 @@ class AgentsHandler(SecureHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
-        """Route agent requests to appropriate methods."""
+    async def handle(  # type: ignore[override]
+        self, path: str, query_params: dict, handler
+    ) -> Optional[HandlerResult]:
+        """Route agent requests with RBAC."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _agent_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for agent endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # RBAC: Require authentication and agent:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, AGENT_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required to access agent data", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Agent access denied: {e}")
+            return error_response(str(e), 403)
+
         path = strip_version_prefix(path)
         # Agent health endpoint (must come before /api/agents check)
         if path == "/api/agents/health":
