@@ -38,6 +38,7 @@ from typing import Any, Optional
 from aragora.server.handlers.base import (
     error_response,
     success_response,
+    require_permission,
 )
 from aragora.server.handlers.utils.responses import HandlerResult
 
@@ -944,6 +945,7 @@ async def handle_get_action_logs(
         return error_response(f"Get logs failed: {str(e)}", status=500)
 
 
+@require_permission("admin:audit")
 async def handle_export_action_logs(
     data: dict[str, Any],
     user_id: str = "default",

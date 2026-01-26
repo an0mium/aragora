@@ -649,6 +649,7 @@ async def handle_get_expense_stats(
         return error_response(f"Failed to get expense stats: {e}", status=500)
 
 
+@require_permission("admin:audit")
 async def handle_export_expenses(
     query_params: Dict[str, Any],
     user_id: str = "default",

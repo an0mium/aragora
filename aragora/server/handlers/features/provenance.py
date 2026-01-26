@@ -17,6 +17,7 @@ from aragora.reasoning.provenance import (
     SourceType,
 )
 from aragora.server.handlers.base import HandlerResult, json_response
+from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -281,6 +282,7 @@ async def handle_verify_provenance_chain(
     return json_response(verification_result)
 
 
+@require_permission("admin:audit")
 async def handle_export_provenance_report(
     debate_id: str,
     format: str = "json",

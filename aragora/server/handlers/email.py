@@ -32,6 +32,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     success_response,
+    require_permission,
 )
 
 logger = logging.getLogger(__name__)
@@ -1008,6 +1009,7 @@ async def handle_get_config(
     }
 
 
+@require_permission("admin:system")
 async def handle_update_config(
     user_id: str = "default",
     config_updates: Dict[str, Any] = None,
