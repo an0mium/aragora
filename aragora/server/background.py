@@ -329,9 +329,10 @@ def snooze_processor_task() -> None:
                     data = result if isinstance(result, dict) else {}
                     success = data.get("success", False)
 
-                processed = data.get("data", {}).get("processed", 0)
-                if success and processed > 0:
-                    logger.info("Snooze processor: woke up %d emails", processed)
+                # "count" is the integer, "processed" is the list of IDs
+                processed_count = data.get("data", {}).get("count", 0)
+                if success and processed_count > 0:
+                    logger.info("Snooze processor: woke up %d emails", processed_count)
             except ImportError:
                 logger.debug("Email services not available, skipping snooze processing")
 
