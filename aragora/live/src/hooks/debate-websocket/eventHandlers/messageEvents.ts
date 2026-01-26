@@ -70,11 +70,11 @@ export function handleConsensusEvent(data: ParsedEventData, ctx: EventHandlerCon
   };
   ctx.addMessageIfNew(statusMsg);
 
-  // If there's a fallback synthesis in consensus data and consensus was reached
+  // If there's a fallback synthesis in consensus data, add it as final synthesis
   const synthContent = synthesis || answer;
-  if (synthContent && reached) {
+  if (synthContent) {
     const synthesisMsg: TranscriptMessage = {
-      agent: 'consensus',
+      agent: 'synthesis-agent',
       role: 'synthesis',
       content: synthContent,
       timestamp: ((data.timestamp as number) || Date.now() / 1000) + 0.001,
