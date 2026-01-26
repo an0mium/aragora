@@ -50,7 +50,7 @@ export interface paths {
          *     - Kubernetes liveness/readiness checks
          *     - Uptime monitoring services
          */
-        get: operations["getHealth"];
+        get: operations["getHealth1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -215,7 +215,7 @@ export interface paths {
          *     - Time since last activity
          *     - Phase duration statistics
          */
-        get: operations["getNomicHealth"];
+        get: operations["getNomicHealth1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -366,7 +366,7 @@ export interface paths {
          *
          *     **Custom modes:** User-defined workflow configurations.
          */
-        get: operations["listModes"];
+        get: operations["listModes1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -711,7 +711,7 @@ export interface paths {
          *     **Response:** Returns agent metadata including name, model, provider, and ELO rating.
          *     Optionally includes detailed statistics when `include_stats=true`.
          */
-        get: operations["listAgents"];
+        get: operations["listAgents1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1838,7 +1838,7 @@ export interface paths {
          * List all personas
          * @description Get all agent personas including their communication styles and reasoning patterns.
          */
-        get: operations["listPersonas"];
+        get: operations["listPersonas1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1904,7 +1904,7 @@ export interface paths {
          *
          *     **Filtering:** Results are filtered to debates owned by or shared with the authenticated user.
          */
-        get: operations["listDebates"];
+        get: operations["listDebates1"];
         put?: never;
         /**
          * Create a new debate
@@ -11595,7 +11595,7 @@ export interface operations {
             };
         };
     };
-    getHealth: {
+    getHealth1: {
         parameters: {
             query?: never;
             header?: never;
@@ -11712,7 +11712,7 @@ export interface operations {
             };
         };
     };
-    getNomicHealth: {
+    getNomicHealth1: {
         parameters: {
             query?: never;
             header?: never;
@@ -11832,7 +11832,7 @@ export interface operations {
             };
         };
     };
-    listModes: {
+    listModes1: {
         parameters: {
             query?: never;
             header?: never;
@@ -12138,7 +12138,7 @@ export interface operations {
             };
         };
     };
-    listAgents: {
+    listAgents1: {
         parameters: {
             query?: {
                 /** @description Include detailed performance statistics for each agent */
@@ -13262,7 +13262,7 @@ export interface operations {
             };
         };
     };
-    listPersonas: {
+    listPersonas1: {
         parameters: {
             query?: never;
             header?: never;
@@ -13396,7 +13396,7 @@ export interface operations {
             };
         };
     };
-    listDebates: {
+    listDebates1: {
         parameters: {
             query?: {
                 /**
@@ -13601,7 +13601,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -13633,7 +13632,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -13665,7 +13663,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The slug */
                 slug: string;
             };
             cookie?: never;
@@ -13697,7 +13694,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The slug */
                 slug: string;
             };
             cookie?: never;
@@ -13727,14 +13723,11 @@ export interface operations {
     listDebatesByidMessages: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -13753,14 +13746,11 @@ export interface operations {
     listDebatesByidMessages1: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -13781,7 +13771,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -13802,7 +13791,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -13823,7 +13811,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -13844,7 +13831,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -13865,7 +13851,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -13886,7 +13871,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -13907,7 +13891,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -13928,7 +13911,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -13949,7 +13931,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -13970,7 +13951,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -13991,7 +13971,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -14012,7 +13991,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -14033,7 +14011,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -14072,7 +14049,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -14111,9 +14087,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
-                /** @description Output format (e.g., json, yaml, csv) */
                 format: "json" | "markdown" | "html" | "pdf";
             };
             cookie?: never;
@@ -14134,9 +14108,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
-                /** @description Output format (e.g., json, yaml, csv) */
                 format: "json" | "markdown" | "html" | "pdf";
             };
             cookie?: never;
@@ -14157,7 +14129,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -14186,7 +14157,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -14215,7 +14185,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -14236,7 +14205,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -14257,7 +14225,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -14278,7 +14245,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -14299,7 +14265,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -14320,7 +14285,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -14339,9 +14303,7 @@ export interface operations {
     listSearch: {
         parameters: {
             query: {
-                /** @description Search query string */
                 q: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -14362,9 +14324,7 @@ export interface operations {
     listSearch1: {
         parameters: {
             query: {
-                /** @description Search query string */
                 q: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -14385,11 +14345,8 @@ export interface operations {
     listDashboardDebates: {
         parameters: {
             query?: {
-                /** @description Filter by domain */
                 domain?: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description The hours value */
                 hours?: number;
             };
             header?: never;
@@ -14410,11 +14367,8 @@ export interface operations {
     listDashboardDebates1: {
         parameters: {
             query?: {
-                /** @description Filter by domain */
                 domain?: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description The hours value */
                 hours?: number;
             };
             header?: never;
@@ -14615,7 +14569,6 @@ export interface operations {
     listFlipsRecent: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -14636,7 +14589,6 @@ export interface operations {
     listFlipsRecent1: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -14693,7 +14645,6 @@ export interface operations {
     listInsightsRecent: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -14714,7 +14665,6 @@ export interface operations {
     listInsightsRecent1: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -14889,7 +14839,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Filter by type */
                 type: string;
             };
             cookie?: never;
@@ -14910,7 +14859,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Filter by type */
                 type: string;
             };
             cookie?: never;
@@ -15323,9 +15271,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The agent a */
                 agent_a: string;
-                /** @description The agent b */
                 agent_b: string;
             };
             cookie?: never;
@@ -15348,9 +15294,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The agent a */
                 agent_a: string;
-                /** @description The agent b */
                 agent_b: string;
             };
             cookie?: never;
@@ -15371,11 +15315,8 @@ export interface operations {
     listMemoryContinuumRetrieve: {
         parameters: {
             query?: {
-                /** @description Search query string */
                 query?: string;
-                /** @description The tier */
                 tier?: "fast" | "medium" | "slow" | "glacial";
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -15396,11 +15337,8 @@ export interface operations {
     listMemoryContinuumRetrieve1: {
         parameters: {
             query?: {
-                /** @description Search query string */
                 query?: string;
-                /** @description The tier */
                 tier?: "fast" | "medium" | "slow" | "glacial";
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -15567,7 +15505,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -15588,7 +15525,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -15609,7 +15545,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -15630,7 +15565,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -15651,7 +15585,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -15672,7 +15605,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -15691,7 +15623,6 @@ export interface operations {
     listPulseTrending: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -15712,7 +15643,6 @@ export interface operations {
     listPulseTrending1: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -15733,7 +15663,6 @@ export interface operations {
     listPulseSuggest: {
         parameters: {
             query?: {
-                /** @description Filter by category */
                 category?: string;
             };
             header?: never;
@@ -15754,7 +15683,6 @@ export interface operations {
     listPulseSuggest1: {
         parameters: {
             query?: {
-                /** @description Filter by category */
                 category?: string;
             };
             header?: never;
@@ -16823,9 +16751,7 @@ export interface operations {
     listLaboratoryEmergentTraits: {
         parameters: {
             query?: {
-                /** @description Min Confidence parameter */
                 min_confidence?: number;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -16846,9 +16772,7 @@ export interface operations {
     listLaboratoryEmergentTraits1: {
         parameters: {
             query?: {
-                /** @description Min Confidence parameter */
                 min_confidence?: number;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -16943,7 +16867,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -16964,7 +16887,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -17057,7 +16979,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The agent */
                 agent: string;
             };
             cookie?: never;
@@ -17078,7 +16999,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The agent */
                 agent: string;
             };
             cookie?: never;
@@ -17099,7 +17019,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The agent */
                 agent: string;
             };
             cookie?: never;
@@ -17120,7 +17039,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The agent */
                 agent: string;
             };
             cookie?: never;
@@ -17141,7 +17059,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The agent */
                 agent: string;
             };
             cookie?: never;
@@ -17162,7 +17079,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The agent */
                 agent: string;
             };
             cookie?: never;
@@ -17219,7 +17135,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -17240,7 +17155,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the resource */
                 id: string;
             };
             cookie?: never;
@@ -17439,9 +17353,7 @@ export interface operations {
     listRoutingBestTeams: {
         parameters: {
             query?: {
-                /** @description The min debates value */
                 min_debates?: number;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -17462,9 +17374,7 @@ export interface operations {
     listRoutingBestTeams1: {
         parameters: {
             query?: {
-                /** @description The min debates value */
                 min_debates?: number;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -17647,7 +17557,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Name of the resource */
                 name: string;
             };
             cookie?: never;
@@ -17668,7 +17577,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Name of the resource */
                 name: string;
             };
             cookie?: never;
@@ -18333,9 +18241,7 @@ export interface operations {
     listWorkspaces: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
@@ -18429,9 +18335,7 @@ export interface operations {
     listWorkspaces1: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
@@ -18527,7 +18431,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace to scope the query to */
                 workspace_id: string;
             };
             cookie?: never;
@@ -18577,7 +18480,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace to scope the query to */
                 workspace_id: string;
             };
             cookie?: never;
@@ -18625,7 +18527,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace to scope the query to */
                 workspace_id: string;
             };
             cookie?: never;
@@ -18675,7 +18576,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace to scope the query to */
                 workspace_id: string;
             };
             cookie?: never;
@@ -18723,7 +18623,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace to scope the query to */
                 workspace_id: string;
             };
             cookie?: never;
@@ -18779,7 +18678,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace to scope the query to */
                 workspace_id: string;
             };
             cookie?: never;
@@ -19297,7 +19195,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the policy */
                 policy_id: string;
             };
             cookie?: never;
@@ -19345,7 +19242,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the policy */
                 policy_id: string;
             };
             cookie?: never;
@@ -19543,7 +19439,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Filter by level (e.g., debug, info, warning, error) */
                 level: "public" | "internal" | "confidential" | "restricted";
             };
             cookie?: never;
@@ -19582,7 +19477,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Filter by level (e.g., debug, info, warning, error) */
                 level: "public" | "internal" | "confidential" | "restricted";
             };
             cookie?: never;
@@ -19619,19 +19513,12 @@ export interface operations {
     listAuditEntries: {
         parameters: {
             query?: {
-                /** @description The actor id */
                 actor_id?: string;
-                /** @description The resource id */
                 resource_id?: string;
-                /** @description The action */
                 action?: string;
-                /** @description The outcome */
                 outcome?: "success" | "denied" | "error";
-                /** @description Start time for filtering (Unix timestamp or ISO 8601) */
                 start_time?: string;
-                /** @description End time for filtering (Unix timestamp or ISO 8601) */
                 end_time?: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -19670,19 +19557,12 @@ export interface operations {
     listAuditEntries1: {
         parameters: {
             query?: {
-                /** @description The actor id */
                 actor_id?: string;
-                /** @description The resource id */
                 resource_id?: string;
-                /** @description The action */
                 action?: string;
-                /** @description The outcome */
                 outcome?: "success" | "denied" | "error";
-                /** @description Start time for filtering (Unix timestamp or ISO 8601) */
                 start_time?: string;
-                /** @description End time for filtering (Unix timestamp or ISO 8601) */
                 end_time?: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -19721,11 +19601,8 @@ export interface operations {
     listAuditReport: {
         parameters: {
             query: {
-                /** @description Start date for filtering (ISO 8601 format) */
                 start_date: string;
-                /** @description End date for filtering (ISO 8601 format) */
                 end_date: string;
-                /** @description Output format (e.g., json, yaml, csv) */
                 format?: "json" | "csv" | "pdf";
             };
             header?: never;
@@ -19773,11 +19650,8 @@ export interface operations {
     listAuditReport1: {
         parameters: {
             query: {
-                /** @description Start date for filtering (ISO 8601 format) */
                 start_date: string;
-                /** @description End date for filtering (ISO 8601 format) */
                 end_date: string;
-                /** @description Output format (e.g., json, yaml, csv) */
                 format?: "json" | "csv" | "pdf";
             };
             header?: never;
@@ -19825,9 +19699,7 @@ export interface operations {
     listAuditVerify: {
         parameters: {
             query?: {
-                /** @description The start sequence value */
                 start_sequence?: number;
-                /** @description The end sequence value */
                 end_sequence?: number;
             };
             header?: never;
@@ -19866,9 +19738,7 @@ export interface operations {
     listAuditVerify1: {
         parameters: {
             query?: {
-                /** @description The start sequence value */
                 start_sequence?: number;
-                /** @description The end sequence value */
                 end_sequence?: number;
             };
             header?: never;
@@ -19913,9 +19783,7 @@ export interface operations {
                 tags?: string;
                 /** @description Search in workflow name and description */
                 search?: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
@@ -19987,9 +19855,7 @@ export interface operations {
                 tags?: string;
                 /** @description Search in workflow name and description */
                 search?: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
@@ -20057,7 +19923,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the workflow */
                 workflow_id: string;
             };
             cookie?: never;
@@ -20089,7 +19954,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the workflow */
                 workflow_id: string;
             };
             cookie?: never;
@@ -20134,7 +19998,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the workflow */
                 workflow_id: string;
             };
             cookie?: never;
@@ -20164,7 +20027,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the workflow */
                 workflow_id: string;
             };
             cookie?: never;
@@ -20196,7 +20058,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the workflow */
                 workflow_id: string;
             };
             cookie?: never;
@@ -20241,7 +20102,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the workflow */
                 workflow_id: string;
             };
             cookie?: never;
@@ -20271,7 +20131,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the workflow */
                 workflow_id: string;
             };
             cookie?: never;
@@ -20331,7 +20190,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the workflow */
                 workflow_id: string;
             };
             cookie?: never;
@@ -20389,12 +20247,10 @@ export interface operations {
     listWorkflowsByworkflowidVersions: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the workflow */
                 workflow_id: string;
             };
             cookie?: never;
@@ -20422,12 +20278,10 @@ export interface operations {
     listWorkflowsByworkflowidVersions1: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the workflow */
                 workflow_id: string;
             };
             cookie?: never;
@@ -20503,7 +20357,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the template */
                 template_id: string;
             };
             cookie?: never;
@@ -20535,7 +20388,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the template */
                 template_id: string;
             };
             cookie?: never;
@@ -20569,7 +20421,6 @@ export interface operations {
                 workflow_id?: string;
                 /** @description Filter by execution status */
                 status?: "pending" | "running" | "completed" | "failed" | "cancelled";
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -20596,7 +20447,6 @@ export interface operations {
                 workflow_id?: string;
                 /** @description Filter by execution status */
                 status?: "pending" | "running" | "completed" | "failed" | "cancelled";
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -20621,7 +20471,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The execution id */
                 execution_id: string;
             };
             cookie?: never;
@@ -20651,7 +20500,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The execution id */
                 execution_id: string;
             };
             cookie?: never;
@@ -20690,7 +20538,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The execution id */
                 execution_id: string;
             };
             cookie?: never;
@@ -20720,7 +20567,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The execution id */
                 execution_id: string;
             };
             cookie?: never;
@@ -20813,7 +20659,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The approval id */
                 approval_id: string;
             };
             cookie?: never;
@@ -20869,7 +20714,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The approval id */
                 approval_id: string;
             };
             cookie?: never;
@@ -21117,9 +20961,7 @@ export interface operations {
                 consensus_reached?: boolean;
                 /** @description Filter by minimum confidence */
                 min_confidence?: number;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
@@ -21152,9 +20994,7 @@ export interface operations {
                 consensus_reached?: boolean;
                 /** @description Filter by minimum confidence */
                 min_confidence?: number;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
@@ -21179,7 +21019,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the receipt */
                 receipt_id: string;
             };
             cookie?: never;
@@ -21211,7 +21050,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the receipt */
                 receipt_id: string;
             };
             cookie?: never;
@@ -21254,7 +21092,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the receipt */
                 receipt_id: string;
             };
             cookie?: never;
@@ -21300,7 +21137,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the receipt */
                 receipt_id: string;
             };
             cookie?: never;
@@ -21425,7 +21261,6 @@ export interface operations {
             query?: {
                 /** @description Filter by gauntlet ID */
                 gauntlet_id?: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -21450,7 +21285,6 @@ export interface operations {
             query?: {
                 /** @description Filter by gauntlet ID */
                 gauntlet_id?: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -21475,7 +21309,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The heatmap id */
                 heatmap_id: string;
             };
             cookie?: never;
@@ -21507,7 +21340,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The heatmap id */
                 heatmap_id: string;
             };
             cookie?: never;
@@ -21542,7 +21374,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description The heatmap id */
                 heatmap_id: string;
             };
             cookie?: never;
@@ -21579,7 +21410,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description The heatmap id */
                 heatmap_id: string;
             };
             cookie?: never;
@@ -21613,7 +21443,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the receipt */
                 receipt_id: string;
             };
             cookie?: never;
@@ -21645,7 +21474,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the receipt */
                 receipt_id: string;
             };
             cookie?: never;
@@ -21760,7 +21588,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -21807,7 +21634,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -21854,7 +21680,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -21894,7 +21719,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -21947,7 +21771,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -21987,7 +21810,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -22042,7 +21864,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -22093,7 +21914,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -22142,7 +21962,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -22187,7 +22006,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the debate */
                 debate_id: string;
             };
             cookie?: never;
@@ -22233,9 +22051,7 @@ export interface operations {
                 search?: string;
                 /** @description Filter by tags (comma-separated) */
                 tags?: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
@@ -22271,9 +22087,7 @@ export interface operations {
                 search?: string;
                 /** @description Filter by tags (comma-separated) */
                 tags?: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
@@ -22370,7 +22184,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the template */
                 template_id: string;
             };
             cookie?: never;
@@ -22425,7 +22238,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the template */
                 template_id: string;
             };
             cookie?: never;
@@ -22477,7 +22289,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the template */
                 template_id: string;
             };
             cookie?: never;
@@ -22554,7 +22365,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the template */
                 template_id: string;
             };
             cookie?: never;
@@ -22743,7 +22553,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The pattern id */
                 pattern_id: string;
             };
             cookie?: never;
@@ -22796,7 +22605,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The pattern id */
                 pattern_id: string;
             };
             cookie?: never;
@@ -22847,7 +22655,6 @@ export interface operations {
     listDecisions: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
@@ -22923,7 +22730,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The request id */
                 request_id: string;
             };
             cookie?: never;
@@ -22964,7 +22770,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The request id */
                 request_id: string;
             };
             cookie?: never;
@@ -22996,7 +22801,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -23064,7 +22868,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -23123,9 +22926,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
-                /** @description The scan id */
                 scan_id: string;
             };
             cookie?: never;
@@ -23182,16 +22983,12 @@ export interface operations {
     listCodebaseByrepoScans: {
         parameters: {
             query?: {
-                /** @description Filter by status (e.g., pending, active, completed, failed) */
                 status?: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -23239,20 +23036,14 @@ export interface operations {
     listCodebaseByrepoVulnerabilities: {
         parameters: {
             query?: {
-                /** @description Filter by severity (e.g., low, medium, high, critical) */
                 severity?: string;
-                /** @description The package */
                 package?: string;
-                /** @description The ecosystem */
                 ecosystem?: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -23589,7 +23380,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -23652,7 +23442,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -23711,9 +23500,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
-                /** @description The scan id */
                 scan_id: string;
             };
             cookie?: never;
@@ -23772,7 +23559,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -23822,7 +23608,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -23872,7 +23657,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -23939,9 +23723,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
-                /** @description The scan id */
                 scan_id: string;
             };
             cookie?: never;
@@ -23998,18 +23780,13 @@ export interface operations {
     listCodebaseByrepoSastFindings: {
         parameters: {
             query?: {
-                /** @description Filter by severity (e.g., low, medium, high, critical) */
                 severity?: string;
-                /** @description The owasp category */
                 owasp_category?: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24059,7 +23836,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24109,7 +23885,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24179,7 +23954,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24238,9 +24012,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
-                /** @description The analysis id */
                 analysis_id: string;
             };
             cookie?: never;
@@ -24297,14 +24069,11 @@ export interface operations {
     listCodebaseByrepoMetricsHistory: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24352,14 +24121,11 @@ export interface operations {
     listCodebaseByrepoHotspots: {
         parameters: {
             query?: {
-                /** @description The min complexity value */
                 min_complexity?: number;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24407,14 +24173,11 @@ export interface operations {
     listCodebaseByrepoDuplicates: {
         parameters: {
             query?: {
-                /** @description The min lines value */
                 min_lines?: number;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
             };
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24464,9 +24227,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
-                /** @description The file path */
                 file_path: string;
             };
             cookie?: never;
@@ -24525,7 +24286,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24570,7 +24330,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24602,7 +24361,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24634,7 +24392,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24666,7 +24423,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24711,7 +24467,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24756,7 +24511,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24801,9 +24555,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
-                /** @description The audit id */
                 audit_id: string;
             };
             cookie?: never;
@@ -24844,7 +24596,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24889,7 +24640,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24921,7 +24671,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24953,7 +24702,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -24985,7 +24733,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -25030,7 +24777,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -25075,7 +24821,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
             };
             cookie?: never;
@@ -25120,9 +24865,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Repository name or path */
                 repo: string;
-                /** @description The audit id */
                 audit_id: string;
             };
             cookie?: never;
@@ -25163,7 +24906,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the message */
                 message_id: string;
             };
             cookie?: never;
@@ -25217,7 +24959,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the message */
                 message_id: string;
             };
             cookie?: never;
@@ -25262,7 +25003,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the message */
                 message_id: string;
             };
             cookie?: never;
@@ -25307,7 +25047,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the message */
                 message_id: string;
             };
             cookie?: never;
@@ -25348,7 +25087,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the message */
                 message_id: string;
             };
             cookie?: never;
@@ -25391,14 +25129,11 @@ export interface operations {
     getGmailMessagesBymessageidAttachmentsByattachmentid: {
         parameters: {
             query?: {
-                /** @description Unique identifier of the user */
                 user_id?: string;
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the message */
                 message_id: string;
-                /** @description The attachment id */
                 attachment_id: string;
             };
             cookie?: never;
@@ -25574,7 +25309,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the user */
                 user_id: string;
             };
             cookie?: never;
@@ -25655,9 +25389,7 @@ export interface operations {
     listKnowledgeMoundGovernanceAudit: {
         parameters: {
             query?: {
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
@@ -25691,7 +25423,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the user */
                 user_id: string;
             };
             cookie?: never;
@@ -25759,11 +25490,8 @@ export interface operations {
     listAuditSessions: {
         parameters: {
             query?: {
-                /** @description Filter by status (e.g., pending, active, completed, failed) */
                 status?: string;
-                /** @description Maximum number of items to return (default: 20, max: 100) */
                 limit?: number;
-                /** @description Number of items to skip for pagination */
                 offset?: number;
             };
             header?: never;
@@ -25839,7 +25567,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the session */
                 session_id: string;
             };
             cookie?: never;
@@ -25880,7 +25607,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the session */
                 session_id: string;
             };
             cookie?: never;
@@ -25921,7 +25647,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the session */
                 session_id: string;
             };
             cookie?: never;
@@ -25962,7 +25687,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the session */
                 session_id: string;
             };
             cookie?: never;
@@ -26003,7 +25727,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the session */
                 session_id: string;
             };
             cookie?: never;
@@ -26044,7 +25767,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the session */
                 session_id: string;
             };
             cookie?: never;
@@ -26083,12 +25805,10 @@ export interface operations {
     listAuditSessionsBysessionidFindings: {
         parameters: {
             query?: {
-                /** @description The audit type */
                 audit_type?: string;
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the session */
                 session_id: string;
             };
             cookie?: never;
@@ -26129,7 +25849,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the session */
                 session_id: string;
             };
             cookie?: never;
@@ -26170,7 +25889,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique identifier of the session */
                 session_id: string;
             };
             cookie?: never;
@@ -26222,12 +25940,10 @@ export interface operations {
     listAuditSessionsBysessionidReport: {
         parameters: {
             query?: {
-                /** @description Output format (e.g., json, yaml, csv) */
                 format?: string;
             };
             header?: never;
             path: {
-                /** @description Unique identifier of the session */
                 session_id: string;
             };
             cookie?: never;
