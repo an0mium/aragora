@@ -179,8 +179,8 @@ def main() -> None:
                 sys.exit(code)
 
             add_header(temp_out)
-            # Note: We don't format in check mode to avoid ruff version differences
-            # The key comparison is the raw datamodel-codegen output
+            # Run ruff format for consistent comparison
+            format_output(temp_out)
 
             # Normalize both for comparison (timestamps, whitespace)
             generated = normalize_content(temp_out.read_text())
