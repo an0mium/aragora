@@ -313,19 +313,25 @@ def enforce_admin_mfa_policy(
     if user_store:
         full_user = user_store.get_user_by_id(user.id)
         if full_user:
-            created_at = getattr(full_user, "created_at", None)
-            if created_at:
-                if isinstance(created_at, str):
-                    try:
-                        created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-                    except ValueError:
-                        created_at = None
+            # Prefer mfa_grace_period_started_at (set when user becomes admin)
+            # Fall back to created_at for backward compatibility
+            grace_start = getattr(full_user, "mfa_grace_period_started_at", None)
+            if grace_start is None:
+                grace_start = getattr(full_user, "created_at", None)
 
-                if created_at:
-                    grace_end = created_at + timedelta(days=grace_period_days)
+            if grace_start:
+                if isinstance(grace_start, str):
+                    try:
+                        grace_start = datetime.fromisoformat(grace_start.replace("Z", "+00:00"))
+                    except ValueError:
+                        grace_start = None
+
+                if grace_start:
+                    grace_end = grace_start + timedelta(days=grace_period_days)
                     now = datetime.now(timezone.utc)
-                    if hasattr(grace_end, "tzinfo") and grace_end.tzinfo:
-                        now = datetime.now(timezone.utc)
+                    # Ensure timezone-aware comparison
+                    if grace_start.tzinfo is None:
+                        now = datetime.utcnow()
 
                     if now < grace_end:
                         days_remaining = (grace_end - now).days
@@ -333,6 +339,7 @@ def enforce_admin_mfa_policy(
                             "compliant": False,
                             "enforced": False,
                             "grace_period_remaining_days": days_remaining,
+                            "grace_period_started_at": grace_start.isoformat(),
                             "action": "Please enable MFA before grace period ends",
                         }
 

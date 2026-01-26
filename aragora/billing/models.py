@@ -309,6 +309,10 @@ class User:
     mfa_enabled: bool = False
     mfa_backup_codes: Optional[str] = None  # JSON-encoded list of hashed backup codes
 
+    # MFA grace period tracking for newly promoted admins
+    # When a user is promoted to admin, this is set to track when MFA setup must be completed
+    mfa_grace_period_started_at: Optional[datetime] = None
+
     # Token revocation - increment to invalidate all existing tokens
     token_version: int = 1
 
@@ -407,6 +411,37 @@ class User:
         self.api_key_expires_at = None
         self.updated_at = datetime.now(timezone.utc)
 
+    def promote_to_admin(self, new_role: str = "admin") -> None:
+        """
+        Promote user to admin role and start MFA grace period.
+
+        Sets mfa_grace_period_started_at to current time so the user
+        has a window to set up MFA before enforcement kicks in.
+
+        Args:
+            new_role: The admin role to assign (admin, owner, superadmin)
+        """
+        admin_roles = {"admin", "owner", "superadmin"}
+        if new_role not in admin_roles:
+            raise ValueError(f"Invalid admin role: {new_role}. Must be one of {admin_roles}")
+
+        was_admin = self.role in admin_roles
+        self.role = new_role
+        self.updated_at = datetime.now(timezone.utc)
+
+        # Start MFA grace period if newly promoted to admin
+        if not was_admin and not self.mfa_enabled:
+            self.mfa_grace_period_started_at = datetime.now(timezone.utc)
+            logger.info(
+                f"User {self.id} promoted to {new_role}. "
+                f"MFA grace period started at {self.mfa_grace_period_started_at}"
+            )
+
+    def clear_mfa_grace_period(self) -> None:
+        """Clear the MFA grace period (called when MFA is enabled)."""
+        self.mfa_grace_period_started_at = None
+        self.updated_at = datetime.now(timezone.utc)
+
     def to_dict(self, include_sensitive: bool = False) -> dict[str, Any]:
         """Convert to dictionary."""
         data = {
@@ -422,6 +457,12 @@ class User:
             "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
             "has_api_key": self.api_key_hash is not None,
             "token_version": self.token_version,
+            "mfa_enabled": self.mfa_enabled,
+            "mfa_grace_period_started_at": (
+                self.mfa_grace_period_started_at.isoformat()
+                if self.mfa_grace_period_started_at
+                else None
+            ),
         }
         if include_sensitive:
             data["api_key_prefix"] = self.api_key_prefix
@@ -462,6 +503,16 @@ class User:
                 user.api_key_created_at = datetime.fromisoformat(data["api_key_created_at"])
             else:
                 user.api_key_created_at = data["api_key_created_at"]
+        if "mfa_grace_period_started_at" in data and data["mfa_grace_period_started_at"]:
+            if isinstance(data["mfa_grace_period_started_at"], str):
+                user.mfa_grace_period_started_at = datetime.fromisoformat(
+                    data["mfa_grace_period_started_at"]
+                )
+            else:
+                user.mfa_grace_period_started_at = data["mfa_grace_period_started_at"]
+        # Load MFA enabled flag
+        if "mfa_enabled" in data:
+            user.mfa_enabled = data.get("mfa_enabled", False)
         return user
 
 
