@@ -78,7 +78,7 @@ export function RouteGuard({
       }
 
       // Verify token with API
-      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -202,7 +202,7 @@ export function useAuth(): AuthState & { logout: () => void; refresh: () => Prom
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

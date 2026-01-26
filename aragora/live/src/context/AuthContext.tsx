@@ -313,11 +313,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const response = await fetch(`${API_BASE}/api/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${tokens.access_token}`,
-          },
-        });
+      const response = await fetch(`${API_BASE}/api/v1/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${tokens.access_token}`,
+        },
+      });
 
         if (!response.ok) {
           throw new Error(`Auth validation failed: ${response.status}`);
@@ -369,10 +369,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Fetch organizations when authenticated
   useEffect(() => {
-    if (state.isAuthenticated && state.tokens?.access_token && state.organizations.length === 0) {
+    if (
+      !state.isLoading
+      && state.isAuthenticated
+      && state.tokens?.access_token
+      && state.organizations.length === 0
+    ) {
       refreshOrganizations();
     }
-  }, [state.isAuthenticated, state.tokens?.access_token, state.organizations.length, refreshOrganizations]);
+  }, [
+    state.isAuthenticated,
+    state.isLoading,
+    state.tokens?.access_token,
+    state.organizations.length,
+    refreshOrganizations,
+  ]);
 
   const login = useCallback(async (email: string, password: string) => {
     try {

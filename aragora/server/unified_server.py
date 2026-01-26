@@ -476,6 +476,12 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         "/api/v1/tournaments/",  # Public tournament data (v1)
         "/api/reviews/",  # Public reviews
         "/api/v1/reviews/",  # Public reviews (v1)
+        "/api/consensus/",  # Public consensus read-only data
+        "/api/v1/consensus/",  # Public consensus read-only data (v1)
+        "/api/moments/",  # Public moments summaries
+        "/api/v1/moments/",  # Public moments summaries (v1)
+        "/api/flips/",  # Public flip summaries
+        "/api/v1/flips/",  # Public flip summaries (v1)
         "/api/verticals/",  # Public verticals list
         "/api/v1/verticals/",  # Public verticals list (v1)
         "/api/features/",  # Public feature config
