@@ -246,7 +246,8 @@
             "description": "System degraded or unhealthy"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getHealth"
       }
     },
     "/api/v1/health": {
@@ -256,7 +257,7 @@
         ],
         "summary": "Health check",
         "description": "Get system health status for load balancers and monitoring.\n\n**Returns:** 200 when healthy, 503 when degraded.\n\n**Use cases:**\n- Load balancer health probes\n- Kubernetes liveness/readiness checks\n- Uptime monitoring services",
-        "operationId": "getHealth",
+        "operationId": "getHealth1",
         "responses": {
           "200": {
             "description": "System healthy",
@@ -291,7 +292,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listHealthDetailed"
       }
     },
     "/api/v1/health/detailed": {
@@ -331,7 +333,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listNomicState"
       }
     },
     "/api/v1/nomic/state": {
@@ -366,7 +369,8 @@
             "description": "Nomic health status"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getNomicHealth"
       }
     },
     "/api/v1/nomic/health": {
@@ -376,7 +380,7 @@
         ],
         "summary": "Nomic loop health",
         "description": "Get nomic loop health with stall detection.\n\n**Stall detection:** Alerts if the nomic loop hasn't progressed within expected timeframes.\n\n**Response includes:**\n- Health status (healthy, stalled, degraded)\n- Time since last activity\n- Phase duration statistics",
-        "operationId": "getNomicHealth",
+        "operationId": "getNomicHealth1",
         "responses": {
           "200": {
             "description": "Nomic health status"
@@ -414,7 +418,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listNomicLog"
       }
     },
     "/api/v1/nomic/log": {
@@ -480,7 +485,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listNomicRiskRegister"
       }
     },
     "/api/v1/nomic/risk-register": {
@@ -528,7 +534,8 @@
             "description": "Available modes"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listModes"
       }
     },
     "/api/v1/modes": {
@@ -538,7 +545,7 @@
         ],
         "summary": "List operational modes",
         "description": "Get available operational modes including builtin and custom modes.\n\n**Builtin modes:** debate, gauntlet, research, code-review, etc.\n\n**Custom modes:** User-defined workflow configurations.",
-        "operationId": "listModes",
+        "operationId": "listModes1",
         "responses": {
           "200": {
             "description": "Available modes"
@@ -579,7 +586,8 @@
             "description": "Cycle history"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listHistoryCycles"
       }
     },
     "/api/v1/history/cycles": {
@@ -651,7 +659,8 @@
             "description": "Event history"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listHistoryEvents"
       }
     },
     "/api/v1/history/events": {
@@ -723,7 +732,8 @@
             "description": "Debate history"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listHistoryDebates"
       }
     },
     "/api/v1/history/debates": {
@@ -784,7 +794,8 @@
             "description": "Summary statistics"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listHistorySummary"
       }
     },
     "/api/v1/history/summary": {
@@ -847,7 +858,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listSystemMaintenance"
       }
     },
     "/api/v1/system/maintenance": {
@@ -903,7 +915,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listOpenapi"
       }
     },
     "/api/v1/openapi": {
@@ -970,7 +983,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgents"
       }
     },
     "/api/v1/agents": {
@@ -980,7 +994,7 @@
         ],
         "summary": "List all agents",
         "description": "Get list of all known AI agents with optional performance statistics.\n\n**Rate Limit:** 60 requests per minute (free), 300/min (pro), 1000/min (enterprise)\n\n**Response:** Returns agent metadata including name, model, provider, and ELO rating.\nOptionally includes detailed statistics when `include_stats=true`.",
-        "operationId": "listAgents",
+        "operationId": "listAgents1",
         "parameters": [
           {
             "name": "include_stats",
@@ -1055,7 +1069,8 @@
             "description": "Agent rankings"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listLeaderboard"
       }
     },
     "/api/v1/leaderboard": {
@@ -1119,7 +1134,8 @@
             "description": "Agent rankings"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listRankings"
       }
     },
     "/api/v1/rankings": {
@@ -1191,7 +1207,8 @@
             "description": "Leaderboard view"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listLeaderboardView"
       }
     },
     "/api/v1/leaderboard-view": {
@@ -1311,7 +1328,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameProfile"
       }
     },
     "/api/v1/agent/{name}/profile": {
@@ -1424,7 +1442,8 @@
             "description": "Match history"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameHistory"
       }
     },
     "/api/v1/agent/{name}/history": {
@@ -1494,7 +1513,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameCalibration"
       }
     },
     "/api/v1/agent/{name}/calibration": {
@@ -1553,7 +1573,8 @@
             "description": "Calibration curve data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameCalibrationCurve"
       }
     },
     "/api/v1/agent/{name}/calibration-curve": {
@@ -1605,7 +1626,8 @@
             "description": "Calibration summary"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameCalibrationSummary"
       }
     },
     "/api/v1/agent/{name}/calibration-summary": {
@@ -1657,7 +1679,8 @@
             "description": "Consistency metrics"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameConsistency"
       }
     },
     "/api/v1/agent/{name}/consistency": {
@@ -1720,7 +1743,8 @@
             "description": "Position flips"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameFlips"
       }
     },
     "/api/v1/agent/{name}/flips": {
@@ -1783,7 +1807,8 @@
             "description": "Relationship network"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameNetwork"
       }
     },
     "/api/v1/agent/{name}/network": {
@@ -1835,7 +1860,8 @@
             "description": "Rival agents"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameRivals"
       }
     },
     "/api/v1/agent/{name}/rivals": {
@@ -1887,7 +1913,8 @@
             "description": "Allied agents"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameAllies"
       }
     },
     "/api/v1/agent/{name}/allies": {
@@ -1939,7 +1966,8 @@
             "description": "Agent moments"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameMoments"
       }
     },
     "/api/v1/agent/{name}/moments": {
@@ -1991,7 +2019,8 @@
             "description": "Reputation data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameReputation"
       }
     },
     "/api/v1/agent/{name}/reputation": {
@@ -2043,7 +2072,8 @@
             "description": "Persona data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynamePersona"
       }
     },
     "/api/v1/agent/{name}/persona": {
@@ -2095,7 +2125,8 @@
             "description": "Grounded persona"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameGroundedPersona"
       }
     },
     "/api/v1/agent/{name}/grounded-persona": {
@@ -2152,7 +2183,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameIdentityPrompt"
       }
     },
     "/api/v1/agent/{name}/identity-prompt": {
@@ -2209,7 +2241,8 @@
             "description": "Performance metrics"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynamePerformance"
       }
     },
     "/api/v1/agent/{name}/performance": {
@@ -2261,7 +2294,8 @@
             "description": "Domain expertise"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameDomains"
       }
     },
     "/api/v1/agent/{name}/domains": {
@@ -2313,7 +2347,8 @@
             "description": "Accuracy metrics"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentBynameAccuracy"
       }
     },
     "/api/v1/agent/{name}/accuracy": {
@@ -2374,7 +2409,8 @@
             "description": "Comparison data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAgentCompare"
       }
     },
     "/api/v1/agent/compare": {
@@ -2437,7 +2473,8 @@
             "description": "Recent matches"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listMatchesRecent"
       }
     },
     "/api/v1/matches/recent": {
@@ -2493,7 +2530,8 @@
             "description": "Calibration rankings"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listCalibrationLeaderboard"
       }
     },
     "/api/v1/calibration/leaderboard": {
@@ -2536,7 +2574,8 @@
             "description": "All personas"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listPersonas"
       }
     },
     "/api/v1/personas": {
@@ -2546,7 +2585,7 @@
         ],
         "summary": "List all personas",
         "description": "Get all agent personas including their communication styles and reasoning patterns.",
-        "operationId": "listPersonas",
+        "operationId": "listPersonas1",
         "responses": {
           "200": {
             "description": "All personas"
@@ -2688,7 +2727,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebates"
       },
       "post": {
         "tags": [
@@ -2867,7 +2907,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createDebates"
       }
     },
     "/api/v1/debates": {
@@ -2877,7 +2918,7 @@
         ],
         "summary": "List debates",
         "description": "Get list of all debates for the authenticated user.\n\n**Rate Limit:** 60 requests per minute (free), 300/min (pro), 1000/min (enterprise)\n\n**Pagination:** Use `limit` and `offset` for pagination. Maximum 100 items per request.\n\n**Filtering:** Results are filtered to debates owned by or shared with the authenticated user.",
-        "operationId": "listDebates",
+        "operationId": "listDebates1",
         "parameters": [
           {
             "name": "limit",
@@ -3286,7 +3327,8 @@
               }
             }
           }
-        }
+        },
+        "operationId": "createDebate1"
       }
     },
     "/api/v1/debate": {
@@ -3407,7 +3449,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3444,7 +3487,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getDebatesByid"
       }
     },
     "/api/v1/debates/{id}": {
@@ -3462,7 +3506,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3515,7 +3560,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The slug"
           }
         ],
         "responses": {
@@ -3552,7 +3598,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getDebatesSlugByslug"
       }
     },
     "/api/v1/debates/slug/{slug}": {
@@ -3570,7 +3617,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The slug"
           }
         ],
         "responses": {
@@ -3623,7 +3671,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           },
           {
             "name": "limit",
@@ -3632,7 +3681,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -3640,7 +3690,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -3648,7 +3699,8 @@
             "description": "Paginated messages"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebatesByidMessages"
       }
     },
     "/api/v1/debates/{id}/messages": {
@@ -3666,7 +3718,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           },
           {
             "name": "limit",
@@ -3675,7 +3728,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -3683,7 +3737,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -3707,7 +3762,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3715,7 +3771,8 @@
             "description": "Convergence status"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebatesByidConvergence"
       }
     },
     "/api/v1/debates/{id}/convergence": {
@@ -3733,7 +3790,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3757,7 +3815,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3765,7 +3824,8 @@
             "description": "Citations and grounding score"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebatesByidCitations"
       }
     },
     "/api/v1/debates/{id}/citations": {
@@ -3783,7 +3843,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3807,7 +3868,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3815,7 +3877,8 @@
             "description": "Evidence data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebatesByidEvidence"
       }
     },
     "/api/v1/debates/{id}/evidence": {
@@ -3833,7 +3896,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3857,7 +3921,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3865,7 +3930,8 @@
             "description": "Impasse status"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebatesByidImpasse"
       }
     },
     "/api/v1/debates/{id}/impasse": {
@@ -3883,7 +3949,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3907,7 +3974,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3915,7 +3983,8 @@
             "description": "Meta-critique data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebatesByidMetaCritique"
       }
     },
     "/api/v1/debates/{id}/meta-critique": {
@@ -3933,7 +4002,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3957,7 +4027,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3965,7 +4036,8 @@
             "description": "Graph statistics"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebatesByidGraphStats"
       }
     },
     "/api/v1/debates/{id}/graph/stats": {
@@ -3983,7 +4055,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4007,7 +4080,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "requestBody": {
@@ -4072,7 +4146,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createDebatesByidFork"
       }
     },
     "/api/v1/debates/{id}/fork": {
@@ -4090,7 +4165,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "requestBody": {
@@ -4171,7 +4247,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           },
           {
             "name": "format",
@@ -4185,7 +4262,8 @@
                 "html",
                 "pdf"
               ]
-            }
+            },
+            "description": "Output format (e.g., json, yaml, csv)"
           }
         ],
         "responses": {
@@ -4193,7 +4271,8 @@
             "description": "Exported debate"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getDebatesByidExportByformat"
       }
     },
     "/api/v1/debates/{id}/export/{format}": {
@@ -4211,7 +4290,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           },
           {
             "name": "format",
@@ -4225,7 +4305,8 @@
                 "html",
                 "pdf"
               ]
-            }
+            },
+            "description": "Output format (e.g., json, yaml, csv)"
           }
         ],
         "responses": {
@@ -4249,7 +4330,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "requestBody": {
@@ -4283,7 +4365,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createDebatesByidBroadcast"
       }
     },
     "/api/v1/debates/{id}/broadcast": {
@@ -4301,7 +4384,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "requestBody": {
@@ -4351,7 +4435,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4364,7 +4449,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createDebatesByidPublishTwitter"
       }
     },
     "/api/v1/debates/{id}/publish/twitter": {
@@ -4382,7 +4468,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4411,7 +4498,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4424,7 +4512,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createDebatesByidPublishYoutube"
       }
     },
     "/api/v1/debates/{id}/publish/youtube": {
@@ -4442,7 +4531,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4471,7 +4561,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4479,7 +4570,8 @@
             "description": "Red team results"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebatesByidRedTeam"
       }
     },
     "/api/v1/debates/{id}/red-team": {
@@ -4497,7 +4589,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4521,7 +4614,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Search query string"
           },
           {
             "name": "limit",
@@ -4529,7 +4623,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -4537,7 +4632,8 @@
             "description": "Search results"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listSearch"
       }
     },
     "/api/v1/search": {
@@ -4555,7 +4651,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Search query string"
           },
           {
             "name": "limit",
@@ -4563,7 +4660,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -4586,7 +4684,8 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by domain"
           },
           {
             "name": "limit",
@@ -4594,7 +4693,8 @@
             "schema": {
               "type": "integer",
               "default": 10
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "hours",
@@ -4602,7 +4702,8 @@
             "schema": {
               "type": "integer",
               "default": 24
-            }
+            },
+            "description": "The hours value"
           }
         ],
         "responses": {
@@ -4610,7 +4711,8 @@
             "description": "Dashboard data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDashboardDebates"
       }
     },
     "/api/v1/dashboard/debates": {
@@ -4627,7 +4729,8 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by domain"
           },
           {
             "name": "limit",
@@ -4635,7 +4738,8 @@
             "schema": {
               "type": "integer",
               "default": 10
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "hours",
@@ -4643,7 +4747,8 @@
             "schema": {
               "type": "integer",
               "default": 24
-            }
+            },
+            "description": "The hours value"
           }
         ],
         "responses": {
@@ -4665,7 +4770,8 @@
             "description": "Disagreement statistics"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAnalyticsDisagreements"
       }
     },
     "/api/v1/analytics/disagreements": {
@@ -4674,7 +4780,7 @@
           "Analytics"
         ],
         "summary": "Disagreement analysis",
-        "operationId": "listAnalyticsDisagreements",
+        "operationId": "listAnalyticsDisagreements1",
         "description": "Get metrics on agent disagreement patterns across debates.",
         "responses": {
           "200": {
@@ -4695,7 +4801,8 @@
             "description": "Role rotation data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAnalyticsRoleRotation"
       }
     },
     "/api/v1/analytics/role-rotation": {
@@ -4704,7 +4811,7 @@
           "Analytics"
         ],
         "summary": "Role rotation stats",
-        "operationId": "listAnalyticsRoleRotation",
+        "operationId": "listAnalyticsRoleRotation1",
         "description": "Get statistics on how agents rotate between proposer, critic, and judge roles.",
         "responses": {
           "200": {
@@ -4725,7 +4832,8 @@
             "description": "Early stop data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAnalyticsEarlyStops"
       }
     },
     "/api/v1/analytics/early-stops": {
@@ -4734,7 +4842,7 @@
           "Analytics"
         ],
         "summary": "Early stop statistics",
-        "operationId": "listAnalyticsEarlyStops",
+        "operationId": "listAnalyticsEarlyStops1",
         "description": "Get data on debates that ended early due to early consensus or other conditions.",
         "responses": {
           "200": {
@@ -4755,7 +4863,8 @@
             "description": "Ranking stats"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listRankingStats"
       }
     },
     "/api/v1/ranking/stats": {
@@ -4764,7 +4873,7 @@
           "Analytics"
         ],
         "summary": "Ranking statistics",
-        "operationId": "listRankingStats",
+        "operationId": "listRankingStats1",
         "description": "Get aggregate ELO ranking statistics across all agents.",
         "responses": {
           "200": {
@@ -4785,7 +4894,8 @@
             "description": "Memory stats"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listMemoryStats"
       }
     },
     "/api/v1/memory/stats": {
@@ -4794,7 +4904,7 @@
           "Analytics"
         ],
         "summary": "Memory statistics",
-        "operationId": "listMemoryStats",
+        "operationId": "listMemoryStats1",
         "description": "Get statistics on memory system usage and performance.",
         "responses": {
           "200": {
@@ -4817,7 +4927,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -4825,7 +4936,8 @@
             "description": "Recent flips"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listFlipsRecent"
       }
     },
     "/api/v1/flips/recent": {
@@ -4834,7 +4946,7 @@
           "Insights"
         ],
         "summary": "Recent position flips",
-        "operationId": "listFlipsRecent",
+        "operationId": "listFlipsRecent1",
         "description": "Get recent instances where agents changed their positions during debate.",
         "parameters": [
           {
@@ -4843,7 +4955,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -4865,7 +4978,8 @@
             "description": "Flip summary statistics"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listFlipsSummary"
       }
     },
     "/api/v1/flips/summary": {
@@ -4874,7 +4988,7 @@
           "Insights"
         ],
         "summary": "Flip summary",
-        "operationId": "listFlipsSummary",
+        "operationId": "listFlipsSummary1",
         "description": "Get summary statistics on position flips and conviction changes.",
         "responses": {
           "200": {
@@ -4897,7 +5011,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -4905,7 +5020,8 @@
             "description": "Recent insights"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listInsightsRecent"
       }
     },
     "/api/v1/insights/recent": {
@@ -4914,7 +5030,7 @@
           "Insights"
         ],
         "summary": "Recent insights",
-        "operationId": "listInsightsRecent",
+        "operationId": "listInsightsRecent1",
         "description": "Get recent insights extracted from debates.",
         "parameters": [
           {
@@ -4923,7 +5039,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -4959,7 +5076,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createInsightsExtractDetailed"
       }
     },
     "/api/v1/insights/extract-detailed": {
@@ -4968,7 +5086,7 @@
           "Insights"
         ],
         "summary": "Extract detailed insights",
-        "operationId": "createInsightsExtractDetailed",
+        "operationId": "createInsightsExtractDetailed1",
         "description": "Computationally expensive insight extraction (requires auth).",
         "requestBody": {
           "content": {
@@ -5003,7 +5121,8 @@
             "description": "Moments summary"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listMomentsSummary"
       }
     },
     "/api/v1/moments/summary": {
@@ -5012,7 +5131,7 @@
           "Insights"
         ],
         "summary": "Moments summary",
-        "operationId": "listMomentsSummary",
+        "operationId": "listMomentsSummary1",
         "description": "Get summary of key moments across debates.",
         "responses": {
           "200": {
@@ -5033,7 +5152,8 @@
             "description": "Timeline data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listMomentsTimeline"
       }
     },
     "/api/v1/moments/timeline": {
@@ -5042,7 +5162,7 @@
           "Insights"
         ],
         "summary": "Moments timeline",
-        "operationId": "listMomentsTimeline",
+        "operationId": "listMomentsTimeline1",
         "description": "Get chronological timeline of significant debate moments.",
         "responses": {
           "200": {
@@ -5063,7 +5183,8 @@
             "description": "Trending moments"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listMomentsTrending"
       }
     },
     "/api/v1/moments/trending": {
@@ -5072,7 +5193,7 @@
           "Insights"
         ],
         "summary": "Trending moments",
-        "operationId": "listMomentsTrending",
+        "operationId": "listMomentsTrending1",
         "description": "Get currently trending debate moments based on engagement.",
         "responses": {
           "200": {
@@ -5095,7 +5216,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by type"
           }
         ],
         "responses": {
@@ -5103,7 +5225,8 @@
             "description": "Moments of specified type"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getMomentsByTypeBytype"
       }
     },
     "/api/v1/moments/by-type/{type}": {
@@ -5121,7 +5244,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by type"
           }
         ],
         "responses": {
@@ -5165,7 +5289,8 @@
             "description": "Similar debates"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listConsensusSimilar"
       }
     },
     "/api/v1/consensus/similar": {
@@ -5241,7 +5366,8 @@
             "description": "Settled questions"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listConsensusSettled"
       }
     },
     "/api/v1/consensus/settled": {
@@ -5295,7 +5421,8 @@
             "description": "Consensus stats"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listConsensusStats"
       }
     },
     "/api/v1/consensus/stats": {
@@ -5338,7 +5465,8 @@
             "description": "Dissenting views"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listConsensusDissents"
       }
     },
     "/api/v1/consensus/dissents": {
@@ -5381,7 +5509,8 @@
             "description": "Contrarian views"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listConsensusContrarianViews"
       }
     },
     "/api/v1/consensus/contrarian-views": {
@@ -5411,7 +5540,8 @@
             "description": "Risk warnings"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listConsensusRiskWarnings"
       }
     },
     "/api/v1/consensus/risk-warnings": {
@@ -5452,7 +5582,8 @@
             "description": "Domain consensus data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getConsensusDomainBydomain"
       }
     },
     "/api/v1/consensus/domain/{domain}": {
@@ -5492,7 +5623,9 @@
             "description": "Relationship summary"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listRelationshipsSummary",
+        "description": "Relationship summary"
       }
     },
     "/api/v1/relationships/summary": {
@@ -5501,12 +5634,13 @@
           "Relationships"
         ],
         "summary": "Relationship summary",
-        "operationId": "listRelationshipsSummary",
+        "operationId": "listRelationshipsSummary1",
         "responses": {
           "200": {
             "description": "Relationship summary"
           }
-        }
+        },
+        "description": "Relationship summary"
       }
     },
     "/api/relationships/graph": {
@@ -5521,7 +5655,8 @@
             "description": "Graph data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listRelationshipsGraph"
       }
     },
     "/api/v1/relationships/graph": {
@@ -5530,7 +5665,7 @@
           "Relationships"
         ],
         "summary": "Relationship graph",
-        "operationId": "listRelationshipsGraph",
+        "operationId": "listRelationshipsGraph1",
         "description": "Get graph data for agent relationships",
         "responses": {
           "200": {
@@ -5550,7 +5685,9 @@
             "description": "Relationship stats"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listRelationshipsStats",
+        "description": "Relationship statistics"
       }
     },
     "/api/v1/relationships/stats": {
@@ -5559,12 +5696,13 @@
           "Relationships"
         ],
         "summary": "Relationship statistics",
-        "operationId": "listRelationshipsStats",
+        "operationId": "listRelationshipsStats1",
         "responses": {
           "200": {
             "description": "Relationship stats"
           }
-        }
+        },
+        "description": "Relationship statistics"
       }
     },
     "/api/relationship/{agent_a}/{agent_b}": {
@@ -5580,7 +5718,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent a"
           },
           {
             "name": "agent_b",
@@ -5588,7 +5727,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent b"
           }
         ],
         "responses": {
@@ -5603,7 +5743,9 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getRelationshipByagentaByagentb",
+        "description": "Get relationship between two agents"
       }
     },
     "/api/v1/relationship/{agent_a}/{agent_b}": {
@@ -5620,7 +5762,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent a"
           },
           {
             "name": "agent_b",
@@ -5628,7 +5771,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent b"
           }
         ],
         "responses": {
@@ -5642,7 +5786,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Get relationship between two agents"
       }
     },
     "/api/memory/continuum/retrieve": {
@@ -5658,7 +5803,8 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Search query string"
           },
           {
             "name": "tier",
@@ -5671,7 +5817,8 @@
                 "slow",
                 "glacial"
               ]
-            }
+            },
+            "description": "The tier"
           },
           {
             "name": "limit",
@@ -5679,7 +5826,8 @@
             "schema": {
               "type": "integer",
               "default": 10
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -5687,7 +5835,8 @@
             "description": "Retrieved memories"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listMemoryContinuumRetrieve"
       }
     },
     "/api/v1/memory/continuum/retrieve": {
@@ -5696,7 +5845,7 @@
           "Memory"
         ],
         "summary": "Retrieve memories",
-        "operationId": "listMemoryContinuumRetrieve",
+        "operationId": "listMemoryContinuumRetrieve1",
         "description": "Retrieve memories from continuum store",
         "parameters": [
           {
@@ -5704,7 +5853,8 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Search query string"
           },
           {
             "name": "tier",
@@ -5717,7 +5867,8 @@
                 "slow",
                 "glacial"
               ]
-            }
+            },
+            "description": "The tier"
           },
           {
             "name": "limit",
@@ -5725,7 +5876,8 @@
             "schema": {
               "type": "integer",
               "default": 10
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -5752,7 +5904,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createMemoryContinuumConsolidate"
       }
     },
     "/api/v1/memory/continuum/consolidate": {
@@ -5761,7 +5914,7 @@
           "Memory"
         ],
         "summary": "Consolidate memories",
-        "operationId": "createMemoryContinuumConsolidate",
+        "operationId": "createMemoryContinuumConsolidate1",
         "description": "Trigger memory consolidation across tiers",
         "responses": {
           "200": {
@@ -5792,7 +5945,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createMemoryContinuumCleanup"
       }
     },
     "/api/v1/memory/continuum/cleanup": {
@@ -5801,7 +5955,7 @@
           "Memory"
         ],
         "summary": "Cleanup memories",
-        "operationId": "createMemoryContinuumCleanup",
+        "operationId": "createMemoryContinuumCleanup1",
         "description": "Remove expired memories",
         "responses": {
           "200": {
@@ -5827,7 +5981,8 @@
             "description": "Tier stats"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listMemoryTierStats"
       }
     },
     "/api/v1/memory/tier-stats": {
@@ -5837,7 +5992,7 @@
         ],
         "summary": "Memory tier statistics",
         "description": "Get statistics for each memory tier (fast, medium, slow, glacial).",
-        "operationId": "listMemoryTierStats",
+        "operationId": "listMemoryTierStats1",
         "responses": {
           "200": {
             "description": "Tier stats"
@@ -5857,7 +6012,8 @@
             "description": "Archive stats"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listMemoryArchiveStats"
       }
     },
     "/api/v1/memory/archive-stats": {
@@ -5867,7 +6023,7 @@
         ],
         "summary": "Archive statistics",
         "description": "Get statistics on archived memories and storage usage.",
-        "operationId": "listMemoryArchiveStats",
+        "operationId": "listMemoryArchiveStats1",
         "responses": {
           "200": {
             "description": "Archive stats"
@@ -5889,7 +6045,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "responses": {
@@ -5897,7 +6054,8 @@
             "description": "Debate cruxes"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listBeliefNetworkBydebateidCruxes"
       }
     },
     "/api/v1/belief-network/{debate_id}/cruxes": {
@@ -5915,7 +6073,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "responses": {
@@ -5939,7 +6098,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "responses": {
@@ -5947,7 +6107,8 @@
             "description": "Load-bearing claims"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listBeliefNetworkBydebateidLoadBearingClaims"
       }
     },
     "/api/v1/belief-network/{debate_id}/load-bearing-claims": {
@@ -5965,7 +6126,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "responses": {
@@ -5989,7 +6151,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "responses": {
@@ -5997,7 +6160,8 @@
             "description": "Graph statistics"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebateBydebateidGraphStats"
       }
     },
     "/api/v1/debate/{debate_id}/graph-stats": {
@@ -6015,7 +6179,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "responses": {
@@ -6040,7 +6205,8 @@
               "type": "integer",
               "default": 10,
               "maximum": 50
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -6048,7 +6214,8 @@
             "description": "Trending topics"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listPulseTrending"
       }
     },
     "/api/v1/pulse/trending": {
@@ -6057,7 +6224,7 @@
           "Pulse"
         ],
         "summary": "Trending topics",
-        "operationId": "listPulseTrending",
+        "operationId": "listPulseTrending1",
         "description": "Get current trending debate topics",
         "parameters": [
           {
@@ -6067,7 +6234,8 @@
               "type": "integer",
               "default": 10,
               "maximum": 50
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -6090,7 +6258,8 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by category"
           }
         ],
         "responses": {
@@ -6098,7 +6267,8 @@
             "description": "Suggested topic"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listPulseSuggest"
       }
     },
     "/api/v1/pulse/suggest": {
@@ -6107,7 +6277,7 @@
           "Pulse"
         ],
         "summary": "Suggest debate topic",
-        "operationId": "listPulseSuggest",
+        "operationId": "listPulseSuggest1",
         "description": "Get AI-suggested debate topic based on trends",
         "parameters": [
           {
@@ -6115,7 +6285,8 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by category"
           }
         ],
         "responses": {
@@ -6137,7 +6308,8 @@
             "description": "Metrics data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getMetrics"
       }
     },
     "/api/v1/metrics": {
@@ -6167,7 +6339,8 @@
             "description": "Metrics health"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getMetricsHealth"
       }
     },
     "/api/v1/metrics/health": {
@@ -6197,7 +6370,8 @@
             "description": "Cache metrics"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listMetricsCache"
       }
     },
     "/api/v1/metrics/cache": {
@@ -6207,7 +6381,7 @@
         ],
         "summary": "Cache metrics",
         "description": "Get cache hit rates and performance metrics.",
-        "operationId": "listMetricsCache",
+        "operationId": "listMetricsCache1",
         "responses": {
           "200": {
             "description": "Cache metrics"
@@ -6227,7 +6401,8 @@
             "description": "System metrics"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listMetricsSystem"
       }
     },
     "/api/v1/metrics/system": {
@@ -6237,7 +6412,7 @@
         ],
         "summary": "System metrics",
         "description": "Get system-level metrics including CPU, memory, and disk usage.",
-        "operationId": "listMetricsSystem",
+        "operationId": "listMetricsSystem1",
         "responses": {
           "200": {
             "description": "System metrics"
@@ -6274,7 +6449,9 @@
             "description": "Verification status"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listVerificationStatus",
+        "description": "Verification status"
       }
     },
     "/api/v1/verification/status": {
@@ -6283,12 +6460,13 @@
           "Verification"
         ],
         "summary": "Verification status",
-        "operationId": "listVerificationStatus",
+        "operationId": "listVerificationStatus1",
         "responses": {
           "200": {
             "description": "Verification status"
           }
-        }
+        },
+        "description": "Verification status"
       }
     },
     "/api/verification/formal-verify": {
@@ -6317,7 +6495,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createVerificationFormalVerify"
       }
     },
     "/api/v1/verification/formal-verify": {
@@ -6326,7 +6505,7 @@
           "Verification"
         ],
         "summary": "Formal verification",
-        "operationId": "createVerificationFormalVerify",
+        "operationId": "createVerificationFormalVerify1",
         "description": "Run formal verification on claims",
         "requestBody": {
           "content": {
@@ -6374,7 +6553,9 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createDebatesCapabilityProbe",
+        "description": "Run capability probe"
       }
     },
     "/api/v1/debates/capability-probe": {
@@ -6383,7 +6564,7 @@
           "Auditing"
         ],
         "summary": "Run capability probe",
-        "operationId": "createDebatesCapabilityProbe",
+        "operationId": "createDebatesCapabilityProbe1",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6402,7 +6583,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Run capability probe"
       }
     },
     "/api/debates/deep-audit": {
@@ -6430,7 +6612,9 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createDebatesDeepAudit",
+        "description": "Deep audit"
       }
     },
     "/api/v1/debates/deep-audit": {
@@ -6439,7 +6623,7 @@
           "Auditing"
         ],
         "summary": "Deep audit",
-        "operationId": "createDebatesDeepAudit",
+        "operationId": "createDebatesDeepAudit1",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6458,7 +6642,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Deep audit"
       }
     },
     "/api/probes/capability": {
@@ -6486,7 +6671,9 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createProbesCapability",
+        "description": "Capability probe"
       }
     },
     "/api/v1/probes/capability": {
@@ -6495,7 +6682,7 @@
           "Auditing"
         ],
         "summary": "Capability probe",
-        "operationId": "createProbesCapability",
+        "operationId": "createProbesCapability1",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6514,7 +6701,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Capability probe"
       }
     },
     "/api/documents": {
@@ -6529,7 +6717,8 @@
             "description": "Document list"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDocuments"
       }
     },
     "/api/v1/documents": {
@@ -6539,7 +6728,7 @@
         ],
         "summary": "List documents",
         "description": "Get list of uploaded documents available for debate context.",
-        "operationId": "listDocuments",
+        "operationId": "listDocuments1",
         "responses": {
           "200": {
             "description": "Document list"
@@ -6559,7 +6748,8 @@
             "description": "Supported formats"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDocumentsFormats"
       }
     },
     "/api/v1/documents/formats": {
@@ -6569,7 +6759,7 @@
         ],
         "summary": "Supported formats",
         "description": "Get list of supported document formats for upload.",
-        "operationId": "listDocumentsFormats",
+        "operationId": "listDocumentsFormats1",
         "responses": {
           "200": {
             "description": "Supported formats"
@@ -6603,7 +6793,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createDocumentsUpload"
       }
     },
     "/api/v1/documents/upload": {
@@ -6613,7 +6804,7 @@
         ],
         "summary": "Upload document",
         "description": "Upload a document to be used as context in debates.",
-        "operationId": "createDocumentsUpload",
+        "operationId": "createDocumentsUpload1",
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -6650,7 +6841,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listPodcastFeed.Xml"
       }
     },
     "/api/v1/podcast/feed.xml": {
@@ -6660,7 +6852,7 @@
         ],
         "summary": "Podcast RSS feed",
         "description": "Get RSS feed for debate podcast episodes.",
-        "operationId": "listPodcastFeed.Xml",
+        "operationId": "listPodcastFeed.Xml1",
         "responses": {
           "200": {
             "description": "RSS feed",
@@ -6683,7 +6875,8 @@
             "description": "Episode list"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listPodcastEpisodes"
       }
     },
     "/api/v1/podcast/episodes": {
@@ -6693,7 +6886,7 @@
         ],
         "summary": "Podcast episodes",
         "description": "Get list of available podcast episodes from debates.",
-        "operationId": "listPodcastEpisodes",
+        "operationId": "listPodcastEpisodes1",
         "responses": {
           "200": {
             "description": "Episode list"
@@ -6713,7 +6906,8 @@
             "description": "Auth URL"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listYoutubeAuth"
       }
     },
     "/api/v1/youtube/auth": {
@@ -6723,7 +6917,7 @@
         ],
         "summary": "YouTube auth URL",
         "description": "Get OAuth authorization URL for YouTube integration.",
-        "operationId": "listYoutubeAuth",
+        "operationId": "listYoutubeAuth1",
         "responses": {
           "200": {
             "description": "Auth URL"
@@ -6743,7 +6937,8 @@
             "description": "Auth complete"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listYoutubeCallback"
       }
     },
     "/api/v1/youtube/callback": {
@@ -6753,7 +6948,7 @@
         ],
         "summary": "YouTube OAuth callback",
         "description": "Handle OAuth callback from YouTube authorization.",
-        "operationId": "listYoutubeCallback",
+        "operationId": "listYoutubeCallback1",
         "responses": {
           "200": {
             "description": "Auth complete"
@@ -6773,7 +6968,8 @@
             "description": "Auth status"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listYoutubeStatus"
       }
     },
     "/api/v1/youtube/status": {
@@ -6783,7 +6979,7 @@
         ],
         "summary": "YouTube auth status",
         "description": "Check current YouTube authorization status.",
-        "operationId": "listYoutubeStatus",
+        "operationId": "listYoutubeStatus1",
         "responses": {
           "200": {
             "description": "Auth status"
@@ -6912,7 +7108,8 @@
           "200": {
             "description": "Plugin details"
           }
-        }
+        },
+        "description": "Get plugin details"
       }
     },
     "/api/v1/plugins/{name}/run": {
@@ -6951,7 +7148,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Run plugin"
       }
     },
     "/api/v1/plugins/{name}/install": {
@@ -6990,7 +7188,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Install plugin"
       },
       "delete": {
         "tags": [
@@ -7018,7 +7217,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Uninstall plugin"
       }
     },
     "/api/plugins": {
@@ -7033,7 +7233,8 @@
             "description": "Plugin list"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listPlugins1"
       }
     },
     "/api/plugins/installed": {
@@ -7053,7 +7254,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listPluginsInstalled"
       }
     },
     "/api/plugins/marketplace": {
@@ -7068,7 +7270,8 @@
             "description": "Marketplace data with categories"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listPluginsMarketplace"
       }
     },
     "/api/plugins/submit": {
@@ -7097,7 +7300,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createPluginsSubmit"
       }
     },
     "/api/plugins/submissions": {
@@ -7117,7 +7321,8 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listPluginsSubmissions"
       }
     },
     "/api/plugins/{name}": {
@@ -7143,7 +7348,8 @@
           }
         },
         "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/{name} instead. Sunset: 2026-12-31."
+        "description": "Deprecated: Use /api/v1/plugins/{name} instead. Sunset: 2026-12-31.",
+        "operationId": "getPluginsByname"
       }
     },
     "/api/plugins/{name}/run": {
@@ -7183,7 +7389,8 @@
           }
         ],
         "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/{name}/run instead. Sunset: 2026-12-31."
+        "description": "Deprecated: Use /api/v1/plugins/{name}/run instead. Sunset: 2026-12-31.",
+        "operationId": "createPluginsBynameRun"
       }
     },
     "/api/plugins/{name}/install": {
@@ -7223,7 +7430,8 @@
           }
         ],
         "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset: 2026-12-31."
+        "description": "Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset: 2026-12-31.",
+        "operationId": "createPluginsBynameInstall"
       },
       "delete": {
         "tags": [
@@ -7252,7 +7460,8 @@
           }
         ],
         "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset: 2026-12-31."
+        "description": "Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset: 2026-12-31.",
+        "operationId": "deletePluginsBynameInstall"
       }
     },
     "/api/laboratory/emergent-traits": {
@@ -7268,7 +7477,8 @@
             "schema": {
               "type": "number",
               "default": 0.5
-            }
+            },
+            "description": "Min Confidence parameter"
           },
           {
             "name": "limit",
@@ -7276,7 +7486,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -7284,7 +7495,9 @@
             "description": "Emergent traits"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listLaboratoryEmergentTraits",
+        "description": "Emergent traits"
       }
     },
     "/api/v1/laboratory/emergent-traits": {
@@ -7293,7 +7506,7 @@
           "Laboratory"
         ],
         "summary": "Emergent traits",
-        "operationId": "listLaboratoryEmergentTraits",
+        "operationId": "listLaboratoryEmergentTraits1",
         "parameters": [
           {
             "name": "min_confidence",
@@ -7301,7 +7514,8 @@
             "schema": {
               "type": "number",
               "default": 0.5
-            }
+            },
+            "description": "Min Confidence parameter"
           },
           {
             "name": "limit",
@@ -7309,14 +7523,16 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
           "200": {
             "description": "Emergent traits"
           }
-        }
+        },
+        "description": "Emergent traits"
       }
     },
     "/api/laboratory/cross-pollinations/suggest": {
@@ -7330,7 +7546,9 @@
             "description": "Suggestions"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listLaboratoryCrossPollinationsSuggest",
+        "description": "Cross-pollination suggestions"
       }
     },
     "/api/v1/laboratory/cross-pollinations/suggest": {
@@ -7339,12 +7557,13 @@
           "Laboratory"
         ],
         "summary": "Cross-pollination suggestions",
-        "operationId": "listLaboratoryCrossPollinationsSuggest",
+        "operationId": "listLaboratoryCrossPollinationsSuggest1",
         "responses": {
           "200": {
             "description": "Suggestions"
           }
-        }
+        },
+        "description": "Cross-pollination suggestions"
       }
     },
     "/api/tournaments": {
@@ -7359,7 +7578,8 @@
             "description": "Tournament list"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listTournaments"
       }
     },
     "/api/v1/tournaments": {
@@ -7369,7 +7589,7 @@
         ],
         "summary": "List tournaments",
         "description": "Get list of all agent tournaments and their status.",
-        "operationId": "listTournaments",
+        "operationId": "listTournaments1",
         "responses": {
           "200": {
             "description": "Tournament list"
@@ -7391,7 +7611,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -7399,7 +7620,8 @@
             "description": "Standings"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listTournamentsByidStandings"
       }
     },
     "/api/v1/tournaments/{id}/standings": {
@@ -7417,7 +7639,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -7439,7 +7662,8 @@
             "description": "Genesis stats"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listGenesisStats"
       }
     },
     "/api/v1/genesis/stats": {
@@ -7449,7 +7673,7 @@
         ],
         "summary": "Genesis statistics",
         "description": "Get statistics about agent genesis events and population.",
-        "operationId": "listGenesisStats",
+        "operationId": "listGenesisStats1",
         "responses": {
           "200": {
             "description": "Genesis stats"
@@ -7469,7 +7693,8 @@
             "description": "Genesis events"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listGenesisEvents"
       }
     },
     "/api/v1/genesis/events": {
@@ -7479,7 +7704,7 @@
         ],
         "summary": "Genesis events",
         "description": "Get timeline of agent creation and evolution events.",
-        "operationId": "listGenesisEvents",
+        "operationId": "listGenesisEvents1",
         "responses": {
           "200": {
             "description": "Genesis events"
@@ -7501,7 +7726,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent"
           }
         ],
         "responses": {
@@ -7509,7 +7735,8 @@
             "description": "Lineage data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getGenesisLineageByagent"
       }
     },
     "/api/v1/genesis/lineage/{agent}": {
@@ -7527,7 +7754,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent"
           }
         ],
         "responses": {
@@ -7551,7 +7779,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent"
           }
         ],
         "responses": {
@@ -7559,7 +7788,8 @@
             "description": "Tree data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getGenesisTreeByagent"
       }
     },
     "/api/v1/genesis/tree/{agent}": {
@@ -7577,7 +7807,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent"
           }
         ],
         "responses": {
@@ -7601,7 +7832,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent"
           }
         ],
         "responses": {
@@ -7609,7 +7841,8 @@
             "description": "Evolution history"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listEvolutionByagentHistory"
       }
     },
     "/api/v1/evolution/{agent}/history": {
@@ -7627,7 +7860,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent"
           }
         ],
         "responses": {
@@ -7649,7 +7883,8 @@
             "description": "Replay list"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listReplays"
       }
     },
     "/api/v1/replays": {
@@ -7659,7 +7894,7 @@
         ],
         "summary": "List replays",
         "description": "Get list of available debate replays.",
-        "operationId": "listReplays",
+        "operationId": "listReplays1",
         "responses": {
           "200": {
             "description": "Replay list"
@@ -7681,7 +7916,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -7689,7 +7925,8 @@
             "description": "Replay data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getReplaysByid"
       }
     },
     "/api/v1/replays/{id}": {
@@ -7707,7 +7944,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -7729,7 +7967,8 @@
             "description": "Evolution data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listLearningEvolution"
       }
     },
     "/api/v1/learning/evolution": {
@@ -7739,7 +7978,7 @@
         ],
         "summary": "Learning evolution",
         "description": "Get learning evolution data showing system improvements over time.",
-        "operationId": "listLearningEvolution",
+        "operationId": "listLearningEvolution1",
         "responses": {
           "200": {
             "description": "Evolution data"
@@ -7759,7 +7998,8 @@
             "description": "Meta-learning stats"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listMetaLearningStats"
       }
     },
     "/api/v1/meta-learning/stats": {
@@ -7769,7 +8009,7 @@
         ],
         "summary": "Meta-learning statistics",
         "description": "Get statistics from meta-learning processes.",
-        "operationId": "listMetaLearningStats",
+        "operationId": "listMetaLearningStats1",
         "responses": {
           "200": {
             "description": "Meta-learning stats"
@@ -7789,7 +8029,8 @@
             "description": "Patterns"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listCritiquesPatterns"
       }
     },
     "/api/v1/critiques/patterns": {
@@ -7799,7 +8040,7 @@
         ],
         "summary": "Critique patterns",
         "description": "Get common critique patterns across debates.",
-        "operationId": "listCritiquesPatterns",
+        "operationId": "listCritiquesPatterns1",
         "responses": {
           "200": {
             "description": "Patterns"
@@ -7819,7 +8060,8 @@
             "description": "Archive"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listCritiquesArchive"
       }
     },
     "/api/v1/critiques/archive": {
@@ -7829,7 +8071,7 @@
         ],
         "summary": "Critique archive",
         "description": "Get archived critiques for historical analysis.",
-        "operationId": "listCritiquesArchive",
+        "operationId": "listCritiquesArchive1",
         "responses": {
           "200": {
             "description": "Archive"
@@ -7849,7 +8091,8 @@
             "description": "Reputations"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listReputationAll"
       }
     },
     "/api/v1/reputation/all": {
@@ -7859,7 +8102,7 @@
         ],
         "summary": "All reputations",
         "description": "Get reputation data for all agents.",
-        "operationId": "listReputationAll",
+        "operationId": "listReputationAll1",
         "responses": {
           "200": {
             "description": "Reputations"
@@ -7881,7 +8124,8 @@
             "schema": {
               "type": "integer",
               "default": 3
-            }
+            },
+            "description": "The min debates value"
           },
           {
             "name": "limit",
@@ -7889,7 +8133,8 @@
             "schema": {
               "type": "integer",
               "default": 10
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -7897,7 +8142,8 @@
             "description": "Best teams"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listRoutingBestTeams"
       }
     },
     "/api/v1/routing/best-teams": {
@@ -7907,7 +8153,7 @@
         ],
         "summary": "Best team combinations",
         "description": "Get recommended team combinations based on historical performance.",
-        "operationId": "listRoutingBestTeams",
+        "operationId": "listRoutingBestTeams1",
         "parameters": [
           {
             "name": "min_debates",
@@ -7915,7 +8161,8 @@
             "schema": {
               "type": "integer",
               "default": 3
-            }
+            },
+            "description": "The min debates value"
           },
           {
             "name": "limit",
@@ -7923,7 +8170,8 @@
             "schema": {
               "type": "integer",
               "default": 10
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -7971,7 +8219,8 @@
             "description": "Recommendations"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createRoutingRecommendations"
       }
     },
     "/api/v1/routing/recommendations": {
@@ -7981,7 +8230,7 @@
         ],
         "summary": "Agent recommendations",
         "description": "Get agent recommendations based on domain requirements and traits.",
-        "operationId": "createRoutingRecommendations",
+        "operationId": "createRoutingRecommendations1",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8027,7 +8276,8 @@
             "description": "Introspection data"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listIntrospectionAll"
       }
     },
     "/api/v1/introspection/all": {
@@ -8037,7 +8287,7 @@
         ],
         "summary": "All introspection data",
         "description": "Get comprehensive introspection data across all agents.",
-        "operationId": "listIntrospectionAll",
+        "operationId": "listIntrospectionAll1",
         "responses": {
           "200": {
             "description": "Introspection data"
@@ -8057,7 +8307,8 @@
             "description": "Leaderboard"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listIntrospectionLeaderboard"
       }
     },
     "/api/v1/introspection/leaderboard": {
@@ -8067,7 +8318,7 @@
         ],
         "summary": "Introspection leaderboard",
         "description": "Get leaderboard rankings based on introspection metrics.",
-        "operationId": "listIntrospectionLeaderboard",
+        "operationId": "listIntrospectionLeaderboard1",
         "responses": {
           "200": {
             "description": "Leaderboard"
@@ -8087,7 +8338,8 @@
             "description": "Agent list"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listIntrospectionAgents"
       }
     },
     "/api/v1/introspection/agents": {
@@ -8097,7 +8349,7 @@
         ],
         "summary": "Agent introspection list",
         "description": "Get list of agents with introspection data available.",
-        "operationId": "listIntrospectionAgents",
+        "operationId": "listIntrospectionAgents1",
         "responses": {
           "200": {
             "description": "Agent list"
@@ -8119,7 +8371,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Name of the resource"
           }
         ],
         "responses": {
@@ -8127,7 +8380,8 @@
             "description": "Agent introspection"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getIntrospectionAgentsByname"
       }
     },
     "/api/v1/introspection/agents/{name}": {
@@ -8145,7 +8399,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Name of the resource"
           }
         ],
         "responses": {
@@ -8260,7 +8515,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAuthOauthGoogle"
       }
     },
     "/api/v1/auth/oauth/google": {
@@ -8269,7 +8525,7 @@
           "OAuth"
         ],
         "summary": "Start Google OAuth flow",
-        "operationId": "listAuthOauthGoogle",
+        "operationId": "listAuthOauthGoogle1",
         "description": "Redirect user to Google OAuth consent screen for authentication. Supports optional account linking for already-authenticated users.",
         "parameters": [
           {
@@ -8470,7 +8726,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAuthOauthGoogleCallback"
       }
     },
     "/api/v1/auth/oauth/google/callback": {
@@ -8479,7 +8736,7 @@
           "OAuth"
         ],
         "summary": "Google OAuth callback",
-        "operationId": "listAuthOauthGoogleCallback",
+        "operationId": "listAuthOauthGoogleCallback1",
         "description": "Handle the OAuth callback from Google after user consent. Exchanges authorization code for tokens and creates/links user account.",
         "parameters": [
           {
@@ -8680,7 +8937,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAuthOauthGithub"
       }
     },
     "/api/v1/auth/oauth/github": {
@@ -8689,7 +8947,7 @@
           "OAuth"
         ],
         "summary": "Start GitHub OAuth flow",
-        "operationId": "listAuthOauthGithub",
+        "operationId": "listAuthOauthGithub1",
         "description": "Redirect user to GitHub OAuth consent screen for authentication.",
         "parameters": [
           {
@@ -8882,7 +9140,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAuthOauthGithubCallback"
       }
     },
     "/api/v1/auth/oauth/github/callback": {
@@ -8891,7 +9150,7 @@
           "OAuth"
         ],
         "summary": "GitHub OAuth callback",
-        "operationId": "listAuthOauthGithubCallback",
+        "operationId": "listAuthOauthGithubCallback1",
         "description": "Handle the OAuth callback from GitHub after user consent.",
         "parameters": [
           {
@@ -9090,7 +9349,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createAuthOauthLink"
       }
     },
     "/api/v1/auth/oauth/link": {
@@ -9099,7 +9359,7 @@
           "OAuth"
         ],
         "summary": "Link OAuth account",
-        "operationId": "createAuthOauthLink",
+        "operationId": "createAuthOauthLink1",
         "description": "Link an OAuth provider account to the current authenticated user.",
         "security": [
           {
@@ -9327,7 +9587,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "deleteAuthOauthUnlink"
       }
     },
     "/api/v1/auth/oauth/unlink": {
@@ -9336,7 +9597,7 @@
           "OAuth"
         ],
         "summary": "Unlink OAuth account",
-        "operationId": "deleteAuthOauthUnlink",
+        "operationId": "deleteAuthOauthUnlink1",
         "description": "Remove OAuth provider link from the current user's account.",
         "security": [
           {
@@ -9472,7 +9733,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAuthOauthProviders"
       }
     },
     "/api/v1/auth/oauth/providers": {
@@ -9481,7 +9743,7 @@
           "OAuth"
         ],
         "summary": "List available OAuth providers",
-        "operationId": "listAuthOauthProviders",
+        "operationId": "listAuthOauthProviders1",
         "description": "Get list of configured OAuth providers available for authentication.",
         "responses": {
           "200": {
@@ -9542,7 +9804,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listUserOauthProviders"
       }
     },
     "/api/v1/user/oauth-providers": {
@@ -9551,7 +9814,7 @@
           "OAuth"
         ],
         "summary": "Get user's linked providers",
-        "operationId": "listUserOauthProviders",
+        "operationId": "listUserOauthProviders1",
         "description": "Get list of OAuth providers linked to the current user's account.",
         "security": [
           {
@@ -9613,7 +9876,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -9621,7 +9885,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -9664,7 +9929,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listWorkspaces"
       },
       "post": {
         "tags": [
@@ -9821,7 +10087,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createWorkspaces"
       }
     },
     "/api/v1/workspaces": {
@@ -9830,7 +10097,7 @@
           "Workspace"
         ],
         "summary": "List workspaces",
-        "operationId": "listWorkspaces",
+        "operationId": "listWorkspaces1",
         "description": "Get list of workspaces the authenticated user has access to.",
         "security": [
           {
@@ -9845,7 +10112,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -9853,7 +10121,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -10074,7 +10343,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Workspace to scope the query to"
           }
         ],
         "responses": {
@@ -10169,7 +10439,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getWorkspacesByworkspaceid"
       },
       "delete": {
         "tags": [
@@ -10189,7 +10460,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Workspace to scope the query to"
           }
         ],
         "responses": {
@@ -10277,7 +10549,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "deleteWorkspacesByworkspaceid"
       }
     },
     "/api/v1/workspaces/{workspace_id}": {
@@ -10300,7 +10573,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Workspace to scope the query to"
           }
         ],
         "responses": {
@@ -10415,7 +10689,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Workspace to scope the query to"
           }
         ],
         "responses": {
@@ -10524,7 +10799,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Workspace to scope the query to"
           }
         ],
         "requestBody": {
@@ -10655,7 +10931,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createWorkspacesByworkspaceidMembers"
       }
     },
     "/api/v1/workspaces/{workspace_id}/members": {
@@ -10678,7 +10955,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Workspace to scope the query to"
           }
         ],
         "requestBody": {
@@ -10856,7 +11134,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listWorkspacesProfiles"
       }
     },
     "/api/v1/workspaces/profiles": {
@@ -11015,7 +11294,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listWorkspacesByworkspaceidRoles"
       }
     },
     "/api/v1/workspaces/{workspace_id}/roles": {
@@ -11310,7 +11590,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "updateWorkspacesByworkspaceidMembersByuseridRole"
       }
     },
     "/api/v1/workspaces/{workspace_id}/members/{user_id}/role": {
@@ -11549,7 +11830,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listRetentionPolicies"
       },
       "post": {
         "tags": [
@@ -11711,7 +11993,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createRetentionPolicies"
       }
     },
     "/api/v1/retention/policies": {
@@ -11720,7 +12003,7 @@
           "Retention"
         ],
         "summary": "List retention policies",
-        "operationId": "listRetentionPolicies",
+        "operationId": "listRetentionPolicies1",
         "description": "Get all configured data retention policies.",
         "security": [
           {
@@ -11950,7 +12233,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the policy"
           }
         ],
         "responses": {
@@ -12038,7 +12322,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createRetentionPoliciesBypolicyidExecute"
       }
     },
     "/api/v1/retention/policies/{policy_id}/execute": {
@@ -12061,7 +12346,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the policy"
           }
         ],
         "responses": {
@@ -12207,7 +12493,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listRetentionExpiring"
       }
     },
     "/api/v1/retention/expiring": {
@@ -12375,7 +12662,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createClassify"
       }
     },
     "/api/v1/classify": {
@@ -12512,7 +12800,8 @@
                 "confidential",
                 "restricted"
               ]
-            }
+            },
+            "description": "Filter by level (e.g., debug, info, warning, error)"
           }
         ],
         "responses": {
@@ -12586,7 +12875,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getClassifyPolicyBylevel"
       }
     },
     "/api/v1/classify/policy/{level}": {
@@ -12615,7 +12905,8 @@
                 "confidential",
                 "restricted"
               ]
-            }
+            },
+            "description": "Filter by level (e.g., debug, info, warning, error)"
           }
         ],
         "responses": {
@@ -12709,21 +13000,24 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The actor id"
           },
           {
             "name": "resource_id",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The resource id"
           },
           {
             "name": "action",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The action"
           },
           {
             "name": "outcome",
@@ -12735,7 +13029,8 @@
                 "denied",
                 "error"
               ]
-            }
+            },
+            "description": "The outcome"
           },
           {
             "name": "start_time",
@@ -12743,7 +13038,8 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "description": "Start time for filtering (Unix timestamp or ISO 8601)"
           },
           {
             "name": "end_time",
@@ -12751,7 +13047,8 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "description": "End time for filtering (Unix timestamp or ISO 8601)"
           },
           {
             "name": "limit",
@@ -12759,7 +13056,8 @@
             "schema": {
               "type": "integer",
               "default": 100
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -12825,7 +13123,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAuditEntries"
       }
     },
     "/api/v1/audit/entries": {
@@ -12847,21 +13146,24 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The actor id"
           },
           {
             "name": "resource_id",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The resource id"
           },
           {
             "name": "action",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The action"
           },
           {
             "name": "outcome",
@@ -12873,7 +13175,8 @@
                 "denied",
                 "error"
               ]
-            }
+            },
+            "description": "The outcome"
           },
           {
             "name": "start_time",
@@ -12881,7 +13184,8 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "description": "Start time for filtering (Unix timestamp or ISO 8601)"
           },
           {
             "name": "end_time",
@@ -12889,7 +13193,8 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "description": "End time for filtering (Unix timestamp or ISO 8601)"
           },
           {
             "name": "limit",
@@ -12897,7 +13202,8 @@
             "schema": {
               "type": "integer",
               "default": 100
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -12985,7 +13291,8 @@
             "schema": {
               "type": "string",
               "format": "date"
-            }
+            },
+            "description": "Start date for filtering (ISO 8601 format)"
           },
           {
             "name": "end_date",
@@ -12994,7 +13301,8 @@
             "schema": {
               "type": "string",
               "format": "date"
-            }
+            },
+            "description": "End date for filtering (ISO 8601 format)"
           },
           {
             "name": "format",
@@ -13007,7 +13315,8 @@
                 "pdf"
               ],
               "default": "json"
-            }
+            },
+            "description": "Output format (e.g., json, yaml, csv)"
           }
         ],
         "responses": {
@@ -13111,7 +13420,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAuditReport"
       }
     },
     "/api/v1/audit/report": {
@@ -13135,7 +13445,8 @@
             "schema": {
               "type": "string",
               "format": "date"
-            }
+            },
+            "description": "Start date for filtering (ISO 8601 format)"
           },
           {
             "name": "end_date",
@@ -13144,7 +13455,8 @@
             "schema": {
               "type": "string",
               "format": "date"
-            }
+            },
+            "description": "End date for filtering (ISO 8601 format)"
           },
           {
             "name": "format",
@@ -13157,7 +13469,8 @@
                 "pdf"
               ],
               "default": "json"
-            }
+            },
+            "description": "Output format (e.g., json, yaml, csv)"
           }
         ],
         "responses": {
@@ -13281,14 +13594,16 @@
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "The start sequence value"
           },
           {
             "name": "end_sequence",
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "The end sequence value"
           }
         ],
         "responses": {
@@ -13354,7 +13669,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listAuditVerify"
       }
     },
     "/api/v1/audit/verify": {
@@ -13376,14 +13692,16 @@
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "The start sequence value"
           },
           {
             "name": "end_sequence",
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "The end sequence value"
           }
         ],
         "responses": {
@@ -13496,7 +13814,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -13504,7 +13823,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -13519,7 +13839,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listWorkflows"
       },
       "post": {
         "tags": [
@@ -13632,7 +13953,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createWorkflows"
       }
     },
     "/api/v1/workflows": {
@@ -13641,7 +13963,7 @@
           "Workflows"
         ],
         "summary": "List workflows",
-        "operationId": "listWorkflows",
+        "operationId": "listWorkflows1",
         "description": "Get list of workflows with optional filtering by category, tags, or search term.",
         "parameters": [
           {
@@ -13681,7 +14003,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -13689,7 +14012,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -13710,7 +14034,7 @@
           "Workflows"
         ],
         "summary": "Create workflow",
-        "operationId": "createWorkflows",
+        "operationId": "createWorkflows1",
         "description": "Create a new workflow definition with steps and transitions.",
         "requestBody": {
           "required": true,
@@ -13833,7 +14157,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "responses": {
@@ -13870,7 +14195,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getWorkflowsByworkflowid"
       },
       "put": {
         "tags": [
@@ -13885,7 +14211,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "requestBody": {
@@ -13970,7 +14297,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "updateWorkflowsByworkflowid"
       },
       "delete": {
         "tags": [
@@ -13985,7 +14313,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "responses": {
@@ -14015,7 +14344,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "deleteWorkflowsByworkflowid"
       }
     },
     "/api/v1/workflows/{workflow_id}": {
@@ -14033,7 +14363,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "responses": {
@@ -14085,7 +14416,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "requestBody": {
@@ -14185,7 +14517,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "responses": {
@@ -14231,7 +14564,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "requestBody": {
@@ -14341,7 +14675,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createWorkflowsByworkflowidExecute"
       }
     },
     "/api/v1/workflows/{workflow_id}/execute": {
@@ -14359,7 +14694,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "requestBody": {
@@ -14485,7 +14821,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           },
           {
             "name": "limit",
@@ -14493,7 +14830,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -14523,7 +14861,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listWorkflowsByworkflowidVersions"
       }
     },
     "/api/v1/workflows/{workflow_id}/versions": {
@@ -14541,7 +14880,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           },
           {
             "name": "limit",
@@ -14549,7 +14889,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -14610,7 +14951,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listWorkflowTemplates"
       }
     },
     "/api/v1/workflow-templates": {
@@ -14659,7 +15001,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the template"
           }
         ],
         "responses": {
@@ -14696,7 +15039,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getWorkflowTemplatesBytemplateid"
       }
     },
     "/api/v1/workflow-templates/{template_id}": {
@@ -14714,7 +15058,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the template"
           }
         ],
         "responses": {
@@ -14790,7 +15135,8 @@
             "schema": {
               "type": "integer",
               "default": 50
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -14805,7 +15151,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listWorkflowExecutions"
       }
     },
     "/api/v1/workflow-executions": {
@@ -14814,7 +15161,7 @@
           "Workflows"
         ],
         "summary": "List workflow executions",
-        "operationId": "listWorkflowExecutions",
+        "operationId": "listWorkflowExecutions1",
         "description": "Get list of all workflow executions for the runtime dashboard.",
         "parameters": [
           {
@@ -14846,7 +15193,8 @@
             "schema": {
               "type": "integer",
               "default": 50
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -14877,7 +15225,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The execution id"
           }
         ],
         "responses": {
@@ -14907,7 +15256,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getWorkflowExecutionsByexecutionid"
       },
       "delete": {
         "tags": [
@@ -14922,7 +15272,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The execution id"
           }
         ],
         "responses": {
@@ -14990,7 +15341,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "deleteWorkflowExecutionsByexecutionid"
       }
     },
     "/api/v1/workflow-executions/{execution_id}": {
@@ -15008,7 +15360,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The execution id"
           }
         ],
         "responses": {
@@ -15053,7 +15406,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The execution id"
           }
         ],
         "responses": {
@@ -15168,7 +15522,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listWorkflowApprovals"
       }
     },
     "/api/v1/workflow-approvals": {
@@ -15177,7 +15532,7 @@
           "Workflows"
         ],
         "summary": "List pending approvals",
-        "operationId": "listWorkflowApprovals",
+        "operationId": "listWorkflowApprovals1",
         "description": "Get list of workflow steps awaiting human approval.",
         "security": [
           {
@@ -15238,7 +15593,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The approval id"
           }
         ],
         "requestBody": {
@@ -15359,7 +15715,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createWorkflowApprovalsByapprovalid"
       }
     },
     "/api/v1/workflow-approvals/{approval_id}": {
@@ -15382,7 +15739,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The approval id"
           }
         ],
         "requestBody": {
@@ -15517,7 +15875,8 @@
             "description": "Subscriber statistics with totals and per-handler metrics"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listCrossPollinationStats"
       }
     },
     "/api/v1/cross-pollination/stats": {
@@ -15526,7 +15885,7 @@
           "Cross-Pollination"
         ],
         "summary": "Get subscriber statistics",
-        "operationId": "listCrossPollinationStats",
+        "operationId": "listCrossPollinationStats1",
         "description": "Get statistics for all cross-subsystem event subscribers including event counts, success/failure rates, circuit breaker status, and latency metrics.",
         "responses": {
           "200": {
@@ -15547,7 +15906,8 @@
             "description": "List of subscribers with event types and descriptions"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listCrossPollinationSubscribers"
       }
     },
     "/api/v1/cross-pollination/subscribers": {
@@ -15556,7 +15916,7 @@
           "Cross-Pollination"
         ],
         "summary": "List all subscribers",
-        "operationId": "listCrossPollinationSubscribers",
+        "operationId": "listCrossPollinationSubscribers1",
         "description": "Get a list of all registered cross-subsystem event subscribers with their subscribed event types and handler metadata.",
         "responses": {
           "200": {
@@ -15577,7 +15937,8 @@
             "description": "Bridge status with connection state and event mappings"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listCrossPollinationBridge"
       }
     },
     "/api/v1/cross-pollination/bridge": {
@@ -15586,7 +15947,7 @@
           "Cross-Pollination"
         ],
         "summary": "Get arena bridge status",
-        "operationId": "listCrossPollinationBridge",
+        "operationId": "listCrossPollinationBridge1",
         "description": "Get status of the Arena-to-CrossSubscriber event bridge including connection state, event mappings, and throughput statistics.",
         "responses": {
           "200": {
@@ -15610,7 +15971,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getCrossPollinationMetrics"
       }
     },
     "/api/v1/cross-pollination/metrics": {
@@ -15643,7 +16005,8 @@
             "description": "Statistics reset confirmation with handler count"
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createCrossPollinationReset"
       }
     },
     "/api/v1/cross-pollination/reset": {
@@ -15652,7 +16015,7 @@
           "Cross-Pollination"
         ],
         "summary": "Reset statistics",
-        "operationId": "createCrossPollinationReset",
+        "operationId": "createCrossPollinationReset1",
         "description": "Reset all cross-pollination statistics counters and circuit breaker states. Useful for testing and debugging.",
         "responses": {
           "200": {
@@ -15720,7 +16083,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -15728,7 +16092,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -15743,7 +16108,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listGauntletReceipts"
       }
     },
     "/api/v1/gauntlet/receipts": {
@@ -15752,7 +16118,7 @@
           "Gauntlet"
         ],
         "summary": "List decision receipts",
-        "operationId": "listGauntletReceipts",
+        "operationId": "listGauntletReceipts1",
         "description": "Get list of decision receipts with optional filtering.",
         "parameters": [
           {
@@ -15806,7 +16172,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -15814,7 +16181,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -15845,7 +16213,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the receipt"
           }
         ],
         "responses": {
@@ -15882,7 +16251,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getGauntletReceiptsByreceiptid"
       }
     },
     "/api/v1/gauntlet/receipts/{receipt_id}": {
@@ -15900,7 +16270,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the receipt"
           }
         ],
         "responses": {
@@ -15953,7 +16324,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the receipt"
           },
           {
             "name": "format",
@@ -16057,7 +16429,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listGauntletReceiptsByreceiptidExport"
       }
     },
     "/api/v1/gauntlet/receipts/{receipt_id}/export": {
@@ -16075,7 +16448,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the receipt"
           },
           {
             "name": "format",
@@ -16274,7 +16648,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createGauntletReceiptsExportBundle"
       }
     },
     "/api/v1/gauntlet/receipts/export/bundle": {
@@ -16283,7 +16658,7 @@
           "Gauntlet"
         ],
         "summary": "Export receipts bundle",
-        "operationId": "createGauntletReceiptsExportBundle",
+        "operationId": "createGauntletReceiptsExportBundle1",
         "description": "Export multiple receipts as a bundle.",
         "requestBody": {
           "required": true,
@@ -16395,7 +16770,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -16410,7 +16786,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listGauntletHeatmaps"
       }
     },
     "/api/v1/gauntlet/heatmaps": {
@@ -16419,7 +16796,7 @@
           "Gauntlet"
         ],
         "summary": "List risk heatmaps",
-        "operationId": "listGauntletHeatmaps",
+        "operationId": "listGauntletHeatmaps1",
         "description": "Get list of generated risk heatmaps.",
         "parameters": [
           {
@@ -16436,7 +16813,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -16467,7 +16845,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The heatmap id"
           }
         ],
         "responses": {
@@ -16504,7 +16883,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getGauntletHeatmapsByheatmapid"
       }
     },
     "/api/v1/gauntlet/heatmaps/{heatmap_id}": {
@@ -16522,7 +16902,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The heatmap id"
           }
         ],
         "responses": {
@@ -16575,7 +16956,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The heatmap id"
           },
           {
             "name": "format",
@@ -16636,7 +17018,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listGauntletHeatmapsByheatmapidExport"
       }
     },
     "/api/v1/gauntlet/heatmaps/{heatmap_id}/export": {
@@ -16654,7 +17037,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The heatmap id"
           },
           {
             "name": "format",
@@ -16731,7 +17115,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the receipt"
           }
         ],
         "responses": {
@@ -16768,7 +17153,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listGauntletReceiptsByreceiptidStream"
       }
     },
     "/api/v1/gauntlet/receipts/{receipt_id}/stream": {
@@ -16786,7 +17172,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the receipt"
           }
         ],
         "responses": {
@@ -16904,7 +17291,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebatesBydebateidExplainability"
       }
     },
     "/api/v1/debates/{debate_id}/explainability": {
@@ -17003,7 +17391,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "min_contribution",
@@ -17098,7 +17487,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebatesBydebateidExplainabilityFactors"
       }
     },
     "/api/v1/debates/{debate_id}/explainability/factors": {
@@ -17116,7 +17506,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "min_contribution",
@@ -17227,7 +17618,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "max_scenarios",
@@ -17313,7 +17705,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebatesBydebateidExplainabilityCounterfactual"
       },
       "post": {
         "tags": [
@@ -17328,7 +17721,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "requestBody": {
@@ -17422,7 +17816,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createDebatesBydebateidExplainabilityCounterfactual"
       }
     },
     "/api/v1/debates/{debate_id}/explainability/counterfactual": {
@@ -17440,7 +17835,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "max_scenarios",
@@ -17541,7 +17937,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "requestBody": {
@@ -17651,7 +18048,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "include_timestamps",
@@ -17753,7 +18151,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebatesBydebateidExplainabilityProvenance"
       }
     },
     "/api/v1/debates/{debate_id}/explainability/provenance": {
@@ -17771,7 +18170,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "include_timestamps",
@@ -17889,7 +18289,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "format",
@@ -17970,7 +18371,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listDebatesBydebateidExplainabilityNarrative"
       }
     },
     "/api/v1/debates/{debate_id}/explainability/narrative": {
@@ -17988,7 +18390,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "format",
@@ -18125,7 +18528,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 100
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -18133,7 +18537,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -18165,7 +18570,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listWorkflowTemplates1"
       }
     },
     "/api/v1/workflow/templates": {
@@ -18174,7 +18580,7 @@
           "Workflow Templates"
         ],
         "summary": "List workflow templates",
-        "operationId": "listWorkflowTemplates",
+        "operationId": "listWorkflowTemplates2",
         "description": "Get list of available workflow templates with optional filtering.",
         "parameters": [
           {
@@ -18223,7 +18629,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 100
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -18231,7 +18638,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -18317,7 +18725,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getWorkflowTemplatesBytemplateid1"
       }
     },
     "/api/v1/workflow/templates/{template_id}": {
@@ -18389,7 +18798,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the template"
           },
           {
             "name": "include_examples",
@@ -18492,7 +18902,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listWorkflowTemplatesBytemplateidPackage"
       }
     },
     "/api/v1/workflow/templates/{template_id}/package": {
@@ -18510,7 +18921,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the template"
           },
           {
             "name": "include_examples",
@@ -18629,7 +19041,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the template"
           }
         ],
         "requestBody": {
@@ -18786,7 +19199,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createWorkflowTemplatesBytemplateidRun"
       }
     },
     "/api/v1/workflow/templates/{template_id}/run": {
@@ -18804,7 +19218,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the template"
           }
         ],
         "requestBody": {
@@ -19007,7 +19422,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listWorkflowCategories"
       }
     },
     "/api/v1/workflow/categories": {
@@ -19016,7 +19432,7 @@
           "Workflow Templates"
         ],
         "summary": "List template categories",
-        "operationId": "listWorkflowCategories",
+        "operationId": "listWorkflowCategories1",
         "description": "Get list of available template categories with counts.",
         "responses": {
           "200": {
@@ -19104,7 +19520,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listWorkflowPatterns"
       }
     },
     "/api/v1/workflow/patterns": {
@@ -19113,7 +19530,7 @@
           "Workflow Templates"
         ],
         "summary": "List workflow patterns",
-        "operationId": "listWorkflowPatterns",
+        "operationId": "listWorkflowPatterns1",
         "description": "Get list of available workflow patterns.",
         "responses": {
           "200": {
@@ -19171,7 +19588,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The pattern id"
           }
         ],
         "requestBody": {
@@ -19282,7 +19700,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createWorkflowPatternsBypatternidInstantiate"
       }
     },
     "/api/v1/workflow/patterns/{pattern_id}/instantiate": {
@@ -19300,7 +19719,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The pattern id"
           }
         ],
         "requestBody": {
@@ -19432,7 +19852,8 @@
               "type": "integer",
               "default": 20,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -19580,7 +20001,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The request id"
           }
         ],
         "responses": {
@@ -19658,7 +20080,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The request id"
           }
         ],
         "responses": {
@@ -19714,7 +20137,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -19893,7 +20317,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -20029,7 +20454,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "scan_id",
@@ -20037,7 +20463,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The scan id"
           }
         ],
         "responses": {
@@ -20173,14 +20600,16 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "status",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by status (e.g., pending, active, completed, failed)"
           },
           {
             "name": "limit",
@@ -20188,7 +20617,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -20196,7 +20626,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -20310,28 +20741,32 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "severity",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by severity (e.g., low, medium, high, critical)"
           },
           {
             "name": "package",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The package"
           },
           {
             "name": "ecosystem",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The ecosystem"
           },
           {
             "name": "limit",
@@ -20339,7 +20774,8 @@
             "schema": {
               "type": "integer",
               "default": 100
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -20347,7 +20783,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -21173,7 +21610,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -21335,7 +21773,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -21471,7 +21910,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "scan_id",
@@ -21479,7 +21919,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The scan id"
           }
         ],
         "responses": {
@@ -21615,7 +22056,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -21729,7 +22171,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -21843,7 +22286,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -22022,7 +22466,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "scan_id",
@@ -22030,7 +22475,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The scan id"
           }
         ],
         "responses": {
@@ -22166,21 +22612,24 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "severity",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by severity (e.g., low, medium, high, critical)"
           },
           {
             "name": "owasp_category",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The owasp category"
           },
           {
             "name": "limit",
@@ -22188,7 +22637,8 @@
             "schema": {
               "type": "integer",
               "default": 100
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -22196,7 +22646,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -22310,7 +22761,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -22424,7 +22876,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -22615,7 +23068,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -22751,7 +23205,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "analysis_id",
@@ -22759,7 +23214,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The analysis id"
           }
         ],
         "responses": {
@@ -22895,7 +23351,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "limit",
@@ -22903,7 +23360,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -22911,7 +23369,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -23025,7 +23484,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "min_complexity",
@@ -23033,7 +23493,8 @@
             "schema": {
               "type": "integer",
               "default": 5
-            }
+            },
+            "description": "The min complexity value"
           },
           {
             "name": "limit",
@@ -23041,7 +23502,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -23155,7 +23617,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "min_lines",
@@ -23163,7 +23626,8 @@
             "schema": {
               "type": "integer",
               "default": 6
-            }
+            },
+            "description": "The min lines value"
           },
           {
             "name": "limit",
@@ -23171,7 +23635,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -23285,7 +23750,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "file_path",
@@ -23293,7 +23759,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The file path"
           }
         ],
         "responses": {
@@ -23429,7 +23896,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -23533,7 +24001,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -23589,7 +24058,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -23645,7 +24115,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -23701,7 +24172,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -23805,7 +24277,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -23909,7 +24382,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -24013,7 +24487,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "audit_id",
@@ -24021,7 +24496,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The audit id"
           }
         ],
         "responses": {
@@ -24098,7 +24574,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -24182,7 +24659,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createCodebaseByrepoAnalyze"
       }
     },
     "/api/codebase/{repo}/symbols": {
@@ -24202,7 +24680,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -24238,7 +24717,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listCodebaseByrepoSymbols"
       }
     },
     "/api/codebase/{repo}/callgraph": {
@@ -24258,7 +24738,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -24294,7 +24775,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listCodebaseByrepoCallgraph"
       }
     },
     "/api/codebase/{repo}/deadcode": {
@@ -24314,7 +24796,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -24350,7 +24833,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "listCodebaseByrepoDeadcode"
       }
     },
     "/api/codebase/{repo}/impact": {
@@ -24370,7 +24854,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -24454,7 +24939,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createCodebaseByrepoImpact"
       }
     },
     "/api/codebase/{repo}/understand": {
@@ -24474,7 +24960,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -24558,7 +25045,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createCodebaseByrepoUnderstand"
       }
     },
     "/api/codebase/{repo}/audit": {
@@ -24578,7 +25066,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -24662,7 +25151,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "createCodebaseByrepoAudit"
       }
     },
     "/api/codebase/{repo}/audit/{audit_id}": {
@@ -24682,7 +25172,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "audit_id",
@@ -24690,7 +25181,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The audit id"
           }
         ],
         "responses": {
@@ -24748,7 +25240,8 @@
             }
           }
         },
-        "deprecated": true
+        "deprecated": true,
+        "operationId": "getCodebaseByrepoAuditByauditid"
       }
     },
     "/api/v1/gmail/messages/{message_id}/labels": {
@@ -24769,7 +25262,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the message"
           }
         ],
         "requestBody": {
@@ -24901,7 +25395,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the message"
           }
         ],
         "requestBody": {
@@ -24995,7 +25490,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the message"
           }
         ],
         "requestBody": {
@@ -25089,7 +25585,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the message"
           }
         ],
         "responses": {
@@ -25173,7 +25670,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the message"
           }
         ],
         "requestBody": {
@@ -25267,7 +25765,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the message"
           },
           {
             "name": "attachment_id",
@@ -25275,14 +25774,16 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The attachment id"
           },
           {
             "name": "user_id",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the user"
           }
         ],
         "responses": {
@@ -25670,7 +26171,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the user"
           }
         ],
         "responses": {
@@ -25841,14 +26343,16 @@
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -25904,7 +26408,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the user"
           }
         ],
         "responses": {
@@ -26027,21 +26532,24 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by status (e.g., pending, active, completed, failed)"
           },
           {
             "name": "limit",
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -26189,7 +26697,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "responses": {
@@ -26265,7 +26774,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "responses": {
@@ -26343,7 +26853,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "responses": {
@@ -26421,7 +26932,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "responses": {
@@ -26499,7 +27011,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "responses": {
@@ -26577,7 +27090,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "responses": {
@@ -26655,14 +27169,16 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           },
           {
             "name": "audit_type",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The audit type"
           }
         ],
         "responses": {
@@ -26740,7 +27256,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "responses": {
@@ -26818,7 +27335,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "requestBody": {
@@ -26944,14 +27462,16 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           },
           {
             "name": "format",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Output format (e.g., json, yaml, csv)"
           }
         ],
         "responses": {
