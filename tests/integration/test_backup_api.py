@@ -153,8 +153,8 @@ class TestBackupAPIEndpoints:
             )
 
             assert result is not None
-            # May return 200 or 202 for async operation
-            assert result.status_code in (200, 202, 400, 500)
+            # May return 201 (created), 200, or 202 for async operation
+            assert result.status_code in (200, 201, 202, 400, 500)
 
     @pytest.mark.asyncio
     async def test_get_backup(self, backup_handler, mock_backup_manager):
