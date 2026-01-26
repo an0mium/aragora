@@ -589,8 +589,10 @@ class EnhancedWorkflowEngine(WorkflowEngine):
             return
 
         # Extract token counts from output (if agent provides them)
-        input_tokens = output.get("input_tokens", output.get("prompt_tokens", 0))
-        output_tokens = output.get("output_tokens", output.get("completion_tokens", 0))
+        input_tokens = int(output.get("input_tokens", 0) or output.get("prompt_tokens", 0) or 0)
+        output_tokens = int(
+            output.get("output_tokens", 0) or output.get("completion_tokens", 0) or 0
+        )
 
         # Estimate if not provided
         if input_tokens == 0 and output_tokens == 0:
