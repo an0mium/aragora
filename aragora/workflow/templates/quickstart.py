@@ -129,39 +129,32 @@ def create_pros_cons_workflow(
     """
     workflow_id = f"proscons_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-    return WorkflowDefinition(
-        id=workflow_id,
-        name=f"Pros & Cons: {topic[:40]}",
-        description="Structured pros and cons analysis",
-        category=WorkflowCategory.GENERAL,
-        tags=["quickstart", "pros-cons", "analysis", "decision"],
-        inputs={
-            "topic": topic,
-            "context": context,
-            "max_items": max_items,
-            "weighted": weighted,
-        },
-        steps=[
-            StepDefinition(
-                id="pros",
-                name="List Pros",
-                step_type="agent",
-                config={
-                    "agent_type": "claude",
-                    "prompt_template": f"List top {max_items} advantages of: {topic}",
-                },
-                next_steps=["cons"],
-            ),
-            StepDefinition(
-                id="cons",
-                name="List Cons",
-                step_type="agent",
-                config={
-                    "agent_type": "gpt-4",
-                    "prompt_template": f"List top {max_items} disadvantages of: {topic}",
-                },
-                next_steps=["weight"] if weighted else ["synthesize"],
-            ),
+    # Build steps conditionally based on weighted parameter
+    steps = [
+        StepDefinition(
+            id="pros",
+            name="List Pros",
+            step_type="agent",
+            config={
+                "agent_type": "claude",
+                "prompt_template": f"List top {max_items} advantages of: {topic}",
+            },
+            next_steps=["cons"],
+        ),
+        StepDefinition(
+            id="cons",
+            name="List Cons",
+            step_type="agent",
+            config={
+                "agent_type": "gpt-4",
+                "prompt_template": f"List top {max_items} disadvantages of: {topic}",
+            },
+            next_steps=["weight"] if weighted else ["synthesize"],
+        ),
+    ]
+
+    if weighted:
+        steps.append(
             StepDefinition(
                 id="weight",
                 name="Weight Items",
@@ -171,7 +164,11 @@ def create_pros_cons_workflow(
                     "prompt_template": "Assign importance weights (1-10) to each pro and con",
                 },
                 next_steps=["synthesize"],
-            ),
+            )
+        )
+
+    steps.extend(
+        [
             StepDefinition(
                 id="synthesize",
                 name="Synthesize Analysis",
@@ -191,7 +188,22 @@ def create_pros_cons_workflow(
                 },
                 next_steps=[],
             ),
-        ],
+        ]
+    )
+
+    return WorkflowDefinition(
+        id=workflow_id,
+        name=f"Pros & Cons: {topic[:40]}",
+        description="Structured pros and cons analysis",
+        category=WorkflowCategory.GENERAL,
+        tags=["quickstart", "pros-cons", "analysis", "decision"],
+        inputs={
+            "topic": topic,
+            "context": context,
+            "max_items": max_items,
+            "weighted": weighted,
+        },
+        steps=steps,
         entry_step="pros",
     )
 
