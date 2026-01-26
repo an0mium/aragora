@@ -95,7 +95,7 @@ jobs:
       matrix:
         category:
           - name: core
-            path: tests/debate tests/agents tests/rlm tests/reasoning tests/workflow
+            path: tests/debate tests/agents tests/rlm tests/reasoning tests/workflow tests/client
           - name: server
             path: tests/server tests/handlers
           - name: knowledge
