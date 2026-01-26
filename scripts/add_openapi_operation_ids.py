@@ -6,6 +6,7 @@ Generates operationIds from HTTP method + path using camelCase convention.
 Example: GET /api/v1/debates/{id} -> getDebateById
 """
 
+import argparse
 import json
 import re
 import sys
@@ -127,7 +128,16 @@ def add_operation_ids(spec: dict) -> tuple[dict, int, int, int]:
 
 def main():
     """Main entry point."""
-    spec_path = Path("docs/api/openapi.json")
+    parser = argparse.ArgumentParser(description="Add operationIds to OpenAPI spec")
+    parser.add_argument(
+        "--spec",
+        type=Path,
+        default=Path("docs/api/openapi.json"),
+        help="Path to OpenAPI JSON spec",
+    )
+    args = parser.parse_args()
+
+    spec_path = args.spec
 
     if not spec_path.exists():
         print(f"Error: {spec_path} not found")

@@ -52,6 +52,12 @@ jobs:
           python scripts/generate_openapi.py --output docs/api/openapi_generated.json
           python scripts/generate_openapi.py --output docs/api/openapi_generated.yaml --format yaml
 
+      - name: Normalize OpenAPI spec metadata
+        run: |
+          python scripts/add_openapi_operation_ids.py --spec docs/api/openapi_generated.json
+          python scripts/add_openapi_param_descriptions.py --spec docs/api/openapi_generated.json
+          python scripts/add_openapi_descriptions.py --spec docs/api/openapi_generated.json
+
       - name: Enforce canonical OpenAPI version
         run: |
           VERSION=$(python -c "import json; print(json.load(open('docs/api/openapi_generated.json'))['openapi'])")
@@ -61,7 +67,7 @@ jobs:
           fi
 
       - name: Check SDK type generation
-        run: python scripts/generate_sdk_types.py --check
+        run: python scripts/generate_sdk_types.py --check --openapi docs/api/openapi_generated.json
 
       - name: Compare with existing spec
         id: compare
@@ -94,12 +100,12 @@ jobs:
 
       - name: Audit documentation coverage
         run: |
-          python scripts/audit_openapi_docs.py --min-coverage 60
+          python scripts/audit_openapi_docs.py --spec docs/api/openapi_generated.json --min-coverage 90
           echo "Documentation coverage check passed"
 
       - name: Check for missing operationIds (warning only)
         run: |
-          python scripts/audit_openapi_docs.py --json | python -c "
+          python scripts/audit_openapi_docs.py --spec docs/api/openapi_generated.json --json | python -c "
           import json, sys
           data = json.load(sys.stdin)
           missing = len([e for e in data['priority_list'] if 'operationId' in e.get('missing', [])])

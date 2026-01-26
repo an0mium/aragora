@@ -5,6 +5,7 @@ Add descriptions to OpenAPI spec parameters.
 Uses a mapping of common parameter names to descriptions.
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -159,7 +160,16 @@ def add_param_descriptions(spec: dict) -> tuple[dict, int, int]:
 
 def main():
     """Main entry point."""
-    spec_path = Path("docs/api/openapi.json")
+    parser = argparse.ArgumentParser(description="Add parameter descriptions to OpenAPI spec")
+    parser.add_argument(
+        "--spec",
+        type=Path,
+        default=Path("docs/api/openapi.json"),
+        help="Path to OpenAPI JSON spec",
+    )
+    args = parser.parse_args()
+
+    spec_path = args.spec
 
     if not spec_path.exists():
         print(f"Error: {spec_path} not found")
