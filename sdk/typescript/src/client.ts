@@ -764,13 +764,6 @@ export class AragoraClient {
     return this.getDebateEvidenceV1(debateId, options);
   }
 
-  async getDebateEvidenceV1(debateId: string, options?: {
-    limit?: number;
-    min_relevance?: number;
-  }): Promise<DebateEvidence> {
-    return this.request<DebateEvidence>('GET', `/api/v1/debates/${encodeURIComponent(debateId)}/evidence`, { params: options });
-  }
-
   /**
    * Get evidence chain for a debate with filtering options (v1 API).
    */
