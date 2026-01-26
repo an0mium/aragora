@@ -30,10 +30,16 @@ class SecurityHandler(SecureHandler):
     """Handler for security-related admin endpoints."""
 
     ROUTES = [
+        # Versioned routes
         "/api/v1/admin/security/status",
         "/api/v1/admin/security/rotate-key",
         "/api/v1/admin/security/health",
         "/api/v1/admin/security/keys",
+        # Non-versioned routes (backwards compatibility)
+        "/api/admin/security/status",
+        "/api/admin/security/rotate-key",
+        "/api/admin/security/health",
+        "/api/admin/security/keys",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -48,6 +54,10 @@ class SecurityHandler(SecureHandler):
             "/api/v1/admin/security/status": self._get_status,
             "/api/v1/admin/security/health": self._get_health,
             "/api/v1/admin/security/keys": self._list_keys,
+            # Non-versioned routes (backwards compatibility)
+            "/api/admin/security/status": self._get_status,
+            "/api/admin/security/health": self._get_health,
+            "/api/admin/security/keys": self._list_keys,
         }
 
         # GET endpoints
@@ -58,7 +68,7 @@ class SecurityHandler(SecureHandler):
 
     def handle_post(self, path: str, data: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
         """Handle POST requests for security endpoints."""
-        if path == "/api/v1/admin/security/rotate-key":
+        if path in ("/api/v1/admin/security/rotate-key", "/api/admin/security/rotate-key"):
             return self._rotate_key(data, handler)
         return None
 
