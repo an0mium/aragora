@@ -21,6 +21,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+from aragora.audit.unified import audit_action
 from aragora.bots.base import (
     BotChannel,
     BotConfig,
@@ -175,6 +176,17 @@ class AragoraSlackBot:
         ctx.args = [command] + (args.split() if args else [])
         ctx.raw_args = args
 
+        # Audit slash command execution
+        audit_action(
+            user_id=body.get("user_id", "unknown"),
+            action="slack_slash_command",
+            resource_type="slack_bot",
+            resource_id=body.get("channel_id", "unknown"),
+            command=command,
+            team_id=body.get("team_id"),
+            channel_name=body.get("channel_name"),
+        )
+
         result = await self.registry.execute(ctx)
 
         # Format response with Slack blocks if available
@@ -196,6 +208,16 @@ class AragoraSlackBot:
         parts = text.split(maxsplit=1)
         command = parts[0].lower()
         args = parts[1] if len(parts) > 1 else ""
+
+        # Audit DM command
+        audit_action(
+            user_id=event.get("user", "unknown"),
+            action="slack_dm_command",
+            resource_type="slack_bot",
+            resource_id=event.get("channel", "unknown"),
+            command=command,
+            team_id=event.get("team"),
+        )
 
         ctx = self._create_context_from_event(event, command, args)
         ctx.args = [command] + (args.split() if args else [])
@@ -224,6 +246,16 @@ class AragoraSlackBot:
         import re
 
         text = re.sub(r"<@[A-Z0-9]+(?:\|[^>]+)?>", "", text).strip()
+
+        # Audit bot mention
+        audit_action(
+            user_id=event.get("user", "unknown"),
+            action="slack_bot_mention",
+            resource_type="slack_bot",
+            resource_id=event.get("channel", "unknown"),
+            team_id=event.get("team"),
+            has_command=bool(text),
+        )
 
         if not text:
             await say(
