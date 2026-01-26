@@ -208,6 +208,24 @@ result = await arena.run()
 ### WebSocket Events
 `debate_start`, `round_start`, `agent_message`, `critique`, `vote`, `consensus`, `debate_end`
 
+### RBAC Permissions
+Use `@require_permission` decorator at route/view level, not on internal methods:
+```python
+from aragora.rbac.decorators import require_permission
+from aragora.rbac.models import AuthorizationContext
+
+# Correct: Use in route handlers that receive auth context
+@require_permission("backups:read")
+async def get_backups(ctx: AuthorizationContext) -> list:
+    return await manager.list_backups()
+
+# Incorrect: Internal methods don't receive auth context
+# @require_permission("backups:read")  # Won't work!
+async def _internal_list_backups(self) -> list:
+    ...
+```
+Permission check happens at API layer (middleware/route handler), not internal methods.
+
 ## Commands
 
 ```bash
