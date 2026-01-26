@@ -32,7 +32,7 @@ from .base import (
     json_response,
     safe_error_message,
 )
-from .secure import SecureHandler
+from .secure import SecureHandler, ForbiddenError, UnauthorizedError
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -117,7 +117,35 @@ class QueueHandler(SecureHandler, PaginatedHandlerMixin):
         self, path: str, method: str, handler: Any = None
     ) -> Optional[HandlerResult]:
         """Route request to appropriate handler method."""
+        # Require authentication for all queue operations
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
         normalized = strip_version_prefix(path)
+
+        # Determine required permission based on operation
+        read_ops = {"/api/queue/stats", "/api/queue/workers", "/api/queue/jobs", "/api/queue/stale"}
+        admin_ops = {"/api/queue/dlq", "/api/queue/cleanup"}
+
+        if normalized in read_ops or (
+            normalized.startswith("/api/queue/jobs/") and method == "GET"
+        ):
+            permission = "queue:read"
+        elif normalized in admin_ops or normalized.startswith("/api/queue/dlq/"):
+            permission = "queue:admin"
+        else:
+            permission = "queue:manage"
+
+        try:
+            self.check_permission(auth_context, permission)
+        except ForbiddenError:
+            logger.warning(f"Queue permission denied: {permission} for user {auth_context.user_id}")
+            return error_response(f"Permission denied: {permission}", 403)
+
         query_params: Dict[str, Any] = {}
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
