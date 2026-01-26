@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import (
     DEBATE_TIMEOUT_SECONDS,
+    DEFAULT_AGENTS,
     MAX_CONCURRENT_DEBATES,
 )
 from aragora.server.debate_factory import DebateConfig, DebateFactory
@@ -54,7 +55,7 @@ class DebateRequest:
     """Parsed debate request from HTTP body."""
 
     question: str
-    agents_str: str = "anthropic-api,openai-api,gemini,grok"
+    agents_str: str = DEFAULT_AGENTS
     rounds: int = 8  # 9-round format (0-8), default for all debates
     consensus: str = "judge"  # Judge-based consensus for final decisions
     debate_format: str = "full"  # "light" (~5 min) or "full" (~30 min)
@@ -100,7 +101,7 @@ class DebateRequest:
 
         return cls(
             question=question,
-            agents_str=data.get("agents", "anthropic-api,openai-api,gemini,grok"),
+            agents_str=data.get("agents", DEFAULT_AGENTS),
             rounds=rounds,
             consensus=data.get("consensus", "judge"),
             debate_format=data.get("debate_format", "full"),

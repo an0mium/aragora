@@ -9,7 +9,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from aragora.config import MAX_AGENTS_PER_DEBATE
+from aragora.config import DEFAULT_AGENTS, MAX_AGENTS_PER_DEBATE
 from aragora.exceptions import ConfigurationError
 from aragora.rlm.debate_integration import create_training_hook
 
@@ -65,7 +65,7 @@ class DebateConfig:
     """Configuration for debate creation."""
 
     question: str
-    agents_str: str = "anthropic-api,openai-api"
+    agents_str: str = DEFAULT_AGENTS
     rounds: int = 8  # 9-round format (0-8), default for all debates
     consensus: str = "judge"  # Judge-based consensus for final decisions
     debate_format: str = "full"  # "light" (~5 min) or "full" (~30 min)
