@@ -41,36 +41,44 @@ def check_datamodel_codegen() -> bool:
 
 
 def generate_types(openapi_path: Path, output_path: Path) -> int:
-    """Generate Python Pydantic models from the OpenAPI spec."""
-    cmd = [
-        "datamodel-codegen",
-        "--input",
-        str(openapi_path),
-        "--input-file-type",
-        "openapi",
-        "--output",
-        str(output_path),
-        "--use-annotated",
-        "--field-constraints",
-        "--use-double-quotes",
-        "--target-python-version",
-        "3.11",
-        "--use-standard-collections",
-        "--use-union-operator",
-        "--collapse-root-models",
-        "--enum-field-as-literal",
-        "one",
-        # Use ruff formatting for consistent output regardless of working directory
-        "--formatters",
-        "ruff-format",
-    ]
+    """Generate Python Pydantic models from the OpenAPI spec.
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    Always generates to a temp directory first to ensure consistent output
+    regardless of destination path (datamodel-codegen picks up local ruff/black
+    config which can vary between directories).
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        temp_out = Path(tmpdir) / output_path.name
+        cmd = [
+            "datamodel-codegen",
+            "--input",
+            str(openapi_path),
+            "--input-file-type",
+            "openapi",
+            "--output",
+            str(temp_out),
+            "--use-annotated",
+            "--field-constraints",
+            "--use-double-quotes",
+            "--target-python-version",
+            "3.11",
+            "--use-standard-collections",
+            "--use-union-operator",
+            "--collapse-root-models",
+            "--enum-field-as-literal",
+            "one",
+        ]
 
-    if result.returncode != 0:
-        print(f"Error generating types: {result.stderr}", file=sys.stderr)
+        result = subprocess.run(cmd, capture_output=True, text=True)
 
-    return result.returncode
+        if result.returncode != 0:
+            print(f"Error generating types: {result.stderr}", file=sys.stderr)
+            return result.returncode
+
+        # Copy to destination (avoiding local config differences)
+        output_path.write_text(temp_out.read_text())
+
+    return 0
 
 
 def format_output(output_path: Path) -> None:
