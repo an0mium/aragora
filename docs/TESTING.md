@@ -120,6 +120,9 @@ pytest tests/ -n auto
 pytest tests/ -s
 ```
 
+If RBAC decorators block integration endpoints, mock an `AuthorizationContext`
+in the integration tests (see `tests/integration/test_*_api.py`).
+
 ### Test Markers
 
 Tests use markers to categorize them:

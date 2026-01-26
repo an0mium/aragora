@@ -17,6 +17,21 @@ from typing import Dict, Any
 class TestDRAPIEndpoints:
     """Test DR API HTTP endpoints."""
 
+    @pytest.fixture(autouse=True)
+    def mock_rbac_for_endpoints(self):
+        """Mock RBAC to allow all permissions for endpoint testing."""
+        from aragora.rbac.models import AuthorizationContext
+
+        mock_context = AuthorizationContext(
+            user_id="test_user",
+            permissions={"dr:read", "dr:drill", "dr:admin"},
+        )
+        with patch(
+            "aragora.rbac.decorators._get_context_from_args",
+            return_value=mock_context,
+        ):
+            yield
+
     @pytest.fixture
     def dr_handler(self):
         """Create DRHandler instance."""
@@ -73,7 +88,7 @@ class TestDRAPIEndpoints:
     @pytest.mark.asyncio
     async def test_get_dr_status(self, dr_handler, mock_dr_manager):
         """Test getting DR status endpoint."""
-        with patch.object(dr_handler, "_get_manager", return_value=mock_dr_manager):
+        with patch.object(dr_handler, "_get_backup_manager", return_value=mock_dr_manager):
             result = await dr_handler.handle(
                 method="GET",
                 path="/api/v2/dr/status",
@@ -85,7 +100,7 @@ class TestDRAPIEndpoints:
     @pytest.mark.asyncio
     async def test_run_dr_drill(self, dr_handler, mock_dr_manager):
         """Test running a DR drill."""
-        with patch.object(dr_handler, "_get_manager", return_value=mock_dr_manager):
+        with patch.object(dr_handler, "_get_backup_manager", return_value=mock_dr_manager):
             result = await dr_handler.handle(
                 method="POST",
                 path="/api/v2/dr/drill",
@@ -98,7 +113,7 @@ class TestDRAPIEndpoints:
     @pytest.mark.asyncio
     async def test_get_objectives(self, dr_handler, mock_dr_manager):
         """Test getting RPO/RTO objectives."""
-        with patch.object(dr_handler, "_get_manager", return_value=mock_dr_manager):
+        with patch.object(dr_handler, "_get_backup_manager", return_value=mock_dr_manager):
             result = await dr_handler.handle(
                 method="GET",
                 path="/api/v2/dr/objectives",
@@ -110,7 +125,7 @@ class TestDRAPIEndpoints:
     @pytest.mark.asyncio
     async def test_validate_config(self, dr_handler, mock_dr_manager):
         """Test validating DR configuration."""
-        with patch.object(dr_handler, "_get_manager", return_value=mock_dr_manager):
+        with patch.object(dr_handler, "_get_backup_manager", return_value=mock_dr_manager):
             result = await dr_handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -179,7 +194,7 @@ class TestDRPermissions:
 
     def test_dr_drill_denied_without_permission(self):
         """Test that DR drills are denied without permission."""
-        from aragora.rbac.decorators import require_permission
+        from aragora.rbac.decorators import require_permission, PermissionDeniedError
 
         @require_permission("dr:drill")
         def run_drill(ctx):
@@ -192,7 +207,7 @@ class TestDRPermissions:
             permissions={"dr:read"},  # Only read, not drill
         )
 
-        with pytest.raises(Exception):  # PermissionDenied
+        with pytest.raises(PermissionDeniedError):
             run_drill(ctx)
 
 

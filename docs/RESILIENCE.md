@@ -235,6 +235,9 @@ arena = Arena(
 )
 ```
 
+When `fallback_to_openrouter` is enabled and `OPENROUTER_API_KEY` is configured,
+Aragora will also fall back if provider API keys are missing.
+
 ## Configuration
 
 Environment variables:
