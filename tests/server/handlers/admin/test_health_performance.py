@@ -49,8 +49,8 @@ class TestHealthCaching:
         result = {"status": "ready", "checks": {}}
         _set_cached_health("test_key", result)
 
-        # Manually set timestamp to expired
-        _HEALTH_CACHE_TIMESTAMPS["test_key"] = time.time() - 2.0  # 2 seconds ago
+        # Manually set timestamp to expired (TTL is 5 seconds, use 6 to ensure expiry)
+        _HEALTH_CACHE_TIMESTAMPS["test_key"] = time.time() - 6.0  # 6 seconds ago
 
         cached = _get_cached_health("test_key")
         assert cached is None
@@ -109,7 +109,7 @@ class TestReadinessProbePerformance:
     def test_readiness_returns_latency(self, handler):
         """Readiness probe should include latency_ms in response."""
         with patch.dict("os.environ", {}, clear=False):
-            result = handler._readiness_probe()
+            result = handler._readiness_probe_fast()
 
         import json
 
@@ -121,11 +121,11 @@ class TestReadinessProbePerformance:
         """Second readiness check should use cache."""
         with patch.dict("os.environ", {}, clear=False):
             # First call - should compute
-            result1 = handler._readiness_probe()
+            result1 = handler._readiness_probe_fast()
 
             # Second call - should use cache
             start = time.perf_counter()
-            result2 = handler._readiness_probe()
+            result2 = handler._readiness_probe_fast()
             elapsed_ms = (time.perf_counter() - start) * 1000
 
             # Cached response should be very fast
@@ -198,13 +198,13 @@ class TestHealthEndpointSLO:
 
         with patch.dict("os.environ", {}, clear=False):
             # Prime the cache
-            handler._readiness_probe()
+            handler._readiness_probe_fast()
 
             # Measure cached responses
             times = []
             for _ in range(10):
                 start = time.perf_counter()
-                handler._readiness_probe()
+                handler._readiness_probe_fast()
                 times.append((time.perf_counter() - start) * 1000)
 
         avg_time = sum(times) / len(times)
