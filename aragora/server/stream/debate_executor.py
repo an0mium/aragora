@@ -54,6 +54,13 @@ _active_debates = get_active_debates()
 _active_debates_lock = get_active_debates_lock()
 
 _ENV_VAR_RE = re.compile(r"[A-Z][A-Z0-9_]+")
+_OPENROUTER_FALLBACK_MODELS = {
+    "anthropic-api": "anthropic/claude-3.5-sonnet",
+    "openai-api": "openai/gpt-4o-mini",
+    "gemini": "google/gemini-2.0-flash-exp:free",
+    "grok": "x-ai/grok-2-1212",
+    "mistral-api": "mistralai/mistral-large-2411",
+}
 
 
 def _missing_required_env_vars(env_vars: str) -> list[str]:
@@ -68,6 +75,20 @@ def _missing_required_env_vars(env_vars: str) -> list[str]:
     if any(os.getenv(var) for var in candidates):
         return []
     return candidates
+
+
+def _openrouter_key_available() -> bool:
+    """Return True if OpenRouter key is configured via secrets or env."""
+    try:
+        from aragora.config.secrets import get_secret
+
+        value = get_secret("OPENROUTER_API_KEY")
+        if value and value.strip():
+            return True
+    except Exception:
+        pass
+    env_value = os.getenv("OPENROUTER_API_KEY")
+    return bool(env_value and env_value.strip())
 
 
 # Check if debate orchestrator is available
@@ -248,12 +269,44 @@ def execute_debate_thread(
 
         agent_specs = AgentSpec.parse_list(agents_str)
         filtered_specs = []
+        openrouter_available = _openrouter_key_available()
         for spec in agent_specs:
             registry_spec = AgentRegistry.get_spec(spec.provider)
             missing_env = []
             if registry_spec and registry_spec.env_vars:
                 missing_env = _missing_required_env_vars(registry_spec.env_vars)
             if missing_env:
+                fallback_model = _OPENROUTER_FALLBACK_MODELS.get(spec.provider)
+                if openrouter_available and fallback_model:
+                    fallback_spec = AgentSpec(
+                        provider="openrouter",
+                        model=fallback_model,
+                        persona=spec.persona,
+                        role=spec.role,
+                        name=spec.name or spec.provider,
+                    )
+                    emitter.emit(
+                        StreamEvent(
+                            type=StreamEventType.AGENT_ERROR,
+                            data={
+                                "error_type": "missing_env_fallback",
+                                "message": (
+                                    f"Missing {spec.provider} key(s); using OpenRouter model "
+                                    f"{fallback_model}"
+                                ),
+                                "recoverable": True,
+                                "phase": "setup",
+                            },
+                            agent=spec.name or spec.provider,
+                            loop_id=debate_id,
+                        )
+                    )
+                    logger.warning(
+                        f"[debate] {debate_id}: {spec.provider} missing key(s), "
+                        f"fallback to openrouter:{fallback_model}"
+                    )
+                    filtered_specs.append(fallback_spec)
+                    continue
                 message = (
                     f"Missing required API key(s) for {spec.provider}: " f"{', '.join(missing_env)}"
                 )
