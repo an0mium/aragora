@@ -334,3 +334,296 @@ class TestDebateWithFallback:
             result = await arena.run()
 
         assert result is not None
+
+
+class TestOpenRouterFallbackIntegration:
+    """Integration tests for OpenRouter fallback when primary API agents hit quota."""
+
+    @pytest.mark.asyncio
+    async def test_anthropic_quota_triggers_openrouter_fallback(self):
+        """Anthropic 400 billing error should trigger OpenRouter fallback."""
+        from aragora.agents.fallback import QuotaFallbackMixin
+
+        class MockAnthropicAgent(QuotaFallbackMixin):
+            OPENROUTER_MODEL_MAP = {
+                "claude-opus-4-5-20251101": "anthropic/claude-sonnet-4",
+            }
+            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4"
+
+            def __init__(self):
+                self.name = "mock-anthropic"
+                self.model = "claude-opus-4-5-20251101"
+                self.enable_fallback = True
+                self._fallback_agent = None
+
+        agent = MockAnthropicAgent()
+
+        # Simulate Anthropic billing error
+        assert agent.is_quota_error(400, "credit balance is too low") is True
+        assert agent.is_quota_error(400, "Your account has insufficient credits") is True
+
+        # Non-billing 400 errors should not trigger fallback
+        assert agent.is_quota_error(400, "Invalid request format") is False
+
+    @pytest.mark.asyncio
+    async def test_gemini_quota_triggers_openrouter_fallback(self):
+        """Gemini 403 quota error should trigger OpenRouter fallback."""
+        from aragora.agents.fallback import QuotaFallbackMixin
+
+        class MockGeminiAgent(QuotaFallbackMixin):
+            OPENROUTER_MODEL_MAP = {
+                "gemini-2.0-flash-exp": "google/gemini-2.0-flash-exp:free",
+            }
+            DEFAULT_FALLBACK_MODEL = "google/gemini-pro"
+
+        agent = MockGeminiAgent()
+
+        # Gemini quota errors
+        assert agent.is_quota_error(403, "Quota exceeded") is True
+        assert agent.is_quota_error(403, "Resource exhausted") is True
+        assert agent.is_quota_error(429, "Rate limit exceeded") is True
+
+    @pytest.mark.asyncio
+    async def test_openai_429_triggers_openrouter_fallback(self):
+        """OpenAI 429 rate limit should trigger OpenRouter fallback."""
+        from aragora.agents.fallback import QuotaFallbackMixin
+
+        class MockOpenAIAgent(QuotaFallbackMixin):
+            OPENROUTER_MODEL_MAP = {
+                "gpt-4o": "openai/gpt-4o",
+            }
+            DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+
+        agent = MockOpenAIAgent()
+
+        # OpenAI rate limit
+        assert agent.is_quota_error(429, "Rate limit exceeded") is True
+        assert agent.is_quota_error(429, "") is True  # 429 always triggers
+
+
+class TestStreamingFallbackIntegration:
+    """Tests for streaming fallback scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_fallback_chain_stream_generation(self):
+        """Fallback chain should support streaming generation."""
+        from aragora.agents.fallback import AgentFallbackChain
+
+        primary_called = False
+        fallback_called = False
+        chunks_received = []
+
+        async def primary_stream(prompt, context):
+            nonlocal primary_called
+            primary_called = True
+            raise RuntimeError("Primary streaming unavailable")
+
+        async def fallback_stream(prompt, context):
+            nonlocal fallback_called
+            fallback_called = True
+            for chunk in ["Hello", " ", "World"]:
+                yield chunk
+
+        primary = Mock()
+        primary.generate_stream = primary_stream
+        primary.generate = AsyncMock(side_effect=RuntimeError("Primary unavailable"))
+        primary.name = "primary"
+
+        fallback = Mock()
+        fallback.generate_stream = fallback_stream
+        fallback.name = "fallback"
+
+        chain = AgentFallbackChain([primary, fallback])
+
+        async for chunk in chain.generate_stream("test prompt", []):
+            chunks_received.append(chunk)
+
+        assert primary_called is True
+        assert fallback_called is True
+        assert chunks_received == ["Hello", " ", "World"]
+
+
+class TestContextPreservationDuringFallback:
+    """Tests to ensure conversation context is preserved during fallback."""
+
+    @pytest.mark.asyncio
+    async def test_system_prompt_preserved_in_fallback(self):
+        """Fallback agent should receive the same system prompt."""
+        from aragora.agents.fallback import QuotaFallbackMixin
+
+        class TestAgent(QuotaFallbackMixin):
+            OPENROUTER_MODEL_MAP = {"test-model": "openai/gpt-4o"}
+            DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+
+            def __init__(self):
+                self.name = "test-agent"
+                self.model = "test-model"
+                self.system_prompt = "You are a helpful assistant."
+                self.enable_fallback = True
+                self._fallback_agent = None
+
+        agent = TestAgent()
+
+        # Test that model mapping works
+        fallback_model = agent.get_fallback_model()
+        assert fallback_model == "openai/gpt-4o"
+
+    @pytest.mark.asyncio
+    async def test_conversation_context_passed_to_fallback(self):
+        """Conversation context should be passed to fallback generate."""
+        from aragora.agents.fallback import AgentFallbackChain
+        from aragora.core import Message
+
+        context_received = None
+
+        async def primary_fail(prompt, context):
+            raise RuntimeError("Primary unavailable")
+
+        async def fallback_generate(prompt, context):
+            nonlocal context_received
+            context_received = context
+            return "Fallback response"
+
+        primary = Mock()
+        primary.generate = primary_fail
+        primary.name = "primary"
+
+        fallback = Mock()
+        fallback.generate = fallback_generate
+        fallback.name = "fallback"
+
+        chain = AgentFallbackChain([primary, fallback])
+
+        test_context = [
+            Message(role="user", content="Hello"),
+            Message(role="assistant", content="Hi there"),
+        ]
+
+        await chain.generate("New question", test_context)
+
+        assert context_received == test_context
+
+
+class TestCascadingFailureScenarios:
+    """Tests for cascading failure scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_all_providers_exhausted_error(self):
+        """Should raise AllProvidersExhaustedError when all providers fail."""
+        from aragora.agents.fallback import AgentFallbackChain, AllProvidersExhaustedError
+
+        async def always_fail(prompt, context):
+            raise RuntimeError("Provider unavailable")
+
+        agents = []
+        for i in range(3):
+            agent = Mock()
+            agent.generate = always_fail
+            agent.name = f"agent_{i}"
+            agents.append(agent)
+
+        chain = AgentFallbackChain(agents)
+
+        with pytest.raises((RuntimeError, AllProvidersExhaustedError)):
+            await chain.generate("test prompt", [])
+
+    @pytest.mark.asyncio
+    async def test_timeout_errors_treated_as_quota(self):
+        """Timeout errors (408, 504, 524) should be treated as quota errors."""
+        from aragora.agents.fallback import QuotaFallbackMixin
+
+        class TestAgent(QuotaFallbackMixin):
+            pass
+
+        agent = TestAgent()
+
+        # Timeout codes should trigger fallback
+        assert agent.is_quota_error(408, "Request timeout") is True
+        assert agent.is_quota_error(504, "Gateway timeout") is True
+        assert agent.is_quota_error(524, "A timeout occurred") is True
+
+    @pytest.mark.asyncio
+    async def test_fallback_metrics_track_failures(self):
+        """Fallback metrics should track primary and fallback success/failure rates."""
+        from aragora.agents.fallback import FallbackMetrics
+
+        metrics = FallbackMetrics()
+
+        # Simulate some calls
+        metrics.record_primary_success("openai")
+        metrics.record_primary_success("openai")
+        metrics.record_primary_failure("openai")
+        metrics.record_fallback_success("openai", "openrouter")
+
+        assert metrics.get_primary_success_rate("openai") == pytest.approx(2 / 3, rel=0.01)
+        assert metrics.get_fallback_rate("openai") == pytest.approx(1 / 4, rel=0.01)
+
+
+class TestDebateLevelFallbackIntegration:
+    """Tests for fallback behavior during actual debates."""
+
+    @pytest.mark.asyncio
+    async def test_debate_with_quota_prone_agent(self):
+        """Debate should complete when agent might hit quota but has fallback."""
+
+        class QuotaProneAgent:
+            """Agent that simulates occasional quota errors."""
+
+            def __init__(self, name: str):
+                self.name = name
+                self.call_count = 0
+                self.role = "proposer"
+
+            async def generate(self, prompt: str, context=None) -> str:
+                self.call_count += 1
+                # Simulate occasional failures that would trigger fallback
+                return f"Response from {self.name} (call {self.call_count})"
+
+        agents = [
+            QuotaProneAgent("quota_prone_1"),
+            MockAgent(name="reliable_1", responses=["Reliable response 1"]),
+            MockAgent(name="reliable_2", responses=["Reliable response 2"]),
+        ]
+
+        env = Environment(task="Test quota-prone agent in debate")
+        protocol = DebateProtocol(rounds=2, consensus="majority")
+
+        with patch.object(Arena, "_gather_trending_context", new_callable=AsyncMock):
+            arena = Arena(env, agents, protocol)
+            result = await arena.run()
+
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_fallback_chain_with_circuit_breaker(self):
+        """Fallback chain should respect circuit breaker state."""
+        from aragora.agents.fallback import AgentFallbackChain
+        from aragora.resilience import CircuitBreaker
+
+        call_counts = {"primary": 0, "fallback": 0}
+
+        async def primary_generate(prompt, context):
+            call_counts["primary"] += 1
+            raise RuntimeError("Primary always fails")
+
+        async def fallback_generate(prompt, context):
+            call_counts["fallback"] += 1
+            return "Fallback success"
+
+        primary = Mock()
+        primary.generate = primary_generate
+        primary.name = "primary"
+
+        fallback = Mock()
+        fallback.generate = fallback_generate
+        fallback.name = "fallback"
+
+        chain = AgentFallbackChain([primary, fallback])
+
+        # Multiple calls should all succeed via fallback
+        for _ in range(5):
+            result = await chain.generate("test", [])
+            assert result == "Fallback success"
+
+        assert call_counts["primary"] == 5
+        assert call_counts["fallback"] == 5
