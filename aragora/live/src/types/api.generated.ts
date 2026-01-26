@@ -6354,7 +6354,7 @@ export interface paths {
          * Prometheus metrics
          * @description Metrics in Prometheus format
          */
-        get: operations["listMetricsSystem"];
+        get: operations["getPrometheusMetrics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19601,7 +19601,7 @@ export interface operations {
             };
         };
     };
-    listMetricsSystem: {
+    getPrometheusMetrics: {
         parameters: {
             query?: never;
             header?: never;
