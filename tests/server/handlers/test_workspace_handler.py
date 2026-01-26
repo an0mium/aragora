@@ -670,3 +670,268 @@ class TestWorkspaceRBAC:
 
         result = handler._handle_execute_policy(mock_http, "pol-123", {})
         assert result.status_code == 403
+
+
+# ===========================================================================
+# Additional Tests based on patterns from test_admin_health_handler.py
+# and test_admin_billing_handler.py
+# ===========================================================================
+
+
+class TestWorkspaceHandlerResourceType:
+    """Tests for handler resource type configuration."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkspaceHandler(mock_server_context)
+
+    def test_resource_type_is_workspace(self, handler):
+        """Handler resource type is set to 'workspace'."""
+        assert handler.RESOURCE_TYPE == "workspace"
+
+
+class TestWorkspaceHandlerContextMethods:
+    """Tests for context accessor methods."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkspaceHandler(mock_server_context)
+
+    def test_get_user_store_returns_from_context(self, handler):
+        """_get_user_store returns user_store from context."""
+        mock_store = MagicMock()
+        handler.ctx["user_store"] = mock_store
+
+        result = handler._get_user_store()
+
+        assert result is mock_store
+
+    def test_get_user_store_returns_none_when_missing(self, handler):
+        """_get_user_store returns None when not in context."""
+        result = handler._get_user_store()
+
+        assert result is None
+
+    def test_get_isolation_manager_returns_same_instance(self, handler):
+        """_get_isolation_manager returns same instance on repeated calls."""
+        first = handler._get_isolation_manager()
+        second = handler._get_isolation_manager()
+
+        assert first is second
+        assert first is not None
+
+    def test_get_retention_manager_returns_same_instance(self, handler):
+        """_get_retention_manager returns same instance on repeated calls."""
+        first = handler._get_retention_manager()
+        second = handler._get_retention_manager()
+
+        assert first is second
+        assert first is not None
+
+    def test_get_classifier_returns_same_instance(self, handler):
+        """_get_classifier returns same instance on repeated calls."""
+        first = handler._get_classifier()
+        second = handler._get_classifier()
+
+        assert first is second
+        assert first is not None
+
+    @patch("aragora.server.handlers.workspace.PrivacyAuditLog")
+    def test_get_audit_log_returns_same_instance(self, mock_audit_log_class, handler):
+        """_get_audit_log returns same instance on repeated calls."""
+        mock_audit_instance = MagicMock()
+        mock_audit_log_class.return_value = mock_audit_instance
+
+        first = handler._get_audit_log()
+        second = handler._get_audit_log()
+
+        assert first is second
+        assert first is not None
+
+
+class TestWorkspaceHandlerResponseFormat:
+    """Tests for response format validation."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkspaceHandler(mock_server_context)
+
+    def test_workspace_route_response_is_json(self, handler):
+        """Workspace route returns JSON response."""
+        mock_http = MagicMock()
+        mock_http.command = "GET"
+
+        result = handler._route_workspace("/api/v1/workspaces", {}, mock_http, "GET")
+
+        assert result is not None
+        assert result.content_type == "application/json"
+
+    def test_retention_route_response_is_json(self, handler):
+        """Retention route returns JSON response."""
+        mock_http = MagicMock()
+        mock_http.command = "GET"
+
+        result = handler._route_retention("/api/v1/retention/policies", {}, mock_http, "GET")
+
+        assert result is not None
+        assert result.content_type == "application/json"
+
+    def test_classify_route_response_is_json(self, handler):
+        """Classify route returns JSON response."""
+        mock_http = MagicMock()
+        mock_http.command = "POST"
+
+        result = handler._route_classify("/api/v1/classify", {}, mock_http, "POST")
+
+        assert result is not None
+        assert result.content_type == "application/json"
+
+    def test_audit_route_response_is_json(self, handler):
+        """Audit route returns JSON response."""
+        mock_http = MagicMock()
+        mock_http.command = "GET"
+
+        result = handler._route_audit("/api/v1/audit/entries", {}, mock_http, "GET")
+
+        assert result is not None
+        assert result.content_type == "application/json"
+
+    def test_404_response_is_json(self, handler):
+        """404 not found response is JSON."""
+        mock_http = MagicMock()
+        mock_http.command = "GET"
+
+        result = handler._route_workspace("/api/v1/workspaces/ws_123/invalid", {}, mock_http, "GET")
+
+        assert result is not None
+        assert result.status_code == 404
+        assert result.content_type == "application/json"
+
+
+class TestWorkspaceHandlerRoutesCount:
+    """Tests for minimum routes count."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkspaceHandler(mock_server_context)
+
+    def test_routes_count_minimum(self, handler):
+        """ROUTES has expected minimum number of endpoints."""
+        # At least 11 routes based on handler inspection
+        assert len(handler.ROUTES) >= 11
+
+
+class TestWorkspaceHandlerImport:
+    """Tests for importing WorkspaceHandler."""
+
+    def test_can_import_handler(self):
+        """WorkspaceHandler can be imported."""
+        from aragora.server.handlers.workspace import WorkspaceHandler
+
+        assert WorkspaceHandler is not None
+
+    def test_handler_in_all(self):
+        """WorkspaceHandler is in __all__."""
+        from aragora.server.handlers import workspace
+
+        assert "WorkspaceHandler" in workspace.__all__
+
+
+class TestWorkspaceHandlerMethodExtraction:
+    """Tests for method extraction from handler.command."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkspaceHandler(mock_server_context)
+
+    def test_extracts_method_from_command_attribute(self, handler):
+        """Handler extracts method from http.command attribute."""
+        mock_http = MagicMock()
+        mock_http.command = "GET"
+
+        # Don't pass method, let it be extracted from command
+        result = handler.handle("/api/v1/workspaces", {}, mock_http)
+
+        # Should work with extracted method
+        assert result is not None
+
+
+class TestWorkspaceHandlerProfilesEndpoint:
+    """Tests for workspace profiles endpoint."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkspaceHandler(mock_server_context)
+
+    def test_can_handle_profiles(self, handler):
+        """Handler can handle profiles endpoint."""
+        assert handler.can_handle("/api/v1/workspaces/profiles")
+
+    def test_routes_contains_profiles(self, handler):
+        """ROUTES contains workspaces profiles endpoint."""
+        assert "/api/v1/workspaces/profiles" in handler.ROUTES
+
+    def test_profiles_route_returns_result(self, handler):
+        """Profiles route returns a result."""
+        mock_http = MagicMock()
+        mock_http.command = "GET"
+
+        result = handler._route_workspace("/api/v1/workspaces/profiles", {}, mock_http, "GET")
+
+        assert result is not None
+
+
+class TestWorkspaceHandlerAuditEndpoints:
+    """Tests for all audit endpoints in ROUTES."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkspaceHandler(mock_server_context)
+
+    def test_routes_contains_audit_actor(self, handler):
+        """ROUTES contains audit actor endpoint."""
+        assert "/api/v1/audit/actor" in handler.ROUTES
+
+    def test_routes_contains_audit_resource(self, handler):
+        """ROUTES contains audit resource endpoint."""
+        assert "/api/v1/audit/resource" in handler.ROUTES
+
+    def test_routes_contains_audit_denied(self, handler):
+        """ROUTES contains audit denied endpoint."""
+        assert "/api/v1/audit/denied" in handler.ROUTES
+
+
+class TestWorkspaceHandlerCanHandleExtended:
+    """Extended tests for can_handle matching patterns."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkspaceHandler(mock_server_context)
+
+    def test_can_handle_workspaces_with_uuid(self, handler):
+        """Handler can handle workspaces with UUID-style ID."""
+        assert handler.can_handle("/api/v1/workspaces/550e8400-e29b-41d4-a716-446655440000")
+
+    def test_can_handle_retention_policy_execute(self, handler):
+        """Handler can handle retention policy execute endpoint."""
+        assert handler.can_handle("/api/v1/retention/policies/pol-123/execute")
+
+    def test_can_handle_workspace_member_role(self, handler):
+        """Handler can handle workspace member role endpoint."""
+        assert handler.can_handle("/api/v1/workspaces/ws-123/members/user-456/role")
+
+    def test_cannot_handle_debates(self, handler):
+        """Handler cannot handle debates path."""
+        assert not handler.can_handle("/api/v1/debates")
+
+    def test_cannot_handle_health(self, handler):
+        """Handler cannot handle health path."""
+        assert not handler.can_handle("/api/v1/health")
+
+    def test_cannot_handle_billing(self, handler):
+        """Handler cannot handle billing path."""
+        assert not handler.can_handle("/api/v1/billing")
+
+    def test_cannot_handle_root(self, handler):
+        """Handler cannot handle root path."""
+        assert not handler.can_handle("/")
