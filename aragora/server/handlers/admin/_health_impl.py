@@ -85,6 +85,7 @@ class HealthHandler(SecureHandler):
         "/api/v1/health/slow-debates",
         "/api/v1/health/cross-pollination",
         "/api/v1/health/knowledge-mound",
+        "/api/v1/health/decay",  # Confidence decay scheduler status
         "/api/v1/health/encryption",
         "/api/v1/health/database",
         "/api/v1/health/platform",
@@ -2183,6 +2184,67 @@ class HealthHandler(SecureHandler):
             }
         except Exception as e:
             components["km_metrics"] = {
+                "healthy": True,
+                "status": "error",
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
+
+        # 12. Check Confidence Decay Scheduler
+        try:
+            from aragora.knowledge.mound.confidence_decay_scheduler import (
+                get_decay_scheduler,
+            )
+
+            scheduler = get_decay_scheduler()
+            if scheduler:
+                stats = scheduler.get_stats()
+                components["confidence_decay"] = {
+                    "healthy": True,
+                    "status": "active" if scheduler.is_running else "stopped",
+                    "running": scheduler.is_running,
+                    "decay_interval_hours": stats.get("decay_interval_hours", 24),
+                    "total_cycles": stats.get("total_decay_cycles", 0),
+                    "total_items_processed": stats.get("total_items_processed", 0),
+                    "last_run": stats.get("last_run", {}),
+                    "workspaces_monitored": stats.get("workspaces"),
+                }
+                # Add alerting info
+                if scheduler.is_running:
+                    last_runs = stats.get("last_run", {})
+                    if last_runs:
+                        # Check if any workspace hasn't been processed in >48 hours
+                        now = datetime.now()
+                        stale_workspaces = []
+                        for ws_id, run_time_str in last_runs.items():
+                            try:
+                                run_time = datetime.fromisoformat(run_time_str)
+                                hours_since = (now - run_time).total_seconds() / 3600
+                                if hours_since > 48:
+                                    stale_workspaces.append(ws_id)
+                            except (ValueError, TypeError):
+                                pass
+                        if stale_workspaces:
+                            components["confidence_decay"]["alert"] = {
+                                "level": "warning",
+                                "message": f"Decay not run in >48h for: {', '.join(stale_workspaces)}",
+                            }
+                            warnings.append(
+                                f"Confidence decay stale for workspaces: {stale_workspaces}"
+                            )
+            else:
+                components["confidence_decay"] = {
+                    "healthy": True,
+                    "status": "not_configured",
+                    "note": "Confidence decay scheduler not initialized",
+                }
+        except ImportError:
+            components["confidence_decay"] = {
+                "healthy": True,
+                "status": "not_available",
+                "note": "Confidence decay module not installed",
+            }
+        except Exception as e:
+            components["confidence_decay"] = {
                 "healthy": True,
                 "status": "error",
                 "error": f"{type(e).__name__}: {str(e)[:80]}",
