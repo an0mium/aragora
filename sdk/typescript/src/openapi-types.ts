@@ -14,7 +14,14 @@ export interface paths {
         /**
          * Health check
          * @deprecated
-         * @description Get system health status for load balancers and monitoring. Returns 200 when healthy, 503 when degraded.
+         * @description Get system health status for load balancers and monitoring.
+         *
+         *     **Returns:** 200 when healthy, 503 when degraded.
+         *
+         *     **Use cases:**
+         *     - Load balancer health probes
+         *     - Kubernetes liveness/readiness checks
+         *     - Uptime monitoring services
          */
         get: {
             parameters: {
@@ -34,7 +41,7 @@ export interface paths {
                         "application/json": components["schemas"]["HealthCheck"];
                     };
                 };
-                /** @description System degraded */
+                /** @description System degraded or unhealthy */
                 503: {
                     headers: {
                         [name: string]: unknown;
@@ -60,35 +67,16 @@ export interface paths {
         };
         /**
          * Health check
-         * @description Get system health status for load balancers and monitoring. Returns 200 when healthy, 503 when degraded.
+         * @description Get system health status for load balancers and monitoring.
+         *
+         *     **Returns:** 200 when healthy, 503 when degraded.
+         *
+         *     **Use cases:**
+         *     - Load balancer health probes
+         *     - Kubernetes liveness/readiness checks
+         *     - Uptime monitoring services
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description System healthy */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HealthCheck"];
-                    };
-                };
-                /** @description System degraded */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getHealth"];
         put?: never;
         post?: never;
         delete?: never;
@@ -107,7 +95,15 @@ export interface paths {
         /**
          * Detailed health check
          * @deprecated
-         * @description Get detailed health status with component checks, observer metrics, memory stats
+         * @description Get detailed health status with component checks.
+         *
+         *     **Response includes:**
+         *     - Database connectivity status
+         *     - Redis/cache availability
+         *     - Memory usage statistics
+         *     - Active connection counts
+         *     - Observer metrics
+         *     - Recent error counts
          */
         get: {
             parameters: {
@@ -144,26 +140,17 @@ export interface paths {
         };
         /**
          * Detailed health check
-         * @description Get detailed health status with component checks, observer metrics, memory stats
+         * @description Get detailed health status with component checks.
+         *
+         *     **Response includes:**
+         *     - Database connectivity status
+         *     - Redis/cache availability
+         *     - Memory usage statistics
+         *     - Active connection counts
+         *     - Observer metrics
+         *     - Recent error counts
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Detailed health information */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getDetailedHealth"];
         put?: never;
         post?: never;
         delete?: never;
@@ -182,7 +169,13 @@ export interface paths {
         /**
          * Get nomic loop state
          * @deprecated
-         * @description Get current state of the nomic self-improvement loop
+         * @description Get current state of the nomic self-improvement loop.
+         *
+         *     **Response includes:**
+         *     - Current phase (debate, design, implement, verify)
+         *     - Active cycle ID
+         *     - Last successful cycle timestamp
+         *     - Pending improvements queue
          */
         get: {
             parameters: {
@@ -219,26 +212,15 @@ export interface paths {
         };
         /**
          * Get nomic loop state
-         * @description Get current state of the nomic self-improvement loop
+         * @description Get current state of the nomic self-improvement loop.
+         *
+         *     **Response includes:**
+         *     - Current phase (debate, design, implement, verify)
+         *     - Active cycle ID
+         *     - Last successful cycle timestamp
+         *     - Pending improvements queue
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Nomic state */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getNomicState"];
         put?: never;
         post?: never;
         delete?: never;
@@ -257,7 +239,14 @@ export interface paths {
         /**
          * Nomic loop health
          * @deprecated
-         * @description Get nomic loop health with stall detection
+         * @description Get nomic loop health with stall detection.
+         *
+         *     **Stall detection:** Alerts if the nomic loop hasn't progressed within expected timeframes.
+         *
+         *     **Response includes:**
+         *     - Health status (healthy, stalled, degraded)
+         *     - Time since last activity
+         *     - Phase duration statistics
          */
         get: {
             parameters: {
@@ -294,26 +283,16 @@ export interface paths {
         };
         /**
          * Nomic loop health
-         * @description Get nomic loop health with stall detection
+         * @description Get nomic loop health with stall detection.
+         *
+         *     **Stall detection:** Alerts if the nomic loop hasn't progressed within expected timeframes.
+         *
+         *     **Response includes:**
+         *     - Health status (healthy, stalled, degraded)
+         *     - Time since last activity
+         *     - Phase duration statistics
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Nomic health status */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getNomicHealth"];
         put?: never;
         post?: never;
         delete?: never;
@@ -332,11 +311,16 @@ export interface paths {
         /**
          * Get nomic logs
          * @deprecated
-         * @description Get recent nomic loop log lines
+         * @description Get recent nomic loop log lines for debugging and monitoring.
+         *
+         *     **Authentication:** Required. Admin access recommended.
+         *
+         *     **Log levels:** DEBUG, INFO, WARNING, ERROR included.
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Number of log lines to return */
                     lines?: number;
                 };
                 header?: never;
@@ -371,28 +355,13 @@ export interface paths {
         };
         /**
          * Get nomic logs
-         * @description Get recent nomic loop log lines
+         * @description Get recent nomic loop log lines for debugging and monitoring.
+         *
+         *     **Authentication:** Required. Admin access recommended.
+         *
+         *     **Log levels:** DEBUG, INFO, WARNING, ERROR included.
          */
-        get: {
-            parameters: {
-                query?: {
-                    lines?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Log lines */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getNomicLogs"];
         put?: never;
         post?: never;
         delete?: never;
@@ -411,11 +380,18 @@ export interface paths {
         /**
          * Risk register
          * @deprecated
-         * @description Get risk register entries from nomic loop execution
+         * @description Get risk register entries from nomic loop execution.
+         *
+         *     **Risk categories:**
+         *     - Code changes that could break existing functionality
+         *     - Security-sensitive modifications
+         *     - Performance-impacting changes
+         *     - External dependency updates
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Maximum number of risk entries to return */
                     limit?: number;
                 };
                 header?: never;
@@ -450,28 +426,15 @@ export interface paths {
         };
         /**
          * Risk register
-         * @description Get risk register entries from nomic loop execution
+         * @description Get risk register entries from nomic loop execution.
+         *
+         *     **Risk categories:**
+         *     - Code changes that could break existing functionality
+         *     - Security-sensitive modifications
+         *     - Performance-impacting changes
+         *     - External dependency updates
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Risk entries */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getRiskRegister"];
         put?: never;
         post?: never;
         delete?: never;
@@ -490,7 +453,11 @@ export interface paths {
         /**
          * List operational modes
          * @deprecated
-         * @description Get available operational modes (builtin + custom)
+         * @description Get available operational modes including builtin and custom modes.
+         *
+         *     **Builtin modes:** debate, gauntlet, research, code-review, etc.
+         *
+         *     **Custom modes:** User-defined workflow configurations.
          */
         get: {
             parameters: {
@@ -527,26 +494,13 @@ export interface paths {
         };
         /**
          * List operational modes
-         * @description Get available operational modes (builtin + custom)
+         * @description Get available operational modes including builtin and custom modes.
+         *
+         *     **Builtin modes:** debate, gauntlet, research, code-review, etc.
+         *
+         *     **Custom modes:** User-defined workflow configurations.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Available modes */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listModes"];
         put?: never;
         post?: never;
         delete?: never;
@@ -565,11 +519,16 @@ export interface paths {
         /**
          * Cycle history
          * @deprecated
+         * @description Get history of completed nomic cycles.
+         *
+         *     **Response includes:** cycle ID, duration, outcome, changes made.
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Filter by specific nomic loop ID */
                     loop_id?: string;
+                    /** @description Maximum number of cycles to return */
                     limit?: number;
                 };
                 header?: never;
@@ -602,28 +561,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Cycle history */
-        get: {
-            parameters: {
-                query?: {
-                    loop_id?: string;
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Cycle history */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Cycle history
+         * @description Get history of completed nomic cycles.
+         *
+         *     **Response includes:** cycle ID, duration, outcome, changes made.
+         */
+        get: operations["getCycleHistory"];
         put?: never;
         post?: never;
         delete?: never;
@@ -642,11 +586,16 @@ export interface paths {
         /**
          * Event history
          * @deprecated
+         * @description Get history of system events.
+         *
+         *     **Event types:** debate_started, debate_completed, agent_registered, consensus_reached, etc.
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Filter by specific nomic loop ID */
                     loop_id?: string;
+                    /** @description Maximum number of events to return */
                     limit?: number;
                 };
                 header?: never;
@@ -679,28 +628,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Event history */
-        get: {
-            parameters: {
-                query?: {
-                    loop_id?: string;
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Event history */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Event history
+         * @description Get history of system events.
+         *
+         *     **Event types:** debate_started, debate_completed, agent_registered, consensus_reached, etc.
+         */
+        get: operations["getEventHistory"];
         put?: never;
         post?: never;
         delete?: never;
@@ -719,11 +653,16 @@ export interface paths {
         /**
          * Debate history
          * @deprecated
+         * @description Get history of completed debates.
+         *
+         *     **Response includes:** topic, participants, outcome, duration, consensus status.
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Filter by specific nomic loop ID */
                     loop_id?: string;
+                    /** @description Maximum number of debates to return */
                     limit?: number;
                 };
                 header?: never;
@@ -756,28 +695,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Debate history */
-        get: {
-            parameters: {
-                query?: {
-                    loop_id?: string;
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Debate history */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Debate history
+         * @description Get history of completed debates.
+         *
+         *     **Response includes:** topic, participants, outcome, duration, consensus status.
+         */
+        get: operations["getDebateHistory"];
         put?: never;
         post?: never;
         delete?: never;
@@ -796,10 +720,14 @@ export interface paths {
         /**
          * History summary
          * @deprecated
+         * @description Get aggregated summary statistics for system history.
+         *
+         *     **Includes:** total debates, consensus rate, average duration, top performing agents.
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Filter by specific nomic loop ID */
                     loop_id?: string;
                 };
                 header?: never;
@@ -832,27 +760,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** History summary */
-        get: {
-            parameters: {
-                query?: {
-                    loop_id?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Summary statistics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * History summary
+         * @description Get aggregated summary statistics for system history.
+         *
+         *     **Includes:** total debates, consensus rate, average duration, top performing agents.
+         */
+        get: operations["getHistorySummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -871,10 +785,21 @@ export interface paths {
         /**
          * Run database maintenance
          * @deprecated
+         * @description Run database maintenance tasks.
+         *
+         *     **Tasks:**
+         *     - `status`: Get current database statistics
+         *     - `vacuum`: Reclaim unused space
+         *     - `analyze`: Update query planner statistics
+         *     - `checkpoint`: Force WAL checkpoint (SQLite)
+         *     - `full`: Run all maintenance tasks
+         *
+         *     **Authentication:** Admin access required.
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Maintenance task to run */
                     task?: "status" | "vacuum" | "analyze" | "checkpoint" | "full";
                 };
                 header?: never;
@@ -907,27 +832,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Run database maintenance */
-        get: {
-            parameters: {
-                query?: {
-                    task?: "status" | "vacuum" | "analyze" | "checkpoint" | "full";
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Maintenance results */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Run database maintenance
+         * @description Run database maintenance tasks.
+         *
+         *     **Tasks:**
+         *     - `status`: Get current database statistics
+         *     - `vacuum`: Reclaim unused space
+         *     - `analyze`: Update query planner statistics
+         *     - `checkpoint`: Force WAL checkpoint (SQLite)
+         *     - `full`: Run all maintenance tasks
+         *
+         *     **Authentication:** Admin access required.
+         */
+        get: operations["runMaintenance"];
         put?: never;
         post?: never;
         delete?: never;
@@ -946,7 +864,14 @@ export interface paths {
         /**
          * OpenAPI specification
          * @deprecated
-         * @description Get OpenAPI 3.0 schema for this API
+         * @description Get the OpenAPI 3.1 specification for this API.
+         *
+         *     **Formats:** JSON (default), YAML available at /api/openapi.yaml
+         *
+         *     **Use cases:**
+         *     - Generate client SDKs
+         *     - Import into API documentation tools
+         *     - Validate API requests
          */
         get: {
             parameters: {
@@ -985,28 +910,16 @@ export interface paths {
         };
         /**
          * OpenAPI specification
-         * @description Get OpenAPI 3.0 schema for this API
+         * @description Get the OpenAPI 3.1 specification for this API.
+         *
+         *     **Formats:** JSON (default), YAML available at /api/openapi.yaml
+         *
+         *     **Use cases:**
+         *     - Generate client SDKs
+         *     - Import into API documentation tools
+         *     - Validate API requests
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OpenAPI schema */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": unknown;
-                    };
-                };
-            };
-        };
+        get: operations["getOpenAPISpec"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1025,11 +938,17 @@ export interface paths {
         /**
          * List all agents
          * @deprecated
-         * @description Get list of all known agents with optional stats
+         * @description Get list of all known AI agents with optional performance statistics.
+         *
+         *     **Rate Limit:** 60 requests per minute (free), 300/min (pro), 1000/min (enterprise)
+         *
+         *     **Response:** Returns agent metadata including name, model, provider, and ELO rating.
+         *     Optionally includes detailed statistics when `include_stats=true`.
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Include detailed performance statistics for each agent */
                     include_stats?: boolean;
                 };
                 header?: never;
@@ -1069,33 +988,14 @@ export interface paths {
         };
         /**
          * List all agents
-         * @description Get list of all known agents with optional stats
+         * @description Get list of all known AI agents with optional performance statistics.
+         *
+         *     **Rate Limit:** 60 requests per minute (free), 300/min (pro), 1000/min (enterprise)
+         *
+         *     **Response:** Returns agent metadata including name, model, provider, and ELO rating.
+         *     Optionally includes detailed statistics when `include_stats=true`.
          */
-        get: {
-            parameters: {
-                query?: {
-                    include_stats?: boolean;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of agents */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            items?: components["schemas"]["Agent"][];
-                            total?: number;
-                        };
-                    };
-                };
-            };
-        };
+        get: operations["listAgents"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1114,13 +1014,19 @@ export interface paths {
         /**
          * Agent leaderboard
          * @deprecated
-         * @description Get agents ranked by ELO rating
+         * @description Get agents ranked by ELO rating.
+         *
+         *     **Rate Limit:** 60 requests per minute
+         *
+         *     **Sorting:** Agents are sorted by ELO rating in descending order.
+         *     Use `domain` parameter to filter by expertise area (e.g., "coding", "science", "writing").
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Maximum number of agents to return */
                     limit?: number;
-                    /** @description Filter by expertise domain */
+                    /** @description Filter by expertise domain (e.g., coding, science, writing) */
                     domain?: string;
                 };
                 header?: never;
@@ -1155,30 +1061,14 @@ export interface paths {
         };
         /**
          * Agent leaderboard
-         * @description Get agents ranked by ELO rating
+         * @description Get agents ranked by ELO rating.
+         *
+         *     **Rate Limit:** 60 requests per minute
+         *
+         *     **Sorting:** Agents are sorted by ELO rating in descending order.
+         *     Use `domain` parameter to filter by expertise area (e.g., "coding", "science", "writing").
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                    /** @description Filter by expertise domain */
-                    domain?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Agent rankings */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getLeaderboard"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1197,11 +1087,14 @@ export interface paths {
         /**
          * Agent rankings
          * @deprecated
-         * @description Alternative endpoint for agent rankings
+         * @description Alternative endpoint for agent rankings. Returns same data as /api/leaderboard.
+         *
+         *     **Deprecated:** Consider using /api/leaderboard instead.
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Maximum number of agents to return */
                     limit?: number;
                 };
                 header?: never;
@@ -1236,28 +1129,11 @@ export interface paths {
         };
         /**
          * Agent rankings
-         * @description Alternative endpoint for agent rankings
+         * @description Alternative endpoint for agent rankings. Returns same data as /api/leaderboard.
+         *
+         *     **Deprecated:** Consider using /api/leaderboard instead.
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Agent rankings */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getAgentRankings"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1276,13 +1152,18 @@ export interface paths {
         /**
          * Leaderboard view data
          * @deprecated
-         * @description Pre-formatted leaderboard data for frontend display
+         * @description Get pre-formatted leaderboard data optimized for frontend display.
+         *
+         *     Includes display-ready fields like rank badges, formatted ratings, and trend indicators.
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Maximum number of agents to return */
                     limit?: number;
+                    /** @description Filter by expertise domain */
                     domain?: string;
+                    /** @description Filter by nomic loop ID */
                     loop_id?: string;
                 };
                 header?: never;
@@ -1317,30 +1198,11 @@ export interface paths {
         };
         /**
          * Leaderboard view data
-         * @description Pre-formatted leaderboard data for frontend display
+         * @description Get pre-formatted leaderboard data optimized for frontend display.
+         *
+         *     Includes display-ready fields like rank badges, formatted ratings, and trend indicators.
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                    domain?: string;
-                    loop_id?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Leaderboard view */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getLeaderboardView"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1359,12 +1221,21 @@ export interface paths {
         /**
          * Get agent profile
          * @deprecated
+         * @description Get detailed profile for a specific agent.
+         *
+         *     **Response includes:**
+         *     - Basic info (name, model, provider)
+         *     - Current ELO rating and rank
+         *     - Win/loss record
+         *     - Expertise domains
+         *     - Recent performance trends
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name (e.g., 'claude', 'gpt-4', 'gemini') */
                     name: string;
                 };
                 cookie?: never;
@@ -1415,47 +1286,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get agent profile */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Agent profile */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Agent"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        /**
+         * Get agent profile
+         * @description Get detailed profile for a specific agent.
+         *
+         *     **Response includes:**
+         *     - Basic info (name, model, provider)
+         *     - Current ELO rating and rank
+         *     - Win/loss record
+         *     - Expertise domains
+         *     - Recent performance trends
+         */
+        get: operations["getAgentProfile"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1474,14 +1316,19 @@ export interface paths {
         /**
          * Agent match history
          * @deprecated
+         * @description Get recent debate matches for an agent.
+         *
+         *     **Response includes:** debate topic, opponents, outcome, ELO change per match.
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Maximum number of matches to return */
                     limit?: number;
                 };
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -1512,29 +1359,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent match history */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Match history */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Agent match history
+         * @description Get recent debate matches for an agent.
+         *
+         *     **Response includes:** debate topic, opponents, outcome, ELO change per match.
+         */
+        get: operations["getAgentHistory"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1553,12 +1384,16 @@ export interface paths {
         /**
          * Agent calibration data
          * @deprecated
+         * @description Get calibration metrics showing how well an agent's confidence matches actual accuracy.
+         *
+         *     **Calibration:** A well-calibrated agent's stated confidence (e.g., 80%) should match actual correctness rate.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -1591,29 +1426,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent calibration data */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Calibration data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Calibration"];
-                    };
-                };
-            };
-        };
+        /**
+         * Agent calibration data
+         * @description Get calibration metrics showing how well an agent's confidence matches actual accuracy.
+         *
+         *     **Calibration:** A well-calibrated agent's stated confidence (e.g., 80%) should match actual correctness rate.
+         */
+        get: operations["getAgentCalibration"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1632,12 +1451,16 @@ export interface paths {
         /**
          * Agent calibration curve
          * @deprecated
+         * @description Get calibration curve data for visualization.
+         *
+         *     Returns confidence buckets (0-10%, 10-20%, etc.) with actual accuracy for each bucket.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -1668,27 +1491,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent calibration curve */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Calibration curve data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Agent calibration curve
+         * @description Get calibration curve data for visualization.
+         *
+         *     Returns confidence buckets (0-10%, 10-20%, etc.) with actual accuracy for each bucket.
+         */
+        get: operations["getAgentCalibrationCurve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1707,12 +1516,16 @@ export interface paths {
         /**
          * Agent calibration summary
          * @deprecated
+         * @description Get summarized calibration metrics.
+         *
+         *     Returns Brier score, calibration error, and overconfidence/underconfidence indicators.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -1743,27 +1556,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent calibration summary */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Calibration summary */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Agent calibration summary
+         * @description Get summarized calibration metrics.
+         *
+         *     Returns Brier score, calibration error, and overconfidence/underconfidence indicators.
+         */
+        get: operations["getAgentCalibrationSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1782,12 +1581,17 @@ export interface paths {
         /**
          * Agent consistency score
          * @deprecated
+         * @description Get consistency metrics measuring how stable an agent's positions are over time.
+         *
+         *     **High consistency:** Agent maintains coherent positions across similar debates.
+         *     **Low consistency:** Agent frequently contradicts previous positions.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -1818,27 +1622,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent consistency score */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Consistency metrics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Agent consistency score
+         * @description Get consistency metrics measuring how stable an agent's positions are over time.
+         *
+         *     **High consistency:** Agent maintains coherent positions across similar debates.
+         *     **Low consistency:** Agent frequently contradicts previous positions.
+         */
+        get: operations["getAgentConsistency"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1857,15 +1648,19 @@ export interface paths {
         /**
          * Agent position flips
          * @deprecated
-         * @description Get instances where agent changed positions
+         * @description Get instances where the agent changed positions during or between debates.
+         *
+         *     Useful for understanding agent reasoning and persuadability.
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Maximum number of flips to return */
                     limit?: number;
                 };
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -1898,30 +1693,11 @@ export interface paths {
         };
         /**
          * Agent position flips
-         * @description Get instances where agent changed positions
+         * @description Get instances where the agent changed positions during or between debates.
+         *
+         *     Useful for understanding agent reasoning and persuadability.
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Position flips */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getAgentFlips"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1940,12 +1716,16 @@ export interface paths {
         /**
          * Agent relationship network
          * @deprecated
+         * @description Get the agent's relationship network showing connections to other agents.
+         *
+         *     Includes agreement rates, collaboration frequency, and influence scores.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -1976,27 +1756,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent relationship network */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Relationship network */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Agent relationship network
+         * @description Get the agent's relationship network showing connections to other agents.
+         *
+         *     Includes agreement rates, collaboration frequency, and influence scores.
+         */
+        get: operations["getAgentNetwork"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2015,12 +1781,16 @@ export interface paths {
         /**
          * Agent rivals
          * @deprecated
+         * @description Get agents that frequently disagree with this agent.
+         *
+         *     Rivals are determined by low agreement rates and competitive debate history.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -2051,27 +1821,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent rivals */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Rival agents */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Agent rivals
+         * @description Get agents that frequently disagree with this agent.
+         *
+         *     Rivals are determined by low agreement rates and competitive debate history.
+         */
+        get: operations["getAgentRivals"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2090,12 +1846,16 @@ export interface paths {
         /**
          * Agent allies
          * @deprecated
+         * @description Get agents that frequently agree with this agent.
+         *
+         *     Allies are determined by high agreement rates and collaborative debate history.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -2126,27 +1886,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent allies */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Allied agents */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Agent allies
+         * @description Get agents that frequently agree with this agent.
+         *
+         *     Allies are determined by high agreement rates and collaborative debate history.
+         */
+        get: operations["getAgentAllies"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2165,13 +1911,16 @@ export interface paths {
         /**
          * Agent moments
          * @deprecated
-         * @description Get significant moments for this agent
+         * @description Get significant moments from this agent's debate history.
+         *
+         *     **Moment types:** upset wins, consensus shifts, notable arguments, calibration milestones.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -2204,28 +1953,11 @@ export interface paths {
         };
         /**
          * Agent moments
-         * @description Get significant moments for this agent
+         * @description Get significant moments from this agent's debate history.
+         *
+         *     **Moment types:** upset wins, consensus shifts, notable arguments, calibration milestones.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Agent moments */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getAgentMoments"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2244,12 +1976,16 @@ export interface paths {
         /**
          * Agent reputation
          * @deprecated
+         * @description Get reputation metrics derived from debate performance.
+         *
+         *     Includes trustworthiness, expertise recognition, and community standing.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -2280,27 +2016,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent reputation */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Reputation data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Agent reputation
+         * @description Get reputation metrics derived from debate performance.
+         *
+         *     Includes trustworthiness, expertise recognition, and community standing.
+         */
+        get: operations["getAgentReputation"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2319,12 +2041,14 @@ export interface paths {
         /**
          * Agent persona
          * @deprecated
+         * @description Get the agent's persona profile including communication style and reasoning patterns.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -2355,27 +2079,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent persona */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Persona data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Agent persona
+         * @description Get the agent's persona profile including communication style and reasoning patterns.
+         */
+        get: operations["getAgentPersona"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2394,13 +2102,16 @@ export interface paths {
         /**
          * Agent grounded persona
          * @deprecated
-         * @description Get persona derived from debate performance
+         * @description Get persona derived from actual debate performance rather than training data.
+         *
+         *     The grounded persona reflects observed behavior patterns across debates.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -2433,28 +2144,11 @@ export interface paths {
         };
         /**
          * Agent grounded persona
-         * @description Get persona derived from debate performance
+         * @description Get persona derived from actual debate performance rather than training data.
+         *
+         *     The grounded persona reflects observed behavior patterns across debates.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Grounded persona */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getAgentGroundedPersona"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2473,12 +2167,14 @@ export interface paths {
         /**
          * Agent identity prompt
          * @deprecated
+         * @description Get the system prompt used to establish this agent's identity in debates.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -2509,27 +2205,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent identity prompt */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Identity prompt */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Agent identity prompt
+         * @description Get the system prompt used to establish this agent's identity in debates.
+         */
+        get: operations["getAgentIdentityPrompt"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2548,12 +2228,16 @@ export interface paths {
         /**
          * Agent performance
          * @deprecated
+         * @description Get detailed performance metrics for the agent.
+         *
+         *     **Metrics include:** win rate, average ELO delta, debate participation, consensus contribution.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -2584,27 +2268,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent performance */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Performance metrics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Agent performance
+         * @description Get detailed performance metrics for the agent.
+         *
+         *     **Metrics include:** win rate, average ELO delta, debate participation, consensus contribution.
+         */
+        get: operations["getAgentPerformance"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2623,12 +2293,16 @@ export interface paths {
         /**
          * Agent expertise domains
          * @deprecated
+         * @description Get domains where this agent has demonstrated expertise.
+         *
+         *     Expertise is determined by debate performance in specific topic areas.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -2659,27 +2333,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent expertise domains */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Domain expertise */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Agent expertise domains
+         * @description Get domains where this agent has demonstrated expertise.
+         *
+         *     Expertise is determined by debate performance in specific topic areas.
+         */
+        get: operations["getAgentDomains"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2698,12 +2358,14 @@ export interface paths {
         /**
          * Agent accuracy
          * @deprecated
+         * @description Get accuracy metrics measuring how often the agent's positions align with eventual consensus.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Agent name */
                     name: string;
                 };
                 cookie?: never;
@@ -2734,27 +2396,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent accuracy */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Accuracy metrics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Agent accuracy
+         * @description Get accuracy metrics measuring how often the agent's positions align with eventual consensus.
+         */
+        get: operations["getAgentAccuracy"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2773,12 +2419,16 @@ export interface paths {
         /**
          * Compare agents
          * @deprecated
-         * @description Compare two agents side-by-side
+         * @description Compare two agents side-by-side.
+         *
+         *     Returns comparative statistics including head-to-head record, relative strengths, and domain performance.
          */
         get: {
             parameters: {
                 query: {
+                    /** @description First agent name */
                     agent_a: string;
+                    /** @description Second agent name */
                     agent_b: string;
                 };
                 header?: never;
@@ -2813,29 +2463,11 @@ export interface paths {
         };
         /**
          * Compare agents
-         * @description Compare two agents side-by-side
+         * @description Compare two agents side-by-side.
+         *
+         *     Returns comparative statistics including head-to-head record, relative strengths, and domain performance.
          */
-        get: {
-            parameters: {
-                query: {
-                    agent_a: string;
-                    agent_b: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Comparison data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["compareAgents"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2854,10 +2486,14 @@ export interface paths {
         /**
          * Recent matches
          * @deprecated
+         * @description Get recent debate matches across all agents.
+         *
+         *     Returns match summaries with participants, outcomes, and ELO changes.
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Maximum number of matches to return */
                     limit?: number;
                 };
                 header?: never;
@@ -2890,27 +2526,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recent matches */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Recent matches */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Recent matches
+         * @description Get recent debate matches across all agents.
+         *
+         *     Returns match summaries with participants, outcomes, and ELO changes.
+         */
+        get: operations["getRecentMatches"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2929,11 +2551,14 @@ export interface paths {
         /**
          * Calibration leaderboard
          * @deprecated
-         * @description Get agents ranked by calibration score
+         * @description Get agents ranked by calibration score (how well confidence matches accuracy).
+         *
+         *     Lower calibration error = better calibrated agent.
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Maximum number of agents to return */
                     limit?: number;
                 };
                 header?: never;
@@ -2968,28 +2593,11 @@ export interface paths {
         };
         /**
          * Calibration leaderboard
-         * @description Get agents ranked by calibration score
+         * @description Get agents ranked by calibration score (how well confidence matches accuracy).
+         *
+         *     Lower calibration error = better calibrated agent.
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Calibration rankings */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getCalibrationLeaderboard"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3008,6 +2616,7 @@ export interface paths {
         /**
          * List all personas
          * @deprecated
+         * @description Get all agent personas including their communication styles and reasoning patterns.
          */
         get: {
             parameters: {
@@ -3042,25 +2651,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List all personas */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description All personas */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * List all personas
+         * @description Get all agent personas including their communication styles and reasoning patterns.
+         */
+        get: operations["listPersonas"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4847,24 +4442,7 @@ export interface paths {
          * Disagreement analysis
          * @description Get metrics on agent disagreement patterns
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Disagreement statistics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listAnalyticsDisagreements"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4918,24 +4496,7 @@ export interface paths {
             cookie?: never;
         };
         /** Role rotation stats */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Role rotation data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listAnalyticsRoleRotation"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4989,24 +4550,7 @@ export interface paths {
             cookie?: never;
         };
         /** Early stop statistics */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Early stop data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listAnalyticsEarlyStops"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5060,24 +4604,7 @@ export interface paths {
             cookie?: never;
         };
         /** Ranking statistics */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Ranking stats */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listRankingStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5131,24 +4658,7 @@ export interface paths {
             cookie?: never;
         };
         /** Memory statistics */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Memory stats */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listMemoryStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5204,26 +4714,7 @@ export interface paths {
             cookie?: never;
         };
         /** Recent position flips */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Recent flips */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listFlipsRecent"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5277,24 +4768,7 @@ export interface paths {
             cookie?: never;
         };
         /** Flip summary */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Flip summary statistics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listFlipsSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5350,26 +4824,7 @@ export interface paths {
             cookie?: never;
         };
         /** Recent insights */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Recent insights */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listInsightsRecent"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5433,28 +4888,7 @@ export interface paths {
          * Extract detailed insights
          * @description Computationally expensive insight extraction (requires auth)
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Detailed insights */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["createInsightsExtractDetailed"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5506,24 +4940,7 @@ export interface paths {
             cookie?: never;
         };
         /** Moments summary */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Moments summary */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listMomentsSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5577,24 +4994,7 @@ export interface paths {
             cookie?: never;
         };
         /** Moments timeline */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Timeline data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listMomentsTimeline"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5648,24 +5048,7 @@ export interface paths {
             cookie?: never;
         };
         /** Trending moments */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Trending moments */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listMomentsTrending"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5721,26 +5104,7 @@ export interface paths {
             cookie?: never;
         };
         /** Moments by type */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    type: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Moments of specified type */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getMomentsByType"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5759,12 +5123,21 @@ export interface paths {
         /**
          * Similar debates
          * @deprecated
-         * @description Find debates similar to a given topic
+         * @description Find debates similar to a given topic using semantic similarity.
+         *
+         *     **Use cases:**
+         *     - Check if a question has been debated before
+         *     - Find related discussions for context
+         *     - Avoid redundant debates on settled topics
+         *
+         *     **Similarity:** Uses embedding-based semantic search to find related debates.
          */
         get: {
             parameters: {
                 query: {
+                    /** @description Topic or question to find similar debates for */
                     topic: string;
+                    /** @description Maximum number of similar debates to return */
                     limit?: number;
                 };
                 header?: never;
@@ -5799,29 +5172,16 @@ export interface paths {
         };
         /**
          * Similar debates
-         * @description Find debates similar to a given topic
+         * @description Find debates similar to a given topic using semantic similarity.
+         *
+         *     **Use cases:**
+         *     - Check if a question has been debated before
+         *     - Find related discussions for context
+         *     - Avoid redundant debates on settled topics
+         *
+         *     **Similarity:** Uses embedding-based semantic search to find related debates.
          */
-        get: {
-            parameters: {
-                query: {
-                    topic: string;
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Similar debates */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["findSimilarDebates"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5840,11 +5200,21 @@ export interface paths {
         /**
          * Settled questions
          * @deprecated
+         * @description Get questions where strong consensus has been reached.
+         *
+         *     **Settled criteria:** Agreement threshold met (default 80%) across multiple debates.
+         *
+         *     **Use cases:**
+         *     - Find authoritative answers from past debates
+         *     - Identify topics with high confidence conclusions
+         *     - Build knowledge base from debate outcomes
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Minimum consensus threshold (0.0-1.0) */
                     threshold?: number;
+                    /** @description Maximum number of questions to return */
                     limit?: number;
                 };
                 header?: never;
@@ -5877,28 +5247,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Settled questions */
-        get: {
-            parameters: {
-                query?: {
-                    threshold?: number;
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Settled questions */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Settled questions
+         * @description Get questions where strong consensus has been reached.
+         *
+         *     **Settled criteria:** Agreement threshold met (default 80%) across multiple debates.
+         *
+         *     **Use cases:**
+         *     - Find authoritative answers from past debates
+         *     - Identify topics with high confidence conclusions
+         *     - Build knowledge base from debate outcomes
+         */
+        get: operations["getSettledQuestions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5917,6 +5277,13 @@ export interface paths {
         /**
          * Consensus statistics
          * @deprecated
+         * @description Get aggregate statistics about consensus across all debates.
+         *
+         *     **Response includes:**
+         *     - Overall consensus rate
+         *     - Average time to consensus
+         *     - Distribution by domain
+         *     - Trend over time
          */
         get: {
             parameters: {
@@ -5951,25 +5318,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Consensus statistics */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Consensus stats */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Consensus statistics
+         * @description Get aggregate statistics about consensus across all debates.
+         *
+         *     **Response includes:**
+         *     - Overall consensus rate
+         *     - Average time to consensus
+         *     - Distribution by domain
+         *     - Trend over time
+         */
+        get: operations["getConsensusStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5988,10 +5347,19 @@ export interface paths {
         /**
          * Dissenting views
          * @deprecated
+         * @description Get significant dissenting views from debates.
+         *
+         *     **Dissents:** Minority positions with strong reasoning that didn't achieve consensus.
+         *
+         *     **Use cases:**
+         *     - Understand alternative perspectives
+         *     - Identify potential blind spots in consensus
+         *     - Preserve minority viewpoints for future consideration
          */
         get: {
             parameters: {
                 query?: {
+                    /** @description Maximum number of dissents to return */
                     limit?: number;
                 };
                 header?: never;
@@ -6024,27 +5392,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Dissenting views */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Dissenting views */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Dissenting views
+         * @description Get significant dissenting views from debates.
+         *
+         *     **Dissents:** Minority positions with strong reasoning that didn't achieve consensus.
+         *
+         *     **Use cases:**
+         *     - Understand alternative perspectives
+         *     - Identify potential blind spots in consensus
+         *     - Preserve minority viewpoints for future consideration
+         */
+        get: operations["getDissentingViews"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6063,6 +5422,14 @@ export interface paths {
         /**
          * Contrarian views
          * @deprecated
+         * @description Get contrarian views that challenge established consensus.
+         *
+         *     **Contrarian:** Positions that directly oppose majority conclusions with substantive arguments.
+         *
+         *     These views are preserved to:
+         *     - Prevent groupthink
+         *     - Enable future reconsideration
+         *     - Document minority reasoning
          */
         get: {
             parameters: {
@@ -6097,25 +5464,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Contrarian views */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Contrarian views */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Contrarian views
+         * @description Get contrarian views that challenge established consensus.
+         *
+         *     **Contrarian:** Positions that directly oppose majority conclusions with substantive arguments.
+         *
+         *     These views are preserved to:
+         *     - Prevent groupthink
+         *     - Enable future reconsideration
+         *     - Document minority reasoning
+         */
+        get: operations["getContrarianViews"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6134,6 +5494,13 @@ export interface paths {
         /**
          * Risk warnings
          * @deprecated
+         * @description Get risk warnings from consensus analysis.
+         *
+         *     **Warning types:**
+         *     - Low confidence consensus (threshold barely met)
+         *     - Rapidly shifting consensus
+         *     - Contradictory historical positions
+         *     - Potential bias indicators
          */
         get: {
             parameters: {
@@ -6168,25 +5535,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Risk warnings */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Risk warnings */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Risk warnings
+         * @description Get risk warnings from consensus analysis.
+         *
+         *     **Warning types:**
+         *     - Low confidence consensus (threshold barely met)
+         *     - Rapidly shifting consensus
+         *     - Contradictory historical positions
+         *     - Potential bias indicators
+         */
+        get: operations["getRiskWarnings"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6205,12 +5564,20 @@ export interface paths {
         /**
          * Domain consensus
          * @deprecated
+         * @description Get consensus data for a specific domain (e.g., "technology", "policy", "science").
+         *
+         *     **Response includes:**
+         *     - Settled questions in domain
+         *     - Active debates
+         *     - Domain-specific consensus rates
+         *     - Top contributing agents
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Domain name (e.g., technology, science, policy) */
                     domain: string;
                 };
                 cookie?: never;
@@ -6241,27 +5608,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Domain consensus */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    domain: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Domain consensus data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Domain consensus
+         * @description Get consensus data for a specific domain (e.g., "technology", "policy", "science").
+         *
+         *     **Response includes:**
+         *     - Settled questions in domain
+         *     - Active debates
+         *     - Domain-specific consensus rates
+         *     - Top contributing agents
+         */
+        get: operations["getDomainConsensus"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6315,24 +5672,7 @@ export interface paths {
             cookie?: never;
         };
         /** Relationship summary */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Relationship summary */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listRelationshipsSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6390,24 +5730,7 @@ export interface paths {
          * Relationship graph
          * @description Get graph data for agent relationships
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Graph data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listRelationshipsGraph"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6461,24 +5784,7 @@ export interface paths {
             cookie?: never;
         };
         /** Relationship statistics */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Relationship stats */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listRelationshipsStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6537,29 +5843,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get relationship between two agents */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    agent_a: string;
-                    agent_b: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Relationship data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Relationship"];
-                    };
-                };
-            };
-        };
+        get: operations["getRelationship"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6621,28 +5905,7 @@ export interface paths {
          * Retrieve memories
          * @description Retrieve memories from continuum store
          */
-        get: {
-            parameters: {
-                query?: {
-                    query?: string;
-                    tier?: "fast" | "medium" | "slow" | "glacial";
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Retrieved memories */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listMemoryContinuumRetrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6702,24 +5965,7 @@ export interface paths {
          * Consolidate memories
          * @description Trigger memory consolidation across tiers
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Consolidation result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["createMemoryContinuumConsolidate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6777,24 +6023,7 @@ export interface paths {
          * Cleanup memories
          * @description Remove expired memories
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Cleanup result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["createMemoryContinuumCleanup"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6846,24 +6075,7 @@ export interface paths {
             cookie?: never;
         };
         /** Memory tier statistics */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Tier stats */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listMemoryTierStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6917,24 +6129,7 @@ export interface paths {
             cookie?: never;
         };
         /** Archive statistics */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Archive stats */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listMemoryArchiveStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6990,26 +6185,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get debate cruxes */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    debate_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Debate cruxes */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getBeliefNetworkCruxe"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7065,26 +6241,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get load-bearing claims */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    debate_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Load-bearing claims */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getBeliefNetworkLoadBearingClaim"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7140,26 +6297,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get debate graph stats */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    debate_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Graph statistics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getDebateGraphStat"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7219,26 +6357,7 @@ export interface paths {
          * Trending topics
          * @description Get current trending debate topics
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Trending topics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listPulseTrending"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7298,26 +6417,7 @@ export interface paths {
          * Suggest debate topic
          * @description Get AI-suggested debate topic based on trends
          */
-        get: {
-            parameters: {
-                query?: {
-                    category?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Suggested topic */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listPulseSuggest"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7371,24 +6471,7 @@ export interface paths {
             cookie?: never;
         };
         /** System metrics */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Metrics data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listMetrics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7442,24 +6525,7 @@ export interface paths {
             cookie?: never;
         };
         /** Metrics health */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Metrics health */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listMetricsHealth"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7513,24 +6579,7 @@ export interface paths {
             cookie?: never;
         };
         /** Cache metrics */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Cache metrics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listMetricsCache"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7584,24 +6633,7 @@ export interface paths {
             cookie?: never;
         };
         /** System metrics */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description System metrics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listMetricsSystem"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7621,26 +6653,7 @@ export interface paths {
          * Prometheus metrics
          * @description Metrics in Prometheus format
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Prometheus-formatted metrics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": unknown;
-                    };
-                };
-            };
-        };
+        get: operations["listMetricsSystem"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7694,24 +6707,7 @@ export interface paths {
             cookie?: never;
         };
         /** Verification status */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Verification status */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listVerificationStatus"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7775,28 +6771,7 @@ export interface paths {
          * Formal verification
          * @description Run formal verification on claims
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Verification result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["createVerificationFormalVerify"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7854,28 +6829,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Run capability probe */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Probe results */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["createDebatesCapabilityProbe"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7933,28 +6887,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Deep audit */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Audit results */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["createDebatesDeepAudit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8012,28 +6945,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Capability probe */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Probe results */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["createProbesCapability"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8085,24 +6997,7 @@ export interface paths {
             cookie?: never;
         };
         /** List documents */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Document list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listDocuments"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8156,24 +7051,7 @@ export interface paths {
             cookie?: never;
         };
         /** Supported formats */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Supported formats */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listDocumentsFormats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8233,28 +7111,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Upload document */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "multipart/form-data": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Document uploaded */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["createDocumentsUpload"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8308,26 +7165,7 @@ export interface paths {
             cookie?: never;
         };
         /** Podcast RSS feed */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description RSS feed */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/xml": unknown;
-                    };
-                };
-            };
-        };
+        get: operations["listPodcastFeed.Xml"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8381,24 +7219,7 @@ export interface paths {
             cookie?: never;
         };
         /** Podcast episodes */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Episode list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listPodcastEpisodes"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8452,24 +7273,7 @@ export interface paths {
             cookie?: never;
         };
         /** YouTube auth URL */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Auth URL */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listYoutubeAuth"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8523,24 +7327,7 @@ export interface paths {
             cookie?: never;
         };
         /** YouTube OAuth callback */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Auth complete */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listYoutubeCallback"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8594,24 +7381,7 @@ export interface paths {
             cookie?: never;
         };
         /** YouTube auth status */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Auth status */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listYoutubeStatus"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8628,24 +7398,7 @@ export interface paths {
             cookie?: never;
         };
         /** List plugins */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Plugin list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listPlugins"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8662,24 +7415,7 @@ export interface paths {
             cookie?: never;
         };
         /** List installed plugins */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Installed plugins list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listInstalledPlugins"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8696,24 +7432,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get marketplace listings */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Marketplace data with categories */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getPluginMarketplace"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8732,28 +7451,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Submit plugin for review */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Submission confirmation */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["submitPlugin"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8768,24 +7466,7 @@ export interface paths {
             cookie?: never;
         };
         /** List user's plugin submissions */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Submissions list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listPluginSubmissions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8802,27 +7483,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get plugin details */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Plugin name (lowercase alphanumeric with hyphens) */
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Plugin details */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getPlugin"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8841,31 +7502,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Run plugin */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Plugin name (lowercase alphanumeric with hyphens) */
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Plugin result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["runPlugin"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8882,53 +7519,9 @@ export interface paths {
         get?: never;
         put?: never;
         /** Install plugin */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Plugin name (lowercase alphanumeric with hyphens) */
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Installation result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["installPlugin"];
         /** Uninstall plugin */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Plugin name (lowercase alphanumeric with hyphens) */
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Uninstallation result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        delete: operations["uninstallPlugin"];
         options?: never;
         head?: never;
         patch?: never;
@@ -9332,27 +7925,7 @@ export interface paths {
             cookie?: never;
         };
         /** Emergent traits */
-        get: {
-            parameters: {
-                query?: {
-                    min_confidence?: number;
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Emergent traits */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listLaboratoryEmergentTraits"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9406,24 +7979,7 @@ export interface paths {
             cookie?: never;
         };
         /** Cross-pollination suggestions */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Suggestions */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listLaboratoryCrossPollinationsSuggest"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9477,24 +8033,7 @@ export interface paths {
             cookie?: never;
         };
         /** List tournaments */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Tournament list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listTournaments"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9550,26 +8089,7 @@ export interface paths {
             cookie?: never;
         };
         /** Tournament standings */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Standings */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getTournamentsStanding"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9623,24 +8143,7 @@ export interface paths {
             cookie?: never;
         };
         /** Genesis statistics */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Genesis stats */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listGenesisStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9694,24 +8197,7 @@ export interface paths {
             cookie?: never;
         };
         /** Genesis events */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Genesis events */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listGenesisEvents"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9767,26 +8253,7 @@ export interface paths {
             cookie?: never;
         };
         /** Agent lineage */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    agent: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Lineage data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getGenesisLineage"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9842,26 +8309,7 @@ export interface paths {
             cookie?: never;
         };
         /** Agent tree */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    agent: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Tree data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getGenesisTree"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9917,26 +8365,7 @@ export interface paths {
             cookie?: never;
         };
         /** Agent evolution history */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    agent: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Evolution history */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getEvolutionHistory"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9990,24 +8419,7 @@ export interface paths {
             cookie?: never;
         };
         /** List replays */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Replay list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listReplays"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10063,26 +8475,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get replay */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Replay data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getReplay"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10136,24 +8529,7 @@ export interface paths {
             cookie?: never;
         };
         /** Learning evolution */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Evolution data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listLearningEvolution"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10207,24 +8583,7 @@ export interface paths {
             cookie?: never;
         };
         /** Meta-learning statistics */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Meta-learning stats */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listMetaLearningStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10278,24 +8637,7 @@ export interface paths {
             cookie?: never;
         };
         /** Critique patterns */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Patterns */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listCritiquesPatterns"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10349,24 +8691,7 @@ export interface paths {
             cookie?: never;
         };
         /** Critique archive */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Archive */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listCritiquesArchive"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10420,24 +8745,7 @@ export interface paths {
             cookie?: never;
         };
         /** All reputations */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Reputations */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listReputationAll"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10494,27 +8802,7 @@ export interface paths {
             cookie?: never;
         };
         /** Best team combinations */
-        get: {
-            parameters: {
-                query?: {
-                    min_debates?: number;
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Best teams */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listRoutingBestTeams"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10578,32 +8866,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Agent recommendations */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        primary_domain?: string;
-                        secondary_domains?: string[];
-                        required_traits?: string[];
-                    };
-                };
-            };
-            responses: {
-                /** @description Recommendations */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["createRoutingRecommendations"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10655,24 +8918,7 @@ export interface paths {
             cookie?: never;
         };
         /** All introspection data */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Introspection data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listIntrospectionAll"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10726,24 +8972,7 @@ export interface paths {
             cookie?: never;
         };
         /** Introspection leaderboard */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Leaderboard */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listIntrospectionLeaderboard"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10797,24 +9026,7 @@ export interface paths {
             cookie?: never;
         };
         /** Agent introspection list */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Agent list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listIntrospectionAgents"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10870,26 +9082,7 @@ export interface paths {
             cookie?: never;
         };
         /** Agent introspection */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Agent introspection */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getIntrospectionAgent"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10977,54 +9170,7 @@ export interface paths {
          * Start Google OAuth flow
          * @description Redirect user to Google OAuth consent screen for authentication. Supports optional account linking for already-authenticated users.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description URL to redirect after successful authentication (must be in allowlist) */
-                    redirect_url?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Redirect to Google OAuth consent screen */
-                302: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Too many requests - Rate limit exceeded */
-                429: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["listAuthOauthGoogle"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11107,49 +9253,7 @@ export interface paths {
          * Google OAuth callback
          * @description Handle the OAuth callback from Google after user consent. Exchanges authorization code for tokens and creates/links user account.
          */
-        get: {
-            parameters: {
-                query: {
-                    /** @description Authorization code from Google */
-                    code: string;
-                    /** @description State parameter for CSRF protection */
-                    state: string;
-                    /** @description Error code if user denied consent */
-                    error?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Redirect to success URL with auth token */
-                302: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["listAuthOauthGoogleCallback"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11237,54 +9341,7 @@ export interface paths {
          * Start GitHub OAuth flow
          * @description Redirect user to GitHub OAuth consent screen for authentication.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description URL to redirect after successful authentication */
-                    redirect_url?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Redirect to GitHub OAuth consent screen */
-                302: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Too many requests - Rate limit exceeded */
-                429: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["listAuthOauthGithub"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11365,47 +9422,7 @@ export interface paths {
          * GitHub OAuth callback
          * @description Handle the OAuth callback from GitHub after user consent.
          */
-        get: {
-            parameters: {
-                query: {
-                    /** @description Authorization code from GitHub */
-                    code: string;
-                    /** @description State parameter for CSRF protection */
-                    state: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Redirect to success URL with auth token */
-                302: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["listAuthOauthGithubCallback"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11495,54 +9512,7 @@ export interface paths {
          * Link OAuth account
          * @description Link an OAuth provider account to the current authenticated user.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /**
-                         * @description OAuth provider name
-                         * @enum {string}
-                         */
-                        provider: "google" | "github";
-                        /** @description Authorization code from provider */
-                        code: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Account linked successfully */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createAuthOauthLink"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11631,54 +9601,7 @@ export interface paths {
          * Unlink OAuth account
          * @description Remove OAuth provider link from the current user's account.
          */
-        delete: {
-            parameters: {
-                query: {
-                    /** @description OAuth provider to unlink */
-                    provider: "google" | "github";
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Account unlinked successfully */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        delete: operations["deleteAuthOauthUnlink"];
         options?: never;
         head?: never;
         patch?: never;
@@ -11735,26 +9658,7 @@ export interface paths {
          * List available OAuth providers
          * @description Get list of configured OAuth providers available for authentication.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of available providers */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["OAuthProviders"];
-                    };
-                };
-            };
-        };
+        get: operations["listAuthOauthProviders"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11821,33 +9725,7 @@ export interface paths {
          * Get user's linked providers
          * @description Get list of OAuth providers linked to the current user's account.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of linked providers */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["listUserOauthProviders"];
         put?: never;
         post?: never;
         delete?: never;
@@ -12471,6 +10349,328 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workspaces/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List RBAC profiles
+         * @deprecated
+         * @description Get available RBAC profiles for workspace configuration.
+         *
+         *     **Profiles:**
+         *     - **lite**: 3 roles (owner, admin, member) - ideal for SME workspaces
+         *     - **standard**: 5 roles (adds analyst, viewer) - for growing teams
+         *     - **enterprise**: 8 roles - full governance with compliance roles
+         *
+         *     **Recommendation:** Use 'lite' for most workspaces; upgrade as needed.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Available RBAC profiles with role details */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspaces/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List RBAC profiles
+         * @description Get available RBAC profiles for workspace configuration.
+         *
+         *     **Profiles:**
+         *     - **lite**: 3 roles (owner, admin, member) - ideal for SME workspaces
+         *     - **standard**: 5 roles (adds analyst, viewer) - for growing teams
+         *     - **enterprise**: 8 roles - full governance with compliance roles
+         *
+         *     **Recommendation:** Use 'lite' for most workspaces; upgrade as needed.
+         */
+        get: operations["listWorkspaceProfiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workspaces/{workspace_id}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get workspace roles
+         * @deprecated
+         * @description Get available roles for a workspace based on its RBAC profile.
+         *
+         *     **Response includes:**
+         *     - Roles available in the workspace's profile
+         *     - Which roles the current user can assign
+         *     - Current user's role in the workspace
+         *
+         *     **Role assignment rules:**
+         *     - Owners can assign all roles except owner
+         *     - Admins can assign member, analyst, viewer
+         *     - Members cannot assign roles
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Workspace ID */
+                    workspace_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Workspace roles with assignment permissions */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Forbidden - Insufficient permissions for this operation */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found - The requested resource does not exist */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspaces/{workspace_id}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get workspace roles
+         * @description Get available roles for a workspace based on its RBAC profile.
+         *
+         *     **Response includes:**
+         *     - Roles available in the workspace's profile
+         *     - Which roles the current user can assign
+         *     - Current user's role in the workspace
+         *
+         *     **Role assignment rules:**
+         *     - Owners can assign all roles except owner
+         *     - Admins can assign member, analyst, viewer
+         *     - Members cannot assign roles
+         */
+        get: operations["getWorkspaceRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workspaces/{workspace_id}/members/{user_id}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update member role
+         * @deprecated
+         * @description Update a workspace member's role.
+         *
+         *     **Role hierarchy:** owner > admin > member
+         *
+         *     **Restrictions:**
+         *     - Cannot remove the last owner
+         *     - Can only assign roles within your permission level
+         *     - Role changes are audit logged
+         *
+         *     **Lite profile roles:**
+         *     - `owner`: Full workspace control including billing
+         *     - `admin`: Manage users and debates, no billing
+         *     - `member`: Create and run debates
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Workspace ID */
+                    workspace_id: string;
+                    /** @description User ID of the member */
+                    user_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @description New role for the member
+                         * @enum {string}
+                         */
+                        role: "owner" | "admin" | "member" | "analyst" | "viewer";
+                    };
+                };
+            };
+            responses: {
+                /** @description Role updated successfully */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Forbidden - Insufficient permissions for this operation */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found - The requested resource does not exist */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspaces/{workspace_id}/members/{user_id}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update member role
+         * @description Update a workspace member's role.
+         *
+         *     **Role hierarchy:** owner > admin > member
+         *
+         *     **Restrictions:**
+         *     - Cannot remove the last owner
+         *     - Can only assign roles within your permission level
+         *     - Role changes are audit logged
+         *
+         *     **Lite profile roles:**
+         *     - `owner`: Full workspace control including billing
+         *     - `admin`: Manage users and debates, no billing
+         *     - `member`: Create and run debates
+         */
+        put: operations["updateWorkspaceMemberRole"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -13661,83 +11861,13 @@ export interface paths {
          * List workflows
          * @description Get list of workflows with optional filtering by category, tags, or search term.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Filter by workflow category */
-                    category?: "debate" | "analysis" | "integration" | "custom";
-                    /** @description Filter by tags (comma-separated) */
-                    tags?: string;
-                    /** @description Search in workflow name and description */
-                    search?: string;
-                    limit?: number;
-                    offset?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of workflows with pagination */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["WorkflowList"];
-                    };
-                };
-            };
-        };
+        get: operations["listWorkflows"];
         put?: never;
         /**
          * Create workflow
          * @description Create a new workflow definition with steps and transitions.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        name: string;
-                        description?: string;
-                        /** @enum {string} */
-                        category?: "debate" | "analysis" | "integration" | "custom";
-                        tags?: string[];
-                        steps: components["schemas"]["StepDefinition"][];
-                        transitions?: components["schemas"]["TransitionRule"][];
-                        input_schema?: Record<string, never>;
-                        output_schema?: Record<string, never>;
-                    };
-                };
-            };
-            responses: {
-                /** @description Workflow created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Workflow"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createWorkflows"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13887,119 +12017,18 @@ export interface paths {
          * Get workflow
          * @description Get detailed workflow definition by ID.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    workflow_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Workflow definition */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Workflow"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getWorkflow"];
         /**
          * Update workflow
          * @description Update an existing workflow definition. Creates a new version.
          */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    workflow_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["WorkflowUpdate"];
-                };
-            };
-            responses: {
-                /** @description Workflow updated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Workflow"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        put: operations["updateWorkflow"];
         post?: never;
         /**
          * Delete workflow
          * @description Delete a workflow definition.
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    workflow_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Workflow deleted */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        delete: operations["deleteWorkflow"];
         options?: never;
         head?: never;
         patch?: never;
@@ -14097,65 +12126,7 @@ export interface paths {
          * Execute workflow
          * @description Start execution of a workflow with provided inputs.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    workflow_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Input parameters for the workflow */
-                        inputs?: Record<string, never>;
-                        /**
-                         * @description Run asynchronously and return execution ID
-                         * @default false
-                         */
-                        async?: boolean;
-                    };
-                };
-            };
-            responses: {
-                /** @description Workflow execution result or execution ID */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createWorkflowsExecute"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14224,37 +12195,7 @@ export interface paths {
          * Get workflow versions
          * @description Get version history of a workflow.
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path: {
-                    workflow_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of workflow versions */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getWorkflowsVersion"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14317,29 +12258,7 @@ export interface paths {
          * List workflow templates
          * @description Get gallery of workflow templates for quick start.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Filter templates by category */
-                    category?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of workflow templates */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["WorkflowTemplateList"];
-                    };
-                };
-            };
-        };
+        get: operations["listWorkflowTemplates"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14410,37 +12329,7 @@ export interface paths {
          * Get workflow template
          * @description Get a specific workflow template for use as starting point.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    template_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Workflow template */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["WorkflowTemplate"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getWorkflowTemplate"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14506,32 +12395,7 @@ export interface paths {
          * List workflow executions
          * @description Get list of all workflow executions for the runtime dashboard.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Filter by workflow ID */
-                    workflow_id?: string;
-                    /** @description Filter by execution status */
-                    status?: "pending" | "running" | "completed" | "failed" | "cancelled";
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of workflow executions */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ExecutionList"];
-                    };
-                };
-            };
-        };
+        get: operations["listWorkflowExecutions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14642,79 +12506,14 @@ export interface paths {
          * Get execution status
          * @description Get detailed status of a workflow execution.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    execution_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Execution details with step progress */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getWorkflowExecution"];
         put?: never;
         post?: never;
         /**
          * Cancel execution
          * @description Cancel a running workflow execution.
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    execution_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Execution cancelled */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        delete: operations["deleteWorkflowExecution"];
         options?: never;
         head?: never;
         patch?: never;
@@ -14778,33 +12577,7 @@ export interface paths {
          * List pending approvals
          * @description Get list of workflow steps awaiting human approval.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of pending approvals */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["listWorkflowApprovals"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14901,61 +12674,7 @@ export interface paths {
          * Submit approval decision
          * @description Approve or reject a workflow step requiring human approval.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    approval_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        decision: "approve" | "reject";
-                        comment?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Approval submitted */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createWorkflowApproval"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15011,24 +12730,7 @@ export interface paths {
          * Get subscriber statistics
          * @description Get statistics for all cross-subsystem event subscribers including event counts, success/failure rates, circuit breaker status, and latency metrics.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Subscriber statistics with totals and per-handler metrics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listCrossPollinationStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15086,24 +12788,7 @@ export interface paths {
          * List all subscribers
          * @description Get a list of all registered cross-subsystem event subscribers with their subscribed event types and handler metadata.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of subscribers with event types and descriptions */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listCrossPollinationSubscribers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15161,24 +12846,7 @@ export interface paths {
          * Get arena bridge status
          * @description Get status of the Arena-to-CrossSubscriber event bridge including connection state, event mappings, and throughput statistics.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Bridge status with connection state and event mappings */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listCrossPollinationBridge"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15238,26 +12906,7 @@ export interface paths {
          * Get Prometheus metrics
          * @description Get cross-pollination metrics in Prometheus/OpenMetrics text format. Includes event counts, handler durations, and circuit breaker states.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Prometheus-format metrics text */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": unknown;
-                    };
-                };
-            };
-        };
+        get: operations["listCrossPollinationMetrics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15317,24 +12966,7 @@ export interface paths {
          * Reset statistics
          * @description Reset all cross-pollination statistics counters and circuit breaker states. Useful for testing and debugging.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Statistics reset confirmation with handler count */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["createCrossPollinationReset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15405,39 +13037,7 @@ export interface paths {
          * List decision receipts
          * @description Get list of decision receipts with optional filtering.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Filter by debate ID */
-                    debate_id?: string;
-                    /** @description Filter by date range start (ISO 8601) */
-                    from_date?: string;
-                    /** @description Filter by date range end (ISO 8601) */
-                    to_date?: string;
-                    /** @description Filter by consensus status */
-                    consensus_reached?: boolean;
-                    /** @description Filter by minimum confidence */
-                    min_confidence?: number;
-                    limit?: number;
-                    offset?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of decision receipts */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ReceiptList"];
-                    };
-                };
-            };
-        };
+        get: operations["listGauntletReceipts"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15508,37 +13108,7 @@ export interface paths {
          * Get decision receipt
          * @description Get a specific decision receipt by ID.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    receipt_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Decision receipt details */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["DecisionReceipt"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getGauntletReceipt"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15623,51 +13193,7 @@ export interface paths {
          * Export decision receipt
          * @description Export a decision receipt in various formats.
          */
-        get: {
-            parameters: {
-                query: {
-                    /** @description Export format */
-                    format: "json" | "markdown" | "html" | "csv" | "sarif";
-                    /** @description Include metadata in export */
-                    include_metadata?: boolean;
-                    /** @description Include evidence in export */
-                    include_evidence?: boolean;
-                    /** @description Include dissenting views in export */
-                    include_dissent?: boolean;
-                    /** @description Pretty print output (for JSON) */
-                    pretty_print?: boolean;
-                };
-                header?: never;
-                path: {
-                    receipt_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Exported receipt content */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": Record<string, never>;
-                        "text/markdown": string;
-                        "text/html": string;
-                        "text/csv": string;
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getGauntletReceiptsExport"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15754,51 +13280,7 @@ export interface paths {
          * Export receipts bundle
          * @description Export multiple receipts as a bundle.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description List of receipt IDs to export */
-                        receipt_ids: string[];
-                        /**
-                         * @default json
-                         * @enum {string}
-                         */
-                        format?: "json" | "csv" | "markdown";
-                        /** @default true */
-                        include_metadata?: boolean;
-                        /** @default true */
-                        include_evidence?: boolean;
-                        /** @default true */
-                        include_dissent?: boolean;
-                    };
-                };
-            };
-            responses: {
-                /** @description Bundle of exported receipts */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createGauntletReceiptsExportBundle"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15860,30 +13342,7 @@ export interface paths {
          * List risk heatmaps
          * @description Get list of generated risk heatmaps.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Filter by gauntlet ID */
-                    gauntlet_id?: string;
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of risk heatmaps */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HeatmapList"];
-                    };
-                };
-            };
-        };
+        get: operations["listGauntletHeatmaps"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15954,37 +13413,7 @@ export interface paths {
          * Get risk heatmap
          * @description Get a specific risk heatmap by ID.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    heatmap_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Risk heatmap details */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["RiskHeatmap"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getGauntletHeatmap"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16060,42 +13489,7 @@ export interface paths {
          * Export risk heatmap
          * @description Export a risk heatmap in various formats.
          */
-        get: {
-            parameters: {
-                query: {
-                    /** @description Export format */
-                    format: "json" | "csv" | "html";
-                };
-                header?: never;
-                path: {
-                    heatmap_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Exported heatmap content */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": Record<string, never>;
-                        "text/csv": string;
-                        "text/html": string;
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getGauntletHeatmapsExport"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16166,37 +13560,7 @@ export interface paths {
          * Stream receipt export
          * @description Stream receipt export for large receipts.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    receipt_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Streaming JSON response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/x-ndjson": string;
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getGauntletReceiptsStream"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16275,45 +13639,7 @@ export interface paths {
          * Get decision explanation
          * @description Get a full explanation of how the debate decision was reached, including narrative, factors, counterfactuals, and provenance.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Include factor decomposition */
-                    include_factors?: boolean;
-                    /** @description Include counterfactual scenarios */
-                    include_counterfactuals?: boolean;
-                    /** @description Include decision provenance chain */
-                    include_provenance?: boolean;
-                };
-                header?: never;
-                path: {
-                    /** @description ID of the debate to explain */
-                    debate_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Full decision explanation */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["DecisionExplanation"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getDebatesExplainability"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16399,52 +13725,7 @@ export interface paths {
          * Get contributing factors
          * @description Get the factors that contributed to the debate decision with their relative contributions.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Minimum contribution threshold (0-1) */
-                    min_contribution?: number;
-                    /** @description Sort factors by */
-                    sort_by?: "contribution" | "name" | "type";
-                };
-                header?: never;
-                path: {
-                    debate_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of contributing factors */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            debate_id?: string;
-                            factors?: {
-                                name?: string;
-                                contribution?: number;
-                                description?: string;
-                                type?: string;
-                                evidence?: string[];
-                            }[];
-                            total_factors?: number;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getDebatesExplainabilityFactor"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16579,102 +13860,13 @@ export interface paths {
          * Get counterfactual scenarios
          * @description Generate what-if scenarios showing how different inputs might have changed the outcome.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Maximum number of scenarios to generate */
-                    max_scenarios?: number;
-                    /** @description Minimum probability threshold for scenarios */
-                    min_probability?: number;
-                };
-                header?: never;
-                path: {
-                    debate_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Counterfactual scenarios */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            debate_id?: string;
-                            counterfactuals?: {
-                                scenario?: string;
-                                outcome?: string;
-                                probability?: number;
-                                affected_factors?: string[];
-                            }[];
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getDebatesExplainabilityCounterfactual"];
         put?: never;
         /**
          * Generate custom counterfactual
          * @description Generate a counterfactual scenario based on custom hypothetical changes.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    debate_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description The hypothetical change to evaluate */
-                        hypothesis: string;
-                        /** @description Agents affected by the change */
-                        affected_agents?: string[];
-                    };
-                };
-            };
-            responses: {
-                /** @description Custom counterfactual analysis */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createDebatesExplainabilityCounterfactual"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16762,56 +13954,7 @@ export interface paths {
          * Get decision provenance
          * @description Get the provenance chain showing how the decision was reached step by step.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Include timestamps for each step */
-                    include_timestamps?: boolean;
-                    /** @description Include agent information for each step */
-                    include_agents?: boolean;
-                    /** @description Include confidence levels for each step */
-                    include_confidence?: boolean;
-                };
-                header?: never;
-                path: {
-                    debate_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Decision provenance chain */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            debate_id?: string;
-                            provenance?: {
-                                step?: number;
-                                action?: string;
-                                /** Format: date-time */
-                                timestamp?: string;
-                                agent?: string;
-                                confidence?: number;
-                                evidence?: string[];
-                            }[];
-                            total_steps?: number;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getDebatesExplainabilityProvenance"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16895,50 +14038,7 @@ export interface paths {
          * Get decision narrative
          * @description Get a natural language explanation of the decision.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Narrative format */
-                    format?: "brief" | "detailed" | "executive_summary";
-                    /** @description Output language (ISO 639-1) */
-                    language?: string;
-                };
-                header?: never;
-                path: {
-                    debate_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Decision narrative */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            debate_id?: string;
-                            narrative?: string;
-                            confidence?: number;
-                            format?: string;
-                            word_count?: number;
-                            /** Format: date-time */
-                            generated_at?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getDebatesExplainabilityNarrative"];
         put?: never;
         post?: never;
         delete?: never;
@@ -17014,42 +14114,7 @@ export interface paths {
          * List workflow templates
          * @description Get list of available workflow templates with optional filtering.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Filter by category */
-                    category?: string;
-                    /** @description Filter by pattern type */
-                    pattern?: "hive_mind" | "map_reduce" | "review_cycle" | "pipeline" | "parallel";
-                    /** @description Search templates by name or description */
-                    search?: string;
-                    /** @description Filter by tags (comma-separated) */
-                    tags?: string;
-                    limit?: number;
-                    offset?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of workflow templates */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            templates?: components["schemas"]["WorkflowTemplate"][];
-                            total?: number;
-                            limit?: number;
-                            offset?: number;
-                        };
-                    };
-                };
-            };
-        };
+        get: operations["listWorkflowTemplates"];
         put?: never;
         post?: never;
         delete?: never;
@@ -17121,38 +14186,7 @@ export interface paths {
          * Get template details
          * @description Get detailed information about a specific workflow template.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Template ID (category/name format) */
-                    template_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Workflow template details */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["WorkflowTemplate"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getWorkflowTemplate"];
         put?: never;
         post?: never;
         delete?: never;
@@ -17246,60 +14280,7 @@ export interface paths {
          * Get template package
          * @description Get the full template package including workflow definition, metadata, and documentation.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Include usage examples */
-                    include_examples?: boolean;
-                };
-                header?: never;
-                path: {
-                    template_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Template package */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            id?: string;
-                            name?: string;
-                            description?: string;
-                            category?: string;
-                            pattern?: string;
-                            workflow_definition?: Record<string, never>;
-                            input_schema?: Record<string, never>;
-                            output_schema?: Record<string, never>;
-                            documentation?: string;
-                            examples?: Record<string, never>[];
-                            author?: {
-                                name?: string;
-                                email?: string;
-                            };
-                            version?: string;
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getWorkflowTemplatesPackage"];
         put?: never;
         post?: never;
         delete?: never;
@@ -17417,82 +14398,7 @@ export interface paths {
          * Run workflow template
          * @description Execute a workflow template with the provided inputs.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    template_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description Template input values */
-                        inputs?: Record<string, never>;
-                        /** @description Execution configuration overrides */
-                        config?: {
-                            timeout?: number;
-                            /** @enum {string} */
-                            priority?: "low" | "normal" | "high";
-                            /** @default false */
-                            async?: boolean;
-                        };
-                        /** @description Workspace to run in */
-                        workspace_id?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Workflow execution result (sync) */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            execution_id?: string;
-                            /** @enum {string} */
-                            status?: "pending" | "running" | "completed" | "failed";
-                            result?: Record<string, never>;
-                            duration_ms?: number;
-                        };
-                    };
-                };
-                /** @description Workflow execution started (async) */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            execution_id?: string;
-                            status?: string;
-                            status_url?: string;
-                        };
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createWorkflowTemplatesRun"];
         delete?: never;
         options?: never;
         head?: never;
@@ -17558,34 +14464,7 @@ export interface paths {
          * List template categories
          * @description Get list of available template categories with counts.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of categories */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            categories?: {
-                                id?: string;
-                                name?: string;
-                                description?: string;
-                                template_count?: number;
-                                icon?: string;
-                            }[];
-                        };
-                    };
-                };
-            };
-        };
+        get: operations["listWorkflowCategories"];
         put?: never;
         post?: never;
         delete?: never;
@@ -17653,34 +14532,7 @@ export interface paths {
          * List workflow patterns
          * @description Get list of available workflow patterns.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of patterns */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            patterns?: {
-                                id?: string;
-                                name?: string;
-                                description?: string;
-                                available?: boolean;
-                                use_cases?: string[];
-                            }[];
-                        };
-                    };
-                };
-            };
-        };
+        get: operations["listWorkflowPatterns"];
         put?: never;
         post?: never;
         delete?: never;
@@ -17774,58 +14626,7 @@ export interface paths {
          * Instantiate pattern as template
          * @description Create a new template instance from a workflow pattern.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    pattern_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        name: string;
-                        description: string;
-                        category?: string;
-                        /** @description Pattern-specific configuration */
-                        config?: Record<string, never>;
-                        /** @description Agents to use in the workflow */
-                        agents?: string[];
-                    };
-                };
-            };
-            responses: {
-                /** @description Created template instance */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["WorkflowTemplate"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createWorkflowPatternsInstantiate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -17843,84 +14644,13 @@ export interface paths {
          * List decisions
          * @description List recent decision records (most recent first).
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Decision list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["DecisionList"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["listDecisions"];
         put?: never;
         /**
          * Create decision
          * @description Submit a decision request for debate, workflow, or gauntlet routing.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["DecisionRequest"];
-                };
-            };
-            responses: {
-                /** @description Decision result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["DecisionResult"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createDecisions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -17938,46 +14668,7 @@ export interface paths {
          * Get decision
          * @description Get a decision result by request ID.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    request_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Decision result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["DecisionResult"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getDecision"];
         put?: never;
         post?: never;
         delete?: never;
@@ -17997,37 +14688,7 @@ export interface paths {
          * Get decision status
          * @description Get decision status for polling.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    request_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Decision status */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["DecisionStatus"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getDecisionsStatu"];
         put?: never;
         post?: never;
         delete?: never;
@@ -18049,73 +14710,7 @@ export interface paths {
          * Run dependency vulnerability scan
          * @description Trigger a dependency vulnerability scan for a repository.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        repo_path: string;
-                        branch?: string;
-                        commit_sha?: string;
-                        workspace_id?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Scan started */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseScanStartResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createCodebaseScan"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18133,64 +14728,7 @@ export interface paths {
          * Get latest scan
          * @description Fetch the most recent dependency scan result.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Latest scan */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseScanResultResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseScanLatest"];
         put?: never;
         post?: never;
         delete?: never;
@@ -18210,65 +14748,7 @@ export interface paths {
          * Get scan by ID
          * @description Fetch a specific scan result by scan ID.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                    scan_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Scan result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseScanResultResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseScan"];
         put?: never;
         post?: never;
         delete?: never;
@@ -18288,59 +14768,7 @@ export interface paths {
          * List scans
          * @description List scan history for a repository.
          */
-        get: {
-            parameters: {
-                query?: {
-                    status?: string;
-                    limit?: number;
-                    offset?: number;
-                };
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Scan list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseScanListResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseScan"];
         put?: never;
         post?: never;
         delete?: never;
@@ -18360,61 +14788,7 @@ export interface paths {
          * List vulnerabilities
          * @description List vulnerabilities from the latest scan.
          */
-        get: {
-            parameters: {
-                query?: {
-                    severity?: string;
-                    package?: string;
-                    ecosystem?: string;
-                    limit?: number;
-                    offset?: number;
-                };
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Vulnerability list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseVulnerabilityListResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseVulnerabilitie"];
         put?: never;
         post?: never;
         delete?: never;
@@ -18436,66 +14810,7 @@ export interface paths {
          * Analyze dependencies
          * @description Analyze dependency graph and inventory.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CodebaseDependencyAnalysisRequest"];
-                };
-            };
-            responses: {
-                /** @description Dependency analysis */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseDependencyAnalysisResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createCodebaseAnalyzeDependencies"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18515,66 +14830,7 @@ export interface paths {
          * Scan vulnerabilities
          * @description Scan a repository for CVEs.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CodebaseDependencyScanRequest"];
-                };
-            };
-            responses: {
-                /** @description Vulnerability scan */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseDependencyScanResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createCodebaseScanVulnerabilities"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18594,66 +14850,7 @@ export interface paths {
          * Check licenses
          * @description Check license compatibility.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CodebaseLicenseCheckRequest"];
-                };
-            };
-            responses: {
-                /** @description License check */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseLicenseCheckResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createCodebaseCheckLicenses"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18673,66 +14870,7 @@ export interface paths {
          * Generate SBOM
          * @description Generate SBOM for a repository.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CodebaseSBOMRequest"];
-                };
-            };
-            responses: {
-                /** @description SBOM generated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseSBOMResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createCodebaseSbom"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18752,53 +14890,7 @@ export interface paths {
          * Clear dependency cache
          * @description Clear cached dependency analysis results.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Cache cleared */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createCodebaseClearCache"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18818,68 +14910,7 @@ export interface paths {
          * Trigger secrets scan
          * @description Trigger secrets scan for a repository.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CodebaseSecretsScanRequest"];
-                };
-            };
-            responses: {
-                /** @description Secrets scan started */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseSecretsScanStartResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createCodebaseScanSecret"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18897,64 +14928,7 @@ export interface paths {
          * Get latest secrets scan
          * @description Fetch the latest secrets scan.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Secrets scan */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseSecretsScanResultResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseScanSecretsLatest"];
         put?: never;
         post?: never;
         delete?: never;
@@ -18974,65 +14948,7 @@ export interface paths {
          * Get secrets scan by ID
          * @description Fetch a secrets scan result by ID.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                    scan_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Secrets scan */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseSecretsScanResultResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseScanSecret"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19052,55 +14968,7 @@ export interface paths {
          * List secrets
          * @description List secrets from the latest scan.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Secrets list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseSecretsListResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseSecret"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19120,55 +14988,7 @@ export interface paths {
          * List secrets scans
          * @description List secrets scan history.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Secrets scan list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseSecretsScanListResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseScansSecret"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19190,72 +15010,7 @@ export interface paths {
          * Trigger SAST scan
          * @description Trigger a SAST scan for a repository.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        repo_path: string;
-                        rule_sets?: string[];
-                        workspace_id?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description SAST scan started */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createCodebaseScanSast"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19273,65 +15028,7 @@ export interface paths {
          * Get SAST scan status
          * @description Fetch SAST scan status by scan ID.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                    scan_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description SAST scan status */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseScanSast"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19351,60 +15048,7 @@ export interface paths {
          * List SAST findings
          * @description List SAST findings for the latest scan.
          */
-        get: {
-            parameters: {
-                query?: {
-                    severity?: string;
-                    owasp_category?: string;
-                    limit?: number;
-                    offset?: number;
-                };
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description SAST findings */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseSastFinding"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19424,55 +15068,7 @@ export interface paths {
          * OWASP summary
          * @description Summarize SAST findings by OWASP category.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OWASP summary */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseSastOwaspSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19494,75 +15090,7 @@ export interface paths {
          * Run metrics analysis
          * @description Analyze code complexity and duplication for a repository.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        repo_path: string;
-                        include_patterns?: string[];
-                        exclude_patterns?: string[];
-                        complexity_warning?: number;
-                        complexity_error?: number;
-                        duplication_threshold?: number;
-                    };
-                };
-            };
-            responses: {
-                /** @description Metrics analysis started */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseMetricsStartResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createCodebaseMetricsAnalyze"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19580,64 +15108,7 @@ export interface paths {
          * Get latest metrics
          * @description Fetch the latest metrics report.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Metrics report */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseMetricsReportResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseMetric"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19657,65 +15128,7 @@ export interface paths {
          * Get metrics by ID
          * @description Fetch a metrics report by analysis ID.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                    analysis_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Metrics report */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseMetricsReportResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseMetric"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19735,58 +15148,7 @@ export interface paths {
          * Metrics history
          * @description List metrics analyses for a repository.
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                    offset?: number;
-                };
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Metrics history */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseMetricsHistoryResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseMetricsHistory"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19806,58 +15168,7 @@ export interface paths {
          * Complexity hotspots
          * @description List complexity hotspots from the latest analysis.
          */
-        get: {
-            parameters: {
-                query?: {
-                    min_complexity?: number;
-                    limit?: number;
-                };
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Hotspots */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseHotspotListResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseHotspot"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19877,58 +15188,7 @@ export interface paths {
          * Code duplicates
          * @description List duplicate code blocks from the latest analysis.
          */
-        get: {
-            parameters: {
-                query?: {
-                    min_lines?: number;
-                    limit?: number;
-                };
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Duplicates */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseDuplicateListResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseDuplicate"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19948,65 +15208,7 @@ export interface paths {
          * File metrics
          * @description Get metrics for a specific file (URL-encoded path).
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                    file_path: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description File metrics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CodebaseFileMetricsResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseMetricsFile"];
         put?: never;
         post?: never;
         delete?: never;
@@ -20028,50 +15230,7 @@ export interface paths {
          * Analyze codebase
          * @description Analyze codebase structure and symbols.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Analysis */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createCodebaseAnalyze"];
         delete?: never;
         options?: never;
         head?: never;
@@ -20089,37 +15248,7 @@ export interface paths {
          * List symbols
          * @description List symbols in a codebase.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Symbols */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseSymbol"];
         put?: never;
         post?: never;
         delete?: never;
@@ -20139,37 +15268,7 @@ export interface paths {
          * Call graph
          * @description Get call graph for the codebase.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Call graph */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseCallgraph"];
         put?: never;
         post?: never;
         delete?: never;
@@ -20189,37 +15288,7 @@ export interface paths {
          * Dead code
          * @description Find dead or unreachable code.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Dead code */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseDeadcode"];
         put?: never;
         post?: never;
         delete?: never;
@@ -20241,50 +15310,7 @@ export interface paths {
          * Impact analysis
          * @description Analyze impact of changes.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Impact */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createCodebaseImpact"];
         delete?: never;
         options?: never;
         head?: never;
@@ -20304,50 +15330,7 @@ export interface paths {
          * Understand code
          * @description Answer questions about the codebase.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Answer */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createCodebaseUnderstand"];
         delete?: never;
         options?: never;
         head?: never;
@@ -20367,50 +15350,7 @@ export interface paths {
          * Run audit
          * @description Run comprehensive code audit.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Audit started */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createCodebaseAudit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -20428,47 +15368,7 @@ export interface paths {
          * Audit status
          * @description Get status/result of a code audit.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    repo: string;
-                    audit_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Audit status */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getCodebaseAudit"];
         put?: never;
         post?: never;
         delete?: never;
@@ -20960,59 +15860,7 @@ export interface paths {
          * Modify message labels
          * @description Add or remove labels for a message.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    message_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Labels updated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createGmailMessagesLabel"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21032,50 +15880,7 @@ export interface paths {
          * Mark message read/unread
          * @description Toggle read state for a message.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    message_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Message updated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createGmailMessagesRead"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21095,50 +15900,7 @@ export interface paths {
          * Star or unstar message
          * @description Toggle star state for a message.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    message_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Message updated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createGmailMessagesStar"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21158,46 +15920,7 @@ export interface paths {
          * Archive message
          * @description Archive a message.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    message_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Message archived */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createGmailMessagesArchive"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21217,50 +15940,7 @@ export interface paths {
          * Trash message
          * @description Trash or untrash a message.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    message_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Message trashed */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createGmailMessagesTrash"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21278,58 +15958,7 @@ export interface paths {
          * Get attachment
          * @description Fetch a message attachment.
          */
-        get: {
-            parameters: {
-                query?: {
-                    user_id?: string;
-                };
-                header?: never;
-                path: {
-                    message_id: string;
-                    attachment_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Attachment */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getGmailMessagesAttachment"];
         put?: never;
         post?: never;
         delete?: never;
@@ -21351,48 +15980,7 @@ export interface paths {
          * Create role
          * @description Create a Knowledge Mound governance role.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Role created */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createKnowledgeMoundGovernanceRoles"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21412,48 +16000,7 @@ export interface paths {
          * Assign role
          * @description Assign a governance role to a user.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Role assigned */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createKnowledgeMoundGovernanceRolesAssign"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21473,48 +16020,7 @@ export interface paths {
          * Revoke role
          * @description Revoke a governance role from a user.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Role revoked */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createKnowledgeMoundGovernanceRolesRevoke"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21532,46 +16038,7 @@ export interface paths {
          * Get permissions
          * @description Get governance permissions for a user.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    user_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Permissions */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getKnowledgeMoundGovernancePermission"];
         put?: never;
         post?: never;
         delete?: never;
@@ -21593,48 +16060,7 @@ export interface paths {
          * Check permissions
          * @description Check a permission against governance rules.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Permission check */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createKnowledgeMoundGovernancePermissionsCheck"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21652,38 +16078,7 @@ export interface paths {
          * Audit trail
          * @description Query governance audit trail.
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                    offset?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Audit trail */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["listKnowledgeMoundGovernanceAudit"];
         put?: never;
         post?: never;
         delete?: never;
@@ -21703,46 +16098,7 @@ export interface paths {
          * User audit trail
          * @description Get governance activity for a user.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    user_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description User audit */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getKnowledgeMoundGovernanceAuditUser"];
         put?: never;
         post?: never;
         delete?: never;
@@ -21762,35 +16118,7 @@ export interface paths {
          * Governance stats
          * @description Get governance stats.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Stats */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["listKnowledgeMoundGovernanceStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -21810,86 +16138,13 @@ export interface paths {
          * List audit sessions
          * @description List audit sessions with optional filters.
          */
-        get: {
-            parameters: {
-                query?: {
-                    status?: string;
-                    limit?: number;
-                    offset?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Sessions */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["listAuditSessions"];
         put?: never;
         /**
          * Create audit session
          * @description Create a new audit session.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Session created */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createAuditSessions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21907,92 +16162,14 @@ export interface paths {
          * Get audit session
          * @description Get audit session details.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    session_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Session */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getAuditSession"];
         put?: never;
         post?: never;
         /**
          * Delete audit session
          * @description Delete an audit session.
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    session_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Session deleted */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        delete: operations["deleteAuditSession"];
         options?: never;
         head?: never;
         patch?: never;
@@ -22011,46 +16188,7 @@ export interface paths {
          * Start audit
          * @description Start an audit session.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    session_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Audit started */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createAuditSessionsStart"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22070,46 +16208,7 @@ export interface paths {
          * Pause audit
          * @description Pause an audit session.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    session_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Audit paused */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createAuditSessionsPause"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22129,46 +16228,7 @@ export interface paths {
          * Resume audit
          * @description Resume an audit session.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    session_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Audit resumed */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createAuditSessionsResume"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22188,46 +16248,7 @@ export interface paths {
          * Cancel audit
          * @description Cancel an audit session.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    session_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Audit cancelled */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createAuditSessionsCancel"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22245,48 +16266,7 @@ export interface paths {
          * List findings
          * @description List audit findings for a session.
          */
-        get: {
-            parameters: {
-                query?: {
-                    audit_type?: string;
-                };
-                header?: never;
-                path: {
-                    session_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Findings */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getAuditSessionsFinding"];
         put?: never;
         post?: never;
         delete?: never;
@@ -22306,46 +16286,7 @@ export interface paths {
          * Stream audit events
          * @description Stream audit events via SSE.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    session_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Event stream */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getAuditSessionsEvent"];
         put?: never;
         post?: never;
         delete?: never;
@@ -22367,59 +16308,7 @@ export interface paths {
          * Intervene in audit
          * @description Submit a human intervention.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    session_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Intervention recorded */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createAuditSessionsIntervene"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22437,48 +16326,7 @@ export interface paths {
          * Export audit report
          * @description Export audit report for a session.
          */
-        get: {
-            parameters: {
-                query?: {
-                    format?: string;
-                };
-                header?: never;
-                path: {
-                    session_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Report */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StandardSuccessResponse"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Internal server error - Unexpected error occurred */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getAuditSessionsReport"];
         put?: never;
         post?: never;
         delete?: never;
@@ -22814,123 +16662,13 @@ export interface paths {
          * List webhooks
          * @description List all webhooks for the authenticated user/organization.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of webhooks */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            webhooks?: {
-                                /**
-                                 * Format: uuid
-                                 * @description Unique webhook ID
-                                 */
-                                id: string;
-                                /** @description Human-readable webhook name */
-                                name: string;
-                                /**
-                                 * Format: uri
-                                 * @description Webhook delivery URL
-                                 */
-                                url: string;
-                                /** @description List of event types to subscribe to */
-                                events: string[];
-                                /** @description Whether webhook is active */
-                                enabled: boolean;
-                                /** Format: date-time */
-                                created_at?: string;
-                                /** Format: date-time */
-                                updated_at?: string;
-                                /** @description HMAC secret for signature verification (only shown on creation) */
-                                secret?: string;
-                            }[];
-                            total?: number;
-                        };
-                    };
-                };
-            };
-        };
+        get: operations["listWebhooks"];
         put?: never;
         /**
          * Create webhook
          * @description Register a new webhook to receive event notifications.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description Human-readable webhook name */
-                        name: string;
-                        /**
-                         * Format: uri
-                         * @description Webhook delivery URL
-                         */
-                        url: string;
-                        /** @description List of event types to subscribe to */
-                        events: string[];
-                        /** @default true */
-                        enabled?: boolean;
-                    };
-                };
-            };
-            responses: {
-                /** @description Webhook created successfully */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /**
-                             * Format: uuid
-                             * @description Unique webhook ID
-                             */
-                            id: string;
-                            /** @description Human-readable webhook name */
-                            name: string;
-                            /**
-                             * Format: uri
-                             * @description Webhook delivery URL
-                             */
-                            url: string;
-                            /** @description List of event types to subscribe to */
-                            events: string[];
-                            /** @description Whether webhook is active */
-                            enabled: boolean;
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                            /** @description HMAC secret for signature verification (only shown on creation) */
-                            secret?: string;
-                        };
-                    };
-                };
-                /** @description Invalid webhook configuration */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["createWebhooks"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22948,35 +16686,7 @@ export interface paths {
          * List available event types
          * @description Get all event types that can be subscribed to via webhooks.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of event types */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            events?: {
-                                /** @description Event type name */
-                                name?: string;
-                                /** @description Event description */
-                                description?: string;
-                                /** @description Event category */
-                                category?: string;
-                            }[];
-                        };
-                    };
-                };
-            };
-        };
+        get: operations["listWebhooksEvents"];
         put?: never;
         post?: never;
         delete?: never;
@@ -22996,162 +16706,21 @@ export interface paths {
          * Get webhook
          * @description Get details of a specific webhook.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Webhook ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Webhook details */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /**
-                             * Format: uuid
-                             * @description Unique webhook ID
-                             */
-                            id: string;
-                            /** @description Human-readable webhook name */
-                            name: string;
-                            /**
-                             * Format: uri
-                             * @description Webhook delivery URL
-                             */
-                            url: string;
-                            /** @description List of event types to subscribe to */
-                            events: string[];
-                            /** @description Whether webhook is active */
-                            enabled: boolean;
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                            /** @description HMAC secret for signature verification (only shown on creation) */
-                            secret?: string;
-                        };
-                    };
-                };
-                /** @description Webhook not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getWebhook"];
         put?: never;
         post?: never;
         /**
          * Delete webhook
          * @description Delete a webhook subscription.
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Webhook ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Webhook deleted */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Webhook not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        delete: operations["deleteWebhook"];
         options?: never;
         head?: never;
         /**
          * Update webhook
          * @description Update webhook configuration.
          */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Webhook ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        name?: string;
-                        /** Format: uri */
-                        url?: string;
-                        events?: string[];
-                        enabled?: boolean;
-                    };
-                };
-            };
-            responses: {
-                /** @description Webhook updated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /**
-                             * Format: uuid
-                             * @description Unique webhook ID
-                             */
-                            id: string;
-                            /** @description Human-readable webhook name */
-                            name: string;
-                            /**
-                             * Format: uri
-                             * @description Webhook delivery URL
-                             */
-                            url: string;
-                            /** @description List of event types to subscribe to */
-                            events: string[];
-                            /** @description Whether webhook is active */
-                            enabled: boolean;
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                            /** @description HMAC secret for signature verification (only shown on creation) */
-                            secret?: string;
-                        };
-                    };
-                };
-                /** @description Webhook not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        patch: operations["patchWebhook"];
         trace?: never;
     };
     "/api/v1/webhooks/{id}/test": {
@@ -23167,48 +16736,7 @@ export interface paths {
          * Test webhook
          * @description Send a test event to verify webhook configuration.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Webhook ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Event type to simulate (default: test) */
-                        event_type?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Test delivery result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            status_code?: number;
-                            response_time_ms?: number;
-                            error?: string;
-                        };
-                    };
-                };
-                /** @description Webhook not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["createWebhooksTest"];
         delete?: never;
         options?: never;
         head?: never;
@@ -23226,33 +16754,7 @@ export interface paths {
          * Get SLO webhook status
          * @description Get status of SLO (Service Level Objective) webhook notifications.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description SLO webhook status */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            enabled?: boolean;
-                            /** Format: uri */
-                            url?: string;
-                            /** Format: date-time */
-                            last_delivery?: string;
-                            delivery_success_rate?: number;
-                        };
-                    };
-                };
-            };
-        };
+        get: operations["listWebhooksSloStatus"];
         put?: never;
         post?: never;
         delete?: never;
@@ -23274,29 +16776,91 @@ export interface paths {
          * Test SLO webhook
          * @description Send a test SLO violation notification.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Test delivery result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            message?: string;
-                        };
-                    };
-                };
-            };
+        post: operations["createWebhooksSloTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
+        /**
+         * List all integrations
+         * @description List all platform integrations (Slack, Teams, Discord, Email) for the current tenant.
+         */
+        get: operations["listIntegrations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/integrations/{type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get integration status
+         * @description Get the status and details of a specific integration type.
+         */
+        get: operations["getIntegration"];
+        put?: never;
+        post?: never;
+        /**
+         * Disconnect integration
+         * @description Disconnect/deactivate a specific integration workspace.
+         */
+        delete: operations["disconnectIntegration"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/integrations/{type}/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get integration health
+         * @description Get detailed health status for an integration including connection status, token validity, and last successful operation.
+         */
+        get: operations["getIntegrationHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/integrations/{type}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test integration connectivity
+         * @description Test the connectivity and health of a specific integration.
+         */
+        post: operations["testIntegration"];
         delete?: never;
         options?: never;
         head?: never;
@@ -24681,6 +18245,862 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description System healthy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthCheck"];
+                };
+            };
+            /** @description System degraded or unhealthy */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDetailedHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Detailed health information */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getNomicState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Nomic state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getNomicHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Nomic health status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getNomicLogs: {
+        parameters: {
+            query?: {
+                /** @description Number of log lines to return */
+                lines?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Log lines */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getRiskRegister: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of risk entries to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Risk entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listModes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Available modes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCycleHistory: {
+        parameters: {
+            query?: {
+                /** @description Filter by specific nomic loop ID */
+                loop_id?: string;
+                /** @description Maximum number of cycles to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cycle history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getEventHistory: {
+        parameters: {
+            query?: {
+                /** @description Filter by specific nomic loop ID */
+                loop_id?: string;
+                /** @description Maximum number of events to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Event history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDebateHistory: {
+        parameters: {
+            query?: {
+                /** @description Filter by specific nomic loop ID */
+                loop_id?: string;
+                /** @description Maximum number of debates to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Debate history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getHistorySummary: {
+        parameters: {
+            query?: {
+                /** @description Filter by specific nomic loop ID */
+                loop_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Summary statistics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    runMaintenance: {
+        parameters: {
+            query?: {
+                /** @description Maintenance task to run */
+                task?: "status" | "vacuum" | "analyze" | "checkpoint" | "full";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Maintenance results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getOpenAPISpec: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OpenAPI schema */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    listAgents: {
+        parameters: {
+            query?: {
+                /** @description Include detailed performance statistics for each agent */
+                include_stats?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of agents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items?: components["schemas"]["Agent"][];
+                        total?: number;
+                    };
+                };
+            };
+        };
+    };
+    getLeaderboard: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of agents to return */
+                limit?: number;
+                /** @description Filter by expertise domain (e.g., coding, science, writing) */
+                domain?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agent rankings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentRankings: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of agents to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agent rankings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getLeaderboardView: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of agents to return */
+                limit?: number;
+                /** @description Filter by expertise domain */
+                domain?: string;
+                /** @description Filter by nomic loop ID */
+                loop_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Leaderboard view */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name (e.g., 'claude', 'gpt-4', 'gemini') */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agent profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Agent"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAgentHistory: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of matches to return */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Match history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentCalibration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Calibration data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Calibration"];
+                };
+            };
+        };
+    };
+    getAgentCalibrationCurve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Calibration curve data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentCalibrationSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Calibration summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentConsistency: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Consistency metrics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentFlips: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of flips to return */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Position flips */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentNetwork: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Relationship network */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentRivals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rival agents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentAllies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Allied agents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentMoments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agent moments */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentReputation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reputation data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentPersona: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Persona data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentGroundedPersona: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Grounded persona */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentIdentityPrompt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Identity prompt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentPerformance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Performance metrics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentDomains: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Domain expertise */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAgentAccuracy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accuracy metrics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    compareAgents: {
+        parameters: {
+            query: {
+                /** @description First agent name */
+                agent_a: string;
+                /** @description Second agent name */
+                agent_b: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comparison data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getRecentMatches: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of matches to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recent matches */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCalibrationLeaderboard: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of agents to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Calibration rankings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listPersonas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All personas */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listDebates: {
         parameters: {
             query?: {
@@ -24788,6 +19208,6542 @@ export interface operations {
             };
             /** @description Too many requests - Rate limit exceeded */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAnalyticsDisagreements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disagreement statistics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listAnalyticsRoleRotation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Role rotation data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listAnalyticsEarlyStops: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Early stop data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listRankingStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ranking stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMemoryStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Memory stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listFlipsRecent: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recent flips */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listFlipsSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Flip summary statistics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listInsightsRecent: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recent insights */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createInsightsExtractDetailed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Detailed insights */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMomentsSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Moments summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMomentsTimeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Timeline data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMomentsTrending: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trending moments */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMomentsByType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Moments of specified type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    findSimilarDebates: {
+        parameters: {
+            query: {
+                /** @description Topic or question to find similar debates for */
+                topic: string;
+                /** @description Maximum number of similar debates to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Similar debates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getSettledQuestions: {
+        parameters: {
+            query?: {
+                /** @description Minimum consensus threshold (0.0-1.0) */
+                threshold?: number;
+                /** @description Maximum number of questions to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settled questions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getConsensusStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Consensus stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDissentingViews: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of dissents to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dissenting views */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getContrarianViews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contrarian views */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getRiskWarnings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Risk warnings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDomainConsensus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Domain name (e.g., technology, science, policy) */
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Domain consensus data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listRelationshipsSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Relationship summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listRelationshipsGraph: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Graph data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listRelationshipsStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Relationship stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getRelationship: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent_a: string;
+                agent_b: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Relationship data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Relationship"];
+                };
+            };
+        };
+    };
+    listMemoryContinuumRetrieve: {
+        parameters: {
+            query?: {
+                query?: string;
+                tier?: "fast" | "medium" | "slow" | "glacial";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Retrieved memories */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createMemoryContinuumConsolidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Consolidation result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createMemoryContinuumCleanup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cleanup result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMemoryTierStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tier stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMemoryArchiveStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archive stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getBeliefNetworkCruxe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Debate cruxes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getBeliefNetworkLoadBearingClaim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Load-bearing claims */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDebateGraphStat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Graph statistics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listPulseTrending: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trending topics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listPulseSuggest: {
+        parameters: {
+            query?: {
+                category?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suggested topic */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Metrics data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMetricsHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Metrics health */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMetricsCache: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cache metrics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMetricsSystem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description System metrics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMetricsSystem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Prometheus-formatted metrics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": unknown;
+                };
+            };
+        };
+    };
+    listVerificationStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Verification status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createVerificationFormalVerify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Verification result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createDebatesCapabilityProbe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Probe results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createDebatesDeepAudit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Audit results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createProbesCapability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Probe results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Document list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listDocumentsFormats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Supported formats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createDocumentsUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Document uploaded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "listPodcastFeed.Xml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description RSS feed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/xml": unknown;
+                };
+            };
+        };
+    };
+    listPodcastEpisodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Episode list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listYoutubeAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Auth URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listYoutubeCallback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Auth complete */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listYoutubeStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Auth status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listPlugins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plugin list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listInstalledPlugins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Installed plugins list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getPluginMarketplace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Marketplace data with categories */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    submitPlugin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Submission confirmation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listPluginSubmissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Submissions list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getPlugin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plugin name (lowercase alphanumeric with hyphens) */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plugin details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    runPlugin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plugin name (lowercase alphanumeric with hyphens) */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Plugin result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    installPlugin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plugin name (lowercase alphanumeric with hyphens) */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Installation result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    uninstallPlugin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plugin name (lowercase alphanumeric with hyphens) */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Uninstallation result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listLaboratoryEmergentTraits: {
+        parameters: {
+            query?: {
+                min_confidence?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Emergent traits */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listLaboratoryCrossPollinationsSuggest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suggestions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listTournaments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tournament list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getTournamentsStanding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Standings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listGenesisStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Genesis stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listGenesisEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Genesis events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getGenesisLineage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lineage data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getGenesisTree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tree data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getEvolutionHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Evolution history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listReplays: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Replay list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getReplay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Replay data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listLearningEvolution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Evolution data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMetaLearningStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Meta-learning stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listCritiquesPatterns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Patterns */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listCritiquesArchive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archive */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listReputationAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reputations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listRoutingBestTeams: {
+        parameters: {
+            query?: {
+                min_debates?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Best teams */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createRoutingRecommendations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    primary_domain?: string;
+                    secondary_domains?: string[];
+                    required_traits?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Recommendations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listIntrospectionAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Introspection data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listIntrospectionLeaderboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Leaderboard */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listIntrospectionAgents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agent list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getIntrospectionAgent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agent introspection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listAuthOauthGoogle: {
+        parameters: {
+            query?: {
+                /** @description URL to redirect after successful authentication (must be in allowlist) */
+                redirect_url?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to Google OAuth consent screen */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests - Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAuthOauthGoogleCallback: {
+        parameters: {
+            query: {
+                /** @description Authorization code from Google */
+                code: string;
+                /** @description State parameter for CSRF protection */
+                state: string;
+                /** @description Error code if user denied consent */
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to success URL with auth token */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAuthOauthGithub: {
+        parameters: {
+            query?: {
+                /** @description URL to redirect after successful authentication */
+                redirect_url?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to GitHub OAuth consent screen */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests - Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAuthOauthGithubCallback: {
+        parameters: {
+            query: {
+                /** @description Authorization code from GitHub */
+                code: string;
+                /** @description State parameter for CSRF protection */
+                state: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to success URL with auth token */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createAuthOauthLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description OAuth provider name
+                     * @enum {string}
+                     */
+                    provider: "google" | "github";
+                    /** @description Authorization code from provider */
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Account linked successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteAuthOauthUnlink: {
+        parameters: {
+            query: {
+                /** @description OAuth provider to unlink */
+                provider: "google" | "github";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Account unlinked successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAuthOauthProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of available providers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthProviders"];
+                };
+            };
+        };
+    };
+    listUserOauthProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of linked providers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listWorkspaceProfiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Available RBAC profiles with role details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWorkspaceRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Workspace roles with assignment permissions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateWorkspaceMemberRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspace_id: string;
+                /** @description User ID of the member */
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description New role for the member
+                     * @enum {string}
+                     */
+                    role: "owner" | "admin" | "member" | "analyst" | "viewer";
+                };
+            };
+        };
+        responses: {
+            /** @description Role updated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listWorkflows: {
+        parameters: {
+            query?: {
+                /** @description Filter by workflow category */
+                category?: "debate" | "analysis" | "integration" | "custom";
+                /** @description Filter by tags (comma-separated) */
+                tags?: string;
+                /** @description Search in workflow name and description */
+                search?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of workflows with pagination */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowList"];
+                };
+            };
+        };
+    };
+    createWorkflows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    description?: string;
+                    /** @enum {string} */
+                    category?: "debate" | "analysis" | "integration" | "custom";
+                    tags?: string[];
+                    steps: components["schemas"]["StepDefinition"][];
+                    transitions?: components["schemas"]["TransitionRule"][];
+                    input_schema?: Record<string, never>;
+                    output_schema?: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description Workflow created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Workflow definition */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowUpdate"];
+            };
+        };
+        responses: {
+            /** @description Workflow updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Workflow deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createWorkflowsExecute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Input parameters for the workflow */
+                    inputs?: Record<string, never>;
+                    /**
+                     * @description Run asynchronously and return execution ID
+                     * @default false
+                     */
+                    async?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Workflow execution result or execution ID */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWorkflowsVersion: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of workflow versions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listWorkflowTemplates: {
+        parameters: {
+            query?: {
+                /** @description Filter templates by category */
+                category?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of workflow templates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowTemplateList"];
+                };
+            };
+        };
+    };
+    getWorkflowTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Workflow template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowTemplate"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listWorkflowExecutions: {
+        parameters: {
+            query?: {
+                /** @description Filter by workflow ID */
+                workflow_id?: string;
+                /** @description Filter by execution status */
+                status?: "pending" | "running" | "completed" | "failed" | "cancelled";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of workflow executions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionList"];
+                };
+            };
+        };
+    };
+    getWorkflowExecution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Execution details with step progress */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteWorkflowExecution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Execution cancelled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listWorkflowApprovals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of pending approvals */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createWorkflowApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                approval_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "approve" | "reject";
+                    comment?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Approval submitted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listCrossPollinationStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Subscriber statistics with totals and per-handler metrics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listCrossPollinationSubscribers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of subscribers with event types and descriptions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listCrossPollinationBridge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bridge status with connection state and event mappings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listCrossPollinationMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Prometheus-format metrics text */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": unknown;
+                };
+            };
+        };
+    };
+    createCrossPollinationReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Statistics reset confirmation with handler count */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listGauntletReceipts: {
+        parameters: {
+            query?: {
+                /** @description Filter by debate ID */
+                debate_id?: string;
+                /** @description Filter by date range start (ISO 8601) */
+                from_date?: string;
+                /** @description Filter by date range end (ISO 8601) */
+                to_date?: string;
+                /** @description Filter by consensus status */
+                consensus_reached?: boolean;
+                /** @description Filter by minimum confidence */
+                min_confidence?: number;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of decision receipts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptList"];
+                };
+            };
+        };
+    };
+    getGauntletReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Decision receipt details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionReceipt"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getGauntletReceiptsExport: {
+        parameters: {
+            query: {
+                /** @description Export format */
+                format: "json" | "markdown" | "html" | "csv" | "sarif";
+                /** @description Include metadata in export */
+                include_metadata?: boolean;
+                /** @description Include evidence in export */
+                include_evidence?: boolean;
+                /** @description Include dissenting views in export */
+                include_dissent?: boolean;
+                /** @description Pretty print output (for JSON) */
+                pretty_print?: boolean;
+            };
+            header?: never;
+            path: {
+                receipt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exported receipt content */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                    "text/markdown": string;
+                    "text/html": string;
+                    "text/csv": string;
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createGauntletReceiptsExportBundle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description List of receipt IDs to export */
+                    receipt_ids: string[];
+                    /**
+                     * @default json
+                     * @enum {string}
+                     */
+                    format?: "json" | "csv" | "markdown";
+                    /** @default true */
+                    include_metadata?: boolean;
+                    /** @default true */
+                    include_evidence?: boolean;
+                    /** @default true */
+                    include_dissent?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Bundle of exported receipts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listGauntletHeatmaps: {
+        parameters: {
+            query?: {
+                /** @description Filter by gauntlet ID */
+                gauntlet_id?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of risk heatmaps */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeatmapList"];
+                };
+            };
+        };
+    };
+    getGauntletHeatmap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                heatmap_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Risk heatmap details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskHeatmap"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getGauntletHeatmapsExport: {
+        parameters: {
+            query: {
+                /** @description Export format */
+                format: "json" | "csv" | "html";
+            };
+            header?: never;
+            path: {
+                heatmap_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exported heatmap content */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                    "text/csv": string;
+                    "text/html": string;
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getGauntletReceiptsStream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Streaming JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-ndjson": string;
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDebatesExplainability: {
+        parameters: {
+            query?: {
+                /** @description Include factor decomposition */
+                include_factors?: boolean;
+                /** @description Include counterfactual scenarios */
+                include_counterfactuals?: boolean;
+                /** @description Include decision provenance chain */
+                include_provenance?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description ID of the debate to explain */
+                debate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Full decision explanation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionExplanation"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDebatesExplainabilityFactor: {
+        parameters: {
+            query?: {
+                /** @description Minimum contribution threshold (0-1) */
+                min_contribution?: number;
+                /** @description Sort factors by */
+                sort_by?: "contribution" | "name" | "type";
+            };
+            header?: never;
+            path: {
+                debate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of contributing factors */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        debate_id?: string;
+                        factors?: {
+                            name?: string;
+                            contribution?: number;
+                            description?: string;
+                            type?: string;
+                            evidence?: string[];
+                        }[];
+                        total_factors?: number;
+                    };
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDebatesExplainabilityCounterfactual: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of scenarios to generate */
+                max_scenarios?: number;
+                /** @description Minimum probability threshold for scenarios */
+                min_probability?: number;
+            };
+            header?: never;
+            path: {
+                debate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Counterfactual scenarios */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        debate_id?: string;
+                        counterfactuals?: {
+                            scenario?: string;
+                            outcome?: string;
+                            probability?: number;
+                            affected_factors?: string[];
+                        }[];
+                    };
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createDebatesExplainabilityCounterfactual: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The hypothetical change to evaluate */
+                    hypothesis: string;
+                    /** @description Agents affected by the change */
+                    affected_agents?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Custom counterfactual analysis */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDebatesExplainabilityProvenance: {
+        parameters: {
+            query?: {
+                /** @description Include timestamps for each step */
+                include_timestamps?: boolean;
+                /** @description Include agent information for each step */
+                include_agents?: boolean;
+                /** @description Include confidence levels for each step */
+                include_confidence?: boolean;
+            };
+            header?: never;
+            path: {
+                debate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Decision provenance chain */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        debate_id?: string;
+                        provenance?: {
+                            step?: number;
+                            action?: string;
+                            /** Format: date-time */
+                            timestamp?: string;
+                            agent?: string;
+                            confidence?: number;
+                            evidence?: string[];
+                        }[];
+                        total_steps?: number;
+                    };
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDebatesExplainabilityNarrative: {
+        parameters: {
+            query?: {
+                /** @description Narrative format */
+                format?: "brief" | "detailed" | "executive_summary";
+                /** @description Output language (ISO 639-1) */
+                language?: string;
+            };
+            header?: never;
+            path: {
+                debate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Decision narrative */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        debate_id?: string;
+                        narrative?: string;
+                        confidence?: number;
+                        format?: string;
+                        word_count?: number;
+                        /** Format: date-time */
+                        generated_at?: string;
+                    };
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listWorkflowTemplates: {
+        parameters: {
+            query?: {
+                /** @description Filter by category */
+                category?: string;
+                /** @description Filter by pattern type */
+                pattern?: "hive_mind" | "map_reduce" | "review_cycle" | "pipeline" | "parallel";
+                /** @description Search templates by name or description */
+                search?: string;
+                /** @description Filter by tags (comma-separated) */
+                tags?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of workflow templates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        templates?: components["schemas"]["WorkflowTemplate"][];
+                        total?: number;
+                        limit?: number;
+                        offset?: number;
+                    };
+                };
+            };
+        };
+    };
+    getWorkflowTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Template ID (category/name format) */
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Workflow template details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowTemplate"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWorkflowTemplatesPackage: {
+        parameters: {
+            query?: {
+                /** @description Include usage examples */
+                include_examples?: boolean;
+            };
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template package */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id?: string;
+                        name?: string;
+                        description?: string;
+                        category?: string;
+                        pattern?: string;
+                        workflow_definition?: Record<string, never>;
+                        input_schema?: Record<string, never>;
+                        output_schema?: Record<string, never>;
+                        documentation?: string;
+                        examples?: Record<string, never>[];
+                        author?: {
+                            name?: string;
+                            email?: string;
+                        };
+                        version?: string;
+                        /** Format: date-time */
+                        created_at?: string;
+                        /** Format: date-time */
+                        updated_at?: string;
+                    };
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createWorkflowTemplatesRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Template input values */
+                    inputs?: Record<string, never>;
+                    /** @description Execution configuration overrides */
+                    config?: {
+                        timeout?: number;
+                        /** @enum {string} */
+                        priority?: "low" | "normal" | "high";
+                        /** @default false */
+                        async?: boolean;
+                    };
+                    /** @description Workspace to run in */
+                    workspace_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Workflow execution result (sync) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        execution_id?: string;
+                        /** @enum {string} */
+                        status?: "pending" | "running" | "completed" | "failed";
+                        result?: Record<string, never>;
+                        duration_ms?: number;
+                    };
+                };
+            };
+            /** @description Workflow execution started (async) */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        execution_id?: string;
+                        status?: string;
+                        status_url?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listWorkflowCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of categories */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        categories?: {
+                            id?: string;
+                            name?: string;
+                            description?: string;
+                            template_count?: number;
+                            icon?: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    listWorkflowPatterns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of patterns */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        patterns?: {
+                            id?: string;
+                            name?: string;
+                            description?: string;
+                            available?: boolean;
+                            use_cases?: string[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    createWorkflowPatternsInstantiate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pattern_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    description: string;
+                    category?: string;
+                    /** @description Pattern-specific configuration */
+                    config?: Record<string, never>;
+                    /** @description Agents to use in the workflow */
+                    agents?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Created template instance */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowTemplate"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listDecisions: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Decision list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionList"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createDecisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Decision result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionResult"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDecision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Decision result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionResult"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDecisionsStatu: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Decision status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionStatus"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCodebaseScan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    repo_path: string;
+                    branch?: string;
+                    commit_sha?: string;
+                    workspace_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Scan started */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseScanStartResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseScanLatest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Latest scan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseScanResultResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseScan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+                scan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Scan result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseScanResultResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseScan: {
+        parameters: {
+            query?: {
+                status?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Scan list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseScanListResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseVulnerabilitie: {
+        parameters: {
+            query?: {
+                severity?: string;
+                package?: string;
+                ecosystem?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vulnerability list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseVulnerabilityListResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCodebaseAnalyzeDependencies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodebaseDependencyAnalysisRequest"];
+            };
+        };
+        responses: {
+            /** @description Dependency analysis */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseDependencyAnalysisResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCodebaseScanVulnerabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodebaseDependencyScanRequest"];
+            };
+        };
+        responses: {
+            /** @description Vulnerability scan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseDependencyScanResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCodebaseCheckLicenses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodebaseLicenseCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description License check */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseLicenseCheckResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCodebaseSbom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodebaseSBOMRequest"];
+            };
+        };
+        responses: {
+            /** @description SBOM generated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseSBOMResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCodebaseClearCache: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cache cleared */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCodebaseScanSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodebaseSecretsScanRequest"];
+            };
+        };
+        responses: {
+            /** @description Secrets scan started */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseSecretsScanStartResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseScanSecretsLatest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Secrets scan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseSecretsScanResultResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseScanSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+                scan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Secrets scan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseSecretsScanResultResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Secrets list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseSecretsListResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseScansSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Secrets scan list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseSecretsScanListResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCodebaseScanSast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    repo_path: string;
+                    rule_sets?: string[];
+                    workspace_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description SAST scan started */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseScanSast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+                scan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SAST scan status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseSastFinding: {
+        parameters: {
+            query?: {
+                severity?: string;
+                owasp_category?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SAST findings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseSastOwaspSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OWASP summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCodebaseMetricsAnalyze: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    repo_path: string;
+                    include_patterns?: string[];
+                    exclude_patterns?: string[];
+                    complexity_warning?: number;
+                    complexity_error?: number;
+                    duplication_threshold?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Metrics analysis started */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseMetricsStartResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseMetric: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Metrics report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseMetricsReportResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseMetric: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Metrics report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseMetricsReportResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseMetricsHistory: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Metrics history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseMetricsHistoryResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseHotspot: {
+        parameters: {
+            query?: {
+                min_complexity?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Hotspots */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseHotspotListResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseDuplicate: {
+        parameters: {
+            query?: {
+                min_lines?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Duplicates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseDuplicateListResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseMetricsFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+                file_path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File metrics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodebaseFileMetricsResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCodebaseAnalyze: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Analysis */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseSymbol: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Symbols */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseCallgraph: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Call graph */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseDeadcode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dead code */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCodebaseImpact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Impact */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCodebaseUnderstand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Answer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCodebaseAudit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Audit started */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodebaseAudit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo: string;
+                audit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createGmailMessagesLabel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Labels updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createGmailMessagesRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Message updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createGmailMessagesStar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Message updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createGmailMessagesArchive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Message archived */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createGmailMessagesTrash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Message trashed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getGmailMessagesAttachment: {
+        parameters: {
+            query?: {
+                user_id?: string;
+            };
+            header?: never;
+            path: {
+                message_id: string;
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Attachment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createKnowledgeMoundGovernanceRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Role created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createKnowledgeMoundGovernanceRolesAssign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Role assigned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createKnowledgeMoundGovernanceRolesRevoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Role revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getKnowledgeMoundGovernancePermission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Permissions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createKnowledgeMoundGovernancePermissionsCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Permission check */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listKnowledgeMoundGovernanceAudit: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit trail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getKnowledgeMoundGovernanceAuditUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User audit */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listKnowledgeMoundGovernanceStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAuditSessions: {
+        parameters: {
+            query?: {
+                status?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sessions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createAuditSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Session created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAuditSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteAuditSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createAuditSessionsStart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit started */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createAuditSessionsPause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit paused */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createAuditSessionsResume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit resumed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createAuditSessionsCancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit cancelled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAuditSessionsFinding: {
+        parameters: {
+            query?: {
+                audit_type?: string;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Findings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAuditSessionsEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Event stream */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createAuditSessionsIntervene: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Intervention recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAuditSessionsReport: {
+        parameters: {
+            query?: {
+                format?: string;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardSuccessResponse"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -26200,6 +27156,735 @@ export interface operations {
                         sdk_available?: boolean;
                         sdk_error?: string | null;
                     };
+                };
+            };
+        };
+    };
+    listWebhooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of webhooks */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        webhooks?: {
+                            /**
+                             * Format: uuid
+                             * @description Unique webhook ID
+                             */
+                            id: string;
+                            /** @description Human-readable webhook name */
+                            name: string;
+                            /**
+                             * Format: uri
+                             * @description Webhook delivery URL
+                             */
+                            url: string;
+                            /** @description List of event types to subscribe to */
+                            events: string[];
+                            /** @description Whether webhook is active */
+                            enabled: boolean;
+                            /** Format: date-time */
+                            created_at?: string;
+                            /** Format: date-time */
+                            updated_at?: string;
+                            /** @description HMAC secret for signature verification (only shown on creation) */
+                            secret?: string;
+                        }[];
+                        total?: number;
+                    };
+                };
+            };
+        };
+    };
+    createWebhooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Human-readable webhook name */
+                    name: string;
+                    /**
+                     * Format: uri
+                     * @description Webhook delivery URL
+                     */
+                    url: string;
+                    /** @description List of event types to subscribe to */
+                    events: string[];
+                    /** @default true */
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Webhook created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: uuid
+                         * @description Unique webhook ID
+                         */
+                        id: string;
+                        /** @description Human-readable webhook name */
+                        name: string;
+                        /**
+                         * Format: uri
+                         * @description Webhook delivery URL
+                         */
+                        url: string;
+                        /** @description List of event types to subscribe to */
+                        events: string[];
+                        /** @description Whether webhook is active */
+                        enabled: boolean;
+                        /** Format: date-time */
+                        created_at?: string;
+                        /** Format: date-time */
+                        updated_at?: string;
+                        /** @description HMAC secret for signature verification (only shown on creation) */
+                        secret?: string;
+                    };
+                };
+            };
+            /** @description Invalid webhook configuration */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listWebhooksEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of event types */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        events?: {
+                            /** @description Event type name */
+                            name?: string;
+                            /** @description Event description */
+                            description?: string;
+                            /** @description Event category */
+                            category?: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    getWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Webhook ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Webhook details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: uuid
+                         * @description Unique webhook ID
+                         */
+                        id: string;
+                        /** @description Human-readable webhook name */
+                        name: string;
+                        /**
+                         * Format: uri
+                         * @description Webhook delivery URL
+                         */
+                        url: string;
+                        /** @description List of event types to subscribe to */
+                        events: string[];
+                        /** @description Whether webhook is active */
+                        enabled: boolean;
+                        /** Format: date-time */
+                        created_at?: string;
+                        /** Format: date-time */
+                        updated_at?: string;
+                        /** @description HMAC secret for signature verification (only shown on creation) */
+                        secret?: string;
+                    };
+                };
+            };
+            /** @description Webhook not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Webhook ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Webhook deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Webhook not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patchWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Webhook ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    /** Format: uri */
+                    url?: string;
+                    events?: string[];
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Webhook updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: uuid
+                         * @description Unique webhook ID
+                         */
+                        id: string;
+                        /** @description Human-readable webhook name */
+                        name: string;
+                        /**
+                         * Format: uri
+                         * @description Webhook delivery URL
+                         */
+                        url: string;
+                        /** @description List of event types to subscribe to */
+                        events: string[];
+                        /** @description Whether webhook is active */
+                        enabled: boolean;
+                        /** Format: date-time */
+                        created_at?: string;
+                        /** Format: date-time */
+                        updated_at?: string;
+                        /** @description HMAC secret for signature verification (only shown on creation) */
+                        secret?: string;
+                    };
+                };
+            };
+            /** @description Webhook not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createWebhooksTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Webhook ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Event type to simulate (default: test) */
+                    event_type?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Test delivery result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        status_code?: number;
+                        response_time_ms?: number;
+                        error?: string;
+                    };
+                };
+            };
+            /** @description Webhook not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listWebhooksSloStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SLO webhook status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        enabled?: boolean;
+                        /** Format: uri */
+                        url?: string;
+                        /** Format: date-time */
+                        last_delivery?: string;
+                        delivery_success_rate?: number;
+                    };
+                };
+            };
+        };
+    };
+    createWebhooksSloTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Test delivery result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                    };
+                };
+            };
+        };
+    };
+    listIntegrations: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of results (default: 20, max: 100) */
+                limit?: number;
+                /** @description Pagination offset */
+                offset?: number;
+                /** @description Filter by integration type */
+                type?: "slack" | "teams" | "discord" | "email";
+                /** @description Filter by status */
+                status?: "active" | "inactive";
+            };
+            header?: {
+                /** @description Tenant ID for multi-tenant deployments */
+                "X-Tenant-ID"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of integrations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        integrations?: {
+                            type?: string;
+                            workspace_id?: string;
+                            workspace_name?: string;
+                            status?: string;
+                            installed_at?: number;
+                        }[];
+                        pagination?: {
+                            limit?: number;
+                            offset?: number;
+                            total?: number;
+                            has_more?: boolean;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getIntegration: {
+        parameters: {
+            query?: {
+                /** @description Specific workspace/tenant ID to query */
+                workspace_id?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Integration type */
+                type: "slack" | "teams" | "discord" | "email";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Integration status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type?: string;
+                        connected?: boolean;
+                        workspaces?: Record<string, never>[];
+                        health?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    disconnectIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Integration type */
+                type: "slack" | "teams" | "discord" | "email";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Workspace/tenant ID to disconnect */
+                    workspace_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Integration disconnected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        disconnected?: boolean;
+                        type?: string;
+                        workspace_id?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getIntegrationHealth: {
+        parameters: {
+            query?: {
+                /** @description Specific workspace/tenant ID to check (optional, returns aggregate if omitted) */
+                workspace_id?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Integration type */
+                type: "slack" | "teams" | "discord" | "email";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Integration health status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        healthy: boolean;
+                        /** @enum {string} */
+                        status?: "healthy" | "degraded" | "unhealthy" | "not_configured" | "token_expired" | "error";
+                        workspace_id?: string;
+                        workspace_name?: string;
+                        workspaces?: {
+                            workspace_id?: string;
+                            workspace_name?: string;
+                            status?: string;
+                            error?: string;
+                        }[];
+                        error?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    testIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Integration type */
+                type: "slack" | "teams" | "discord" | "email";
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Workspace/tenant ID to test */
+                    workspace_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Test result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type?: string;
+                        workspace_id?: string;
+                        test_result?: {
+                            status?: string;
+                            error?: string | null;
+                        };
+                        /** Format: date-time */
+                        tested_at?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
