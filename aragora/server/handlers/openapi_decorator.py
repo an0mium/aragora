@@ -389,26 +389,47 @@ def query_param(
 
 
 def json_body(
-    schema: Dict[str, Any],
+    schema: Any,
     description: str = "",
     required: bool = True,
 ) -> Dict[str, Any]:
     """Create a JSON request body definition.
 
     Args:
-        schema: JSON Schema for the body
+        schema: JSON Schema dict or Pydantic model class
         description: Body description
         required: Whether body is required
 
     Returns:
         Request body definition dict
+
+    Example with Pydantic model:
+        from pydantic import BaseModel
+
+        class CreateRequest(BaseModel):
+            name: str
+            value: int
+
+        @api_endpoint(
+            path="/api/v1/resource",
+            method="POST",
+            request_body=json_body(CreateRequest, "Create a new resource"),
+        )
     """
+    # Extract schema from Pydantic model if provided
+    if _is_pydantic_model(schema):
+        final_schema = _extract_pydantic_schema(schema)
+        if not description:
+            description = f"{schema.__name__} request"
+    else:
+        final_schema = schema
+
     return {
         "description": description,
         "required": required,
         "content": {
             "application/json": {
-                "schema": schema,
+                "schema": final_schema,
             }
         },
     }
@@ -416,25 +437,44 @@ def json_body(
 
 def ok_response(
     description: str = "Success",
-    schema: Optional[Dict[str, Any]] = None,
+    schema: Optional[Any] = None,
     status_code: str = "200",
 ) -> Dict[str, Dict[str, Any]]:
     """Create an OK response definition.
 
     Args:
         description: Response description
-        schema: Optional JSON Schema for response
+        schema: Optional JSON Schema dict or Pydantic model class
         status_code: HTTP status code (default: "200")
 
     Returns:
         Response definition dict keyed by status code
+
+    Example with Pydantic model:
+        from pydantic import BaseModel
+
+        class ResourceResponse(BaseModel):
+            id: str
+            name: str
+
+        @api_endpoint(
+            path="/api/v1/resource/{id}",
+            method="GET",
+            responses=ok_response("Resource found", ResourceResponse),
+        )
     """
+    # Extract schema from Pydantic model if provided
+    if schema is not None and _is_pydantic_model(schema):
+        final_schema = _extract_pydantic_schema(schema)
+    else:
+        final_schema = schema or {"type": "object"}
+
     return {
         status_code: {
             "description": description,
             "content": {
                 "application/json": {
-                    "schema": schema or {"type": "object"},
+                    "schema": final_schema,
                 }
             },
         }

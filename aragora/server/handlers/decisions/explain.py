@@ -29,16 +29,19 @@ from aragora.server.validation import validate_id
 from aragora.utils.optional_imports import try_import
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     get_bounded_string_param,
     handle_errors,
     json_response,
 )
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# RBAC permission for decision explanation endpoints
+DECISION_EXPLAIN_PERMISSION = "decision:read"
 
 # Rate limiter (30 requests per minute - explanation is read-heavy)
 _explain_limiter = RateLimiter(requests_per_minute=30)
@@ -87,8 +90,11 @@ def _serialize_dataclass(obj: Any) -> dict:
     return obj
 
 
-class DecisionExplainHandler(BaseHandler):
-    """Handler for decision explainability endpoints."""
+class DecisionExplainHandler(SecureHandler):
+    """Handler for decision explainability endpoints.
+
+    Requires authentication and decision:read permission (RBAC).
+    """
 
     ROUTES: list[str] = [
         "/api/v1/decisions/*/explain",
@@ -104,13 +110,25 @@ class DecisionExplainHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
-        """Route decision explain requests."""
+    async def handle(  # type: ignore[override]
+        self, path: str, query_params: dict, handler: Any
+    ) -> Optional[HandlerResult]:
+        """Route decision explain requests with RBAC."""
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _explain_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for explain endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # RBAC: Require authentication and decision:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, DECISION_EXPLAIN_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required to access decision explanations", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Decision explain access denied: {e}")
+            return error_response(str(e), 403)
 
         # Get nomic_dir from server context
         nomic_dir = self.ctx.get("nomic_dir")
