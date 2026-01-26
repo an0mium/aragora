@@ -352,4 +352,330 @@ export class IntegrationsAPI {
   async getSyncStatus(id: string): Promise<IntegrationSyncStatus> {
     return this.client.get(`/api/integrations/${id}/sync`);
   }
+
+  // ===========================================================================
+  // Bot Platforms
+  // ===========================================================================
+
+  /**
+   * Get Slack bot status.
+   */
+  async getSlackStatus(): Promise<BotStatus> {
+    return this.client.request('GET', '/api/v1/bots/slack/status');
+  }
+
+  /**
+   * Get Telegram bot status.
+   */
+  async getTelegramStatus(): Promise<BotStatus> {
+    return this.client.request('GET', '/api/v1/bots/telegram/status');
+  }
+
+  /**
+   * Get WhatsApp bot status.
+   */
+  async getWhatsAppStatus(): Promise<BotStatus> {
+    return this.client.request('GET', '/api/v1/bots/whatsapp/status');
+  }
+
+  /**
+   * Get Discord bot status.
+   */
+  async getDiscordStatus(): Promise<BotStatus> {
+    return this.client.request('GET', '/api/v1/bots/discord/status');
+  }
+
+  /**
+   * Get Google Chat bot status.
+   */
+  async getGoogleChatStatus(): Promise<BotStatus> {
+    return this.client.request('GET', '/api/v1/bots/google-chat/status');
+  }
+
+  /**
+   * Get email webhook status.
+   */
+  async getEmailStatus(): Promise<{ sendgrid: BotStatus; ses: BotStatus }> {
+    return this.client.request('GET', '/api/v1/bots/email/status');
+  }
+
+  // ===========================================================================
+  // Teams Integration
+  // ===========================================================================
+
+  /**
+   * Get Microsoft Teams integration status.
+   */
+  async getTeamsStatus(): Promise<TeamsStatus> {
+    return this.client.request('GET', '/api/v1/integrations/teams/status');
+  }
+
+  /**
+   * Install Microsoft Teams app.
+   */
+  async installTeams(tenantId: string): Promise<{ installed: boolean; bot_id: string }> {
+    return this.client.request('POST', '/api/integrations/teams/install', { json: { tenant_id: tenantId } });
+  }
+
+  /**
+   * Handle Teams OAuth callback.
+   */
+  async teamsCallback(code: string, state: string): Promise<{ success: boolean }> {
+    return this.client.request('POST', '/api/integrations/teams/callback', { json: { code, state } });
+  }
+
+  /**
+   * Refresh Teams token.
+   */
+  async refreshTeamsToken(): Promise<{ refreshed: boolean }> {
+    return this.client.request('POST', '/api/integrations/teams/refresh');
+  }
+
+  /**
+   * Send notification to Teams channel.
+   */
+  async notifyTeams(channelId: string, message: string, options?: { card?: Record<string, unknown> }): Promise<{ sent: boolean; message_id: string }> {
+    return this.client.request('POST', '/api/v1/integrations/teams/notify', { json: { channel_id: channelId, message, ...options } });
+  }
+
+  // ===========================================================================
+  // Discord Integration
+  // ===========================================================================
+
+  /**
+   * Install Discord bot.
+   */
+  async installDiscord(guildId: string): Promise<{ installed: boolean; bot_id: string }> {
+    return this.client.request('POST', '/api/integrations/discord/install', { json: { guild_id: guildId } });
+  }
+
+  /**
+   * Handle Discord OAuth callback.
+   */
+  async discordCallback(code: string, state: string): Promise<{ success: boolean }> {
+    return this.client.request('POST', '/api/integrations/discord/callback', { json: { code, state } });
+  }
+
+  /**
+   * Uninstall Discord bot.
+   */
+  async uninstallDiscord(guildId: string): Promise<{ uninstalled: boolean }> {
+    return this.client.request('POST', '/api/integrations/discord/uninstall', { json: { guild_id: guildId } });
+  }
+
+  // ===========================================================================
+  // Zapier Integration
+  // ===========================================================================
+
+  /**
+   * List Zapier apps.
+   */
+  async listZapierApps(): Promise<{ apps: ZapierApp[] }> {
+    return this.client.request('GET', '/api/v1/integrations/zapier/apps');
+  }
+
+  /**
+   * Create Zapier app.
+   */
+  async createZapierApp(name: string, triggers?: string[], actions?: string[]): Promise<ZapierApp> {
+    return this.client.request('POST', '/api/v1/integrations/zapier/apps', { json: { name, triggers, actions } });
+  }
+
+  /**
+   * Delete Zapier app.
+   */
+  async deleteZapierApp(appId: string): Promise<{ deleted: boolean }> {
+    return this.client.request('DELETE', `/api/v1/integrations/zapier/apps/${appId}`);
+  }
+
+  /**
+   * List available Zapier triggers.
+   */
+  async listZapierTriggers(): Promise<{ triggers: ZapierTrigger[] }> {
+    return this.client.request('GET', '/api/v1/integrations/zapier/triggers');
+  }
+
+  /**
+   * Subscribe to Zapier trigger.
+   */
+  async subscribeZapierTrigger(appId: string, triggerId: string, hookUrl: string): Promise<{ subscription_id: string }> {
+    return this.client.request('POST', '/api/v1/integrations/zapier/triggers', { json: { app_id: appId, trigger_id: triggerId, hook_url: hookUrl } });
+  }
+
+  /**
+   * Unsubscribe from Zapier trigger.
+   */
+  async unsubscribeZapierTrigger(subscriptionId: string): Promise<{ unsubscribed: boolean }> {
+    return this.client.request('DELETE', `/api/v1/integrations/zapier/triggers/${subscriptionId}`);
+  }
+
+  // ===========================================================================
+  // Make (Integromat) Integration
+  // ===========================================================================
+
+  /**
+   * List Make connections.
+   */
+  async listMakeConnections(): Promise<{ connections: MakeConnection[] }> {
+    return this.client.request('GET', '/api/v1/integrations/make/connections');
+  }
+
+  /**
+   * Create Make connection.
+   */
+  async createMakeConnection(name: string, credentials: Record<string, unknown>): Promise<MakeConnection> {
+    return this.client.request('POST', '/api/v1/integrations/make/connections', { json: { name, credentials } });
+  }
+
+  /**
+   * Delete Make connection.
+   */
+  async deleteMakeConnection(connectionId: string): Promise<{ deleted: boolean }> {
+    return this.client.request('DELETE', `/api/v1/integrations/make/connections/${connectionId}`);
+  }
+
+  /**
+   * List Make modules.
+   */
+  async listMakeModules(): Promise<{ modules: MakeModule[] }> {
+    return this.client.request('GET', '/api/v1/integrations/make/modules');
+  }
+
+  /**
+   * Register Make webhook.
+   */
+  async registerMakeWebhook(connectionId: string, hookUrl: string, events: string[]): Promise<{ webhook_id: string }> {
+    return this.client.request('POST', '/api/v1/integrations/make/webhooks', { json: { connection_id: connectionId, hook_url: hookUrl, events } });
+  }
+
+  /**
+   * Unregister Make webhook.
+   */
+  async unregisterMakeWebhook(webhookId: string): Promise<{ unregistered: boolean }> {
+    return this.client.request('DELETE', `/api/v1/integrations/make/webhooks/${webhookId}`);
+  }
+
+  // ===========================================================================
+  // n8n Integration
+  // ===========================================================================
+
+  /**
+   * List n8n credentials.
+   */
+  async listN8nCredentials(): Promise<{ credentials: N8nCredential[] }> {
+    return this.client.request('GET', '/api/v1/integrations/n8n/credentials');
+  }
+
+  /**
+   * Create n8n credential.
+   */
+  async createN8nCredential(name: string, type: string, data: Record<string, unknown>): Promise<N8nCredential> {
+    return this.client.request('POST', '/api/v1/integrations/n8n/credentials', { json: { name, type, data } });
+  }
+
+  /**
+   * Delete n8n credential.
+   */
+  async deleteN8nCredential(credentialId: string): Promise<{ deleted: boolean }> {
+    return this.client.request('DELETE', `/api/v1/integrations/n8n/credentials/${credentialId}`);
+  }
+
+  /**
+   * Get n8n node definitions.
+   */
+  async getN8nNodes(): Promise<{ nodes: N8nNode[] }> {
+    return this.client.request('GET', '/api/v1/integrations/n8n/nodes');
+  }
+
+  /**
+   * Register n8n webhook.
+   */
+  async registerN8nWebhook(credentialId: string, hookUrl: string, events: string[]): Promise<{ webhook_id: string }> {
+    return this.client.request('POST', '/api/v1/integrations/n8n/webhooks', { json: { credential_id: credentialId, hook_url: hookUrl, events } });
+  }
+
+  /**
+   * Unregister n8n webhook.
+   */
+  async unregisterN8nWebhook(webhookId: string): Promise<{ unregistered: boolean }> {
+    return this.client.request('DELETE', `/api/v1/integrations/n8n/webhooks/${webhookId}`);
+  }
+
+  // ===========================================================================
+  // Integration Wizard (v2)
+  // ===========================================================================
+
+  /**
+   * Start integration wizard.
+   */
+  async startWizard(integrationType: string): Promise<{ session_id: string; steps: string[] }> {
+    return this.client.request('POST', '/api/v2/integrations/wizard', { json: { type: integrationType } });
+  }
+
+  /**
+   * List wizard providers.
+   */
+  async listWizardProviders(): Promise<{ providers: WizardProvider[] }> {
+    return this.client.request('GET', '/api/v2/integrations/wizard/providers');
+  }
+
+  /**
+   * Get wizard status.
+   */
+  async getWizardStatus(sessionId: string): Promise<{ steps: WizardStepStatus[]; current_step: string }> {
+    return this.client.request('GET', '/api/v2/integrations/wizard/status', { params: { session_id: sessionId } });
+  }
+
+  /**
+   * Validate wizard step.
+   */
+  async validateWizardStep(sessionId: string, step: string, data: Record<string, unknown>): Promise<{ valid: boolean; errors?: string[] }> {
+    return this.client.request('POST', '/api/v2/integrations/wizard/validate', { json: { session_id: sessionId, step, data } });
+  }
+
+  // ===========================================================================
+  // v2 Integration Management
+  // ===========================================================================
+
+  /**
+   * List integrations (v2).
+   */
+  async listV2(options?: { type?: string; status?: string; limit?: number; offset?: number }): Promise<{ integrations: Integration[]; total: number }> {
+    return this.client.request('GET', '/api/v2/integrations', { params: options });
+  }
+
+  /**
+   * Get integration by type (v2).
+   */
+  async getByType(type: string): Promise<Integration> {
+    return this.client.request('GET', `/api/v2/integrations/${type}`);
+  }
+
+  /**
+   * Get integration health by type.
+   */
+  async getHealth(type: string): Promise<IntegrationHealth> {
+    return this.client.request('GET', `/api/v2/integrations/${type}/health`);
+  }
+
+  /**
+   * Test integration by type.
+   */
+  async testByType(type: string): Promise<{ success: boolean; latency_ms?: number; error?: string }> {
+    return this.client.request('POST', `/api/v2/integrations/${type}/test`);
+  }
+
+  /**
+   * Get integration stats.
+   */
+  async getStats(): Promise<IntegrationStats> {
+    return this.client.request('GET', '/api/v2/integrations/stats');
+  }
+
+  /**
+   * Test any platform integration.
+   */
+  async testPlatform(platform: string): Promise<{ success: boolean; error?: string }> {
+    return this.client.request('POST', `/api/v1/integrations/${platform}/test`);
+  }
 }

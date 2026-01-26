@@ -246,7 +246,7 @@ describe('Enterprise Namespace APIs', () => {
       const client = createClient({ baseUrl: 'https://api.example.com' });
       expect(client.integrations).toBeDefined();
       expect(typeof client.integrations.list).toBe('function');
-      expect(typeof client.integrations.connect).toBe('function');
+      expect(typeof client.integrations.create).toBe('function');
     });
 
     it('should list integrations via namespace', async () => {
