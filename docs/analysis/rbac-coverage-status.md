@@ -1,16 +1,16 @@
 # RBAC Coverage Status Report
 
 **Last Updated:** 2026-01-26
-**Coverage:** 22% (170/773 handlers protected)
+**Coverage:** 27% (207/773 handlers protected)
 
 ## Executive Summary
 
 This report documents the current state of Role-Based Access Control (RBAC) coverage across Aragora's HTTP handler layer. Key findings:
 
-- **22% of handlers** have explicit RBAC protection via `@require_permission`
+- **27% of handlers** have explicit RBAC protection via `@require_permission`
 - **1 handler** uses ABAC (debates handler) for fine-grained resource access
-- **75% of handlers** rely solely on middleware authentication
-- **20+ distinct permission keys** are actively used
+- **71% of handlers** rely solely on middleware authentication
+- **25+ distinct permission keys** are actively used
 
 ## Coverage Metrics
 
@@ -18,9 +18,9 @@ This report documents the current state of Role-Based Access Control (RBAC) cove
 |--------|-------|--------|
 | Total Handler Files | 200 | - |
 | Total Handler Functions | 773 | - |
-| With RBAC Decorators | 170 (22%) | 80%+ |
+| With RBAC Decorators | 207 (27%) | 80%+ |
 | With ABAC Checks | ~10 (1%) | 20% for resource-level |
-| Unprotected (auth only) | ~580 (75%) | <20% |
+| Unprotected (auth only) | ~543 (71%) | <20% |
 
 ## Protected Handlers by Category
 
@@ -59,23 +59,28 @@ This report documents the current state of Role-Based Access Control (RBAC) cove
 | `finance:approve` | 5 | Financial |
 | `finance:read` | 5 | Financial |
 
+## Recently Protected Handlers
+
+The following handlers were recently upgraded with RBAC protection:
+
+- **`email_services.py`** - Now uses `email:read`, `email:create`, `email:update`
+- **`training.py`** - Now uses `training:read`, `training:export`, `training:create`
+- **`workflows.py`** - Now uses `workflows:read`, `workflows:create`, `workflows:update`, `workflows:delete`, `workflows:execute`, `workflows:approve`
+
 ## High-Priority Unprotected Handlers
 
 The following handlers lack RBAC protection and handle sensitive operations:
 
 ### Critical Risk
-1. **`email_services.py`** (16 handlers) - Email integration
-2. **`workflows.py`** (14 handlers) - Workflow execution
-3. **`training.py`** (7 handlers) - Training data export
-4. **`code_review.py`** (6 handlers) - Code review operations
-5. **`gauntlet_v1.py`** (7 handlers) - Adversarial testing
+1. **`code_review.py`** (6 handlers) - Code review operations
+2. **`gauntlet_v1.py`** (7 handlers) - Adversarial testing
 
 ### High Risk
-6. **`cross_pollination.py`** (9 handlers) - Knowledge sharing
-7. **`inbox/action_items.py`** (8 handlers) - Team inbox
-8. **`debates/intervention.py`** (7 handlers) - Debate participation
-9. **`knowledge_chat.py`** (6 handlers) - Knowledge interactions
-10. **`voice/handler.py`** (4 handlers) - Voice/TTS operations
+3. **`cross_pollination.py`** (9 handlers) - Knowledge sharing
+4. **`inbox/action_items.py`** (8 handlers) - Team inbox
+5. **`debates/intervention.py`** (7 handlers) - Debate participation
+6. **`knowledge_chat.py`** (6 handlers) - Knowledge interactions
+7. **`voice/handler.py`** (4 handlers) - Voice/TTS operations
 
 ## ABAC Usage
 
@@ -118,13 +123,13 @@ Examples:
 
 See [ADR-017: RBAC and ABAC Unification](./adr-017-rbac-abac-unification.md) for the architectural approach.
 
-### Phase 1: Critical Handler Protection
-- Add `@require_permission` to email, workflow, and training handlers
-- Estimated: 40 handlers
+### Phase 1: Critical Handler Protection - COMPLETE
+- Added `@require_permission` to email, workflow, and training handlers
+- 37 handlers now protected
 
-### Phase 2: Permission Standardization
-- Migrate `admin.credits.view` to `admin:credits:view` format
-- Audit all permission key names for consistency
+### Phase 2: Permission Standardization - COMPLETE
+- Migrated permission keys from dot format to colon format
+- Updated 7 files: rbac/__init__.py, rbac/decorators.py, admin/credits.py, workflows.py, external_integrations.py, connectors.py, finding_workflow.py
 
 ### Phase 3: ABAC Expansion
 - Apply ABAC to document and workspace handlers
