@@ -23,6 +23,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import math
@@ -982,17 +983,29 @@ class PostgresContinuumMemory(PostgresStore):
                 LIMIT 100
                 """)
 
-        # Process promotions
-        for row in promotion_candidates:
-            new_tier = await self.promote(row["id"])
-            if new_tier:
-                results["promoted"] += 1
+        # Process promotions concurrently (batch of 20 at a time to avoid connection exhaustion)
+        promotion_ids = [row["id"] for row in promotion_candidates]
+        for i in range(0, len(promotion_ids), 20):
+            batch = promotion_ids[i : i + 20]
+            promotion_results = await asyncio.gather(
+                *[self.promote(memory_id) for memory_id in batch],
+                return_exceptions=True,
+            )
+            results["promoted"] += sum(
+                1 for r in promotion_results if r and not isinstance(r, Exception)
+            )
 
-        # Process demotions
-        for row in demotion_candidates:
-            new_tier = await self.demote(row["id"])
-            if new_tier:
-                results["demoted"] += 1
+        # Process demotions concurrently (batch of 20 at a time)
+        demotion_ids = [row["id"] for row in demotion_candidates]
+        for i in range(0, len(demotion_ids), 20):
+            batch = demotion_ids[i : i + 20]
+            demotion_results = await asyncio.gather(
+                *[self.demote(memory_id) for memory_id in batch],
+                return_exceptions=True,
+            )
+            results["demoted"] += sum(
+                1 for r in demotion_results if r and not isinstance(r, Exception)
+            )
 
         logger.info(f"Consolidation complete: {results}")
         return results
@@ -1039,15 +1052,35 @@ class PostgresContinuumMemory(PostgresStore):
                     cutoff,
                 )
 
-                tier_count = 0
-                for row in expired:
-                    result = await self.delete(row["id"], archive=archive, reason="expired")
-                    if result["deleted"]:
-                        tier_count += 1
-                        if result["archived"]:
-                            results["archived"] += 1
-                        else:
-                            results["deleted"] += 1
+                expired_ids = [row["id"] for row in expired]
+                tier_count = len(expired_ids)
+
+                if tier_count > 0 and archive:
+                    # Batch archive all expired entries in single query
+                    await conn.execute(
+                        """
+                        INSERT INTO continuum_memory_archive
+                        (id, tier, content, importance, surprise_score, consolidation_score,
+                         update_count, success_count, failure_count, semantic_centroid,
+                         created_at, updated_at, archive_reason, metadata)
+                        SELECT id, tier, content, importance, surprise_score, consolidation_score,
+                               update_count, success_count, failure_count, semantic_centroid,
+                               created_at, updated_at, 'expired', metadata
+                        FROM continuum_memory
+                        WHERE id = ANY($1)
+                        """,
+                        expired_ids,
+                    )
+                    results["archived"] += tier_count
+
+                if tier_count > 0:
+                    # Batch delete all expired entries in single query
+                    await conn.execute(
+                        "DELETE FROM continuum_memory WHERE id = ANY($1)",
+                        expired_ids,
+                    )
+                    if not archive:
+                        results["deleted"] += tier_count
 
                 results["by_tier"][t.value] = tier_count
 
