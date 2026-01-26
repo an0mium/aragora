@@ -3449,7 +3449,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3505,7 +3506,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3558,7 +3560,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The slug"
           }
         ],
         "responses": {
@@ -3614,7 +3617,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The slug"
           }
         ],
         "responses": {
@@ -3667,7 +3671,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           },
           {
             "name": "limit",
@@ -3676,7 +3681,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -3684,7 +3690,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -3711,7 +3718,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           },
           {
             "name": "limit",
@@ -3720,7 +3728,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -3728,7 +3737,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -3752,7 +3762,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3779,7 +3790,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3803,7 +3815,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3830,7 +3843,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3854,7 +3868,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3881,7 +3896,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3905,7 +3921,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3932,7 +3949,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3956,7 +3974,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -3983,7 +4002,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4007,7 +4027,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4034,7 +4055,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4058,7 +4080,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "requestBody": {
@@ -4142,7 +4165,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "requestBody": {
@@ -4223,7 +4247,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           },
           {
             "name": "format",
@@ -4237,7 +4262,8 @@
                 "html",
                 "pdf"
               ]
-            }
+            },
+            "description": "Output format (e.g., json, yaml, csv)"
           }
         ],
         "responses": {
@@ -4264,7 +4290,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           },
           {
             "name": "format",
@@ -4278,7 +4305,8 @@
                 "html",
                 "pdf"
               ]
-            }
+            },
+            "description": "Output format (e.g., json, yaml, csv)"
           }
         ],
         "responses": {
@@ -4302,7 +4330,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "requestBody": {
@@ -4355,7 +4384,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "requestBody": {
@@ -4405,7 +4435,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4437,7 +4468,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4466,7 +4498,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4498,7 +4531,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4527,7 +4561,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4554,7 +4589,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -4578,7 +4614,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Search query string"
           },
           {
             "name": "limit",
@@ -4586,7 +4623,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -4613,7 +4651,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Search query string"
           },
           {
             "name": "limit",
@@ -4621,7 +4660,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -4644,7 +4684,8 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by domain"
           },
           {
             "name": "limit",
@@ -4652,7 +4693,8 @@
             "schema": {
               "type": "integer",
               "default": 10
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "hours",
@@ -4660,7 +4702,8 @@
             "schema": {
               "type": "integer",
               "default": 24
-            }
+            },
+            "description": "The hours value"
           }
         ],
         "responses": {
@@ -4686,7 +4729,8 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by domain"
           },
           {
             "name": "limit",
@@ -4694,7 +4738,8 @@
             "schema": {
               "type": "integer",
               "default": 10
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "hours",
@@ -4702,7 +4747,8 @@
             "schema": {
               "type": "integer",
               "default": 24
-            }
+            },
+            "description": "The hours value"
           }
         ],
         "responses": {
@@ -4881,7 +4927,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -4908,7 +4955,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -4963,7 +5011,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -4990,7 +5039,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -5166,7 +5216,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by type"
           }
         ],
         "responses": {
@@ -5193,7 +5244,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by type"
           }
         ],
         "responses": {
@@ -5751,7 +5803,8 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Search query string"
           },
           {
             "name": "tier",
@@ -5764,7 +5817,8 @@
                 "slow",
                 "glacial"
               ]
-            }
+            },
+            "description": "The tier"
           },
           {
             "name": "limit",
@@ -5772,7 +5826,8 @@
             "schema": {
               "type": "integer",
               "default": 10
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -5798,7 +5853,8 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Search query string"
           },
           {
             "name": "tier",
@@ -5811,7 +5867,8 @@
                 "slow",
                 "glacial"
               ]
-            }
+            },
+            "description": "The tier"
           },
           {
             "name": "limit",
@@ -5819,7 +5876,8 @@
             "schema": {
               "type": "integer",
               "default": 10
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -5987,7 +6045,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "responses": {
@@ -6014,7 +6073,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "responses": {
@@ -6038,7 +6098,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "responses": {
@@ -6065,7 +6126,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "responses": {
@@ -6089,7 +6151,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "responses": {
@@ -6116,7 +6179,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "responses": {
@@ -6141,7 +6205,8 @@
               "type": "integer",
               "default": 10,
               "maximum": 50
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -6169,7 +6234,8 @@
               "type": "integer",
               "default": 10,
               "maximum": 50
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -6192,7 +6258,8 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by category"
           }
         ],
         "responses": {
@@ -6218,7 +6285,8 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by category"
           }
         ],
         "responses": {
@@ -7543,7 +7611,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -7570,7 +7639,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -7656,7 +7726,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent"
           }
         ],
         "responses": {
@@ -7683,7 +7754,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent"
           }
         ],
         "responses": {
@@ -7707,7 +7779,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent"
           }
         ],
         "responses": {
@@ -7734,7 +7807,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent"
           }
         ],
         "responses": {
@@ -7758,7 +7832,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent"
           }
         ],
         "responses": {
@@ -7785,7 +7860,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The agent"
           }
         ],
         "responses": {
@@ -7840,7 +7916,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -7867,7 +7944,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the resource"
           }
         ],
         "responses": {
@@ -8046,7 +8124,8 @@
             "schema": {
               "type": "integer",
               "default": 3
-            }
+            },
+            "description": "The min debates value"
           },
           {
             "name": "limit",
@@ -8054,7 +8133,8 @@
             "schema": {
               "type": "integer",
               "default": 10
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -8081,7 +8161,8 @@
             "schema": {
               "type": "integer",
               "default": 3
-            }
+            },
+            "description": "The min debates value"
           },
           {
             "name": "limit",
@@ -8089,7 +8170,8 @@
             "schema": {
               "type": "integer",
               "default": 10
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -8289,7 +8371,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Name of the resource"
           }
         ],
         "responses": {
@@ -8316,7 +8399,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Name of the resource"
           }
         ],
         "responses": {
@@ -9792,7 +9876,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -9800,7 +9885,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -10026,7 +10112,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -10034,7 +10121,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -10255,7 +10343,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Workspace to scope the query to"
           }
         ],
         "responses": {
@@ -10371,7 +10460,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Workspace to scope the query to"
           }
         ],
         "responses": {
@@ -10483,7 +10573,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Workspace to scope the query to"
           }
         ],
         "responses": {
@@ -10598,7 +10689,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Workspace to scope the query to"
           }
         ],
         "responses": {
@@ -10707,7 +10799,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Workspace to scope the query to"
           }
         ],
         "requestBody": {
@@ -10862,7 +10955,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Workspace to scope the query to"
           }
         ],
         "requestBody": {
@@ -12139,7 +12233,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the policy"
           }
         ],
         "responses": {
@@ -12251,7 +12346,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the policy"
           }
         ],
         "responses": {
@@ -12704,7 +12800,8 @@
                 "confidential",
                 "restricted"
               ]
-            }
+            },
+            "description": "Filter by level (e.g., debug, info, warning, error)"
           }
         ],
         "responses": {
@@ -12808,7 +12905,8 @@
                 "confidential",
                 "restricted"
               ]
-            }
+            },
+            "description": "Filter by level (e.g., debug, info, warning, error)"
           }
         ],
         "responses": {
@@ -12902,21 +13000,24 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The actor id"
           },
           {
             "name": "resource_id",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The resource id"
           },
           {
             "name": "action",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The action"
           },
           {
             "name": "outcome",
@@ -12928,7 +13029,8 @@
                 "denied",
                 "error"
               ]
-            }
+            },
+            "description": "The outcome"
           },
           {
             "name": "start_time",
@@ -12936,7 +13038,8 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "description": "Start time for filtering (Unix timestamp or ISO 8601)"
           },
           {
             "name": "end_time",
@@ -12944,7 +13047,8 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "description": "End time for filtering (Unix timestamp or ISO 8601)"
           },
           {
             "name": "limit",
@@ -12952,7 +13056,8 @@
             "schema": {
               "type": "integer",
               "default": 100
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -13041,21 +13146,24 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The actor id"
           },
           {
             "name": "resource_id",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The resource id"
           },
           {
             "name": "action",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The action"
           },
           {
             "name": "outcome",
@@ -13067,7 +13175,8 @@
                 "denied",
                 "error"
               ]
-            }
+            },
+            "description": "The outcome"
           },
           {
             "name": "start_time",
@@ -13075,7 +13184,8 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "description": "Start time for filtering (Unix timestamp or ISO 8601)"
           },
           {
             "name": "end_time",
@@ -13083,7 +13193,8 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "description": "End time for filtering (Unix timestamp or ISO 8601)"
           },
           {
             "name": "limit",
@@ -13091,7 +13202,8 @@
             "schema": {
               "type": "integer",
               "default": 100
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -13179,7 +13291,8 @@
             "schema": {
               "type": "string",
               "format": "date"
-            }
+            },
+            "description": "Start date for filtering (ISO 8601 format)"
           },
           {
             "name": "end_date",
@@ -13188,7 +13301,8 @@
             "schema": {
               "type": "string",
               "format": "date"
-            }
+            },
+            "description": "End date for filtering (ISO 8601 format)"
           },
           {
             "name": "format",
@@ -13201,7 +13315,8 @@
                 "pdf"
               ],
               "default": "json"
-            }
+            },
+            "description": "Output format (e.g., json, yaml, csv)"
           }
         ],
         "responses": {
@@ -13330,7 +13445,8 @@
             "schema": {
               "type": "string",
               "format": "date"
-            }
+            },
+            "description": "Start date for filtering (ISO 8601 format)"
           },
           {
             "name": "end_date",
@@ -13339,7 +13455,8 @@
             "schema": {
               "type": "string",
               "format": "date"
-            }
+            },
+            "description": "End date for filtering (ISO 8601 format)"
           },
           {
             "name": "format",
@@ -13352,7 +13469,8 @@
                 "pdf"
               ],
               "default": "json"
-            }
+            },
+            "description": "Output format (e.g., json, yaml, csv)"
           }
         ],
         "responses": {
@@ -13476,14 +13594,16 @@
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "The start sequence value"
           },
           {
             "name": "end_sequence",
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "The end sequence value"
           }
         ],
         "responses": {
@@ -13572,14 +13692,16 @@
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "The start sequence value"
           },
           {
             "name": "end_sequence",
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "The end sequence value"
           }
         ],
         "responses": {
@@ -13692,7 +13814,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -13700,7 +13823,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -13879,7 +14003,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -13887,7 +14012,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -14031,7 +14157,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "responses": {
@@ -14084,7 +14211,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "requestBody": {
@@ -14185,7 +14313,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "responses": {
@@ -14234,7 +14363,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "responses": {
@@ -14286,7 +14416,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "requestBody": {
@@ -14386,7 +14517,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "responses": {
@@ -14432,7 +14564,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "requestBody": {
@@ -14561,7 +14694,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           }
         ],
         "requestBody": {
@@ -14687,7 +14821,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           },
           {
             "name": "limit",
@@ -14695,7 +14830,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -14744,7 +14880,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the workflow"
           },
           {
             "name": "limit",
@@ -14752,7 +14889,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -14863,7 +15001,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the template"
           }
         ],
         "responses": {
@@ -14919,7 +15058,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the template"
           }
         ],
         "responses": {
@@ -14995,7 +15135,8 @@
             "schema": {
               "type": "integer",
               "default": 50
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -15052,7 +15193,8 @@
             "schema": {
               "type": "integer",
               "default": 50
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -15083,7 +15225,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The execution id"
           }
         ],
         "responses": {
@@ -15129,7 +15272,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The execution id"
           }
         ],
         "responses": {
@@ -15216,7 +15360,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The execution id"
           }
         ],
         "responses": {
@@ -15261,7 +15406,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The execution id"
           }
         ],
         "responses": {
@@ -15447,7 +15593,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The approval id"
           }
         ],
         "requestBody": {
@@ -15592,7 +15739,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The approval id"
           }
         ],
         "requestBody": {
@@ -15935,7 +16083,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -15943,7 +16092,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -16022,7 +16172,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -16030,7 +16181,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -16061,7 +16213,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the receipt"
           }
         ],
         "responses": {
@@ -16117,7 +16270,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the receipt"
           }
         ],
         "responses": {
@@ -16170,7 +16324,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the receipt"
           },
           {
             "name": "format",
@@ -16293,7 +16448,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the receipt"
           },
           {
             "name": "format",
@@ -16614,7 +16770,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -16656,7 +16813,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -16687,7 +16845,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The heatmap id"
           }
         ],
         "responses": {
@@ -16743,7 +16902,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The heatmap id"
           }
         ],
         "responses": {
@@ -16796,7 +16956,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The heatmap id"
           },
           {
             "name": "format",
@@ -16876,7 +17037,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The heatmap id"
           },
           {
             "name": "format",
@@ -16953,7 +17115,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the receipt"
           }
         ],
         "responses": {
@@ -17009,7 +17172,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the receipt"
           }
         ],
         "responses": {
@@ -17227,7 +17391,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "min_contribution",
@@ -17341,7 +17506,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "min_contribution",
@@ -17452,7 +17618,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "max_scenarios",
@@ -17554,7 +17721,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "requestBody": {
@@ -17667,7 +17835,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "max_scenarios",
@@ -17768,7 +17937,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           }
         ],
         "requestBody": {
@@ -17878,7 +18048,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "include_timestamps",
@@ -17999,7 +18170,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "include_timestamps",
@@ -18117,7 +18289,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "format",
@@ -18217,7 +18390,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the debate"
           },
           {
             "name": "format",
@@ -18354,7 +18528,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 100
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -18362,7 +18537,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -18453,7 +18629,8 @@
               "type": "integer",
               "default": 50,
               "maximum": 100
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -18461,7 +18638,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -18620,7 +18798,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the template"
           },
           {
             "name": "include_examples",
@@ -18742,7 +18921,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the template"
           },
           {
             "name": "include_examples",
@@ -18861,7 +19041,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the template"
           }
         ],
         "requestBody": {
@@ -19037,7 +19218,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the template"
           }
         ],
         "requestBody": {
@@ -19406,7 +19588,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The pattern id"
           }
         ],
         "requestBody": {
@@ -19536,7 +19719,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The pattern id"
           }
         ],
         "requestBody": {
@@ -19668,7 +19852,8 @@
               "type": "integer",
               "default": 20,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -19816,7 +20001,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The request id"
           }
         ],
         "responses": {
@@ -19894,7 +20080,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The request id"
           }
         ],
         "responses": {
@@ -19950,7 +20137,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -20129,7 +20317,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -20265,7 +20454,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "scan_id",
@@ -20273,7 +20463,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The scan id"
           }
         ],
         "responses": {
@@ -20409,14 +20600,16 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "status",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by status (e.g., pending, active, completed, failed)"
           },
           {
             "name": "limit",
@@ -20424,7 +20617,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -20432,7 +20626,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -20546,28 +20741,32 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "severity",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by severity (e.g., low, medium, high, critical)"
           },
           {
             "name": "package",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The package"
           },
           {
             "name": "ecosystem",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The ecosystem"
           },
           {
             "name": "limit",
@@ -20575,7 +20774,8 @@
             "schema": {
               "type": "integer",
               "default": 100
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -20583,7 +20783,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -21409,7 +21610,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -21571,7 +21773,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -21707,7 +21910,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "scan_id",
@@ -21715,7 +21919,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The scan id"
           }
         ],
         "responses": {
@@ -21851,7 +22056,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -21965,7 +22171,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -22079,7 +22286,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -22258,7 +22466,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "scan_id",
@@ -22266,7 +22475,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The scan id"
           }
         ],
         "responses": {
@@ -22402,21 +22612,24 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "severity",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by severity (e.g., low, medium, high, critical)"
           },
           {
             "name": "owasp_category",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The owasp category"
           },
           {
             "name": "limit",
@@ -22424,7 +22637,8 @@
             "schema": {
               "type": "integer",
               "default": 100
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -22432,7 +22646,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -22546,7 +22761,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -22660,7 +22876,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -22851,7 +23068,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -22987,7 +23205,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "analysis_id",
@@ -22995,7 +23214,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The analysis id"
           }
         ],
         "responses": {
@@ -23131,7 +23351,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "limit",
@@ -23139,7 +23360,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
@@ -23147,7 +23369,8 @@
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -23261,7 +23484,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "min_complexity",
@@ -23269,7 +23493,8 @@
             "schema": {
               "type": "integer",
               "default": 5
-            }
+            },
+            "description": "The min complexity value"
           },
           {
             "name": "limit",
@@ -23277,7 +23502,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -23391,7 +23617,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "min_lines",
@@ -23399,7 +23626,8 @@
             "schema": {
               "type": "integer",
               "default": 6
-            }
+            },
+            "description": "The min lines value"
           },
           {
             "name": "limit",
@@ -23407,7 +23635,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           }
         ],
         "responses": {
@@ -23521,7 +23750,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "file_path",
@@ -23529,7 +23759,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The file path"
           }
         ],
         "responses": {
@@ -23665,7 +23896,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -23769,7 +24001,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -23825,7 +24058,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -23881,7 +24115,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -23937,7 +24172,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -24041,7 +24277,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -24145,7 +24382,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -24249,7 +24487,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "audit_id",
@@ -24257,7 +24496,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The audit id"
           }
         ],
         "responses": {
@@ -24334,7 +24574,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -24439,7 +24680,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -24496,7 +24738,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -24553,7 +24796,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "responses": {
@@ -24610,7 +24854,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -24715,7 +24960,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -24820,7 +25066,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           }
         ],
         "requestBody": {
@@ -24925,7 +25172,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Repository name or path"
           },
           {
             "name": "audit_id",
@@ -24933,7 +25181,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The audit id"
           }
         ],
         "responses": {
@@ -25013,7 +25262,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the message"
           }
         ],
         "requestBody": {
@@ -25145,7 +25395,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the message"
           }
         ],
         "requestBody": {
@@ -25239,7 +25490,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the message"
           }
         ],
         "requestBody": {
@@ -25333,7 +25585,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the message"
           }
         ],
         "responses": {
@@ -25417,7 +25670,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the message"
           }
         ],
         "requestBody": {
@@ -25511,7 +25765,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the message"
           },
           {
             "name": "attachment_id",
@@ -25519,14 +25774,16 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The attachment id"
           },
           {
             "name": "user_id",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the user"
           }
         ],
         "responses": {
@@ -25914,7 +26171,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the user"
           }
         ],
         "responses": {
@@ -26085,14 +26343,16 @@
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -26148,7 +26408,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the user"
           }
         ],
         "responses": {
@@ -26271,21 +26532,24 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by status (e.g., pending, active, completed, failed)"
           },
           {
             "name": "limit",
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
           },
           {
             "name": "offset",
             "in": "query",
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "Number of items to skip for pagination"
           }
         ],
         "responses": {
@@ -26433,7 +26697,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "responses": {
@@ -26509,7 +26774,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "responses": {
@@ -26587,7 +26853,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "responses": {
@@ -26665,7 +26932,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "responses": {
@@ -26743,7 +27011,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "responses": {
@@ -26821,7 +27090,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "responses": {
@@ -26899,14 +27169,16 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           },
           {
             "name": "audit_type",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The audit type"
           }
         ],
         "responses": {
@@ -26984,7 +27256,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "responses": {
@@ -27062,7 +27335,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           }
         ],
         "requestBody": {
@@ -27188,14 +27462,16 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Unique identifier of the session"
           },
           {
             "name": "format",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Output format (e.g., json, yaml, csv)"
           }
         ],
         "responses": {
