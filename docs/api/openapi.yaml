@@ -4174,6 +4174,8 @@ paths:
       tags:
       - Relationships
       summary: Relationship summary
+      description: Get a summary of all agent relationships including collaboration
+        scores and interaction history.
       responses:
         '200':
           description: Relationship summary
@@ -4184,6 +4186,8 @@ paths:
       - Relationships
       summary: Relationship summary
       operationId: listRelationshipsSummary
+      description: Get a summary of all agent relationships including collaboration
+        scores and interaction history.
       responses:
         '200':
           description: Relationship summary
@@ -4212,6 +4216,7 @@ paths:
       tags:
       - Relationships
       summary: Relationship statistics
+      description: Get aggregate statistics about agent relationships across all debates.
       responses:
         '200':
           description: Relationship stats
@@ -4222,6 +4227,7 @@ paths:
       - Relationships
       summary: Relationship statistics
       operationId: listRelationshipsStats
+      description: Get aggregate statistics about agent relationships across all debates.
       responses:
         '200':
           description: Relationship stats
@@ -4230,17 +4236,21 @@ paths:
       tags:
       - Relationships
       summary: Get relationship between two agents
+      description: Get detailed relationship data between two specific agents including
+        interaction history.
       parameters:
       - name: agent_a
         in: path
         required: true
         schema:
           type: string
+        description: First agent identifier
       - name: agent_b
         in: path
         required: true
         schema:
           type: string
+        description: Second agent identifier
       responses:
         '200':
           description: Relationship data
@@ -4255,17 +4265,21 @@ paths:
       - Relationships
       summary: Get relationship between two agents
       operationId: getRelationship
+      description: Get detailed relationship data between two specific agents including
+        interaction history.
       parameters:
       - name: agent_a
         in: path
         required: true
         schema:
           type: string
+        description: First agent identifier
       - name: agent_b
         in: path
         required: true
         schema:
           type: string
+        description: Second agent identifier
       responses:
         '200':
           description: Relationship data
@@ -4676,6 +4690,7 @@ paths:
       tags:
       - Verification
       summary: Verification status
+      description: Get the current status of verification services and backend availability.
       responses:
         '200':
           description: Verification status
@@ -4686,6 +4701,7 @@ paths:
       - Verification
       summary: Verification status
       operationId: listVerificationStatus
+      description: Get the current status of verification services and backend availability.
       responses:
         '200':
           description: Verification status
@@ -4728,6 +4744,8 @@ paths:
       tags:
       - Auditing
       summary: Run capability probe
+      description: Run a capability probe to test agent abilities and identify potential
+        limitations.
       requestBody:
         content:
           application/json:
@@ -4745,6 +4763,8 @@ paths:
       - Auditing
       summary: Run capability probe
       operationId: createDebatesCapabilityProbe
+      description: Run a capability probe to test agent abilities and identify potential
+        limitations.
       requestBody:
         content:
           application/json:
@@ -4760,6 +4780,8 @@ paths:
       tags:
       - Auditing
       summary: Deep audit
+      description: Run a comprehensive deep audit on debate results to identify quality
+        issues.
       requestBody:
         content:
           application/json:
@@ -4777,6 +4799,8 @@ paths:
       - Auditing
       summary: Deep audit
       operationId: createDebatesDeepAudit
+      description: Run a comprehensive deep audit on debate results to identify quality
+        issues.
       requestBody:
         content:
           application/json:
@@ -4792,6 +4816,8 @@ paths:
       tags:
       - Auditing
       summary: Capability probe
+      description: Execute a capability probe to assess agent performance across various
+        dimensions.
       requestBody:
         content:
           application/json:
@@ -4809,6 +4835,8 @@ paths:
       - Auditing
       summary: Capability probe
       operationId: createProbesCapability
+      description: Execute a capability probe to assess agent performance across various
+        dimensions.
       requestBody:
         content:
           application/json:
@@ -5064,6 +5092,7 @@ paths:
       - Plugins
       summary: Get plugin details
       operationId: getPlugin
+      description: Get detailed information about a specific plugin by name.
       parameters:
       - name: name
         in: path
@@ -5080,6 +5109,7 @@ paths:
       - Plugins
       summary: Run plugin
       operationId: runPlugin
+      description: Execute a plugin with the provided parameters and return the result.
       parameters:
       - name: name
         in: path
@@ -5103,6 +5133,7 @@ paths:
       - Plugins
       summary: Install plugin
       operationId: installPlugin
+      description: Install a plugin for the current user with optional configuration.
       parameters:
       - &id005
         name: name
@@ -5126,6 +5157,8 @@ paths:
       - Plugins
       summary: Uninstall plugin
       operationId: uninstallPlugin
+      description: Uninstall a plugin and remove its configuration for the current
+        user.
       parameters:
       - *id005
       responses:
@@ -5199,6 +5232,7 @@ paths:
       tags:
       - Plugins
       summary: Get plugin details
+      description: 'Deprecated: Use /api/v1/plugins/{name} instead. Sunset: 2026-12-31.'
       parameters:
       - name: name
         in: path
@@ -5210,12 +5244,12 @@ paths:
         '200':
           description: Plugin details
       deprecated: true
-      description: 'Deprecated: Use /api/v1/plugins/{name} instead. Sunset: 2026-12-31.'
   /api/plugins/{name}/run:
     post:
       tags:
       - Plugins
       summary: Run plugin
+      description: 'Deprecated: Use /api/v1/plugins/{name}/run instead. Sunset: 2026-12-31.'
       parameters:
       - name: name
         in: path
@@ -5234,12 +5268,13 @@ paths:
       security:
       - bearerAuth: []
       deprecated: true
-      description: 'Deprecated: Use /api/v1/plugins/{name}/run instead. Sunset: 2026-12-31.'
   /api/plugins/{name}/install:
     post:
       tags:
       - Plugins
       summary: Install plugin
+      description: 'Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset:
+        2026-12-31.'
       parameters:
       - &id006
         name: name
@@ -5259,12 +5294,12 @@ paths:
       security:
       - bearerAuth: []
       deprecated: true
-      description: 'Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset:
-        2026-12-31.'
     delete:
       tags:
       - Plugins
       summary: Uninstall plugin
+      description: 'Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset:
+        2026-12-31.'
       parameters:
       - *id006
       responses:
@@ -5273,24 +5308,26 @@ paths:
       security:
       - bearerAuth: []
       deprecated: true
-      description: 'Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset:
-        2026-12-31.'
   /api/laboratory/emergent-traits:
     get:
       tags:
       - Laboratory
       summary: Emergent traits
+      description: List emergent traits discovered from agent interactions with optional
+        confidence filtering.
       parameters:
       - name: min_confidence
         in: query
         schema:
           type: number
           default: 0.5
+        description: Minimum confidence threshold for traits (0.0-1.0)
       - name: limit
         in: query
         schema:
           type: integer
           default: 20
+        description: Maximum number of traits to return
       responses:
         '200':
           description: Emergent traits
@@ -5301,17 +5338,21 @@ paths:
       - Laboratory
       summary: Emergent traits
       operationId: listLaboratoryEmergentTraits
+      description: List emergent traits discovered from agent interactions with optional
+        confidence filtering.
       parameters:
       - name: min_confidence
         in: query
         schema:
           type: number
           default: 0.5
+        description: Minimum confidence threshold for traits (0.0-1.0)
       - name: limit
         in: query
         schema:
           type: integer
           default: 20
+        description: Maximum number of traits to return
       responses:
         '200':
           description: Emergent traits
@@ -5320,6 +5361,8 @@ paths:
       tags:
       - Laboratory
       summary: Cross-pollination suggestions
+      description: Get suggested cross-pollinations between agents based on complementary
+        capabilities.
       responses:
         '200':
           description: Suggestions
@@ -5330,6 +5373,8 @@ paths:
       - Laboratory
       summary: Cross-pollination suggestions
       operationId: listLaboratoryCrossPollinationsSuggest
+      description: Get suggested cross-pollinations between agents based on complementary
+        capabilities.
       responses:
         '200':
           description: Suggestions
