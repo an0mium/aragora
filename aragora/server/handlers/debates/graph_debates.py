@@ -15,13 +15,13 @@ import re
 
 from ..base import (
     SAFE_AGENT_PATTERN,
-    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
     json_response,
     safe_error_message,
 )
+from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 
 # Suspicious patterns for task sanitization
 _SUSPICIOUS_PATTERNS = [
@@ -34,12 +34,21 @@ from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 
+# RBAC permissions for graph debates
+DEBATES_READ_PERMISSION = "debates:read"
+DEBATES_CREATE_PERMISSION = "debates:create"
+
 # Rate limiter for graph debates (5 requests per minute - branching debates are expensive)
 _graph_limiter = RateLimiter(requests_per_minute=5)
 
 
-class GraphDebatesHandler(BaseHandler):
-    """Handler for graph debate endpoints."""
+class GraphDebatesHandler(SecureHandler):
+    """Handler for graph debate endpoints.
+
+    RBAC Protected:
+    - debates:read - required for GET endpoints
+    - debates:create - required for POST endpoints
+    """
 
     ROUTES = [
         "/api/v1/debates/graph",
@@ -56,7 +65,17 @@ class GraphDebatesHandler(BaseHandler):
 
     @handle_errors("graph debates GET")
     async def handle_get(self, handler, path: str, query_params: dict) -> HandlerResult:
-        """Handle GET requests for graph debates."""
+        """Handle GET requests for graph debates with RBAC."""
+        # RBAC: Require authentication and debates:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, DEBATES_READ_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Graph debates GET access denied: {e}")
+            return error_response(str(e), 403)
+
         # Extract debate ID from path if present
         parts = path.rstrip("/").split("/")
 
@@ -79,12 +98,22 @@ class GraphDebatesHandler(BaseHandler):
 
     @handle_errors("graph debates POST")
     async def handle_post(self, handler, path: str, data: dict) -> HandlerResult:
-        """Handle POST requests for graph debates.
+        """Handle POST requests for graph debates with RBAC.
 
         POST /api/debates/graph - Run a new graph debate
         """
         if not path.rstrip("/").endswith("/debates/graph"):
             return error_response("Not found", 404)
+
+        # RBAC: Require authentication and debates:create permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, DEBATES_CREATE_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Graph debates POST access denied: {e}")
+            return error_response(str(e), 403)
 
         # Rate limit check (5/min - expensive branching operations)
         client_ip = get_client_ip(handler)

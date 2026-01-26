@@ -62,23 +62,32 @@ class MatrixRunnerProtocol(Protocol):
 
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
     json_response,
     safe_error_message,
 )
+from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# RBAC permissions for matrix debates
+DEBATES_READ_PERMISSION = "debates:read"
+DEBATES_CREATE_PERMISSION = "debates:create"
 
 # Rate limiter for matrix debates (5 requests per minute - parallel debates are expensive)
 _matrix_limiter = RateLimiter(requests_per_minute=5)
 
 
-class MatrixDebatesHandler(BaseHandler):
-    """Handler for matrix debate endpoints (parallel scenario exploration)."""
+class MatrixDebatesHandler(SecureHandler):
+    """Handler for matrix debate endpoints (parallel scenario exploration).
+
+    RBAC Protected:
+    - debates:read - required for GET endpoints
+    - debates:create - required for POST endpoints
+    """
 
     ROUTES = [
         "/api/v1/debates/matrix",
@@ -97,7 +106,17 @@ class MatrixDebatesHandler(BaseHandler):
     async def handle_get(
         self, handler: Any, path: str, query_params: dict[str, Any]
     ) -> HandlerResult:
-        """Handle GET requests for matrix debates."""
+        """Handle GET requests for matrix debates with RBAC."""
+        # RBAC: Require authentication and debates:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, DEBATES_READ_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Matrix debates GET access denied: {e}")
+            return error_response(str(e), 403)
+
         parts = path.rstrip("/").split("/")
 
         # GET /api/v1/debates/matrix/{id}
@@ -119,12 +138,22 @@ class MatrixDebatesHandler(BaseHandler):
 
     @handle_errors("matrix debates POST")
     async def handle_post(self, handler: Any, path: str, data: dict[str, Any]) -> HandlerResult:
-        """Handle POST requests for matrix debates.
+        """Handle POST requests for matrix debates with RBAC.
 
         POST /api/debates/matrix - Run parallel scenario debates
         """
         if not path.rstrip("/").endswith("/debates/matrix"):
             return error_response("Not found", 404)
+
+        # RBAC: Require authentication and debates:create permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, DEBATES_CREATE_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Matrix debates POST access denied: {e}")
+            return error_response(str(e), 403)
 
         # Rate limit check (5/min - expensive parallel operations)
         client_ip = get_client_ip(handler)
