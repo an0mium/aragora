@@ -369,7 +369,7 @@ class DatabaseBatchJobStore(BatchJobStore):
         for row in rows:
             expires_at = row["expires_at"] if hasattr(row, "keys") else row[-1]  # type: ignore[call-overload]
             if self._is_expired(expires_at):
-                batch_id = row["batch_id"] if hasattr(row, "keys") else row[0]
+                batch_id = row["batch_id"] if hasattr(row, "keys") else row[0]  # type: ignore[call-overload]
                 try:
                     self._backend.execute_write(
                         f"DELETE FROM {self._TABLE_NAME} WHERE batch_id = ?",

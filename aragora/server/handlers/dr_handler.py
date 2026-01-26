@@ -419,9 +419,10 @@ class DRHandler(BaseHandler):
         # check_encryption = body.get("check_encryption", True)
 
         manager = self._get_backup_manager()
-        validation_results = {
+        checks: list[Dict[str, Any]] = []
+        validation_results: Dict[str, Any] = {
             "valid": True,
-            "checks": [],
+            "checks": checks,
         }
 
         # Check storage access
@@ -444,7 +445,7 @@ class DRHandler(BaseHandler):
                 check["status"] = "failed"
                 check["details"] = f"Storage access error: {e}"
                 validation_results["valid"] = False
-            validation_results["checks"].append(check)
+            checks.append(check)
 
         # Check retention policy
         check = {"name": "retention_policy", "status": "checking"}
@@ -457,12 +458,12 @@ class DRHandler(BaseHandler):
         else:
             check["status"] = "warning"
             check["details"] = "min_backups is 0, could delete all backups"
-        validation_results["checks"].append(check)
+        checks.append(check)
 
         # Check compression
         check = {"name": "compression", "status": "passed" if manager.compression else "info"}
         check["details"] = f"Compression enabled: {manager.compression}"
-        validation_results["checks"].append(check)
+        checks.append(check)
 
         # Check auto-verify
         check = {
@@ -472,7 +473,7 @@ class DRHandler(BaseHandler):
         check["details"] = f"Auto-verify after backup: {manager.verify_after_backup}"
         if not manager.verify_after_backup:
             check["recommendation"] = "Enable verify_after_backup for reliability"
-        validation_results["checks"].append(check)
+        checks.append(check)
 
         # Check if there are any backups
         check = {"name": "backup_exists", "status": "checking"}
@@ -484,7 +485,7 @@ class DRHandler(BaseHandler):
             check["status"] = "warning"
             check["details"] = "No backups found"
             check["recommendation"] = "Create initial backup"
-        validation_results["checks"].append(check)
+        checks.append(check)
 
         return json_response(validation_results)
 
