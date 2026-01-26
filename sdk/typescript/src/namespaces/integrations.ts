@@ -141,14 +141,14 @@ export class IntegrationsAPI {
    * List available integration types.
    */
   async listAvailable(): Promise<{ integrations: AvailableIntegration[] }> {
-    return this.client.listAvailableIntegrations();
+    return this.client.get('/api/integrations/available');
   }
 
   /**
    * Get configuration schema for an integration type.
    */
   async getConfigSchema(type: string): Promise<IntegrationConfigSchema> {
-    return this.client.getIntegrationConfig(type);
+    return this.client.get(`/api/integrations/config/${type}`);
   }
 
   // ===========================================================================
@@ -159,35 +159,35 @@ export class IntegrationsAPI {
    * List all configured integrations.
    */
   async list(): Promise<{ integrations: Integration[]; total: number }> {
-    return this.client.listIntegrations();
+    return this.client.get('/api/integrations');
   }
 
   /**
    * Get a specific integration by ID.
    */
   async get(id: string): Promise<Integration> {
-    return this.client.getIntegration(id);
+    return this.client.get(`/api/integrations/${id}`);
   }
 
   /**
    * Create a new integration.
    */
   async create(body: CreateIntegrationRequest): Promise<Integration> {
-    return this.client.createIntegration(body);
+    return this.client.post('/api/integrations', body);
   }
 
   /**
    * Update an existing integration.
    */
   async update(id: string, body: UpdateIntegrationRequest): Promise<Integration> {
-    return this.client.updateIntegration(id, body);
+    return this.client.put(`/api/integrations/${id}`, body);
   }
 
   /**
    * Delete an integration.
    */
   async delete(id: string): Promise<{ deleted: boolean }> {
-    return this.client.deleteIntegration(id);
+    return this.client.delete(`/api/integrations/${id}`);
   }
 
   // ===========================================================================
@@ -198,20 +198,20 @@ export class IntegrationsAPI {
    * Test an integration connection.
    */
   async test(id: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    return this.client.testIntegration(id);
+    return this.client.post(`/api/integrations/${id}/test`);
   }
 
   /**
    * Trigger a sync for an integration.
    */
   async sync(id: string): Promise<IntegrationSyncStatus> {
-    return this.client.syncIntegration(id);
+    return this.client.post(`/api/integrations/${id}/sync`);
   }
 
   /**
    * Get sync status for an integration.
    */
   async getSyncStatus(id: string): Promise<IntegrationSyncStatus> {
-    return this.client.getIntegrationSyncStatus(id);
+    return this.client.get(`/api/integrations/${id}/sync`);
   }
 }

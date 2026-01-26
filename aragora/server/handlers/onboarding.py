@@ -665,6 +665,7 @@ async def handle_update_step(
         return error_response(f"Failed to update: {str(e)}", status=500)
 
 
+@require_permission("onboarding:read")
 async def handle_get_templates(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -708,6 +709,7 @@ async def handle_get_templates(
         return error_response(f"Failed to get templates: {str(e)}", status=500)
 
 
+@require_permission("debates:create")
 async def handle_first_debate(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -801,6 +803,7 @@ async def handle_first_debate(
         return error_response(f"Failed to start debate: {str(e)}", status=500)
 
 
+@require_permission("debates:create")
 async def handle_quick_debate(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -918,6 +921,7 @@ async def handle_quick_debate(
         return error_response(f"Failed to start quick debate: {str(e)}", status=500)
 
 
+@require_permission("onboarding:create")
 async def handle_quick_start(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -1033,6 +1037,7 @@ async def handle_quick_start(
         return error_response(f"Failed to apply quick-start: {str(e)}", status=500)
 
 
+@require_permission("analytics:read")
 async def handle_analytics(
     data: Dict[str, Any],
     user_id: str = "default",

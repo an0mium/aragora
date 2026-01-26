@@ -74,7 +74,7 @@ class PulseIngestor(ABC):
         self.rate_limit_delay = rate_limit_delay
         self.max_retries = max_retries
         self.base_retry_delay = base_retry_delay
-        self.last_request_time = 0
+        self.last_request_time: float = 0.0
         self.cache: Dict[str, List[TrendingTopic]] = {}
         self.cache_ttl = 300  # 5 minutes
         self.circuit_breaker = CircuitBreaker()

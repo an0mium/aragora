@@ -482,6 +482,38 @@ export class AragoraClient {
   }
 
   // ===========================================================================
+  // HTTP Helper Methods (used by namespace APIs)
+  // ===========================================================================
+
+  /**
+   * Perform a GET request.
+   */
+  get<T>(path: string): Promise<T> {
+    return this.request<T>('GET', path);
+  }
+
+  /**
+   * Perform a POST request.
+   */
+  post<T>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>('POST', path, { body });
+  }
+
+  /**
+   * Perform a PUT request.
+   */
+  put<T>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>('PUT', path, { body });
+  }
+
+  /**
+   * Perform a DELETE request.
+   */
+  delete<T>(path: string): Promise<T> {
+    return this.request<T>('DELETE', path);
+  }
+
+  // ===========================================================================
   // WebSocket
   // ===========================================================================
 

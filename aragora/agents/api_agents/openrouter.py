@@ -91,7 +91,7 @@ class OpenRouterAgent(APIAgent):
         temperature: float | None = None,
         top_p: float | None = None,
         max_tokens: int | None = None,
-    ):
+    ) -> None:
         super().__init__(
             name=name,
             model=model,
