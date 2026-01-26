@@ -160,8 +160,9 @@ def main() -> None:
             add_header(temp_out)
             format_output(temp_out)
 
-            generated = temp_out.read_text()
-            existing = args.output.read_text()
+            # Normalize both for comparison (remove any remaining timestamp variations)
+            generated = normalize_content(temp_out.read_text())
+            existing = normalize_content(args.output.read_text())
 
             if generated != existing:
                 print("Generated Python SDK types are out of date.", file=sys.stderr)
