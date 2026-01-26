@@ -2420,20 +2420,32 @@ export interface DebateCitations {
 
 export interface EvidenceItem {
   id: string;
-  claim: string;
-  supporting_text: string;
-  source_agent: string;
-  round: number;
-  strength: number;
-  confidence: number;
+  content: string;
+  source: string;
+  relevance_score: number;
+  cited_by: string[];
+  quality_scores?: Record<string, number>;
+  grounding_type?: string;
+  timestamp?: string | null;
+  metadata?: Record<string, unknown>;
+  // Legacy fields (optional for backward compatibility)
+  claim?: string;
+  supporting_text?: string;
+  source_agent?: string;
+  round?: number;
+  strength?: number;
+  confidence?: number;
   reasoning?: string;
 }
 
 export interface DebateEvidence {
   debate_id: string;
+  evidence_count: number;
+  evidence_quality_score: number;
   evidence: EvidenceItem[];
-  total: number;
-  strength_summary: {
+  // Legacy fields (optional for backward compatibility)
+  total?: number;
+  strength_summary?: {
     strong: number;
     moderate: number;
     weak: number;
