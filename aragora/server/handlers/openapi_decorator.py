@@ -28,12 +28,53 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar
 
 # Type for decorated functions
 F = TypeVar("F", bound=Callable[..., Any])
+
+logger = logging.getLogger(__name__)
+
+
+def _extract_pydantic_schema(model: Type[Any]) -> Dict[str, Any]:
+    """Extract JSON Schema from a Pydantic model.
+
+    Supports both Pydantic v1 and v2.
+
+    Args:
+        model: Pydantic model class
+
+    Returns:
+        JSON Schema dictionary
+    """
+    try:
+        # Pydantic v2
+        if hasattr(model, "model_json_schema"):
+            return model.model_json_schema()
+        # Pydantic v1
+        elif hasattr(model, "schema"):
+            return model.schema()
+        else:
+            logger.warning(f"Model {model} does not have schema method")
+            return {"type": "object"}
+    except Exception as e:
+        logger.warning(f"Failed to extract schema from {model}: {e}")
+        return {"type": "object"}
+
+
+def _is_pydantic_model(obj: Any) -> bool:
+    """Check if an object is a Pydantic model class."""
+    try:
+        # Pydantic v2
+        from pydantic import BaseModel
+
+        return isinstance(obj, type) and issubclass(obj, BaseModel)
+    except ImportError:
+        return False
+
 
 # Global registry for decorated endpoints
 _endpoint_registry: List["OpenAPIEndpoint"] = []
@@ -106,7 +147,9 @@ def api_endpoint(
     description: str = "",
     parameters: Optional[List[Dict[str, Any]]] = None,
     request_body: Optional[Dict[str, Any]] = None,
+    request_model: Optional[Type[Any]] = None,
     responses: Optional[Dict[str, Dict[str, Any]]] = None,
+    response_model: Optional[Type[Any]] = None,
     auth_required: bool = True,
     deprecated: bool = False,
     operation_id: Optional[str] = None,
@@ -121,8 +164,10 @@ def api_endpoint(
         tags: List of tags for grouping in docs
         description: Detailed description
         parameters: List of parameter definitions
-        request_body: Request body schema
-        responses: Response schemas by status code
+        request_body: Request body schema (overrides request_model if both provided)
+        request_model: Pydantic model for request body auto-schema generation
+        responses: Response schemas by status code (overrides response_model if both)
+        response_model: Pydantic model for 200 response auto-schema generation
         auth_required: Whether authentication is required
         deprecated: Mark endpoint as deprecated
         operation_id: Optional custom operation ID (defaults to function name)
@@ -130,7 +175,29 @@ def api_endpoint(
     Returns:
         Decorated function with _openapi attribute
 
-    Example:
+    Example with Pydantic models:
+        from pydantic import BaseModel
+
+        class CreateDebateRequest(BaseModel):
+            task: str
+            agents: list[str]
+
+        class DebateResponse(BaseModel):
+            id: str
+            status: str
+
+        @api_endpoint(
+            path="/api/v1/debates",
+            method="POST",
+            summary="Create a new debate",
+            tags=["Debates"],
+            request_model=CreateDebateRequest,
+            response_model=DebateResponse,
+        )
+        async def create_debate(self, request: CreateDebateRequest):
+            ...
+
+    Example with manual schemas:
         @api_endpoint(
             path="/api/consensus/similar",
             method="GET",
@@ -158,6 +225,37 @@ def api_endpoint(
         if auth_required:
             security = [{"bearerAuth": []}]
 
+        # Generate request body from Pydantic model if provided
+        final_request_body = request_body
+        if final_request_body is None and request_model is not None:
+            if _is_pydantic_model(request_model):
+                schema = _extract_pydantic_schema(request_model)
+                final_request_body = {
+                    "description": f"{request_model.__name__} request",
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": schema,
+                        }
+                    },
+                }
+
+        # Generate responses from Pydantic model if provided
+        final_responses = responses or {}
+        if not final_responses and response_model is not None:
+            if _is_pydantic_model(response_model):
+                schema = _extract_pydantic_schema(response_model)
+                final_responses = {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": schema,
+                            }
+                        },
+                    }
+                }
+
         # Create endpoint metadata
         endpoint = OpenAPIEndpoint(
             path=path,
@@ -166,8 +264,8 @@ def api_endpoint(
             tags=tags or [],
             description=desc,
             parameters=parameters or [],
-            request_body=request_body,
-            responses=responses or {},
+            request_body=final_request_body,
+            responses=final_responses,
             security=security,
             operation_id=op_id,
             deprecated=deprecated,
