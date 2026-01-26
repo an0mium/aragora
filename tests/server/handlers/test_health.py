@@ -18,6 +18,21 @@ from aragora.server.handlers.admin.health import HealthHandler
 pytestmark = pytest.mark.asyncio
 
 
+@pytest.fixture(autouse=True)
+def clear_health_cache():
+    """Clear health check cache before each test to ensure isolation."""
+    from aragora.server.handlers.admin._health_impl import (
+        _HEALTH_CACHE,
+        _HEALTH_CACHE_TIMESTAMPS,
+    )
+
+    _HEALTH_CACHE.clear()
+    _HEALTH_CACHE_TIMESTAMPS.clear()
+    yield
+    _HEALTH_CACHE.clear()
+    _HEALTH_CACHE_TIMESTAMPS.clear()
+
+
 @pytest.fixture
 def health_handler():
     """Create a health handler with mocked dependencies."""
