@@ -135,7 +135,7 @@ class CernerAdapter(EHRAdapter):
         logger.debug("Found %d Cerner patients matching search", len(patients))
         return patients
 
-    async def get_patient_records(
+    async def get_patient_records(  # type: ignore[override]
         self,
         patient_id: str,
         resource_types: Optional[List[str]] = None,

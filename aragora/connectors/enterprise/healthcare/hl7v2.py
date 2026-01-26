@@ -1178,7 +1178,7 @@ class HL7v2Connector(EnterpriseConnector):
         ack_raw = "\r".join(ack_lines)
         return self.parser.parse(ack_raw)
 
-    async def sync_items(
+    async def sync_items(  # type: ignore[override]
         self,
         state: Optional[SyncState] = None,
     ) -> AsyncIterator[SyncItem]:
@@ -1326,7 +1326,7 @@ class HL7v2Connector(EnterpriseConnector):
             except Exception as e:
                 logger.error(f"Failed to write audit log: {e}")
 
-    async def search(
+    async def search(  # type: ignore[override]
         self,
         query: str,
         limit: int = 10,
@@ -1337,7 +1337,7 @@ class HL7v2Connector(EnterpriseConnector):
         logger.warning("HL7v2Connector.search() requires Knowledge Mound integration")
         return []
 
-    async def fetch(
+    async def fetch(  # type: ignore[override]
         self,
         item_id: str,
         **kwargs,

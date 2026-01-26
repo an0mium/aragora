@@ -239,7 +239,7 @@ class EpicAdapter(EHRAdapter):
             ],
         }
 
-        patient_resource = parameters["parameter"][0]["resource"]
+        patient_resource: dict = parameters["parameter"][0]["resource"]  # type: ignore[index]
 
         if gender:
             patient_resource["gender"] = gender
@@ -248,7 +248,7 @@ class EpicAdapter(EHRAdapter):
             patient_resource["telecom"] = [{"system": "phone", "value": phone}]
 
         if any([address_line, address_city, address_state, address_postalcode]):
-            address = {}
+            address: dict = {}
             if address_line:
                 address["line"] = [address_line]
             if address_city:
@@ -282,7 +282,7 @@ class EpicAdapter(EHRAdapter):
         logger.info(f"Patient $match found {len(matches)} potential matches")
         return matches
 
-    async def get_patient_records(
+    async def get_patient_records(  # type: ignore[override]
         self,
         patient_id: str,
         resource_types: Optional[List[str]] = None,
@@ -359,7 +359,7 @@ class EpicAdapter(EHRAdapter):
         Returns:
             List of DocumentReference resources
         """
-        params = {
+        params: Dict[str, Any] = {
             "patient": patient_id,
         }
 
@@ -426,7 +426,7 @@ class EpicAdapter(EHRAdapter):
         Returns:
             List of Appointment resources
         """
-        params = {
+        params: Dict[str, Any] = {
             "patient": patient_id,
         }
 
