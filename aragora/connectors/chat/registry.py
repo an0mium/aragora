@@ -126,6 +126,12 @@ def _lazy_load_connector(platform: str) -> Optional[Type[ChatPlatformConnector]]
             _CONNECTOR_CLASSES["signal"] = SignalConnector
             return SignalConnector
 
+        elif platform == "imessage":
+            from aragora.connectors.chat.imessage import IMessageConnector
+
+            _CONNECTOR_CLASSES["imessage"] = IMessageConnector
+            return IMessageConnector
+
     except ImportError as e:
         logger.debug(f"Could not load {platform} connector: {e}")
 
@@ -135,7 +141,16 @@ def _lazy_load_connector(platform: str) -> Optional[Type[ChatPlatformConnector]]
 def list_available_platforms() -> list[str]:
     """List all registered platform identifiers."""
     # Ensure all connectors are loaded
-    for platform in ["slack", "teams", "discord", "google_chat", "telegram", "whatsapp", "signal"]:
+    for platform in [
+        "slack",
+        "teams",
+        "discord",
+        "google_chat",
+        "telegram",
+        "whatsapp",
+        "signal",
+        "imessage",
+    ]:
         _lazy_load_connector(platform)
 
     return list(_CONNECTOR_CLASSES.keys())
@@ -172,6 +187,10 @@ def get_configured_platforms() -> list[str]:
     # Check Signal
     if os.environ.get("SIGNAL_CLI_URL") and os.environ.get("SIGNAL_PHONE_NUMBER"):
         configured.append("signal")
+
+    # Check iMessage (BlueBubbles)
+    if os.environ.get("BLUEBUBBLES_URL") and os.environ.get("BLUEBUBBLES_PASSWORD"):
+        configured.append("imessage")
 
     return configured
 
