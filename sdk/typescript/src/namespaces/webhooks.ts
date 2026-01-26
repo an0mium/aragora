@@ -154,42 +154,42 @@ export class WebhooksAPI {
    * List all webhooks.
    */
   async list(): Promise<{ webhooks: Webhook[]; total: number }> {
-    return this.client.get('/api/webhooks');
+    return this.client.get('/api/v1/webhooks');
   }
 
   /**
    * Get a specific webhook by ID.
    */
   async get(id: string): Promise<Webhook> {
-    return this.client.get(`/api/webhooks/${id}`);
+    return this.client.get(`/api/v1/webhooks/${id}`);
   }
 
   /**
    * Create a new webhook.
    */
   async create(body: CreateWebhookRequest): Promise<Webhook> {
-    return this.client.post('/api/webhooks', body);
+    return this.client.post('/api/v1/webhooks', body);
   }
 
   /**
    * Update an existing webhook.
    */
   async update(id: string, body: UpdateWebhookRequest): Promise<Webhook> {
-    return this.client.put(`/api/webhooks/${id}`, body);
+    return this.client.put(`/api/v1/webhooks/${id}`, body);
   }
 
   /**
    * Delete a webhook.
    */
   async delete(id: string): Promise<{ deleted: boolean }> {
-    return this.client.delete(`/api/webhooks/${id}`);
+    return this.client.delete(`/api/v1/webhooks/${id}`);
   }
 
   /**
    * Test a webhook by sending a test event.
    */
   async test(id: string): Promise<{ success: boolean; response_code?: number; error?: string }> {
-    return this.client.post(`/api/webhooks/${id}/test`);
+    return this.client.post(`/api/v1/webhooks/${id}/test`);
   }
 
   // ===========================================================================
@@ -200,7 +200,7 @@ export class WebhooksAPI {
    * List all available webhook events.
    */
   async listEvents(): Promise<{ events: WebhookEvent[] }> {
-    return this.client.get('/api/webhooks/events');
+    return this.client.get('/api/v1/webhooks/events');
   }
 
   // ===========================================================================
@@ -211,14 +211,14 @@ export class WebhooksAPI {
    * Get webhook SLO status.
    */
   async getSLOStatus(): Promise<WebhookSLOStatus> {
-    return this.client.get('/api/webhooks/slo');
+    return this.client.get('/api/v1/webhooks/slo/status');
   }
 
   /**
    * Test webhook SLO by measuring delivery latency.
    */
   async testSLO(): Promise<{ success: boolean; latency_ms: number }> {
-    return this.client.post('/api/webhooks/slo/test');
+    return this.client.post('/api/v1/webhooks/slo/test');
   }
 
   // ===========================================================================

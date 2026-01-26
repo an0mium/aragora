@@ -182,6 +182,32 @@ class TestAgentFallbackChain:
         assert chain.metrics.fallback_successes == 1
 
     @pytest.mark.asyncio
+    async def test_fallback_emits_prometheus_metrics(self, circuit_breaker):
+        """Fallback should emit activation and success telemetry."""
+        chain = AgentFallbackChain(
+            providers=["primary", "secondary"],
+            circuit_breaker=circuit_breaker,
+        )
+        chain.register_provider("primary", lambda: MockAgent(name="primary", should_fail=True))
+        chain.register_provider("secondary", lambda: MockAgent(name="secondary"))
+
+        with (
+            patch("aragora.agents.fallback.record_fallback_activation") as activation,
+            patch("aragora.agents.fallback.record_fallback_success") as success,
+        ):
+            result = await chain.generate("Test prompt")
+
+        assert "secondary" in result
+        activation.assert_called_once()
+        assert activation.call_args.kwargs["primary_agent"] == "primary"
+        assert activation.call_args.kwargs["fallback_provider"] == "secondary"
+        assert activation.call_args.kwargs["error_type"] in {"error", "rate_limit"}
+
+        success.assert_called_once()
+        assert success.call_args.args[0] == "secondary"
+        assert success.call_args.kwargs["success"] is True
+
+    @pytest.mark.asyncio
     async def test_multi_level_fallback(self, circuit_breaker):
         """Should cascade through multiple fallbacks."""
         chain = AgentFallbackChain(
@@ -452,6 +478,79 @@ class TestQuotaFallbackMixin:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             result = await agent.fallback_generate("Test prompt")
             assert result is None
+
+    @pytest.mark.asyncio
+    async def test_fallback_generate_emits_metrics(self):
+        """Fallback generate should emit activation and success metrics."""
+
+        class DummyAgent(QuotaFallbackMixin):
+            name = "primary"
+            enable_fallback = True
+
+            def __init__(self, fallback_agent):
+                self._fallback_agent = fallback_agent
+
+            def _get_cached_fallback_agent(self):
+                return self._fallback_agent
+
+        fallback = AsyncMock()
+        fallback.generate = AsyncMock(return_value="fallback response")
+
+        agent = DummyAgent(fallback)
+
+        with (
+            patch("aragora.agents.fallback.record_fallback_activation") as activation,
+            patch("aragora.agents.fallback.record_fallback_success") as success,
+        ):
+            result = await agent.fallback_generate("Test prompt", status_code=429)
+
+        assert result == "fallback response"
+        activation.assert_called_once_with(
+            primary_agent="primary",
+            fallback_provider="openrouter",
+            error_type="rate_limit",
+        )
+        success.assert_called_once()
+        assert success.call_args.args[0] == "openrouter"
+        assert success.call_args.kwargs["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_fallback_stream_emits_metrics(self):
+        """Fallback stream should emit activation and success metrics."""
+
+        class DummyAgent(QuotaFallbackMixin):
+            name = "primary"
+            enable_fallback = True
+
+            def __init__(self, fallback_agent):
+                self._fallback_agent = fallback_agent
+
+            def _get_cached_fallback_agent(self):
+                return self._fallback_agent
+
+        async def fallback_stream(*args, **kwargs):
+            yield "hello"
+
+        fallback = MagicMock()
+        fallback.generate_stream = fallback_stream
+
+        agent = DummyAgent(fallback)
+
+        with (
+            patch("aragora.agents.fallback.record_fallback_activation") as activation,
+            patch("aragora.agents.fallback.record_fallback_success") as success,
+        ):
+            tokens = [token async for token in agent.fallback_generate_stream("Test prompt")]
+
+        assert tokens == ["hello"]
+        activation.assert_called_once_with(
+            primary_agent="primary",
+            fallback_provider="openrouter",
+            error_type="quota",
+        )
+        success.assert_called_once()
+        assert success.call_args.args[0] == "openrouter"
+        assert success.call_args.kwargs["success"] is True
 
 
 # =============================================================================

@@ -98,20 +98,16 @@ class TestSMEOnboardingFlow:
     @pytest.mark.asyncio
     async def test_start_onboarding_success(self, mock_auth_context, mock_onboarding_repo):
         """Test starting onboarding creates a new session."""
-        with patch(
-            "aragora.server.handlers.onboarding.OnboardingHandler._get_repo",
-            return_value=mock_onboarding_repo,
-        ):
-            # Simulate starting onboarding
-            session = mock_onboarding_repo.create_session(
-                user_id=mock_auth_context.user_id,
-                org_id=mock_auth_context.org_id,
-            )
+        # Simulate starting onboarding via mock repo
+        session = mock_onboarding_repo.create_session(
+            user_id=mock_auth_context.user_id,
+            org_id=mock_auth_context.org_id,
+        )
 
-            assert session.id == "onb-123"
-            assert session.user_id == mock_auth_context.user_id
-            assert session.current_step == "welcome"
-            assert not session.completed
+        assert session.id == "onb-123"
+        assert session.user_id == mock_auth_context.user_id
+        assert session.current_step == "welcome"
+        assert not session.completed
 
     @pytest.mark.asyncio
     async def test_complete_onboarding_flow(self, mock_auth_context, mock_onboarding_repo):
@@ -184,9 +180,9 @@ class TestSMEQuickDebate:
         for template_name, settings in templates.items():
             assert settings["rounds"] >= 2, f"{template_name} should have at least 2 rounds"
             assert settings["min_agents"] >= 3, f"{template_name} needs at least 3 agents"
-            assert (
-                0.6 <= settings["consensus_threshold"] <= 0.9
-            ), f"{template_name} threshold should be reasonable"
+            assert 0.6 <= settings["consensus_threshold"] <= 0.9, (
+                f"{template_name} threshold should be reasonable"
+            )
 
 
 class TestSMEReceiptVerification:
@@ -195,6 +191,8 @@ class TestSMEReceiptVerification:
     @pytest.mark.asyncio
     async def test_verify_receipt_valid(self, mock_debate_storage):
         """Test verifying a valid debate receipt."""
+        from aragora.gauntlet.receipt import DecisionReceipt
+
         receipt_data = {
             "id": "receipt-123",
             "debate_id": "debate-123",
@@ -204,12 +202,12 @@ class TestSMEReceiptVerification:
             "timestamp": "2024-01-01T00:05:00Z",
         }
 
-        # Simulate receipt verification
-        with patch("aragora.gauntlet.receipts.verify_receipt_hash") as mock_verify:
-            mock_verify.return_value = True
+        # Create a mock receipt and verify its structure
+        mock_receipt = MagicMock(spec=DecisionReceipt)
+        mock_receipt.verify_integrity.return_value = True
 
-            is_valid = mock_verify(receipt_data["hash"], receipt_data)
-            assert is_valid, "Receipt should be valid"
+        is_valid = mock_receipt.verify_integrity()
+        assert is_valid, "Receipt should be valid"
 
     @pytest.mark.asyncio
     async def test_receipt_export_formats(self):

@@ -167,6 +167,8 @@ Automatically captured attributes:
 | `aragora_websocket_connections` | Gauge | - | Active WebSocket connections |
 | `aragora_memory_operations_total` | Counter | operation, tier | Memory operations |
 
+For alert thresholds and response playbooks, see `RUNBOOK_METRICS.md`.
+
 ### Configuration
 
 ```bash
