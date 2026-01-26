@@ -37,13 +37,13 @@ from aragora.server.http_utils import run_async as _run_async
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     get_int_param,
     json_response,
     safe_error_message,
 )
+from .secure import SecureHandler, ForbiddenError, UnauthorizedError
 from .utils.rate_limit import rate_limit
 
 from aragora.audit.unified import audit_admin, audit_security
@@ -51,11 +51,17 @@ from aragora.audit.unified import audit_admin, audit_security
 logger = logging.getLogger(__name__)
 
 
-class NomicHandler(BaseHandler):
+class NomicHandler(SecureHandler):
     """Handler for nomic loop state, monitoring, and control endpoints.
 
     Supports real-time WebSocket event streaming when a stream server is configured.
+
+    RBAC Permissions:
+    - nomic:read - View state, health, metrics, logs (GET operations)
+    - nomic:admin - Control operations (start, stop, pause, resume, skip-phase, approve, reject)
     """
+
+    RESOURCE_TYPE = "nomic"
 
     ROUTES = [
         "/api/nomic/state",
@@ -152,8 +158,23 @@ class NomicHandler(BaseHandler):
         return path in self.ROUTES or path.startswith("/api/nomic/")
 
     @rate_limit(rpm=30)
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    async def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:  # type: ignore[override]
         """Route nomic endpoint requests."""
+        # Require authentication for all nomic operations
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
+        # Check read permission for GET endpoints
+        try:
+            self.check_permission(auth_context, "nomic:read")
+        except ForbiddenError:
+            logger.warning(f"Nomic read permission denied for user {auth_context.user_id}")
+            return error_response("Permission denied: nomic:read", 403)
+
         path = strip_version_prefix(path)
         handlers = {
             "/api/nomic/state": self._get_nomic_state,
@@ -456,8 +477,25 @@ class NomicHandler(BaseHandler):
     # =========================================================================
 
     @rate_limit(rpm=30)
-    def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    async def handle_post(
+        self, path: str, query_params: dict, handler: Any
+    ) -> Optional[HandlerResult]:  # type: ignore[override]
         """Handle POST requests for control operations."""
+        # Require authentication and admin permission for control operations
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
+        # Control operations require admin permission
+        try:
+            self.check_permission(auth_context, "nomic:admin")
+        except ForbiddenError:
+            logger.warning(f"Nomic admin permission denied for user {auth_context.user_id}")
+            return error_response("Permission denied: nomic:admin", 403)
+
         if path == "/api/v1/nomic/control/start":
             body = self.read_json_body(handler) or {}
             return self._start_nomic_loop(body)
