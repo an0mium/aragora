@@ -273,7 +273,7 @@ class PythonAnalyzer:
             class_name = node._class_name
 
         # Count lines
-        if hasattr(node, "end_lineno"):
+        if hasattr(node, "end_lineno") and node.end_lineno is not None:
             lines = node.end_lineno - node.lineno + 1
         else:
             lines = len(ast.unparse(node).split("\n"))
