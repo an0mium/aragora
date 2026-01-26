@@ -71,7 +71,14 @@ interface KnowledgeClientInterface {
     metadata?: Record<string, unknown>;
   }): Promise<{ id: string; created_at: string }>;
   listKnowledgeMoundRelationships(options?: PaginationParams): Promise<{ relationships: KnowledgeMoundRelationship[] }>;
-  createKnowledgeMoundRelationship(relationship: Partial<KnowledgeMoundRelationship>): Promise<KnowledgeMoundRelationship>;
+  createKnowledgeMoundRelationship(relationship: {
+    source_id: string;
+    target_id: string;
+    relationship_type: 'supports' | 'contradicts' | 'elaborates' | 'derived_from' | 'related_to';
+    strength?: number;
+    confidence?: number;
+    metadata?: Record<string, unknown>;
+  }): Promise<{ id: string; created_at: string }>;
   getKnowledgeMoundStats(): Promise<KnowledgeMoundStats>;
   getStaleKnowledge(options?: { days?: number; limit?: number }): Promise<{ entries: KnowledgeEntry[] }>;
   revalidateKnowledge(nodeId: string, validation: { valid: boolean; notes?: string }): Promise<KnowledgeMoundNode>;
@@ -204,7 +211,14 @@ export class KnowledgeAPI {
   /**
    * Create a new Knowledge Mound relationship.
    */
-  async createRelationship(relationship: Partial<KnowledgeMoundRelationship>): Promise<KnowledgeMoundRelationship> {
+  async createRelationship(relationship: {
+    source_id: string;
+    target_id: string;
+    relationship_type: 'supports' | 'contradicts' | 'elaborates' | 'derived_from' | 'related_to';
+    strength?: number;
+    confidence?: number;
+    metadata?: Record<string, unknown>;
+  }): Promise<{ id: string; created_at: string }> {
     return this.client.createKnowledgeMoundRelationship(relationship);
   }
 
