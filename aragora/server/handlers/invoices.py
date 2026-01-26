@@ -70,6 +70,7 @@ def get_invoice_processor():
 # =============================================================================
 
 
+@require_permission("finance:write")
 async def handle_upload_invoice(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -126,6 +127,7 @@ async def handle_upload_invoice(
 # =============================================================================
 
 
+@require_permission("finance:write")
 async def handle_create_invoice(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -197,6 +199,7 @@ async def handle_create_invoice(
         return error_response(f"Failed to create invoice: {e}", status=500)
 
 
+@require_permission("finance:read")
 async def handle_list_invoices(
     query_params: Dict[str, Any],
     user_id: str = "default",
