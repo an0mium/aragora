@@ -111,7 +111,7 @@ class NomicLoopStreamServer:
         self._clients: Set[Any] = set()  # websockets.WebSocketServerProtocol
         self._lock = asyncio.Lock()
         self._running = False
-        self._server = None
+        self._server: Optional[Any] = None  # websockets.WebSocketServer
 
     async def start(self):
         """Start the WebSocket server."""
