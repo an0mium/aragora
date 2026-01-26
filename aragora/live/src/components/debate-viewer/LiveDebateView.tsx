@@ -58,6 +58,17 @@ export function LiveDebateView({
   const statusConfig = STATUS_CONFIG[status];
   const [showExportModal, setShowExportModal] = useState(false);
 
+  const initErrors = useMemo(() => {
+    return streamEvents
+      .filter(e => e.type === 'error')
+      .map(e => e.data as Record<string, unknown>)
+      .filter(data => data?.phase === 'initialization')
+      .map(data => ({
+        agent: (data?.agent as string) || 'unknown',
+        message: (data?.error as string) || (data?.message as string) || 'Initialization failed',
+      }));
+  }, [streamEvents]);
+
   // Calculate current phase/round from stream events or messages
   const currentPhase = useMemo(() => {
     // Try to get phase from phase_progress events
@@ -106,6 +117,13 @@ export function LiveDebateView({
                 );
               })}
             </div>
+            {initErrors.length > 0 && (
+              <div className="mt-4 border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs font-mono text-red-300">
+                Missing agents:{' '}
+                {initErrors.map((err) => err.agent).join(', ')}. Check API keys or Secrets
+                Manager.
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col items-end gap-2">

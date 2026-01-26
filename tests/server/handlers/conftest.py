@@ -513,7 +513,224 @@ def mock_server_context(
 
 
 # ============================================================================
-# Auth Mocking Fixtures
+# RBAC Authorization Context Fixtures
+# ============================================================================
+
+
+@dataclass
+class MockAuthorizationContext:
+    """Mock authorization context for testing RBAC-protected handlers.
+
+    This mirrors the real AuthorizationContext from aragora.rbac.models.
+    """
+
+    user_id: str = "test-user-001"
+    user_email: str = "test@example.com"
+    org_id: str = "test-org-001"
+    workspace_id: str = "test-ws-001"
+    roles: List[str] = None
+    permissions: List[str] = None
+    api_key_scope: Optional[str] = None
+    ip_address: str = "127.0.0.1"
+    user_agent: str = "test-agent"
+    request_id: str = "req-test-001"
+    timestamp: str = None
+
+    def __post_init__(self):
+        if self.roles is None:
+            self.roles = ["admin"]
+        if self.permissions is None:
+            # Default comprehensive permissions for testing
+            self.permissions = [
+                "debates.read",
+                "debates.write",
+                "debates.create",
+                "debates.delete",
+                "agents.read",
+                "agents.write",
+                "memory.read",
+                "memory.write",
+                "knowledge.read",
+                "knowledge.write",
+                "workflows.read",
+                "workflows.write",
+                "admin.read",
+                "admin.write",
+                "billing.read",
+                "billing.write",
+                "costs.read",
+                "costs.write",
+                "audit.read",
+            ]
+        if self.timestamp is None:
+            from datetime import datetime
+
+            self.timestamp = datetime.now().isoformat()
+
+    def has_permission(self, permission: str) -> bool:
+        """Check if context has a specific permission."""
+        return permission in self.permissions
+
+    def has_role(self, role: str) -> bool:
+        """Check if context has a specific role."""
+        return role in self.roles
+
+
+@pytest.fixture
+def mock_auth_context():
+    """Create a mock authorization context for RBAC-protected handlers.
+
+    Returns:
+        Factory function to create customized auth contexts.
+
+    Example:
+        def test_with_admin(mock_auth_context):
+            ctx = mock_auth_context(roles=["admin"])
+            assert ctx.has_role("admin")
+
+        def test_with_limited_permissions(mock_auth_context):
+            ctx = mock_auth_context(permissions=["debates.read"])
+            assert not ctx.has_permission("debates.write")
+    """
+
+    def _create_context(
+        user_id: str = "test-user-001",
+        org_id: str = "test-org-001",
+        workspace_id: str = "test-ws-001",
+        roles: List[str] = None,
+        permissions: List[str] = None,
+        **kwargs,
+    ) -> MockAuthorizationContext:
+        return MockAuthorizationContext(
+            user_id=user_id,
+            org_id=org_id,
+            workspace_id=workspace_id,
+            roles=roles,
+            permissions=permissions,
+            **kwargs,
+        )
+
+    return _create_context
+
+
+@pytest.fixture
+def admin_auth_context(mock_auth_context):
+    """Pre-configured admin authorization context."""
+    return mock_auth_context(roles=["admin", "owner"])
+
+
+@pytest.fixture
+def viewer_auth_context(mock_auth_context):
+    """Pre-configured viewer authorization context (read-only)."""
+    return mock_auth_context(
+        roles=["viewer"],
+        permissions=[
+            "debates.read",
+            "agents.read",
+            "memory.read",
+            "knowledge.read",
+            "workflows.read",
+        ],
+    )
+
+
+@pytest.fixture
+def editor_auth_context(mock_auth_context):
+    """Pre-configured editor authorization context (read/write, no admin)."""
+    return mock_auth_context(
+        roles=["editor"],
+        permissions=[
+            "debates.read",
+            "debates.write",
+            "debates.create",
+            "agents.read",
+            "agents.write",
+            "memory.read",
+            "memory.write",
+            "knowledge.read",
+            "knowledge.write",
+            "workflows.read",
+            "workflows.write",
+        ],
+    )
+
+
+@pytest.fixture
+def authenticated_handler(mock_auth_context):
+    """Patch a handler instance to bypass RBAC authentication.
+
+    This fixture patches the get_auth_context and check_permission methods
+    on handler instances so they don't require actual authentication.
+
+    Returns:
+        Context manager factory that patches handler auth methods.
+
+    Example:
+        def test_protected_endpoint(handler, authenticated_handler, mock_http_get):
+            with authenticated_handler(handler):
+                result = handler.handle("/api/v1/protected", {}, mock_http_get, "GET")
+                assert result.status_code == 200
+
+        def test_with_custom_permissions(handler, authenticated_handler, mock_http_get):
+            with authenticated_handler(handler, permissions=["debates.read"]):
+                result = handler.handle("/api/v1/debates", {}, mock_http_get, "GET")
+    """
+    from contextlib import contextmanager
+    from unittest.mock import patch
+
+    @contextmanager
+    def _patch_handler(
+        handler_instance,
+        user_id: str = "test-user-001",
+        org_id: str = "test-org-001",
+        roles: List[str] = None,
+        permissions: List[str] = None,
+    ):
+        ctx = mock_auth_context(
+            user_id=user_id,
+            org_id=org_id,
+            roles=roles,
+            permissions=permissions,
+        )
+
+        # Patch get_auth_context to return our mock context
+        with patch.object(handler_instance, "get_auth_context", return_value=ctx) as mock_get_auth:
+            # Patch check_permission to always return True
+            with patch.object(
+                handler_instance, "check_permission", return_value=True
+            ) as mock_check:
+                yield ctx, mock_get_auth, mock_check
+
+    return _patch_handler
+
+
+@pytest.fixture
+def bypass_rbac():
+    """Global patch to bypass all RBAC checks.
+
+    Use this when you want to test handler logic without any auth.
+    Patches the require_permission decorator to be a no-op.
+
+    Example:
+        def test_handler_logic(handler, bypass_rbac, mock_http_get):
+            with bypass_rbac:
+                result = handler.handle("/api/v1/resource", {}, mock_http_get, "GET")
+    """
+    from unittest.mock import patch
+
+    def passthrough_decorator(*args, **kwargs):
+        """Decorator that does nothing."""
+
+        def decorator(func):
+            return func
+
+        return decorator
+
+    return patch("aragora.rbac.decorators.require_permission", passthrough_decorator)
+
+
+# ============================================================================
+# Legacy Auth Mocking Fixtures
 # ============================================================================
 
 

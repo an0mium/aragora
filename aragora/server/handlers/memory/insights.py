@@ -15,7 +15,6 @@ from typing import Optional
 from aragora.server.http_utils import run_async as _run_async
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     ServerContext,
     error_response,
@@ -23,12 +22,16 @@ from ..base import (
     handle_errors,
     json_response,
 )
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.validation.security import (
     execute_regex_with_timeout,
     execute_regex_finditer_with_timeout,
 )
 from aragora.server.versioning.compat import strip_version_prefix
+
+# RBAC permission for insights endpoints
+INSIGHTS_PERMISSION = "insights:read"
 
 # Rate limiter for insights endpoints (60 requests per minute)
 _insights_limiter = RateLimiter(requests_per_minute=60)
@@ -39,8 +42,11 @@ MAX_CONTENT_SIZE = 1024 * 1024
 logger = logging.getLogger(__name__)
 
 
-class InsightsHandler(BaseHandler):
-    """Handler for insights-related endpoints."""
+class InsightsHandler(SecureHandler):
+    """Handler for insights-related endpoints.
+
+    Requires authentication and insights:read permission (RBAC).
+    """
 
     # Route patterns this handler manages (normalized without version prefix)
     ROUTES = [
@@ -49,24 +55,21 @@ class InsightsHandler(BaseHandler):
         "/api/flips/recent",
     ]
 
-    # Endpoints that require authentication
-    AUTH_REQUIRED_ENDPOINTS = [
-        "/api/insights/extract-detailed",  # Computationally expensive
-    ]
-
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         normalized = strip_version_prefix(path)
         return normalized.startswith("/api/insights/") or normalized == "/api/flips/recent"
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
-        """Handle GET requests - routes to handle_get with context."""
-        return self.handle_get(path, query_params, handler, self.ctx)
+    async def handle(  # type: ignore[override]
+        self, path: str, query_params: dict, handler
+    ) -> Optional[HandlerResult]:
+        """Handle GET requests with RBAC - routes to handle_get with context."""
+        return await self.handle_get(path, query_params, handler, self.ctx)
 
-    def handle_get(
+    async def handle_get(  # type: ignore[override]
         self, path: str, query: dict, handler, ctx: ServerContext
     ) -> Optional[HandlerResult]:
-        """Handle GET requests for insights endpoints."""
+        """Handle GET requests for insights endpoints with RBAC."""
         # Normalize path to handle both /api/... and /api/v1/... paths
         normalized = strip_version_prefix(path)
 
@@ -76,6 +79,16 @@ class InsightsHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for insights endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
+        # RBAC: Require authentication and insights:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, INSIGHTS_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required to access insights", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Insights access denied: {e}")
+            return error_response(str(e), 403)
+
         if normalized == "/api/insights/recent":
             return self._get_recent_insights(query, ctx)
 
@@ -84,8 +97,10 @@ class InsightsHandler(BaseHandler):
 
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
-        """Handle POST requests for insights endpoints."""
+    async def handle_post(  # type: ignore[override]
+        self, path: str, query_params: dict, handler
+    ) -> Optional[HandlerResult]:
+        """Handle POST requests for insights endpoints with RBAC."""
         # Normalize path to handle both /api/... and /api/v1/... paths
         normalized = strip_version_prefix(path)
 
@@ -94,6 +109,16 @@ class InsightsHandler(BaseHandler):
         if not _insights_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for insights POST endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # RBAC: Require authentication and insights:read permission for POST
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, INSIGHTS_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Insights POST access denied: {e}")
+            return error_response(str(e), 403)
 
         if normalized == "/api/insights/extract-detailed":
             # Read JSON body from request

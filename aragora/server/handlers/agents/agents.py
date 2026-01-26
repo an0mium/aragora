@@ -49,7 +49,6 @@ from aragora.server.versioning.compat import strip_version_prefix
 from ..base import (
     SAFE_AGENT_PATTERN,
     SAFE_ID_PATTERN,
-    BaseHandler,
     HandlerResult,
     agent_to_dict,
     error_response,
@@ -62,7 +61,14 @@ from ..base import (
     ttl_cache,
     validate_path_segment,
 )
-from ..utils.rate_limit import rate_limit
+from ..secure import SecureHandler
+from ..utils.rate_limit import RateLimiter, rate_limit
+
+# RBAC permission for agent endpoints
+AGENT_PERMISSION = "agent:read"
+
+# Rate limiter for agent handlers (60 requests per minute)
+_agent_limiter = RateLimiter(requests_per_minute=60)
 
 _ENV_VAR_RE = re.compile(r"[A-Z][A-Z0-9_]+")
 _OPENROUTER_FALLBACK_MODELS = {
@@ -100,8 +106,11 @@ def _missing_required_env_vars(env_vars: str | None) -> list[str]:
     return candidates
 
 
-class AgentsHandler(BaseHandler):
-    """Handler for agent-related endpoints."""
+class AgentsHandler(SecureHandler):
+    """Handler for agent-related endpoints.
+
+    Requires authentication and agent:read permission (RBAC).
+    """
 
     ROUTES = [
         "/api/agents",
