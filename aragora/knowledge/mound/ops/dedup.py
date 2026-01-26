@@ -175,7 +175,7 @@ class DedupOperationsMixin:
         Returns:
             Comprehensive dedup report
         """
-        clusters = await self.find_duplicates(  # type: ignore[attr-defined]
+        clusters = await self.find_duplicates(
             workspace_id=workspace_id,
             similarity_threshold=similarity_threshold,
             limit=500,
@@ -219,7 +219,7 @@ class DedupOperationsMixin:
             Result of the merge operation
         """
         # Find the cluster
-        clusters = await self.find_duplicates(  # type: ignore[attr-defined]
+        clusters = await self.find_duplicates(
             workspace_id=workspace_id,
             similarity_threshold=0.8,  # Lower threshold to find the cluster
             limit=500,

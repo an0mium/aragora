@@ -258,7 +258,7 @@ class PruningOperationsMixin:
                 errors.append(f"Failed to prune {node_id}: {e!s}")
 
         # Record history
-        await self._record_prune_history(  # type: ignore[attr-defined]
+        await self._record_prune_history(
             workspace_id=workspace_id,
             action=action,
             item_ids=pruned_ids,
@@ -312,7 +312,7 @@ class PruningOperationsMixin:
             )
 
         # Find prunable items
-        prunable = await self.get_prunable_items(  # type: ignore[attr-defined]
+        prunable = await self.get_prunable_items(
             workspace_id=workspace_id,
             staleness_threshold=policy.staleness_threshold,
             min_age_days=policy.min_age_days,
@@ -339,7 +339,7 @@ class PruningOperationsMixin:
             )
 
         # Execute pruning
-        return await self.prune_items(  # type: ignore[attr-defined]
+        return await self.prune_items(
             workspace_id=workspace_id,
             item_ids=[p.node_id for p in prunable],
             action=policy.action,
