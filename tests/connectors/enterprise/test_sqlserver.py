@@ -340,7 +340,9 @@ class TestTableDiscovery:
         mock_conn.__aexit__ = AsyncMock(return_value=None)
 
         mock_pool = MagicMock()
-        mock_pool.acquire = MagicMock(return_value=mock_conn)
+        # Setup pool.acquire() as async context manager
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
         sqlserver_connector._pool = mock_pool
 
         tables = await sqlserver_connector._discover_tables()
@@ -461,7 +463,9 @@ class TestHealthCheck:
         mock_conn.__aexit__ = AsyncMock(return_value=None)
 
         mock_pool = MagicMock()
-        mock_pool.acquire = MagicMock(return_value=mock_conn)
+        # Setup pool.acquire() as async context manager
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
         sqlserver_connector._pool = mock_pool
 
         health = await sqlserver_connector.health_check()

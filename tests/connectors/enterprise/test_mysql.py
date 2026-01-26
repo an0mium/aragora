@@ -359,7 +359,9 @@ class TestTableDiscovery:
         mock_conn.__aexit__ = AsyncMock(return_value=None)
 
         mock_pool = MagicMock()
-        mock_pool.acquire = MagicMock(return_value=mock_conn)
+        # Setup pool.acquire() as async context manager
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
         mysql_connector._pool = mock_pool
 
         tables = await mysql_connector._discover_tables()
@@ -387,7 +389,9 @@ class TestTableDiscovery:
         mock_conn.__aexit__ = AsyncMock(return_value=None)
 
         mock_pool = MagicMock()
-        mock_pool.acquire = MagicMock(return_value=mock_conn)
+        # Setup pool.acquire() as async context manager
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
         mysql_connector._pool = mock_pool
 
         columns = await mysql_connector._get_table_columns("users")
@@ -479,7 +483,9 @@ class TestHealthCheck:
         mock_conn.__aexit__ = AsyncMock(return_value=None)
 
         mock_pool = MagicMock()
-        mock_pool.acquire = MagicMock(return_value=mock_conn)
+        # Setup pool.acquire() as async context manager
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
         mysql_connector._pool = mock_pool
 
         health = await mysql_connector.health_check()
