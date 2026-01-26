@@ -29,7 +29,7 @@ class OpenAIWhisperProvider(STTProvider):
     ):
         super().__init__(config)
         self._api_key = api_key or os.getenv("OPENAI_API_KEY")
-        self._client: Optional["OpenAI"] = None
+        self._client: Optional["OpenAI"] = None  # noqa: F821
 
     @property
     def name(self) -> str:
