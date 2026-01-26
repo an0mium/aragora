@@ -31,9 +31,16 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from aragora.server.handlers.base import BaseHandler
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 
 logger = logging.getLogger(__name__)
+
+# RBAC permissions for audit session endpoints
+AUDIT_READ_PERMISSION = "audit:read"
+AUDIT_CREATE_PERMISSION = "audit:create"
+AUDIT_EXECUTE_PERMISSION = "audit:execute"
+AUDIT_DELETE_PERMISSION = "audit:delete"
+AUDIT_INTERVENE_PERMISSION = "audit:intervene"
 
 
 # In-memory session storage (would be replaced with database in production)
@@ -45,12 +52,19 @@ _event_queues: dict[str, list[asyncio.Queue]] = {}
 _cancellation_tokens: dict[str, Any] = {}
 
 
-class AuditSessionsHandler(BaseHandler):
+class AuditSessionsHandler(SecureHandler):
     """
     Handler for audit session management endpoints.
 
     Provides full lifecycle management for document audit sessions
     including creation, execution control, and reporting.
+
+    RBAC Protected:
+    - audit:read - view sessions, findings, events, reports
+    - audit:create - create new sessions
+    - audit:execute - start, pause, resume, cancel audits
+    - audit:delete - delete sessions
+    - audit:intervene - human intervention in audits
     """
 
     ROUTES = [
@@ -71,7 +85,7 @@ class AuditSessionsHandler(BaseHandler):
         return path.startswith("/api/v1/audit/")
 
     async def handle_request(self, request: Any) -> dict[str, Any]:
-        """Route request to appropriate handler."""
+        """Route request to appropriate handler with RBAC protection."""
         method = request.method
         path = str(request.path)
 
@@ -82,6 +96,19 @@ class AuditSessionsHandler(BaseHandler):
             if len(parts) > 1:
                 remaining = parts[1].split("/")
                 session_id = remaining[0]
+
+        # Determine required permission based on endpoint
+        required_permission = self._get_required_permission(path, method)
+
+        # RBAC: Require authentication and appropriate permission
+        try:
+            auth_context = await self.get_auth_context(request, require_auth=True)
+            self.check_permission(auth_context, required_permission)
+        except UnauthorizedError:
+            return self._error_response(401, "Authentication required for audit sessions")
+        except ForbiddenError as e:
+            logger.warning(f"Audit session access denied: {e}")
+            return self._error_response(403, str(e))
 
         # Route to appropriate handler
         if path.endswith("/sessions") and method == "POST":
@@ -110,6 +137,26 @@ class AuditSessionsHandler(BaseHandler):
             return await self._delete_session(request, session_id)
 
         return self._error_response(404, "Endpoint not found")
+
+    def _get_required_permission(self, path: str, method: str) -> str:
+        """Determine the required RBAC permission for a given endpoint."""
+        # Create session
+        if path.endswith("/sessions") and method == "POST":
+            return AUDIT_CREATE_PERMISSION
+        # List/get sessions, findings, events, reports
+        if method == "GET":
+            return AUDIT_READ_PERMISSION
+        # Delete session
+        if method == "DELETE":
+            return AUDIT_DELETE_PERMISSION
+        # Start, pause, resume, cancel
+        if any(path.endswith(action) for action in ["/start", "/pause", "/resume", "/cancel"]):
+            return AUDIT_EXECUTE_PERMISSION
+        # Human intervention
+        if path.endswith("/intervene"):
+            return AUDIT_INTERVENE_PERMISSION
+        # Default to read for safety
+        return AUDIT_READ_PERMISSION
 
     async def _create_session(self, request: Any) -> dict[str, Any]:
         """

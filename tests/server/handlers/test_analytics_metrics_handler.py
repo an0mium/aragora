@@ -41,34 +41,56 @@ class MockDebate:
         self.rounds_used = rounds_used
 
 
+class MockAgent:
+    """Mock agent object with required attributes."""
+
+    def __init__(
+        self,
+        agent_name: str,
+        elo: float = 1500,
+        wins: int = 10,
+        losses: int = 5,
+        draws: int = 2,
+    ):
+        self.agent_name = agent_name
+        self.elo = elo
+        self.wins = wins
+        self.losses = losses
+        self.draws = draws
+        self.games_played = wins + losses + draws
+        self.debates_count = self.games_played
+        self.win_rate = wins / self.games_played if self.games_played > 0 else 0
+        self.domain_elos = {}
+
+
 class MockEloSystem:
     """Mock ELO system for testing."""
 
     def __init__(self):
-        self.agents = {
-            "agent-1": {"name": "Agent One", "rating": 1500, "matches": 10},
-            "agent-2": {"name": "Agent Two", "rating": 1450, "matches": 8},
+        self._agents = {
+            "agent-1": MockAgent("agent-1", elo=1500, wins=10, losses=5, draws=2),
+            "agent-2": MockAgent("agent-2", elo=1450, wins=8, losses=6, draws=3),
         }
 
-    def get_leaderboard(self, limit: int = 10, domain: str | None = None) -> List[Dict]:
-        return [{"agent_id": k, **v} for k, v in list(self.agents.items())[:limit]]
+    def get_leaderboard(self, limit: int = 10, domain: str | None = None) -> List:
+        return list(self._agents.values())[:limit]
 
-    def get_rating(self, agent_id: str) -> Dict | None:
-        return self.agents.get(agent_id)
+    def get_rating(self, agent_id: str):
+        if agent_id not in self._agents:
+            raise KeyError(f"Agent not found: {agent_id}")
+        return self._agents[agent_id]
 
-    def get_elo_history(self, agent_id: str, limit: int = 30) -> List[Dict]:
-        if agent_id not in self.agents:
+    def get_elo_history(self, agent_id: str, limit: int = 30) -> List:
+        if agent_id not in self._agents:
             return []
-        return [
-            {"timestamp": datetime.now(timezone.utc).isoformat(), "rating": 1500 - i * 10}
-            for i in range(min(limit, 5))
-        ]
+        now = datetime.now(timezone.utc)
+        return [(now.isoformat(), 1500 - i * 10) for i in range(min(limit, 5))]
 
     def get_recent_matches(self, limit: int = 10) -> List[Dict]:
         return [
             {
                 "debate_id": f"debate-{i}",
-                "agents": ["agent-1", "agent-2"],
+                "participants": ["agent-1", "agent-2"],
                 "winner": "agent-1",
             }
             for i in range(min(limit, 3))
@@ -78,13 +100,14 @@ class MockEloSystem:
         return {
             "agent_a": agent_a,
             "agent_b": agent_b,
-            "wins_a": 5,
-            "wins_b": 3,
-            "total_matches": 8,
+            "a_wins": 5,
+            "b_wins": 3,
+            "draws": 2,
+            "total": 10,
         }
 
     def list_agents(self) -> List[str]:
-        return list(self.agents.keys())
+        return list(self._agents.keys())
 
 
 class MockCostTracker:
@@ -290,7 +313,7 @@ class TestAgentAnalytics:
 
         assert result["success"] is True
         assert "agent_id" in result["data"]
-        assert "rating" in result["data"]
+        assert "elo" in result["data"]
 
     def test_agent_performance_not_found(self, mock_elo_system, mock_server_context):
         """Test agent performance returns 404 for missing agent."""
@@ -343,8 +366,8 @@ class TestAgentAnalytics:
         assert result["success"] is True
         assert "trends" in result["data"]
 
-    def test_missing_elo_system_returns_error(self, mock_server_context):
-        """Test missing ELO system returns 503."""
+    def test_missing_elo_system_returns_empty(self, mock_server_context):
+        """Test missing ELO system returns empty leaderboard."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
         handler = AnalyticsMetricsHandler(mock_server_context)
@@ -354,8 +377,9 @@ class TestAgentAnalytics:
 
             result = parse_handler_result(raw_result)
 
-        assert result["success"] is False
-        assert result["status_code"] == 503
+        assert result["success"] is True
+        assert result["data"]["leaderboard"] == []
+        assert result["data"]["total_agents"] == 0
 
 
 class TestUsageAnalytics:
@@ -367,14 +391,17 @@ class TestUsageAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_cost_tracker", return_value=mock_cost_tracker):
-            raw_result = handler._get_usage_tokens({})
-
+        with patch(
+            "aragora.billing.cost_tracker.get_cost_tracker",
+            return_value=mock_cost_tracker,
+        ):
+            raw_result = handler._get_usage_tokens({"org_id": "org-123"})
             result = parse_handler_result(raw_result)
 
         assert result["success"] is True
-        assert "total_tokens_in" in result["data"]
-        assert "total_tokens_out" in result["data"]
+        assert "summary" in result["data"]
+        assert "total_tokens_in" in result["data"]["summary"]
+        assert "total_tokens_out" in result["data"]["summary"]
 
     def test_usage_costs_returns_breakdown(self, mock_cost_tracker, mock_server_context):
         """Test usage costs returns cost breakdown."""
@@ -382,15 +409,18 @@ class TestUsageAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_cost_tracker", return_value=mock_cost_tracker):
-            raw_result = handler._get_usage_costs({})
-
+        with patch(
+            "aragora.billing.cost_tracker.get_cost_tracker",
+            return_value=mock_cost_tracker,
+        ):
+            raw_result = handler._get_usage_costs({"org_id": "org-123"})
             result = parse_handler_result(raw_result)
 
         assert result["success"] is True
-        assert "total_cost_usd" in result["data"]
-        assert "cost_by_agent" in result["data"]
-        assert "cost_by_model" in result["data"]
+        assert "summary" in result["data"]
+        assert "total_cost_usd" in result["data"]["summary"]
+        assert "by_provider" in result["data"]
+        assert "by_model" in result["data"]
 
     def test_usage_with_org_filter(self, mock_cost_tracker, mock_server_context):
         """Test usage endpoints respect org_id filter."""
@@ -398,9 +428,11 @@ class TestUsageAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_cost_tracker", return_value=mock_cost_tracker):
+        with patch(
+            "aragora.billing.cost_tracker.get_cost_tracker",
+            return_value=mock_cost_tracker,
+        ):
             raw_result = handler._get_usage_tokens({"org_id": "org-123"})
-
             result = parse_handler_result(raw_result)
 
         assert result["success"] is True
@@ -409,7 +441,6 @@ class TestUsageAnalytics:
         """Test active users returns user counts."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler(mock_server_context)
         mock_user_store = MagicMock()
         mock_user_store.get_active_user_counts.return_value = {
             "daily": 50,
@@ -421,10 +452,12 @@ class TestUsageAnalytics:
             "new_users": 25,
         }
 
-        with patch.object(handler, "_get_user_store", return_value=mock_user_store):
-            raw_result = handler._get_active_users({})
+        # Pass user_store in context
+        context = {**mock_server_context, "user_store": mock_user_store}
+        handler = AnalyticsMetricsHandler(context)
 
-            result = parse_handler_result(raw_result)
+        raw_result = handler._get_active_users({})
+        result = parse_handler_result(raw_result)
 
         assert result["success"] is True
         assert "active_users" in result["data"]
