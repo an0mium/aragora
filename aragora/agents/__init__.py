@@ -89,6 +89,16 @@ from aragora.agents.telemetry import (
     unregister_telemetry_collector,
     with_telemetry,
 )
+from aragora.agents.credential_validator import (
+    CredentialStatus,
+    filter_available_agents,
+    get_agent_credential_status,
+    get_available_agent_types,
+    get_credential_status,
+    get_missing_credentials_summary,
+    log_credential_status,
+    validate_agent_credentials,
+)
 
 
 def get_agents_by_names(names: list[str]) -> list:
@@ -212,6 +222,15 @@ __all__ = [
     "BillingCriticalityAgent",
     "TimelineAgent",
     "get_email_agent_team",
+    # Credential Validation
+    "CredentialStatus",
+    "filter_available_agents",
+    "get_agent_credential_status",
+    "get_available_agent_types",
+    "get_credential_status",
+    "get_missing_credentials_summary",
+    "log_credential_status",
+    "validate_agent_credentials",
 ]
 
 # Email-specific agents for inbox prioritization

@@ -405,7 +405,7 @@ class TestImplicitOwnerPermissions:
         decision = manager.check_owner_permission(
             context=context,
             resource_type=ResourceType.DEBATE,
-            permission_key="debates.read",
+            permission_key="debates:read",
             resource_id="debate-123",
         )
 
@@ -427,7 +427,7 @@ class TestImplicitOwnerPermissions:
         decision = manager.check_owner_permission(
             context=context,
             resource_type=ResourceType.DEBATE,
-            permission_key="debates.read",
+            permission_key="debates:read",
             resource_id="debate-123",
         )
 
@@ -442,7 +442,7 @@ class TestImplicitOwnerPermissions:
             org_id="org-789",
         )
 
-        # "debates.admin" is not in the implicit permissions
+        # "debates:admin" is not in the implicit permissions
         decision = manager.check_owner_permission(
             context=context,
             resource_type=ResourceType.DEBATE,
@@ -457,21 +457,21 @@ class TestImplicitOwnerPermissions:
         """Test getting implicit permissions for resource type."""
         perms = manager.get_implicit_permissions(ResourceType.DEBATE)
 
-        assert "debates.read" in perms
-        assert "debates.update" in perms
-        assert "debates.delete" in perms
+        assert "debates:read" in perms
+        assert "debates:update" in perms
+        assert "debates:delete" in perms
         assert "debates.run" in perms
 
     def test_custom_owner_permissions(self):
         """Test manager with custom owner permissions."""
         custom_perms = {
-            ResourceType.DEBATE: ["debates.read", "debates.custom_action"],
+            ResourceType.DEBATE: ["debates:read", "debates.custom_action"],
         }
         manager = OwnershipManager(owner_permissions=custom_perms)
 
         perms = manager.get_implicit_permissions(ResourceType.DEBATE)
 
-        assert perms == ["debates.read", "debates.custom_action"]
+        assert perms == ["debates:read", "debates.custom_action"]
 
 
 class TestOwnershipByOwnerQueries:
@@ -725,7 +725,7 @@ class TestGlobalOwnershipManager:
         decision = check_owner_permission(
             context=context,
             resource_type=ResourceType.DEBATE,
-            permission_key="debates.read",
+            permission_key="debates:read",
             resource_id="debate-123",
         )
 
@@ -738,23 +738,23 @@ class TestDefaultOwnerPermissions:
 
     def test_debate_default_permissions(self):
         """Test default permissions for debates."""
-        assert "debates.read" in DEFAULT_OWNER_PERMISSIONS[ResourceType.DEBATE]
-        assert "debates.update" in DEFAULT_OWNER_PERMISSIONS[ResourceType.DEBATE]
-        assert "debates.delete" in DEFAULT_OWNER_PERMISSIONS[ResourceType.DEBATE]
+        assert "debates:read" in DEFAULT_OWNER_PERMISSIONS[ResourceType.DEBATE]
+        assert "debates:update" in DEFAULT_OWNER_PERMISSIONS[ResourceType.DEBATE]
+        assert "debates:delete" in DEFAULT_OWNER_PERMISSIONS[ResourceType.DEBATE]
         assert "debates.run" in DEFAULT_OWNER_PERMISSIONS[ResourceType.DEBATE]
         assert "debates.stop" in DEFAULT_OWNER_PERMISSIONS[ResourceType.DEBATE]
         assert "debates.fork" in DEFAULT_OWNER_PERMISSIONS[ResourceType.DEBATE]
 
     def test_workflow_default_permissions(self):
         """Test default permissions for workflows."""
-        assert "workflows.read" in DEFAULT_OWNER_PERMISSIONS[ResourceType.WORKFLOW]
-        assert "workflows.update" in DEFAULT_OWNER_PERMISSIONS[ResourceType.WORKFLOW]
-        assert "workflows.delete" in DEFAULT_OWNER_PERMISSIONS[ResourceType.WORKFLOW]
+        assert "workflows:read" in DEFAULT_OWNER_PERMISSIONS[ResourceType.WORKFLOW]
+        assert "workflows:update" in DEFAULT_OWNER_PERMISSIONS[ResourceType.WORKFLOW]
+        assert "workflows:delete" in DEFAULT_OWNER_PERMISSIONS[ResourceType.WORKFLOW]
         assert "workflows.run" in DEFAULT_OWNER_PERMISSIONS[ResourceType.WORKFLOW]
 
     def test_agent_default_permissions(self):
         """Test default permissions for agents."""
-        assert "agents.read" in DEFAULT_OWNER_PERMISSIONS[ResourceType.AGENT]
-        assert "agents.update" in DEFAULT_OWNER_PERMISSIONS[ResourceType.AGENT]
-        assert "agents.delete" in DEFAULT_OWNER_PERMISSIONS[ResourceType.AGENT]
+        assert "agents:read" in DEFAULT_OWNER_PERMISSIONS[ResourceType.AGENT]
+        assert "agents:update" in DEFAULT_OWNER_PERMISSIONS[ResourceType.AGENT]
+        assert "agents:delete" in DEFAULT_OWNER_PERMISSIONS[ResourceType.AGENT]
         assert "agents.deploy" in DEFAULT_OWNER_PERMISSIONS[ResourceType.AGENT]

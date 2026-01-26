@@ -30,6 +30,7 @@ from aragora.exceptions import (
     RecordNotFoundError,
     StorageError,
 )
+from aragora.rbac.decorators import require_permission
 from aragora.server.debate_utils import _active_debates
 from aragora.server.middleware.abac import Action, ResourceType, check_resource_access
 from aragora.server.middleware.tier_enforcement import require_quota
@@ -325,6 +326,7 @@ class DebatesHandler(
             return True
         return False
 
+    @require_permission("debates:read")
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route debate requests to appropriate handler methods.
 
@@ -919,6 +921,7 @@ class DebatesHandler(
             )
             return error_response("Database error retrieving messages", 500)
 
+    @require_permission("debates:create")
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
         # Create debate endpoint - both legacy and RESTful
@@ -1232,6 +1235,7 @@ class DebatesHandler(
             }
         )
 
+    @require_permission("debates:update")
     def handle_patch(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route PATCH requests to appropriate methods."""
         # Handle /api/debates/{id} pattern for updates

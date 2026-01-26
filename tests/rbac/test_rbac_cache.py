@@ -295,7 +295,7 @@ class TestPermissionDecisionCache:
             user_id="user1",
             org_id="org1",
             roles_hash="hash123",
-            permission_key="debates.read",
+            permission_key="debates:read",
             resource_id="debate-1",
             decision=decision,
         )
@@ -304,7 +304,7 @@ class TestPermissionDecisionCache:
             user_id="user1",
             org_id="org1",
             roles_hash="hash123",
-            permission_key="debates.read",
+            permission_key="debates:read",
             resource_id="debate-1",
         )
         assert result == decision
@@ -316,7 +316,7 @@ class TestPermissionDecisionCache:
             user_id="user1",
             org_id="org1",
             roles_hash="hash123",
-            permission_key="debates.read",
+            permission_key="debates:read",
             resource_id=None,
         )
         assert result is None
@@ -329,7 +329,7 @@ class TestPermissionDecisionCache:
             user_id="user1",
             org_id="org1",
             roles_hash="hash123",
-            permission_key="debates.read",
+            permission_key="debates:read",
             resource_id=None,
             decision=decision,
         )
@@ -338,7 +338,7 @@ class TestPermissionDecisionCache:
             user_id="user1",
             org_id="org1",
             roles_hash="hash123",
-            permission_key="debates.read",
+            permission_key="debates:read",
             resource_id=None,
         )
         assert result == decision
@@ -350,7 +350,7 @@ class TestPermissionDecisionCache:
             user_id="user1",
             org_id=None,
             roles_hash="hash123",
-            permission_key="debates.read",
+            permission_key="debates:read",
             resource_id="d1",
             decision=decision,
         )
@@ -359,7 +359,7 @@ class TestPermissionDecisionCache:
             user_id="user1",
             org_id=None,
             roles_hash="hash123",
-            permission_key="debates.read",
+            permission_key="debates:read",
             resource_id="d1",
         )
         assert result == decision
@@ -406,7 +406,7 @@ class TestPermissionSetCache:
 
     def test_set_and_get_role_permissions(self, cache):
         """Role permissions can be cached and retrieved."""
-        permissions = {"debates.read", "debates.create", "analytics.view"}
+        permissions = {"debates:read", "debates:create", "analytics:view"}
         cache.set_role_permissions(role_name="analyst", permissions=permissions)
 
         result = cache.get_role_permissions(role_name="analyst")
@@ -430,29 +430,29 @@ class TestCacheInvalidation:
     def test_invalidate_user(self, cache):
         """Invalidate user clears all user's cache entries."""
         # Set up various cache entries for user
-        cache.set_decision("user1", "org1", "hash1", "debates.read", "d1", {"allowed": True})
-        cache.set_decision("user1", "org1", "hash1", "debates.write", "d2", {"allowed": False})
+        cache.set_decision("user1", "org1", "hash1", "debates:read", "d1", {"allowed": True})
+        cache.set_decision("user1", "org1", "hash1", "debates:write", "d2", {"allowed": False})
         cache.set_user_roles("user1", "org1", {"admin"})
 
         # Also set entries for another user
-        cache.set_decision("user2", "org1", "hash2", "debates.read", "d1", {"allowed": True})
+        cache.set_decision("user2", "org1", "hash2", "debates:read", "d1", {"allowed": True})
 
         # Invalidate user1
         cache.invalidate_user("user1")
 
         # User1's entries should be gone
-        assert cache.get_decision("user1", "org1", "hash1", "debates.read", "d1") is None
-        assert cache.get_decision("user1", "org1", "hash1", "debates.write", "d2") is None
+        assert cache.get_decision("user1", "org1", "hash1", "debates:read", "d1") is None
+        assert cache.get_decision("user1", "org1", "hash1", "debates:write", "d2") is None
 
         # User2's entries should remain
-        assert cache.get_decision("user2", "org1", "hash2", "debates.read", "d1") is not None
+        assert cache.get_decision("user2", "org1", "hash2", "debates:read", "d1") is not None
 
         assert cache._stats.invalidations == 1
 
     def test_invalidate_role(self, cache):
         """Invalidate role clears role's permission cache."""
         cache.set_role_permissions("admin", {"*"})
-        cache.set_role_permissions("analyst", {"debates.read"})
+        cache.set_role_permissions("analyst", {"debates:read"})
 
         cache.invalidate_role("admin")
 

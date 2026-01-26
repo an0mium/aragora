@@ -52,7 +52,7 @@ class TestPermissionChecker:
             user_id="user-1",
             org_id="org-1",
             roles={"editor"},
-            permissions={"debates.create", "debates.read", "debates.update"},
+            permissions={"debates:create", "debates:read", "debates:update"},
         )
 
     @pytest.fixture
@@ -62,7 +62,7 @@ class TestPermissionChecker:
             user_id="user-2",
             org_id="org-1",
             roles={"admin"},
-            permissions={"debates.*", "agents.read"},
+            permissions={"debates.*", "agents:read"},
         )
 
     @pytest.fixture
@@ -77,13 +77,13 @@ class TestPermissionChecker:
 
     def test_exact_permission_match(self, checker, context_with_permissions):
         """Exact permission key grants access."""
-        decision = checker.check_permission(context_with_permissions, "debates.create")
+        decision = checker.check_permission(context_with_permissions, "debates:create")
         assert decision.allowed is True
         assert "granted" in decision.reason.lower()
 
     def test_permission_denied_when_missing(self, checker, context_with_permissions):
         """Missing permission denies access."""
-        decision = checker.check_permission(context_with_permissions, "debates.delete")
+        decision = checker.check_permission(context_with_permissions, "debates:delete")
         assert decision.allowed is False
         assert "not granted" in decision.reason.lower()
 
@@ -96,19 +96,19 @@ class TestPermissionChecker:
 
     def test_wildcard_does_not_grant_other_resources(self, checker, context_with_wildcard):
         """Wildcard permission only applies to its resource."""
-        decision = checker.check_permission(context_with_wildcard, "users.delete")
+        decision = checker.check_permission(context_with_wildcard, "users:delete")
         assert decision.allowed is False
 
     def test_super_wildcard_grants_all(self, checker, context_with_super_wildcard):
         """Super wildcard grants all permissions."""
-        for permission in ["debates.create", "users.delete", "admin.system_config"]:
+        for permission in ["debates:create", "users:delete", "admin.system_config"]:
             decision = checker.check_permission(context_with_super_wildcard, permission)
             assert decision.allowed is True, f"{permission} should be allowed"
 
     def test_check_with_resource_id(self, checker, context_with_permissions):
         """Permission check includes resource ID."""
         decision = checker.check_permission(
-            context_with_permissions, "debates.read", resource_id="debate-123"
+            context_with_permissions, "debates:read", resource_id="debate-123"
         )
         assert decision.allowed is True
         assert decision.resource_id == "debate-123"
@@ -123,7 +123,7 @@ class TestAPIKeyScope:
 
     def test_api_key_scope_restricts_permissions(self, checker):
         """API key scope limits available permissions."""
-        scope = APIKeyScope(permissions={"debates.read"})
+        scope = APIKeyScope(permissions={"debates:read"})
         context = AuthorizationContext(
             user_id="api-user",
             org_id="org-1",
@@ -133,11 +133,11 @@ class TestAPIKeyScope:
         )
 
         # Read allowed by scope
-        decision = checker.check_permission(context, "debates.read")
+        decision = checker.check_permission(context, "debates:read")
         assert decision.allowed is True
 
         # Create not in scope
-        decision = checker.check_permission(context, "debates.create")
+        decision = checker.check_permission(context, "debates:create")
         assert decision.allowed is False
         assert "API key scope" in decision.reason
 
@@ -148,11 +148,11 @@ class TestAPIKeyScope:
             user_id="api-user",
             org_id="org-1",
             roles={"editor"},
-            permissions={"debates.create"},
+            permissions={"debates:create"},
             api_key_scope=scope,
         )
 
-        decision = checker.check_permission(context, "debates.create")
+        decision = checker.check_permission(context, "debates:create")
         assert decision.allowed is True
 
     def test_api_key_scope_wildcard(self, checker):
@@ -167,11 +167,11 @@ class TestAPIKeyScope:
         )
 
         # Debates allowed
-        decision = checker.check_permission(context, "debates.delete")
+        decision = checker.check_permission(context, "debates:delete")
         assert decision.allowed is True
 
         # Other resources not allowed by scope
-        decision = checker.check_permission(context, "users.read")
+        decision = checker.check_permission(context, "users:read")
         assert decision.allowed is False
 
 
@@ -187,7 +187,7 @@ class TestResourceAccess:
         context = AuthorizationContext(
             user_id="user-1",
             org_id="org-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
 
         decision = checker.check_resource_access(
@@ -203,7 +203,7 @@ class TestResourceAccess:
         context = AuthorizationContext(
             user_id="user-1",
             org_id="org-1",
-            permissions={"debates.update"},
+            permissions={"debates:update"},
         )
 
         # Register policy that only allows owner to update
@@ -381,16 +381,16 @@ class TestDecisionCaching:
         context = AuthorizationContext(
             user_id="user-1",
             org_id="org-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
 
         # First check
-        decision1 = checker.check_permission(context, "debates.read")
+        decision1 = checker.check_permission(context, "debates:read")
         assert decision1.allowed is True
         assert decision1.cached is not True  # First call not cached
 
         # Second check - should be cached
-        decision2 = checker.check_permission(context, "debates.read")
+        decision2 = checker.check_permission(context, "debates:read")
         assert decision2.allowed is True
         assert decision2.cached is True
 
@@ -399,27 +399,27 @@ class TestDecisionCaching:
         ctx1 = AuthorizationContext(
             user_id="user-1",
             org_id="org-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
         ctx2 = AuthorizationContext(
             user_id="user-2",
             org_id="org-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
 
         # Populate cache
-        checker.check_permission(ctx1, "debates.read")
-        checker.check_permission(ctx2, "debates.read")
+        checker.check_permission(ctx1, "debates:read")
+        checker.check_permission(ctx2, "debates:read")
 
         # Clear only user-1
         checker.clear_cache("user-1")
 
         # user-1 should not be cached
-        decision1 = checker.check_permission(ctx1, "debates.read")
+        decision1 = checker.check_permission(ctx1, "debates:read")
         # Note: We can't easily verify cache miss without internal access
 
         # user-2 should still be cached
-        decision2 = checker.check_permission(ctx2, "debates.read")
+        decision2 = checker.check_permission(ctx2, "debates:read")
         assert decision2.cached is True
 
     def test_clear_all_cache(self, checker):
@@ -427,11 +427,11 @@ class TestDecisionCaching:
         context = AuthorizationContext(
             user_id="user-1",
             org_id="org-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
 
         # Populate cache
-        checker.check_permission(context, "debates.read")
+        checker.check_permission(context, "debates:read")
 
         # Clear all
         checker.clear_cache()
@@ -464,19 +464,19 @@ class TestGlobalChecker:
         """check_permission convenience function uses global."""
         context = AuthorizationContext(
             user_id="user-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
-        decision = check_permission(context, "debates.read")
+        decision = check_permission(context, "debates:read")
         assert decision.allowed is True
 
     def test_has_permission_returns_bool(self):
         """has_permission returns boolean."""
         context = AuthorizationContext(
             user_id="user-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
-        assert has_permission(context, "debates.read") is True
-        assert has_permission(context, "debates.delete") is False
+        assert has_permission(context, "debates:read") is True
+        assert has_permission(context, "debates:delete") is False
 
 
 class TestCacheStats:
@@ -487,12 +487,12 @@ class TestCacheStats:
         checker = PermissionChecker(enable_cache=True, cache_ttl=300)
         context = AuthorizationContext(
             user_id="user-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
 
         # Make some checks to populate cache
-        checker.check_permission(context, "debates.read")
-        checker.check_permission(context, "debates.create")
+        checker.check_permission(context, "debates:read")
+        checker.check_permission(context, "debates:create")
 
         stats = checker.get_cache_stats()
 

@@ -604,25 +604,25 @@ class MockAuthorizationContext:
         if self.permissions is None:
             # Default comprehensive permissions for testing
             self.permissions = [
-                "debates.read",
-                "debates.write",
-                "debates.create",
-                "debates.delete",
-                "agents.read",
-                "agents.write",
+                "debates:read",
+                "debates:write",
+                "debates:create",
+                "debates:delete",
+                "agents:read",
+                "agents:write",
                 "memory.read",
                 "memory.write",
-                "knowledge.read",
-                "knowledge.write",
-                "workflows.read",
-                "workflows.write",
-                "admin.read",
-                "admin.write",
-                "billing.read",
-                "billing.write",
+                "knowledge:read",
+                "knowledge:write",
+                "workflows:read",
+                "workflows:write",
+                "admin:read",
+                "admin:write",
+                "billing:read",
+                "billing:write",
                 "costs.read",
                 "costs.write",
-                "audit.read",
+                "audit:read",
             ]
         if self.timestamp is None:
             from datetime import datetime
@@ -651,8 +651,8 @@ def mock_auth_context():
             assert ctx.has_role("admin")
 
         def test_with_limited_permissions(mock_auth_context):
-            ctx = mock_auth_context(permissions=["debates.read"])
-            assert not ctx.has_permission("debates.write")
+            ctx = mock_auth_context(permissions=["debates:read"])
+            assert not ctx.has_permission("debates:write")
     """
 
     def _create_context(
@@ -687,11 +687,11 @@ def viewer_auth_context(mock_auth_context):
     return mock_auth_context(
         roles=["viewer"],
         permissions=[
-            "debates.read",
-            "agents.read",
+            "debates:read",
+            "agents:read",
             "memory.read",
-            "knowledge.read",
-            "workflows.read",
+            "knowledge:read",
+            "workflows:read",
         ],
     )
 
@@ -702,17 +702,17 @@ def editor_auth_context(mock_auth_context):
     return mock_auth_context(
         roles=["editor"],
         permissions=[
-            "debates.read",
-            "debates.write",
-            "debates.create",
-            "agents.read",
-            "agents.write",
+            "debates:read",
+            "debates:write",
+            "debates:create",
+            "agents:read",
+            "agents:write",
             "memory.read",
             "memory.write",
-            "knowledge.read",
-            "knowledge.write",
-            "workflows.read",
-            "workflows.write",
+            "knowledge:read",
+            "knowledge:write",
+            "workflows:read",
+            "workflows:write",
         ],
     )
 
@@ -734,7 +734,7 @@ def authenticated_handler(mock_auth_context):
                 assert result.status_code == 200
 
         def test_with_custom_permissions(handler, authenticated_handler, mock_http_get):
-            with authenticated_handler(handler, permissions=["debates.read"]):
+            with authenticated_handler(handler, permissions=["debates:read"]):
                 result = handler.handle("/api/v1/debates", {}, mock_http_get, "GET")
     """
     from contextlib import contextmanager

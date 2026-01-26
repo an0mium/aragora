@@ -1,7 +1,7 @@
 # Test Skip Marker Audit
 
-**Generated**: 2026-01-24
-**Total Skip Markers**: 605
+**Generated**: 2026-01-26
+**Total Skip Markers**: 598
 
 ---
 
@@ -9,11 +9,12 @@
 
 | Category | Count | Percentage |
 |----------|-------|------------|
-| missing_feature | 327 | 54.0% |
-| optional_dependency | 226 | 37.4% |
+| missing_feature | 346 | 57.9% |
+| optional_dependency | 193 | 32.3% |
 | integration_dependency | 26 | 4.3% |
-| known_bug | 14 | 2.3% |
-| platform_specific | 7 | 1.2% |
+| known_bug | 12 | 2.0% |
+| platform_specific | 9 | 1.5% |
+| uncategorized | 7 | 1.2% |
 | performance | 3 | 0.5% |
 | flaky_test | 2 | 0.3% |
 
@@ -21,14 +22,14 @@
 
 | Type | Count |
 |------|-------|
-| `pytest.skip` | 352 |
-| `skipif` | 253 |
+| `pytest.skip` | 367 |
+| `skipif` | 224 |
+| `skip` | 7 |
 
 ## High-Skip Files (Top 10)
 
 | File | Skip Count |
 |------|------------|
-| `tests/test_mcp_server.py` | 38 |
 | `tests/test_matrix_debates_integration.py` | 24 |
 | `tests/test_formal.py` | 24 |
 | `tests/server/handlers/test_workflows_handler.py` | 22 |
@@ -37,6 +38,7 @@
 | `tests/test_broadcast_pipeline_e2e.py` | 20 |
 | `tests/rlm/test_compressor.py` | 18 |
 | `tests/e2e/test_security_api_e2e.py` | 18 |
+| `tests/test_handlers_plugins.py` | 16 |
 | `tests/test_connectors_twitter.py` | 15 |
 
 ---
@@ -69,7 +71,7 @@
 
 ## Skip Count Baseline
 
-Current baseline: **605** skips
+Current baseline: **598** skips
 
 CI will warn if skip count exceeds this baseline.
 Update `tests/.skip_baseline` when intentionally adding skips.

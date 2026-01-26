@@ -27,7 +27,7 @@ class TestPermissionDelegation:
         delegation = PermissionDelegation.create(
             delegator_id="manager-123",
             delegatee_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
             org_id="org-789",
             reason="Covering vacation",
         )
@@ -35,7 +35,7 @@ class TestPermissionDelegation:
         assert delegation.id is not None
         assert delegation.delegator_id == "manager-123"
         assert delegation.delegatee_id == "assistant-456"
-        assert delegation.permission_id == "debates.create"
+        assert delegation.permission_id == "debates:create"
         assert delegation.org_id == "org-789"
         assert delegation.reason == "Covering vacation"
         assert delegation.status == DelegationStatus.ACTIVE
@@ -46,7 +46,7 @@ class TestPermissionDelegation:
         delegation = PermissionDelegation.create(
             delegator_id="manager-123",
             delegatee_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
             expires_at=expires,
         )
 
@@ -60,7 +60,7 @@ class TestPermissionDelegation:
         delegation = PermissionDelegation.create(
             delegator_id="manager-123",
             delegatee_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
             expires_at=expired_time,
         )
 
@@ -72,28 +72,28 @@ class TestPermissionDelegation:
         delegation = PermissionDelegation.create(
             delegator_id="manager-123",
             delegatee_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
             org_id="org-789",
         )
 
         # Should match
         assert delegation.matches(
             user_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
             org_id="org-789",
         )
 
         # Wrong user
         assert not delegation.matches(
             user_id="other-user",
-            permission_id="debates.create",
+            permission_id="debates:create",
             org_id="org-789",
         )
 
         # Wrong permission
         assert not delegation.matches(
             user_id="assistant-456",
-            permission_id="debates.delete",
+            permission_id="debates:delete",
             org_id="org-789",
         )
 
@@ -108,21 +108,21 @@ class TestPermissionDelegation:
         # Should match specific actions under wildcard
         assert delegation.matches(
             user_id="manager-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
         )
         assert delegation.matches(
             user_id="manager-456",
-            permission_id="debates.read",
+            permission_id="debates:read",
         )
         assert delegation.matches(
             user_id="manager-456",
-            permission_id="debates.delete",
+            permission_id="debates:delete",
         )
 
         # Should not match different resource
         assert not delegation.matches(
             user_id="manager-456",
-            permission_id="agents.create",
+            permission_id="agents:create",
         )
 
     def test_resource_scoped_delegation(self):
@@ -130,7 +130,7 @@ class TestPermissionDelegation:
         delegation = PermissionDelegation.create(
             delegator_id="owner-123",
             delegatee_id="collaborator-456",
-            permission_id="debates.update",
+            permission_id="debates:update",
             resource_type=ResourceType.DEBATE,
             resource_ids={"debate-1", "debate-2"},
         )
@@ -138,7 +138,7 @@ class TestPermissionDelegation:
         # Should match allowed resources
         assert delegation.matches(
             user_id="collaborator-456",
-            permission_id="debates.update",
+            permission_id="debates:update",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-1",
         )
@@ -146,7 +146,7 @@ class TestPermissionDelegation:
         # Should not match other resources
         assert not delegation.matches(
             user_id="collaborator-456",
-            permission_id="debates.update",
+            permission_id="debates:update",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-3",
         )
@@ -156,7 +156,7 @@ class TestPermissionDelegation:
         delegation = PermissionDelegation.create(
             delegator_id="manager-123",
             delegatee_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
         )
 
         assert delegation.is_valid
@@ -174,7 +174,7 @@ class TestPermissionDelegation:
         delegation = PermissionDelegation.create(
             delegator_id="manager-123",
             delegatee_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
             org_id="org-789",
             workspace_id="workspace-1",
             expires_at=expires,
@@ -209,7 +209,7 @@ class TestDelegationManager:
         delegation = manager.delegate(
             delegator_id="manager-123",
             delegatee_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
             org_id="org-789",
             reason="Project collaboration",
         )
@@ -220,7 +220,7 @@ class TestDelegationManager:
         # Check that it can be found
         found = manager.check_delegation(
             user_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
             org_id="org-789",
         )
         assert found is not None
@@ -234,8 +234,8 @@ class TestDelegationManager:
         delegation = manager.delegate(
             delegator_id="manager-123",
             delegatee_id="assistant-456",
-            permission_id="debates.create",
-            delegator_permissions={"debates.create", "debates.read"},
+            permission_id="debates:create",
+            delegator_permissions={"debates:create", "debates:read"},
         )
         assert delegation is not None
 
@@ -245,7 +245,7 @@ class TestDelegationManager:
                 delegator_id="manager-123",
                 delegatee_id="assistant-456",
                 permission_id="admin.system_config",
-                delegator_permissions={"debates.create", "debates.read"},
+                delegator_permissions={"debates:create", "debates:read"},
             )
 
     def test_delegation_chain_depth_limit(self):
@@ -256,7 +256,7 @@ class TestDelegationManager:
         d1 = manager.delegate(
             delegator_id="owner-1",
             delegatee_id="manager-2",
-            permission_id="debates.create",
+            permission_id="debates:create",
             can_redelegate=True,
         )
 
@@ -264,7 +264,7 @@ class TestDelegationManager:
         d2 = manager.delegate(
             delegator_id="manager-2",
             delegatee_id="assistant-3",
-            permission_id="debates.create",
+            permission_id="debates:create",
             can_redelegate=True,
             parent_delegation=d1,
         )
@@ -274,7 +274,7 @@ class TestDelegationManager:
             manager.delegate(
                 delegator_id="assistant-3",
                 delegatee_id="intern-4",
-                permission_id="debates.create",
+                permission_id="debates:create",
                 parent_delegation=d2,
             )
 
@@ -285,7 +285,7 @@ class TestDelegationManager:
         d1 = manager.delegate(
             delegator_id="manager-1",
             delegatee_id="assistant-2",
-            permission_id="debates.create",
+            permission_id="debates:create",
             can_redelegate=False,
         )
 
@@ -293,7 +293,7 @@ class TestDelegationManager:
             manager.delegate(
                 delegator_id="assistant-2",
                 delegatee_id="intern-3",
-                permission_id="debates.create",
+                permission_id="debates:create",
                 parent_delegation=d1,
             )
 
@@ -304,13 +304,13 @@ class TestDelegationManager:
         delegation = manager.delegate(
             delegator_id="manager-123",
             delegatee_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
         )
 
         # Should have access before revocation
         assert manager.has_delegated_permission(
             user_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
         )
 
         # Revoke
@@ -320,7 +320,7 @@ class TestDelegationManager:
         # Should not have access after revocation
         assert not manager.has_delegated_permission(
             user_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
         )
 
     def test_revoke_cascades_to_children(self):
@@ -331,35 +331,35 @@ class TestDelegationManager:
         d1 = manager.delegate(
             delegator_id="owner-1",
             delegatee_id="manager-2",
-            permission_id="debates.create",
+            permission_id="debates:create",
             can_redelegate=True,
         )
 
         d2 = manager.delegate(
             delegator_id="manager-2",
             delegatee_id="assistant-3",
-            permission_id="debates.create",
+            permission_id="debates:create",
             parent_delegation=d1,
         )
 
         # Both should have access
-        assert manager.has_delegated_permission("manager-2", "debates.create")
-        assert manager.has_delegated_permission("assistant-3", "debates.create")
+        assert manager.has_delegated_permission("manager-2", "debates:create")
+        assert manager.has_delegated_permission("assistant-3", "debates:create")
 
         # Revoke the parent delegation
         manager.revoke(d1.id, revoked_by="owner-1")
 
         # Both should lose access
-        assert not manager.has_delegated_permission("manager-2", "debates.create")
-        assert not manager.has_delegated_permission("assistant-3", "debates.create")
+        assert not manager.has_delegated_permission("manager-2", "debates:create")
+        assert not manager.has_delegated_permission("assistant-3", "debates:create")
 
     def test_list_delegations_by_delegator(self):
         """Test listing delegations made by a user."""
         manager = DelegationManager()
 
-        manager.delegate("manager-1", "user-a", "debates.create")
-        manager.delegate("manager-1", "user-b", "debates.read")
-        manager.delegate("manager-2", "user-c", "debates.create")
+        manager.delegate("manager-1", "user-a", "debates:create")
+        manager.delegate("manager-1", "user-b", "debates:read")
+        manager.delegate("manager-2", "user-c", "debates:create")
 
         delegations = manager.list_delegations_by_delegator("manager-1")
         assert len(delegations) == 2
@@ -369,9 +369,9 @@ class TestDelegationManager:
         """Test listing delegations granted to a user."""
         manager = DelegationManager()
 
-        manager.delegate("manager-1", "assistant-1", "debates.create")
-        manager.delegate("manager-2", "assistant-1", "debates.read")
-        manager.delegate("manager-1", "assistant-2", "debates.create")
+        manager.delegate("manager-1", "assistant-1", "debates:create")
+        manager.delegate("manager-2", "assistant-1", "debates:read")
+        manager.delegate("manager-1", "assistant-2", "debates:create")
 
         delegations = manager.list_delegations_for_delegatee("assistant-1")
         assert len(delegations) == 2
@@ -386,7 +386,7 @@ class TestDelegationManager:
         manager.delegate(
             delegator_id="manager-1",
             delegatee_id="assistant-1",
-            permission_id="debates.create",
+            permission_id="debates:create",
             expires_at=expired,
         )
 
@@ -394,7 +394,7 @@ class TestDelegationManager:
         manager.delegate(
             delegator_id="manager-2",
             delegatee_id="assistant-2",
-            permission_id="debates.create",
+            permission_id="debates:create",
         )
 
         count = manager.cleanup_expired()
@@ -407,9 +407,9 @@ class TestDelegationManager:
         """Test delegation statistics."""
         manager = DelegationManager(max_chain_depth=3)
 
-        manager.delegate("manager-1", "user-a", "debates.create")
-        manager.delegate("manager-1", "user-b", "debates.read")
-        d3 = manager.delegate("manager-2", "user-c", "debates.create")
+        manager.delegate("manager-1", "user-a", "debates:create")
+        manager.delegate("manager-1", "user-b", "debates:read")
+        d3 = manager.delegate("manager-2", "user-c", "debates:create")
         manager.revoke(d3.id, "manager-2")
 
         stats = manager.get_stats()
@@ -431,7 +431,7 @@ class TestGlobalDelegationFunctions:
         delegation = delegate_permission(
             delegator_id="manager-123",
             delegatee_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
             org_id="org-789",
         )
 
@@ -443,19 +443,19 @@ class TestGlobalDelegationFunctions:
         delegate_permission(
             delegator_id="manager-123",
             delegatee_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
             org_id="org-789",
         )
 
         assert check_delegated_permission(
             user_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
             org_id="org-789",
         )
 
         assert not check_delegated_permission(
             user_id="assistant-456",
-            permission_id="debates.delete",
+            permission_id="debates:delete",
             org_id="org-789",
         )
 
@@ -464,7 +464,7 @@ class TestGlobalDelegationFunctions:
         delegation = delegate_permission(
             delegator_id="manager-123",
             delegatee_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
         )
 
         result = revoke_delegation(delegation.id, revoked_by="manager-123")
@@ -472,7 +472,7 @@ class TestGlobalDelegationFunctions:
 
         assert not check_delegated_permission(
             user_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
         )
 
 
@@ -490,7 +490,7 @@ class TestWorkspaceScopedDelegations:
         delegation = manager.delegate(
             delegator_id="manager-123",
             delegatee_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
             org_id="org-789",
             workspace_id="workspace-1",
         )
@@ -498,7 +498,7 @@ class TestWorkspaceScopedDelegations:
         # Should match with correct workspace
         assert manager.has_delegated_permission(
             user_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
             org_id="org-789",
             workspace_id="workspace-1",
         )
@@ -506,7 +506,7 @@ class TestWorkspaceScopedDelegations:
         # Should not match with different workspace
         assert not manager.has_delegated_permission(
             user_id="assistant-456",
-            permission_id="debates.create",
+            permission_id="debates:create",
             org_id="org-789",
             workspace_id="workspace-2",
         )

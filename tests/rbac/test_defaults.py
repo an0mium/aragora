@@ -71,10 +71,10 @@ class TestSystemPermissions:
     def test_debate_permissions_exist(self):
         """Core debate permissions should exist."""
         required = [
-            "debates.create",
-            "debates.read",
-            "debates.update",
-            "debates.delete",
+            "debates:create",
+            "debates:read",
+            "debates:update",
+            "debates:delete",
             "debates.run",
             "debates.stop",
             "debates.fork",
@@ -85,10 +85,10 @@ class TestSystemPermissions:
     def test_agent_permissions_exist(self):
         """Core agent permissions should exist."""
         required = [
-            "agents.create",
-            "agents.read",
-            "agents.update",
-            "agents.delete",
+            "agents:create",
+            "agents:read",
+            "agents:update",
+            "agents:delete",
             "agents.deploy",
         ]
         for key in required:
@@ -228,9 +228,9 @@ class TestGetPermission:
 
     def test_get_existing_permission(self):
         """Should return permission for valid key."""
-        perm = get_permission("debates.create")
+        perm = get_permission("debates:create")
         assert perm is not None
-        assert perm.id == "debates.create"
+        assert perm.id == "debates:create"
         assert perm.resource == ResourceType.DEBATE
         assert perm.action == Action.CREATE
 

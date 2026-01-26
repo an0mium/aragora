@@ -46,7 +46,7 @@ def mock_auth_context():
         org_id="org-123",
         workspace_id="ws-123",
         roles={"member"},
-        permissions={"debates.create", "debates.read"},
+        permissions={"debates:create", "debates:read"},
     )
 
 

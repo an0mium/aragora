@@ -611,7 +611,7 @@ class TestHeaderTrustVulnerabilityFix:
             mock_extract.return_value = mock_jwt_context
 
             error_response = handler._check_permission(
-                mock_request_with_spoofed_headers, "workflows.read"
+                mock_request_with_spoofed_headers, "workflows:read"
             )
 
             # Should return 401 Unauthorized, NOT allow access

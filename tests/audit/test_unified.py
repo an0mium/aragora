@@ -242,7 +242,7 @@ class TestConvenienceMethods:
 
         logger.log_access_check(
             "user_123",
-            permission="admin.delete",
+            permission="admin:delete",
             granted=False,
             reason="Insufficient privileges",
         )

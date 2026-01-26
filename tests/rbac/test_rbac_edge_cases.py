@@ -49,12 +49,12 @@ class TestWorkspaceIsolation:
             user_id="user1",
             org_id="org1",
             workspace_id="workspace_a",
-            permissions={"debates.read", "debates.create"},
+            permissions={"debates:read", "debates:create"},
             roles={"debate_creator"},
         )
 
         # Check permission in their own workspace - should succeed
-        assert context.has_permission("debates.read")
+        assert context.has_permission("debates:read")
 
         # Create a new context for workspace_b attempt
         context_wrong_workspace = AuthorizationContext(
@@ -66,7 +66,7 @@ class TestWorkspaceIsolation:
         )
 
         # Should not have permissions in workspace_b
-        assert not context_wrong_workspace.has_permission("debates.read")
+        assert not context_wrong_workspace.has_permission("debates:read")
 
     def test_workspace_admin_cannot_escalate_to_org_admin(self):
         """Workspace admin should not have org-level admin permissions."""
@@ -80,7 +80,7 @@ class TestWorkspaceIsolation:
         )
 
         # Should have workspace-level permissions
-        assert context.has_permission("debates.create")
+        assert context.has_permission("debates:create")
         assert context.has_permission("agents.deploy")
 
         # Should NOT have org-level admin permissions
@@ -98,7 +98,7 @@ class TestWorkspaceIsolation:
         )
 
         # Should have all permissions in any workspace
-        assert context.has_permission("debates.create")
+        assert context.has_permission("debates:create")
         assert context.has_permission("organization.manage_billing")
         assert context.has_permission("admin.system_config")
 
@@ -122,8 +122,8 @@ class TestCrossOrganizationBoundaries:
             roles=set(),
         )
 
-        assert context_org_alpha.has_permission("debates.create")
-        assert not context_org_beta.has_permission("debates.read")
+        assert context_org_alpha.has_permission("debates:create")
+        assert not context_org_beta.has_permission("debates:read")
 
     def test_user_with_roles_in_multiple_orgs(self):
         """User can have different roles in different organizations."""
@@ -139,14 +139,14 @@ class TestCrossOrganizationBoundaries:
         context_org2 = AuthorizationContext(
             user_id=user_id,
             org_id="org2",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
             roles={"viewer"},
         )
 
-        assert context_org1.has_permission("debates.create")
+        assert context_org1.has_permission("debates:create")
         assert context_org1.has_permission("users.invite")
-        assert context_org2.has_permission("debates.read")
-        assert not context_org2.has_permission("debates.create")
+        assert context_org2.has_permission("debates:read")
+        assert not context_org2.has_permission("debates:create")
 
     def test_platform_owner_cross_org_access(self):
         """Platform owner should have access across all organizations."""
@@ -157,7 +157,7 @@ class TestCrossOrganizationBoundaries:
             roles={"platform_owner"},
         )
 
-        assert context.has_permission("debates.create")
+        assert context.has_permission("debates:create")
         assert context.has_permission("admin.system_config")
         assert context.has_permission("organization.export_data")
 
@@ -177,7 +177,7 @@ class TestMultiLevelRoleHierarchy:
         admin_perms = get_role_permissions("admin")
 
         assert len(owner_perms) > 0
-        assert "debates.create" in admin_perms or len(admin_perms) > 0
+        assert "debates:create" in admin_perms or len(admin_perms) > 0
         assert "admin" in ROLE_HIERARCHY.get("owner", [])
 
     def test_inherited_permissions_from_parent(self):
@@ -189,7 +189,7 @@ class TestMultiLevelRoleHierarchy:
             admin_perms = get_role_permissions("admin")
             dc_perms = get_role_permissions("debate_creator")
 
-            core_debate_perms = {"debates.create", "debates.read", "debates.run"}
+            core_debate_perms = {"debates:create", "debates:read", "debates.run"}
             for perm in core_debate_perms:
                 if perm in dc_perms:
                     assert perm in admin_perms
@@ -201,8 +201,8 @@ class TestMultiLevelRoleHierarchy:
         for perm in viewer_perms:
             assert any(word in perm for word in ["read", "view", "analytics"])
 
-        assert "debates.create" not in viewer_perms
-        assert "debates.delete" not in viewer_perms
+        assert "debates:create" not in viewer_perms
+        assert "debates:delete" not in viewer_perms
 
 
 class TestAPIKeyScopeEdgeCases:
@@ -211,7 +211,7 @@ class TestAPIKeyScopeEdgeCases:
     def test_api_key_scope_restricts_wildcard_user_permissions(self):
         """API key scope should restrict even if user has wildcard."""
         api_key_scope = APIKeyScope(
-            permissions={"debates.read", "debates.create"},
+            permissions={"debates:read", "debates:create"},
         )
 
         context = AuthorizationContext(
@@ -220,15 +220,15 @@ class TestAPIKeyScopeEdgeCases:
             api_key_scope=api_key_scope,
         )
 
-        assert context.has_permission("debates.read")
-        assert context.has_permission("debates.create")
-        assert not context.has_permission("debates.delete")
-        assert not context.has_permission("agents.create")
+        assert context.has_permission("debates:read")
+        assert context.has_permission("debates:create")
+        assert not context.has_permission("debates:delete")
+        assert not context.has_permission("agents:create")
 
     def test_api_key_explicit_scope_limits_access(self):
         """API key with explicit scope limits even wildcard user permissions."""
         api_key_scope = APIKeyScope(
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
 
         context = AuthorizationContext(
@@ -237,14 +237,14 @@ class TestAPIKeyScopeEdgeCases:
             api_key_scope=api_key_scope,
         )
 
-        assert context.has_permission("debates.read")
-        assert not context.has_permission("debates.create")
+        assert context.has_permission("debates:read")
+        assert not context.has_permission("debates:create")
 
     def test_api_key_scope_intersection(self):
         """API key scope should intersect with user permissions."""
-        user_perms = {"debates.read", "debates.create", "agents.read"}
+        user_perms = {"debates:read", "debates:create", "agents:read"}
         api_key_scope = APIKeyScope(
-            permissions={"debates.read", "debates.delete", "agents.read"},
+            permissions={"debates:read", "debates:delete", "agents:read"},
         )
 
         context = AuthorizationContext(
@@ -253,10 +253,10 @@ class TestAPIKeyScopeEdgeCases:
             api_key_scope=api_key_scope,
         )
 
-        assert context.has_permission("debates.read")
-        assert context.has_permission("agents.read")
-        assert not context.has_permission("debates.create")
-        assert not context.has_permission("debates.delete")
+        assert context.has_permission("debates:read")
+        assert context.has_permission("agents:read")
+        assert not context.has_permission("debates:create")
+        assert not context.has_permission("debates:delete")
 
 
 class TestInvalidPermissionHandling:
@@ -274,7 +274,7 @@ class TestInvalidPermissionHandling:
         """Malformed permission keys should be handled gracefully."""
         context = AuthorizationContext(
             user_id="user1",
-            permissions={"debates.create"},
+            permissions={"debates:create"},
         )
         assert not context.has_permission("...")
         assert not context.has_permission("debates")
@@ -284,7 +284,7 @@ class TestInvalidPermissionHandling:
         """Permission check for nonexistent resource type."""
         context = AuthorizationContext(
             user_id="user1",
-            permissions={"debates.create"},
+            permissions={"debates:create"},
         )
         assert not context.has_permission("unicorns.fly")
         assert not context.has_permission("foobar.create")
@@ -293,9 +293,9 @@ class TestInvalidPermissionHandling:
         """Permission keys should be case-sensitive."""
         context = AuthorizationContext(
             user_id="user1",
-            permissions={"debates.create"},
+            permissions={"debates:create"},
         )
-        assert context.has_permission("debates.create")
+        assert context.has_permission("debates:create")
         assert not context.has_permission("Debates.create")
         assert not context.has_permission("debates.CREATE")
 
@@ -375,12 +375,12 @@ class TestRoleModel:
         role = Role(
             id="role1",
             name="custom_analyst",
-            permissions={"debates.read", "analytics.view"},
+            permissions={"debates:read", "analytics:view"},
             description="Custom analyst role",
         )
 
         assert role.name == "custom_analyst"
-        assert "debates.read" in role.permissions
+        assert "debates:read" in role.permissions
 
     def test_role_priority(self):
         """Test Role priority for hierarchy."""
@@ -400,10 +400,10 @@ class TestWildcardPermissionEdgeCases:
             permissions={"debates.*"},
         )
 
-        assert context.has_permission("debates.create")
-        assert context.has_permission("debates.read")
-        assert context.has_permission("debates.delete")
-        assert not context.has_permission("agents.create")
+        assert context.has_permission("debates:create")
+        assert context.has_permission("debates:read")
+        assert context.has_permission("debates:delete")
+        assert not context.has_permission("agents:create")
 
     def test_super_wildcard_matches_all(self):
         """Test * wildcard matches everything."""
@@ -412,7 +412,7 @@ class TestWildcardPermissionEdgeCases:
             permissions={"*"},
         )
 
-        assert context.has_permission("debates.create")
+        assert context.has_permission("debates:create")
         assert context.has_permission("agents.deploy")
         assert context.has_permission("admin.system_config")
 
@@ -423,7 +423,7 @@ class TestWildcardPermissionEdgeCases:
             permissions={"debates.*", "agents.*"},
         )
 
-        assert context.has_permission("debates.create")
+        assert context.has_permission("debates:create")
         assert context.has_permission("agents.deploy")
         assert not context.has_permission("users.invite")
 
@@ -436,11 +436,11 @@ class TestContextualPermissions:
         context = AuthorizationContext(
             user_id="user1",
             org_id="org_specific",
-            permissions={"debates.create"},
+            permissions={"debates:create"},
         )
 
         assert context.org_id == "org_specific"
-        assert context.has_permission("debates.create")
+        assert context.has_permission("debates:create")
 
 
 class TestEdgeCaseCombinations:
@@ -449,7 +449,7 @@ class TestEdgeCaseCombinations:
     def test_api_key_limits_owner_permissions(self):
         """API key scope restricts even owner permissions."""
         limited_key = APIKeyScope(
-            permissions={"debates.read", "agents.read"},
+            permissions={"debates:read", "agents:read"},
         )
 
         context = AuthorizationContext(
@@ -458,14 +458,14 @@ class TestEdgeCaseCombinations:
             api_key_scope=limited_key,
         )
 
-        assert context.has_permission("debates.read")
-        assert context.has_permission("agents.read")
-        assert not context.has_permission("debates.create")
+        assert context.has_permission("debates:read")
+        assert context.has_permission("agents:read")
+        assert not context.has_permission("debates:create")
         assert not context.has_permission("admin.system_config")
 
     def test_owner_with_restricted_api_key(self):
         """Even owners should be restricted by API key scope."""
-        restricted_key = APIKeyScope(permissions={"debates.read"})
+        restricted_key = APIKeyScope(permissions={"debates:read"})
 
         context = AuthorizationContext(
             user_id="owner1",
@@ -474,8 +474,8 @@ class TestEdgeCaseCombinations:
             api_key_scope=restricted_key,
         )
 
-        assert context.has_permission("debates.read")
-        assert not context.has_permission("debates.create")
+        assert context.has_permission("debates:read")
+        assert not context.has_permission("debates:create")
         assert not context.has_permission("admin.system_config")
 
     def test_empty_roles_empty_permissions(self):
@@ -486,7 +486,7 @@ class TestEdgeCaseCombinations:
             roles=set(),
         )
 
-        assert not context.has_permission("debates.read")
+        assert not context.has_permission("debates:read")
         assert not context.has_permission("*")
         assert not context.has_role("viewer")
 
@@ -498,12 +498,12 @@ class TestDecisionCaching:
         """Test AuthorizationDecision creation."""
         decision = AuthorizationDecision(
             allowed=True,
-            permission_key="debates.create",
+            permission_key="debates:create",
             reason="Permission granted via role",
         )
 
         assert decision.allowed is True
-        assert decision.permission_key == "debates.create"
+        assert decision.permission_key == "debates:create"
         assert "granted" in decision.reason
 
     def test_authorization_decision_denied(self):

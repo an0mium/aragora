@@ -13,6 +13,21 @@ from aragora.config import DEFAULT_AGENTS, MAX_AGENTS_PER_DEBATE
 from aragora.exceptions import ConfigurationError
 from aragora.rlm.debate_integration import create_training_hook
 
+# Import credential validator for auto-trim
+try:
+    from aragora.agents.credential_validator import (
+        filter_available_agents,
+        get_credential_status,
+        log_credential_status,
+    )
+
+    CREDENTIAL_VALIDATOR_AVAILABLE = True
+except ImportError:
+    CREDENTIAL_VALIDATOR_AVAILABLE = False
+    filter_available_agents = None
+    get_credential_status = None
+    log_credential_status = None
+
 logger = logging.getLogger(__name__)
 
 # Import create_agent for agent creation
@@ -72,6 +87,7 @@ class DebateConfig:
     debate_id: Optional[str] = None
     trending_topic: Optional["TrendingTopic"] = None  # TrendingTopic from pulse
     metadata: Optional[dict] = None  # Custom metadata (e.g., is_onboarding)
+    auto_trim_unavailable: bool = True  # Auto-remove agents without credentials
 
     def parse_agent_specs(self) -> list[AgentSpec]:
         """Parse agent specifications from comma-separated string or list.
@@ -79,11 +95,14 @@ class DebateConfig:
         Supports both new pipe-delimited format (provider|model|persona|role)
         and legacy colon format (provider:persona).
 
+        When auto_trim_unavailable is True, agents without valid credentials
+        are automatically filtered out with a warning.
+
         Returns:
             List of AgentSpec objects
 
         Raises:
-            ValueError: If agent count exceeds maximum or minimum
+            ValueError: If agent count exceeds maximum or minimum (after filtering)
         """
         # Handle both string and list formats
         if isinstance(self.agents_str, list):
@@ -96,6 +115,26 @@ class DebateConfig:
 
         # Use unified AgentSpec.parse_list for parsing
         specs = AgentSpec.parse_list(agents_str)
+
+        # Auto-trim unavailable agents if enabled and validator is available
+        if self.auto_trim_unavailable and CREDENTIAL_VALIDATOR_AVAILABLE:
+            try:
+                specs, filtered = filter_available_agents(
+                    specs,
+                    log_filtered=True,
+                    min_agents=2,
+                )
+                if filtered:
+                    logger.info(
+                        f"Auto-trimmed {len(filtered)} agents without credentials: "
+                        f"{', '.join(f[0] for f in filtered)}"
+                    )
+            except ValueError as e:
+                # Re-raise with more context
+                raise ValueError(
+                    f"Not enough agents with valid credentials. {e}. "
+                    "Please configure the required API keys or use different agents."
+                ) from e
 
         # Validate count
         if len(specs) > MAX_AGENTS_PER_DEBATE:

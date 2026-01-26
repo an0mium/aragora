@@ -64,7 +64,7 @@ class TestRBACMiddleware:
         """Unauthenticated requests to protected routes should be denied."""
         config = RBACMiddlewareConfig(
             route_permissions=[
-                RoutePermission(r"^/api/debates$", "POST", "debates.create"),
+                RoutePermission(r"^/api/debates$", "POST", "debates:create"),
             ],
             default_authenticated=True,
         )
@@ -79,7 +79,7 @@ class TestRBACMiddleware:
         """Authenticated requests with correct permission should be allowed."""
         config = RBACMiddlewareConfig(
             route_permissions=[
-                RoutePermission(r"^/api/debates$", "POST", "debates.create"),
+                RoutePermission(r"^/api/debates$", "POST", "debates:create"),
             ],
         )
         middleware = RBACMiddleware(config)
@@ -87,18 +87,18 @@ class TestRBACMiddleware:
         # Create auth context with permission
         auth_ctx = AuthorizationContext(
             user_id="user_123",
-            permissions={"debates.create"},
+            permissions={"debates:create"},
         )
 
         allowed, reason, perm = middleware.check_request("/api/debates", "POST", auth_ctx)
         assert allowed is True
-        assert perm == "debates.create"
+        assert perm == "debates:create"
 
     def test_authenticated_without_permission(self):
         """Authenticated requests without required permission should be denied."""
         config = RBACMiddlewareConfig(
             route_permissions=[
-                RoutePermission(r"^/api/debates$", "POST", "debates.create"),
+                RoutePermission(r"^/api/debates$", "POST", "debates:create"),
             ],
         )
         middleware = RBACMiddleware(config)
@@ -106,12 +106,12 @@ class TestRBACMiddleware:
         # Create auth context without permission
         auth_ctx = AuthorizationContext(
             user_id="user_123",
-            permissions={"debates.read"},  # Wrong permission
+            permissions={"debates:read"},  # Wrong permission
         )
 
         allowed, reason, perm = middleware.check_request("/api/debates", "POST", auth_ctx)
         assert allowed is False
-        assert perm == "debates.create"
+        assert perm == "debates:create"
 
     def test_allow_unauthenticated_route(self):
         """Routes marked allow_unauthenticated should work without auth."""
@@ -131,14 +131,14 @@ class TestRBACMiddleware:
         """Route patterns should match correctly."""
         config = RBACMiddlewareConfig(
             route_permissions=[
-                RoutePermission(r"^/api/debates/([^/]+)$", "GET", "debates.read", 1),
+                RoutePermission(r"^/api/debates/([^/]+)$", "GET", "debates:read", 1),
             ],
         )
         middleware = RBACMiddleware(config)
 
         auth_ctx = AuthorizationContext(
             user_id="user_123",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
 
         # Should match with resource ID
@@ -159,7 +159,7 @@ class TestRBACMiddleware:
 
         # Check some expected permissions exist
         debate_create = middleware.get_required_permission("/api/debates", "POST")
-        assert debate_create == "debates.create"
+        assert debate_create == "debates:create"
 
         admin_perm = middleware.get_required_permission("/api/admin/users", "GET")
         assert admin_perm == "admin.*"
@@ -170,7 +170,7 @@ class TestRoutePermission:
 
     def test_matches_exact_path(self):
         """Exact path patterns should match."""
-        rule = RoutePermission(r"^/api/debates$", "GET", "debates.read")
+        rule = RoutePermission(r"^/api/debates$", "GET", "debates:read")
 
         matches, resource_id = rule.matches("/api/debates", "GET")
         assert matches is True
@@ -178,7 +178,7 @@ class TestRoutePermission:
 
     def test_matches_with_capture_group(self):
         """Patterns with capture groups should extract resource ID."""
-        rule = RoutePermission(r"^/api/debates/([^/]+)$", "GET", "debates.read", 1)
+        rule = RoutePermission(r"^/api/debates/([^/]+)$", "GET", "debates:read", 1)
 
         matches, resource_id = rule.matches("/api/debates/abc123", "GET")
         assert matches is True
@@ -186,7 +186,7 @@ class TestRoutePermission:
 
     def test_method_mismatch(self):
         """Wrong method should not match."""
-        rule = RoutePermission(r"^/api/debates$", "POST", "debates.create")
+        rule = RoutePermission(r"^/api/debates$", "POST", "debates:create")
 
         matches, _ = rule.matches("/api/debates", "GET")
         assert matches is False
@@ -225,8 +225,8 @@ class TestUnifiedServerRBACIntegration:
         rbac = UnifiedHandler.rbac
 
         # Debates endpoints
-        assert rbac.get_required_permission("/api/debates", "POST") == "debates.create"
-        assert rbac.get_required_permission("/api/debates", "GET") == "debates.read"
+        assert rbac.get_required_permission("/api/debates", "POST") == "debates:create"
+        assert rbac.get_required_permission("/api/debates", "GET") == "debates:read"
 
         # Admin endpoints require admin permission
         assert rbac.get_required_permission("/api/admin/users", "GET") == "admin.*"
@@ -260,4 +260,4 @@ class TestUnifiedServerRBACIntegration:
         # With default_authenticated=False, unmatched routes are allowed
         # but matched routes with permission requirements should fail
         if perm:  # If a permission is required
-            assert allowed is False or perm == "debates.create"
+            assert allowed is False or perm == "debates:create"

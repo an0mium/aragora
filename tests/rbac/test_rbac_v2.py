@@ -49,11 +49,11 @@ class TestAuthorizationContext:
         """Test exact permission match."""
         context = AuthorizationContext(
             user_id="user1",
-            permissions={"debates.create", "debates.read"},
+            permissions={"debates:create", "debates:read"},
         )
-        assert context.has_permission("debates.create")
-        assert context.has_permission("debates.read")
-        assert not context.has_permission("debates.delete")
+        assert context.has_permission("debates:create")
+        assert context.has_permission("debates:read")
+        assert not context.has_permission("debates:delete")
 
     def test_has_permission_wildcard(self):
         """Test wildcard permission matching."""
@@ -61,9 +61,9 @@ class TestAuthorizationContext:
             user_id="user1",
             permissions={"debates.*"},
         )
-        assert context.has_permission("debates.create")
-        assert context.has_permission("debates.delete")
-        assert not context.has_permission("agents.create")
+        assert context.has_permission("debates:create")
+        assert context.has_permission("debates:delete")
+        assert not context.has_permission("agents:create")
 
     def test_has_permission_super_wildcard(self):
         """Test super wildcard grants all."""
@@ -71,8 +71,8 @@ class TestAuthorizationContext:
             user_id="user1",
             permissions={"*"},
         )
-        assert context.has_permission("debates.create")
-        assert context.has_permission("agents.delete")
+        assert context.has_permission("debates:create")
+        assert context.has_permission("agents:delete")
         assert context.has_permission("admin.system_config")
 
     def test_has_role(self):
@@ -101,22 +101,22 @@ class TestAPIKeyScope:
     def test_allows_permission_empty_scope(self):
         """Empty permissions means full access."""
         scope = APIKeyScope()
-        assert scope.allows_permission("debates.create")
+        assert scope.allows_permission("debates:create")
         assert scope.allows_permission("anything.else")
 
     def test_allows_permission_limited(self):
         """Limited scope only allows specified permissions."""
-        scope = APIKeyScope(permissions={"debates.read", "debates.create"})
-        assert scope.allows_permission("debates.read")
-        assert scope.allows_permission("debates.create")
-        assert not scope.allows_permission("debates.delete")
+        scope = APIKeyScope(permissions={"debates:read", "debates:create"})
+        assert scope.allows_permission("debates:read")
+        assert scope.allows_permission("debates:create")
+        assert not scope.allows_permission("debates:delete")
 
     def test_allows_permission_wildcard(self):
         """Wildcard scope allows all under resource."""
         scope = APIKeyScope(permissions={"debates.*"})
-        assert scope.allows_permission("debates.read")
-        assert scope.allows_permission("debates.delete")
-        assert not scope.allows_permission("agents.create")
+        assert scope.allows_permission("debates:read")
+        assert scope.allows_permission("debates:delete")
+        assert not scope.allows_permission("agents:create")
 
 
 class TestPermissionChecker:
@@ -136,7 +136,7 @@ class TestPermissionChecker:
             permissions=get_role_permissions("admin"),
         )
 
-        decision = checker.check_permission(context, "debates.create")
+        decision = checker.check_permission(context, "debates:create")
         assert decision.allowed
         assert "granted" in decision.reason.lower()
 
@@ -149,7 +149,7 @@ class TestPermissionChecker:
             permissions=get_role_permissions("viewer"),
         )
 
-        decision = checker.check_permission(context, "debates.create")
+        decision = checker.check_permission(context, "debates:create")
         assert not decision.allowed
         assert "not granted" in decision.reason.lower()
 
@@ -160,11 +160,11 @@ class TestPermissionChecker:
             user_id="user1",
             roles={"admin"},
             permissions=get_role_permissions("admin"),
-            api_key_scope=APIKeyScope(permissions={"debates.read"}),
+            api_key_scope=APIKeyScope(permissions={"debates:read"}),
         )
 
         # Admin has debates.create but API key scope doesn't
-        decision = checker.check_permission(context, "debates.create")
+        decision = checker.check_permission(context, "debates:create")
         assert not decision.allowed
         assert "scope" in decision.reason.lower()
 
@@ -178,11 +178,11 @@ class TestPermissionChecker:
         )
 
         # First check
-        decision1 = checker.check_permission(context, "debates.create")
+        decision1 = checker.check_permission(context, "debates:create")
         assert not decision1.cached
 
         # Second check should be cached
-        decision2 = checker.check_permission(context, "debates.create")
+        decision2 = checker.check_permission(context, "debates:create")
         assert decision2.cached
         assert decision2.allowed == decision1.allowed
 
@@ -208,9 +208,9 @@ class TestRoleHierarchy:
     def test_viewer_has_minimal_permissions(self):
         """Viewer should have minimal read-only permissions."""
         permissions = get_role_permissions("viewer")
-        assert "debates.read" in permissions
-        assert "debates.create" not in permissions
-        assert "debates.delete" not in permissions
+        assert "debates:read" in permissions
+        assert "debates:create" not in permissions
+        assert "debates:delete" not in permissions
 
 
 class TestDecorators:
@@ -219,13 +219,13 @@ class TestDecorators:
     def test_require_permission_allowed(self):
         """Test require_permission decorator when allowed."""
 
-        @require_permission("debates.read")
+        @require_permission("debates:read")
         def handler(context: AuthorizationContext):
             return "success"
 
         context = AuthorizationContext(
             user_id="user1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
 
         result = handler(context=context)
@@ -234,13 +234,13 @@ class TestDecorators:
     def test_require_permission_denied(self):
         """Test require_permission decorator when denied."""
 
-        @require_permission("debates.delete")
+        @require_permission("debates:delete")
         def handler(context: AuthorizationContext):
             return "success"
 
         context = AuthorizationContext(
             user_id="user1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
 
         with pytest.raises(PermissionDeniedError):
@@ -310,13 +310,13 @@ class TestAsyncDecorators:
     async def test_require_permission_async(self):
         """Test require_permission on async function."""
 
-        @require_permission("debates.create")
+        @require_permission("debates:create")
         async def handler(context: AuthorizationContext):
             return "success"
 
         context = AuthorizationContext(
             user_id="user1",
-            permissions={"debates.create"},
+            permissions={"debates:create"},
         )
 
         result = await handler(context=context)
@@ -343,7 +343,7 @@ class TestMiddleware:
         rule = RoutePermission(
             r"^/api/debates/([^/]+)$",
             "GET",
-            "debates.read",
+            "debates:read",
             resource_id_group=1,
         )
 
@@ -379,12 +379,12 @@ class TestMiddleware:
 
         context = AuthorizationContext(
             user_id="user1",
-            permissions={"debates.create"},
+            permissions={"debates:create"},
         )
 
         allowed, reason, perm = middleware.check_request("/api/debates", "POST", context)
         assert allowed
-        assert perm == "debates.create"
+        assert perm == "debates:create"
 
 
 class TestAudit:
@@ -403,7 +403,7 @@ class TestAudit:
         decision = AuthorizationDecision(
             allowed=True,
             reason="Permission granted",
-            permission_key="debates.create",
+            permission_key="debates:create",
             context=context,
         )
 
@@ -413,7 +413,7 @@ class TestAudit:
         event = events[-1]
         assert event.event_type == AuditEventType.PERMISSION_GRANTED
         assert event.user_id == "user1"
-        assert event.permission_key == "debates.create"
+        assert event.permission_key == "debates:create"
 
     def test_audit_denied_logging(self):
         """Test audit logs denied decisions."""

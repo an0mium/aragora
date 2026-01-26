@@ -44,7 +44,7 @@ def auth_context():
         user_id="user-123",
         org_id="org-456",
         roles={"member", "analyst"},
-        permissions={"debates.read", "debates.create"},
+        permissions={"debates:read", "debates:create"},
     )
 
 
@@ -164,10 +164,10 @@ class TestSecureHandlerCheckPermission:
             return_value=mock_checker,
         ):
             with patch("aragora.observability.metrics.security.record_rbac_decision"):
-                result = secure_handler.check_permission(auth_context, "debates.read")
+                result = secure_handler.check_permission(auth_context, "debates:read")
                 assert result is True
                 mock_checker.check_permission.assert_called_once_with(
-                    auth_context, "debates.read", None
+                    auth_context, "debates:read", None
                 )
 
     def test_check_permission_denied_raises(self, secure_handler, auth_context):
@@ -184,8 +184,8 @@ class TestSecureHandlerCheckPermission:
         ):
             with patch("aragora.observability.metrics.security.record_rbac_decision"):
                 with pytest.raises(ForbiddenError) as exc_info:
-                    secure_handler.check_permission(auth_context, "admin.delete")
-                assert "admin.delete" in str(exc_info.value)
+                    secure_handler.check_permission(auth_context, "admin:delete")
+                assert "admin:delete" in str(exc_info.value)
 
     def test_check_permission_with_resource_id(self, secure_handler, auth_context):
         """check_permission passes resource_id to checker."""
@@ -200,9 +200,9 @@ class TestSecureHandlerCheckPermission:
             return_value=mock_checker,
         ):
             with patch("aragora.observability.metrics.security.record_rbac_decision"):
-                secure_handler.check_permission(auth_context, "debates.read", "debate-123")
+                secure_handler.check_permission(auth_context, "debates:read", "debate-123")
                 mock_checker.check_permission.assert_called_once_with(
-                    auth_context, "debates.read", "debate-123"
+                    auth_context, "debates:read", "debate-123"
                 )
 
 
@@ -251,7 +251,7 @@ class TestSecureHandlerAuditAction:
 
             call_kwargs = mock_audit_log.append.call_args.kwargs
             assert call_kwargs["resource_type"] == "settings"
-            assert call_kwargs["event_type"] == "settings.update"
+            assert call_kwargs["event_type"] == "settings:update"
 
     @pytest.mark.asyncio
     async def test_audit_action_with_details(self, secure_handler, auth_context):
@@ -314,7 +314,7 @@ class TestSecureHandlerErrorHandling:
     def test_handle_forbidden_error(self, secure_handler):
         """handle_security_error returns 403 for ForbiddenError."""
         with patch("aragora.observability.metrics.security.record_blocked_request"):
-            error = ForbiddenError("No access", permission="admin.delete")
+            error = ForbiddenError("No access", permission="admin:delete")
             result = secure_handler.handle_security_error(error)
             assert result.status_code == 403
 
@@ -372,7 +372,7 @@ class TestSecureEndpointDecorator:
         """@secure_endpoint checks permission when specified."""
 
         class TestHandler(SecureHandler):
-            @secure_endpoint(permission="debates.create")
+            @secure_endpoint(permission="debates:create")
             async def handle_post(self, request, auth_context):
                 return json_response({"created": True})
 
@@ -385,7 +385,7 @@ class TestSecureEndpointDecorator:
                 with patch("aragora.observability.metrics.security.record_auth_attempt"):
                     with patch("aragora.observability.metrics.security.track_rbac_evaluation"):
                         await handler.handle_post(mock_request)
-                        mock_check.assert_called_once_with(auth_context, "debates.create", None)
+                        mock_check.assert_called_once_with(auth_context, "debates:create", None)
 
     @pytest.mark.asyncio
     async def test_secure_endpoint_permission_with_resource_id(
@@ -394,7 +394,7 @@ class TestSecureEndpointDecorator:
         """@secure_endpoint passes resource_id from kwargs."""
 
         class TestHandler(SecureHandler):
-            @secure_endpoint(permission="debates.read", resource_id_param="debate_id")
+            @secure_endpoint(permission="debates:read", resource_id_param="debate_id")
             async def handle_get(self, request, auth_context, debate_id=None):
                 return json_response({"id": debate_id})
 
@@ -408,7 +408,7 @@ class TestSecureEndpointDecorator:
                     with patch("aragora.observability.metrics.security.track_rbac_evaluation"):
                         await handler.handle_get(mock_request, debate_id="debate-123")
                         mock_check.assert_called_once_with(
-                            auth_context, "debates.read", "debate-123"
+                            auth_context, "debates:read", "debate-123"
                         )
 
     @pytest.mark.asyncio
@@ -515,7 +515,7 @@ class TestSecureEndpointDecorator:
         """@secure_endpoint handles ForbiddenError."""
 
         class TestHandler(SecureHandler):
-            @secure_endpoint(permission="admin.manage")
+            @secure_endpoint(permission="admin:manage")
             async def handle_post(self, request, auth_context):
                 return json_response({})
 
@@ -545,7 +545,7 @@ class TestSecureEndpointDecorator:
         """@secure_endpoint handles PermissionDeniedError."""
 
         class TestHandler(SecureHandler):
-            @secure_endpoint(permission="users.delete")
+            @secure_endpoint(permission="users:delete")
             async def handle_delete(self, request, auth_context):
                 return json_response({})
 
@@ -557,7 +557,7 @@ class TestSecureEndpointDecorator:
             with patch.object(
                 handler,
                 "check_permission",
-                side_effect=PermissionDeniedError("users.delete"),
+                side_effect=PermissionDeniedError("users:delete"),
             ):
                 with patch.object(
                     handler,
@@ -576,7 +576,7 @@ class TestSecureEndpointDecorator:
         """@secure_endpoint handles RoleRequiredError."""
 
         class TestHandler(SecureHandler):
-            @secure_endpoint(permission="system.configure")
+            @secure_endpoint(permission="system:configure")
             async def handle_post(self, request, auth_context):
                 return json_response({})
 
@@ -710,9 +710,9 @@ class TestSecurityExceptions:
 
     def test_forbidden_error_with_permission(self):
         """ForbiddenError stores permission info."""
-        error = ForbiddenError("No access to debates", permission="debates.delete")
+        error = ForbiddenError("No access to debates", permission="debates:delete")
         assert error.message == "No access to debates"
-        assert error.permission == "debates.delete"
+        assert error.permission == "debates:delete"
 
 
 # -----------------------------------------------------------------------------
@@ -731,7 +731,7 @@ class TestSecureHandlerIntegration:
             RESOURCE_TYPE = "debate"
 
             @secure_endpoint(
-                permission="debates.create",
+                permission="debates:create",
                 audit=True,
                 resource_id_param="debate_id",
             )
@@ -781,19 +781,19 @@ class TestSecureHandlerIntegration:
         class WorkflowHandler(SecureHandler):
             RESOURCE_TYPE = "workflow"
             DEFAULT_METHOD_PERMISSIONS = {
-                "GET": "workflows.read",
-                "POST": "workflows.create",
-                "PUT": "workflows.update",
-                "DELETE": "workflows.delete",
+                "GET": "workflows:read",
+                "POST": "workflows:create",
+                "PUT": "workflows:update",
+                "DELETE": "workflows:delete",
             }
 
-            @secure_endpoint(permission="workflows.read")
+            @secure_endpoint(permission="workflows:read")
             async def handle_get(self, request, auth_context):
                 return json_response({"workflows": []})
 
         handler = WorkflowHandler(server_context)
         assert handler.RESOURCE_TYPE == "workflow"
-        assert handler.DEFAULT_METHOD_PERMISSIONS["GET"] == "workflows.read"
+        assert handler.DEFAULT_METHOD_PERMISSIONS["GET"] == "workflows:read"
 
         with patch.object(
             handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context

@@ -50,13 +50,13 @@ class TestResourcePermission:
         perm = ResourcePermission(
             id="perm-1",
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
         assert perm.id == "perm-1"
         assert perm.user_id == "user-1"
-        assert perm.permission_id == "debates.read"
+        assert perm.permission_id == "debates:read"
         assert perm.resource_type == ResourceType.DEBATE
         assert perm.resource_id == "debate-123"
         assert perm.is_active is True
@@ -66,7 +66,7 @@ class TestResourcePermission:
         """Test ResourcePermission.create factory method."""
         perm = ResourcePermission.create(
             user_id="user-1",
-            permission_id="debates.update",
+            permission_id="debates:update",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-456",
             granted_by="admin-1",
@@ -83,7 +83,7 @@ class TestResourcePermission:
         future = datetime.now(timezone.utc) + timedelta(hours=1)
         perm = ResourcePermission.create(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
             expires_at=future,
@@ -96,7 +96,7 @@ class TestResourcePermission:
         past = datetime.now(timezone.utc) - timedelta(hours=1)
         perm = ResourcePermission.create(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
             expires_at=past,
@@ -109,7 +109,7 @@ class TestResourcePermission:
         perm = ResourcePermission(
             id="perm-1",
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
             is_active=False,
@@ -121,7 +121,7 @@ class TestResourcePermission:
         """Test action extraction from permission_id."""
         perm = ResourcePermission.create(
             user_id="user-1",
-            permission_id="debates.update",
+            permission_id="debates:update",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
@@ -131,14 +131,14 @@ class TestResourcePermission:
         """Test exact permission matching."""
         perm = ResourcePermission.create(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
-        assert perm.matches("user-1", "debates.read", ResourceType.DEBATE, "debate-123")
-        assert not perm.matches("user-2", "debates.read", ResourceType.DEBATE, "debate-123")
-        assert not perm.matches("user-1", "debates.update", ResourceType.DEBATE, "debate-123")
-        assert not perm.matches("user-1", "debates.read", ResourceType.DEBATE, "debate-999")
+        assert perm.matches("user-1", "debates:read", ResourceType.DEBATE, "debate-123")
+        assert not perm.matches("user-2", "debates:read", ResourceType.DEBATE, "debate-123")
+        assert not perm.matches("user-1", "debates:update", ResourceType.DEBATE, "debate-123")
+        assert not perm.matches("user-1", "debates:read", ResourceType.DEBATE, "debate-999")
 
     def test_permission_matches_wildcard(self):
         """Test wildcard permission matching."""
@@ -148,36 +148,36 @@ class TestResourcePermission:
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
-        assert perm.matches("user-1", "debates.read", ResourceType.DEBATE, "debate-123")
-        assert perm.matches("user-1", "debates.update", ResourceType.DEBATE, "debate-123")
-        assert perm.matches("user-1", "debates.delete", ResourceType.DEBATE, "debate-123")
+        assert perm.matches("user-1", "debates:read", ResourceType.DEBATE, "debate-123")
+        assert perm.matches("user-1", "debates:update", ResourceType.DEBATE, "debate-123")
+        assert perm.matches("user-1", "debates:delete", ResourceType.DEBATE, "debate-123")
 
     def test_permission_matches_org_scope(self):
         """Test permission matching respects org scope."""
         perm = ResourcePermission.create(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
             org_id="org-1",
         )
-        assert perm.matches("user-1", "debates.read", ResourceType.DEBATE, "debate-123", "org-1")
+        assert perm.matches("user-1", "debates:read", ResourceType.DEBATE, "debate-123", "org-1")
         assert not perm.matches(
-            "user-1", "debates.read", ResourceType.DEBATE, "debate-123", "org-2"
+            "user-1", "debates:read", ResourceType.DEBATE, "debate-123", "org-2"
         )
 
     def test_permission_to_dict(self):
         """Test serialization to dictionary."""
         perm = ResourcePermission.create(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
             granted_by="admin-1",
         )
         data = perm.to_dict()
         assert data["user_id"] == "user-1"
-        assert data["permission_id"] == "debates.read"
+        assert data["permission_id"] == "debates:read"
         assert data["resource_type"] == "debates"
         assert data["resource_id"] == "debate-123"
         assert "granted_at" in data
@@ -187,7 +187,7 @@ class TestResourcePermission:
         data = {
             "id": "perm-123",
             "user_id": "user-1",
-            "permission_id": "debates.read",
+            "permission_id": "debates:read",
             "resource_type": "debates",
             "resource_id": "debate-123",
             "granted_at": "2024-01-01T00:00:00+00:00",
@@ -202,7 +202,7 @@ class TestResourcePermission:
         """Test permission with ABAC conditions."""
         perm = ResourcePermission.create(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
             conditions={"ip_range": "10.0.0.0/8", "time_window": "business_hours"},
@@ -214,7 +214,7 @@ class TestResourcePermission:
         """Test permission with metadata."""
         perm = ResourcePermission.create(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
             metadata={"reason": "Project collaboration", "ticket": "JIRA-123"},
@@ -245,28 +245,28 @@ class TestResourcePermissionStore:
         """Grant a resource permission."""
         perm = store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
             granted_by="admin-1",
         )
         assert perm.id is not None
         assert perm.user_id == "user-1"
-        assert perm.permission_id == "debates.read"
+        assert perm.permission_id == "debates:read"
         assert perm.granted_by == "admin-1"
 
     def test_grant_duplicate_permission_updates(self, store):
         """Granting duplicate permission updates existing."""
         perm1 = store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
         # Grant same permission again
         perm2 = store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
             metadata={"updated": True},
@@ -279,7 +279,7 @@ class TestResourcePermissionStore:
         """Revoke a resource permission."""
         perm = store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
@@ -288,7 +288,7 @@ class TestResourcePermissionStore:
         # Permission should no longer be valid
         assert (
             store.check_resource_permission(
-                "user-1", "debates.read", ResourceType.DEBATE, "debate-123"
+                "user-1", "debates:read", ResourceType.DEBATE, "debate-123"
             )
             is False
         )
@@ -302,19 +302,19 @@ class TestResourcePermissionStore:
         """Revoke all permissions for a user."""
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-1",
         )
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-2",
         )
         store.grant_permission(
             user_id="user-2",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-1",
         )
@@ -324,7 +324,7 @@ class TestResourcePermissionStore:
         # user-2 permission should still exist
         assert (
             store.check_resource_permission(
-                "user-2", "debates.read", ResourceType.DEBATE, "debate-1"
+                "user-2", "debates:read", ResourceType.DEBATE, "debate-1"
             )
             is True
         )
@@ -333,19 +333,19 @@ class TestResourcePermissionStore:
         """Revoke all permissions for a resource."""
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
         store.grant_permission(
             user_id="user-2",
-            permission_id="debates.update",
+            permission_id="debates:update",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-456",
         )
@@ -355,7 +355,7 @@ class TestResourcePermissionStore:
         # Other resource permission should still exist
         assert (
             store.check_resource_permission(
-                "user-1", "debates.read", ResourceType.DEBATE, "debate-456"
+                "user-1", "debates:read", ResourceType.DEBATE, "debate-456"
             )
             is True
         )
@@ -364,19 +364,19 @@ class TestResourcePermissionStore:
         """Check permission returns True when granted."""
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
         result = store.check_resource_permission(
-            "user-1", "debates.read", ResourceType.DEBATE, "debate-123"
+            "user-1", "debates:read", ResourceType.DEBATE, "debate-123"
         )
         assert result is True
 
     def test_check_resource_permission_not_granted(self, store):
         """Check permission returns False when not granted."""
         result = store.check_resource_permission(
-            "user-1", "debates.read", ResourceType.DEBATE, "debate-123"
+            "user-1", "debates:read", ResourceType.DEBATE, "debate-123"
         )
         assert result is False
 
@@ -385,13 +385,13 @@ class TestResourcePermissionStore:
         past = datetime.now(timezone.utc) - timedelta(hours=1)
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
             expires_at=past,
         )
         result = store.check_resource_permission(
-            "user-1", "debates.read", ResourceType.DEBATE, "debate-123"
+            "user-1", "debates:read", ResourceType.DEBATE, "debate-123"
         )
         assert result is False
 
@@ -399,7 +399,7 @@ class TestResourcePermissionStore:
         """Check permission respects organization scope."""
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
             org_id="org-1",
@@ -407,14 +407,14 @@ class TestResourcePermissionStore:
         # Same org - should pass
         assert (
             store.check_resource_permission(
-                "user-1", "debates.read", ResourceType.DEBATE, "debate-123", "org-1"
+                "user-1", "debates:read", ResourceType.DEBATE, "debate-123", "org-1"
             )
             is True
         )
         # Different org - should fail
         assert (
             store.check_resource_permission(
-                "user-1", "debates.read", ResourceType.DEBATE, "debate-123", "org-2"
+                "user-1", "debates:read", ResourceType.DEBATE, "debate-123", "org-2"
             )
             is False
         )
@@ -423,19 +423,19 @@ class TestResourcePermissionStore:
         """List all permissions for a resource."""
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
         store.grant_permission(
             user_id="user-2",
-            permission_id="debates.update",
+            permission_id="debates:update",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-456",
         )
@@ -449,19 +449,19 @@ class TestResourcePermissionStore:
         """List all permissions for a user."""
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-1",
         )
         store.grant_permission(
             user_id="user-1",
-            permission_id="agents.read",
+            permission_id="agents:read",
             resource_type=ResourceType.AGENT,
             resource_id="agent-1",
         )
         store.grant_permission(
             user_id="user-2",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-1",
         )
@@ -477,7 +477,7 @@ class TestResourcePermissionStore:
         """Get a specific permission by ID."""
         perm = store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
@@ -494,19 +494,19 @@ class TestResourcePermissionStore:
         """Count permissions with filters."""
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-1",
         )
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-2",
         )
         store.grant_permission(
             user_id="user-2",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-1",
         )
@@ -523,14 +523,14 @@ class TestResourcePermissionStore:
 
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-1",
             expires_at=past,
         )
         store.grant_permission(
             user_id="user-2",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-2",
             expires_at=future,
@@ -544,7 +544,7 @@ class TestResourcePermissionStore:
         """Get store statistics."""
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-1",
         )
@@ -573,18 +573,18 @@ class TestResourcePermissionCaching:
         """Repeated permission checks use cache."""
         cached_store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
 
         # First check - cache miss
         result1 = cached_store.check_resource_permission(
-            "user-1", "debates.read", ResourceType.DEBATE, "debate-123"
+            "user-1", "debates:read", ResourceType.DEBATE, "debate-123"
         )
         # Second check - should use cache
         result2 = cached_store.check_resource_permission(
-            "user-1", "debates.read", ResourceType.DEBATE, "debate-123"
+            "user-1", "debates:read", ResourceType.DEBATE, "debate-123"
         )
 
         assert result1 is True
@@ -596,21 +596,21 @@ class TestResourcePermissionCaching:
         """Cache is invalidated when permission is granted."""
         # Check initially (not granted)
         result1 = cached_store.check_resource_permission(
-            "user-1", "debates.read", ResourceType.DEBATE, "debate-123"
+            "user-1", "debates:read", ResourceType.DEBATE, "debate-123"
         )
         assert result1 is False
 
         # Grant permission
         cached_store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
 
         # Check again - should reflect new permission
         result2 = cached_store.check_resource_permission(
-            "user-1", "debates.read", ResourceType.DEBATE, "debate-123"
+            "user-1", "debates:read", ResourceType.DEBATE, "debate-123"
         )
         assert result2 is True
 
@@ -618,14 +618,14 @@ class TestResourcePermissionCaching:
         """Cache is invalidated when permission is revoked."""
         perm = cached_store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
 
         # Check (should be True)
         result1 = cached_store.check_resource_permission(
-            "user-1", "debates.read", ResourceType.DEBATE, "debate-123"
+            "user-1", "debates:read", ResourceType.DEBATE, "debate-123"
         )
         assert result1 is True
 
@@ -634,7 +634,7 @@ class TestResourcePermissionCaching:
 
         # Check again - should reflect revocation
         result2 = cached_store.check_resource_permission(
-            "user-1", "debates.read", ResourceType.DEBATE, "debate-123"
+            "user-1", "debates:read", ResourceType.DEBATE, "debate-123"
         )
         assert result2 is False
 
@@ -642,12 +642,12 @@ class TestResourcePermissionCaching:
         """Clear cache removes all cached entries."""
         cached_store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
         cached_store.check_resource_permission(
-            "user-1", "debates.read", ResourceType.DEBATE, "debate-123"
+            "user-1", "debates:read", ResourceType.DEBATE, "debate-123"
         )
 
         cached_store.clear_cache()
@@ -657,23 +657,23 @@ class TestResourcePermissionCaching:
         """Clear cache for specific user."""
         cached_store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-1",
         )
         cached_store.grant_permission(
             user_id="user-2",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-2",
         )
 
         # Populate cache
         cached_store.check_resource_permission(
-            "user-1", "debates.read", ResourceType.DEBATE, "debate-1"
+            "user-1", "debates:read", ResourceType.DEBATE, "debate-1"
         )
         cached_store.check_resource_permission(
-            "user-2", "debates.read", ResourceType.DEBATE, "debate-2"
+            "user-2", "debates:read", ResourceType.DEBATE, "debate-2"
         )
 
         # Clear only user-1
@@ -708,7 +708,7 @@ class TestCheckerIntegration:
         """Checker uses resource permission store."""
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
@@ -729,7 +729,7 @@ class TestCheckerIntegration:
             user_id="user-1",
             org_id="org-1",
             roles={"admin"},
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
 
         decision = checker_with_store.check_resource_permission(
@@ -761,7 +761,7 @@ class TestCheckerIntegration:
 
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
@@ -791,7 +791,7 @@ class TestCheckerIntegration:
         """Cache stats include resource permission store stats."""
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
@@ -807,7 +807,7 @@ class TestCheckerIntegration:
 
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
@@ -854,7 +854,7 @@ class TestGlobalFunctions:
         """grant_resource_permission uses global store."""
         perm = grant_resource_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
@@ -865,7 +865,7 @@ class TestGlobalFunctions:
         """revoke_resource_permission uses global store."""
         perm = grant_resource_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
@@ -876,13 +876,13 @@ class TestGlobalFunctions:
         """check_resource_permission uses global store."""
         grant_resource_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
         result = check_resource_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
@@ -906,7 +906,7 @@ class TestEdgeCases:
         """Handle empty resource ID."""
         perm = store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="",
         )
@@ -916,13 +916,13 @@ class TestEdgeCases:
         """Handle special characters in IDs."""
         perm = store.grant_permission(
             user_id="user:with:colons",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate/with/slashes",
         )
         result = store.check_resource_permission(
             "user:with:colons",
-            "debates.read",
+            "debates:read",
             ResourceType.DEBATE,
             "debate/with/slashes",
         )
@@ -932,7 +932,7 @@ class TestEdgeCases:
         """Handle unicode in metadata."""
         perm = store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
             metadata={"description": "Debate about AI safety in Japanese: AI\u5b89\u5168\u6027"},
@@ -944,12 +944,12 @@ class TestEdgeCases:
         long_id = "x" * 10000
         perm = store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id=long_id,
         )
         result = store.check_resource_permission(
-            "user-1", "debates.read", ResourceType.DEBATE, long_id
+            "user-1", "debates:read", ResourceType.DEBATE, long_id
         )
         assert result is True
 
@@ -958,13 +958,13 @@ class TestEdgeCases:
         # Simulate concurrent grants
         perm1 = store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
         perm2 = store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-123",
         )
@@ -985,13 +985,13 @@ class TestEdgeCases:
         """Revoke all with resource type and ID filters."""
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-1",
         )
         store.grant_permission(
             user_id="user-1",
-            permission_id="agents.read",
+            permission_id="agents:read",
             resource_type=ResourceType.AGENT,
             resource_id="agent-1",
         )
@@ -1001,7 +1001,7 @@ class TestEdgeCases:
         assert count == 1
         # Agent permission should remain
         assert (
-            store.check_resource_permission("user-1", "agents.read", ResourceType.AGENT, "agent-1")
+            store.check_resource_permission("user-1", "agents:read", ResourceType.AGENT, "agent-1")
             is True
         )
 
@@ -1010,14 +1010,14 @@ class TestEdgeCases:
         past = datetime.now(timezone.utc) - timedelta(hours=1)
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-1",
             expires_at=past,
         )
         store.grant_permission(
             user_id="user-1",
-            permission_id="debates.read",
+            permission_id="debates:read",
             resource_type=ResourceType.DEBATE,
             resource_id="debate-2",
         )

@@ -43,13 +43,13 @@ class TestRequirePermission:
     def test_allows_when_permission_granted(self):
         """Decorator allows execution when permission is granted."""
 
-        @require_permission("debates.read")
+        @require_permission("debates:read")
         def read_debate(context: AuthorizationContext) -> str:
             return "success"
 
         context = AuthorizationContext(
             user_id="user-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
         result = read_debate(context)
         assert result == "success"
@@ -57,24 +57,24 @@ class TestRequirePermission:
     def test_denies_when_permission_missing(self):
         """Decorator raises PermissionDeniedError when permission missing."""
 
-        @require_permission("debates.delete")
+        @require_permission("debates:delete")
         def delete_debate(context: AuthorizationContext) -> str:
             return "success"
 
         context = AuthorizationContext(
             user_id="user-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
 
         with pytest.raises(PermissionDeniedError) as exc_info:
             delete_debate(context)
 
-        assert exc_info.value.permission_key == "debates.delete"
+        assert exc_info.value.permission_key == "debates:delete"
 
     def test_raises_when_no_context(self):
         """Decorator raises when no AuthorizationContext found."""
 
-        @require_permission("debates.read")
+        @require_permission("debates:read")
         def read_debate() -> str:
             return "success"
 
@@ -86,13 +86,13 @@ class TestRequirePermission:
     def test_extracts_context_from_kwargs(self):
         """Decorator extracts context from kwargs."""
 
-        @require_permission("debates.read")
+        @require_permission("debates:read")
         def read_debate(context: AuthorizationContext, debate_id: str) -> str:
             return f"debate-{debate_id}"
 
         context = AuthorizationContext(
             user_id="user-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
         result = read_debate(context=context, debate_id="123")
         assert result == "debate-123"
@@ -100,13 +100,13 @@ class TestRequirePermission:
     def test_extracts_resource_id_from_kwargs(self):
         """Decorator extracts resource ID from specified parameter."""
 
-        @require_permission("debates.update", resource_id_param="debate_id")
+        @require_permission("debates:update", resource_id_param="debate_id")
         def update_debate(context: AuthorizationContext, debate_id: str) -> str:
             return f"updated-{debate_id}"
 
         context = AuthorizationContext(
             user_id="user-1",
-            permissions={"debates.update"},
+            permissions={"debates:update"},
         )
         result = update_debate(context, debate_id="123")
         assert result == "updated-123"
@@ -118,13 +118,13 @@ class TestRequirePermission:
         def on_denied(decision):
             callback_called.append(decision)
 
-        @require_permission("debates.delete", on_denied=on_denied)
+        @require_permission("debates:delete", on_denied=on_denied)
         def delete_debate(context: AuthorizationContext) -> str:
             return "success"
 
         context = AuthorizationContext(
             user_id="user-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
 
         with pytest.raises(PermissionDeniedError):
@@ -137,13 +137,13 @@ class TestRequirePermission:
     async def test_async_function_support(self):
         """Decorator works with async functions."""
 
-        @require_permission("debates.read")
+        @require_permission("debates:read")
         async def read_debate(context: AuthorizationContext) -> str:
             return "async-success"
 
         context = AuthorizationContext(
             user_id="user-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
         result = await read_debate(context)
         assert result == "async-success"
@@ -152,13 +152,13 @@ class TestRequirePermission:
     async def test_async_raises_on_denied(self):
         """Async decorator raises PermissionDeniedError when denied."""
 
-        @require_permission("debates.delete")
+        @require_permission("debates:delete")
         async def delete_debate(context: AuthorizationContext) -> str:
             return "success"
 
         context = AuthorizationContext(
             user_id="user-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
 
         with pytest.raises(PermissionDeniedError):
@@ -440,7 +440,7 @@ class TestWithPermissionContext:
             user_id_func=lambda req: req.user_id,
             roles_func=lambda req: req.roles,
         )
-        @require_permission("debates.read")
+        @require_permission("debates:read")
         def read_debate(context: AuthorizationContext, req) -> str:
             return "success"
 
@@ -466,14 +466,14 @@ class TestExceptionAttributes:
         decision = AuthorizationDecision(
             allowed=False,
             reason="Test denied",
-            permission_key="debates.delete",
+            permission_key="debates:delete",
             resource_id="debate-123",
             context=AuthorizationContext(user_id="user-1"),
         )
 
         error = PermissionDeniedError("Access denied", decision)
 
-        assert error.permission_key == "debates.delete"
+        assert error.permission_key == "debates:delete"
         assert error.resource_id == "debate-123"
         assert error.decision == decision
 
@@ -503,14 +503,14 @@ class TestMethodDecorators:
         """Decorators work on instance methods."""
 
         class DebateService:
-            @require_permission("debates.read")
+            @require_permission("debates:read")
             def read_debate(self, context: AuthorizationContext, debate_id: str) -> str:
                 return f"debate-{debate_id}"
 
         service = DebateService()
         context = AuthorizationContext(
             user_id="user-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
         result = service.read_debate(context, "123")
         assert result == "debate-123"
@@ -520,14 +520,14 @@ class TestMethodDecorators:
         """Decorators work on async instance methods."""
 
         class DebateService:
-            @require_permission("debates.read")
+            @require_permission("debates:read")
             async def read_debate(self, context: AuthorizationContext) -> str:
                 return "async-debate"
 
         service = DebateService()
         context = AuthorizationContext(
             user_id="user-1",
-            permissions={"debates.read"},
+            permissions={"debates:read"},
         )
         result = await service.read_debate(context)
         assert result == "async-debate"

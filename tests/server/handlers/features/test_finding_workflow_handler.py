@@ -128,16 +128,16 @@ class TestFindingWorkflowRBAC:
             "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
             return_value=admin_jwt_context,
         ):
-            result = handler._check_permission(admin_request, "findings.read")
+            result = handler._check_permission(admin_request, "findings:read")
             assert result is None  # None means allowed
 
-            result = handler._check_permission(admin_request, "findings.update")
+            result = handler._check_permission(admin_request, "findings:update")
             assert result is None
 
-            result = handler._check_permission(admin_request, "findings.assign")
+            result = handler._check_permission(admin_request, "findings:assign")
             assert result is None
 
-            result = handler._check_permission(admin_request, "findings.bulk")
+            result = handler._check_permission(admin_request, "findings:bulk")
             assert result is None
 
     def test_check_permission_returns_none_for_member_read(
@@ -148,10 +148,10 @@ class TestFindingWorkflowRBAC:
             "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
             return_value=member_jwt_context,
         ):
-            result = handler._check_permission(member_request, "findings.read")
+            result = handler._check_permission(member_request, "findings:read")
             assert result is None
 
-            result = handler._check_permission(member_request, "findings.update")
+            result = handler._check_permission(member_request, "findings:update")
             assert result is None
 
     def test_check_permission_denies_bulk_for_member(
@@ -162,7 +162,7 @@ class TestFindingWorkflowRBAC:
             "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
             return_value=member_jwt_context,
         ):
-            result = handler._check_permission(member_request, "findings.bulk")
+            result = handler._check_permission(member_request, "findings:bulk")
             # Should return error response dict
             assert result is not None
             assert result.get("status") == 403 or "Permission denied" in str(
@@ -177,7 +177,7 @@ class TestFindingWorkflowRBAC:
             "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
             return_value=viewer_jwt_context,
         ):
-            result = handler._check_permission(viewer_request, "findings.read")
+            result = handler._check_permission(viewer_request, "findings:read")
             assert result is None
 
     def test_check_permission_denies_update_for_viewer(
@@ -188,7 +188,7 @@ class TestFindingWorkflowRBAC:
             "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
             return_value=viewer_jwt_context,
         ):
-            result = handler._check_permission(viewer_request, "findings.update")
+            result = handler._check_permission(viewer_request, "findings:update")
             assert result is not None
             assert result.get("status") == 403 or "Permission denied" in str(
                 result.get("error", "")
@@ -360,10 +360,10 @@ class TestFindingsPermissionsInDefaults:
         """All findings permissions should be registered."""
         from aragora.rbac.defaults import SYSTEM_PERMISSIONS
 
-        assert "findings.read" in SYSTEM_PERMISSIONS
-        assert "findings.update" in SYSTEM_PERMISSIONS
-        assert "findings.assign" in SYSTEM_PERMISSIONS
-        assert "findings.bulk" in SYSTEM_PERMISSIONS
+        assert "findings:read" in SYSTEM_PERMISSIONS
+        assert "findings:update" in SYSTEM_PERMISSIONS
+        assert "findings:assign" in SYSTEM_PERMISSIONS
+        assert "findings:bulk" in SYSTEM_PERMISSIONS
 
     def test_admin_has_all_findings_permissions(self):
         """Admin role should have all findings permissions."""
@@ -371,10 +371,10 @@ class TestFindingsPermissionsInDefaults:
 
         admin_perms = get_role_permissions("admin", include_inherited=True)
 
-        assert "findings.read" in admin_perms
-        assert "findings.update" in admin_perms
-        assert "findings.assign" in admin_perms
-        assert "findings.bulk" in admin_perms
+        assert "findings:read" in admin_perms
+        assert "findings:update" in admin_perms
+        assert "findings:assign" in admin_perms
+        assert "findings:bulk" in admin_perms
 
     def test_debate_creator_has_findings_permissions(self):
         """Debate creator should have read/update/assign but not bulk."""
@@ -382,11 +382,11 @@ class TestFindingsPermissionsInDefaults:
 
         perms = get_role_permissions("debate_creator", include_inherited=True)
 
-        assert "findings.read" in perms
-        assert "findings.update" in perms
-        assert "findings.assign" in perms
+        assert "findings:read" in perms
+        assert "findings:update" in perms
+        assert "findings:assign" in perms
         # Debate creator should NOT have bulk
-        assert "findings.bulk" not in perms
+        assert "findings:bulk" not in perms
 
     def test_member_has_limited_findings_permissions(self):
         """Member should have read and update but not assign or bulk."""
@@ -394,11 +394,11 @@ class TestFindingsPermissionsInDefaults:
 
         perms = get_role_permissions("member", include_inherited=True)
 
-        assert "findings.read" in perms
-        assert "findings.update" in perms
+        assert "findings:read" in perms
+        assert "findings:update" in perms
         # Member should NOT have assign or bulk
-        assert "findings.assign" not in perms
-        assert "findings.bulk" not in perms
+        assert "findings:assign" not in perms
+        assert "findings:bulk" not in perms
 
     def test_analyst_has_read_only_findings(self):
         """Analyst should only have read permission."""
@@ -406,10 +406,10 @@ class TestFindingsPermissionsInDefaults:
 
         perms = get_role_permissions("analyst", include_inherited=True)
 
-        assert "findings.read" in perms
-        assert "findings.update" not in perms
-        assert "findings.assign" not in perms
-        assert "findings.bulk" not in perms
+        assert "findings:read" in perms
+        assert "findings:update" not in perms
+        assert "findings:assign" not in perms
+        assert "findings:bulk" not in perms
 
     def test_viewer_has_read_only_findings(self):
         """Viewer should only have read permission."""
@@ -417,8 +417,8 @@ class TestFindingsPermissionsInDefaults:
 
         perms = get_role_permissions("viewer", include_inherited=True)
 
-        assert "findings.read" in perms
-        assert "findings.update" not in perms
+        assert "findings:read" in perms
+        assert "findings:update" not in perms
 
 
 class TestRoutePermissionsForFindings:
@@ -464,7 +464,7 @@ class TestRoutePermissionsForFindings:
         ]
 
         assert len(bulk_routes) == 1
-        assert bulk_routes[0].permission_key == "findings.bulk"
+        assert bulk_routes[0].permission_key == "findings:bulk"
 
     def test_status_update_requires_update_permission(self):
         """Status update route should require findings.update permission."""
@@ -477,7 +477,7 @@ class TestRoutePermissionsForFindings:
         ]
 
         assert len(status_routes) >= 1
-        assert all(rp.permission_key == "findings.update" for rp in status_routes)
+        assert all(rp.permission_key == "findings:update" for rp in status_routes)
 
     def test_assign_routes_require_assign_permission(self):
         """Assign/unassign routes should require findings.assign permission."""
@@ -495,4 +495,4 @@ class TestRoutePermissionsForFindings:
         ]
 
         assert len(assign_routes) >= 2
-        assert all(rp.permission_key == "findings.assign" for rp in assign_routes)
+        assert all(rp.permission_key == "findings:assign" for rp in assign_routes)

@@ -166,7 +166,7 @@ class TestFindingWorkflowRBAC:
                     org_id="org-1",
                     client_ip="127.0.0.1",
                 )
-                result = handler._check_permission(request, "findings.update", "123")
+                result = handler._check_permission(request, "findings:update", "123")
 
         assert result is None  # No error means allowed
 
@@ -180,7 +180,7 @@ class TestFindingWorkflowRBAC:
         ) as mock_extract:
             # No valid JWT
             mock_extract.return_value = MagicMock(authenticated=False, user_id=None)
-            result = handler._check_permission(request, "findings.update", "123")
+            result = handler._check_permission(request, "findings:update", "123")
 
         assert result is not None
         assert result["status"] == 401  # Unauthenticated
@@ -206,7 +206,7 @@ class TestFindingWorkflowRBAC:
                     org_id="org-1",
                     client_ip="127.0.0.1",
                 )
-                result = handler._check_permission(request, "findings.update", "123")
+                result = handler._check_permission(request, "findings:update", "123")
 
         assert result is not None
         assert result["status"] == 403  # Forbidden (authenticated but not authorized)

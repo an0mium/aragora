@@ -45,7 +45,7 @@ class TestRoutePermission:
 
     def test_pattern_string_compiled_to_regex(self):
         """Test string pattern is compiled to regex."""
-        rule = RoutePermission(r"^/api/debates$", "GET", "debates.read")
+        rule = RoutePermission(r"^/api/debates$", "GET", "debates:read")
 
         assert isinstance(rule.pattern, re.Pattern)
         assert rule.pattern.pattern == r"^/api/debates$"
@@ -53,13 +53,13 @@ class TestRoutePermission:
     def test_pattern_regex_accepted(self):
         """Test compiled regex pattern is accepted."""
         pattern = re.compile(r"^/api/users/([^/]+)$")
-        rule = RoutePermission(pattern, "GET", "users.read")
+        rule = RoutePermission(pattern, "GET", "users:read")
 
         assert rule.pattern is pattern
 
     def test_matches_exact_path_and_method(self):
         """Test matching exact path and method."""
-        rule = RoutePermission(r"^/api/debates$", "POST", "debates.create")
+        rule = RoutePermission(r"^/api/debates$", "POST", "debates:create")
 
         matches, resource_id = rule.matches("/api/debates", "POST")
 
@@ -68,7 +68,7 @@ class TestRoutePermission:
 
     def test_matches_case_insensitive_method(self):
         """Test method matching is case-insensitive."""
-        rule = RoutePermission(r"^/api/debates$", "POST", "debates.create")
+        rule = RoutePermission(r"^/api/debates$", "POST", "debates:create")
 
         matches, _ = rule.matches("/api/debates", "post")
         assert matches is True
@@ -78,7 +78,7 @@ class TestRoutePermission:
 
     def test_no_match_wrong_method(self):
         """Test no match when method differs."""
-        rule = RoutePermission(r"^/api/debates$", "POST", "debates.create")
+        rule = RoutePermission(r"^/api/debates$", "POST", "debates:create")
 
         matches, _ = rule.matches("/api/debates", "GET")
 
@@ -86,7 +86,7 @@ class TestRoutePermission:
 
     def test_no_match_wrong_path(self):
         """Test no match when path differs."""
-        rule = RoutePermission(r"^/api/debates$", "GET", "debates.read")
+        rule = RoutePermission(r"^/api/debates$", "GET", "debates:read")
 
         matches, _ = rule.matches("/api/users", "GET")
 
@@ -105,7 +105,7 @@ class TestRoutePermission:
         rule = RoutePermission(
             r"^/api/debates/([^/]+)$",
             "GET",
-            "debates.read",
+            "debates:read",
             resource_id_group=1,
         )
 
@@ -119,7 +119,7 @@ class TestRoutePermission:
         rule = RoutePermission(
             r"^/api/orgs/([^/]+)/debates/([^/]+)$",
             "GET",
-            "debates.read",
+            "debates:read",
             resource_id_group=2,
         )
 
@@ -133,7 +133,7 @@ class TestRoutePermission:
         rule = RoutePermission(
             r"^/api/debates/([^/]+)$",
             "GET",
-            "debates.read",
+            "debates:read",
             resource_id_group=5,  # Invalid - only 1 group
         )
 
@@ -248,7 +248,7 @@ class TestRBACMiddleware:
         """Test protected routes require authentication."""
         config = RBACMiddlewareConfig(
             route_permissions=[
-                RoutePermission(r"^/api/debates$", "POST", "debates.create"),
+                RoutePermission(r"^/api/debates$", "POST", "debates:create"),
             ],
         )
         with patch("aragora.rbac.middleware.get_permission_checker") as mock_get:
@@ -281,14 +281,14 @@ class TestRBACMiddleware:
         """Test permission check grants access when allowed."""
         config = RBACMiddlewareConfig(
             route_permissions=[
-                RoutePermission(r"^/api/debates$", "POST", "debates.create"),
+                RoutePermission(r"^/api/debates$", "POST", "debates:create"),
             ],
         )
         mock_checker = MagicMock()
         mock_checker.check_permission.return_value = AuthorizationDecision(
             allowed=True,
             reason="User has debates.create permission",
-            permission_key="debates.create",
+            permission_key="debates:create",
         )
 
         with patch("aragora.rbac.middleware.get_permission_checker", return_value=mock_checker):
@@ -298,20 +298,20 @@ class TestRBACMiddleware:
             allowed, reason, perm = middleware.check_request("/api/debates", "POST", context)
 
             assert allowed is True
-            assert perm == "debates.create"
+            assert perm == "debates:create"
 
     def test_check_request_permission_denied(self):
         """Test permission check denies access when not allowed."""
         config = RBACMiddlewareConfig(
             route_permissions=[
-                RoutePermission(r"^/api/debates$", "DELETE", "debates.delete"),
+                RoutePermission(r"^/api/debates$", "DELETE", "debates:delete"),
             ],
         )
         mock_checker = MagicMock()
         mock_checker.check_permission.return_value = AuthorizationDecision(
             allowed=False,
             reason="User lacks debates.delete permission",
-            permission_key="debates.delete",
+            permission_key="debates:delete",
         )
 
         with patch("aragora.rbac.middleware.get_permission_checker", return_value=mock_checker):
@@ -321,7 +321,7 @@ class TestRBACMiddleware:
             allowed, reason, perm = middleware.check_request("/api/debates", "DELETE", context)
 
             assert allowed is False
-            assert perm == "debates.delete"
+            assert perm == "debates:delete"
 
     def test_check_request_no_matching_rule_authenticated(self):
         """Test no matching rule with authenticated user passes."""
@@ -377,7 +377,7 @@ class TestRoutePermissionManagement:
 
     def test_remove_route_permission(self):
         """Test removing a route permission."""
-        rule = RoutePermission(r"^/api/debates$", "GET", "debates.read")
+        rule = RoutePermission(r"^/api/debates$", "GET", "debates:read")
         config = RBACMiddlewareConfig(route_permissions=[rule])
         with patch("aragora.rbac.middleware.get_permission_checker") as mock_get:
             mock_get.return_value = MagicMock()
@@ -389,7 +389,7 @@ class TestRoutePermissionManagement:
 
     def test_get_required_permission(self):
         """Test getting required permission for a route."""
-        rule = RoutePermission(r"^/api/debates$", "POST", "debates.create")
+        rule = RoutePermission(r"^/api/debates$", "POST", "debates:create")
         config = RBACMiddlewareConfig(route_permissions=[rule])
         with patch("aragora.rbac.middleware.get_permission_checker") as mock_get:
             mock_get.return_value = MagicMock()
@@ -397,7 +397,7 @@ class TestRoutePermissionManagement:
 
             perm = middleware.get_required_permission("/api/debates", "POST")
 
-            assert perm == "debates.create"
+            assert perm == "debates:create"
 
     def test_get_required_permission_no_match(self):
         """Test getting required permission when no rule matches."""
@@ -481,7 +481,7 @@ class TestPermissionHandlerFactory:
 
     def test_create_permission_handler(self):
         """Test creating permission handler."""
-        handler = create_permission_handler("debates.read")
+        handler = create_permission_handler("debates:read")
 
         assert callable(handler)
 
@@ -491,10 +491,10 @@ class TestPermissionHandlerFactory:
         mock_checker.check_permission.return_value = AuthorizationDecision(
             allowed=True,
             reason="Allowed",
-            permission_key="debates.read",
+            permission_key="debates:read",
         )
 
-        handler = create_permission_handler("debates.read")
+        handler = create_permission_handler("debates:read")
         context = AuthorizationContext(user_id="user-1")
 
         with patch("aragora.rbac.middleware.get_permission_checker", return_value=mock_checker):
@@ -508,13 +508,13 @@ class TestPermissionHandlerFactory:
         mock_checker.check_permission.return_value = AuthorizationDecision(
             allowed=True,
             reason="Allowed",
-            permission_key="debates.read",
+            permission_key="debates:read",
         )
 
         def extract_id(request):
             return request.get("debate_id")
 
-        handler = create_permission_handler("debates.read", extract_id)
+        handler = create_permission_handler("debates:read", extract_id)
         context = AuthorizationContext(user_id="user-1")
         request = {"debate_id": "debate-123"}
 
@@ -522,7 +522,7 @@ class TestPermissionHandlerFactory:
             allowed, reason = handler(request, context)
 
         # Verify resource_id was passed
-        mock_checker.check_permission.assert_called_with(context, "debates.read", "debate-123")
+        mock_checker.check_permission.assert_called_with(context, "debates:read", "debate-123")
 
 
 # ============================================================================

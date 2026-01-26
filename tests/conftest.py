@@ -484,8 +484,9 @@ def mock_external_apis(request, monkeypatch):
     ensuring consistent behavior across test runs.
     """
     # Skip for tests that need real network access
+    force_mock = os.environ.get("ARAGORA_FORCE_MOCK_APIS", "").lower() in ("1", "true", "yes")
     markers = [m.name for m in request.node.iter_markers()]
-    if "network" in markers or "integration" in markers:
+    if ("network" in markers or "integration" in markers) and not force_mock:
         yield
         return
 

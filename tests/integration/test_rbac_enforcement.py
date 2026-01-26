@@ -188,7 +188,7 @@ class TestBackupHandlerRBACEnforcement:
         """Create auth context without backup permissions."""
         return AuthorizationContext(
             user_id="user_123",
-            permissions={"debates.read"},  # No backup permissions
+            permissions={"debates:read"},  # No backup permissions
         )
 
     @pytest.fixture

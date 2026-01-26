@@ -69,7 +69,7 @@ def auth_context_with_permission():
         user_id="user_123",
         org_id="org_456",
         roles={"member"},
-        permissions={"debates.create", "debates.read", "debates.run"},
+        permissions={"debates:create", "debates:read", "debates.run"},
     )
 
 
@@ -80,7 +80,7 @@ def auth_context_without_permission():
         user_id="user_123",
         org_id="org_456",
         roles={"viewer"},
-        permissions={"debates.read"},  # Read-only
+        permissions={"debates:read"},  # Read-only
     )
 
 
