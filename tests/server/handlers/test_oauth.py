@@ -476,6 +476,7 @@ class TestHandleListProviders:
 class TestHandleGetUserProviders:
     """Tests for _handle_get_user_providers()."""
 
+    @pytest.mark.no_auto_auth
     def test_unauthenticated_returns_401(self):
         """Should return 401 when not authenticated."""
         handler = create_oauth_handler()

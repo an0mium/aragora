@@ -632,6 +632,7 @@ class TestBaseHandlerAuth:
             assert result is not None
             assert result.user_id == "user-123"
 
+    @pytest.mark.no_auto_auth
     def test_get_current_user_not_authenticated(self):
         """get_current_user returns None when not authenticated."""
         from aragora.server.handlers.base import BaseHandler
@@ -939,6 +940,7 @@ class TestRequireQuotaDecorator:
             body = json.loads(result.body)
             assert body["success"] is True
 
+    @pytest.mark.no_auto_auth
     def test_require_quota_rejects_unauthenticated(self):
         """require_quota returns 401 for unauthenticated request."""
         from aragora.server.handlers.base import require_quota, json_response

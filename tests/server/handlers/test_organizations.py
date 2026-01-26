@@ -327,6 +327,7 @@ class TestCheckOrgAccess:
 class TestGetOrganization:
     """Tests for _get_organization()."""
 
+    @pytest.mark.no_auto_auth
     def test_unauthenticated_returns_401(self):
         """Should return 401 when not authenticated."""
         handler = create_org_handler()
