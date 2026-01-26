@@ -35,33 +35,33 @@ class Code(StrEnum):
     AGENT_TIMEOUT = "AGENT_TIMEOUT"
     CONSENSUS_FAILED = "CONSENSUS_FAILED"
 
+
 class Error(BaseModel):
     error: Annotated[
         str,
         Field(
             description="Human-readable error message",
-            example="Invalid request: missing required field 'task'"
+            example="Invalid request: missing required field 'task'",
         ),
     ]
     code: Annotated[
         Code | None,
         Field(
             description="Machine-readable error code for programmatic handling",
-            example="MISSING_FIELD"
+            example="MISSING_FIELD",
         ),
     ] = None
     trace_id: Annotated[
         str | None,
         Field(
-            description="Unique request ID for debugging and support",
-            example="req_abc123xyz789"
+            description="Unique request ID for debugging and support", example="req_abc123xyz789"
         ),
     ] = None
     field: Annotated[
         str | None,
         Field(
             description="Name of the field that caused the error (for validation errors)",
-            example="task"
+            example="task",
         ),
     ] = None
     resource_type: Annotated[
@@ -70,45 +70,35 @@ class Error(BaseModel):
     ] = None
     resource_id: Annotated[
         str | None,
-        Field(
-            description="ID of the resource involved in the error", example="deb_abc123"
-        ),
+        Field(description="ID of the resource involved in the error", example="deb_abc123"),
     ] = None
     limit: Annotated[
         int | None,
-        Field(
-            description="The limit that was exceeded (for quota/rate errors)",
-            example=60
-        ),
+        Field(description="The limit that was exceeded (for quota/rate errors)", example=60),
     ] = None
     retry_after: Annotated[
         int | None,
-        Field(
-            description="Seconds to wait before retrying (for rate limit errors)",
-            example=45
-        ),
+        Field(description="Seconds to wait before retrying (for rate limit errors)", example=45),
     ] = None
     resets_at: Annotated[
         datetime | None,
-        Field(
-            description="When the quota/rate limit resets",
-            example="2024-01-16T00:00:00Z"
-        ),
+        Field(description="When the quota/rate limit resets", example="2024-01-16T00:00:00Z"),
     ] = None
     upgrade_url: Annotated[
         AnyUrl | None,
         Field(
             description="URL to upgrade plan (for quota errors)",
-            example="https://aragora.ai/pricing"
+            example="https://aragora.ai/pricing",
         ),
     ] = None
     support_url: Annotated[
         AnyUrl | None,
         Field(
             description="URL for support/issue reporting",
-            example="https://github.com/anthropics/aragora/issues"
+            example="https://github.com/anthropics/aragora/issues",
         ),
     ] = None
+
 
 class PaginatedResponse(BaseModel):
     total: Annotated[int | None, Field(description="Total items available")] = None
@@ -116,10 +106,12 @@ class PaginatedResponse(BaseModel):
     limit: Annotated[int | None, Field(description="Page size")] = None
     has_more: Annotated[bool | None, Field(description="More items available")] = None
 
+
 class StandardSuccessResponse(BaseModel):
     success: bool
     data: dict[str, Any] | None = None
     message: str | None = None
+
 
 class Agent(BaseModel):
     name: Annotated[str | None, Field(description="Agent name")] = None
@@ -127,9 +119,10 @@ class Agent(BaseModel):
     matches: Annotated[int | None, Field(description="Total matches played")] = None
     wins: Annotated[int | None, Field(description="Total wins")] = None
     losses: Annotated[int | None, Field(description="Total losses")] = None
-    calibration_score: Annotated[
-        float | None, Field(description="Calibration accuracy (0-1)")
-    ] = None
+    calibration_score: Annotated[float | None, Field(description="Calibration accuracy (0-1)")] = (
+        None
+    )
+
 
 class DebateStatus(StrEnum):
     created = "created"
@@ -145,6 +138,7 @@ class DebateStatus(StrEnum):
     concluded = "concluded"
     archived = "archived"
 
+
 class ConsensusResult(BaseModel):
     reached: bool | None = None
     agreement: float | None = None
@@ -154,17 +148,20 @@ class ConsensusResult(BaseModel):
     supporting_agents: list[str] | None = None
     dissenting_agents: list[str] | None = None
 
+
 class Consensus(StrEnum):
     majority = "majority"
     unanimous = "unanimous"
     weighted = "weighted"
     semantic = "semantic"
 
+
 class AutoSelectConfig(BaseModel):
     min_agents: int | None = 3
     max_agents: int | None = 5
     diversity_weight: float | None = 0.3
     expertise_weight: float | None = 0.7
+
 
 class TrendingCategory(StrEnum):
     tech = "tech"
@@ -173,6 +170,7 @@ class TrendingCategory(StrEnum):
     business = "business"
     health = "health"
 
+
 class DebateCreateRequest(BaseModel):
     task: Annotated[
         str,
@@ -180,14 +178,12 @@ class DebateCreateRequest(BaseModel):
             description="The topic or question for the debate",
             example="Should we adopt microservices architecture for our e-commerce platform?",
             max_length=2000,
-            min_length=10
+            min_length=10,
         ),
     ]
     question: Annotated[
         str | None,
-        Field(
-            deprecated=True, description="Alias for task (deprecated, use task instead)"
-        ),
+        Field(deprecated=True, description="Alias for task (deprecated, use task instead)"),
     ] = None
     agents: Annotated[
         list[str] | None,
@@ -195,7 +191,7 @@ class DebateCreateRequest(BaseModel):
             description="List of agent names to participate. If empty, auto_select is used.",
             example=["claude", "gpt-4", "gemini"],
             max_items=8,
-            min_items=2
+            min_items=2,
         ),
     ] = None
     rounds: Annotated[
@@ -211,7 +207,7 @@ class DebateCreateRequest(BaseModel):
         Field(
             description="Additional context or background information",
             example="We have 1M daily active users and need 99.9% uptime.",
-            max_length=10000
+            max_length=10000,
         ),
     ] = None
     auto_select: Annotated[
@@ -231,6 +227,7 @@ class DebateCreateRequest(BaseModel):
         Field(description="Category filter for trending content"),
     ] = None
 
+
 class DebateCreateResponse(BaseModel):
     success: Annotated[
         bool,
@@ -238,47 +235,41 @@ class DebateCreateResponse(BaseModel):
     ]
     debate_id: Annotated[
         str | None,
-        Field(
-            description="Unique identifier for the created debate",
-            example="deb_abc123xyz"
-        ),
+        Field(description="Unique identifier for the created debate", example="deb_abc123xyz"),
     ] = None
-    status: Annotated[
-        DebateStatus | None, Field(description="Current status of the debate")
-    ] = None
+    status: Annotated[DebateStatus | None, Field(description="Current status of the debate")] = None
     task: Annotated[
         str | None,
         Field(
             description="The debate topic (echoed back)",
-            example="Should we adopt microservices architecture?"
+            example="Should we adopt microservices architecture?",
         ),
     ] = None
     agents: Annotated[
         list[str] | None,
         Field(
-            description="Agents participating in the debate",
-            example=["claude", "gpt-4", "gemini"]
+            description="Agents participating in the debate", example=["claude", "gpt-4", "gemini"]
         ),
     ] = None
     websocket_url: Annotated[
         str | None,
         Field(
             description="WebSocket URL to stream debate progress",
-            example="wss://api.aragora.ai/ws/debates/deb_abc123xyz"
+            example="wss://api.aragora.ai/ws/debates/deb_abc123xyz",
         ),
     ] = None
     estimated_duration: Annotated[
         int | None,
         Field(description="Estimated debate duration in seconds", example=120),
     ] = None
-    error: Annotated[
-        str | None, Field(description="Error message if success is false")
-    ] = None
+    error: Annotated[str | None, Field(description="Error message if success is false")] = None
+
 
 class Role(StrEnum):
     system = "system"
     user = "user"
     assistant = "assistant"
+
 
 class Message(BaseModel):
     role: Role | None = None
@@ -288,10 +279,12 @@ class Message(BaseModel):
     round: int | None = None
     timestamp: datetime | None = None
 
+
 class Status(StrEnum):
     healthy = "healthy"
     degraded = "degraded"
     unhealthy = "unhealthy"
+
 
 class HealthCheck(BaseModel):
     status: Status | None = None
@@ -300,6 +293,7 @@ class HealthCheck(BaseModel):
     checks: dict[str, dict[str, Any]] | None = None
     response_time_ms: float | None = None
 
+
 class Consensus1(BaseModel):
     reached: bool | None = None
     topic: str | None = None
@@ -307,11 +301,13 @@ class Consensus1(BaseModel):
     confidence: float | None = None
     participating_agents: list[str] | None = None
 
+
 class Calibration(BaseModel):
     agent: str | None = None
     score: Annotated[float | None, Field(description="Calibration score (0-1)")] = None
     bucket_stats: list[dict[str, Any]] | None = None
     overconfidence_index: float | None = None
+
 
 class Relationship(BaseModel):
     agent_a: str | None = None
@@ -320,26 +316,24 @@ class Relationship(BaseModel):
     rivalry_score: float | None = None
     total_interactions: int | None = None
 
+
 class OAuthProvider(BaseModel):
-    id: Annotated[
-        str, Field(description="Provider identifier (e.g., 'google', 'github')")
-    ]
+    id: Annotated[str, Field(description="Provider identifier (e.g., 'google', 'github')")]
     name: Annotated[str, Field(description="Display name for the provider")]
+
 
 class OAuthProviders(BaseModel):
     providers: Annotated[
         list[OAuthProvider], Field(description="List of available OAuth providers")
     ]
 
+
 class Round(BaseModel):
-    round_number: Annotated[
-        int | None, Field(description="Round number (1-indexed)")
-    ] = None
+    round_number: Annotated[int | None, Field(description="Round number (1-indexed)")] = None
     messages: list[Message] | None = None
-    votes: Annotated[
-        dict[str, Any] | None, Field(description="Agent votes for this round")
-    ] = None
+    votes: Annotated[dict[str, Any] | None, Field(description="Agent votes for this round")] = None
     summary: Annotated[str | None, Field(description="Round summary")] = None
+
 
 class Workspace(BaseModel):
     id: Annotated[str, Field(description="Workspace ID")]
@@ -347,21 +341,19 @@ class Workspace(BaseModel):
     name: Annotated[str, Field(description="Workspace name")]
     created_at: datetime | None = None
     created_by: str | None = None
-    encrypted: Annotated[
-        bool | None, Field(description="Whether workspace data is encrypted")
-    ] = None
-    retention_days: Annotated[
-        int | None, Field(description="Data retention period in days")
-    ] = None
-    sensitivity_level: Annotated[
-        str | None, Field(description="Data sensitivity level")
-    ] = None
+    encrypted: Annotated[bool | None, Field(description="Whether workspace data is encrypted")] = (
+        None
+    )
+    retention_days: Annotated[int | None, Field(description="Data retention period in days")] = None
+    sensitivity_level: Annotated[str | None, Field(description="Data sensitivity level")] = None
     document_count: int | None = None
     storage_bytes: int | None = None
+
 
 class WorkspaceList(BaseModel):
     workspaces: list[Workspace]
     total: int
+
 
 class RetentionPolicy(BaseModel):
     id: str | None = None
@@ -371,9 +363,11 @@ class RetentionPolicy(BaseModel):
     enabled: bool | None = None
     created_at: datetime | None = None
 
+
 class RetentionPolicyList(BaseModel):
     policies: list[RetentionPolicy] | None = None
     total: int | None = None
+
 
 class StepDefinition(BaseModel):
     id: str | None = None
@@ -382,10 +376,12 @@ class StepDefinition(BaseModel):
     config: dict[str, Any] | None = None
     depends_on: list[str] | None = None
 
+
 class TransitionRule(BaseModel):
     from_step: str | None = None
     to_step: str | None = None
     condition: str | None = None
+
 
 class Workflow(BaseModel):
     id: str | None = None
@@ -398,15 +394,18 @@ class Workflow(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+
 class WorkflowList(BaseModel):
     workflows: list[Workflow] | None = None
     total: int | None = None
+
 
 class WorkflowUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     steps: list[StepDefinition] | None = None
     transitions: list[TransitionRule] | None = None
+
 
 class WorkflowTemplate(BaseModel):
     id: str | None = None
@@ -416,21 +415,22 @@ class WorkflowTemplate(BaseModel):
     steps: list[StepDefinition] | None = None
     parameters: dict[str, Any] | None = None
 
+
 class WorkflowTemplateList(BaseModel):
     templates: list[WorkflowTemplate] | None = None
     total: int | None = None
+
 
 class ExecutionList(BaseModel):
     executions: list[dict[str, Any]] | None = None
     total: int | None = None
 
+
 class DecisionReceipt(BaseModel):
     id: Annotated[str, Field(description="Receipt ID")]
     debate_id: Annotated[str, Field(description="Associated debate ID")]
     verdict: Annotated[str, Field(description="Final verdict")]
-    confidence: Annotated[float | None, Field(description="Confidence score (0-1)")] = (
-        None
-    )
+    confidence: Annotated[float | None, Field(description="Confidence score (0-1)")] = None
     consensus_reached: bool | None = None
     participating_agents: list[str] | None = None
     dissenting_agents: list[str] | None = None
@@ -440,6 +440,7 @@ class DecisionReceipt(BaseModel):
     created_at: datetime | None = None
     metadata: dict[str, Any] | None = None
 
+
 class ReceiptList(BaseModel):
     receipts: list[DecisionReceipt]
     total: int
@@ -447,21 +448,17 @@ class ReceiptList(BaseModel):
     limit: int | None = None
     has_more: bool | None = None
 
+
 class RiskHeatmap(BaseModel):
     id: Annotated[str, Field(description="Heatmap ID")]
-    gauntlet_id: Annotated[str | None, Field(description="Associated gauntlet ID")] = (
-        None
-    )
+    gauntlet_id: Annotated[str | None, Field(description="Associated gauntlet ID")] = None
     categories: Annotated[list[str], Field(description="Risk categories")]
     scores: Annotated[list[float], Field(description="Risk scores per category")]
-    matrix: Annotated[list[list[float]] | None, Field(description="2D risk matrix")] = (
-        None
-    )
-    overall_risk: Annotated[float | None, Field(description="Overall risk score")] = (
-        None
-    )
+    matrix: Annotated[list[list[float]] | None, Field(description="2D risk matrix")] = None
+    overall_risk: Annotated[float | None, Field(description="Overall risk score")] = None
     created_at: datetime | None = None
     metadata: dict[str, Any] | None = None
+
 
 class HeatmapList(BaseModel):
     heatmaps: list[RiskHeatmap]
@@ -469,49 +466,51 @@ class HeatmapList(BaseModel):
     offset: int | None = None
     limit: int | None = None
 
+
 class PatternType(StrEnum):
     hive_mind = "hive_mind"
     map_reduce = "map_reduce"
     review_cycle = "review_cycle"
+
 
 class PatternTemplate(BaseModel):
     id: Annotated[str, Field(description="Pattern template ID")]
     name: Annotated[str, Field(description="Pattern name")]
     description: Annotated[str | None, Field(description="Pattern description")] = None
     pattern_type: PatternType
-    parameters: Annotated[
-        dict[str, Any] | None, Field(description="Pattern parameters schema")
-    ] = None
-    example_config: Annotated[
-        dict[str, Any] | None, Field(description="Example configuration")
-    ] = None
+    parameters: Annotated[dict[str, Any] | None, Field(description="Pattern parameters schema")] = (
+        None
+    )
+    example_config: Annotated[dict[str, Any] | None, Field(description="Example configuration")] = (
+        None
+    )
     created_at: datetime | None = None
+
 
 class PatternTemplateList(BaseModel):
     templates: list[PatternTemplate]
     total: int
 
+
 class CheckpointMetadata(BaseModel):
     id: Annotated[str, Field(description="Checkpoint ID")]
     debate_id: Annotated[str | None, Field(description="Associated debate ID")] = None
-    workflow_id: Annotated[str | None, Field(description="Associated workflow ID")] = (
-        None
-    )
+    workflow_id: Annotated[str | None, Field(description="Associated workflow ID")] = None
     name: Annotated[str | None, Field(description="Checkpoint name")] = None
     description: str | None = None
-    state: Annotated[
-        dict[str, Any] | None, Field(description="Checkpoint state data")
-    ] = None
+    state: Annotated[dict[str, Any] | None, Field(description="Checkpoint state data")] = None
     round_number: int | None = None
     created_at: datetime
     created_by: str | None = None
     size_bytes: int | None = None
+
 
 class CheckpointList(BaseModel):
     checkpoints: list[CheckpointMetadata]
     total: int
     offset: int | None = None
     limit: int | None = None
+
 
 class RestoreResult(BaseModel):
     success: bool
@@ -522,16 +521,19 @@ class RestoreResult(BaseModel):
     state_restored: bool | None = None
     message: str | None = None
 
+
 class Factor(BaseModel):
     name: str | None = None
     contribution: float | None = None
     description: str | None = None
     type: str | None = None
 
+
 class Counterfactual(BaseModel):
     scenario: str | None = None
     outcome: str | None = None
     probability: float | None = None
+
 
 class ProvenanceItem(BaseModel):
     step: int | None = None
@@ -540,15 +542,12 @@ class ProvenanceItem(BaseModel):
     confidence: float | None = None
     timestamp: datetime | None = None
 
+
 class DecisionExplanation(BaseModel):
     debate_id: Annotated[str, Field(description="Debate ID")]
     narrative: Annotated[str, Field(description="Natural language narrative")]
-    confidence: Annotated[
-        float | None, Field(description="Overall confidence (0-1)")
-    ] = None
-    factors: Annotated[
-        list[Factor] | None, Field(description="Contributing factors")
-    ] = None
+    confidence: Annotated[float | None, Field(description="Overall confidence (0-1)")] = None
+    factors: Annotated[list[Factor] | None, Field(description="Contributing factors")] = None
     counterfactuals: Annotated[
         list[Counterfactual] | None, Field(description="What-if scenarios")
     ] = None
@@ -556,6 +555,7 @@ class DecisionExplanation(BaseModel):
         list[ProvenanceItem] | None, Field(description="Decision provenance chain")
     ] = None
     generated_at: datetime | None = None
+
 
 class ControlPlaneAgent(BaseModel):
     agent_id: str
@@ -575,9 +575,11 @@ class ControlPlaneAgent(BaseModel):
     region_latency_ms: dict[str, Any] | None = None
     last_heartbeat_by_region: dict[str, Any] | None = None
 
+
 class ControlPlaneAgentList(BaseModel):
     agents: list[ControlPlaneAgent]
     total: int
+
 
 class ControlPlaneTask(BaseModel):
     id: str
@@ -603,11 +605,14 @@ class ControlPlaneTask(BaseModel):
     region_routing_mode: str | None = None
     origin_region: str | None = None
 
+
 class ControlPlaneTaskCreated(BaseModel):
     task_id: str
 
+
 class ControlPlaneTaskClaimResponse(BaseModel):
     task: ControlPlaneTask | None = None
+
 
 class ControlPlaneQueueJob(BaseModel):
     id: str | None = None
@@ -621,9 +626,11 @@ class ControlPlaneQueueJob(BaseModel):
     agents_assigned: list[str] | None = None
     priority: str | None = None
 
+
 class ControlPlaneQueue(BaseModel):
     jobs: list[ControlPlaneQueueJob]
     total: int
+
 
 class ControlPlaneMetrics(BaseModel):
     active_jobs: int | None = None
@@ -636,18 +643,22 @@ class ControlPlaneMetrics(BaseModel):
     audits_completed_today: int | None = None
     tokens_used_today: int | None = None
 
+
 class ControlPlaneStats(BaseModel):
     scheduler: dict[str, Any] | None = None
     registry: dict[str, Any] | None = None
+
 
 class ControlPlaneHealth(BaseModel):
     status: str | None = None
     agents: dict[str, Any] | None = None
 
+
 class VulnerabilityReference(BaseModel):
     url: str | None = None
     source: str | None = None
     tags: list[str] | None = None
+
 
 class VulnerabilityFinding(BaseModel):
     id: str | None = None
@@ -665,6 +676,7 @@ class VulnerabilityFinding(BaseModel):
     fix_available: bool | None = None
     recommended_version: str | None = None
 
+
 class DependencyInfo(BaseModel):
     name: str | None = None
     version: str | None = None
@@ -676,6 +688,7 @@ class DependencyInfo(BaseModel):
     has_vulnerabilities: bool | None = None
     highest_severity: str | None = None
 
+
 class CodebaseScanSummary(BaseModel):
     total_dependencies: int | None = None
     vulnerable_dependencies: int | None = None
@@ -683,6 +696,7 @@ class CodebaseScanSummary(BaseModel):
     high_count: int | None = None
     medium_count: int | None = None
     low_count: int | None = None
+
 
 class CodebaseScanResult(BaseModel):
     scan_id: str | None = None
@@ -697,15 +711,18 @@ class CodebaseScanResult(BaseModel):
     vulnerabilities: list[VulnerabilityFinding] | None = None
     summary: CodebaseScanSummary | None = None
 
+
 class CodebaseScanStartResponse(BaseModel):
     success: bool | None = None
     scan_id: str | None = None
     status: str | None = None
     repository: str | None = None
 
+
 class CodebaseScanResultResponse(BaseModel):
     success: bool | None = None
     scan_result: CodebaseScanResult | None = None
+
 
 class CodebaseScanListResponse(BaseModel):
     success: bool | None = None
@@ -713,6 +730,7 @@ class CodebaseScanListResponse(BaseModel):
     total: int | None = None
     limit: int | None = None
     offset: int | None = None
+
 
 class CodebaseVulnerabilityListResponse(BaseModel):
     success: bool | None = None
@@ -722,6 +740,7 @@ class CodebaseVulnerabilityListResponse(BaseModel):
     offset: int | None = None
     scan_id: str | None = None
 
+
 class CodebasePackageVulnerabilityResponse(BaseModel):
     success: bool | None = None
     package: str | None = None
@@ -730,9 +749,11 @@ class CodebasePackageVulnerabilityResponse(BaseModel):
     vulnerabilities: list[VulnerabilityFinding] | None = None
     total: int | None = None
 
+
 class CodebaseCVEResponse(BaseModel):
     success: bool | None = None
     vulnerability: VulnerabilityFinding | None = None
+
 
 class CodebaseMetricsStartResponse(BaseModel):
     success: bool | None = None
@@ -740,9 +761,11 @@ class CodebaseMetricsStartResponse(BaseModel):
     status: str | None = None
     repository: str | None = None
 
+
 class CodebaseMetricsReportResponse(BaseModel):
     success: bool | None = None
     report: dict[str, Any] | None = None
+
 
 class CodebaseHotspot(BaseModel):
     file_path: str | None = None
@@ -754,11 +777,13 @@ class CodebaseHotspot(BaseModel):
     lines_of_code: int | None = None
     risk_score: float | None = None
 
+
 class CodebaseHotspotListResponse(BaseModel):
     success: bool | None = None
     hotspots: list[CodebaseHotspot] | None = None
     total: int | None = None
     analysis_id: str | None = None
+
 
 class CodebaseDuplicateListResponse(BaseModel):
     success: bool | None = None
@@ -766,10 +791,12 @@ class CodebaseDuplicateListResponse(BaseModel):
     total: int | None = None
     analysis_id: str | None = None
 
+
 class CodebaseFileMetricsResponse(BaseModel):
     success: bool | None = None
     file: dict[str, Any] | None = None
     analysis_id: str | None = None
+
 
 class CodebaseMetricsHistoryResponse(BaseModel):
     success: bool | None = None
@@ -777,6 +804,7 @@ class CodebaseMetricsHistoryResponse(BaseModel):
     total: int | None = None
     limit: int | None = None
     offset: int | None = None
+
 
 class DecisionRequest(BaseModel):
     request_id: str | None = None
@@ -789,6 +817,7 @@ class DecisionRequest(BaseModel):
     priority: str | None = None
     attachments: list[dict[str, Any]] | None = None
     evidence: list[dict[str, Any]] | None = None
+
 
 class DecisionResult(BaseModel):
     request_id: str
@@ -804,19 +833,23 @@ class DecisionResult(BaseModel):
     success: bool | None = None
     error: str | None = None
 
+
 class DecisionStatus(BaseModel):
     request_id: str
     status: str
     completed_at: str | None = None
+
 
 class DecisionSummary(BaseModel):
     request_id: str
     status: str | None = None
     completed_at: str | None = None
 
+
 class DecisionList(BaseModel):
     decisions: list[DecisionSummary]
     total: int
+
 
 class DeliberationRequest(BaseModel):
     request_id: str | None = None
@@ -829,10 +862,12 @@ class DeliberationRequest(BaseModel):
     response_channels: list[dict[str, Any]] | None = None
     metadata: dict[str, Any] | None = None
 
+
 class DeliberationQueuedResponse(BaseModel):
     task_id: str
     request_id: str
     status: str
+
 
 class DeliberationSyncResponse(BaseModel):
     request_id: str
@@ -846,6 +881,7 @@ class DeliberationSyncResponse(BaseModel):
     duration_seconds: float | None = None
     error: str | None = None
 
+
 class DeliberationRecord(BaseModel):
     request_id: str
     status: str
@@ -854,10 +890,12 @@ class DeliberationRecord(BaseModel):
     error: str | None = None
     metrics: dict[str, Any] | None = None
 
+
 class DeliberationStatus(BaseModel):
     request_id: str
     status: str
     completed_at: str | None = None
+
 
 class GitHubReviewComment(BaseModel):
     id: str
@@ -868,6 +906,7 @@ class GitHubReviewComment(BaseModel):
     suggestion: str | None = None
     severity: str | None = None
     category: str | None = None
+
 
 class GitHubPRReviewResult(BaseModel):
     review_id: str
@@ -882,12 +921,14 @@ class GitHubPRReviewResult(BaseModel):
     error: str | None = None
     metrics: dict[str, Any] | None = None
 
+
 class ChangedFile(BaseModel):
     filename: str | None = None
     status: str | None = None
     additions: int | None = None
     deletions: int | None = None
     patch: str | None = None
+
 
 class GitHubPRDetails(BaseModel):
     number: int
@@ -903,16 +944,19 @@ class GitHubPRDetails(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+
 class ReviewType(StrEnum):
     comprehensive = "comprehensive"
     quick = "quick"
     security = "security"
+
 
 class GitHubPRReviewTriggerRequest(BaseModel):
     repository: Annotated[str, Field(description="owner/repo")]
     pr_number: int
     review_type: ReviewType | None = None
     workspace_id: str | None = None
+
 
 class GitHubPRReviewTriggerResponse(BaseModel):
     success: bool
@@ -922,15 +966,18 @@ class GitHubPRReviewTriggerResponse(BaseModel):
     repository: str | None = None
     error: str | None = None
 
+
 class GitHubPRDetailsResponse(BaseModel):
     success: bool
     pr: GitHubPRDetails | None = None
     error: str | None = None
 
+
 class GitHubPRReviewStatusResponse(BaseModel):
     success: bool
     review: GitHubPRReviewResult | None = None
     error: str | None = None
+
 
 class GitHubPRReviewListResponse(BaseModel):
     success: bool
@@ -938,15 +985,18 @@ class GitHubPRReviewListResponse(BaseModel):
     total: int
     error: str | None = None
 
+
 class Event(StrEnum):
     APPROVE = "APPROVE"
     REQUEST_CHANGES = "REQUEST_CHANGES"
     COMMENT = "COMMENT"
 
+
 class Comment(BaseModel):
     path: str
     position: int
     body: str
+
 
 class GitHubPRSubmitReviewRequest(BaseModel):
     repository: Annotated[str, Field(description="owner/repo")]
@@ -954,21 +1004,25 @@ class GitHubPRSubmitReviewRequest(BaseModel):
     body: str | None = None
     comments: list[Comment] | None = None
 
+
 class GitHubPRSubmitReviewResponse(BaseModel):
     success: bool
     demo: bool | None = None
     data: dict[str, Any] | None = None
     error: str | None = None
 
+
 class CostBreakdownItem(BaseModel):
     name: str | None = None
     cost: float | None = None
     percentage: float | None = None
 
+
 class CostDailyItem(BaseModel):
     date: str | None = None
     cost: float | None = None
     tokens: int | None = None
+
 
 class CostAlert(BaseModel):
     id: str | None = None
@@ -976,6 +1030,7 @@ class CostAlert(BaseModel):
     message: str | None = None
     severity: str | None = None
     timestamp: str | None = None
+
 
 class CostSummaryResponse(BaseModel):
     totalCost: float | None = None
@@ -988,30 +1043,37 @@ class CostSummaryResponse(BaseModel):
     dailyCosts: list[CostDailyItem] | None = None
     alerts: list[CostAlert] | None = None
 
+
 class CostBreakdownResponse(BaseModel):
     groupBy: str | None = None
     breakdown: list[CostBreakdownItem] | None = None
     total: float | None = None
+
 
 class CostTimelineResponse(BaseModel):
     timeline: list[CostDailyItem] | None = None
     total: float | None = None
     average: float | None = None
 
+
 class CostAlertsResponse(BaseModel):
     alerts: list[CostAlert] | None = None
+
 
 class CostBudgetRequest(BaseModel):
     budget: float
     workspace_id: str | None = None
+
 
 class CostBudgetResponse(BaseModel):
     success: bool
     budget: float | None = None
     workspace_id: str | None = None
 
+
 class CostDismissAlertResponse(BaseModel):
     success: bool
+
 
 class SharedInbox(BaseModel):
     id: str | None = None
@@ -1029,6 +1091,7 @@ class SharedInbox(BaseModel):
     updated_at: str | None = None
     created_by: str | None = None
 
+
 class SharedInboxMessage(BaseModel):
     id: str | None = None
     inbox_id: str | None = None
@@ -1043,15 +1106,18 @@ class SharedInboxMessage(BaseModel):
     tags: list[str] | None = None
     priority: str | None = None
 
+
 class SharedInboxResponse(BaseModel):
     success: bool
     inbox: SharedInbox | None = None
     error: str | None = None
 
+
 class SharedInboxListResponse(BaseModel):
     success: bool
     inboxes: list[SharedInbox]
     total: int
+
 
 class SharedInboxMessageListResponse(BaseModel):
     success: bool
@@ -1060,10 +1126,12 @@ class SharedInboxMessageListResponse(BaseModel):
     limit: int | None = None
     offset: int | None = None
 
+
 class SharedInboxMessageResponse(BaseModel):
     success: bool
     message: SharedInboxMessage | None = None
     error: str | None = None
+
 
 class RoutingRule(BaseModel):
     id: str | None = None
@@ -1080,10 +1148,12 @@ class RoutingRule(BaseModel):
     created_by: str | None = None
     stats: dict[str, Any] | None = None
 
+
 class RoutingRuleResponse(BaseModel):
     success: bool
     rule: RoutingRule | None = None
     error: str | None = None
+
 
 class RoutingRuleListResponse(BaseModel):
     success: bool
@@ -1092,9 +1162,11 @@ class RoutingRuleListResponse(BaseModel):
     limit: int | None = None
     offset: int | None = None
 
+
 class RoutingRuleDeleteResponse(BaseModel):
     success: bool
     deleted: str | None = None
+
 
 class RoutingRuleTestResponse(BaseModel):
     success: bool
@@ -1102,6 +1174,7 @@ class RoutingRuleTestResponse(BaseModel):
     match_count: int | None = None
     rule: RoutingRule | None = None
     error: str | None = None
+
 
 class SharedInboxCreateRequest(BaseModel):
     workspace_id: str
@@ -1113,14 +1186,18 @@ class SharedInboxCreateRequest(BaseModel):
     admins: list[str] | None = None
     settings: dict[str, Any] | None = None
 
+
 class SharedInboxAssignRequest(BaseModel):
     assigned_to: str
+
 
 class SharedInboxStatusRequest(BaseModel):
     status: str
 
+
 class SharedInboxTagRequest(BaseModel):
     tag: str
+
 
 class RoutingRuleCreateRequest(BaseModel):
     workspace_id: str
@@ -1132,6 +1209,7 @@ class RoutingRuleCreateRequest(BaseModel):
     enabled: bool | None = None
     description: str | None = None
 
+
 class RoutingRuleUpdateRequest(BaseModel):
     name: str | None = None
     description: str | None = None
@@ -1141,49 +1219,60 @@ class RoutingRuleUpdateRequest(BaseModel):
     priority: int | None = None
     enabled: bool | None = None
 
+
 class RoutingRuleTestRequest(BaseModel):
     workspace_id: str
+
 
 class CodebaseDependencyAnalysisRequest(BaseModel):
     repo_path: str
     include_dev: bool | None = None
+
 
 class CodebaseDependencyAnalysisResponse(BaseModel):
     status: str | None = None
     data: dict[str, Any] | None = None
     message: str | None = None
 
+
 class CodebaseDependencyScanRequest(BaseModel):
     repo_path: str
+
 
 class CodebaseDependencyScanResponse(BaseModel):
     status: str | None = None
     data: dict[str, Any] | None = None
     message: str | None = None
 
+
 class CodebaseLicenseCheckRequest(BaseModel):
     repo_path: str
     project_license: str | None = None
+
 
 class CodebaseLicenseCheckResponse(BaseModel):
     status: str | None = None
     data: dict[str, Any] | None = None
     message: str | None = None
 
+
 class CodebaseSBOMRequest(BaseModel):
     repo_path: str
     format: str | None = None
     include_vulnerabilities: bool | None = None
+
 
 class CodebaseSBOMResponse(BaseModel):
     status: str | None = None
     data: dict[str, Any] | None = None
     message: str | None = None
 
+
 class CodebaseSecretsScanRequest(BaseModel):
     repo_path: str
     branch: str | None = None
     commit_sha: str | None = None
+
 
 class CodebaseSecretsScanStartResponse(BaseModel):
     success: bool
@@ -1192,20 +1281,24 @@ class CodebaseSecretsScanStartResponse(BaseModel):
     repository: str | None = None
     error: str | None = None
 
+
 class CodebaseSecretsScanResultResponse(BaseModel):
     success: bool
     scan_result: dict[str, Any] | None = None
     error: str | None = None
+
 
 class CodebaseSecretsListResponse(BaseModel):
     success: bool
     secrets: list[dict[str, Any]] | None = None
     total: int | None = None
 
+
 class CodebaseSecretsScanListResponse(BaseModel):
     success: bool
     scans: list[dict[str, Any]] | None = None
     total: int | None = None
+
 
 class BudgetPeriod(StrEnum):
     daily = "daily"
@@ -1214,6 +1307,7 @@ class BudgetPeriod(StrEnum):
     quarterly = "quarterly"
     annual = "annual"
     unlimited = "unlimited"
+
 
 class BudgetStatus(StrEnum):
     active = "active"
@@ -1224,6 +1318,7 @@ class BudgetStatus(StrEnum):
     paused = "paused"
     closed = "closed"
 
+
 class BudgetAction(StrEnum):
     notify = "notify"
     warn = "warn"
@@ -1231,11 +1326,13 @@ class BudgetAction(StrEnum):
     hard_limit = "hard_limit"
     suspend = "suspend"
 
+
 class BudgetThreshold(BaseModel):
     percentage: Annotated[
         float, Field(description="Threshold percentage (0.0 - 1.0)", ge=0.0, le=1.0)
     ]
     action: BudgetAction
+
 
 class Budget(BaseModel):
     budget_id: Annotated[str, Field(description="Unique budget identifier")]
@@ -1244,43 +1341,31 @@ class Budget(BaseModel):
     description: Annotated[str | None, Field(description="Budget description")] = None
     amount_usd: Annotated[float, Field(description="Budget limit in USD")]
     period: BudgetPeriod | None = None
-    spent_usd: Annotated[
-        float | None, Field(description="Amount spent in current period")
-    ] = None
+    spent_usd: Annotated[float | None, Field(description="Amount spent in current period")] = None
     remaining_usd: Annotated[float | None, Field(description="Remaining budget")] = None
     usage_percentage: Annotated[
         float | None, Field(description="Current usage as percentage (0.0 - 1.0+)")
     ] = None
-    period_start: Annotated[
-        float | None, Field(description="Period start timestamp")
-    ] = None
+    period_start: Annotated[float | None, Field(description="Period start timestamp")] = None
     period_start_iso: datetime | None = None
-    period_end: Annotated[float | None, Field(description="Period end timestamp")] = (
-        None
-    )
+    period_end: Annotated[float | None, Field(description="Period end timestamp")] = None
     period_end_iso: datetime | None = None
     status: BudgetStatus | None = None
     current_action: BudgetAction | None = None
-    auto_suspend: Annotated[
-        bool | None, Field(description="Auto-suspend on exceed")
-    ] = None
-    is_exceeded: Annotated[
-        bool | None, Field(description="Whether budget is exceeded")
-    ] = None
+    auto_suspend: Annotated[bool | None, Field(description="Auto-suspend on exceed")] = None
+    is_exceeded: Annotated[bool | None, Field(description="Whether budget is exceeded")] = None
     thresholds: list[BudgetThreshold] | None = None
     created_at: Annotated[float | None, Field(description="Creation timestamp")] = None
-    updated_at: Annotated[float | None, Field(description="Last update timestamp")] = (
-        None
-    )
+    updated_at: Annotated[float | None, Field(description="Last update timestamp")] = None
+
 
 class BudgetCreateRequest(BaseModel):
     name: Annotated[str, Field(description="Budget name", min_length=1)]
     amount_usd: Annotated[float, Field(description="Budget limit in USD", ge=0.01)]
     period: BudgetPeriod | None = "monthly"
     description: Annotated[str | None, Field(description="Budget description")] = None
-    auto_suspend: Annotated[
-        bool | None, Field(description="Auto-suspend when exceeded")
-    ] = True
+    auto_suspend: Annotated[bool | None, Field(description="Auto-suspend when exceeded")] = True
+
 
 class BudgetUpdateRequest(BaseModel):
     name: str | None = None
@@ -1289,10 +1374,12 @@ class BudgetUpdateRequest(BaseModel):
     auto_suspend: bool | None = None
     status: BudgetStatus | None = None
 
+
 class BudgetListResponse(BaseModel):
     budgets: list[Budget]
     count: int
     org_id: str | None = None
+
 
 class BudgetSummary(BaseModel):
     org_id: str
@@ -1304,16 +1391,17 @@ class BudgetSummary(BaseModel):
     exceeded_budgets: int | None = None
     budgets: list[Budget] | None = None
 
+
 class BudgetCheckRequest(BaseModel):
-    estimated_cost_usd: Annotated[
-        float, Field(description="Estimated operation cost", ge=0.01)
-    ]
+    estimated_cost_usd: Annotated[float, Field(description="Estimated operation cost", ge=0.01)]
+
 
 class BudgetCheckResponse(BaseModel):
     allowed: Annotated[bool, Field(description="Whether operation is allowed")]
     reason: Annotated[str, Field(description="Explanation")]
     action: Annotated[str | None, Field(description="Required action if any")] = None
     estimated_cost_usd: float | None = None
+
 
 class BudgetAlert(BaseModel):
     alert_id: str
@@ -1331,10 +1419,12 @@ class BudgetAlert(BaseModel):
     acknowledged_by: str | None = None
     acknowledged_at: float | None = None
 
+
 class BudgetAlertListResponse(BaseModel):
     alerts: list[BudgetAlert]
     count: int
     budget_id: str | None = None
+
 
 class BudgetOverrideRequest(BaseModel):
     user_id: Annotated[str, Field(description="User to grant override")]
@@ -1342,37 +1432,41 @@ class BudgetOverrideRequest(BaseModel):
         float | None, Field(description="Override duration (null for permanent)")
     ] = None
 
+
 class BudgetOverrideResponse(BaseModel):
     override_added: bool
     budget_id: str
     user_id: str
     duration_hours: float | None = None
 
+
 class DisagreementStats(BaseModel):
-    total_debates: Annotated[
-        int | None, Field(description="Total debates analyzed")
-    ] = None
-    with_disagreements: Annotated[
-        int | None, Field(description="Debates with disagreements")
-    ] = None
+    total_debates: Annotated[int | None, Field(description="Total debates analyzed")] = None
+    with_disagreements: Annotated[int | None, Field(description="Debates with disagreements")] = (
+        None
+    )
     unanimous: Annotated[int | None, Field(description="Unanimous debates")] = None
     disagreement_types: Annotated[
         dict[str, int] | None, Field(description="Count by disagreement type")
     ] = None
+
 
 class ByAgent(BaseModel):
     proposer: int | None = None
     critic: int | None = None
     judge: int | None = None
 
+
 class RoleRotationStats(BaseModel):
     total_rotations: int | None = None
     by_agent: dict[str, ByAgent] | None = None
+
 
 class EarlyStopStats(BaseModel):
     total_early_stops: int | None = None
     by_reason: dict[str, int] | None = None
     average_rounds_saved: float | None = None
+
 
 class RankingStats(BaseModel):
     total_agents: int | None = None
@@ -1381,28 +1475,30 @@ class RankingStats(BaseModel):
     lowest_elo: float | None = None
     total_matches: int | None = None
 
+
 class ByTier(BaseModel):
     fast: int | None = None
     medium: int | None = None
     slow: int | None = None
     glacial: int | None = None
 
+
 class MemoryStats(BaseModel):
     total_entries: int | None = None
     by_tier: ByTier | None = None
     cache_hit_rate: float | None = None
 
+
 class KnowledgeNode(BaseModel):
     id: Annotated[str, Field(description="Unique node ID")]
     content: Annotated[str, Field(description="Node content")]
     source: Annotated[str | None, Field(description="Knowledge source type")] = None
-    confidence: Annotated[float | None, Field(description="Confidence score 0-1")] = (
-        None
-    )
+    confidence: Annotated[float | None, Field(description="Confidence score 0-1")] = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     topics: list[str] | None = None
     metadata: dict[str, Any] | None = None
+
 
 class KnowledgeQueryResult(BaseModel):
     items: list[KnowledgeNode] | None = None
@@ -1410,11 +1506,13 @@ class KnowledgeQueryResult(BaseModel):
     query: str | None = None
     relevance_scores: list[float] | None = None
 
+
 class KnowledgeStoreResult(BaseModel):
     node_id: str
     success: bool
     duplicate: bool | None = None
     topics_extracted: list[str] | None = None
+
 
 class AgentRegistration(BaseModel):
     agent_id: str
@@ -1424,12 +1522,14 @@ class AgentRegistration(BaseModel):
     last_heartbeat: datetime | None = None
     metadata: dict[str, Any] | None = None
 
+
 class Status2(StrEnum):
     pending = "pending"
     running = "running"
     completed = "completed"
     failed = "failed"
     cancelled = "cancelled"
+
 
 class TaskStatus(BaseModel):
     task_id: str
@@ -1440,12 +1540,14 @@ class TaskStatus(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+
 class PolicyEvaluation(BaseModel):
     allowed: bool
     policy_id: str | None = None
     reason: str | None = None
     conditions_met: list[str] | None = None
     conditions_failed: list[str] | None = None
+
 
 class PositionFlip(BaseModel):
     debate_id: str | None = None
@@ -1457,23 +1559,25 @@ class PositionFlip(BaseModel):
     conviction_delta: float | None = None
     timestamp: datetime | None = None
 
+
 class FlipsRecent(BaseModel):
     flips: list[PositionFlip] | None = None
     total: int | None = None
+
 
 class FlipsSummary(BaseModel):
     total_flips: int | None = None
     by_agent: dict[str, int] | None = None
     by_debate: dict[str, int] | None = None
     average_conviction_delta: float | None = None
-    flip_rate: Annotated[
-        float | None, Field(description="Percentage of debates with flips")
-    ] = None
+    flip_rate: Annotated[float | None, Field(description="Percentage of debates with flips")] = None
+
 
 class Type(StrEnum):
     observation = "observation"
     conclusion = "conclusion"
     recommendation = "recommendation"
+
 
 class Insight(BaseModel):
     id: str | None = None
@@ -1484,9 +1588,11 @@ class Insight(BaseModel):
     supporting_evidence: list[str] | None = None
     extracted_at: datetime | None = None
 
+
 class InsightsRecent(BaseModel):
     insights: list[Insight] | None = None
     total: int | None = None
+
 
 class InsightsDetailed(BaseModel):
     insights: list[Insight] | None = None
@@ -1494,12 +1600,14 @@ class InsightsDetailed(BaseModel):
     key_findings: list[str] | None = None
     processing_time_ms: int | None = None
 
+
 class Type1(StrEnum):
     breakthrough = "breakthrough"
     conflict = "conflict"
     consensus = "consensus"
     insight = "insight"
     flip = "flip"
+
 
 class DebateMoment(BaseModel):
     id: str | None = None
@@ -1511,28 +1619,34 @@ class DebateMoment(BaseModel):
     significance_score: float | None = None
     timestamp: datetime | None = None
 
+
 class TopDebate(BaseModel):
     debate_id: str | None = None
     moment_count: int | None = None
+
 
 class MomentsSummary(BaseModel):
     total_moments: int | None = None
     by_type: dict[str, int] | None = None
     top_debates: list[TopDebate] | None = None
 
+
 class MomentsTimeline(BaseModel):
     moments: list[DebateMoment] | None = None
     start_time: datetime | None = None
     end_time: datetime | None = None
 
+
 class MomentsTrending(BaseModel):
     moments: list[DebateMoment] | None = None
     trending_period_hours: int | None = None
+
 
 class MomentsByType(BaseModel):
     type: str | None = None
     moments: list[DebateMoment] | None = None
     total: int | None = None
+
 
 class Debate(BaseModel):
     debate_id: str | None = None
