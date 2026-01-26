@@ -17,11 +17,12 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from .base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     get_string_param,
     json_response,
 )
@@ -458,7 +459,7 @@ class GauntletReceiptExportHandler(BaseHandler):
             )
 
             # Map format string to enum
-            format_map: dict[str, ReceiptExportFormat] = {  # type: ignore[no-redef]
+            export_format_map: dict[str, ReceiptExportFormat] = {
                 "json": ReceiptExportFormat.JSON,
                 "markdown": ReceiptExportFormat.MARKDOWN,
                 "html": ReceiptExportFormat.HTML,
@@ -466,8 +467,8 @@ class GauntletReceiptExportHandler(BaseHandler):
                 "sarif": ReceiptExportFormat.SARIF,
             }
 
-            if format_str not in format_map:
-                valid_formats = list(format_map.keys())
+            if format_str not in export_format_map:
+                valid_formats = list(export_format_map.keys())
                 return rfc7807_error(
                     status=400,
                     title="Invalid Format",
@@ -476,7 +477,7 @@ class GauntletReceiptExportHandler(BaseHandler):
                     valid_formats=valid_formats,
                 )
 
-            export_format = format_map[format_str]
+            export_format = export_format_map[format_str]
 
             # Create export options
             options = ExportOptions(
@@ -703,7 +704,7 @@ GAUNTLET_V1_HANDLERS = [
 
 def register_gauntlet_v1_handlers(router: Any, server_context: Any = None) -> None:
     """Register all v1 Gauntlet handlers with a router."""
-    ctx: Dict[str, Any] = server_context or {}
+    ctx = cast(ServerContext, server_context or {})
     for handler_cls in GAUNTLET_V1_HANDLERS:
         handler = handler_cls(ctx)
         router.add_handler(handler)

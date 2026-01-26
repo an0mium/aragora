@@ -481,12 +481,12 @@ class ReceiptsHandler(BaseHandler):
 
         blocks = formatted.get("blocks", [])
         result = await connector.send_message(
-            channel=channel_id,
+            channel_id=channel_id,
             text="Decision Receipt",
             blocks=blocks,
         )
 
-        return {"message_ts": result.get("ts"), "channel": result.get("channel")}
+        return {"message_ts": result.timestamp, "channel": result.channel_id}
 
     async def _send_to_teams(
         self,
@@ -514,13 +514,16 @@ class ReceiptsHandler(BaseHandler):
             service_url=workspace.service_url or "https://smba.trafficmanager.net/amer/",
         )
 
-        # Send Adaptive Card
-        result = await connector.send_adaptive_card(
+        # Send Adaptive Card via send_message with blocks
+        card_body = formatted.get("body", [])
+        result = await connector.send_message(
+            channel_id=channel_id,
+            text="Decision Receipt",
+            blocks=card_body,
             conversation_id=channel_id,
-            card=formatted,
         )
 
-        return {"message_id": result.get("id")}
+        return {"message_id": result.message_id}
 
     async def _send_to_email(
         self,
