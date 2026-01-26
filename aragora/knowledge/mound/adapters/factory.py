@@ -67,6 +67,7 @@ def _init_specs() -> None:
     from .elo_adapter import EloAdapter
     from .pulse_adapter import PulseAdapter
     from .cost_adapter import CostAdapter
+    from .provenance_adapter import ProvenanceAdapter
 
     # Core memory adapters
     register_adapter_spec(
@@ -176,6 +177,18 @@ def _init_specs() -> None:
             priority=10,  # Low priority - operational
             enabled_by_default=False,  # Opt-in
             config_key="km_cost_adapter",
+        )
+    )
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="provenance",
+            adapter_class=ProvenanceAdapter,
+            required_deps=["provenance_store"],
+            forward_method="ingest_provenance",
+            reverse_method=None,  # No reverse sync (provenance is append-only)
+            priority=75,  # High priority - core evidence tracking
+            config_key="km_provenance_adapter",
         )
     )
 

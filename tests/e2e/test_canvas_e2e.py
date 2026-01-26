@@ -120,7 +120,7 @@ class TestCanvasNodeManagementE2E:
     @pytest.mark.asyncio
     async def test_add_multiple_node_types(self, canvas_with_manager):
         """Test adding different types of nodes."""
-        from aragora.canvas.models import CanvasNodeType
+        from aragora.canvas.models import CanvasNodeType, Position
 
         manager, canvas = canvas_with_manager
 
@@ -128,8 +128,8 @@ class TestCanvasNodeManagementE2E:
         agent_node = await manager.add_node(
             canvas.id,
             node_type=CanvasNodeType.AGENT,
+            position=Position(100, 100),
             label="Claude Agent",
-            position={"x": 100, "y": 100},
             data={"agent_id": "claude-3-opus"},
         )
         assert agent_node.node_type == CanvasNodeType.AGENT
@@ -138,8 +138,8 @@ class TestCanvasNodeManagementE2E:
         debate_node = await manager.add_node(
             canvas.id,
             node_type=CanvasNodeType.DEBATE,
+            position=Position(300, 100),
             label="Ethics Debate",
-            position={"x": 300, "y": 100},
             data={"topic": "AI Ethics"},
         )
         assert debate_node.node_type == CanvasNodeType.DEBATE
@@ -147,8 +147,8 @@ class TestCanvasNodeManagementE2E:
         knowledge_node = await manager.add_node(
             canvas.id,
             node_type=CanvasNodeType.KNOWLEDGE,
+            position=Position(200, 300),
             label="Company Policies",
-            position={"x": 200, "y": 300},
             data={"source": "internal"},
         )
         assert knowledge_node.node_type == CanvasNodeType.KNOWLEDGE
@@ -160,15 +160,15 @@ class TestCanvasNodeManagementE2E:
     @pytest.mark.asyncio
     async def test_move_node(self, canvas_with_manager):
         """Test moving a node to a new position."""
-        from aragora.canvas.models import CanvasNodeType
+        from aragora.canvas.models import CanvasNodeType, Position
 
         manager, canvas = canvas_with_manager
 
         node = await manager.add_node(
             canvas.id,
             node_type=CanvasNodeType.TEXT,
+            position=Position(0, 0),
             label="Movable Node",
-            position={"x": 0, "y": 0},
         )
 
         # Move node
@@ -180,13 +180,14 @@ class TestCanvasNodeManagementE2E:
     @pytest.mark.asyncio
     async def test_update_node_data(self, canvas_with_manager):
         """Test updating node data."""
-        from aragora.canvas.models import CanvasNodeType
+        from aragora.canvas.models import CanvasNodeType, Position
 
         manager, canvas = canvas_with_manager
 
         node = await manager.add_node(
             canvas.id,
             node_type=CanvasNodeType.AGENT,
+            position=Position(100, 100),
             label="Test Agent",
             data={"status": "idle"},
         )
@@ -203,14 +204,14 @@ class TestCanvasNodeManagementE2E:
     @pytest.mark.asyncio
     async def test_delete_node_removes_connected_edges(self, canvas_with_manager):
         """Test that deleting a node also removes its connected edges."""
-        from aragora.canvas.models import CanvasNodeType, EdgeType
+        from aragora.canvas.models import CanvasNodeType, EdgeType, Position
 
         manager, canvas = canvas_with_manager
 
         # Create nodes
-        node1 = await manager.add_node(canvas.id, node_type=CanvasNodeType.AGENT, label="Node 1")
-        node2 = await manager.add_node(canvas.id, node_type=CanvasNodeType.AGENT, label="Node 2")
-        node3 = await manager.add_node(canvas.id, node_type=CanvasNodeType.AGENT, label="Node 3")
+        node1 = await manager.add_node(canvas.id, CanvasNodeType.AGENT, Position(0, 0), "Node 1")
+        node2 = await manager.add_node(canvas.id, CanvasNodeType.AGENT, Position(100, 0), "Node 2")
+        node3 = await manager.add_node(canvas.id, CanvasNodeType.AGENT, Position(200, 0), "Node 3")
 
         # Create edges
         await manager.add_edge(canvas.id, node1.id, node2.id, EdgeType.DATA_FLOW)
@@ -237,17 +238,19 @@ class TestCanvasEdgeManagementE2E:
     async def canvas_with_nodes(self):
         """Create a canvas with pre-existing nodes."""
         from aragora.canvas.manager import CanvasStateManager
-        from aragora.canvas.models import CanvasNodeType
+        from aragora.canvas.models import CanvasNodeType, Position
 
         manager = CanvasStateManager()
         canvas = await manager.create_canvas(name="Edge Test Canvas")
 
         # Add nodes
-        node_a = await manager.add_node(canvas.id, node_type=CanvasNodeType.INPUT, label="Input")
+        node_a = await manager.add_node(canvas.id, CanvasNodeType.INPUT, Position(0, 0), "Input")
         node_b = await manager.add_node(
-            canvas.id, node_type=CanvasNodeType.AGENT, label="Processor"
+            canvas.id, CanvasNodeType.AGENT, Position(100, 0), "Processor"
         )
-        node_c = await manager.add_node(canvas.id, node_type=CanvasNodeType.OUTPUT, label="Output")
+        node_c = await manager.add_node(
+            canvas.id, CanvasNodeType.OUTPUT, Position(200, 0), "Output"
+        )
 
         yield manager, canvas, [node_a, node_b, node_c]
 
@@ -307,7 +310,7 @@ class TestCanvasRendererE2E:
     async def populated_canvas(self):
         """Create a populated canvas for rendering tests."""
         from aragora.canvas.manager import CanvasStateManager
-        from aragora.canvas.models import CanvasNodeType, EdgeType
+        from aragora.canvas.models import CanvasNodeType, EdgeType, Position
 
         manager = CanvasStateManager()
         canvas = await manager.create_canvas(name="Render Test Canvas")
@@ -315,28 +318,30 @@ class TestCanvasRendererE2E:
         # Add nodes
         agent1 = await manager.add_node(
             canvas.id,
-            node_type=CanvasNodeType.AGENT,
-            label="Claude",
-            position={"x": 100, "y": 100},
+            CanvasNodeType.AGENT,
+            Position(100, 100),
+            "Claude",
         )
         agent2 = await manager.add_node(
             canvas.id,
-            node_type=CanvasNodeType.AGENT,
-            label="GPT-4",
-            position={"x": 300, "y": 100},
+            CanvasNodeType.AGENT,
+            Position(300, 100),
+            "GPT-4",
         )
         debate = await manager.add_node(
             canvas.id,
-            node_type=CanvasNodeType.DEBATE,
-            label="Architecture Debate",
-            position={"x": 200, "y": 250},
+            CanvasNodeType.DEBATE,
+            Position(200, 250),
+            "Architecture Debate",
         )
 
         # Add edges
         await manager.add_edge(canvas.id, agent1.id, debate.id, EdgeType.DATA_FLOW)
         await manager.add_edge(canvas.id, agent2.id, debate.id, EdgeType.DATA_FLOW)
 
-        yield canvas
+        # Get updated canvas with nodes/edges
+        updated_canvas = await manager.get_canvas(canvas.id)
+        yield updated_canvas
 
     @pytest.mark.asyncio
     async def test_render_to_json(self, populated_canvas):
