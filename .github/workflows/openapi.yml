@@ -92,6 +92,22 @@ jobs:
         run: |
           redocly lint docs/api/openapi_generated.json --skip-rule=no-empty-servers || true
 
+      - name: Audit documentation coverage
+        run: |
+          python scripts/audit_openapi_docs.py --min-coverage 60
+          echo "Documentation coverage check passed"
+
+      - name: Check for missing operationIds (warning only)
+        run: |
+          python scripts/audit_openapi_docs.py --json | python -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          missing = len([e for e in data['priority_list'] if 'operationId' in e.get('missing', [])])
+          print(f'Endpoints missing operationId: {missing}')
+          if missing > 400:
+              print('::warning::Large number of endpoints missing operationId - SDK generation may be incomplete')
+          "
+
       - name: Upload generated spec
         uses: actions/upload-artifact@v4
         with:
