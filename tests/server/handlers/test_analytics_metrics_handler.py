@@ -131,7 +131,7 @@ class TestDebateAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_storage", return_value=mock_storage):
+        with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_debates_overview({"time_range": "30d"})
 
         assert result["success"] is True
@@ -149,7 +149,7 @@ class TestDebateAnalytics:
         mock_storage = MagicMock()
         mock_storage.list_debates.return_value = []
 
-        with patch.object(handler, "_get_storage", return_value=mock_storage):
+        with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_debates_overview({})
 
         assert result["success"] is True
@@ -162,7 +162,7 @@ class TestDebateAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_storage", return_value=mock_storage):
+        with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_debates_trends(
                 {
                     "time_range": "7d",
@@ -179,7 +179,7 @@ class TestDebateAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_storage", return_value=mock_storage):
+        with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_debates_topics({"limit": "10"})
 
         assert result["success"] is True
@@ -191,7 +191,7 @@ class TestDebateAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_storage", return_value=mock_storage):
+        with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_debates_outcomes({})
 
         assert result["success"] is True
@@ -204,7 +204,7 @@ class TestDebateAnalytics:
         handler = AnalyticsMetricsHandler(mock_server_context)
 
         for time_range in ["7d", "14d", "30d", "90d", "180d", "365d", "all"]:
-            with patch.object(handler, "_get_storage", return_value=mock_storage):
+            with patch.object(handler, "get_storage", return_value=mock_storage):
                 result = handler._get_debates_overview({"time_range": time_range})
             assert result["success"] is True, f"Failed for time_range={time_range}"
 
@@ -214,7 +214,7 @@ class TestDebateAnalytics:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_storage", return_value=mock_storage):
+        with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_debates_overview({"time_range": "invalid"})
 
         assert result["success"] is True
@@ -420,7 +420,7 @@ class TestParameterValidation:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_storage", return_value=mock_storage):
+        with patch.object(handler, "get_storage", return_value=mock_storage):
             # Test very high limit
             result = handler._get_debates_topics({"limit": "1000"})
             assert result["success"] is True
@@ -435,7 +435,7 @@ class TestParameterValidation:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_storage", return_value=mock_storage):
+        with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_debates_overview({"offset": "10"})
             assert result["success"] is True
 
@@ -446,7 +446,7 @@ class TestParameterValidation:
         handler = AnalyticsMetricsHandler(mock_server_context)
 
         for granularity in ["daily", "weekly", "monthly"]:
-            with patch.object(handler, "_get_storage", return_value=mock_storage):
+            with patch.object(handler, "get_storage", return_value=mock_storage):
                 result = handler._get_debates_trends({"granularity": granularity})
             assert result["success"] is True
 
@@ -456,7 +456,7 @@ class TestParameterValidation:
 
         handler = AnalyticsMetricsHandler(mock_server_context)
 
-        with patch.object(handler, "_get_storage", return_value=mock_storage):
+        with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_debates_trends({"granularity": "invalid"})
 
         assert result["success"] is True

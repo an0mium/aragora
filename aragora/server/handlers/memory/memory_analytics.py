@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+
 from ..base import (
     HandlerResult,
     error_response,
@@ -25,7 +26,7 @@ from ..utils.rate_limit import RateLimiter, get_client_ip
 logger = logging.getLogger(__name__)
 
 # RBAC permission for memory analytics endpoints
-MEMORY_ANALYTICS_PERMISSION = "memory:read"
+MEMORY_ANALYTICS_PERMISSION = "memory:analytics"
 
 # Rate limiter for memory analytics endpoints (30 requests per minute - query-heavy)
 _memory_analytics_limiter = RateLimiter(requests_per_minute=30)
