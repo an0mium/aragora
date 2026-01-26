@@ -316,6 +316,17 @@ class User:
     # Token revocation - increment to invalidate all existing tokens
     token_version: int = 1
 
+    # Service account fields for programmatic access without MFA
+    is_service_account: bool = False  # Machine/bot account indicator
+    service_account_created_by: Optional[str] = None  # User ID who created this service account
+    service_account_scopes: Optional[str] = None  # JSON list of allowed scopes
+
+    # MFA bypass tracking for service accounts
+    mfa_bypass_reason: Optional[str] = None  # 'service_account', 'api_integration'
+    mfa_bypass_approved_by: Optional[str] = None  # User ID who approved bypass
+    mfa_bypass_approved_at: Optional[datetime] = None  # When bypass was approved
+    mfa_bypass_expires_at: Optional[datetime] = None  # Auto-expire bypass (security)
+
     def set_password(self, password: str) -> None:
         """Set user password."""
         self.password_hash, self.password_salt = hash_password(password)
