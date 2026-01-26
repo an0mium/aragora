@@ -465,7 +465,12 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
                 messages=[{"role": "user", "content": prompt}],
             )
 
-            content = response.content[0].text.strip()
+            # Extract text content from response
+            first_block = response.content[0]
+            if not hasattr(first_block, "text"):
+                logger.warning("Response does not contain text content")
+                return []
+            content = first_block.text.strip()  # type: ignore[union-attr]
 
             # Extract JSON from response
             if "```json" in content:
