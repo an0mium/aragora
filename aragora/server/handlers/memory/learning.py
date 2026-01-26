@@ -16,6 +16,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
+from aragora.rbac.decorators import require_permission  # noqa: F401
 
 from ..base import (
     HandlerResult,
