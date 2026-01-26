@@ -453,6 +453,68 @@ class User:
         self.mfa_grace_period_started_at = None
         self.updated_at = datetime.now(timezone.utc)
 
+    def get_service_account_scopes(self) -> list[str]:
+        """Get list of scopes for service account."""
+        import json
+
+        if not self.service_account_scopes:
+            return []
+        try:
+            return json.loads(self.service_account_scopes)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    def set_service_account_scopes(self, scopes: list[str]) -> None:
+        """Set scopes for service account."""
+        import json
+
+        self.service_account_scopes = json.dumps(scopes)
+        self.updated_at = datetime.now(timezone.utc)
+
+    def has_scope(self, scope: str) -> bool:
+        """Check if service account has a specific scope."""
+        if not self.is_service_account:
+            return True  # Non-service accounts have all scopes
+        return scope in self.get_service_account_scopes()
+
+    def is_mfa_bypass_valid(self) -> bool:
+        """Check if MFA bypass is still valid (not expired)."""
+        if not self.is_service_account:
+            return False
+        if not self.mfa_bypass_approved_at:
+            return False
+        if self.mfa_bypass_expires_at:
+            return datetime.now(timezone.utc) < self.mfa_bypass_expires_at
+        return True  # No expiration set, bypass is valid
+
+    def approve_mfa_bypass(
+        self,
+        approved_by: str,
+        reason: str = "service_account",
+        expires_days: int = 90,
+    ) -> None:
+        """
+        Approve MFA bypass for this service account.
+
+        Args:
+            approved_by: User ID of the approver (must be admin)
+            reason: Reason for bypass ('service_account', 'api_integration')
+            expires_days: Days until bypass expires (default: 90)
+        """
+        if not self.is_service_account:
+            raise ValueError("MFA bypass can only be approved for service accounts")
+
+        self.mfa_bypass_reason = reason
+        self.mfa_bypass_approved_by = approved_by
+        self.mfa_bypass_approved_at = datetime.now(timezone.utc)
+        self.mfa_bypass_expires_at = datetime.now(timezone.utc) + timedelta(days=expires_days)
+        self.updated_at = datetime.now(timezone.utc)
+
+        logger.info(
+            f"MFA bypass approved for service account {self.id} by {approved_by}. "
+            f"Expires: {self.mfa_bypass_expires_at}"
+        )
+
     def to_dict(self, include_sensitive: bool = False) -> dict[str, Any]:
         """Convert to dictionary."""
         data = {
