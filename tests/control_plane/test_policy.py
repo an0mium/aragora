@@ -975,6 +975,144 @@ class TestPolicyConflictDetector:
         assert data["severity"] == "error"
         assert "detected_at" in data
 
+    def test_sla_execution_time_conflict(self):
+        """Test detection of conflicting execution time SLAs."""
+        detector = PolicyConflictDetector()
+
+        policy_a = ControlPlanePolicy(
+            id="sla-fast",
+            name="Fast SLA",
+            task_types=["analysis"],
+            sla=SLARequirements(max_execution_seconds=60.0),
+        )
+        policy_b = ControlPlanePolicy(
+            id="sla-slow",
+            name="Slow SLA",
+            task_types=["analysis"],
+            sla=SLARequirements(max_execution_seconds=300.0),  # 5x difference
+        )
+
+        conflicts = detector.detect_conflicts([policy_a, policy_b])
+
+        sla_conflicts = [c for c in conflicts if c.conflict_type == "sla_execution_time"]
+        assert len(sla_conflicts) == 1
+        assert "execution time" in sla_conflicts[0].description.lower()
+        assert sla_conflicts[0].severity == "warning"
+
+    def test_sla_queue_time_conflict(self):
+        """Test detection of conflicting queue time SLAs."""
+        detector = PolicyConflictDetector()
+
+        policy_a = ControlPlanePolicy(
+            id="sla-urgent",
+            name="Urgent Queue",
+            task_types=["urgent"],
+            sla=SLARequirements(max_queue_seconds=10.0),
+        )
+        policy_b = ControlPlanePolicy(
+            id="sla-normal",
+            name="Normal Queue",
+            task_types=["urgent"],
+            sla=SLARequirements(max_queue_seconds=120.0),  # 12x difference
+        )
+
+        conflicts = detector.detect_conflicts([policy_a, policy_b])
+
+        sla_conflicts = [c for c in conflicts if c.conflict_type == "sla_queue_time"]
+        assert len(sla_conflicts) == 1
+        assert "queue time" in sla_conflicts[0].description.lower()
+
+    def test_sla_concurrent_tasks_conflict(self):
+        """Test detection of conflicting concurrent task limits."""
+        detector = PolicyConflictDetector()
+
+        policy_a = ControlPlanePolicy(
+            id="sla-restrictive",
+            name="Restrictive",
+            task_types=["compute"],
+            sla=SLARequirements(max_concurrent_tasks=1),
+        )
+        policy_b = ControlPlanePolicy(
+            id="sla-permissive",
+            name="Permissive",
+            task_types=["compute"],
+            sla=SLARequirements(max_concurrent_tasks=20),  # 20x difference
+        )
+
+        conflicts = detector.detect_conflicts([policy_a, policy_b])
+
+        sla_conflicts = [c for c in conflicts if c.conflict_type == "sla_concurrent_tasks"]
+        assert len(sla_conflicts) == 1
+        assert "concurrent task" in sla_conflicts[0].description.lower()
+
+    def test_sla_impossible_constraint(self):
+        """Test detection of impossible SLA constraints."""
+        detector = PolicyConflictDetector()
+
+        # Policy A: queue time 60s, exec time 300s (valid)
+        policy_a = ControlPlanePolicy(
+            id="sla-valid",
+            name="Valid SLA",
+            task_types=["test"],
+            sla=SLARequirements(max_queue_seconds=60.0, max_execution_seconds=300.0),
+        )
+        # Policy B: queue time 100s, exec time 30s (when combined: queue 60s > exec 30s = impossible)
+        policy_b = ControlPlanePolicy(
+            id="sla-strict-exec",
+            name="Strict Exec",
+            task_types=["test"],
+            sla=SLARequirements(max_queue_seconds=100.0, max_execution_seconds=30.0),
+        )
+
+        conflicts = detector.detect_conflicts([policy_a, policy_b])
+
+        impossible = [c for c in conflicts if c.conflict_type == "sla_impossible"]
+        assert len(impossible) == 1
+        assert impossible[0].severity == "error"
+        assert "impossible" in impossible[0].description.lower()
+
+    def test_sla_no_conflict_when_similar(self):
+        """Test no SLA conflict when values are similar."""
+        detector = PolicyConflictDetector()
+
+        policy_a = ControlPlanePolicy(
+            id="sla-a",
+            name="SLA A",
+            task_types=["task"],
+            sla=SLARequirements(max_execution_seconds=100.0),
+        )
+        policy_b = ControlPlanePolicy(
+            id="sla-b",
+            name="SLA B",
+            task_types=["task"],
+            sla=SLARequirements(max_execution_seconds=120.0),  # Only 1.2x difference
+        )
+
+        conflicts = detector.detect_conflicts([policy_a, policy_b])
+
+        sla_conflicts = [c for c in conflicts if "sla_" in c.conflict_type]
+        assert len(sla_conflicts) == 0  # No conflict for small differences
+
+    def test_sla_no_conflict_without_sla(self):
+        """Test no SLA conflict when policies have no SLA requirements."""
+        detector = PolicyConflictDetector()
+
+        policy_a = ControlPlanePolicy(
+            id="no-sla-a",
+            name="No SLA A",
+            task_types=["task"],
+        )
+        policy_b = ControlPlanePolicy(
+            id="no-sla-b",
+            name="No SLA B",
+            task_types=["task"],
+        )
+
+        conflicts = detector.detect_conflicts([policy_a, policy_b])
+
+        sla_conflicts = [c for c in conflicts if "sla_" in c.conflict_type]
+        assert len(sla_conflicts) == 0
+
 
 class TestRedisPolicyCache:
     """Tests for RedisPolicyCache."""

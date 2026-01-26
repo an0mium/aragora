@@ -1678,6 +1678,10 @@ class PolicyConflictDetector:
                 enforcement_conflicts = self._check_enforcement_conflicts(policy_a, policy_b)
                 conflicts.extend(enforcement_conflicts)
 
+                # Check for SLA requirement conflicts
+                sla_conflicts = self._check_sla_conflicts(policy_a, policy_b)
+                conflicts.extend(sla_conflicts)
+
         return conflicts
 
     def _scopes_overlap(
@@ -1878,6 +1882,136 @@ class PolicyConflictDetector:
                         severity="warning",
                     )
                 )
+
+        return conflicts
+
+    def _check_sla_conflicts(
+        self,
+        policy_a: ControlPlanePolicy,
+        policy_b: ControlPlanePolicy,
+    ) -> List[PolicyConflict]:
+        """Check for conflicting SLA requirements between overlapping policies.
+
+        Detects situations where two policies with overlapping scope have
+        significantly different SLA requirements that could cause confusion
+        or impossible-to-satisfy conditions.
+        """
+        conflicts: List[PolicyConflict] = []
+
+        # Skip if either policy has no SLA requirements
+        if not policy_a.sla or not policy_b.sla:
+            return conflicts
+
+        sla_a = policy_a.sla
+        sla_b = policy_b.sla
+
+        # Check for conflicting max_execution_seconds
+        # Flag if one policy requires significantly stricter execution time
+        if sla_a.max_execution_seconds > 0 and sla_b.max_execution_seconds > 0:
+            ratio = max(sla_a.max_execution_seconds, sla_b.max_execution_seconds) / min(
+                sla_a.max_execution_seconds, sla_b.max_execution_seconds
+            )
+            if ratio > 3.0:  # More than 3x difference is likely a conflict
+                conflicts.append(
+                    PolicyConflict(
+                        policy_a_id=policy_a.id,
+                        policy_a_name=policy_a.name,
+                        policy_b_id=policy_b.id,
+                        policy_b_name=policy_b.name,
+                        conflict_type="sla_execution_time",
+                        description=(
+                            f"Policies '{policy_a.name}' and '{policy_b.name}' have "
+                            f"conflicting execution time limits: {sla_a.max_execution_seconds}s "
+                            f"vs {sla_b.max_execution_seconds}s (>{ratio:.1f}x difference)"
+                        ),
+                        severity="warning",
+                    )
+                )
+
+        # Check for conflicting max_queue_seconds
+        if sla_a.max_queue_seconds > 0 and sla_b.max_queue_seconds > 0:
+            ratio = max(sla_a.max_queue_seconds, sla_b.max_queue_seconds) / min(
+                sla_a.max_queue_seconds, sla_b.max_queue_seconds
+            )
+            if ratio > 3.0:
+                conflicts.append(
+                    PolicyConflict(
+                        policy_a_id=policy_a.id,
+                        policy_a_name=policy_a.name,
+                        policy_b_id=policy_b.id,
+                        policy_b_name=policy_b.name,
+                        conflict_type="sla_queue_time",
+                        description=(
+                            f"Policies '{policy_a.name}' and '{policy_b.name}' have "
+                            f"conflicting queue time limits: {sla_a.max_queue_seconds}s "
+                            f"vs {sla_b.max_queue_seconds}s (>{ratio:.1f}x difference)"
+                        ),
+                        severity="warning",
+                    )
+                )
+
+        # Check for conflicting max_concurrent_tasks
+        if sla_a.max_concurrent_tasks != sla_b.max_concurrent_tasks:
+            ratio = max(sla_a.max_concurrent_tasks, sla_b.max_concurrent_tasks) / max(
+                min(sla_a.max_concurrent_tasks, sla_b.max_concurrent_tasks), 1
+            )
+            if ratio > 5.0:  # More than 5x difference
+                conflicts.append(
+                    PolicyConflict(
+                        policy_a_id=policy_a.id,
+                        policy_a_name=policy_a.name,
+                        policy_b_id=policy_b.id,
+                        policy_b_name=policy_b.name,
+                        conflict_type="sla_concurrent_tasks",
+                        description=(
+                            f"Policies '{policy_a.name}' and '{policy_b.name}' have "
+                            f"conflicting concurrent task limits: {sla_a.max_concurrent_tasks} "
+                            f"vs {sla_b.max_concurrent_tasks}"
+                        ),
+                        severity="warning",
+                    )
+                )
+
+        # Check for conflicting response_time_p99_ms
+        if sla_a.response_time_p99_ms > 0 and sla_b.response_time_p99_ms > 0:
+            ratio = max(sla_a.response_time_p99_ms, sla_b.response_time_p99_ms) / min(
+                sla_a.response_time_p99_ms, sla_b.response_time_p99_ms
+            )
+            if ratio > 5.0:  # More than 5x difference in P99 requirements
+                conflicts.append(
+                    PolicyConflict(
+                        policy_a_id=policy_a.id,
+                        policy_a_name=policy_a.name,
+                        policy_b_id=policy_b.id,
+                        policy_b_name=policy_b.name,
+                        conflict_type="sla_response_time",
+                        description=(
+                            f"Policies '{policy_a.name}' and '{policy_b.name}' have "
+                            f"conflicting P99 response time targets: {sla_a.response_time_p99_ms}ms "
+                            f"vs {sla_b.response_time_p99_ms}ms"
+                        ),
+                        severity="warning",
+                    )
+                )
+
+        # Check for impossible SLA: stricter queue time than execution time
+        stricter_queue = min(sla_a.max_queue_seconds, sla_b.max_queue_seconds)
+        stricter_exec = min(sla_a.max_execution_seconds, sla_b.max_execution_seconds)
+        if stricter_queue > 0 and stricter_exec > 0 and stricter_queue > stricter_exec:
+            conflicts.append(
+                PolicyConflict(
+                    policy_a_id=policy_a.id,
+                    policy_a_name=policy_a.name,
+                    policy_b_id=policy_b.id,
+                    policy_b_name=policy_b.name,
+                    conflict_type="sla_impossible",
+                    description=(
+                        f"Combined SLA requirements create impossible constraint: "
+                        f"max queue time ({stricter_queue}s) > max execution time ({stricter_exec}s)"
+                    ),
+                    severity="error",
+                )
+            )
 
         return conflicts
 
