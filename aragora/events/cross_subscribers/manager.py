@@ -48,13 +48,13 @@ try:
 except ImportError:
     METRICS_AVAILABLE = False
 
-    def record_event_dispatched(event_type: str) -> None:
+    def record_event_dispatched(event_type: str) -> None:  # type: ignore[misc]
         pass
 
-    def record_handler_call(handler: str, status: str, duration: float) -> None:
+    def record_handler_call(handler: str, status: str, duration: float) -> None:  # type: ignore[misc]
         pass
 
-    def set_circuit_breaker_state(handler: str, state: str) -> None:
+    def set_circuit_breaker_state(handler: str, state: str) -> None:  # type: ignore[misc]
         pass
 
 
@@ -522,7 +522,7 @@ class CrossSubscriberManager(
                         )
                         self._circuit_breaker.record_failure(name)
                         if METRICS_AVAILABLE:
-                            set_circuit_breaker_state(name, self._circuit_breaker.get_state(name))
+                            set_circuit_breaker_state(name, self._circuit_breaker.get_status(name))
 
             elapsed_ms = (time.time() - start_time) * 1000
 
@@ -661,8 +661,8 @@ class CrossSubscriberManager(
         for name, stats in self._stats.items():
             # Get circuit breaker status for this handler
             cb_state = (
-                self._circuit_breaker.get_state(name)
-                if hasattr(self._circuit_breaker, "get_state")
+                self._circuit_breaker.get_status(name)
+                if hasattr(self._circuit_breaker, "get_status")
                 else "unknown"
             )
             cb_available = self._circuit_breaker.is_available(name)

@@ -401,7 +401,7 @@ class MySQLConnector(EnterpriseConnector):
         )
 
         try:
-            for binlog_event in self._binlog_stream:  # type: ignore[union-attr]
+            for binlog_event in self._binlog_stream:  # type: ignore[attr-defined]
                 # Map binlog event to ChangeOperation
                 if isinstance(binlog_event, WriteRowsEvent):
                     operation = ChangeOperation.INSERT

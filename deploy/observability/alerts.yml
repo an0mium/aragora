@@ -1,0 +1,132 @@
+# Prometheus Alert Rules for Aragora Production
+# These rules define when to trigger alerts
+
+groups:
+  - name: aragora_availability
+    interval: 30s
+    rules:
+      - alert: AragoraDown
+        expr: up{job="aragora"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Aragora service is down"
+          description: "Aragora instance {{ $labels.instance }} has been down for more than 1 minute."
+
+      - alert: AragoraHighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="aragora"}[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency detected"
+          description: "95th percentile latency is above 2 seconds for 5 minutes."
+
+      - alert: AragoraHighErrorRate
+        expr: rate(http_requests_total{job="aragora",status=~"5.."}[5m]) / rate(http_requests_total{job="aragora"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5% for 5 minutes."
+
+  - name: aragora_debates
+    interval: 30s
+    rules:
+      - alert: DebateQueueBacklog
+        expr: aragora_debate_queue_size > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Debate queue backlog growing"
+          description: "More than 100 debates queued for over 10 minutes."
+
+      - alert: DebateFailureRate
+        expr: rate(aragora_debate_failures_total[5m]) / rate(aragora_debates_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High debate failure rate"
+          description: "More than 10% of debates are failing."
+
+      - alert: AgentTimeout
+        expr: rate(aragora_agent_timeouts_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent timeouts increasing"
+          description: "Agent timeout rate is elevated."
+
+  - name: infrastructure
+    interval: 30s
+    rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database is unreachable."
+
+      - alert: PostgresHighConnections
+        expr: pg_stat_activity_count / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connection pool nearly exhausted"
+          description: "More than 80% of PostgreSQL connections are in use."
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache is unreachable."
+
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis is using more than 90% of available memory."
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space"
+          description: "Less than 10% disk space remaining."
+
+  - name: slo_compliance
+    interval: 1m
+    rules:
+      - alert: SLODebateLatencyBreach
+        expr: histogram_quantile(0.99, rate(aragora_debate_duration_seconds_bucket[1h])) > 60
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Debate latency SLO breach"
+          description: "99th percentile debate duration exceeds 60 seconds."
+
+      - alert: SLOAvailabilityBreach
+        expr: avg_over_time(up{job="aragora"}[1h]) < 0.999
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Availability SLO breach"
+          description: "Aragora availability has dropped below 99.9%."

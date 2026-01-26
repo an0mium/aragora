@@ -481,7 +481,7 @@ async def handle_get_agent_contributions(
         agent_contributions[source].append(contribution)
 
     # Build contributions list
-    contributions = [
+    contributions: List[Dict[str, Any]] = [
         {"agent_id": aid, "contributions": contribs}
         for aid, contribs in agent_contributions.items()
     ]

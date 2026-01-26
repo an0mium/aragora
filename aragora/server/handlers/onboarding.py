@@ -779,6 +779,12 @@ async def handle_quick_debate(
             rounds=template.rounds,
             consensus="judge",
             debate_format="light",  # Always light for onboarding speed
+            metadata={
+                "is_onboarding": True,
+                "user_id": user_id,
+                "organization_id": organization_id,
+                "template_id": template_id,
+            },
         )
 
         # Create controller and start debate

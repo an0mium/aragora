@@ -27,6 +27,7 @@ from .audit import AuditRepository
 from .external_identity import ExternalIdentityRepository, get_external_identity_repository
 from .invitations import InvitationRepository
 from .oauth import OAuthRepository
+from .onboarding import OnboardingRepository, get_onboarding_repository
 from .organizations import OrganizationRepository
 from .security import SecurityRepository
 from .usage import UsageRepository
@@ -38,6 +39,8 @@ __all__ = [
     "get_external_identity_repository",
     "InvitationRepository",
     "OAuthRepository",
+    "OnboardingRepository",
+    "get_onboarding_repository",
     "OrganizationRepository",
     "SecurityRepository",
     "UsageRepository",

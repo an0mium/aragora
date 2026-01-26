@@ -1,0 +1,17 @@
+# Grafana Dashboard Provisioning
+# Auto-loads dashboards from the specified folder
+
+apiVersion: 1
+
+providers:
+  - name: "Aragora Dashboards"
+    orgId: 1
+    folder: "Aragora"
+    folderUid: "aragora"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
