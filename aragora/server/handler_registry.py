@@ -582,6 +582,9 @@ try:
     LegalHandler = _LegalHandler
     DevOpsHandler = _DevOpsHandler
     ReceiptsHandler = _ReceiptsHandler
+    BackupHandler = _BackupHandler
+    DRHandler = _DRHandler
+    ComplianceHandler = _ComplianceHandler
     SLOHandler = _SLOHandler
     ConnectorsHandler = _ConnectorsHandler
     MarketplaceHandler = _MarketplaceHandler
@@ -871,6 +874,18 @@ class RouteIndex:
             "_receipts_handler": [
                 "/api/v2/receipts",
                 "/api/v2/receipts/",
+            ],
+            "_backup_handler": [
+                "/api/v2/backups",
+                "/api/v2/backups/",
+            ],
+            "_dr_handler": [
+                "/api/v2/dr",
+                "/api/v2/dr/",
+            ],
+            "_compliance_handler": [
+                "/api/v2/compliance",
+                "/api/v2/compliance/",
             ],
             "_routing_handler": [
                 "/api/routing/",

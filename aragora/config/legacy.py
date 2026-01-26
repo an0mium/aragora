@@ -475,7 +475,6 @@ def get_db_path(name: str, ensure_dir: bool = True) -> Path:
             CONSOLIDATED_DB_MAPPING,
             LEGACY_DB_NAMES,
             DatabaseMode,
-            DatabaseType,
             get_db_mode,
         )
 
