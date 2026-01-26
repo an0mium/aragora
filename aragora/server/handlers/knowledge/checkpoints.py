@@ -489,12 +489,12 @@ class KMCheckpointHandler(BaseHandler):
             logger.error("Checkpoint comparison failed: %s", e)
             return error_response("Failed to compare checkpoints", status=500)
 
-    def handle_get(self, handler) -> HandlerResult:
+    async def handle_get(self, handler) -> HandlerResult:  # type: ignore[override]
         """Handle GET requests."""
         path = handler.path.split("?")[0]
 
         if path == "/api/v1/km/checkpoints":
-            return self._list_checkpoints(handler)
+            return await self._list_checkpoints(handler)
 
         # Handle /api/km/checkpoints/{name} or /api/km/checkpoints/{name}/compare
         if path.startswith("/api/v1/km/checkpoints/"):
@@ -508,7 +508,7 @@ class KMCheckpointHandler(BaseHandler):
 
         return error_response("Not found", status=404)
 
-    def handle_post(  # type: ignore[override]
+    async def handle_post(  # type: ignore[override]
         self, path: str = "", query_params: dict | None = None, handler: Any = None
     ) -> HandlerResult:
         """Handle POST requests."""
@@ -519,7 +519,7 @@ class KMCheckpointHandler(BaseHandler):
         path = handler.path.split("?")[0]
 
         if path == "/api/v1/km/checkpoints":
-            return self._create_checkpoint(handler)
+            return await self._create_checkpoint(handler)
 
         if path == "/api/v1/km/checkpoints/compare":
             return self._compare_checkpoints(handler)
