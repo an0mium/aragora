@@ -211,7 +211,7 @@ class ConsensusAdapter:
             # SimilarDebate has: consensus, dissents, similarity
             result = ConsensusSearchResult(
                 record=debate.consensus,
-                similarity=debate.similarity,  # type: ignore[attr-defined]
+                similarity=debate.similarity,
                 dissents=debate.dissents if include_dissents else [],
             )
             results.append(result)
@@ -460,7 +460,7 @@ class ConsensusAdapter:
                     "strength": d.consensus.strength.value,
                     "confidence": d.consensus.confidence,
                     "domain": d.consensus.domain,
-                    "similarity": d.similarity,  # type: ignore[attr-defined]
+                    "similarity": d.similarity,
                     "timestamp": (
                         d.consensus.timestamp.isoformat()
                         if hasattr(d.consensus.timestamp, "isoformat")
