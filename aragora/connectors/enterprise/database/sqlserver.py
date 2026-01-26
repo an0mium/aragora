@@ -223,7 +223,7 @@ class SQLServerConnector(EnterpriseConnector):
 
         return "\n".join(parts)
 
-    async def sync_items(self, state: Optional[SyncState] = None) -> AsyncIterator[SyncItem]:
+    async def sync_items(self, state: Optional[SyncState] = None) -> AsyncIterator[SyncItem]:  # type: ignore[override]
         """
         Sync items from SQL Server tables.
 
@@ -232,7 +232,7 @@ class SQLServerConnector(EnterpriseConnector):
         pool = await self._get_pool()
 
         tables = self.tables or await self._discover_tables()
-        last_sync = state.last_sync if state else None
+        last_sync = state.last_sync_at if state else None
 
         for table in tables:
             columns = await self._get_table_columns(table)
@@ -266,6 +266,8 @@ class SQLServerConnector(EnterpriseConnector):
                         yield SyncItem(
                             id=item_id,
                             content=content,
+                            source_type="sqlserver",
+                            source_id=f"{self.database}.{self.schema}.{table}",
                             metadata={
                                 "source": "sqlserver",
                                 "database": self.database,
@@ -274,7 +276,7 @@ class SQLServerConnector(EnterpriseConnector):
                                 "primary_key": pk_value,
                                 "row_data": row_dict,
                             },
-                            timestamp=row_dict.get(ts_column) if ts_column else None,
+                            updated_at=row_dict.get(ts_column) if ts_column else None,
                         )
 
     async def search(
@@ -338,7 +340,7 @@ class SQLServerConnector(EnterpriseConnector):
                         logger.debug(f"Search failed on {table}: {e}")
                         continue
 
-        return sorted(results, key=lambda x: x.get("rank", 0), reverse=True)[:limit]
+        return sorted(results, key=lambda x: float(x.get("rank", 0)), reverse=True)[:limit]  # type: ignore[arg-type]
 
     async def fetch(self, evidence_id: str):
         """Fetch a specific row by evidence ID."""
@@ -388,7 +390,7 @@ class SQLServerConnector(EnterpriseConnector):
             return
 
         logger.info(f"[SQL Server CDC] Starting CDC polling for {self.database}")
-        self._cdc_task = asyncio.create_task(self._poll_cdc_changes())
+        self._cdc_task = asyncio.create_task(self._poll_cdc_changes())  # type: ignore[assignment]
 
     async def _poll_cdc_changes(self) -> None:
         """Poll CDC tables for changes."""
@@ -507,7 +509,7 @@ class SQLServerConnector(EnterpriseConnector):
             return
 
         logger.info(f"[SQL Server CT] Starting Change Tracking polling for {self.database}")
-        self._cdc_task = asyncio.create_task(self._poll_change_tracking())
+        self._cdc_task = asyncio.create_task(self._poll_change_tracking())  # type: ignore[assignment]
 
     async def _poll_change_tracking(self) -> None:
         """Poll Change Tracking for changes."""
@@ -627,7 +629,7 @@ class SQLServerConnector(EnterpriseConnector):
             await self._pool.wait_closed()
             self._pool = None
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> Dict[str, Any]:  # type: ignore[override]
         """Check SQL Server connection health."""
         try:
             pool = await self._get_pool()

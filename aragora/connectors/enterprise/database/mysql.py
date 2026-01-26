@@ -219,7 +219,7 @@ class MySQLConnector(EnterpriseConnector):
 
         return "\n".join(parts)
 
-    async def sync_items(self, state: Optional[SyncState] = None) -> AsyncIterator[SyncItem]:
+    async def sync_items(self, state: Optional[SyncState] = None) -> AsyncIterator[SyncItem]:  # type: ignore[override]
         """
         Sync items from MySQL tables.
 
@@ -228,7 +228,7 @@ class MySQLConnector(EnterpriseConnector):
         pool = await self._get_pool()
 
         tables = self.tables or await self._discover_tables()
-        last_sync = state.last_sync if state else None
+        last_sync = state.last_sync_at if state else None
 
         for table in tables:
             columns = await self._get_table_columns(table)
@@ -259,6 +259,8 @@ class MySQLConnector(EnterpriseConnector):
                         yield SyncItem(
                             id=item_id,
                             content=content,
+                            source_type="mysql",
+                            source_id=f"{self.database}.{table}",
                             metadata={
                                 "source": "mysql",
                                 "database": self.database,
@@ -266,7 +268,7 @@ class MySQLConnector(EnterpriseConnector):
                                 "primary_key": pk_value,
                                 "row_data": row_dict,
                             },
-                            timestamp=row_dict.get(ts_column) if ts_column else None,
+                            updated_at=row_dict.get(ts_column) if ts_column else None,
                         )
 
     async def search(
@@ -324,7 +326,7 @@ class MySQLConnector(EnterpriseConnector):
                         logger.debug(f"Search failed on {table}: {e}")
                         continue
 
-        return sorted(results, key=lambda x: x.get("rank", 0), reverse=True)[:limit]
+        return sorted(results, key=lambda x: float(x.get("rank", 0)), reverse=True)[:limit]  # type: ignore[arg-type]
 
     async def fetch(self, evidence_id: str):
         """Fetch a specific row by evidence ID."""
@@ -384,7 +386,7 @@ class MySQLConnector(EnterpriseConnector):
 
             logger.info(f"[MySQL CDC] Started binlog stream for {self.database}")
 
-            self._cdc_task = asyncio.create_task(self._process_binlog_events())
+            self._cdc_task = asyncio.create_task(self._process_binlog_events())  # type: ignore[assignment]
 
         except ImportError:
             logger.error("mysql-replication not installed. Run: pip install mysql-replication")
@@ -399,7 +401,7 @@ class MySQLConnector(EnterpriseConnector):
         )
 
         try:
-            for binlog_event in self._binlog_stream:
+            for binlog_event in self._binlog_stream:  # type: ignore[union-attr]
                 # Map binlog event to ChangeOperation
                 if isinstance(binlog_event, WriteRowsEvent):
                     operation = ChangeOperation.INSERT
@@ -470,7 +472,7 @@ class MySQLConnector(EnterpriseConnector):
             await self._pool.wait_closed()
             self._pool = None
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> Dict[str, Any]:  # type: ignore[override]
         """Check MySQL connection health."""
         try:
             pool = await self._get_pool()
