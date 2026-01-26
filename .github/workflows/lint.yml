@@ -240,3 +240,19 @@ jobs:
       - name: Ensure docs are in sync
         run: |
           git diff --exit-code docs/API_ENDPOINTS.md docs/api/openapi.json docs/api/openapi.yaml
+
+      - name: Check OpenAPI schema coverage
+        run: |
+          echo "::group::OpenAPI Schema Coverage Report"
+          python scripts/analyze_openapi_coverage.py
+          echo "::endgroup::"
+
+          # Get coverage as JSON and check threshold
+          COVERAGE=$(python scripts/analyze_openapi_coverage.py --json | python -c "import sys,json; d=json.load(sys.stdin); print(d['summary']['response_coverage_pct'])")
+          echo "Response schema coverage: ${COVERAGE}%"
+
+          # Fail if coverage drops below 40% (current baseline)
+          if (( $(echo "$COVERAGE < 40" | bc -l) )); then
+            echo "::error::OpenAPI response schema coverage dropped below 40%!"
+            exit 1
+          fi
