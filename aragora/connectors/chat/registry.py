@@ -120,6 +120,12 @@ def _lazy_load_connector(platform: str) -> Optional[Type[ChatPlatformConnector]]
             _CONNECTOR_CLASSES["whatsapp"] = WhatsAppConnector
             return WhatsAppConnector
 
+        elif platform == "signal":
+            from aragora.connectors.chat.signal import SignalConnector
+
+            _CONNECTOR_CLASSES["signal"] = SignalConnector
+            return SignalConnector
+
     except ImportError as e:
         logger.debug(f"Could not load {platform} connector: {e}")
 
@@ -129,7 +135,7 @@ def _lazy_load_connector(platform: str) -> Optional[Type[ChatPlatformConnector]]
 def list_available_platforms() -> list[str]:
     """List all registered platform identifiers."""
     # Ensure all connectors are loaded
-    for platform in ["slack", "teams", "discord", "google_chat", "telegram", "whatsapp"]:
+    for platform in ["slack", "teams", "discord", "google_chat", "telegram", "whatsapp", "signal"]:
         _lazy_load_connector(platform)
 
     return list(_CONNECTOR_CLASSES.keys())
@@ -162,6 +168,10 @@ def get_configured_platforms() -> list[str]:
     # Check WhatsApp
     if os.environ.get("WHATSAPP_ACCESS_TOKEN") and os.environ.get("WHATSAPP_PHONE_NUMBER_ID"):
         configured.append("whatsapp")
+
+    # Check Signal
+    if os.environ.get("SIGNAL_CLI_URL") and os.environ.get("SIGNAL_PHONE_NUMBER"):
+        configured.append("signal")
 
     return configured
 
