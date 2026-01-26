@@ -71,7 +71,7 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):  # type: ignore[misc]
         timeout: int = 120,
         api_key: str | None = None,
         enable_fallback: bool | None = None,  # None = use config setting
-    ):
+    ) -> None:
         super().__init__(
             name=name,
             model=model,
