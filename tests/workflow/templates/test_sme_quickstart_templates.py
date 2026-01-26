@@ -648,3 +648,93 @@ class TestMarketplaceTemplates:
         featured_categories = {t.category for t in featured}
 
         assert "sme" in featured_categories or "quickstart" in featured_categories
+
+
+class TestSMEOnboardingIntegration:
+    """Tests for SME onboarding starter templates and profiles."""
+
+    def test_sme_profile_exists(self):
+        """SME profile exists in QuickStartProfile enum."""
+        from aragora.server.handlers.onboarding import QuickStartProfile
+
+        assert hasattr(QuickStartProfile, "SME")
+        assert QuickStartProfile.SME.value == "sme"
+
+    def test_sme_quick_start_config_exists(self):
+        """SME quick-start configuration exists."""
+        from aragora.server.handlers.onboarding import QUICK_START_CONFIGS
+
+        assert "sme" in QUICK_START_CONFIGS
+        config = QUICK_START_CONFIGS["sme"]
+        assert "default_template" in config
+        assert "suggested_templates" in config
+        assert "default_agents" in config
+
+    def test_sme_config_has_budget_settings(self):
+        """SME config includes budget-related settings."""
+        from aragora.server.handlers.onboarding import QUICK_START_CONFIGS
+
+        config = QUICK_START_CONFIGS["sme"]
+        assert config.get("budget_enabled") is True
+        assert config.get("max_debates_free", 0) > 0
+
+    def test_sme_starter_templates_exist(self):
+        """SME starter templates exist in STARTER_TEMPLATES."""
+        from aragora.server.handlers.onboarding import STARTER_TEMPLATES
+
+        sme_templates = [t for t in STARTER_TEMPLATES if "sme" in t.tags]
+        assert len(sme_templates) >= 8, f"Expected 8 SME templates, found {len(sme_templates)}"
+
+    def test_sme_starter_template_ids(self):
+        """SME starter templates have expected IDs."""
+        from aragora.server.handlers.onboarding import STARTER_TEMPLATES
+
+        sme_template_ids = [t.id for t in STARTER_TEMPLATES if "sme" in t.tags]
+
+        expected_ids = [
+            "sme_hiring_decision",
+            "sme_performance_review",
+            "sme_feature_prioritization",
+            "sme_sprint_planning",
+            "sme_tool_selection",
+            "sme_contract_review",
+            "sme_remote_work_policy",
+            "sme_budget_allocation",
+        ]
+
+        for expected in expected_ids:
+            assert expected in sme_template_ids, f"Missing template: {expected}"
+
+    def test_sme_templates_have_example_prompts(self):
+        """All SME templates have non-empty example prompts."""
+        from aragora.server.handlers.onboarding import STARTER_TEMPLATES
+
+        sme_templates = [t for t in STARTER_TEMPLATES if "sme" in t.tags]
+
+        for template in sme_templates:
+            assert template.example_prompt, f"Template {template.id} has no example_prompt"
+            assert (
+                len(template.example_prompt) > 20
+            ), f"Template {template.id} example_prompt too short"
+
+    def test_sme_templates_have_reasonable_times(self):
+        """SME templates have reasonable estimated times."""
+        from aragora.server.handlers.onboarding import STARTER_TEMPLATES
+
+        sme_templates = [t for t in STARTER_TEMPLATES if "sme" in t.tags]
+
+        for template in sme_templates:
+            assert (
+                2 <= template.estimated_minutes <= 10
+            ), f"Template {template.id} has unreasonable time: {template.estimated_minutes} min"
+
+    def test_sme_templates_are_beginner_difficulty(self):
+        """All SME templates are beginner difficulty for onboarding."""
+        from aragora.server.handlers.onboarding import STARTER_TEMPLATES
+
+        sme_templates = [t for t in STARTER_TEMPLATES if "sme" in t.tags]
+
+        for template in sme_templates:
+            assert (
+                template.difficulty == "beginner"
+            ), f"Template {template.id} should be beginner, not {template.difficulty}"
