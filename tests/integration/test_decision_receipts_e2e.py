@@ -121,10 +121,9 @@ class TestReceiptsHandler:
     @pytest.fixture
     def mock_store(self):
         """Create a mock receipt store."""
-        from aragora.gauntlet.receipt import DecisionReceipt
-
         # Create a mock receipt object with all required methods
-        mock_receipt = MagicMock(spec=DecisionReceipt)
+        # Note: Don't use spec=DecisionReceipt as it blocks adding to_full_dict
+        mock_receipt = MagicMock()
         mock_receipt.receipt_id = "rcpt_001"
         mock_receipt.verdict = "APPROVED"
         receipt_dict = {
