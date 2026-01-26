@@ -18,6 +18,26 @@ from typing import Dict, Any
 class TestComplianceAPIEndpoints:
     """Test Compliance API HTTP endpoints."""
 
+    @pytest.fixture(autouse=True)
+    def mock_rbac_for_endpoints(self):
+        """Mock RBAC to allow all permissions for endpoint testing."""
+        from aragora.rbac.models import AuthorizationContext
+
+        mock_context = AuthorizationContext(
+            user_id="test_user",
+            permissions={
+                "compliance:read",
+                "compliance:soc2",
+                "compliance:gdpr",
+                "compliance:audit",
+            },
+        )
+        with patch(
+            "aragora.rbac.decorators._get_context_from_args",
+            return_value=mock_context,
+        ):
+            yield
+
     @pytest.fixture
     def compliance_handler(self):
         """Create ComplianceHandler instance."""
