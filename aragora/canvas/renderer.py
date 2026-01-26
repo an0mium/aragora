@@ -40,10 +40,10 @@ class CanvasRenderer:
             "nodes": [
                 {
                     "id": node.id,
-                    "type": node.type.value,
+                    "type": node.node_type.value,
                     "position": {"x": node.position.x, "y": node.position.y},
                     "data": node.data,
-                    "metadata": node.metadata,
+                    "label": node.label,
                 }
                 for node in self._canvas.nodes.values()
             ],
@@ -53,15 +53,11 @@ class CanvasRenderer:
                     "source": edge.source_id,
                     "target": edge.target_id,
                     "label": edge.label,
-                    "metadata": edge.metadata,
+                    "data": edge.data,
                 }
                 for edge in self._canvas.edges.values()
             ],
-            "viewport": {
-                "x": self._canvas.viewport_x,
-                "y": self._canvas.viewport_y,
-                "zoom": self._canvas.zoom_level,
-            },
+            "viewport": self._canvas.metadata.get("viewport", {"x": 0, "y": 0, "zoom": 1}),
         }
 
     def to_svg(self, width: int = 800, height: int = 600) -> str:
@@ -101,7 +97,7 @@ class CanvasRenderer:
             svg_parts.append(
                 f'<text class="label" '
                 f'x="{node.position.x}" y="{node.position.y + 5}" '
-                f'text-anchor="middle">{node.type.value}</text>'
+                f'text-anchor="middle">{node.node_type.value}</text>'
             )
 
         svg_parts.append("</svg>")
@@ -116,7 +112,7 @@ class CanvasRenderer:
 
         # Add nodes
         for node in self._canvas.nodes.values():
-            node_label = node.data.get("label", node.type.value)
+            node_label = node.label or node.data.get("label", node.node_type.value)
             lines.append(f"    {node.id}[{node_label}]")
 
         # Add edges
