@@ -31,8 +31,8 @@ interface ExplainabilityClientInterface {
     max_scenarios?: number;
   }): Promise<CounterfactualList>;
   generateCounterfactual(debateId: string, body: {
-    changes: string[];
-    context?: string;
+    hypothesis: string;
+    affected_agents?: string[];
   }): Promise<CounterfactualGeneration>;
   getProvenance(debateId: string): Promise<Provenance>;
   getNarrative(debateId: string, options?: {
@@ -159,15 +159,15 @@ export class ExplainabilityAPI {
    * @example
    * ```typescript
    * const counterfactual = await client.explainability.generateCounterfactual('debate-123', {
-   *   changes: ['Budget increased by 50%', 'Timeline extended to 6 months'],
-   *   context: 'Re-evaluate feasibility'
+   *   hypothesis: 'What if we had a larger budget?',
+   *   affected_agents: ['gpt-4', 'claude']
    * });
-   * console.log('If changes were made:', counterfactual.predicted_outcome);
+   * console.log('Predicted outcome:', counterfactual.predicted_outcome);
    * ```
    */
   async generateCounterfactual(debateId: string, body: {
-    changes: string[];
-    context?: string;
+    hypothesis: string;
+    affected_agents?: string[];
   }): Promise<CounterfactualGeneration> {
     return this.client.generateCounterfactual(debateId, body);
   }
