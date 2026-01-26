@@ -55,6 +55,21 @@ from aragora.utils.json_helpers import safe_json_loads
 logger = logging.getLogger(__name__)
 
 
+def _to_iso_string(value: Any) -> Optional[str]:
+    """Safely convert datetime or string to ISO format string.
+
+    Handles both datetime objects and ISO format strings to ensure
+    consistent serialization regardless of how the value was stored.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value  # Already an ISO string
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
 # Type alias for node types
 NodeType = Literal["fact", "claim", "memory", "evidence", "consensus", "entity"]
 
@@ -467,8 +482,8 @@ class KnowledgeMoundMetaStore(SQLiteStore):
                     node.consolidation_score,
                     node.validation_status.value,
                     node.consensus_proof_id,
-                    node.created_at.isoformat(),
-                    node.updated_at.isoformat(),
+                    _to_iso_string(node.created_at),
+                    _to_iso_string(node.updated_at),
                     json.dumps(node.metadata),
                 ),
             )

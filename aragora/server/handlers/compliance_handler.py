@@ -635,10 +635,10 @@ class ComplianceHandler(BaseHandler):
             status_class = "success" if control["status"] == "compliant" else "warning"
             controls_html += f"""
             <tr>
-                <td>{control['control_id']}</td>
-                <td>{control['category']}</td>
-                <td>{control['name']}</td>
-                <td class="{status_class}">{control['status']}</td>
+                <td>{control["control_id"]}</td>
+                <td>{control["category"]}</td>
+                <td>{control["name"]}</td>
+                <td class="{status_class}">{control["status"]}</td>
             </tr>
             """
 
@@ -646,7 +646,7 @@ class ComplianceHandler(BaseHandler):
         <!DOCTYPE html>
         <html>
         <head>
-            <title>SOC 2 Type II Report - {report['report_id']}</title>
+            <title>SOC 2 Type II Report - {report["report_id"]}</title>
             <style>
                 body {{ font-family: Arial, sans-serif; margin: 40px; }}
                 h1 {{ color: #333; }}
@@ -658,15 +658,15 @@ class ComplianceHandler(BaseHandler):
             </style>
         </head>
         <body>
-            <h1>{report['report_type']}</h1>
-            <p><strong>Report ID:</strong> {report['report_id']}</p>
-            <p><strong>Period:</strong> {report['period']['start']} to {report['period']['end']}</p>
-            <p><strong>Organization:</strong> {report['organization']}</p>
+            <h1>{report["report_type"]}</h1>
+            <p><strong>Report ID:</strong> {report["report_id"]}</p>
+            <p><strong>Period:</strong> {report["period"]["start"]} to {report["period"]["end"]}</p>
+            <p><strong>Organization:</strong> {report["organization"]}</p>
 
             <h2>Summary</h2>
-            <p>Controls Tested: {report['summary']['controls_tested']}</p>
-            <p>Controls Effective: {report['summary']['controls_effective']}</p>
-            <p>Exceptions: {report['summary']['exceptions']}</p>
+            <p>Controls Tested: {report["summary"]["controls_tested"]}</p>
+            <p>Controls Effective: {report["summary"]["controls_effective"]}</p>
+            <p>Exceptions: {report["summary"]["exceptions"]}</p>
 
             <h2>Controls</h2>
             <table>
@@ -679,7 +679,7 @@ class ComplianceHandler(BaseHandler):
                 {controls_html}
             </table>
 
-            <p><em>Generated: {report['generated_at']}</em></p>
+            <p><em>Generated: {report["generated_at"]}</em></p>
         </body>
         </html>
         """

@@ -491,8 +491,7 @@ class SlackConnector(ChatPlatformConnector):
                         # Check for auth errors - attempt token refresh
                         if self._is_auth_error(error) and attempt < self._max_retries - 1:
                             logger.warning(
-                                f"Slack {operation} auth error: {error}, "
-                                f"attempting token refresh"
+                                f"Slack {operation} auth error: {error}, attempting token refresh"
                             )
                             if await self._attempt_token_refresh():
                                 # Token refreshed, retry immediately

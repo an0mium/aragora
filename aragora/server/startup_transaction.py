@@ -291,12 +291,10 @@ class StartupTransaction:
         # Log SLO status
         if duration > self.slo_seconds:
             logger.warning(
-                f"Startup completed in {duration:.2f}s " f"(exceeded SLO of {self.slo_seconds}s)"
+                f"Startup completed in {duration:.2f}s (exceeded SLO of {self.slo_seconds}s)"
             )
         else:
-            logger.info(
-                f"Startup completed in {duration:.2f}s " f"(within SLO of {self.slo_seconds}s)"
-            )
+            logger.info(f"Startup completed in {duration:.2f}s (within SLO of {self.slo_seconds}s)")
 
         # Record metrics
         _init_startup_metrics()

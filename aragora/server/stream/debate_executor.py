@@ -308,7 +308,7 @@ def execute_debate_thread(
                     filtered_specs.append(fallback_spec)
                     continue
                 message = (
-                    f"Missing required API key(s) for {spec.provider}: " f"{', '.join(missing_env)}"
+                    f"Missing required API key(s) for {spec.provider}: {', '.join(missing_env)}"
                 )
                 emitter.emit(
                     StreamEvent(
