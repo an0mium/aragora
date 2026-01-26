@@ -395,13 +395,12 @@ class TestBaseHandlerPathExtraction:
 
         handler = BaseHandler({})
         # Path: /api/v1/debates/debate-123/messages
+        # Uses path.split("/") without stripping, so:
         # Parts: ["", "api", "v1", "debates", "debate-123", "messages"]
         # Index:   0     1      2        3             4           5
-        # Note: extract_path_param uses strip("/").split("/")
-        # After strip: ["api", "v1", "debates", "debate-123", "messages"]
-        # Index 3 is "debate-123"
+        # Index 4 is "debate-123"
         value, err = handler.extract_path_param(
-            "/api/v1/debates/debate-123/messages", 3, "debate_id"
+            "/api/v1/debates/debate-123/messages", 4, "debate_id"
         )
         assert value == "debate-123"
         assert err is None
@@ -423,9 +422,9 @@ class TestBaseHandlerPathExtraction:
 
         handler = BaseHandler({})
         # Double slash creates empty segment
-        # Path: /api/v1//debates -> strip("/").split("/") = ["api", "v1", "", "debates"]
-        # Index 2 is the empty segment
-        value, err = handler.extract_path_param("/api/v1//debates", 2, "empty")
+        # Path: /api/v1//debates -> path.split("/") = ["", "api", "v1", "", "debates"]
+        # Index 3 is the empty segment
+        value, err = handler.extract_path_param("/api/v1//debates", 3, "empty")
         assert value is None
         assert err is not None
 
@@ -435,14 +434,15 @@ class TestBaseHandlerPathExtraction:
 
         handler = BaseHandler({})
         # Path: /api/v1/debates/debate-123/rounds/5
-        # After strip: ["api", "v1", "debates", "debate-123", "rounds", "5"]
-        # Index:          0      1        2            3          4       5
+        # Uses path.split("/") without stripping, so:
+        # Parts: ["", "api", "v1", "debates", "debate-123", "rounds", "5"]
+        # Index:   0     1      2        3            4          5      6
         params, err = handler.extract_path_params(
             "/api/v1/debates/debate-123/rounds/5",
             [
-                (3, "debate_id", SAFE_ID_PATTERN),
-                (4, "resource", None),
-                (5, "round_num", None),
+                (4, "debate_id", SAFE_ID_PATTERN),
+                (5, "resource", None),
+                (6, "round_num", None),
             ],
         )
         assert err is None
