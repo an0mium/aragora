@@ -15,6 +15,8 @@ from unittest.mock import MagicMock, patch
 
 from aragora.server.handlers.admin.health import HealthHandler
 
+pytestmark = pytest.mark.asyncio
+
 
 @pytest.fixture
 def health_handler():
@@ -67,9 +69,9 @@ class TestHealthHandler:
 class TestLivenessProbe:
     """Tests for /healthz liveness probe."""
 
-    def test_liveness_returns_ok(self, health_handler):
+    async def test_liveness_returns_ok(self, health_handler):
         """Liveness probe should always return ok if server is running."""
-        result = health_handler.handle("/healthz", {}, None)
+        result = await health_handler.handle("/healthz", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -80,24 +82,24 @@ class TestLivenessProbe:
 class TestReadinessProbe:
     """Tests for /readyz readiness probe."""
 
-    def test_readiness_with_no_deps_returns_ready(self, health_handler):
+    async def test_readiness_with_no_deps_returns_ready(self, health_handler):
         """Readiness should return ready when no deps configured."""
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
-                result = health_handler.handle("/readyz", {}, None)
+                result = await health_handler.handle("/readyz", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         assert body["status"] == "ready"
         assert result.status_code == 200
 
-    def test_readiness_with_storage_returns_ready(self, health_handler):
+    async def test_readiness_with_storage_returns_ready(self, health_handler):
         """Readiness should return ready when storage is available."""
         mock_storage = MagicMock()
 
         with patch.object(health_handler, "get_storage", return_value=mock_storage):
             with patch.object(health_handler, "get_elo_system", return_value=None):
-                result = health_handler.handle("/readyz", {}, None)
+                result = await health_handler.handle("/readyz", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -105,11 +107,11 @@ class TestReadinessProbe:
         assert body["checks"]["storage"] is True
         assert result.status_code == 200
 
-    def test_readiness_with_storage_error_returns_not_ready(self, health_handler):
+    async def test_readiness_with_storage_error_returns_not_ready(self, health_handler):
         """Readiness should return not_ready when storage fails."""
         with patch.object(health_handler, "get_storage", side_effect=RuntimeError("DB error")):
             with patch.object(health_handler, "get_elo_system", return_value=None):
-                result = health_handler.handle("/readyz", {}, None)
+                result = await health_handler.handle("/readyz", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -121,12 +123,12 @@ class TestReadinessProbe:
 class TestComprehensiveHealthCheck:
     """Tests for /api/health comprehensive health check."""
 
-    def test_health_returns_status(self, health_handler):
+    async def test_health_returns_status(self, health_handler):
         """Health check should return status and checks."""
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch.object(health_handler, "get_nomic_dir", return_value=None):
-                    result = health_handler.handle("/api/v1/health", {}, None)
+                    result = await health_handler.handle("/api/v1/health", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -135,23 +137,23 @@ class TestComprehensiveHealthCheck:
         assert "timestamp" in body
         assert "version" in body
 
-    def test_health_includes_uptime(self, health_handler):
+    async def test_health_includes_uptime(self, health_handler):
         """Health check should include uptime."""
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch.object(health_handler, "get_nomic_dir", return_value=None):
-                    result = health_handler.handle("/api/v1/health", {}, None)
+                    result = await health_handler.handle("/api/v1/health", {}, None)
 
         body = json.loads(result.body)
         assert "uptime_seconds" in body
         assert body["uptime_seconds"] >= 0
 
-    def test_health_includes_response_time(self, health_handler):
+    async def test_health_includes_response_time(self, health_handler):
         """Health check should include response time."""
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch.object(health_handler, "get_nomic_dir", return_value=None):
-                    result = health_handler.handle("/api/v1/health", {}, None)
+                    result = await health_handler.handle("/api/v1/health", {}, None)
 
         body = json.loads(result.body)
         assert "response_time_ms" in body
@@ -161,12 +163,12 @@ class TestComprehensiveHealthCheck:
 class TestDetailedHealthCheck:
     """Tests for /api/health/detailed endpoint."""
 
-    def test_detailed_health_returns_components(self, health_handler):
+    async def test_detailed_health_returns_components(self, health_handler):
         """Detailed health should return component status."""
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch.object(health_handler, "get_nomic_dir", return_value=None):
-                    result = health_handler.handle("/api/v1/health/detailed", {}, None)
+                    result = await health_handler.handle("/api/v1/health/detailed", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -178,12 +180,12 @@ class TestDetailedHealthCheck:
 class TestDeepHealthCheck:
     """Tests for /api/health/deep endpoint."""
 
-    def test_deep_health_returns_comprehensive_checks(self, health_handler):
+    async def test_deep_health_returns_comprehensive_checks(self, health_handler):
         """Deep health should return comprehensive checks."""
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch.object(health_handler, "get_nomic_dir", return_value=None):
-                    result = health_handler.handle("/api/v1/health/deep", {}, None)
+                    result = await health_handler.handle("/api/v1/health/deep", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -191,12 +193,12 @@ class TestDeepHealthCheck:
         assert "checks" in body
         assert "response_time_ms" in body
 
-    def test_deep_health_includes_ai_providers(self, health_handler):
+    async def test_deep_health_includes_ai_providers(self, health_handler):
         """Deep health should check AI provider availability."""
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch.object(health_handler, "get_nomic_dir", return_value=None):
-                    result = health_handler.handle("/api/v1/health/deep", {}, None)
+                    result = await health_handler.handle("/api/v1/health/deep", {}, None)
 
         body = json.loads(result.body)
         assert "ai_providers" in body["checks"]
@@ -260,18 +262,18 @@ class TestAIProvidersHealthCheck:
 class TestDatabaseStoresHealth:
     """Tests for /api/v1/health/stores endpoint."""
 
-    def test_stores_health_returns_status(self, health_handler):
+    async def test_stores_health_returns_status(self, health_handler):
         """Database stores health should return status."""
-        result = health_handler.handle("/api/v1/health/stores", {}, None)
+        result = await health_handler.handle("/api/v1/health/stores", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         assert "status" in body
         assert "stores" in body
 
-    def test_stores_health_includes_memory_store(self, health_handler):
+    async def test_stores_health_includes_memory_store(self, health_handler):
         """Database stores health should include memory store info."""
-        result = health_handler.handle("/api/v1/health/stores", {}, None)
+        result = await health_handler.handle("/api/v1/health/stores", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -281,9 +283,9 @@ class TestDatabaseStoresHealth:
             "unhealthy",
         ]
 
-    def test_stores_health_returns_200_when_healthy(self, health_handler):
+    async def test_stores_health_returns_200_when_healthy(self, health_handler):
         """Database stores should return 200 when healthy."""
-        result = health_handler.handle("/api/v1/health/stores", {}, None)
+        result = await health_handler.handle("/api/v1/health/stores", {}, None)
 
         assert result is not None
         # Should be 200 for healthy/degraded, 503 for unhealthy
@@ -293,9 +295,9 @@ class TestDatabaseStoresHealth:
 class TestSyncStatus:
     """Tests for /api/v1/health/sync endpoint."""
 
-    def test_sync_status_returns_response(self, health_handler):
+    async def test_sync_status_returns_response(self, health_handler):
         """Sync status should return sync information."""
-        result = health_handler.handle("/api/v1/health/sync", {}, None)
+        result = await health_handler.handle("/api/v1/health/sync", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -303,9 +305,9 @@ class TestSyncStatus:
         assert isinstance(body, dict)
         assert len(body) > 0
 
-    def test_sync_status_returns_200(self, health_handler):
+    async def test_sync_status_returns_200(self, health_handler):
         """Sync status should return 200."""
-        result = health_handler.handle("/api/v1/health/sync", {}, None)
+        result = await health_handler.handle("/api/v1/health/sync", {}, None)
 
         assert result is not None
         assert result.status_code in [200, 503]
@@ -314,17 +316,17 @@ class TestSyncStatus:
 class TestCircuitBreakersStatus:
     """Tests for /api/v1/health/circuits endpoint."""
 
-    def test_circuits_returns_status(self, health_handler):
+    async def test_circuits_returns_status(self, health_handler):
         """Circuit breakers should return status."""
-        result = health_handler.handle("/api/v1/health/circuits", {}, None)
+        result = await health_handler.handle("/api/v1/health/circuits", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         assert "status" in body or "circuits" in body
 
-    def test_circuits_returns_200(self, health_handler):
+    async def test_circuits_returns_200(self, health_handler):
         """Circuit breakers should return 200."""
-        result = health_handler.handle("/api/v1/health/circuits", {}, None)
+        result = await health_handler.handle("/api/v1/health/circuits", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -333,17 +335,17 @@ class TestCircuitBreakersStatus:
 class TestSlowDebatesStatus:
     """Tests for /api/v1/health/slow-debates endpoint."""
 
-    def test_slow_debates_returns_status(self, health_handler):
+    async def test_slow_debates_returns_status(self, health_handler):
         """Slow debates should return status."""
-        result = health_handler.handle("/api/v1/health/slow-debates", {}, None)
+        result = await health_handler.handle("/api/v1/health/slow-debates", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         assert "status" in body or "slow_debates" in body or "debates" in body
 
-    def test_slow_debates_returns_count(self, health_handler):
+    async def test_slow_debates_returns_count(self, health_handler):
         """Slow debates should return count or list."""
-        result = health_handler.handle("/api/v1/health/slow-debates", {}, None)
+        result = await health_handler.handle("/api/v1/health/slow-debates", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -354,17 +356,17 @@ class TestSlowDebatesStatus:
 class TestCrossPollinationHealth:
     """Tests for /api/v1/health/cross-pollination endpoint."""
 
-    def test_cross_pollination_returns_status(self, health_handler):
+    async def test_cross_pollination_returns_status(self, health_handler):
         """Cross-pollination health should return status."""
-        result = health_handler.handle("/api/v1/health/cross-pollination", {}, None)
+        result = await health_handler.handle("/api/v1/health/cross-pollination", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         assert "status" in body
 
-    def test_cross_pollination_includes_enabled_flag(self, health_handler):
+    async def test_cross_pollination_includes_enabled_flag(self, health_handler):
         """Cross-pollination should indicate if enabled."""
-        result = health_handler.handle("/api/v1/health/cross-pollination", {}, None)
+        result = await health_handler.handle("/api/v1/health/cross-pollination", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -375,17 +377,17 @@ class TestCrossPollinationHealth:
 class TestKnowledgeMoundHealth:
     """Tests for /api/v1/health/knowledge-mound endpoint."""
 
-    def test_knowledge_mound_returns_status(self, health_handler):
+    async def test_knowledge_mound_returns_status(self, health_handler):
         """Knowledge Mound health should return status."""
-        result = health_handler.handle("/api/v1/health/knowledge-mound", {}, None)
+        result = await health_handler.handle("/api/v1/health/knowledge-mound", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         assert "status" in body
 
-    def test_knowledge_mound_includes_adapter_info(self, health_handler):
+    async def test_knowledge_mound_includes_adapter_info(self, health_handler):
         """Knowledge Mound should include adapter information."""
-        result = health_handler.handle("/api/v1/health/knowledge-mound", {}, None)
+        result = await health_handler.handle("/api/v1/health/knowledge-mound", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -399,20 +401,20 @@ class TestEncryptionHealth:
     Note: Encryption health is part of the detailed/deep checks, not a separate endpoint.
     """
 
-    def test_encryption_in_deep_health(self, health_handler):
+    async def test_encryption_in_deep_health(self, health_handler):
         """Encryption info should be available in deep health check."""
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch.object(health_handler, "get_nomic_dir", return_value=None):
-                    result = health_handler.handle("/api/v1/health/deep", {}, None)
+                    result = await health_handler.handle("/api/v1/health/deep", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         assert "checks" in body
 
-    def test_encryption_in_diagnostics(self, health_handler):
+    async def test_encryption_in_diagnostics(self, health_handler):
         """Encryption key check should be in diagnostics checklist."""
-        result = health_handler.handle("/api/v1/diagnostics", {}, None)
+        result = await health_handler.handle("/api/v1/diagnostics", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -424,25 +426,25 @@ class TestEncryptionHealth:
 class TestPlatformHealth:
     """Tests for /api/v1/health/platform and /api/v1/platform/health endpoints."""
 
-    def test_platform_health_returns_status(self, health_handler):
+    async def test_platform_health_returns_status(self, health_handler):
         """Platform health should return status."""
-        result = health_handler.handle("/api/v1/health/platform", {}, None)
+        result = await health_handler.handle("/api/v1/health/platform", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         assert "status" in body
 
-    def test_platform_health_alternate_route(self, health_handler):
+    async def test_platform_health_alternate_route(self, health_handler):
         """Platform health should work on alternate route."""
-        result = health_handler.handle("/api/v1/platform/health", {}, None)
+        result = await health_handler.handle("/api/v1/platform/health", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         assert "status" in body
 
-    def test_platform_health_includes_environment(self, health_handler):
+    async def test_platform_health_includes_environment(self, health_handler):
         """Platform health should include environment info."""
-        result = health_handler.handle("/api/v1/health/platform", {}, None)
+        result = await health_handler.handle("/api/v1/health/platform", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -453,26 +455,26 @@ class TestPlatformHealth:
 class TestDiagnostics:
     """Tests for /api/v1/diagnostics endpoint."""
 
-    def test_diagnostics_returns_checklist_or_components(self, health_handler):
+    async def test_diagnostics_returns_checklist_or_components(self, health_handler):
         """Diagnostics should return checklist or components."""
-        result = health_handler.handle("/api/v1/diagnostics", {}, None)
+        result = await health_handler.handle("/api/v1/diagnostics", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         # Response includes checklist, components, issues, live
         assert "checklist" in body or "components" in body or "live" in body
 
-    def test_diagnostics_deployment_route(self, health_handler):
+    async def test_diagnostics_deployment_route(self, health_handler):
         """Diagnostics should work on deployment route."""
-        result = health_handler.handle("/api/v1/diagnostics/deployment", {}, None)
+        result = await health_handler.handle("/api/v1/diagnostics/deployment", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         assert "status" in body or "deployment" in body or "checklist" in body
 
-    def test_diagnostics_includes_checklist(self, health_handler):
+    async def test_diagnostics_includes_checklist(self, health_handler):
         """Diagnostics should include deployment checklist."""
-        result = health_handler.handle("/api/v1/diagnostics", {}, None)
+        result = await health_handler.handle("/api/v1/diagnostics", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -483,41 +485,41 @@ class TestDiagnostics:
 class TestBackwardCompatibilityRoutes:
     """Tests for backward compatibility (non-v1) routes."""
 
-    def test_non_v1_health_route(self, health_handler):
+    async def test_non_v1_health_route(self, health_handler):
         """Non-v1 health route should work."""
-        result = health_handler.handle("/api/health", {}, None)
+        result = await health_handler.handle("/api/health", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         assert "status" in body
 
-    def test_non_v1_health_detailed_route(self, health_handler):
+    async def test_non_v1_health_detailed_route(self, health_handler):
         """Non-v1 detailed health route should work."""
-        result = health_handler.handle("/api/health/detailed", {}, None)
+        result = await health_handler.handle("/api/health/detailed", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         assert "components" in body or "status" in body
 
-    def test_non_v1_health_deep_route(self, health_handler):
+    async def test_non_v1_health_deep_route(self, health_handler):
         """Non-v1 deep health route should work."""
-        result = health_handler.handle("/api/health/deep", {}, None)
+        result = await health_handler.handle("/api/health/deep", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         assert "status" in body
 
-    def test_non_v1_stores_route(self, health_handler):
+    async def test_non_v1_stores_route(self, health_handler):
         """Non-v1 stores route should work."""
-        result = health_handler.handle("/api/health/stores", {}, None)
+        result = await health_handler.handle("/api/health/stores", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
         assert "status" in body or "stores" in body
 
-    def test_non_v1_diagnostics_route(self, health_handler):
+    async def test_non_v1_diagnostics_route(self, health_handler):
         """Non-v1 diagnostics route should work."""
-        result = health_handler.handle("/api/diagnostics", {}, None)
+        result = await health_handler.handle("/api/diagnostics", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -570,17 +572,17 @@ class TestHealthHandlerRoutes:
 class TestHealthHandlerErrorHandling:
     """Tests for error handling in health endpoints."""
 
-    def test_unknown_route_returns_none(self, health_handler):
+    async def test_unknown_route_returns_none(self, health_handler):
         """Unknown routes should return None."""
-        result = health_handler.handle("/api/v1/unknown", {}, None)
+        result = await health_handler.handle("/api/v1/unknown", {}, None)
         assert result is None
 
-    def test_invalid_path_returns_none(self, health_handler):
+    async def test_invalid_path_returns_none(self, health_handler):
         """Invalid paths should return None."""
-        result = health_handler.handle("/invalid", {}, None)
+        result = await health_handler.handle("/invalid", {}, None)
         assert result is None
 
-    def test_partial_path_returns_none(self, health_handler):
+    async def test_partial_path_returns_none(self, health_handler):
         """Partial paths should return None."""
-        result = health_handler.handle("/api/v1/heal", {}, None)
+        result = await health_handler.handle("/api/v1/heal", {}, None)
         assert result is None
