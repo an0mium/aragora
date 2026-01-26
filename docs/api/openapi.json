@@ -246,8 +246,7 @@
             "description": "System degraded or unhealthy"
           }
         },
-        "deprecated": true,
-        "operationId": "getHealth"
+        "deprecated": true
       }
     },
     "/api/v1/health": {
@@ -292,8 +291,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "listHealthDetailed"
+        "deprecated": true
       }
     },
     "/api/v1/health/detailed": {
@@ -333,8 +331,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "listNomicState"
+        "deprecated": true
       }
     },
     "/api/v1/nomic/state": {
@@ -369,8 +366,7 @@
             "description": "Nomic health status"
           }
         },
-        "deprecated": true,
-        "operationId": "getNomicHealth"
+        "deprecated": true
       }
     },
     "/api/v1/nomic/health": {
@@ -418,8 +414,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "listNomicLog"
+        "deprecated": true
       }
     },
     "/api/v1/nomic/log": {
@@ -485,8 +480,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "listNomicRiskRegister"
+        "deprecated": true
       }
     },
     "/api/v1/nomic/risk-register": {
@@ -534,8 +528,7 @@
             "description": "Available modes"
           }
         },
-        "deprecated": true,
-        "operationId": "listModes"
+        "deprecated": true
       }
     },
     "/api/v1/modes": {
@@ -586,8 +579,7 @@
             "description": "Cycle history"
           }
         },
-        "deprecated": true,
-        "operationId": "listHistoryCycles"
+        "deprecated": true
       }
     },
     "/api/v1/history/cycles": {
@@ -659,8 +651,7 @@
             "description": "Event history"
           }
         },
-        "deprecated": true,
-        "operationId": "listHistoryEvents"
+        "deprecated": true
       }
     },
     "/api/v1/history/events": {
@@ -732,8 +723,7 @@
             "description": "Debate history"
           }
         },
-        "deprecated": true,
-        "operationId": "listHistoryDebates"
+        "deprecated": true
       }
     },
     "/api/v1/history/debates": {
@@ -794,8 +784,7 @@
             "description": "Summary statistics"
           }
         },
-        "deprecated": true,
-        "operationId": "listHistorySummary"
+        "deprecated": true
       }
     },
     "/api/v1/history/summary": {
@@ -858,8 +847,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "listSystemMaintenance"
+        "deprecated": true
       }
     },
     "/api/v1/system/maintenance": {
@@ -915,8 +903,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listOpenapi"
+        "deprecated": true
       }
     },
     "/api/v1/openapi": {
@@ -983,8 +970,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "listAgents"
+        "deprecated": true
       }
     },
     "/api/v1/agents": {
@@ -1069,8 +1055,7 @@
             "description": "Agent rankings"
           }
         },
-        "deprecated": true,
-        "operationId": "listLeaderboard"
+        "deprecated": true
       }
     },
     "/api/v1/leaderboard": {
@@ -1134,8 +1119,7 @@
             "description": "Agent rankings"
           }
         },
-        "deprecated": true,
-        "operationId": "listRankings"
+        "deprecated": true
       }
     },
     "/api/v1/rankings": {
@@ -1207,8 +1191,7 @@
             "description": "Leaderboard view"
           }
         },
-        "deprecated": true,
-        "operationId": "listLeaderboardView"
+        "deprecated": true
       }
     },
     "/api/v1/leaderboard-view": {
@@ -1328,8 +1311,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameProfile"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/profile": {
@@ -1442,8 +1424,7 @@
             "description": "Match history"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameHistory"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/history": {
@@ -1513,8 +1494,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameCalibration"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/calibration": {
@@ -1573,8 +1553,7 @@
             "description": "Calibration curve data"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameCalibrationCurve"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/calibration-curve": {
@@ -1626,8 +1605,7 @@
             "description": "Calibration summary"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameCalibrationSummary"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/calibration-summary": {
@@ -1679,8 +1657,7 @@
             "description": "Consistency metrics"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameConsistency"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/consistency": {
@@ -1743,8 +1720,7 @@
             "description": "Position flips"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameFlips"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/flips": {
@@ -1807,8 +1783,7 @@
             "description": "Relationship network"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameNetwork"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/network": {
@@ -1860,8 +1835,7 @@
             "description": "Rival agents"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameRivals"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/rivals": {
@@ -1913,8 +1887,7 @@
             "description": "Allied agents"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameAllies"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/allies": {
@@ -1966,8 +1939,7 @@
             "description": "Agent moments"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameMoments"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/moments": {
@@ -2019,8 +1991,7 @@
             "description": "Reputation data"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameReputation"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/reputation": {
@@ -2072,8 +2043,7 @@
             "description": "Persona data"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynamePersona"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/persona": {
@@ -2125,8 +2095,7 @@
             "description": "Grounded persona"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameGroundedPersona"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/grounded-persona": {
@@ -2183,8 +2152,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "listAgentBynameIdentityPrompt"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/identity-prompt": {
@@ -2241,8 +2209,7 @@
             "description": "Performance metrics"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynamePerformance"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/performance": {
@@ -2294,8 +2261,7 @@
             "description": "Domain expertise"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameDomains"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/domains": {
@@ -2347,8 +2313,7 @@
             "description": "Accuracy metrics"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentBynameAccuracy"
+        "deprecated": true
       }
     },
     "/api/v1/agent/{name}/accuracy": {
@@ -2409,8 +2374,7 @@
             "description": "Comparison data"
           }
         },
-        "deprecated": true,
-        "operationId": "listAgentCompare"
+        "deprecated": true
       }
     },
     "/api/v1/agent/compare": {
@@ -2473,8 +2437,7 @@
             "description": "Recent matches"
           }
         },
-        "deprecated": true,
-        "operationId": "listMatchesRecent"
+        "deprecated": true
       }
     },
     "/api/v1/matches/recent": {
@@ -2530,8 +2493,7 @@
             "description": "Calibration rankings"
           }
         },
-        "deprecated": true,
-        "operationId": "listCalibrationLeaderboard"
+        "deprecated": true
       }
     },
     "/api/v1/calibration/leaderboard": {
@@ -2574,8 +2536,7 @@
             "description": "All personas"
           }
         },
-        "deprecated": true,
-        "operationId": "listPersonas"
+        "deprecated": true
       }
     },
     "/api/v1/personas": {
@@ -2727,8 +2688,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "listDebates"
+        "deprecated": true
       },
       "post": {
         "tags": [
@@ -2907,8 +2867,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createDebates"
+        "deprecated": true
       }
     },
     "/api/v1/debates": {
@@ -3327,8 +3286,7 @@
               }
             }
           }
-        },
-        "operationId": "createDebate1"
+        }
       }
     },
     "/api/v1/debate": {
@@ -3431,8 +3389,7 @@
               }
             }
           }
-        },
-        "operationId": "createDebate2"
+        }
       }
     },
     "/api/debates/{id}": {
@@ -3448,8 +3405,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -3486,8 +3442,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "getDebatesByid"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{id}": {
@@ -3503,8 +3458,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -3540,8 +3494,7 @@
               }
             }
           }
-        },
-        "operationId": "getDebatesByid1"
+        }
       }
     },
     "/api/debates/slug/{slug}": {
@@ -3557,8 +3510,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The slug"
+            }
           }
         ],
         "responses": {
@@ -3595,8 +3547,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "getDebatesSlugByslug"
+        "deprecated": true
       }
     },
     "/api/v1/debates/slug/{slug}": {
@@ -3612,8 +3563,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The slug"
+            }
           }
         ],
         "responses": {
@@ -3649,8 +3599,7 @@
               }
             }
           }
-        },
-        "operationId": "getDebatesSlugByslug1"
+        }
       }
     },
     "/api/debates/{id}/messages": {
@@ -3667,8 +3616,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           },
           {
             "name": "limit",
@@ -3677,8 +3625,7 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
@@ -3686,8 +3633,7 @@
             "schema": {
               "type": "integer",
               "default": 0
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -3695,8 +3641,7 @@
             "description": "Paginated messages"
           }
         },
-        "deprecated": true,
-        "operationId": "listDebatesByidMessages"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{id}/messages": {
@@ -3713,8 +3658,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           },
           {
             "name": "limit",
@@ -3723,8 +3667,7 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
@@ -3732,16 +3675,14 @@
             "schema": {
               "type": "integer",
               "default": 0
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Paginated messages"
           }
-        },
-        "operationId": "listDebatesByidMessages1"
+        }
       }
     },
     "/api/debates/{id}/convergence": {
@@ -3758,8 +3699,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -3767,8 +3707,7 @@
             "description": "Convergence status"
           }
         },
-        "deprecated": true,
-        "operationId": "listDebatesByidConvergence"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{id}/convergence": {
@@ -3785,16 +3724,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Convergence status"
           }
-        },
-        "operationId": "listDebatesByidConvergence1"
+        }
       }
     },
     "/api/debates/{id}/citations": {
@@ -3811,8 +3748,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -3820,8 +3756,7 @@
             "description": "Citations and grounding score"
           }
         },
-        "deprecated": true,
-        "operationId": "listDebatesByidCitations"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{id}/citations": {
@@ -3838,16 +3773,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Citations and grounding score"
           }
-        },
-        "operationId": "listDebatesByidCitations1"
+        }
       }
     },
     "/api/debates/{id}/evidence": {
@@ -3863,8 +3796,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -3872,8 +3804,7 @@
             "description": "Evidence data"
           }
         },
-        "deprecated": true,
-        "operationId": "listDebatesByidEvidence"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{id}/evidence": {
@@ -3889,16 +3820,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Evidence data"
           }
-        },
-        "operationId": "listDebatesByidEvidence1"
+        }
       }
     },
     "/api/debates/{id}/impasse": {
@@ -3915,8 +3844,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -3924,8 +3852,7 @@
             "description": "Impasse status"
           }
         },
-        "deprecated": true,
-        "operationId": "listDebatesByidImpasse"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{id}/impasse": {
@@ -3942,16 +3869,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Impasse status"
           }
-        },
-        "operationId": "listDebatesByidImpasse1"
+        }
       }
     },
     "/api/debates/{id}/meta-critique": {
@@ -3967,8 +3892,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -3976,8 +3900,7 @@
             "description": "Meta-critique data"
           }
         },
-        "deprecated": true,
-        "operationId": "listDebatesByidMetaCritique"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{id}/meta-critique": {
@@ -3993,16 +3916,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Meta-critique data"
           }
-        },
-        "operationId": "listDebatesByidMetaCritique1"
+        }
       }
     },
     "/api/debates/{id}/graph/stats": {
@@ -4018,8 +3939,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -4027,8 +3947,7 @@
             "description": "Graph statistics"
           }
         },
-        "deprecated": true,
-        "operationId": "listDebatesByidGraphStats"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{id}/graph/stats": {
@@ -4044,16 +3963,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Graph statistics"
           }
-        },
-        "operationId": "listDebatesByidGraphStats1"
+        }
       }
     },
     "/api/debates/{id}/fork": {
@@ -4070,8 +3987,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "requestBody": {
@@ -4136,8 +4052,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createDebatesByidFork"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{id}/fork": {
@@ -4154,8 +4069,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "requestBody": {
@@ -4219,8 +4133,7 @@
               }
             }
           }
-        },
-        "operationId": "createDebatesByidFork1"
+        }
       }
     },
     "/api/debates/{id}/export/{format}": {
@@ -4236,8 +4149,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           },
           {
             "name": "format",
@@ -4251,8 +4163,7 @@
                 "html",
                 "pdf"
               ]
-            },
-            "description": "Output format (e.g., json, yaml, csv)"
+            }
           }
         ],
         "responses": {
@@ -4260,8 +4171,7 @@
             "description": "Exported debate"
           }
         },
-        "deprecated": true,
-        "operationId": "getDebatesByidExportByformat"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{id}/export/{format}": {
@@ -4277,8 +4187,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           },
           {
             "name": "format",
@@ -4292,16 +4201,14 @@
                 "html",
                 "pdf"
               ]
-            },
-            "description": "Output format (e.g., json, yaml, csv)"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Exported debate"
           }
-        },
-        "operationId": "getDebatesByidExportByformat1"
+        }
       }
     },
     "/api/debates/{id}/broadcast": {
@@ -4318,8 +4225,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "requestBody": {
@@ -4353,8 +4259,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "createDebatesByidBroadcast"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{id}/broadcast": {
@@ -4371,8 +4276,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "requestBody": {
@@ -4405,8 +4309,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createDebatesByidBroadcast1"
+        ]
       }
     },
     "/api/debates/{id}/publish/twitter": {
@@ -4422,8 +4325,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -4436,8 +4338,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "createDebatesByidPublishTwitter"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{id}/publish/twitter": {
@@ -4453,8 +4354,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -4466,8 +4366,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createDebatesByidPublishTwitter1"
+        ]
       }
     },
     "/api/debates/{id}/publish/youtube": {
@@ -4483,8 +4382,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -4497,8 +4395,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "createDebatesByidPublishYoutube"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{id}/publish/youtube": {
@@ -4514,8 +4411,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -4527,8 +4423,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createDebatesByidPublishYoutube1"
+        ]
       }
     },
     "/api/debates/{id}/red-team": {
@@ -4544,8 +4439,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -4553,8 +4447,7 @@
             "description": "Red team results"
           }
         },
-        "deprecated": true,
-        "operationId": "listDebatesByidRedTeam"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{id}/red-team": {
@@ -4570,16 +4463,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Red team results"
           }
-        },
-        "operationId": "listDebatesByidRedTeam1"
+        }
       }
     },
     "/api/search": {
@@ -4595,8 +4486,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Search query string"
+            }
           },
           {
             "name": "limit",
@@ -4604,8 +4494,7 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -4613,8 +4502,7 @@
             "description": "Search results"
           }
         },
-        "deprecated": true,
-        "operationId": "listSearch"
+        "deprecated": true
       }
     },
     "/api/v1/search": {
@@ -4630,8 +4518,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Search query string"
+            }
           },
           {
             "name": "limit",
@@ -4639,16 +4526,14 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Search results"
           }
-        },
-        "operationId": "listSearch1"
+        }
       }
     },
     "/api/dashboard/debates": {
@@ -4664,8 +4549,7 @@
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by domain"
+            }
           },
           {
             "name": "limit",
@@ -4673,8 +4557,7 @@
             "schema": {
               "type": "integer",
               "default": 10
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "hours",
@@ -4682,8 +4565,7 @@
             "schema": {
               "type": "integer",
               "default": 24
-            },
-            "description": "The hours value"
+            }
           }
         ],
         "responses": {
@@ -4691,8 +4573,7 @@
             "description": "Dashboard data"
           }
         },
-        "deprecated": true,
-        "operationId": "listDashboardDebates"
+        "deprecated": true
       }
     },
     "/api/v1/dashboard/debates": {
@@ -4708,8 +4589,7 @@
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by domain"
+            }
           },
           {
             "name": "limit",
@@ -4717,8 +4597,7 @@
             "schema": {
               "type": "integer",
               "default": 10
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "hours",
@@ -4726,16 +4605,14 @@
             "schema": {
               "type": "integer",
               "default": 24
-            },
-            "description": "The hours value"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Dashboard data"
           }
-        },
-        "operationId": "listDashboardDebates1"
+        }
       }
     },
     "/api/analytics/disagreements": {
@@ -4750,8 +4627,7 @@
             "description": "Disagreement statistics"
           }
         },
-        "deprecated": true,
-        "operationId": "listAnalyticsDisagreements"
+        "deprecated": true
       }
     },
     "/api/v1/analytics/disagreements": {
@@ -4765,8 +4641,7 @@
           "200": {
             "description": "Disagreement statistics"
           }
-        },
-        "operationId": "listAnalyticsDisagreements1"
+        }
       }
     },
     "/api/analytics/role-rotation": {
@@ -4780,8 +4655,7 @@
             "description": "Role rotation data"
           }
         },
-        "deprecated": true,
-        "operationId": "listAnalyticsRoleRotation"
+        "deprecated": true
       }
     },
     "/api/v1/analytics/role-rotation": {
@@ -4794,8 +4668,7 @@
           "200": {
             "description": "Role rotation data"
           }
-        },
-        "operationId": "listAnalyticsRoleRotation1"
+        }
       }
     },
     "/api/analytics/early-stops": {
@@ -4809,8 +4682,7 @@
             "description": "Early stop data"
           }
         },
-        "deprecated": true,
-        "operationId": "listAnalyticsEarlyStops"
+        "deprecated": true
       }
     },
     "/api/v1/analytics/early-stops": {
@@ -4823,8 +4695,7 @@
           "200": {
             "description": "Early stop data"
           }
-        },
-        "operationId": "listAnalyticsEarlyStops1"
+        }
       }
     },
     "/api/ranking/stats": {
@@ -4838,8 +4709,7 @@
             "description": "Ranking stats"
           }
         },
-        "deprecated": true,
-        "operationId": "listRankingStats"
+        "deprecated": true
       }
     },
     "/api/v1/ranking/stats": {
@@ -4852,8 +4722,7 @@
           "200": {
             "description": "Ranking stats"
           }
-        },
-        "operationId": "listRankingStats1"
+        }
       }
     },
     "/api/memory/stats": {
@@ -4867,8 +4736,7 @@
             "description": "Memory stats"
           }
         },
-        "deprecated": true,
-        "operationId": "listMemoryStats"
+        "deprecated": true
       }
     },
     "/api/v1/memory/stats": {
@@ -4881,8 +4749,7 @@
           "200": {
             "description": "Memory stats"
           }
-        },
-        "operationId": "listMemoryStats1"
+        }
       }
     },
     "/api/flips/recent": {
@@ -4898,8 +4765,7 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -4907,8 +4773,7 @@
             "description": "Recent flips"
           }
         },
-        "deprecated": true,
-        "operationId": "listFlipsRecent"
+        "deprecated": true
       }
     },
     "/api/v1/flips/recent": {
@@ -4924,16 +4789,14 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Recent flips"
           }
-        },
-        "operationId": "listFlipsRecent1"
+        }
       }
     },
     "/api/flips/summary": {
@@ -4947,8 +4810,7 @@
             "description": "Flip summary statistics"
           }
         },
-        "deprecated": true,
-        "operationId": "listFlipsSummary"
+        "deprecated": true
       }
     },
     "/api/v1/flips/summary": {
@@ -4961,8 +4823,7 @@
           "200": {
             "description": "Flip summary statistics"
           }
-        },
-        "operationId": "listFlipsSummary1"
+        }
       }
     },
     "/api/insights/recent": {
@@ -4978,8 +4839,7 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -4987,8 +4847,7 @@
             "description": "Recent insights"
           }
         },
-        "deprecated": true,
-        "operationId": "listInsightsRecent"
+        "deprecated": true
       }
     },
     "/api/v1/insights/recent": {
@@ -5004,16 +4863,14 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Recent insights"
           }
-        },
-        "operationId": "listInsightsRecent1"
+        }
       }
     },
     "/api/insights/extract-detailed": {
@@ -5042,8 +4899,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "createInsightsExtractDetailed"
+        "deprecated": true
       }
     },
     "/api/v1/insights/extract-detailed": {
@@ -5071,8 +4927,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createInsightsExtractDetailed1"
+        ]
       }
     },
     "/api/moments/summary": {
@@ -5086,8 +4941,7 @@
             "description": "Moments summary"
           }
         },
-        "deprecated": true,
-        "operationId": "listMomentsSummary"
+        "deprecated": true
       }
     },
     "/api/v1/moments/summary": {
@@ -5100,8 +4954,7 @@
           "200": {
             "description": "Moments summary"
           }
-        },
-        "operationId": "listMomentsSummary1"
+        }
       }
     },
     "/api/moments/timeline": {
@@ -5115,8 +4968,7 @@
             "description": "Timeline data"
           }
         },
-        "deprecated": true,
-        "operationId": "listMomentsTimeline"
+        "deprecated": true
       }
     },
     "/api/v1/moments/timeline": {
@@ -5129,8 +4981,7 @@
           "200": {
             "description": "Timeline data"
           }
-        },
-        "operationId": "listMomentsTimeline1"
+        }
       }
     },
     "/api/moments/trending": {
@@ -5144,8 +4995,7 @@
             "description": "Trending moments"
           }
         },
-        "deprecated": true,
-        "operationId": "listMomentsTrending"
+        "deprecated": true
       }
     },
     "/api/v1/moments/trending": {
@@ -5158,8 +5008,7 @@
           "200": {
             "description": "Trending moments"
           }
-        },
-        "operationId": "listMomentsTrending1"
+        }
       }
     },
     "/api/moments/by-type/{type}": {
@@ -5175,8 +5024,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by type"
+            }
           }
         ],
         "responses": {
@@ -5184,8 +5032,7 @@
             "description": "Moments of specified type"
           }
         },
-        "deprecated": true,
-        "operationId": "getMomentsByTypeBytype"
+        "deprecated": true
       }
     },
     "/api/v1/moments/by-type/{type}": {
@@ -5201,16 +5048,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by type"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Moments of specified type"
           }
-        },
-        "operationId": "getMomentsByTypeBytype1"
+        }
       }
     },
     "/api/consensus/similar": {
@@ -5247,8 +5092,7 @@
             "description": "Similar debates"
           }
         },
-        "deprecated": true,
-        "operationId": "listConsensusSimilar"
+        "deprecated": true
       }
     },
     "/api/v1/consensus/similar": {
@@ -5324,8 +5168,7 @@
             "description": "Settled questions"
           }
         },
-        "deprecated": true,
-        "operationId": "listConsensusSettled"
+        "deprecated": true
       }
     },
     "/api/v1/consensus/settled": {
@@ -5379,8 +5222,7 @@
             "description": "Consensus stats"
           }
         },
-        "deprecated": true,
-        "operationId": "listConsensusStats"
+        "deprecated": true
       }
     },
     "/api/v1/consensus/stats": {
@@ -5423,8 +5265,7 @@
             "description": "Dissenting views"
           }
         },
-        "deprecated": true,
-        "operationId": "listConsensusDissents"
+        "deprecated": true
       }
     },
     "/api/v1/consensus/dissents": {
@@ -5467,8 +5308,7 @@
             "description": "Contrarian views"
           }
         },
-        "deprecated": true,
-        "operationId": "listConsensusContrarianViews"
+        "deprecated": true
       }
     },
     "/api/v1/consensus/contrarian-views": {
@@ -5498,8 +5338,7 @@
             "description": "Risk warnings"
           }
         },
-        "deprecated": true,
-        "operationId": "listConsensusRiskWarnings"
+        "deprecated": true
       }
     },
     "/api/v1/consensus/risk-warnings": {
@@ -5540,8 +5379,7 @@
             "description": "Domain consensus data"
           }
         },
-        "deprecated": true,
-        "operationId": "getConsensusDomainBydomain"
+        "deprecated": true
       }
     },
     "/api/v1/consensus/domain/{domain}": {
@@ -5581,8 +5419,7 @@
             "description": "Relationship summary"
           }
         },
-        "deprecated": true,
-        "operationId": "listRelationshipsSummary"
+        "deprecated": true
       }
     },
     "/api/v1/relationships/summary": {
@@ -5595,8 +5432,7 @@
           "200": {
             "description": "Relationship summary"
           }
-        },
-        "operationId": "listRelationshipsSummary1"
+        }
       }
     },
     "/api/relationships/graph": {
@@ -5611,8 +5447,7 @@
             "description": "Graph data"
           }
         },
-        "deprecated": true,
-        "operationId": "listRelationshipsGraph"
+        "deprecated": true
       }
     },
     "/api/v1/relationships/graph": {
@@ -5626,8 +5461,7 @@
           "200": {
             "description": "Graph data"
           }
-        },
-        "operationId": "listRelationshipsGraph1"
+        }
       }
     },
     "/api/relationships/stats": {
@@ -5641,8 +5475,7 @@
             "description": "Relationship stats"
           }
         },
-        "deprecated": true,
-        "operationId": "listRelationshipsStats"
+        "deprecated": true
       }
     },
     "/api/v1/relationships/stats": {
@@ -5655,8 +5488,7 @@
           "200": {
             "description": "Relationship stats"
           }
-        },
-        "operationId": "listRelationshipsStats1"
+        }
       }
     },
     "/api/relationship/{agent_a}/{agent_b}": {
@@ -5672,8 +5504,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The agent a"
+            }
           },
           {
             "name": "agent_b",
@@ -5681,8 +5512,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The agent b"
+            }
           }
         ],
         "responses": {
@@ -5697,8 +5527,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "getRelationshipByagentaByagentb"
+        "deprecated": true
       }
     },
     "/api/v1/relationship/{agent_a}/{agent_b}": {
@@ -5714,8 +5543,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The agent a"
+            }
           },
           {
             "name": "agent_b",
@@ -5723,8 +5551,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The agent b"
+            }
           }
         ],
         "responses": {
@@ -5738,8 +5565,7 @@
               }
             }
           }
-        },
-        "operationId": "getRelationshipByagentaByagentb1"
+        }
       }
     },
     "/api/memory/continuum/retrieve": {
@@ -5755,8 +5581,7 @@
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Search query string"
+            }
           },
           {
             "name": "tier",
@@ -5769,8 +5594,7 @@
                 "slow",
                 "glacial"
               ]
-            },
-            "description": "The tier"
+            }
           },
           {
             "name": "limit",
@@ -5778,8 +5602,7 @@
             "schema": {
               "type": "integer",
               "default": 10
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -5787,8 +5610,7 @@
             "description": "Retrieved memories"
           }
         },
-        "deprecated": true,
-        "operationId": "listMemoryContinuumRetrieve"
+        "deprecated": true
       }
     },
     "/api/v1/memory/continuum/retrieve": {
@@ -5804,8 +5626,7 @@
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Search query string"
+            }
           },
           {
             "name": "tier",
@@ -5818,8 +5639,7 @@
                 "slow",
                 "glacial"
               ]
-            },
-            "description": "The tier"
+            }
           },
           {
             "name": "limit",
@@ -5827,16 +5647,14 @@
             "schema": {
               "type": "integer",
               "default": 10
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Retrieved memories"
           }
-        },
-        "operationId": "listMemoryContinuumRetrieve1"
+        }
       }
     },
     "/api/memory/continuum/consolidate": {
@@ -5856,8 +5674,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "createMemoryContinuumConsolidate"
+        "deprecated": true
       }
     },
     "/api/v1/memory/continuum/consolidate": {
@@ -5876,8 +5693,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createMemoryContinuumConsolidate1"
+        ]
       }
     },
     "/api/memory/continuum/cleanup": {
@@ -5897,8 +5713,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "createMemoryContinuumCleanup"
+        "deprecated": true
       }
     },
     "/api/v1/memory/continuum/cleanup": {
@@ -5917,8 +5732,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createMemoryContinuumCleanup1"
+        ]
       }
     },
     "/api/memory/tier-stats": {
@@ -5932,8 +5746,7 @@
             "description": "Tier stats"
           }
         },
-        "deprecated": true,
-        "operationId": "listMemoryTierStats"
+        "deprecated": true
       }
     },
     "/api/v1/memory/tier-stats": {
@@ -5946,8 +5759,7 @@
           "200": {
             "description": "Tier stats"
           }
-        },
-        "operationId": "listMemoryTierStats1"
+        }
       }
     },
     "/api/memory/archive-stats": {
@@ -5961,8 +5773,7 @@
             "description": "Archive stats"
           }
         },
-        "deprecated": true,
-        "operationId": "listMemoryArchiveStats"
+        "deprecated": true
       }
     },
     "/api/v1/memory/archive-stats": {
@@ -5975,8 +5786,7 @@
           "200": {
             "description": "Archive stats"
           }
-        },
-        "operationId": "listMemoryArchiveStats1"
+        }
       }
     },
     "/api/belief-network/{debate_id}/cruxes": {
@@ -5992,8 +5802,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           }
         ],
         "responses": {
@@ -6001,8 +5810,7 @@
             "description": "Debate cruxes"
           }
         },
-        "deprecated": true,
-        "operationId": "listBeliefNetworkBydebateidCruxes"
+        "deprecated": true
       }
     },
     "/api/v1/belief-network/{debate_id}/cruxes": {
@@ -6018,16 +5826,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Debate cruxes"
           }
-        },
-        "operationId": "listBeliefNetworkBydebateidCruxes1"
+        }
       }
     },
     "/api/belief-network/{debate_id}/load-bearing-claims": {
@@ -6043,8 +5849,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           }
         ],
         "responses": {
@@ -6052,8 +5857,7 @@
             "description": "Load-bearing claims"
           }
         },
-        "deprecated": true,
-        "operationId": "listBeliefNetworkBydebateidLoadBearingClaims"
+        "deprecated": true
       }
     },
     "/api/v1/belief-network/{debate_id}/load-bearing-claims": {
@@ -6069,16 +5873,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Load-bearing claims"
           }
-        },
-        "operationId": "listBeliefNetworkBydebateidLoadBearingClaims1"
+        }
       }
     },
     "/api/debate/{debate_id}/graph-stats": {
@@ -6094,8 +5896,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           }
         ],
         "responses": {
@@ -6103,8 +5904,7 @@
             "description": "Graph statistics"
           }
         },
-        "deprecated": true,
-        "operationId": "listDebateBydebateidGraphStats"
+        "deprecated": true
       }
     },
     "/api/v1/debate/{debate_id}/graph-stats": {
@@ -6120,16 +5920,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Graph statistics"
           }
-        },
-        "operationId": "listDebateBydebateidGraphStats1"
+        }
       }
     },
     "/api/pulse/trending": {
@@ -6147,8 +5945,7 @@
               "type": "integer",
               "default": 10,
               "maximum": 50
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -6156,8 +5953,7 @@
             "description": "Trending topics"
           }
         },
-        "deprecated": true,
-        "operationId": "listPulseTrending"
+        "deprecated": true
       }
     },
     "/api/v1/pulse/trending": {
@@ -6175,16 +5971,14 @@
               "type": "integer",
               "default": 10,
               "maximum": 50
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Trending topics"
           }
-        },
-        "operationId": "listPulseTrending1"
+        }
       }
     },
     "/api/pulse/suggest": {
@@ -6200,8 +5994,7 @@
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by category"
+            }
           }
         ],
         "responses": {
@@ -6209,8 +6002,7 @@
             "description": "Suggested topic"
           }
         },
-        "deprecated": true,
-        "operationId": "listPulseSuggest"
+        "deprecated": true
       }
     },
     "/api/v1/pulse/suggest": {
@@ -6226,16 +6018,14 @@
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by category"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Suggested topic"
           }
-        },
-        "operationId": "listPulseSuggest1"
+        }
       }
     },
     "/api/metrics": {
@@ -6249,8 +6039,7 @@
             "description": "Metrics data"
           }
         },
-        "deprecated": true,
-        "operationId": "getMetrics"
+        "deprecated": true
       }
     },
     "/api/v1/metrics": {
@@ -6263,8 +6052,7 @@
           "200": {
             "description": "Metrics data"
           }
-        },
-        "operationId": "getMetrics1"
+        }
       }
     },
     "/api/metrics/health": {
@@ -6278,8 +6066,7 @@
             "description": "Metrics health"
           }
         },
-        "deprecated": true,
-        "operationId": "getMetricsHealth"
+        "deprecated": true
       }
     },
     "/api/v1/metrics/health": {
@@ -6292,8 +6079,7 @@
           "200": {
             "description": "Metrics health"
           }
-        },
-        "operationId": "getMetricsHealth1"
+        }
       }
     },
     "/api/metrics/cache": {
@@ -6307,8 +6093,7 @@
             "description": "Cache metrics"
           }
         },
-        "deprecated": true,
-        "operationId": "listMetricsCache"
+        "deprecated": true
       }
     },
     "/api/v1/metrics/cache": {
@@ -6321,8 +6106,7 @@
           "200": {
             "description": "Cache metrics"
           }
-        },
-        "operationId": "listMetricsCache1"
+        }
       }
     },
     "/api/metrics/system": {
@@ -6336,8 +6120,7 @@
             "description": "System metrics"
           }
         },
-        "deprecated": true,
-        "operationId": "listMetricsSystem"
+        "deprecated": true
       }
     },
     "/api/v1/metrics/system": {
@@ -6350,8 +6133,7 @@
           "200": {
             "description": "System metrics"
           }
-        },
-        "operationId": "listMetricsSystem1"
+        }
       }
     },
     "/metrics": {
@@ -6368,8 +6150,7 @@
               "text/plain": {}
             }
           }
-        },
-        "operationId": "getmetrics"
+        }
       }
     },
     "/api/verification/status": {
@@ -6383,8 +6164,7 @@
             "description": "Verification status"
           }
         },
-        "deprecated": true,
-        "operationId": "listVerificationStatus"
+        "deprecated": true
       }
     },
     "/api/v1/verification/status": {
@@ -6397,8 +6177,7 @@
           "200": {
             "description": "Verification status"
           }
-        },
-        "operationId": "listVerificationStatus1"
+        }
       }
     },
     "/api/verification/formal-verify": {
@@ -6427,8 +6206,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "createVerificationFormalVerify"
+        "deprecated": true
       }
     },
     "/api/v1/verification/formal-verify": {
@@ -6456,8 +6234,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createVerificationFormalVerify1"
+        ]
       }
     },
     "/api/debates/capability-probe": {
@@ -6485,8 +6262,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "createDebatesCapabilityProbe"
+        "deprecated": true
       }
     },
     "/api/v1/debates/capability-probe": {
@@ -6513,8 +6289,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createDebatesCapabilityProbe1"
+        ]
       }
     },
     "/api/debates/deep-audit": {
@@ -6542,8 +6317,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "createDebatesDeepAudit"
+        "deprecated": true
       }
     },
     "/api/v1/debates/deep-audit": {
@@ -6570,8 +6344,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createDebatesDeepAudit1"
+        ]
       }
     },
     "/api/probes/capability": {
@@ -6599,8 +6372,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "createProbesCapability"
+        "deprecated": true
       }
     },
     "/api/v1/probes/capability": {
@@ -6627,8 +6399,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createProbesCapability1"
+        ]
       }
     },
     "/api/documents": {
@@ -6642,8 +6413,7 @@
             "description": "Document list"
           }
         },
-        "deprecated": true,
-        "operationId": "listDocuments"
+        "deprecated": true
       }
     },
     "/api/v1/documents": {
@@ -6656,8 +6426,7 @@
           "200": {
             "description": "Document list"
           }
-        },
-        "operationId": "listDocuments1"
+        }
       }
     },
     "/api/documents/formats": {
@@ -6671,8 +6440,7 @@
             "description": "Supported formats"
           }
         },
-        "deprecated": true,
-        "operationId": "listDocumentsFormats"
+        "deprecated": true
       }
     },
     "/api/v1/documents/formats": {
@@ -6685,8 +6453,7 @@
           "200": {
             "description": "Supported formats"
           }
-        },
-        "operationId": "listDocumentsFormats1"
+        }
       }
     },
     "/api/documents/upload": {
@@ -6714,8 +6481,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "operationId": "createDocumentsUpload"
+        "deprecated": true
       }
     },
     "/api/v1/documents/upload": {
@@ -6742,8 +6508,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createDocumentsUpload1"
+        ]
       }
     },
     "/api/podcast/feed.xml": {
@@ -6760,8 +6525,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listPodcastFeed.Xml"
+        "deprecated": true
       }
     },
     "/api/v1/podcast/feed.xml": {
@@ -6777,8 +6541,7 @@
               "application/xml": {}
             }
           }
-        },
-        "operationId": "listPodcastFeed.Xml1"
+        }
       }
     },
     "/api/podcast/episodes": {
@@ -6792,8 +6555,7 @@
             "description": "Episode list"
           }
         },
-        "deprecated": true,
-        "operationId": "listPodcastEpisodes"
+        "deprecated": true
       }
     },
     "/api/v1/podcast/episodes": {
@@ -6806,8 +6568,7 @@
           "200": {
             "description": "Episode list"
           }
-        },
-        "operationId": "listPodcastEpisodes1"
+        }
       }
     },
     "/api/youtube/auth": {
@@ -6821,8 +6582,7 @@
             "description": "Auth URL"
           }
         },
-        "deprecated": true,
-        "operationId": "listYoutubeAuth"
+        "deprecated": true
       }
     },
     "/api/v1/youtube/auth": {
@@ -6835,8 +6595,7 @@
           "200": {
             "description": "Auth URL"
           }
-        },
-        "operationId": "listYoutubeAuth1"
+        }
       }
     },
     "/api/youtube/callback": {
@@ -6850,8 +6609,7 @@
             "description": "Auth complete"
           }
         },
-        "deprecated": true,
-        "operationId": "listYoutubeCallback"
+        "deprecated": true
       }
     },
     "/api/v1/youtube/callback": {
@@ -6864,8 +6622,7 @@
           "200": {
             "description": "Auth complete"
           }
-        },
-        "operationId": "listYoutubeCallback1"
+        }
       }
     },
     "/api/youtube/status": {
@@ -6879,8 +6636,7 @@
             "description": "Auth status"
           }
         },
-        "deprecated": true,
-        "operationId": "listYoutubeStatus"
+        "deprecated": true
       }
     },
     "/api/v1/youtube/status": {
@@ -6893,8 +6649,7 @@
           "200": {
             "description": "Auth status"
           }
-        },
-        "operationId": "listYoutubeStatus1"
+        }
       }
     },
     "/api/v1/plugins": {
@@ -6907,8 +6662,7 @@
           "200": {
             "description": "Plugin list"
           }
-        },
-        "operationId": "listPlugins"
+        }
       }
     },
     "/api/v1/plugins/installed": {
@@ -6926,8 +6680,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "listPluginsInstalled"
+        ]
       }
     },
     "/api/v1/plugins/marketplace": {
@@ -6940,8 +6693,7 @@
           "200": {
             "description": "Marketplace data with categories"
           }
-        },
-        "operationId": "listPluginsMarketplace"
+        }
       }
     },
     "/api/v1/plugins/submit": {
@@ -6968,8 +6720,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createPluginsSubmit"
+        ]
       }
     },
     "/api/v1/plugins/submissions": {
@@ -6987,8 +6738,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "listPluginsSubmissions"
+        ]
       }
     },
     "/api/v1/plugins/{name}": {
@@ -7012,8 +6762,7 @@
           "200": {
             "description": "Plugin details"
           }
-        },
-        "operationId": "getPluginsByname"
+        }
       }
     },
     "/api/v1/plugins/{name}/run": {
@@ -7051,8 +6800,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createPluginsBynameRun"
+        ]
       }
     },
     "/api/v1/plugins/{name}/install": {
@@ -7090,8 +6838,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createPluginsBynameInstall"
+        ]
       },
       "delete": {
         "tags": [
@@ -7118,8 +6865,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "deletePluginsBynameInstall"
+        ]
       }
     },
     "/api/plugins": {
@@ -7134,8 +6880,7 @@
           }
         },
         "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins instead. Sunset: 2026-12-31.",
-        "operationId": "listPlugins1"
+        "description": "Deprecated: Use /api/v1/plugins instead. Sunset: 2026-12-31."
       }
     },
     "/api/plugins/installed": {
@@ -7155,8 +6900,7 @@
           }
         ],
         "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/installed instead. Sunset: 2026-12-31.",
-        "operationId": "listPluginsInstalled1"
+        "description": "Deprecated: Use /api/v1/plugins/installed instead. Sunset: 2026-12-31."
       }
     },
     "/api/plugins/marketplace": {
@@ -7171,8 +6915,7 @@
           }
         },
         "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/marketplace instead. Sunset: 2026-12-31.",
-        "operationId": "listPluginsMarketplace1"
+        "description": "Deprecated: Use /api/v1/plugins/marketplace instead. Sunset: 2026-12-31."
       }
     },
     "/api/plugins/submit": {
@@ -7201,8 +6944,7 @@
           }
         ],
         "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/submit instead. Sunset: 2026-12-31.",
-        "operationId": "createPluginsSubmit1"
+        "description": "Deprecated: Use /api/v1/plugins/submit instead. Sunset: 2026-12-31."
       }
     },
     "/api/plugins/submissions": {
@@ -7222,8 +6964,7 @@
           }
         ],
         "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/submissions instead. Sunset: 2026-12-31.",
-        "operationId": "listPluginsSubmissions1"
+        "description": "Deprecated: Use /api/v1/plugins/submissions instead. Sunset: 2026-12-31."
       }
     },
     "/api/plugins/{name}": {
@@ -7249,8 +6990,7 @@
           }
         },
         "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/{name} instead. Sunset: 2026-12-31.",
-        "operationId": "getPluginsByname1"
+        "description": "Deprecated: Use /api/v1/plugins/{name} instead. Sunset: 2026-12-31."
       }
     },
     "/api/plugins/{name}/run": {
@@ -7290,8 +7030,7 @@
           }
         ],
         "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/{name}/run instead. Sunset: 2026-12-31.",
-        "operationId": "createPluginsBynameRun1"
+        "description": "Deprecated: Use /api/v1/plugins/{name}/run instead. Sunset: 2026-12-31."
       }
     },
     "/api/plugins/{name}/install": {
@@ -7331,8 +7070,7 @@
           }
         ],
         "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset: 2026-12-31.",
-        "operationId": "createPluginsBynameInstall1"
+        "description": "Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset: 2026-12-31."
       },
       "delete": {
         "tags": [
@@ -7361,8 +7099,7 @@
           }
         ],
         "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset: 2026-12-31.",
-        "operationId": "deletePluginsBynameInstall1"
+        "description": "Deprecated: Use /api/v1/plugins/{name}/install instead. Sunset: 2026-12-31."
       }
     },
     "/api/laboratory/emergent-traits": {
@@ -7378,8 +7115,7 @@
             "schema": {
               "type": "number",
               "default": 0.5
-            },
-            "description": "Min Confidence parameter"
+            }
           },
           {
             "name": "limit",
@@ -7387,8 +7123,7 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -7396,8 +7131,7 @@
             "description": "Emergent traits"
           }
         },
-        "deprecated": true,
-        "operationId": "listLaboratoryEmergentTraits"
+        "deprecated": true
       }
     },
     "/api/v1/laboratory/emergent-traits": {
@@ -7413,8 +7147,7 @@
             "schema": {
               "type": "number",
               "default": 0.5
-            },
-            "description": "Min Confidence parameter"
+            }
           },
           {
             "name": "limit",
@@ -7422,16 +7155,14 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Emergent traits"
           }
-        },
-        "operationId": "listLaboratoryEmergentTraits1"
+        }
       }
     },
     "/api/laboratory/cross-pollinations/suggest": {
@@ -7445,8 +7176,7 @@
             "description": "Suggestions"
           }
         },
-        "deprecated": true,
-        "operationId": "listLaboratoryCrossPollinationsSuggest"
+        "deprecated": true
       }
     },
     "/api/v1/laboratory/cross-pollinations/suggest": {
@@ -7459,8 +7189,7 @@
           "200": {
             "description": "Suggestions"
           }
-        },
-        "operationId": "listLaboratoryCrossPollinationsSuggest1"
+        }
       }
     },
     "/api/tournaments": {
@@ -7474,8 +7203,7 @@
             "description": "Tournament list"
           }
         },
-        "deprecated": true,
-        "operationId": "listTournaments"
+        "deprecated": true
       }
     },
     "/api/v1/tournaments": {
@@ -7488,8 +7216,7 @@
           "200": {
             "description": "Tournament list"
           }
-        },
-        "operationId": "listTournaments1"
+        }
       }
     },
     "/api/tournaments/{id}/standings": {
@@ -7505,8 +7232,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -7514,8 +7240,7 @@
             "description": "Standings"
           }
         },
-        "deprecated": true,
-        "operationId": "listTournamentsByidStandings"
+        "deprecated": true
       }
     },
     "/api/v1/tournaments/{id}/standings": {
@@ -7531,16 +7256,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Standings"
           }
-        },
-        "operationId": "listTournamentsByidStandings1"
+        }
       }
     },
     "/api/genesis/stats": {
@@ -7554,8 +7277,7 @@
             "description": "Genesis stats"
           }
         },
-        "deprecated": true,
-        "operationId": "listGenesisStats"
+        "deprecated": true
       }
     },
     "/api/v1/genesis/stats": {
@@ -7568,8 +7290,7 @@
           "200": {
             "description": "Genesis stats"
           }
-        },
-        "operationId": "listGenesisStats1"
+        }
       }
     },
     "/api/genesis/events": {
@@ -7583,8 +7304,7 @@
             "description": "Genesis events"
           }
         },
-        "deprecated": true,
-        "operationId": "listGenesisEvents"
+        "deprecated": true
       }
     },
     "/api/v1/genesis/events": {
@@ -7597,8 +7317,7 @@
           "200": {
             "description": "Genesis events"
           }
-        },
-        "operationId": "listGenesisEvents1"
+        }
       }
     },
     "/api/genesis/lineage/{agent}": {
@@ -7614,8 +7333,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The agent"
+            }
           }
         ],
         "responses": {
@@ -7623,8 +7341,7 @@
             "description": "Lineage data"
           }
         },
-        "deprecated": true,
-        "operationId": "getGenesisLineageByagent"
+        "deprecated": true
       }
     },
     "/api/v1/genesis/lineage/{agent}": {
@@ -7640,16 +7357,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The agent"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Lineage data"
           }
-        },
-        "operationId": "getGenesisLineageByagent1"
+        }
       }
     },
     "/api/genesis/tree/{agent}": {
@@ -7665,8 +7380,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The agent"
+            }
           }
         ],
         "responses": {
@@ -7674,8 +7388,7 @@
             "description": "Tree data"
           }
         },
-        "deprecated": true,
-        "operationId": "getGenesisTreeByagent"
+        "deprecated": true
       }
     },
     "/api/v1/genesis/tree/{agent}": {
@@ -7691,16 +7404,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The agent"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Tree data"
           }
-        },
-        "operationId": "getGenesisTreeByagent1"
+        }
       }
     },
     "/api/evolution/{agent}/history": {
@@ -7716,8 +7427,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The agent"
+            }
           }
         ],
         "responses": {
@@ -7725,8 +7435,7 @@
             "description": "Evolution history"
           }
         },
-        "deprecated": true,
-        "operationId": "listEvolutionByagentHistory"
+        "deprecated": true
       }
     },
     "/api/v1/evolution/{agent}/history": {
@@ -7742,16 +7451,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The agent"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Evolution history"
           }
-        },
-        "operationId": "listEvolutionByagentHistory1"
+        }
       }
     },
     "/api/replays": {
@@ -7765,8 +7472,7 @@
             "description": "Replay list"
           }
         },
-        "deprecated": true,
-        "operationId": "listReplays"
+        "deprecated": true
       }
     },
     "/api/v1/replays": {
@@ -7779,8 +7485,7 @@
           "200": {
             "description": "Replay list"
           }
-        },
-        "operationId": "listReplays1"
+        }
       }
     },
     "/api/replays/{id}": {
@@ -7796,8 +7501,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
@@ -7805,8 +7509,7 @@
             "description": "Replay data"
           }
         },
-        "deprecated": true,
-        "operationId": "getReplaysByid"
+        "deprecated": true
       }
     },
     "/api/v1/replays/{id}": {
@@ -7822,16 +7525,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the resource"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Replay data"
           }
-        },
-        "operationId": "getReplaysByid1"
+        }
       }
     },
     "/api/learning/evolution": {
@@ -7845,8 +7546,7 @@
             "description": "Evolution data"
           }
         },
-        "deprecated": true,
-        "operationId": "listLearningEvolution"
+        "deprecated": true
       }
     },
     "/api/v1/learning/evolution": {
@@ -7859,8 +7559,7 @@
           "200": {
             "description": "Evolution data"
           }
-        },
-        "operationId": "listLearningEvolution1"
+        }
       }
     },
     "/api/meta-learning/stats": {
@@ -7874,8 +7573,7 @@
             "description": "Meta-learning stats"
           }
         },
-        "deprecated": true,
-        "operationId": "listMetaLearningStats"
+        "deprecated": true
       }
     },
     "/api/v1/meta-learning/stats": {
@@ -7888,8 +7586,7 @@
           "200": {
             "description": "Meta-learning stats"
           }
-        },
-        "operationId": "listMetaLearningStats1"
+        }
       }
     },
     "/api/critiques/patterns": {
@@ -7903,8 +7600,7 @@
             "description": "Patterns"
           }
         },
-        "deprecated": true,
-        "operationId": "listCritiquesPatterns"
+        "deprecated": true
       }
     },
     "/api/v1/critiques/patterns": {
@@ -7917,8 +7613,7 @@
           "200": {
             "description": "Patterns"
           }
-        },
-        "operationId": "listCritiquesPatterns1"
+        }
       }
     },
     "/api/critiques/archive": {
@@ -7932,8 +7627,7 @@
             "description": "Archive"
           }
         },
-        "deprecated": true,
-        "operationId": "listCritiquesArchive"
+        "deprecated": true
       }
     },
     "/api/v1/critiques/archive": {
@@ -7946,8 +7640,7 @@
           "200": {
             "description": "Archive"
           }
-        },
-        "operationId": "listCritiquesArchive1"
+        }
       }
     },
     "/api/reputation/all": {
@@ -7961,8 +7654,7 @@
             "description": "Reputations"
           }
         },
-        "deprecated": true,
-        "operationId": "listReputationAll"
+        "deprecated": true
       }
     },
     "/api/v1/reputation/all": {
@@ -7975,8 +7667,7 @@
           "200": {
             "description": "Reputations"
           }
-        },
-        "operationId": "listReputationAll1"
+        }
       }
     },
     "/api/routing/best-teams": {
@@ -7992,8 +7683,7 @@
             "schema": {
               "type": "integer",
               "default": 3
-            },
-            "description": "The min debates value"
+            }
           },
           {
             "name": "limit",
@@ -8001,8 +7691,7 @@
             "schema": {
               "type": "integer",
               "default": 10
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -8010,8 +7699,7 @@
             "description": "Best teams"
           }
         },
-        "deprecated": true,
-        "operationId": "listRoutingBestTeams"
+        "deprecated": true
       }
     },
     "/api/v1/routing/best-teams": {
@@ -8027,8 +7715,7 @@
             "schema": {
               "type": "integer",
               "default": 3
-            },
-            "description": "The min debates value"
+            }
           },
           {
             "name": "limit",
@@ -8036,16 +7723,14 @@
             "schema": {
               "type": "integer",
               "default": 10
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Best teams"
           }
-        },
-        "operationId": "listRoutingBestTeams1"
+        }
       }
     },
     "/api/routing/recommendations": {
@@ -8085,8 +7770,7 @@
             "description": "Recommendations"
           }
         },
-        "deprecated": true,
-        "operationId": "createRoutingRecommendations"
+        "deprecated": true
       }
     },
     "/api/v1/routing/recommendations": {
@@ -8125,8 +7809,7 @@
           "200": {
             "description": "Recommendations"
           }
-        },
-        "operationId": "createRoutingRecommendations1"
+        }
       }
     },
     "/api/introspection/all": {
@@ -8140,8 +7823,7 @@
             "description": "Introspection data"
           }
         },
-        "deprecated": true,
-        "operationId": "listIntrospectionAll"
+        "deprecated": true
       }
     },
     "/api/v1/introspection/all": {
@@ -8154,8 +7836,7 @@
           "200": {
             "description": "Introspection data"
           }
-        },
-        "operationId": "listIntrospectionAll1"
+        }
       }
     },
     "/api/introspection/leaderboard": {
@@ -8169,8 +7850,7 @@
             "description": "Leaderboard"
           }
         },
-        "deprecated": true,
-        "operationId": "listIntrospectionLeaderboard"
+        "deprecated": true
       }
     },
     "/api/v1/introspection/leaderboard": {
@@ -8183,8 +7863,7 @@
           "200": {
             "description": "Leaderboard"
           }
-        },
-        "operationId": "listIntrospectionLeaderboard1"
+        }
       }
     },
     "/api/introspection/agents": {
@@ -8198,8 +7877,7 @@
             "description": "Agent list"
           }
         },
-        "deprecated": true,
-        "operationId": "listIntrospectionAgents"
+        "deprecated": true
       }
     },
     "/api/v1/introspection/agents": {
@@ -8212,8 +7890,7 @@
           "200": {
             "description": "Agent list"
           }
-        },
-        "operationId": "listIntrospectionAgents1"
+        }
       }
     },
     "/api/introspection/agents/{name}": {
@@ -8229,8 +7906,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Name of the resource"
+            }
           }
         ],
         "responses": {
@@ -8238,8 +7914,7 @@
             "description": "Agent introspection"
           }
         },
-        "deprecated": true,
-        "operationId": "getIntrospectionAgentsByname"
+        "deprecated": true
       }
     },
     "/api/v1/introspection/agents/{name}": {
@@ -8255,16 +7930,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Name of the resource"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Agent introspection"
           }
-        },
-        "operationId": "getIntrospectionAgentsByname1"
+        }
       }
     },
     "/api/auth/oauth/google": {
@@ -8372,8 +8045,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listAuthOauthGoogle"
+        "deprecated": true
       }
     },
     "/api/v1/auth/oauth/google": {
@@ -8480,8 +8152,7 @@
               }
             }
           }
-        },
-        "operationId": "listAuthOauthGoogle1"
+        }
       }
     },
     "/api/auth/oauth/google/callback": {
@@ -8583,8 +8254,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listAuthOauthGoogleCallback"
+        "deprecated": true
       }
     },
     "/api/v1/auth/oauth/google/callback": {
@@ -8685,8 +8355,7 @@
               }
             }
           }
-        },
-        "operationId": "listAuthOauthGoogleCallback1"
+        }
       }
     },
     "/api/auth/oauth/github": {
@@ -8794,8 +8463,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listAuthOauthGithub"
+        "deprecated": true
       }
     },
     "/api/v1/auth/oauth/github": {
@@ -8902,8 +8570,7 @@
               }
             }
           }
-        },
-        "operationId": "listAuthOauthGithub1"
+        }
       }
     },
     "/api/auth/oauth/github/callback": {
@@ -8997,8 +8664,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listAuthOauthGithubCallback"
+        "deprecated": true
       }
     },
     "/api/v1/auth/oauth/github/callback": {
@@ -9091,8 +8757,7 @@
               }
             }
           }
-        },
-        "operationId": "listAuthOauthGithubCallback1"
+        }
       }
     },
     "/api/auth/oauth/link": {
@@ -9206,8 +8871,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createAuthOauthLink"
+        "deprecated": true
       }
     },
     "/api/v1/auth/oauth/link": {
@@ -9320,8 +8984,7 @@
               }
             }
           }
-        },
-        "operationId": "createAuthOauthLink1"
+        }
       }
     },
     "/api/auth/oauth/unlink": {
@@ -9444,8 +9107,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "deleteAuthOauthUnlink"
+        "deprecated": true
       }
     },
     "/api/v1/auth/oauth/unlink": {
@@ -9567,8 +9229,7 @@
               }
             }
           }
-        },
-        "operationId": "deleteAuthOauthUnlink1"
+        }
       }
     },
     "/api/auth/oauth/providers": {
@@ -9590,8 +9251,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listAuthOauthProviders"
+        "deprecated": true
       }
     },
     "/api/v1/auth/oauth/providers": {
@@ -9612,8 +9272,7 @@
               }
             }
           }
-        },
-        "operationId": "listAuthOauthProviders1"
+        }
       }
     },
     "/api/user/oauth-providers": {
@@ -9661,8 +9320,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listUserOauthProviders"
+        "deprecated": true
       }
     },
     "/api/v1/user/oauth-providers": {
@@ -9709,8 +9367,7 @@
               }
             }
           }
-        },
-        "operationId": "listUserOauthProviders1"
+        }
       }
     },
     "/api/workspaces": {
@@ -9733,8 +9390,7 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
@@ -9742,8 +9398,7 @@
             "schema": {
               "type": "integer",
               "default": 0
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -9786,8 +9441,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listWorkspaces"
+        "deprecated": true
       },
       "post": {
         "tags": [
@@ -9944,8 +9598,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createWorkspaces"
+        "deprecated": true
       }
     },
     "/api/v1/workspaces": {
@@ -9968,8 +9621,7 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
@@ -9977,8 +9629,7 @@
             "schema": {
               "type": "integer",
               "default": 0
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -10020,8 +9671,7 @@
               }
             }
           }
-        },
-        "operationId": "listWorkspaces1"
+        }
       },
       "post": {
         "tags": [
@@ -10177,8 +9827,7 @@
               }
             }
           }
-        },
-        "operationId": "createWorkspaces1"
+        }
       }
     },
     "/api/workspaces/{workspace_id}": {
@@ -10200,8 +9849,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Workspace to scope the query to"
+            }
           }
         ],
         "responses": {
@@ -10296,8 +9944,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "getWorkspacesByworkspaceid"
+        "deprecated": true
       },
       "delete": {
         "tags": [
@@ -10317,8 +9964,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Workspace to scope the query to"
+            }
           }
         ],
         "responses": {
@@ -10406,8 +10052,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "deleteWorkspacesByworkspaceid"
+        "deprecated": true
       }
     },
     "/api/v1/workspaces/{workspace_id}": {
@@ -10429,8 +10074,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Workspace to scope the query to"
+            }
           }
         ],
         "responses": {
@@ -10524,8 +10168,7 @@
               }
             }
           }
-        },
-        "operationId": "getWorkspacesByworkspaceid1"
+        }
       },
       "delete": {
         "tags": [
@@ -10545,8 +10188,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Workspace to scope the query to"
+            }
           }
         ],
         "responses": {
@@ -10633,8 +10275,7 @@
               }
             }
           }
-        },
-        "operationId": "deleteWorkspacesByworkspaceid1"
+        }
       }
     },
     "/api/workspaces/{workspace_id}/members": {
@@ -10656,8 +10297,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Workspace to scope the query to"
+            }
           }
         ],
         "requestBody": {
@@ -10788,8 +10428,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createWorkspacesByworkspaceidMembers"
+        "deprecated": true
       }
     },
     "/api/v1/workspaces/{workspace_id}/members": {
@@ -10811,8 +10450,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Workspace to scope the query to"
+            }
           }
         ],
         "requestBody": {
@@ -10942,8 +10580,7 @@
               }
             }
           }
-        },
-        "operationId": "createWorkspacesByworkspaceidMembers1"
+        }
       }
     },
     "/api/workspaces/profiles": {
@@ -10991,8 +10628,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listWorkspacesProfiles"
+        "deprecated": true
       }
     },
     "/api/v1/workspaces/profiles": {
@@ -11151,8 +10787,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listWorkspacesByworkspaceidRoles"
+        "deprecated": true
       }
     },
     "/api/v1/workspaces/{workspace_id}/roles": {
@@ -11447,8 +11082,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "updateWorkspacesByworkspaceidMembersByuseridRole"
+        "deprecated": true
       }
     },
     "/api/v1/workspaces/{workspace_id}/members/{user_id}/role": {
@@ -11687,8 +11321,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listRetentionPolicies"
+        "deprecated": true
       },
       "post": {
         "tags": [
@@ -11850,8 +11483,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createRetentionPolicies"
+        "deprecated": true
       }
     },
     "/api/v1/retention/policies": {
@@ -11905,8 +11537,7 @@
               }
             }
           }
-        },
-        "operationId": "listRetentionPolicies1"
+        }
       },
       "post": {
         "tags": [
@@ -12067,8 +11698,7 @@
               }
             }
           }
-        },
-        "operationId": "createRetentionPolicies1"
+        }
       }
     },
     "/api/retention/policies/{policy_id}/execute": {
@@ -12090,8 +11720,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the policy"
+            }
           }
         ],
         "responses": {
@@ -12179,8 +11808,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createRetentionPoliciesBypolicyidExecute"
+        "deprecated": true
       }
     },
     "/api/v1/retention/policies/{policy_id}/execute": {
@@ -12202,8 +11830,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the policy"
+            }
           }
         ],
         "responses": {
@@ -12290,8 +11917,7 @@
               }
             }
           }
-        },
-        "operationId": "createRetentionPoliciesBypolicyidExecute1"
+        }
       }
     },
     "/api/retention/expiring": {
@@ -12350,8 +11976,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listRetentionExpiring"
+        "deprecated": true
       }
     },
     "/api/v1/retention/expiring": {
@@ -12409,8 +12034,7 @@
               }
             }
           }
-        },
-        "operationId": "listRetentionExpiring1"
+        }
       }
     },
     "/api/classify": {
@@ -12519,8 +12143,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createClassify"
+        "deprecated": true
       }
     },
     "/api/v1/classify": {
@@ -12628,8 +12251,7 @@
               }
             }
           }
-        },
-        "operationId": "createClassify1"
+        }
       }
     },
     "/api/classify/policy/{level}": {
@@ -12657,8 +12279,7 @@
                 "confidential",
                 "restricted"
               ]
-            },
-            "description": "Filter by level (e.g., debug, info, warning, error)"
+            }
           }
         ],
         "responses": {
@@ -12732,8 +12353,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "getClassifyPolicyBylevel"
+        "deprecated": true
       }
     },
     "/api/v1/classify/policy/{level}": {
@@ -12761,8 +12381,7 @@
                 "confidential",
                 "restricted"
               ]
-            },
-            "description": "Filter by level (e.g., debug, info, warning, error)"
+            }
           }
         ],
         "responses": {
@@ -12835,8 +12454,7 @@
               }
             }
           }
-        },
-        "operationId": "getClassifyPolicyBylevel1"
+        }
       }
     },
     "/api/audit/entries": {
@@ -12857,24 +12475,21 @@
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "The actor id"
+            }
           },
           {
             "name": "resource_id",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "The resource id"
+            }
           },
           {
             "name": "action",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "The action"
+            }
           },
           {
             "name": "outcome",
@@ -12886,8 +12501,7 @@
                 "denied",
                 "error"
               ]
-            },
-            "description": "The outcome"
+            }
           },
           {
             "name": "start_time",
@@ -12895,8 +12509,7 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            },
-            "description": "Start time for filtering (Unix timestamp or ISO 8601)"
+            }
           },
           {
             "name": "end_time",
@@ -12904,8 +12517,7 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            },
-            "description": "End time for filtering (Unix timestamp or ISO 8601)"
+            }
           },
           {
             "name": "limit",
@@ -12913,8 +12525,7 @@
             "schema": {
               "type": "integer",
               "default": 100
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -12980,8 +12591,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listAuditEntries"
+        "deprecated": true
       }
     },
     "/api/v1/audit/entries": {
@@ -13002,24 +12612,21 @@
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "The actor id"
+            }
           },
           {
             "name": "resource_id",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "The resource id"
+            }
           },
           {
             "name": "action",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "The action"
+            }
           },
           {
             "name": "outcome",
@@ -13031,8 +12638,7 @@
                 "denied",
                 "error"
               ]
-            },
-            "description": "The outcome"
+            }
           },
           {
             "name": "start_time",
@@ -13040,8 +12646,7 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            },
-            "description": "Start time for filtering (Unix timestamp or ISO 8601)"
+            }
           },
           {
             "name": "end_time",
@@ -13049,8 +12654,7 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            },
-            "description": "End time for filtering (Unix timestamp or ISO 8601)"
+            }
           },
           {
             "name": "limit",
@@ -13058,8 +12662,7 @@
             "schema": {
               "type": "integer",
               "default": 100
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -13124,8 +12727,7 @@
               }
             }
           }
-        },
-        "operationId": "listAuditEntries1"
+        }
       }
     },
     "/api/audit/report": {
@@ -13148,8 +12750,7 @@
             "schema": {
               "type": "string",
               "format": "date"
-            },
-            "description": "Start date for filtering (ISO 8601 format)"
+            }
           },
           {
             "name": "end_date",
@@ -13158,8 +12759,7 @@
             "schema": {
               "type": "string",
               "format": "date"
-            },
-            "description": "End date for filtering (ISO 8601 format)"
+            }
           },
           {
             "name": "format",
@@ -13172,8 +12772,7 @@
                 "pdf"
               ],
               "default": "json"
-            },
-            "description": "Output format (e.g., json, yaml, csv)"
+            }
           }
         ],
         "responses": {
@@ -13277,8 +12876,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listAuditReport"
+        "deprecated": true
       }
     },
     "/api/v1/audit/report": {
@@ -13301,8 +12899,7 @@
             "schema": {
               "type": "string",
               "format": "date"
-            },
-            "description": "Start date for filtering (ISO 8601 format)"
+            }
           },
           {
             "name": "end_date",
@@ -13311,8 +12908,7 @@
             "schema": {
               "type": "string",
               "format": "date"
-            },
-            "description": "End date for filtering (ISO 8601 format)"
+            }
           },
           {
             "name": "format",
@@ -13325,8 +12921,7 @@
                 "pdf"
               ],
               "default": "json"
-            },
-            "description": "Output format (e.g., json, yaml, csv)"
+            }
           }
         ],
         "responses": {
@@ -13429,8 +13024,7 @@
               }
             }
           }
-        },
-        "operationId": "listAuditReport1"
+        }
       }
     },
     "/api/audit/verify": {
@@ -13451,16 +13045,14 @@
             "in": "query",
             "schema": {
               "type": "integer"
-            },
-            "description": "The start sequence value"
+            }
           },
           {
             "name": "end_sequence",
             "in": "query",
             "schema": {
               "type": "integer"
-            },
-            "description": "The end sequence value"
+            }
           }
         ],
         "responses": {
@@ -13526,8 +13118,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listAuditVerify"
+        "deprecated": true
       }
     },
     "/api/v1/audit/verify": {
@@ -13548,16 +13139,14 @@
             "in": "query",
             "schema": {
               "type": "integer"
-            },
-            "description": "The start sequence value"
+            }
           },
           {
             "name": "end_sequence",
             "in": "query",
             "schema": {
               "type": "integer"
-            },
-            "description": "The end sequence value"
+            }
           }
         ],
         "responses": {
@@ -13622,8 +13211,7 @@
               }
             }
           }
-        },
-        "operationId": "listAuditVerify1"
+        }
       }
     },
     "/api/workflows": {
@@ -13671,8 +13259,7 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
@@ -13680,8 +13267,7 @@
             "schema": {
               "type": "integer",
               "default": 0
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -13696,8 +13282,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listWorkflows"
+        "deprecated": true
       },
       "post": {
         "tags": [
@@ -13810,8 +13395,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createWorkflows"
+        "deprecated": true
       }
     },
     "/api/v1/workflows": {
@@ -13859,8 +13443,7 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
@@ -13868,8 +13451,7 @@
             "schema": {
               "type": "integer",
               "default": 0
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -13883,8 +13465,7 @@
               }
             }
           }
-        },
-        "operationId": "listWorkflows1"
+        }
       },
       "post": {
         "tags": [
@@ -13996,8 +13577,7 @@
               }
             }
           }
-        },
-        "operationId": "createWorkflows1"
+        }
       }
     },
     "/api/workflows/{workflow_id}": {
@@ -14014,8 +13594,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the workflow"
+            }
           }
         ],
         "responses": {
@@ -14052,8 +13631,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "getWorkflowsByworkflowid"
+        "deprecated": true
       },
       "put": {
         "tags": [
@@ -14068,8 +13646,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the workflow"
+            }
           }
         ],
         "requestBody": {
@@ -14154,8 +13731,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "updateWorkflowsByworkflowid"
+        "deprecated": true
       },
       "delete": {
         "tags": [
@@ -14170,8 +13746,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the workflow"
+            }
           }
         ],
         "responses": {
@@ -14201,8 +13776,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "deleteWorkflowsByworkflowid"
+        "deprecated": true
       }
     },
     "/api/v1/workflows/{workflow_id}": {
@@ -14219,8 +13793,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the workflow"
+            }
           }
         ],
         "responses": {
@@ -14256,8 +13829,7 @@
               }
             }
           }
-        },
-        "operationId": "getWorkflowsByworkflowid1"
+        }
       },
       "put": {
         "tags": [
@@ -14272,8 +13844,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the workflow"
+            }
           }
         ],
         "requestBody": {
@@ -14357,8 +13928,7 @@
               }
             }
           }
-        },
-        "operationId": "updateWorkflowsByworkflowid1"
+        }
       },
       "delete": {
         "tags": [
@@ -14373,8 +13943,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the workflow"
+            }
           }
         ],
         "responses": {
@@ -14403,8 +13972,7 @@
               }
             }
           }
-        },
-        "operationId": "deleteWorkflowsByworkflowid1"
+        }
       }
     },
     "/api/workflows/{workflow_id}/execute": {
@@ -14421,8 +13989,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the workflow"
+            }
           }
         ],
         "requestBody": {
@@ -14532,8 +14099,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createWorkflowsByworkflowidExecute"
+        "deprecated": true
       }
     },
     "/api/v1/workflows/{workflow_id}/execute": {
@@ -14550,8 +14116,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the workflow"
+            }
           }
         ],
         "requestBody": {
@@ -14660,8 +14225,7 @@
               }
             }
           }
-        },
-        "operationId": "createWorkflowsByworkflowidExecute1"
+        }
       }
     },
     "/api/workflows/{workflow_id}/versions": {
@@ -14678,8 +14242,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the workflow"
+            }
           },
           {
             "name": "limit",
@@ -14687,8 +14250,7 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -14718,8 +14280,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listWorkflowsByworkflowidVersions"
+        "deprecated": true
       }
     },
     "/api/v1/workflows/{workflow_id}/versions": {
@@ -14736,8 +14297,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the workflow"
+            }
           },
           {
             "name": "limit",
@@ -14745,8 +14305,7 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -14775,8 +14334,7 @@
               }
             }
           }
-        },
-        "operationId": "listWorkflowsByworkflowidVersions1"
+        }
       }
     },
     "/api/workflow-templates": {
@@ -14808,8 +14366,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listWorkflowTemplates"
+        "deprecated": true
       }
     },
     "/api/v1/workflow-templates": {
@@ -14840,8 +14397,7 @@
               }
             }
           }
-        },
-        "operationId": "listWorkflowTemplates1"
+        }
       }
     },
     "/api/workflow-templates/{template_id}": {
@@ -14858,8 +14414,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the template"
+            }
           }
         ],
         "responses": {
@@ -14896,8 +14451,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "getWorkflowTemplatesBytemplateid"
+        "deprecated": true
       }
     },
     "/api/v1/workflow-templates/{template_id}": {
@@ -14914,8 +14468,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the template"
+            }
           }
         ],
         "responses": {
@@ -14951,8 +14504,7 @@
               }
             }
           }
-        },
-        "operationId": "getWorkflowTemplatesBytemplateid1"
+        }
       }
     },
     "/api/workflow-executions": {
@@ -14992,8 +14544,7 @@
             "schema": {
               "type": "integer",
               "default": 50
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -15008,8 +14559,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listWorkflowExecutions"
+        "deprecated": true
       }
     },
     "/api/v1/workflow-executions": {
@@ -15049,8 +14599,7 @@
             "schema": {
               "type": "integer",
               "default": 50
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -15064,8 +14613,7 @@
               }
             }
           }
-        },
-        "operationId": "listWorkflowExecutions1"
+        }
       }
     },
     "/api/workflow-executions/{execution_id}": {
@@ -15082,8 +14630,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The execution id"
+            }
           }
         ],
         "responses": {
@@ -15113,8 +14660,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "getWorkflowExecutionsByexecutionid"
+        "deprecated": true
       },
       "delete": {
         "tags": [
@@ -15129,8 +14675,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The execution id"
+            }
           }
         ],
         "responses": {
@@ -15198,8 +14743,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "deleteWorkflowExecutionsByexecutionid"
+        "deprecated": true
       }
     },
     "/api/v1/workflow-executions/{execution_id}": {
@@ -15216,8 +14760,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The execution id"
+            }
           }
         ],
         "responses": {
@@ -15246,8 +14789,7 @@
               }
             }
           }
-        },
-        "operationId": "getWorkflowExecutionsByexecutionid1"
+        }
       },
       "delete": {
         "tags": [
@@ -15262,8 +14804,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The execution id"
+            }
           }
         ],
         "responses": {
@@ -15330,8 +14871,7 @@
               }
             }
           }
-        },
-        "operationId": "deleteWorkflowExecutionsByexecutionid1"
+        }
       }
     },
     "/api/workflow-approvals": {
@@ -15379,8 +14919,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listWorkflowApprovals"
+        "deprecated": true
       }
     },
     "/api/v1/workflow-approvals": {
@@ -15427,8 +14966,7 @@
               }
             }
           }
-        },
-        "operationId": "listWorkflowApprovals1"
+        }
       }
     },
     "/api/workflow-approvals/{approval_id}": {
@@ -15450,8 +14988,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The approval id"
+            }
           }
         ],
         "requestBody": {
@@ -15572,8 +15109,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createWorkflowApprovalsByapprovalid"
+        "deprecated": true
       }
     },
     "/api/v1/workflow-approvals/{approval_id}": {
@@ -15595,8 +15131,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The approval id"
+            }
           }
         ],
         "requestBody": {
@@ -15716,8 +15251,7 @@
               }
             }
           }
-        },
-        "operationId": "createWorkflowApprovalsByapprovalid1"
+        }
       }
     },
     "/api/cross-pollination/stats": {
@@ -15732,8 +15266,7 @@
             "description": "Subscriber statistics with totals and per-handler metrics"
           }
         },
-        "deprecated": true,
-        "operationId": "listCrossPollinationStats"
+        "deprecated": true
       }
     },
     "/api/v1/cross-pollination/stats": {
@@ -15747,8 +15280,7 @@
           "200": {
             "description": "Subscriber statistics with totals and per-handler metrics"
           }
-        },
-        "operationId": "listCrossPollinationStats1"
+        }
       }
     },
     "/api/cross-pollination/subscribers": {
@@ -15763,8 +15295,7 @@
             "description": "List of subscribers with event types and descriptions"
           }
         },
-        "deprecated": true,
-        "operationId": "listCrossPollinationSubscribers"
+        "deprecated": true
       }
     },
     "/api/v1/cross-pollination/subscribers": {
@@ -15778,8 +15309,7 @@
           "200": {
             "description": "List of subscribers with event types and descriptions"
           }
-        },
-        "operationId": "listCrossPollinationSubscribers1"
+        }
       }
     },
     "/api/cross-pollination/bridge": {
@@ -15794,8 +15324,7 @@
             "description": "Bridge status with connection state and event mappings"
           }
         },
-        "deprecated": true,
-        "operationId": "listCrossPollinationBridge"
+        "deprecated": true
       }
     },
     "/api/v1/cross-pollination/bridge": {
@@ -15809,8 +15338,7 @@
           "200": {
             "description": "Bridge status with connection state and event mappings"
           }
-        },
-        "operationId": "listCrossPollinationBridge1"
+        }
       }
     },
     "/api/cross-pollination/metrics": {
@@ -15828,8 +15356,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "getCrossPollinationMetrics"
+        "deprecated": true
       }
     },
     "/api/v1/cross-pollination/metrics": {
@@ -15846,8 +15373,7 @@
               "text/plain": {}
             }
           }
-        },
-        "operationId": "getCrossPollinationMetrics1"
+        }
       }
     },
     "/api/cross-pollination/reset": {
@@ -15862,8 +15388,7 @@
             "description": "Statistics reset confirmation with handler count"
           }
         },
-        "deprecated": true,
-        "operationId": "createCrossPollinationReset"
+        "deprecated": true
       }
     },
     "/api/v1/cross-pollination/reset": {
@@ -15877,8 +15402,7 @@
           "200": {
             "description": "Statistics reset confirmation with handler count"
           }
-        },
-        "operationId": "createCrossPollinationReset1"
+        }
       }
     },
     "/api/gauntlet/receipts": {
@@ -15940,8 +15464,7 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
@@ -15949,8 +15472,7 @@
             "schema": {
               "type": "integer",
               "default": 0
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -15965,8 +15487,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listGauntletReceipts"
+        "deprecated": true
       }
     },
     "/api/v1/gauntlet/receipts": {
@@ -16028,8 +15549,7 @@
               "type": "integer",
               "default": 50,
               "maximum": 200
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
@@ -16037,8 +15557,7 @@
             "schema": {
               "type": "integer",
               "default": 0
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -16052,8 +15571,7 @@
               }
             }
           }
-        },
-        "operationId": "listGauntletReceipts1"
+        }
       }
     },
     "/api/gauntlet/receipts/{receipt_id}": {
@@ -16070,8 +15588,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the receipt"
+            }
           }
         ],
         "responses": {
@@ -16108,8 +15625,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "getGauntletReceiptsByreceiptid"
+        "deprecated": true
       }
     },
     "/api/v1/gauntlet/receipts/{receipt_id}": {
@@ -16126,8 +15642,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the receipt"
+            }
           }
         ],
         "responses": {
@@ -16163,8 +15678,7 @@
               }
             }
           }
-        },
-        "operationId": "getGauntletReceiptsByreceiptid1"
+        }
       }
     },
     "/api/gauntlet/receipts/{receipt_id}/export": {
@@ -16181,8 +15695,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the receipt"
+            }
           },
           {
             "name": "format",
@@ -16286,8 +15799,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listGauntletReceiptsByreceiptidExport"
+        "deprecated": true
       }
     },
     "/api/v1/gauntlet/receipts/{receipt_id}/export": {
@@ -16304,8 +15816,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the receipt"
+            }
           },
           {
             "name": "format",
@@ -16408,8 +15919,7 @@
               }
             }
           }
-        },
-        "operationId": "listGauntletReceiptsByreceiptidExport1"
+        }
       }
     },
     "/api/gauntlet/receipts/export/bundle": {
@@ -16505,8 +16015,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createGauntletReceiptsExportBundle"
+        "deprecated": true
       }
     },
     "/api/v1/gauntlet/receipts/export/bundle": {
@@ -16601,8 +16110,7 @@
               }
             }
           }
-        },
-        "operationId": "createGauntletReceiptsExportBundle1"
+        }
       }
     },
     "/api/gauntlet/heatmaps": {
@@ -16627,8 +16135,7 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -16643,8 +16150,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listGauntletHeatmaps"
+        "deprecated": true
       }
     },
     "/api/v1/gauntlet/heatmaps": {
@@ -16669,8 +16175,7 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -16684,8 +16189,7 @@
               }
             }
           }
-        },
-        "operationId": "listGauntletHeatmaps1"
+        }
       }
     },
     "/api/gauntlet/heatmaps/{heatmap_id}": {
@@ -16702,8 +16206,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The heatmap id"
+            }
           }
         ],
         "responses": {
@@ -16740,8 +16243,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "getGauntletHeatmapsByheatmapid"
+        "deprecated": true
       }
     },
     "/api/v1/gauntlet/heatmaps/{heatmap_id}": {
@@ -16758,8 +16260,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The heatmap id"
+            }
           }
         ],
         "responses": {
@@ -16795,8 +16296,7 @@
               }
             }
           }
-        },
-        "operationId": "getGauntletHeatmapsByheatmapid1"
+        }
       }
     },
     "/api/gauntlet/heatmaps/{heatmap_id}/export": {
@@ -16813,8 +16313,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The heatmap id"
+            }
           },
           {
             "name": "format",
@@ -16875,8 +16374,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listGauntletHeatmapsByheatmapidExport"
+        "deprecated": true
       }
     },
     "/api/v1/gauntlet/heatmaps/{heatmap_id}/export": {
@@ -16893,8 +16391,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The heatmap id"
+            }
           },
           {
             "name": "format",
@@ -16954,8 +16451,7 @@
               }
             }
           }
-        },
-        "operationId": "listGauntletHeatmapsByheatmapidExport1"
+        }
       }
     },
     "/api/gauntlet/receipts/{receipt_id}/stream": {
@@ -16972,8 +16468,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the receipt"
+            }
           }
         ],
         "responses": {
@@ -17010,8 +16505,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listGauntletReceiptsByreceiptidStream"
+        "deprecated": true
       }
     },
     "/api/v1/gauntlet/receipts/{receipt_id}/stream": {
@@ -17028,8 +16522,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the receipt"
+            }
           }
         ],
         "responses": {
@@ -17065,8 +16558,7 @@
               }
             }
           }
-        },
-        "operationId": "listGauntletReceiptsByreceiptidStream1"
+        }
       }
     },
     "/api/debates/{debate_id}/explainability": {
@@ -17148,8 +16640,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listDebatesBydebateidExplainability"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{debate_id}/explainability": {
@@ -17230,8 +16721,7 @@
               }
             }
           }
-        },
-        "operationId": "listDebatesBydebateidExplainability1"
+        }
       }
     },
     "/api/debates/{debate_id}/explainability/factors": {
@@ -17248,8 +16738,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           },
           {
             "name": "min_contribution",
@@ -17344,8 +16833,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listDebatesBydebateidExplainabilityFactors"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{debate_id}/explainability/factors": {
@@ -17362,8 +16850,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           },
           {
             "name": "min_contribution",
@@ -17457,8 +16944,7 @@
               }
             }
           }
-        },
-        "operationId": "listDebatesBydebateidExplainabilityFactors1"
+        }
       }
     },
     "/api/debates/{debate_id}/explainability/counterfactual": {
@@ -17475,8 +16961,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           },
           {
             "name": "max_scenarios",
@@ -17562,8 +17047,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listDebatesBydebateidExplainabilityCounterfactual"
+        "deprecated": true
       },
       "post": {
         "tags": [
@@ -17578,8 +17062,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           }
         ],
         "requestBody": {
@@ -17673,8 +17156,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createDebatesBydebateidExplainabilityCounterfactual"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{debate_id}/explainability/counterfactual": {
@@ -17691,8 +17173,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           },
           {
             "name": "max_scenarios",
@@ -17777,8 +17258,7 @@
               }
             }
           }
-        },
-        "operationId": "listDebatesBydebateidExplainabilityCounterfactual1"
+        }
       },
       "post": {
         "tags": [
@@ -17793,8 +17273,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           }
         ],
         "requestBody": {
@@ -17887,8 +17366,7 @@
               }
             }
           }
-        },
-        "operationId": "createDebatesBydebateidExplainabilityCounterfactual1"
+        }
       }
     },
     "/api/debates/{debate_id}/explainability/provenance": {
@@ -17905,8 +17383,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           },
           {
             "name": "include_timestamps",
@@ -18008,8 +17485,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listDebatesBydebateidExplainabilityProvenance"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{debate_id}/explainability/provenance": {
@@ -18026,8 +17502,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           },
           {
             "name": "include_timestamps",
@@ -18128,8 +17603,7 @@
               }
             }
           }
-        },
-        "operationId": "listDebatesBydebateidExplainabilityProvenance1"
+        }
       }
     },
     "/api/debates/{debate_id}/explainability/narrative": {
@@ -18146,8 +17620,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           },
           {
             "name": "format",
@@ -18228,8 +17701,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listDebatesBydebateidExplainabilityNarrative"
+        "deprecated": true
       }
     },
     "/api/v1/debates/{debate_id}/explainability/narrative": {
@@ -18246,8 +17718,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the debate"
+            }
           },
           {
             "name": "format",
@@ -18327,8 +17798,7 @@
               }
             }
           }
-        },
-        "operationId": "listDebatesBydebateidExplainabilityNarrative1"
+        }
       }
     },
     "/api/workflow/templates": {
@@ -18385,8 +17855,7 @@
               "type": "integer",
               "default": 50,
               "maximum": 100
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
@@ -18394,8 +17863,7 @@
             "schema": {
               "type": "integer",
               "default": 0
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -18427,8 +17895,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listWorkflowTemplates2"
+        "deprecated": true
       }
     },
     "/api/v1/workflow/templates": {
@@ -18485,8 +17952,7 @@
               "type": "integer",
               "default": 50,
               "maximum": 100
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
@@ -18494,8 +17960,7 @@
             "schema": {
               "type": "integer",
               "default": 0
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -18526,8 +17991,7 @@
               }
             }
           }
-        },
-        "operationId": "listWorkflowTemplates3"
+        }
       }
     },
     "/api/workflow/templates/{template_id}": {
@@ -18582,8 +18046,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "getWorkflowTemplatesBytemplateid2"
+        "deprecated": true
       }
     },
     "/api/v1/workflow/templates/{template_id}": {
@@ -18637,8 +18100,7 @@
               }
             }
           }
-        },
-        "operationId": "getWorkflowTemplatesBytemplateid3"
+        }
       }
     },
     "/api/workflow/templates/{template_id}/package": {
@@ -18655,8 +18117,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the template"
+            }
           },
           {
             "name": "include_examples",
@@ -18759,8 +18220,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listWorkflowTemplatesBytemplateidPackage"
+        "deprecated": true
       }
     },
     "/api/v1/workflow/templates/{template_id}/package": {
@@ -18777,8 +18237,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the template"
+            }
           },
           {
             "name": "include_examples",
@@ -18880,8 +18339,7 @@
               }
             }
           }
-        },
-        "operationId": "listWorkflowTemplatesBytemplateidPackage1"
+        }
       }
     },
     "/api/workflow/templates/{template_id}/run": {
@@ -18898,8 +18356,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the template"
+            }
           }
         ],
         "requestBody": {
@@ -19056,8 +18513,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createWorkflowTemplatesBytemplateidRun"
+        "deprecated": true
       }
     },
     "/api/v1/workflow/templates/{template_id}/run": {
@@ -19074,8 +18530,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the template"
+            }
           }
         ],
         "requestBody": {
@@ -19231,8 +18686,7 @@
               }
             }
           }
-        },
-        "operationId": "createWorkflowTemplatesBytemplateidRun1"
+        }
       }
     },
     "/api/workflow/categories": {
@@ -19279,8 +18733,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listWorkflowCategories"
+        "deprecated": true
       }
     },
     "/api/v1/workflow/categories": {
@@ -19326,8 +18779,7 @@
               }
             }
           }
-        },
-        "operationId": "listWorkflowCategories1"
+        }
       }
     },
     "/api/workflow/patterns": {
@@ -19377,8 +18829,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listWorkflowPatterns"
+        "deprecated": true
       }
     },
     "/api/v1/workflow/patterns": {
@@ -19427,8 +18878,7 @@
               }
             }
           }
-        },
-        "operationId": "listWorkflowPatterns1"
+        }
       }
     },
     "/api/workflow/patterns/{pattern_id}/instantiate": {
@@ -19445,8 +18895,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The pattern id"
+            }
           }
         ],
         "requestBody": {
@@ -19557,8 +19006,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createWorkflowPatternsBypatternidInstantiate"
+        "deprecated": true
       }
     },
     "/api/v1/workflow/patterns/{pattern_id}/instantiate": {
@@ -19575,8 +19023,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The pattern id"
+            }
           }
         ],
         "requestBody": {
@@ -19686,8 +19133,7 @@
               }
             }
           }
-        },
-        "operationId": "createWorkflowPatternsBypatternidInstantiate1"
+        }
       }
     },
     "/api/v1/decisions": {
@@ -19708,8 +19154,7 @@
               "type": "integer",
               "default": 20,
               "maximum": 200
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -19744,8 +19189,7 @@
               }
             }
           }
-        },
-        "operationId": "listDecisions"
+        }
       },
       "post": {
         "tags": [
@@ -19836,8 +19280,7 @@
               }
             }
           }
-        },
-        "operationId": "createDecisions"
+        }
       }
     },
     "/api/v1/decisions/{request_id}": {
@@ -19857,8 +19300,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The request id"
+            }
           }
         ],
         "responses": {
@@ -19915,8 +19357,7 @@
               }
             }
           }
-        },
-        "operationId": "getDecisionsByrequestid"
+        }
       }
     },
     "/api/v1/decisions/{request_id}/status": {
@@ -19936,8 +19377,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The request id"
+            }
           }
         ],
         "responses": {
@@ -19972,8 +19412,7 @@
               }
             }
           }
-        },
-        "operationId": "listDecisionsByrequestidStatus"
+        }
       }
     },
     "/api/v1/codebase/{repo}/scan": {
@@ -19993,8 +19432,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "requestBody": {
@@ -20152,8 +19590,7 @@
               }
             }
           }
-        },
-        "operationId": "createCodebaseByrepoScan"
+        }
       }
     },
     "/api/v1/codebase/{repo}/scan/latest": {
@@ -20173,8 +19610,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "responses": {
@@ -20289,8 +19725,7 @@
               }
             }
           }
-        },
-        "operationId": "listCodebaseByrepoScanLatest"
+        }
       }
     },
     "/api/v1/codebase/{repo}/scan/{scan_id}": {
@@ -20310,8 +19745,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           },
           {
             "name": "scan_id",
@@ -20319,8 +19753,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The scan id"
+            }
           }
         ],
         "responses": {
@@ -20435,8 +19868,7 @@
               }
             }
           }
-        },
-        "operationId": "getCodebaseByrepoScanByscanid"
+        }
       }
     },
     "/api/v1/codebase/{repo}/scans": {
@@ -20456,16 +19888,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           },
           {
             "name": "status",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by status (e.g., pending, active, completed, failed)"
+            }
           },
           {
             "name": "limit",
@@ -20473,8 +19903,7 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
@@ -20482,8 +19911,7 @@
             "schema": {
               "type": "integer",
               "default": 0
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -20576,8 +20004,7 @@
               }
             }
           }
-        },
-        "operationId": "listCodebaseByrepoScans"
+        }
       }
     },
     "/api/v1/codebase/{repo}/vulnerabilities": {
@@ -20597,32 +20024,28 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           },
           {
             "name": "severity",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by severity (e.g., low, medium, high, critical)"
+            }
           },
           {
             "name": "package",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "The package"
+            }
           },
           {
             "name": "ecosystem",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "The ecosystem"
+            }
           },
           {
             "name": "limit",
@@ -20630,8 +20053,7 @@
             "schema": {
               "type": "integer",
               "default": 100
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
@@ -20639,8 +20061,7 @@
             "schema": {
               "type": "integer",
               "default": 0
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -20733,8 +20154,7 @@
               }
             }
           }
-        },
-        "operationId": "listCodebaseByrepoVulnerabilities"
+        }
       }
     },
     "/api/v1/codebase/analyze-dependencies": {
@@ -20885,8 +20305,7 @@
               }
             }
           }
-        },
-        "operationId": "createCodebaseAnalyzeDependencies"
+        }
       }
     },
     "/api/v1/codebase/scan-vulnerabilities": {
@@ -21037,8 +20456,7 @@
               }
             }
           }
-        },
-        "operationId": "createCodebaseScanVulnerabilities"
+        }
       }
     },
     "/api/v1/codebase/check-licenses": {
@@ -21189,8 +20607,7 @@
               }
             }
           }
-        },
-        "operationId": "createCodebaseCheckLicenses"
+        }
       }
     },
     "/api/v1/codebase/sbom": {
@@ -21341,8 +20758,7 @@
               }
             }
           }
-        },
-        "operationId": "createCodebaseSbom"
+        }
       }
     },
     "/api/v1/codebase/clear-cache": {
@@ -21445,8 +20861,7 @@
               }
             }
           }
-        },
-        "operationId": "createCodebaseClearCache"
+        }
       }
     },
     "/api/v1/codebase/{repo}/scan/secrets": {
@@ -21466,8 +20881,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "requestBody": {
@@ -21608,8 +21022,7 @@
               }
             }
           }
-        },
-        "operationId": "createCodebaseByrepoScanSecrets"
+        }
       }
     },
     "/api/v1/codebase/{repo}/scan/secrets/latest": {
@@ -21629,8 +21042,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "responses": {
@@ -21745,8 +21157,7 @@
               }
             }
           }
-        },
-        "operationId": "listCodebaseByrepoScanSecretsLatest"
+        }
       }
     },
     "/api/v1/codebase/{repo}/scan/secrets/{scan_id}": {
@@ -21766,8 +21177,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           },
           {
             "name": "scan_id",
@@ -21775,8 +21185,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The scan id"
+            }
           }
         ],
         "responses": {
@@ -21891,8 +21300,7 @@
               }
             }
           }
-        },
-        "operationId": "getCodebaseByrepoScanSecretsByscanid"
+        }
       }
     },
     "/api/v1/codebase/{repo}/secrets": {
@@ -21912,8 +21320,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "responses": {
@@ -22006,8 +21413,7 @@
               }
             }
           }
-        },
-        "operationId": "listCodebaseByrepoSecrets"
+        }
       }
     },
     "/api/v1/codebase/{repo}/scans/secrets": {
@@ -22027,8 +21433,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "responses": {
@@ -22121,8 +21526,7 @@
               }
             }
           }
-        },
-        "operationId": "listCodebaseByrepoScansSecrets"
+        }
       }
     },
     "/api/v1/codebase/{repo}/scan/sast": {
@@ -22142,8 +21546,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "requestBody": {
@@ -22301,8 +21704,7 @@
               }
             }
           }
-        },
-        "operationId": "createCodebaseByrepoScanSast"
+        }
       }
     },
     "/api/v1/codebase/{repo}/scan/sast/{scan_id}": {
@@ -22322,8 +21724,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           },
           {
             "name": "scan_id",
@@ -22331,8 +21732,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The scan id"
+            }
           }
         ],
         "responses": {
@@ -22447,8 +21847,7 @@
               }
             }
           }
-        },
-        "operationId": "getCodebaseByrepoScanSastByscanid"
+        }
       }
     },
     "/api/v1/codebase/{repo}/sast/findings": {
@@ -22468,24 +21867,21 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           },
           {
             "name": "severity",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by severity (e.g., low, medium, high, critical)"
+            }
           },
           {
             "name": "owasp_category",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "The owasp category"
+            }
           },
           {
             "name": "limit",
@@ -22493,8 +21889,7 @@
             "schema": {
               "type": "integer",
               "default": 100
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
@@ -22502,8 +21897,7 @@
             "schema": {
               "type": "integer",
               "default": 0
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -22596,8 +21990,7 @@
               }
             }
           }
-        },
-        "operationId": "listCodebaseByrepoSastFindings"
+        }
       }
     },
     "/api/v1/codebase/{repo}/sast/owasp-summary": {
@@ -22617,8 +22010,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "responses": {
@@ -22711,8 +22103,7 @@
               }
             }
           }
-        },
-        "operationId": "listCodebaseByrepoSastOwaspSummary"
+        }
       }
     },
     "/api/v1/codebase/{repo}/metrics/analyze": {
@@ -22732,8 +22123,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "requestBody": {
@@ -22903,8 +22293,7 @@
               }
             }
           }
-        },
-        "operationId": "createCodebaseByrepoMetricsAnalyze"
+        }
       }
     },
     "/api/v1/codebase/{repo}/metrics": {
@@ -22924,8 +22313,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "responses": {
@@ -23040,8 +22428,7 @@
               }
             }
           }
-        },
-        "operationId": "getCodebaseByrepoMetrics"
+        }
       }
     },
     "/api/v1/codebase/{repo}/metrics/{analysis_id}": {
@@ -23061,8 +22448,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           },
           {
             "name": "analysis_id",
@@ -23070,8 +22456,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The analysis id"
+            }
           }
         ],
         "responses": {
@@ -23186,8 +22571,7 @@
               }
             }
           }
-        },
-        "operationId": "getCodebaseByrepoMetricsByanalysisid"
+        }
       }
     },
     "/api/v1/codebase/{repo}/metrics/history": {
@@ -23207,8 +22591,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           },
           {
             "name": "limit",
@@ -23216,8 +22599,7 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
@@ -23225,8 +22607,7 @@
             "schema": {
               "type": "integer",
               "default": 0
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -23319,8 +22700,7 @@
               }
             }
           }
-        },
-        "operationId": "listCodebaseByrepoMetricsHistory"
+        }
       }
     },
     "/api/v1/codebase/{repo}/hotspots": {
@@ -23340,8 +22720,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           },
           {
             "name": "min_complexity",
@@ -23349,8 +22728,7 @@
             "schema": {
               "type": "integer",
               "default": 5
-            },
-            "description": "The min complexity value"
+            }
           },
           {
             "name": "limit",
@@ -23358,8 +22736,7 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -23452,8 +22829,7 @@
               }
             }
           }
-        },
-        "operationId": "listCodebaseByrepoHotspots"
+        }
       }
     },
     "/api/v1/codebase/{repo}/duplicates": {
@@ -23473,8 +22849,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           },
           {
             "name": "min_lines",
@@ -23482,8 +22857,7 @@
             "schema": {
               "type": "integer",
               "default": 6
-            },
-            "description": "The min lines value"
+            }
           },
           {
             "name": "limit",
@@ -23491,8 +22865,7 @@
             "schema": {
               "type": "integer",
               "default": 20
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           }
         ],
         "responses": {
@@ -23585,8 +22958,7 @@
               }
             }
           }
-        },
-        "operationId": "listCodebaseByrepoDuplicates"
+        }
       }
     },
     "/api/v1/codebase/{repo}/metrics/file/{file_path}": {
@@ -23606,8 +22978,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           },
           {
             "name": "file_path",
@@ -23615,8 +22986,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The file path"
+            }
           }
         ],
         "responses": {
@@ -23731,8 +23101,7 @@
               }
             }
           }
-        },
-        "operationId": "getCodebaseByrepoMetricsFileByfilepath"
+        }
       }
     },
     "/api/v1/codebase/{repo}/analyze": {
@@ -23752,8 +23121,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "requestBody": {
@@ -23836,8 +23204,7 @@
               }
             }
           }
-        },
-        "operationId": "createCodebaseByrepoAnalyze"
+        }
       }
     },
     "/api/v1/codebase/{repo}/symbols": {
@@ -23857,8 +23224,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "responses": {
@@ -23893,8 +23259,7 @@
               }
             }
           }
-        },
-        "operationId": "listCodebaseByrepoSymbols"
+        }
       }
     },
     "/api/v1/codebase/{repo}/callgraph": {
@@ -23914,8 +23279,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "responses": {
@@ -23950,8 +23314,7 @@
               }
             }
           }
-        },
-        "operationId": "listCodebaseByrepoCallgraph"
+        }
       }
     },
     "/api/v1/codebase/{repo}/deadcode": {
@@ -23971,8 +23334,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "responses": {
@@ -24007,8 +23369,7 @@
               }
             }
           }
-        },
-        "operationId": "listCodebaseByrepoDeadcode"
+        }
       }
     },
     "/api/v1/codebase/{repo}/impact": {
@@ -24028,8 +23389,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "requestBody": {
@@ -24112,8 +23472,7 @@
               }
             }
           }
-        },
-        "operationId": "createCodebaseByrepoImpact"
+        }
       }
     },
     "/api/v1/codebase/{repo}/understand": {
@@ -24133,8 +23492,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "requestBody": {
@@ -24217,8 +23575,7 @@
               }
             }
           }
-        },
-        "operationId": "createCodebaseByrepoUnderstand"
+        }
       }
     },
     "/api/v1/codebase/{repo}/audit": {
@@ -24238,8 +23595,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "requestBody": {
@@ -24322,8 +23678,7 @@
               }
             }
           }
-        },
-        "operationId": "createCodebaseByrepoAudit"
+        }
       }
     },
     "/api/v1/codebase/{repo}/audit/{audit_id}": {
@@ -24343,8 +23698,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           },
           {
             "name": "audit_id",
@@ -24352,8 +23706,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The audit id"
+            }
           }
         ],
         "responses": {
@@ -24410,8 +23763,7 @@
               }
             }
           }
-        },
-        "operationId": "getCodebaseByrepoAuditByauditid"
+        }
       }
     },
     "/api/codebase/{repo}/analyze": {
@@ -24431,8 +23783,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "requestBody": {
@@ -24516,8 +23867,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createCodebaseByrepoAnalyze1"
+        "deprecated": true
       }
     },
     "/api/codebase/{repo}/symbols": {
@@ -24537,8 +23887,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "responses": {
@@ -24574,8 +23923,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listCodebaseByrepoSymbols1"
+        "deprecated": true
       }
     },
     "/api/codebase/{repo}/callgraph": {
@@ -24595,8 +23943,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "responses": {
@@ -24632,8 +23979,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listCodebaseByrepoCallgraph1"
+        "deprecated": true
       }
     },
     "/api/codebase/{repo}/deadcode": {
@@ -24653,8 +23999,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "responses": {
@@ -24690,8 +24035,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "listCodebaseByrepoDeadcode1"
+        "deprecated": true
       }
     },
     "/api/codebase/{repo}/impact": {
@@ -24711,8 +24055,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "requestBody": {
@@ -24796,8 +24139,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createCodebaseByrepoImpact1"
+        "deprecated": true
       }
     },
     "/api/codebase/{repo}/understand": {
@@ -24817,8 +24159,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "requestBody": {
@@ -24902,8 +24243,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createCodebaseByrepoUnderstand1"
+        "deprecated": true
       }
     },
     "/api/codebase/{repo}/audit": {
@@ -24923,8 +24263,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           }
         ],
         "requestBody": {
@@ -25008,8 +24347,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "createCodebaseByrepoAudit1"
+        "deprecated": true
       }
     },
     "/api/codebase/{repo}/audit/{audit_id}": {
@@ -25029,8 +24367,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Repository name or path"
+            }
           },
           {
             "name": "audit_id",
@@ -25038,8 +24375,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The audit id"
+            }
           }
         ],
         "responses": {
@@ -25097,8 +24433,7 @@
             }
           }
         },
-        "deprecated": true,
-        "operationId": "getCodebaseByrepoAuditByauditid1"
+        "deprecated": true
       }
     },
     "/api/v1/gmail/messages/{message_id}/labels": {
@@ -25118,8 +24453,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the message"
+            }
           }
         ],
         "requestBody": {
@@ -25230,8 +24564,7 @@
               }
             }
           }
-        },
-        "operationId": "createGmailMessagesBymessageidLabels"
+        }
       }
     },
     "/api/v1/gmail/messages/{message_id}/read": {
@@ -25251,8 +24584,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the message"
+            }
           }
         ],
         "requestBody": {
@@ -25325,8 +24657,7 @@
               }
             }
           }
-        },
-        "operationId": "createGmailMessagesBymessageidRead"
+        }
       }
     },
     "/api/v1/gmail/messages/{message_id}/star": {
@@ -25346,8 +24677,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the message"
+            }
           }
         ],
         "requestBody": {
@@ -25420,8 +24750,7 @@
               }
             }
           }
-        },
-        "operationId": "createGmailMessagesBymessageidStar"
+        }
       }
     },
     "/api/v1/gmail/messages/{message_id}/archive": {
@@ -25441,8 +24770,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the message"
+            }
           }
         ],
         "responses": {
@@ -25505,8 +24833,7 @@
               }
             }
           }
-        },
-        "operationId": "createGmailMessagesBymessageidArchive"
+        }
       }
     },
     "/api/v1/gmail/messages/{message_id}/trash": {
@@ -25526,8 +24853,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the message"
+            }
           }
         ],
         "requestBody": {
@@ -25600,8 +24926,7 @@
               }
             }
           }
-        },
-        "operationId": "createGmailMessagesBymessageidTrash"
+        }
       }
     },
     "/api/v1/gmail/messages/{message_id}/attachments/{attachment_id}": {
@@ -25621,8 +24946,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the message"
+            }
           },
           {
             "name": "attachment_id",
@@ -25630,16 +24954,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "The attachment id"
+            }
           },
           {
             "name": "user_id",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the user"
+            }
           }
         ],
         "responses": {
@@ -25724,8 +25046,7 @@
               }
             }
           }
-        },
-        "operationId": "getGmailMessagesBymessageidAttachmentsByattachmentid"
+        }
       }
     },
     "/api/v1/knowledge/mound/governance/roles": {
@@ -25818,8 +25139,7 @@
               }
             }
           }
-        },
-        "operationId": "createKnowledgeMoundGovernanceRoles"
+        }
       }
     },
     "/api/v1/knowledge/mound/governance/roles/assign": {
@@ -25912,8 +25232,7 @@
               }
             }
           }
-        },
-        "operationId": "createKnowledgeMoundGovernanceRolesAssign"
+        }
       }
     },
     "/api/v1/knowledge/mound/governance/roles/revoke": {
@@ -26006,8 +25325,7 @@
               }
             }
           }
-        },
-        "operationId": "createKnowledgeMoundGovernanceRolesRevoke"
+        }
       }
     },
     "/api/v1/knowledge/mound/governance/permissions/{user_id}": {
@@ -26027,8 +25345,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the user"
+            }
           }
         ],
         "responses": {
@@ -26085,8 +25402,7 @@
               }
             }
           }
-        },
-        "operationId": "getKnowledgeMoundGovernancePermissionsByuserid"
+        }
       }
     },
     "/api/v1/knowledge/mound/governance/permissions/check": {
@@ -26179,8 +25495,7 @@
               }
             }
           }
-        },
-        "operationId": "createKnowledgeMoundGovernancePermissionsCheck"
+        }
       }
     },
     "/api/v1/knowledge/mound/governance/audit": {
@@ -26199,16 +25514,14 @@
             "in": "query",
             "schema": {
               "type": "integer"
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
             "in": "query",
             "schema": {
               "type": "integer"
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -26243,8 +25556,7 @@
               }
             }
           }
-        },
-        "operationId": "listKnowledgeMoundGovernanceAudit"
+        }
       }
     },
     "/api/v1/knowledge/mound/governance/audit/user/{user_id}": {
@@ -26264,8 +25576,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the user"
+            }
           }
         ],
         "responses": {
@@ -26322,8 +25633,7 @@
               }
             }
           }
-        },
-        "operationId": "getKnowledgeMoundGovernanceAuditUserByuserid"
+        }
       }
     },
     "/api/v1/knowledge/mound/governance/stats": {
@@ -26368,8 +25678,7 @@
               }
             }
           }
-        },
-        "operationId": "listKnowledgeMoundGovernanceStats"
+        }
       }
     },
     "/api/v1/audit/sessions": {
@@ -26388,24 +25697,21 @@
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by status (e.g., pending, active, completed, failed)"
+            }
           },
           {
             "name": "limit",
             "in": "query",
             "schema": {
               "type": "integer"
-            },
-            "description": "Maximum number of items to return (default: 20, max: 100)"
+            }
           },
           {
             "name": "offset",
             "in": "query",
             "schema": {
               "type": "integer"
-            },
-            "description": "Number of items to skip for pagination"
+            }
           }
         ],
         "responses": {
@@ -26440,8 +25746,7 @@
               }
             }
           }
-        },
-        "operationId": "listAuditSessions"
+        }
       },
       "post": {
         "tags": [
@@ -26532,8 +25837,7 @@
               }
             }
           }
-        },
-        "operationId": "createAuditSessions"
+        }
       }
     },
     "/api/v1/audit/sessions/{session_id}": {
@@ -26553,8 +25857,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the session"
+            }
           }
         ],
         "responses": {
@@ -26611,8 +25914,7 @@
               }
             }
           }
-        },
-        "operationId": "getAuditSessionsBysessionid"
+        }
       },
       "delete": {
         "tags": [
@@ -26630,8 +25932,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the session"
+            }
           }
         ],
         "responses": {
@@ -26688,8 +25989,7 @@
               }
             }
           }
-        },
-        "operationId": "deleteAuditSessionsBysessionid"
+        }
       }
     },
     "/api/v1/audit/sessions/{session_id}/start": {
@@ -26709,8 +26009,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the session"
+            }
           }
         ],
         "responses": {
@@ -26767,8 +26066,7 @@
               }
             }
           }
-        },
-        "operationId": "createAuditSessionsBysessionidStart"
+        }
       }
     },
     "/api/v1/audit/sessions/{session_id}/pause": {
@@ -26788,8 +26086,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the session"
+            }
           }
         ],
         "responses": {
@@ -26846,8 +26143,7 @@
               }
             }
           }
-        },
-        "operationId": "createAuditSessionsBysessionidPause"
+        }
       }
     },
     "/api/v1/audit/sessions/{session_id}/resume": {
@@ -26867,8 +26163,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the session"
+            }
           }
         ],
         "responses": {
@@ -26925,8 +26220,7 @@
               }
             }
           }
-        },
-        "operationId": "createAuditSessionsBysessionidResume"
+        }
       }
     },
     "/api/v1/audit/sessions/{session_id}/cancel": {
@@ -26946,8 +26240,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the session"
+            }
           }
         ],
         "responses": {
@@ -27004,8 +26297,7 @@
               }
             }
           }
-        },
-        "operationId": "createAuditSessionsBysessionidCancel"
+        }
       }
     },
     "/api/v1/audit/sessions/{session_id}/findings": {
@@ -27025,16 +26317,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the session"
+            }
           },
           {
             "name": "audit_type",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "The audit type"
+            }
           }
         ],
         "responses": {
@@ -27091,8 +26381,7 @@
               }
             }
           }
-        },
-        "operationId": "listAuditSessionsBysessionidFindings"
+        }
       }
     },
     "/api/v1/audit/sessions/{session_id}/events": {
@@ -27112,8 +26401,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the session"
+            }
           }
         ],
         "responses": {
@@ -27170,8 +26458,7 @@
               }
             }
           }
-        },
-        "operationId": "listAuditSessionsBysessionidEvents"
+        }
       }
     },
     "/api/v1/audit/sessions/{session_id}/intervene": {
@@ -27191,8 +26478,7 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the session"
+            }
           }
         ],
         "requestBody": {
@@ -27297,8 +26583,7 @@
               }
             }
           }
-        },
-        "operationId": "createAuditSessionsBysessionidIntervene"
+        }
       }
     },
     "/api/v1/audit/sessions/{session_id}/report": {
@@ -27318,16 +26603,14 @@
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Unique identifier of the session"
+            }
           },
           {
             "name": "format",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Output format (e.g., json, yaml, csv)"
+            }
           }
         ],
         "responses": {
@@ -27384,8 +26667,7 @@
               }
             }
           }
-        },
-        "operationId": "listAuditSessionsBysessionidReport"
+        }
       }
     },
     "/api/v1/budgets": {
@@ -29314,8 +28596,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "listWebhooks"
+        ]
       },
       "post": {
         "tags": [
@@ -29425,8 +28706,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createWebhooks"
+        ]
       }
     },
     "/api/v1/webhooks/events": {
@@ -29469,8 +28749,7 @@
               }
             }
           }
-        },
-        "operationId": "listWebhooksEvents"
+        }
       }
     },
     "/api/v1/webhooks/{id}": {
@@ -29557,8 +28836,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "getWebhooksByid"
+        ]
       },
       "patch": {
         "tags": [
@@ -29671,8 +28949,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "patchWebhooksByid"
+        ]
       },
       "delete": {
         "tags": [
@@ -29704,8 +28981,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "deleteWebhooksByid"
+        ]
       }
     },
     "/api/v1/webhooks/{id}/test": {
@@ -29776,8 +29052,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createWebhooksByidTest"
+        ]
       }
     },
     "/api/v1/webhooks/slo/status": {
@@ -29819,8 +29094,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "listWebhooksSloStatus"
+        ]
       }
     },
     "/api/v1/webhooks/slo/test": {
@@ -29854,8 +29128,7 @@
           {
             "bearerAuth": []
           }
-        ],
-        "operationId": "createWebhooksSloTest"
+        ]
       }
     },
     "/api/v2/integrations": {
