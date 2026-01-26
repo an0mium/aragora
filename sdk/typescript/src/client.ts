@@ -122,6 +122,7 @@ import type {
   TeamSelection,
   TeamSelectionRequest,
   Tenant,
+  TemplateReview,
   Tournament,
   TournamentBracket,
   TournamentMatch,
