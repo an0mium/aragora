@@ -708,8 +708,9 @@ class UnifiedInboxHandler(BaseHandler):
                 on_message_synced=on_message_synced,
             )
 
-            # Store sync service
-            _sync_services[tenant_id][account.id] = sync_service
+            # Store sync service (thread-safe)
+            async with _sync_services_lock:
+                _sync_services[tenant_id][account.id] = sync_service
 
             # Persist OAuth state for restart safety
             try:
@@ -782,9 +783,12 @@ class UnifiedInboxHandler(BaseHandler):
 
         account = self._record_to_account(record)
 
-        # Stop and remove sync service if running
-        if tenant_id in _sync_services and account_id in _sync_services[tenant_id]:
-            sync_service = _sync_services[tenant_id].pop(account_id)
+        # Stop and remove sync service if running (thread-safe)
+        sync_service = None
+        async with _sync_services_lock:
+            if tenant_id in _sync_services and account_id in _sync_services[tenant_id]:
+                sync_service = _sync_services[tenant_id].pop(account_id)
+        if sync_service:
             try:
                 if hasattr(sync_service, "stop"):
                     await sync_service.stop()
@@ -896,19 +900,22 @@ class UnifiedInboxHandler(BaseHandler):
         self, account: ConnectedAccount, tenant_id: str
     ) -> List[UnifiedMessage]:
         """Fetch messages from Gmail account."""
-        # Check if sync service is running and has synced messages
-        if tenant_id and tenant_id in _sync_services:
-            sync_service = _sync_services[tenant_id].get(account.id)
-            if sync_service:
-                # Check if initial sync is complete
-                state = getattr(sync_service, "state", None)
-                if state and getattr(state, "initial_sync_complete", False):
-                    # Messages are already in cache via callbacks
-                    logger.debug(
-                        f"[UnifiedInbox] Gmail sync active for {account.id}, "
-                        f"messages synced: {getattr(state, 'total_messages_synced', 0)}"
-                    )
-                    return []  # Messages already in cache
+        # Check if sync service is running and has synced messages (thread-safe lookup)
+        sync_service = None
+        if tenant_id:
+            async with _sync_services_lock:
+                if tenant_id in _sync_services:
+                    sync_service = _sync_services[tenant_id].get(account.id)
+        if sync_service:
+            # Check if initial sync is complete
+            state = getattr(sync_service, "state", None)
+            if state and getattr(state, "initial_sync_complete", False):
+                # Messages are already in cache via callbacks
+                logger.debug(
+                    f"[UnifiedInbox] Gmail sync active for {account.id}, "
+                    f"messages synced: {getattr(state, 'total_messages_synced', 0)}"
+                )
+                return []  # Messages already in cache
 
         # Fall back to sample data if sync not active
         return self._generate_sample_messages(account, 5)
