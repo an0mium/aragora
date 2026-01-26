@@ -317,8 +317,16 @@ class StepDefinition:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "StepDefinition":
         """Create from dictionary."""
+        import uuid
+
+        # Generate ID if not present (for templates without explicit IDs)
+        step_id = data.get("id")
+        if not step_id:
+            step_name = data.get("name", "step")
+            step_id = f"step_{step_name.lower().replace(' ', '_')}_{uuid.uuid4().hex[:6]}"
+
         return cls(
-            id=data["id"],
+            id=step_id,
             name=data["name"],
             step_type=data["step_type"],
             config=data.get("config", {}),
@@ -363,8 +371,17 @@ class TransitionRule:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "TransitionRule":
         """Create from dictionary."""
+        import uuid
+
+        # Generate ID if not present (for templates without explicit IDs)
+        transition_id = data.get("id")
+        if not transition_id:
+            from_step = data.get("from_step", "unknown")
+            to_step = data.get("to_step", "unknown")
+            transition_id = f"tr_{from_step}_to_{to_step}_{uuid.uuid4().hex[:6]}"
+
         return cls(
-            id=data["id"],
+            id=transition_id,
             from_step=data["from_step"],
             to_step=data["to_step"],
             condition=data["condition"],
