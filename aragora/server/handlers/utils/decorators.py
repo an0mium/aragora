@@ -417,6 +417,26 @@ PERMISSION_MATRIX: dict[str, list[str]] = {
     "apikeys:create": ["member", "admin", "owner"],
     "apikeys:delete": ["member", "admin", "owner"],
     "apikeys:manage": ["admin", "owner"],
+    "apikeys:export": ["owner"],
+    # Secrets management
+    "secrets:scan": ["admin", "owner"],
+    "secrets:read": ["owner"],
+    # Budget management
+    "budget:read": ["admin", "owner"],
+    "budget:set": ["owner"],
+    # Billing (financial)
+    "billing:read": ["admin", "owner"],
+    "billing:cancel": ["owner"],
+    "billing:delete": ["owner"],
+    # Audit exports
+    "audit:export": ["admin", "owner"],
+    # Workflow management
+    "workflows:read": ["member", "admin", "owner"],
+    "workflows:create": ["admin", "owner"],
+    "workflows:delete": ["admin", "owner"],
+    # Checkpoints
+    "checkpoints:read": ["member", "admin", "owner"],
+    "checkpoints:delete": ["admin", "owner"],
 }
 
 

@@ -21,6 +21,8 @@ from typing import TYPE_CHECKING
 
 from aiohttp import web
 
+from aragora.server.handlers.utils.decorators import require_permission
+
 if TYPE_CHECKING:
     from aragora.audit import AuditLog
 
@@ -149,6 +151,7 @@ async def handle_audit_stats(request: web.Request) -> web.Response:
     return web.json_response(stats)
 
 
+@require_permission("audit:export")
 async def handle_audit_export(request: web.Request) -> web.Response:
     """
     Export audit log.

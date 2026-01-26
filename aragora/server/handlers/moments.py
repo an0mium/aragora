@@ -152,11 +152,29 @@ class MomentsHandler(BaseHandler):
     def _get_summary(self) -> HandlerResult:
         """Get global moments summary."""
         if not MOMENT_DETECTOR_AVAILABLE:
-            return error_response("Moment detection not available", 503)
+            return json_response(
+                {
+                    "total_moments": 0,
+                    "by_type": {},
+                    "by_agent": {},
+                    "most_significant": None,
+                    "recent": [],
+                    "message": "Moment detection not available",
+                }
+            )
 
         detector = self._get_moment_detector()
         if not detector:
-            return error_response("Moment detector not configured", 503)
+            return json_response(
+                {
+                    "total_moments": 0,
+                    "by_type": {},
+                    "by_agent": {},
+                    "most_significant": None,
+                    "recent": [],
+                    "message": "Moment detector not configured",
+                }
+            )
 
         try:
             all_moments = self._get_all_moments()
@@ -205,11 +223,29 @@ class MomentsHandler(BaseHandler):
     def _get_timeline(self, limit: int, offset: int) -> HandlerResult:
         """Get chronological moments timeline."""
         if not MOMENT_DETECTOR_AVAILABLE:
-            return error_response("Moment detection not available", 503)
+            return json_response(
+                {
+                    "moments": [],
+                    "total": 0,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": False,
+                    "message": "Moment detection not available",
+                }
+            )
 
         detector = self._get_moment_detector()
         if not detector:
-            return error_response("Moment detector not configured", 503)
+            return json_response(
+                {
+                    "moments": [],
+                    "total": 0,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": False,
+                    "message": "Moment detector not configured",
+                }
+            )
 
         try:
             all_moments = self._get_all_moments()
@@ -241,11 +277,23 @@ class MomentsHandler(BaseHandler):
     def _get_trending(self, limit: int) -> HandlerResult:
         """Get most significant recent moments."""
         if not MOMENT_DETECTOR_AVAILABLE:
-            return error_response("Moment detection not available", 503)
+            return json_response(
+                {
+                    "trending": [],
+                    "count": 0,
+                    "message": "Moment detection not available",
+                }
+            )
 
         detector = self._get_moment_detector()
         if not detector:
-            return error_response("Moment detector not configured", 503)
+            return json_response(
+                {
+                    "trending": [],
+                    "count": 0,
+                    "message": "Moment detector not configured",
+                }
+            )
 
         try:
             all_moments = self._get_all_moments()
@@ -271,11 +319,27 @@ class MomentsHandler(BaseHandler):
     def _get_by_type(self, moment_type: str, limit: int) -> HandlerResult:
         """Get moments filtered by type."""
         if not MOMENT_DETECTOR_AVAILABLE:
-            return error_response("Moment detection not available", 503)
+            return json_response(
+                {
+                    "type": moment_type,
+                    "moments": [],
+                    "total": 0,
+                    "limit": limit,
+                    "message": "Moment detection not available",
+                }
+            )
 
         detector = self._get_moment_detector()
         if not detector:
-            return error_response("Moment detector not configured", 503)
+            return json_response(
+                {
+                    "type": moment_type,
+                    "moments": [],
+                    "total": 0,
+                    "limit": limit,
+                    "message": "Moment detector not configured",
+                }
+            )
 
         try:
             all_moments = self._get_all_moments()
