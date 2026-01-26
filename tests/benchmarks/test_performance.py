@@ -360,6 +360,18 @@ class TestConcurrentPerformance:
         """Measure concurrent debate throughput."""
         num_debates = 5
 
+        protocol = DebateProtocol(
+            rounds=1,
+            consensus="any",
+            enable_research=False,
+            role_matching=False,
+            role_rotation=False,
+            enable_trickster=False,
+            enable_rhetorical_observer=False,
+            enable_breakpoints=False,
+            enable_calibration=False,
+        )
+
         with (
             patch.object(
                 Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None
@@ -367,12 +379,21 @@ class TestConcurrentPerformance:
             patch.object(
                 Arena, "_fetch_knowledge_context", new_callable=AsyncMock, return_value=None
             ),
+            patch.object(Arena, "_init_km_context", new_callable=AsyncMock, return_value=None),
+            patch(
+                "aragora.debate.context_gatherer.ContextGatherer.gather_all",
+                new_callable=AsyncMock,
+                return_value="",
+            ),
+            patch(
+                "aragora.debate.phases.synthesis_generator.SynthesisGenerator.generate_mandatory_synthesis",
+                new=_stub_synthesis,
+            ),
         ):
 
             async def run_single_debate(idx: int):
                 agents = [BenchmarkAgent(f"debate{idx}_agent_{i}") for i in range(2)]
                 env = Environment(task=f"Concurrent task {idx}")
-                protocol = DebateProtocol(rounds=1, consensus="any")
                 arena = Arena(env, agents, protocol)
                 return await arena.run()
 
