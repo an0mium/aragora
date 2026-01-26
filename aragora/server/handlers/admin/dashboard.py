@@ -15,13 +15,13 @@ from typing import Any, Optional
 from aragora.config import CACHE_TTL_DASHBOARD_DEBATES
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     get_int_param,
     json_response,
     ttl_cache,
 )
+from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -29,23 +29,43 @@ logger = logging.getLogger(__name__)
 # Rate limiter for dashboard endpoints (60 requests per minute - frequently accessed)
 _dashboard_limiter = RateLimiter(requests_per_minute=60)
 
+# Permission required for dashboard access
+DASHBOARD_PERMISSION = "dashboard.read"
 
-class DashboardHandler(BaseHandler):
-    """Handler for dashboard endpoint."""
+
+class DashboardHandler(SecureHandler):
+    """Handler for dashboard endpoint.
+
+    Requires authentication and dashboard.read permission (RBAC).
+    """
 
     ROUTES = ["/api/v1/dashboard/debates", "/api/v1/dashboard/quality-metrics"]
+    RESOURCE_TYPE = "dashboard"
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
-        """Route dashboard requests to appropriate methods."""
+    async def handle(  # type: ignore[override]
+        self, path: str, query_params: dict, handler
+    ) -> Optional[HandlerResult]:
+        """Route dashboard requests to appropriate methods with RBAC."""
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _dashboard_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for dashboard endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # RBAC: Require authentication and dashboard.read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, DASHBOARD_PERMISSION)
+        except UnauthorizedError as e:
+            logger.warning(f"Dashboard auth error: {e}")
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Dashboard access denied: {e}")
+            return error_response(str(e), 403)
 
         if path == "/api/v1/dashboard/debates":
             domain = query_params.get("domain")

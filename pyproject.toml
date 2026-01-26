@@ -72,6 +72,7 @@ dev = [
     "mypy>=1.8,<2.0",
     "mutmut>=3.0,<4.0",
     "pre-commit>=3.6,<4.0",  # Git hooks for code quality
+    "datamodel-code-generator>=0.25,<1.0",  # Python SDK type generation from OpenAPI
 ]
 # Test dependencies - install with: pip install -e ".[test]"
 # This includes all optional dependencies needed for full test coverage

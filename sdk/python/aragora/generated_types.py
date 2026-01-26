@@ -65,7 +65,8 @@ class Error(BaseModel):
         ),
     ] = None
     resource_type: Annotated[
-        str | None, Field(description="Type of resource involved in the error", example="debate")
+        str | None,
+        Field(description="Type of resource involved in the error", example="debate"),
     ] = None
     resource_id: Annotated[
         str | None,
@@ -194,10 +195,12 @@ class DebateCreateRequest(BaseModel):
         ),
     ] = None
     rounds: Annotated[
-        int | None, Field(description="Maximum number of debate rounds", example=3, ge=1, le=10)
+        int | None,
+        Field(description="Maximum number of debate rounds", example=3, ge=1, le=10),
     ] = 3
     consensus: Annotated[
-        Consensus | None, Field(description="Consensus strategy to use", example="majority")
+        Consensus | None,
+        Field(description="Consensus strategy to use", example="majority"),
     ] = "majority"
     context: Annotated[
         str | None,
@@ -208,22 +211,27 @@ class DebateCreateRequest(BaseModel):
         ),
     ] = None
     auto_select: Annotated[
-        bool | None, Field(description="Automatically select optimal agents based on topic")
+        bool | None,
+        Field(description="Automatically select optimal agents based on topic"),
     ] = True
     auto_select_config: Annotated[
-        AutoSelectConfig | None, Field(description="Configuration for auto-selection algorithm")
+        AutoSelectConfig | None,
+        Field(description="Configuration for auto-selection algorithm"),
     ] = None
     use_trending: Annotated[
-        bool | None, Field(description="Include trending context from news/social media")
+        bool | None,
+        Field(description="Include trending context from news/social media"),
     ] = False
     trending_category: Annotated[
-        TrendingCategory | None, Field(description="Category filter for trending content")
+        TrendingCategory | None,
+        Field(description="Category filter for trending content"),
     ] = None
 
 
 class DebateCreateResponse(BaseModel):
     success: Annotated[
-        bool, Field(description="Whether the debate was created successfully", example=True)
+        bool,
+        Field(description="Whether the debate was created successfully", example=True),
     ]
     debate_id: Annotated[
         str | None,
@@ -251,7 +259,8 @@ class DebateCreateResponse(BaseModel):
         ),
     ] = None
     estimated_duration: Annotated[
-        int | None, Field(description="Estimated debate duration in seconds", example=120)
+        int | None,
+        Field(description="Estimated debate duration in seconds", example=120),
     ] = None
     error: Annotated[str | None, Field(description="Error message if success is false")] = None
 
