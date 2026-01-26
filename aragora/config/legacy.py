@@ -265,10 +265,10 @@ STREAM_DRAIN_INTERVAL_MS = _env_int("ARAGORA_STREAM_DRAIN_INTERVAL_MS", 5)
 # === Agents ===
 DEFAULT_AGENTS = _env_str(
     "ARAGORA_DEFAULT_AGENTS",
-    "grok,anthropic-api,openai-api,deepseek,mistral-api,gemini,qwen-max,kimi",
+    "grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi",
 )
 STREAMING_CAPABLE_AGENTS = _env_str(
-    "ARAGORA_STREAMING_AGENTS", "grok,anthropic-api,openai-api,mistral-api"
+    "ARAGORA_STREAMING_AGENTS", "grok,anthropic-api,openai-api,mistral"
 )
 
 # Valid agent types (allowlist for security)
