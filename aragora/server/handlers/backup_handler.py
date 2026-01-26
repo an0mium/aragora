@@ -28,6 +28,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -136,6 +137,7 @@ class BackupHandler(BaseHandler):
             logger.exception(f"Error handling backup request: {e}")
             return error_response(f"Internal error: {str(e)}", 500)
 
+    @require_permission("backups:read")
     async def _list_backups(self, query_params: Dict[str, str]) -> HandlerResult:
         """
         List backups with filtering and pagination.
@@ -199,6 +201,7 @@ class BackupHandler(BaseHandler):
             }
         )
 
+    @require_permission("backups:read")
     async def _get_backup(self, backup_id: str) -> HandlerResult:
         """Get a specific backup by ID."""
         manager = self._get_manager()
@@ -212,6 +215,7 @@ class BackupHandler(BaseHandler):
 
         return json_response(backup.to_dict())
 
+    @require_permission("backups:create")
     async def _create_backup(self, body: Dict[str, Any]) -> HandlerResult:
         """
         Create a new backup.
@@ -261,6 +265,7 @@ class BackupHandler(BaseHandler):
             logger.exception(f"Backup creation failed: {e}")
             return error_response(f"Backup failed: {str(e)}", 500)
 
+    @require_permission("backups:verify")
     async def _verify_backup(self, backup_id: str) -> HandlerResult:
         """Verify backup integrity with restore test."""
         manager = self._get_manager()
