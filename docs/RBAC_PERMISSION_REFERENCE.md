@@ -6,8 +6,8 @@ Complete catalog of all permissions in the Aragora RBAC system.
 
 | Metric | Value |
 |--------|-------|
-| Total Permissions | 143 |
-| Permission Categories | 25 |
+| Total Permissions | 156+ |
+| Permission Categories | 28 |
 | System Roles | 8 |
 | Role Templates | 4 |
 
@@ -95,6 +95,19 @@ Example: `debate.create` grants the ability to create new debates.
 | `evidence.create` | Add evidence | Owner, Admin, Debate Creator, Team Lead, Member |
 | `evidence.delete` | Delete evidence | Owner |
 
+### Knowledge Analytics Permissions
+
+| Permission | Description | Roles |
+|------------|-------------|-------|
+| `knowledge.analytics.read` | View knowledge mound statistics, sharing stats, federation stats | Owner, Admin, Analyst |
+
+### Knowledge Notifications Permissions
+
+| Permission | Description | Roles |
+|------------|-------------|-------|
+| `knowledge.notifications.read` | View sharing notifications, preferences | All roles |
+| `knowledge.notifications.write` | Mark notifications as read, update preferences | All roles |
+
 ---
 
 ## Workflow & Automation Permissions
@@ -169,9 +182,30 @@ Example: `debate.create` grants the ability to create new debates.
 | `webhook.delete` | Delete webhooks | Owner, Admin |
 | `webhook.admin` | Administer all webhooks | Owner, Admin |
 
+### Bot Permissions
+
+| Permission | Description | Roles |
+|------------|-------------|-------|
+| `bots.read` | View bot status (Discord, Teams, Telegram, etc.) | Owner, Admin |
+| `bots.write` | Configure bot settings | Owner, Admin |
+
 ---
 
 ## Quality & Testing Permissions
+
+### Code Review Permissions
+
+| Permission | Description | Roles |
+|------------|-------------|-------|
+| `code_review.read` | View code review results | Owner, Admin, Debate Creator, Team Lead, Analyst, Member |
+| `code_review.write` | Create code reviews and scans | Owner, Admin, Debate Creator, Team Lead, Member |
+
+### Codebase Audit Permissions
+
+| Permission | Description | Roles |
+|------------|-------------|-------|
+| `codebase_audit.read` | View security scan results, findings, dashboard | Owner, Admin, Compliance Officer |
+| `codebase_audit.write` | Run security scans (SAST, secrets, dependencies) | Owner, Admin |
 
 ### Gauntlet Permissions
 
@@ -420,7 +454,8 @@ Example: `debate.create` grants the ability to create new debates.
 
 | Permission | Description | Roles |
 |------------|-------------|-------|
-| `control_plane.read` | View control plane status | Owner |
+| `control_plane.read` | View control plane status, agents, queue, metrics | Owner, Admin |
+| `control_plane.write` | Pause/resume agents, prioritize queue | Owner, Admin |
 | `control_plane.submit` | Submit tasks | Owner |
 | `control_plane.cancel` | Cancel tasks | Owner |
 | `control_plane.deliberate` | Trigger deliberation | Owner |
