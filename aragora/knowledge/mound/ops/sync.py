@@ -535,19 +535,19 @@ class SyncOperationsMixin:
         results: Dict[str, SyncResult] = {}
 
         if self._continuum:
-            results["continuum"] = await self.sync_from_continuum(self._continuum)  # type: ignore[attr-defined]
+            results["continuum"] = await self.sync_from_continuum(self._continuum)
 
         if self._consensus:
-            results["consensus"] = await self.sync_from_consensus(self._consensus)  # type: ignore[attr-defined]
+            results["consensus"] = await self.sync_from_consensus(self._consensus)
 
         if self._facts:
-            results["facts"] = await self.sync_from_facts(self._facts)  # type: ignore[attr-defined]
+            results["facts"] = await self.sync_from_facts(self._facts)
 
         if self._evidence:
-            results["evidence"] = await self.sync_from_evidence(self._evidence)  # type: ignore[attr-defined]
+            results["evidence"] = await self.sync_from_evidence(self._evidence)
 
         if self._critique:
-            results["critique"] = await self.sync_from_critique(self._critique)  # type: ignore[attr-defined]
+            results["critique"] = await self.sync_from_critique(self._critique)
 
         logger.info(
             "Sync complete: %d sources, %d total nodes synced",

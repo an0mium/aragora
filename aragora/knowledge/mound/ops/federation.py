@@ -98,8 +98,13 @@ class FederationProtocol(Protocol):
     ) -> Any: ...
 
 
-class KnowledgeFederationMixin(FederationProtocol):
-    """Mixin providing federation operations for KnowledgeMound."""
+class KnowledgeFederationMixin:
+    """Mixin providing federation operations for KnowledgeMound.
+
+    Note: This mixin follows the FederationProtocol interface but does NOT
+    inherit from it directly, as Protocol inheritance breaks the MRO chain
+    in multiple inheritance scenarios (Protocol.__init__ doesn't call super()).
+    """
 
     # Note: Federation registry is now persisted via FederationRegistryStore
     # The class-level dict is kept for backward compatibility as a cache

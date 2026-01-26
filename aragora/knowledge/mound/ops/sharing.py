@@ -107,7 +107,7 @@ class KnowledgeSharingMixin:
             logger.warning("Store does not support access grants, grant not persisted")
 
         # Record in federation coordinator if available
-        await self._record_sharing_consent(  # type: ignore[attr-defined]
+        await self._record_sharing_consent(
             from_workspace_id=from_workspace_id,
             to_workspace_id=to_workspace_id,
             scope="knowledge_item",
@@ -121,7 +121,7 @@ class KnowledgeSharingMixin:
         )
 
         # Send notification asynchronously (best effort)
-        await self._send_share_notification(  # type: ignore[attr-defined]
+        await self._send_share_notification(
             item_id=item_id,
             item_title=getattr(item, "content", "")[:50],
             from_user_id=shared_by,
@@ -188,7 +188,7 @@ class KnowledgeSharingMixin:
         )
 
         # Send notification asynchronously (best effort)
-        await self._send_user_share_notification(  # type: ignore[attr-defined]
+        await self._send_user_share_notification(
             item_id=item_id,
             item_title=getattr(item, "content", "")[:50],
             from_user_id=shared_by,
@@ -324,7 +324,7 @@ class KnowledgeSharingMixin:
         self._ensure_initialized()
 
         # Get existing grant
-        grants = await self.get_share_grants(item_id)  # type: ignore[attr-defined]
+        grants = await self.get_share_grants(item_id)
         existing = next((g for g in grants if g.grantee_id == grantee_id), None)
 
         if not existing:
