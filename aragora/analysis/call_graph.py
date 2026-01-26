@@ -20,7 +20,7 @@ try:
     HAS_NETWORKX = True
 except ImportError:
     HAS_NETWORKX = False
-    nx = None  # type: ignore
+    nx = None
 
 from aragora.analysis.code_intelligence import (
     CodeIntelligence,

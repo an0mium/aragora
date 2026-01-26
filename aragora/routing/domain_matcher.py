@@ -465,7 +465,7 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
                 messages=[{"role": "user", "content": prompt}],
             )
 
-            content = response.content[0].text.strip()  # type: ignore[union-attr]
+            content = response.content[0].text.strip()
 
             # Extract JSON from response
             if "```json" in content:

@@ -311,7 +311,7 @@ class LocalFineTuner:
             self._tokenizer.pad_token = self._tokenizer.eos_token  # type: ignore[attr-defined]
 
         # Load model
-        self._model = AutoModelForCausalLM.from_pretrained(  # type: ignore[assignment]
+        self._model = AutoModelForCausalLM.from_pretrained(
             self.config.base_model,
             quantization_config=bnb_config,
             device_map="auto",
@@ -507,7 +507,7 @@ class LocalFineTuner:
         else:
             bnb_config = None
 
-        self._model = AutoModelForCausalLM.from_pretrained(  # type: ignore[assignment]
+        self._model = AutoModelForCausalLM.from_pretrained(
             self.config.base_model,
             quantization_config=bnb_config,
             device_map="auto",
