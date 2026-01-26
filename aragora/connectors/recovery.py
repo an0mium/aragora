@@ -37,7 +37,10 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar
+
+if TYPE_CHECKING:
+    from aragora.resilience import CircuitBreaker
 
 from aragora.connectors.exceptions import (
     ConnectorAuthError,
@@ -137,7 +140,7 @@ class RecoveryStrategy:
         self._last_error_time: Optional[float] = None
 
         # Circuit breaker (lazy initialized)
-        self._circuit_breaker = None
+        self._circuit_breaker: Optional["CircuitBreaker"] = None
 
         # Token refresh callback
         self._refresh_token_callback: Optional[Callable[[], Any]] = None

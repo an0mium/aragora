@@ -33,6 +33,7 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.rbac.decorators import require_permission
 from aragora.storage.repositories.onboarding import get_onboarding_repository
 
 logger = logging.getLogger(__name__)
@@ -360,6 +361,7 @@ def _track_event(
 # =============================================================================
 
 
+@require_permission("onboarding:read")
 async def handle_get_flow(
     user_id: str = "default",
     organization_id: Optional[str] = None,
