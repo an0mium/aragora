@@ -151,7 +151,7 @@ class KMCheckpointHandler(BaseHandler):
             return None
 
     @rate_limit(rpm=20)
-    def _list_checkpoints(self, handler) -> HandlerResult:
+    async def _list_checkpoints(self, handler) -> HandlerResult:
         """List all KM checkpoints.
 
         GET /api/km/checkpoints
@@ -175,7 +175,8 @@ class KMCheckpointHandler(BaseHandler):
             limit = int(self.get_query_param(handler, "limit", "20"))
             limit = min(max(1, limit), 100)
 
-            checkpoints: list[KMCheckpointMetadata] = store.list_checkpoints(limit=limit)
+            all_checkpoints = await store.list_checkpoints()
+            checkpoints: list[KMCheckpointMetadata] = all_checkpoints[:limit]
 
             return success_response(
                 {
@@ -202,7 +203,7 @@ class KMCheckpointHandler(BaseHandler):
             return error_response("Failed to list checkpoints", status=500)
 
     @rate_limit(rpm=5, limiter_name="km_checkpoint_write")
-    def _create_checkpoint(self, handler) -> HandlerResult:
+    async def _create_checkpoint(self, handler) -> HandlerResult:
         """Create a new KM checkpoint.
 
         POST /api/km/checkpoints
@@ -238,11 +239,20 @@ class KMCheckpointHandler(BaseHandler):
             store = self._get_checkpoint_store()
 
             with track_checkpoint_operation("create") as ctx:
-                metadata: KMCheckpointMetadata = store.create_checkpoint(
+                result = await store.create_checkpoint(
                     name=name,
                     description=description,
                     tags=tags,
+                    return_metadata=True,
                 )
+                # create_checkpoint returns either a string (checkpoint ID) or KMCheckpointMetadata
+                if isinstance(result, str):
+                    # If only ID returned, construct minimal response
+                    return json_response(
+                        {"name": name, "id": result, "description": description, "tags": tags},
+                        status=201,
+                    )
+                metadata: KMCheckpointMetadata = result  # type: ignore[assignment]
                 ctx["size_bytes"] = metadata.size_bytes
 
             success = True  # noqa: F841
