@@ -197,7 +197,7 @@ class TestDebateAnalytics:
         assert result["success"] is True
         assert "outcomes" in result["data"]
 
-    def test_time_range_parsing(self, mock_storage):
+    def test_time_range_parsing(self, mock_storage, mock_server_context):
         """Test various time range formats are parsed correctly."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -208,7 +208,7 @@ class TestDebateAnalytics:
                 result = handler._get_debates_overview({"time_range": time_range})
             assert result["success"] is True, f"Failed for time_range={time_range}"
 
-    def test_invalid_time_range_defaults(self, mock_storage):
+    def test_invalid_time_range_defaults(self, mock_storage, mock_server_context):
         """Test invalid time range defaults to 30d."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -223,7 +223,7 @@ class TestDebateAnalytics:
 class TestAgentAnalytics:
     """Tests for agent analytics endpoints."""
 
-    def test_leaderboard_returns_rankings(self, mock_elo_system):
+    def test_leaderboard_returns_rankings(self, mock_elo_system, mock_server_context):
         """Test leaderboard returns agent rankings."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -236,7 +236,7 @@ class TestAgentAnalytics:
         assert "leaderboard" in result["data"]
         assert len(result["data"]["leaderboard"]) <= 10
 
-    def test_leaderboard_with_domain_filter(self, mock_elo_system):
+    def test_leaderboard_with_domain_filter(self, mock_elo_system, mock_server_context):
         """Test leaderboard filters by domain."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -252,7 +252,7 @@ class TestAgentAnalytics:
 
         assert result["success"] is True
 
-    def test_agent_performance_found(self, mock_elo_system):
+    def test_agent_performance_found(self, mock_elo_system, mock_server_context):
         """Test agent performance returns data for existing agent."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -265,7 +265,7 @@ class TestAgentAnalytics:
         assert "agent_id" in result["data"]
         assert "rating" in result["data"]
 
-    def test_agent_performance_not_found(self, mock_elo_system):
+    def test_agent_performance_not_found(self, mock_elo_system, mock_server_context):
         """Test agent performance returns 404 for missing agent."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -277,7 +277,7 @@ class TestAgentAnalytics:
         assert result["success"] is False
         assert result["status_code"] == 404
 
-    def test_agents_comparison(self, mock_elo_system):
+    def test_agents_comparison(self, mock_elo_system, mock_server_context):
         """Test agents comparison returns head-to-head stats."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -293,7 +293,7 @@ class TestAgentAnalytics:
         assert result["success"] is True
         assert "comparison" in result["data"]
 
-    def test_agents_trends(self, mock_elo_system):
+    def test_agents_trends(self, mock_elo_system, mock_server_context):
         """Test agents trends returns historical data."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -310,7 +310,7 @@ class TestAgentAnalytics:
         assert result["success"] is True
         assert "trends" in result["data"]
 
-    def test_missing_elo_system_returns_error(self):
+    def test_missing_elo_system_returns_error(self, mock_server_context):
         """Test missing ELO system returns 503."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -326,7 +326,7 @@ class TestAgentAnalytics:
 class TestUsageAnalytics:
     """Tests for usage analytics endpoints."""
 
-    def test_usage_tokens_returns_stats(self, mock_cost_tracker):
+    def test_usage_tokens_returns_stats(self, mock_cost_tracker, mock_server_context):
         """Test usage tokens returns token statistics."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -339,7 +339,7 @@ class TestUsageAnalytics:
         assert "total_tokens_in" in result["data"]
         assert "total_tokens_out" in result["data"]
 
-    def test_usage_costs_returns_breakdown(self, mock_cost_tracker):
+    def test_usage_costs_returns_breakdown(self, mock_cost_tracker, mock_server_context):
         """Test usage costs returns cost breakdown."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -353,7 +353,7 @@ class TestUsageAnalytics:
         assert "cost_by_agent" in result["data"]
         assert "cost_by_model" in result["data"]
 
-    def test_usage_with_org_filter(self, mock_cost_tracker):
+    def test_usage_with_org_filter(self, mock_cost_tracker, mock_server_context):
         """Test usage endpoints respect org_id filter."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -364,7 +364,7 @@ class TestUsageAnalytics:
 
         assert result["success"] is True
 
-    def test_active_users_returns_counts(self):
+    def test_active_users_returns_counts(self, mock_server_context):
         """Test active users returns user counts."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -390,7 +390,7 @@ class TestUsageAnalytics:
 class TestHandlerRouting:
     """Tests for handler routing and can_handle."""
 
-    def test_can_handle_analytics_paths(self):
+    def test_can_handle_analytics_paths(self, mock_server_context):
         """Test handler recognizes analytics paths."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -400,7 +400,7 @@ class TestHandlerRouting:
         assert handler.can_handle("/api/analytics/agents/leaderboard")
         assert handler.can_handle("/api/analytics/usage/tokens")
 
-    def test_cannot_handle_other_paths(self):
+    def test_cannot_handle_other_paths(self, mock_server_context):
         """Test handler rejects non-analytics paths."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -414,7 +414,7 @@ class TestHandlerRouting:
 class TestParameterValidation:
     """Tests for parameter validation."""
 
-    def test_limit_clamping(self, mock_storage):
+    def test_limit_clamping(self, mock_storage, mock_server_context):
         """Test limit parameter is clamped to valid range."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -429,7 +429,7 @@ class TestParameterValidation:
             result = handler._get_debates_topics({"limit": "-5"})
             assert result["success"] is True
 
-    def test_offset_validation(self, mock_storage):
+    def test_offset_validation(self, mock_storage, mock_server_context):
         """Test offset parameter validation."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -439,7 +439,7 @@ class TestParameterValidation:
             result = handler._get_debates_overview({"offset": "10"})
             assert result["success"] is True
 
-    def test_granularity_validation(self, mock_storage):
+    def test_granularity_validation(self, mock_storage, mock_server_context):
         """Test granularity parameter validation."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
@@ -450,7 +450,7 @@ class TestParameterValidation:
                 result = handler._get_debates_trends({"granularity": granularity})
             assert result["success"] is True
 
-    def test_invalid_granularity_defaults(self, mock_storage):
+    def test_invalid_granularity_defaults(self, mock_storage, mock_server_context):
         """Test invalid granularity defaults to daily."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
