@@ -682,6 +682,7 @@ async def handle_get_invoice_stats(
         return error_response(f"Failed to get invoice stats: {e}", status=500)
 
 
+@require_permission("finance:read")
 async def handle_get_overdue_invoices(
     user_id: str = "default",
 ) -> HandlerResult:
