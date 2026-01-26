@@ -269,7 +269,7 @@ Respond with just "yes" or "no".""",
                 return self.anthropic_client.messages.create(
                     model=RESEARCH_MODEL,
                     max_tokens=2000,
-                    tools=[{"type": "web_search_20250305"}],
+                    tools=[{"type": "web_search_20250305"}],  # type: ignore[list-item]
                     messages=[
                         {
                             "role": "user",

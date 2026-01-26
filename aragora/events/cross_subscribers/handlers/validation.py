@@ -220,7 +220,7 @@ class ValidationHandlersMixin:
                 else:
                     # Search for similar prior consensus on same topic
                     try:
-                        similar_results = await mound.search(
+                        similar_results = await mound.search(  # type: ignore[attr-defined]
                             query=topic,
                             node_types=["consensus"],
                             limit=3,
@@ -242,7 +242,7 @@ class ValidationHandlersMixin:
                 # ============================================================
                 # MAIN CONSENSUS INGESTION
                 # ============================================================
-                request = IngestionRequest(
+                request = IngestionRequest(  # type: ignore[call-arg]
                     content=content,
                     workspace_id=mound.workspace_id,
                     source_type=KnowledgeSource.CONSENSUS,
@@ -269,7 +269,7 @@ class ValidationHandlersMixin:
                     },
                 )
 
-                result = await mound.store(request)
+                result = await mound.store(request)  # type: ignore[misc]
                 consensus_node_id = result.node_id
 
                 logger.debug(
@@ -341,7 +341,7 @@ class ValidationHandlersMixin:
                         },
                     )
 
-                    dissent_result = await mound.store(dissent_request)
+                    dissent_result = await mound.store(dissent_request)  # type: ignore[misc]
                     if dissent_result.node_id:
                         dissent_node_ids.append(dissent_result.node_id)
                         logger.debug(
@@ -376,7 +376,7 @@ class ValidationHandlersMixin:
                                 "domain": domain,
                             },
                         )
-                        claim_result = await mound.store(claim_request)
+                        claim_result = await mound.store(claim_request)  # type: ignore[misc]
                         if claim_result.node_id:
                             claim_node_ids.append(claim_result.node_id)
 

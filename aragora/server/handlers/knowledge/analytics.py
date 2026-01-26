@@ -56,18 +56,17 @@ class AnalyticsHandler(BaseHandler):
         if not _analytics_limiter.is_allowed(client_ip):
             return error_response("Rate limit exceeded", 429)
 
-        # Optional authentication (some stats may be public)
+        # Require authentication for knowledge analytics
         user_id = None
         try:
             user, err = self.require_auth_or_error(handler)
-            if not err and user:
+            if err:
+                return err
+            if user:
                 user_id = user.get("sub") or user.get("user_id") or user.get("id")  # type: ignore[attr-defined]
-        except (KeyError, AttributeError, TypeError) as e:
-            # Auth not required for analytics - user data extraction failed
-            logger.debug(f"Optional auth extraction failed: {e}")
         except Exception as e:
-            # Auth not required for analytics - unexpected error
-            logger.debug(f"Optional auth check failed: {e}")
+            logger.warning(f"Authentication failed for knowledge analytics: {e}")
+            return error_response("Authentication required", 401)
 
         workspace_id = query_params.get("workspace_id")
 
