@@ -161,7 +161,7 @@ gauntlet = [
 ml = [
     "scipy>=1.14.0,<2.0",  # 1.14.0+ required for NumPy 2.x support
     "scikit-learn>=1.5.0,<2.0",  # 1.5.0+ required for NumPy 2.x support
-    "sentence-transformers>=3.0.0,<4.0",
+    "sentence-transformers>=3.0.0,<6.0",
 ]
 rlm = [
     # Official RLM library from arXiv:2512.24601 (MIT license)
