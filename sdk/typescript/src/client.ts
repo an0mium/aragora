@@ -391,6 +391,7 @@ export class AragoraClient {
     this.plugins = new PluginsAPI(this);
     this.workspaces = new WorkspacesAPI(this);
     this.integrations = new IntegrationsAPI(this);
+    this.marketplace = new MarketplaceAPI(this);
   }
 
   // ===========================================================================

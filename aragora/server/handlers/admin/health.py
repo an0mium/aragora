@@ -38,6 +38,26 @@ logger = logging.getLogger(__name__)
 # Server start time for uptime tracking
 _SERVER_START_TIME = time.time()
 
+# Health check cache for performance (1 second TTL)
+_HEALTH_CACHE: Dict[str, Any] = {}
+_HEALTH_CACHE_TTL = 1.0  # seconds
+_HEALTH_CACHE_TIMESTAMPS: Dict[str, float] = {}
+
+
+def _get_cached_health(key: str) -> Optional[Dict[str, Any]]:
+    """Get cached health result if still valid."""
+    if key in _HEALTH_CACHE:
+        cached_time = _HEALTH_CACHE_TIMESTAMPS.get(key, 0)
+        if time.time() - cached_time < _HEALTH_CACHE_TTL:
+            return _HEALTH_CACHE[key]
+    return None
+
+
+def _set_cached_health(key: str, value: Dict[str, Any]) -> None:
+    """Cache health check result."""
+    _HEALTH_CACHE[key] = value
+    _HEALTH_CACHE_TIMESTAMPS[key] = time.time()
+
 
 class HealthHandler(BaseHandler):
     """Handler for health and readiness endpoints."""

@@ -216,7 +216,7 @@ class AgentRouter:
         """
         self.config = config or AgentRouterConfig()
         self._capabilities = AgentCapabilities.default_capabilities()
-        self._embedding_service = None
+        self._embedding_service: Optional[Any] = None
         self._historical_performance: Dict[str, Dict[str, List[bool]]] = defaultdict(
             lambda: defaultdict(list)
         )

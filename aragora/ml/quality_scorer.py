@@ -97,7 +97,7 @@ class QualityScorer:
             config: Scorer configuration
         """
         self.config = config or QualityScorerConfig()
-        self._embedding_service = None
+        self._embedding_service: Optional[Any] = None
 
     def _get_embedding_service(self):
         """Lazy load embedding service."""

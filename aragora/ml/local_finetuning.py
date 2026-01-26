@@ -254,9 +254,9 @@ class LocalFineTuner:
             config: Fine-tuning configuration
         """
         self.config = config or FineTuneConfig()
-        self._model = None
-        self._tokenizer = None
-        self._peft_model = None
+        self._model: Optional[Any] = None
+        self._tokenizer: Optional[Any] = None
+        self._peft_model: Optional[Any] = None
         self._is_loaded = False
 
     def _check_dependencies(self) -> bool:

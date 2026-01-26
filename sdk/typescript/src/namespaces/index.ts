@@ -32,3 +32,11 @@ export { WebhooksAPI, type Webhook, type WebhookEvent, type WebhookDelivery, typ
 export { PluginsAPI, type Plugin, type PluginListing, type PluginSubmission, type PluginConfigSchema, type InstallPluginRequest, type PluginQueryRequest, type PluginValidateRequest } from './plugins';
 export { WorkspacesAPI, type Workspace, type WorkspaceSettings, type WorkspaceMember, type WorkspaceProfile, type CreateWorkspaceRequest, type UpdateWorkspaceRequest, type AddMemberRequest, type UpdateMemberRequest } from './workspaces';
 export { IntegrationsAPI, type Integration, type AvailableIntegration, type IntegrationConfigSchema, type IntegrationSyncStatus, type CreateIntegrationRequest, type UpdateIntegrationRequest } from './integrations';
+
+// Marketplace
+export {
+  MarketplaceAPI,
+  type DeploymentStatus,
+  type TemplateDeployment,
+  type TemplateRatings,
+} from './marketplace';

@@ -119,8 +119,8 @@ class ConsensusPredictor:
             config: Predictor configuration
         """
         self.config = config or ConsensusPredictorConfig()
-        self._embedding_service = None
-        self._quality_scorer = None
+        self._embedding_service: Optional[Any] = None
+        self._quality_scorer: Optional[Any] = None
         self._historical_outcomes: Dict[str, bool] = {}
         self._prediction_accuracy: List[tuple[float, bool]] = []
 
