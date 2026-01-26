@@ -258,12 +258,13 @@ class ServiceRegistry:
         with self._service_lock:
             # Check for cached instance
             if service_type in self._services:
-                return self._services[service_type]
+                result: T = self._services[service_type]
+                return result
 
             # Check for factory
             if service_type in self._factories:
                 factory = self._factories[service_type]
-                instance = factory()
+                instance: T = factory()
                 self._services[service_type] = instance
                 logger.debug(f"Lazily initialized service: {service_type.__name__}")
                 return instance

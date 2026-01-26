@@ -140,7 +140,7 @@ class LazyImport:
     def get(self, name: str) -> Any:
         """Get an imported item by name."""
         self._ensure_imported()
-        return self._imported.get(name)
+        return self._imported.get(name) if self._imported else None
 
     @property
     def available(self) -> bool:
@@ -151,7 +151,7 @@ class LazyImport:
     def all(self) -> tuple[dict[str, Any], bool]:
         """Get all imports and availability flag."""
         self._ensure_imported()
-        return self._imported, self._available
+        return self._imported or {}, bool(self._available)
 
 
 def _log(message: str, level: str) -> None:
