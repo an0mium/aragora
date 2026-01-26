@@ -1162,6 +1162,15 @@ ROLE_ADMIN = Role(
         # Decisions (all)
         PERM_DECISION_CREATE.key,
         PERM_DECISION_READ.key,
+        # Workspaces (all)
+        PERM_WORKSPACE_CREATE.key,
+        PERM_WORKSPACE_READ.key,
+        PERM_WORKSPACE_UPDATE.key,
+        PERM_WORKSPACE_DELETE.key,
+        PERM_WORKSPACE_MEMBER_ADD.key,
+        PERM_WORKSPACE_MEMBER_REMOVE.key,
+        PERM_WORKSPACE_MEMBER_CHANGE_ROLE.key,
+        PERM_WORKSPACE_SHARE.key,
     },
     parent_roles=[],
     priority=80,
@@ -1337,6 +1346,9 @@ ROLE_MEMBER = Role(
         # Decisions
         PERM_DECISION_CREATE.key,
         PERM_DECISION_READ.key,
+        # Workspaces (read and share)
+        PERM_WORKSPACE_READ.key,
+        PERM_WORKSPACE_SHARE.key,
     },
     parent_roles=[],
     priority=40,
