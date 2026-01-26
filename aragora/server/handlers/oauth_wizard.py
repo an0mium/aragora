@@ -202,6 +202,23 @@ class OAuthWizardHandler(BaseHandler):
             if path == "/api/v2/integrations/wizard/validate" and method == "POST":
                 return await self._validate_config(body)
 
+            # Provider-specific routes: /wizard/{provider}/{action}
+            parts = path.split("/")
+            if len(parts) >= 6 and parts[4] == "wizard":
+                provider_id = parts[5]
+
+                # Test connection
+                if len(parts) == 7 and parts[6] == "test" and method == "POST":
+                    return await self._test_connection(provider_id)
+
+                # List workspaces/tenants
+                if len(parts) == 7 and parts[6] == "workspaces" and method == "GET":
+                    return await self._list_workspaces(provider_id)
+
+                # Disconnect
+                if len(parts) == 7 and parts[6] == "disconnect" and method == "POST":
+                    return await self._disconnect_provider(provider_id, body)
+
             return error_response("Not found", 404)
 
         except Exception as e:
@@ -544,6 +561,253 @@ class OAuthWizardHandler(BaseHandler):
                 return {"status": "unreachable", "smtp_host": smtp_host, "smtp_port": smtp_port}
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+    async def _test_connection(self, provider_id: str) -> HandlerResult:
+        """
+        Test connection to a provider with an actual API call.
+
+        POST /api/v2/integrations/wizard/{provider}/test
+        """
+        if provider_id not in PROVIDERS:
+            return error_response(f"Unknown provider: {provider_id}", 404)
+
+        try:
+            if provider_id == "slack":
+                result = await self._test_slack_api()
+            elif provider_id == "teams":
+                result = await self._test_teams_api()
+            elif provider_id == "discord":
+                result = await self._test_discord_api()
+            else:
+                result = {"success": False, "error": f"Test not implemented for {provider_id}"}
+
+            return json_response(
+                {
+                    "provider": provider_id,
+                    "test_result": result,
+                    "tested_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        except Exception as e:
+            logger.exception(f"Connection test failed for {provider_id}: {e}")
+            return json_response(
+                {
+                    "provider": provider_id,
+                    "test_result": {"success": False, "error": str(e)},
+                    "tested_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+
+    async def _test_slack_api(self) -> Dict[str, Any]:
+        """Test Slack API connectivity with auth.test call."""
+        try:
+            from aragora.storage.slack_workspace_store import get_slack_workspace_store
+
+            store = get_slack_workspace_store()
+            workspaces = store.list_active(limit=1)
+            if not workspaces:
+                return {"success": False, "error": "No active workspaces configured"}
+
+            workspace = workspaces[0]
+            token = workspace.get("access_token")
+            if not token:
+                return {"success": False, "error": "No access token available"}
+
+            import aiohttp
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "https://slack.com/api/auth.test",
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as response:
+                    data = await response.json()
+                    if data.get("ok"):
+                        return {
+                            "success": True,
+                            "team": data.get("team"),
+                            "user": data.get("user"),
+                            "team_id": data.get("team_id"),
+                        }
+                    return {"success": False, "error": data.get("error", "Unknown")}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def _test_teams_api(self) -> Dict[str, Any]:
+        """Test Teams API connectivity with Graph API call."""
+        try:
+            from aragora.storage.teams_workspace_store import get_teams_workspace_store
+
+            store = get_teams_workspace_store()
+            tenants = store.list_active(limit=1)
+            if not tenants:
+                return {"success": False, "error": "No active tenants configured"}
+
+            tenant = tenants[0]
+            token = tenant.get("access_token")
+            if not token:
+                return {"success": False, "error": "No access token available"}
+
+            import aiohttp
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    "https://graph.microsoft.com/v1.0/me",
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return {
+                            "success": True,
+                            "display_name": data.get("displayName"),
+                        }
+                    elif response.status == 401:
+                        return {"success": False, "error": "Token expired"}
+                    return {"success": False, "error": f"API returned {response.status}"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def _test_discord_api(self) -> Dict[str, Any]:
+        """Test Discord API connectivity."""
+        bot_token = os.environ.get("DISCORD_BOT_TOKEN")
+        if not bot_token:
+            return {"success": False, "error": "DISCORD_BOT_TOKEN not configured"}
+
+        try:
+            import aiohttp
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    "https://discord.com/api/v10/users/@me",
+                    headers={"Authorization": f"Bot {bot_token}"},
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return {"success": True, "bot_name": data.get("username")}
+                    return {"success": False, "error": f"API returned {response.status}"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def _list_workspaces(self, provider_id: str) -> HandlerResult:
+        """
+        List connected workspaces/tenants for a provider.
+
+        GET /api/v2/integrations/wizard/{provider}/workspaces
+        """
+        if provider_id not in PROVIDERS:
+            return error_response(f"Unknown provider: {provider_id}", 404)
+
+        try:
+            if provider_id == "slack":
+                workspaces = await self._get_slack_workspaces()
+            elif provider_id == "teams":
+                workspaces = await self._get_teams_tenants()
+            else:
+                return json_response(
+                    {
+                        "provider": provider_id,
+                        "workspaces": [],
+                        "message": f"Workspace listing not available for {provider_id}",
+                    }
+                )
+
+            return json_response(
+                {
+                    "provider": provider_id,
+                    "workspaces": workspaces,
+                    "count": len(workspaces),
+                }
+            )
+        except Exception as e:
+            logger.exception(f"Failed to list workspaces for {provider_id}: {e}")
+            return error_response(f"Failed to list workspaces: {str(e)}", 500)
+
+    async def _get_slack_workspaces(self) -> List[Dict[str, Any]]:
+        """Get list of connected Slack workspaces."""
+        from aragora.storage.slack_workspace_store import get_slack_workspace_store
+
+        store = get_slack_workspace_store()
+        workspaces = store.list_active(limit=100)
+        return [
+            {
+                "id": ws.get("workspace_id"),
+                "name": ws.get("name", "Unknown"),
+                "is_active": ws.get("is_active", True),
+                "connected_at": ws.get("created_at"),
+            }
+            for ws in workspaces
+        ]
+
+    async def _get_teams_tenants(self) -> List[Dict[str, Any]]:
+        """Get list of connected Teams tenants."""
+        from aragora.storage.teams_workspace_store import get_teams_workspace_store
+
+        store = get_teams_workspace_store()
+        tenants = store.list_active(limit=100)
+        return [
+            {
+                "id": t.get("tenant_id"),
+                "name": t.get("name", "Unknown"),
+                "is_active": t.get("is_active", True),
+                "connected_at": t.get("created_at"),
+            }
+            for t in tenants
+        ]
+
+    async def _disconnect_provider(self, provider_id: str, body: Dict[str, Any]) -> HandlerResult:
+        """
+        Disconnect a workspace/tenant from a provider.
+
+        POST /api/v2/integrations/wizard/{provider}/disconnect
+        Body: { "workspace_id": "..." } or { "tenant_id": "..." }
+        """
+        if provider_id not in PROVIDERS:
+            return error_response(f"Unknown provider: {provider_id}", 404)
+
+        try:
+            if provider_id == "slack":
+                workspace_id = body.get("workspace_id")
+                if not workspace_id:
+                    return error_response("workspace_id is required", 400)
+                result = await self._disconnect_slack_workspace(workspace_id)
+            elif provider_id == "teams":
+                tenant_id = body.get("tenant_id")
+                if not tenant_id:
+                    return error_response("tenant_id is required", 400)
+                result = await self._disconnect_teams_tenant(tenant_id)
+            else:
+                return error_response(f"Disconnect not implemented for {provider_id}", 501)
+
+            return json_response(
+                {
+                    "provider": provider_id,
+                    "disconnected": result.get("success", False),
+                    "message": result.get("message", ""),
+                }
+            )
+        except Exception as e:
+            logger.exception(f"Failed to disconnect {provider_id}: {e}")
+            return error_response(f"Disconnect failed: {str(e)}", 500)
+
+    async def _disconnect_slack_workspace(self, workspace_id: str) -> Dict[str, Any]:
+        """Disconnect a Slack workspace."""
+        from aragora.storage.slack_workspace_store import get_slack_workspace_store
+
+        store = get_slack_workspace_store()
+        store.deactivate(workspace_id)
+        logger.info(f"Disconnected Slack workspace: {workspace_id}")
+        return {"success": True, "message": f"Workspace {workspace_id} disconnected"}
+
+    async def _disconnect_teams_tenant(self, tenant_id: str) -> Dict[str, Any]:
+        """Disconnect a Teams tenant."""
+        from aragora.storage.teams_workspace_store import get_teams_workspace_store
+
+        store = get_teams_workspace_store()
+        store.deactivate(tenant_id)
+        logger.info(f"Disconnected Teams tenant: {tenant_id}")
+        return {"success": True, "message": f"Tenant {tenant_id} disconnected"}
 
 
 # Handler factory function for registration
