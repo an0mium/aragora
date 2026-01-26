@@ -644,6 +644,7 @@ class ConsensusPhase:
             logger.error("Judge consensus requires select_judge and generate_with_agent")
             result.final_answer = list(proposals.values())[0] if proposals else ""
             result.consensus_reached = False
+            result.confidence = 0.5
             return
 
         # Check for judge deliberation mode (Agent-as-a-Judge enhancement)
