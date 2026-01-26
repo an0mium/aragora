@@ -214,7 +214,7 @@ class OAuthWizardHandler(BaseHandler):
 
         Returns all provider information, configuration status, and next steps.
         """
-        providers_status = []
+        providers_status: List[Dict[str, Any]] = []
 
         for provider_id, provider in PROVIDERS.items():
             status = self._check_provider_config(provider_id, provider)
