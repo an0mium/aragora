@@ -135,7 +135,7 @@ class PersistentOriginStore:
         self._database_url = database_url
         self._cache_size = cache_size
         self._initialized = False
-        self._pool = None  # asyncpg pool for PostgreSQL
+        self._pool: Optional[Any] = None  # asyncpg.Pool when using PostgreSQL
         self._sqlite_path: Optional[str] = None
         self._use_postgres = False
 
