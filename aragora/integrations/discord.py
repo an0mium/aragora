@@ -149,9 +149,21 @@ class DiscordIntegration:
                         logger.warning(f"Discord rate limited, retrying after {retry_after}s")
                         await asyncio.sleep(retry_after)
                         continue
+                    elif response.status >= 500:
+                        # Server error - retry with backoff
+                        text = await response.text()
+                        logger.warning(
+                            f"Discord server error (attempt {attempt + 1}): {response.status} - {text}"
+                        )
+                        if attempt < self.config.retry_count - 1:
+                            await asyncio.sleep(2**attempt)
+                            continue
+                        return False
                     else:
+                        # Client error - don't retry
                         text = await response.text()
                         logger.error(f"Discord webhook failed: {response.status} - {text}")
+                        return False
 
             except asyncio.TimeoutError:
                 logger.warning(f"Discord webhook timeout (attempt {attempt + 1})")

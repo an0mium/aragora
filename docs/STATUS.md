@@ -2070,25 +2070,24 @@ All stabilization items addressed:
 | Channel | Readiness | Key Gaps |
 |---------|-----------|----------|
 | **Slack** | 95% ✅ | ~~Missing retry logic~~ **FIXED** - exponential backoff with 429 handling |
-| **Discord** | 75% ⚠️ | Missing retry logic, timeouts |
+| **Discord** | 90% ✅ | ~~Missing retry logic~~ **FIXED** (had retry, added 5xx handling), ~~missing timeouts~~ **FIXED** (30s) |
 | **Teams** | 90% ✅ | ~~Missing rate limiting~~ **FIXED**, ~~missing timeouts~~ **FIXED** (10s), ~~missing retry~~ **FIXED** |
 | **Email** | 50% ❌ | Global state, missing rate limiting, OAuth refresh |
 
 ### Production-Ready Features
 - **Slack**: Signature verification (HMAC-SHA256), rate limiting (30/60/100 RPM), comprehensive error handling, **retry logic with exponential backoff**
-- **Discord**: Ed25519 signature verification, rate limiting (30 RPM), good error handling
+- **Discord**: Ed25519 signature verification, rate limiting (30 RPM), **retry logic with 429/5xx handling**, **30s timeout**
 - **Teams**: Bot Framework SDK auth, rate limiting (30/60 RPM), **retry logic with exponential backoff**, **10s timeout**
 - **Email**: Gmail OAuth integration (experimental)
 
 ### Remaining Gaps (P0/P1)
-1. ~~**No retry logic**~~ - **FIXED for Slack/Teams** (exponential backoff with 429 rate limit handling)
+1. ~~**No retry logic**~~ - **FIXED for Slack/Teams/Discord** (exponential backoff with 429 rate limit handling)
 2. **No circuit breaker** - Cascading failures possible (module exists at `/aragora/resilience.py` but unused)
-3. ~~**Missing timeouts**~~ - **FIXED for Slack/Teams** (10s timeout), Email/Discord still need work
+3. ~~**Missing timeouts**~~ - **FIXED for all channels** (Slack/Teams 10s, Discord 30s), Email still needs work
 4. **Email global state** - Not thread-safe for multi-worker deployment
 
 ### Recommendation
-- **Slack/Teams**: Safe for production with monitoring
-- **Discord**: Safe for production with monitoring (retry logic recommended)
+- **Slack/Teams/Discord**: Safe for production with monitoring
 - **Email**: Experimental only - requires persistence layer for OAuth tokens
 
 ## Recommendations
