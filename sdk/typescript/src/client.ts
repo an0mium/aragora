@@ -842,6 +842,68 @@ export class AragoraClient {
     return this.request<{ results: Array<{ debate_id: string; status: string; explanation?: unknown }> }>('GET', `/api/v1/explainability/batch/${encodeURIComponent(batchId)}/results`, { params });
   }
 
+  /**
+   * Get evidence chain for a debate decision.
+   * @param debateId - The debate ID
+   * @param options - Filter options
+   */
+  async getDebateEvidence(debateId: string, options?: {
+    limit?: number;
+    min_relevance?: number;
+  }): Promise<{
+    debate_id: string;
+    evidence_count: number;
+    evidence_quality_score: number;
+    evidence: Array<{
+      id: string;
+      source: string;
+      content: string;
+      relevance_score: number;
+      cited_by: string[];
+    }>;
+  }> {
+    return this.request('GET', `/api/v1/debates/${encodeURIComponent(debateId)}/evidence`, { params: options });
+  }
+
+  /**
+   * Get vote pivots analysis for a debate.
+   * @param debateId - The debate ID
+   * @param options - Filter options
+   */
+  async getDebateVotePivots(debateId: string, options?: {
+    min_influence?: number;
+  }): Promise<{
+    debate_id: string;
+    total_votes: number;
+    pivotal_votes: number;
+    pivot_threshold: number;
+    votes: Array<{
+      agent_id: string;
+      vote: string;
+      influence_score: number;
+      reasoning?: string;
+    }>;
+  }> {
+    return this.request('GET', `/api/v1/debates/${encodeURIComponent(debateId)}/votes/pivots`, { params: options });
+  }
+
+  /**
+   * Compare explanations between multiple debates.
+   * @param body - Comparison request
+   */
+  async compareExplanations(body: {
+    debate_ids: string[];
+    compare_fields?: string[];
+  }): Promise<{
+    debates: Record<string, unknown>;
+    comparison: {
+      fields: Record<string, Array<{ debate_id: string; value: unknown }>>;
+      summary: string;
+    };
+  }> {
+    return this.request('POST', '/api/v1/explainability/compare', { body });
+  }
+
   // ===========================================================================
   // Workflows
   // ===========================================================================
@@ -2084,6 +2146,17 @@ export class AragoraClient {
     return this.request<{ content: Record<string, unknown>; version: string }>(
       'GET',
       `/api/marketplace/templates/${encodeURIComponent(templateId)}/download`
+    );
+  }
+
+  /**
+   * Export a marketplace template as JSON.
+   * @param templateId - The template ID to export
+   */
+  async exportMarketplaceTemplate(templateId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/marketplace/templates/${encodeURIComponent(templateId)}/export`
     );
   }
 
