@@ -104,7 +104,7 @@ class TestReadinessProbe:
         assert result is not None
         body = json.loads(result.body)
         assert body["status"] == "ready"
-        assert body["checks"]["storage"] is True
+        assert body["checks"]["storage_initialized"] is True
         assert result.status_code == 200
 
     async def test_readiness_with_storage_error_returns_not_ready(self, health_handler):
@@ -116,7 +116,7 @@ class TestReadinessProbe:
         assert result is not None
         body = json.loads(result.body)
         assert body["status"] == "not_ready"
-        assert body["checks"]["storage"] is False
+        assert body["checks"]["storage_initialized"] is False
         assert result.status_code == 503
 
 
