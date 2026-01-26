@@ -1028,6 +1028,20 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         if not self.can_handle(path):
             return None
 
+        # Authentication check
+        auth_ctx = self._get_auth_context(handler)
+        if auth_ctx == "unauthenticated":
+            return error_response("Authentication required", 401)
+
+        # RBAC permission check for read operations
+        if auth_ctx is not None and hasattr(auth_ctx, "permissions"):
+            if (
+                "workflow.read" not in auth_ctx.permissions
+                and "workflow.*" not in auth_ctx.permissions
+            ):
+                logger.warning(f"User {auth_ctx.user_id} denied workflow.read permission")
+                return error_response("Permission denied: requires workflow.read", 403)
+
         # GET /api/workflow-executions
         if path == "/api/v1/workflow-executions":
             return self._handle_list_executions(query_params, handler)
@@ -1076,6 +1090,28 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         if not self.can_handle(path):
             return None
 
+        # Authentication check
+        auth_ctx = self._get_auth_context(handler)
+        if auth_ctx == "unauthenticated":
+            return error_response("Authentication required", 401)
+
+        # RBAC permission check for write operations
+        if auth_ctx is not None and hasattr(auth_ctx, "permissions"):
+            # Execute requires workflow.execute, create requires workflow.create
+            required_perm = (
+                "workflow.execute"
+                if path.endswith(("/execute", "/simulate"))
+                else "workflow.create"
+            )
+            if path.endswith("/resolve"):
+                required_perm = "workflow.approve"
+            if (
+                required_perm not in auth_ctx.permissions
+                and "workflow.*" not in auth_ctx.permissions
+            ):
+                logger.warning(f"User {auth_ctx.user_id} denied {required_perm} permission")
+                return error_response(f"Permission denied: requires {required_perm}", 403)
+
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
@@ -1112,6 +1148,20 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         if not self.can_handle(path):
             return None
 
+        # Authentication check
+        auth_ctx = self._get_auth_context(handler)
+        if auth_ctx == "unauthenticated":
+            return error_response("Authentication required", 401)
+
+        # RBAC permission check for update operations
+        if auth_ctx is not None and hasattr(auth_ctx, "permissions"):
+            if (
+                "workflow.update" not in auth_ctx.permissions
+                and "workflow.*" not in auth_ctx.permissions
+            ):
+                logger.warning(f"User {auth_ctx.user_id} denied workflow.update permission")
+                return error_response("Permission denied: requires workflow.update", 403)
+
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
@@ -1134,6 +1184,20 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         """Handle DELETE requests."""
         if not self.can_handle(path):
             return None
+
+        # Authentication check
+        auth_ctx = self._get_auth_context(handler)
+        if auth_ctx == "unauthenticated":
+            return error_response("Authentication required", 401)
+
+        # RBAC permission check for delete operations
+        if auth_ctx is not None and hasattr(auth_ctx, "permissions"):
+            if (
+                "workflow.delete" not in auth_ctx.permissions
+                and "workflow.*" not in auth_ctx.permissions
+            ):
+                logger.warning(f"User {auth_ctx.user_id} denied workflow.delete permission")
+                return error_response("Permission denied: requires workflow.delete", 403)
 
         workflow_id = self._extract_id(path)
         if workflow_id:

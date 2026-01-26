@@ -1,6 +1,8 @@
 """
 Budget Management API Handler.
 
+All endpoints require authentication. Write operations require 'budget.write' permission.
+
 Endpoints:
 - GET  /api/v1/budgets              - List budgets for org
 - POST /api/v1/budgets              - Create a budget
@@ -31,6 +33,11 @@ from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
+# RBAC permission keys
+BUDGET_READ_PERMISSION = "budget.read"
+BUDGET_WRITE_PERMISSION = "budget.write"
+BUDGET_DELETE_PERMISSION = "budget.delete"
+
 
 class BudgetHandler(BaseHandler):
     """Handler for budget management endpoints."""
@@ -57,6 +64,52 @@ class BudgetHandler(BaseHandler):
         query_params: Optional[dict[str, Any]] = None,
     ) -> Optional[HandlerResult]:
         """Route budget requests to appropriate methods."""
+        # Authentication check
+        from aragora.billing.jwt_auth import extract_user_from_request
+
+        user_ctx = extract_user_from_request(handler, None)
+        if not user_ctx or not user_ctx.is_authenticated:
+            return error_response("Authentication required", 401)
+
+        # RBAC permission check based on method
+        try:
+            from aragora.rbac.checker import get_permission_checker
+            from aragora.rbac.models import AuthorizationContext
+
+            auth_ctx = AuthorizationContext(
+                user_id=user_ctx.user_id,
+                user_email=user_ctx.email,
+                org_id=user_ctx.org_id,
+                workspace_id=None,
+                roles=set(user_ctx.roles) if user_ctx.roles else {"member"},
+            )
+
+            checker = get_permission_checker()
+
+            # Write operations require budget.write permission
+            if method in ("POST", "PATCH", "DELETE"):
+                permission = (
+                    BUDGET_DELETE_PERMISSION if method == "DELETE" else BUDGET_WRITE_PERMISSION
+                )
+                decision = checker.check_permission(auth_ctx, permission)
+                if not decision.allowed:
+                    logger.warning(
+                        f"User {user_ctx.user_id} denied {permission}: {decision.reason}"
+                    )
+                    return error_response(f"Permission denied: {decision.reason}", 403)
+            else:
+                # Read operations require budget.read
+                decision = checker.check_permission(auth_ctx, BUDGET_READ_PERMISSION)
+                if not decision.allowed:
+                    logger.warning(
+                        f"User {user_ctx.user_id} denied {BUDGET_READ_PERMISSION}: {decision.reason}"
+                    )
+                    return error_response(f"Permission denied: {decision.reason}", 403)
+
+        except ImportError:
+            # RBAC module not available, allow access (backwards compatibility)
+            logger.debug("RBAC module not available, skipping permission check")
+
         # Extract org_id from auth context
         org_id = self._get_org_id(handler)
         user_id = self._get_user_id(handler)
