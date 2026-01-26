@@ -187,6 +187,7 @@ class GauntletConfig:
     output_formats: list[str] = field(default_factory=lambda: ["json", "md"])
     save_artifacts: bool = False
     generate_receipt: bool = True
+    sign_receipt: bool = True  # Cryptographically sign generated receipts
 
     # Timeouts (seconds)
     timeout_seconds: int = 300
@@ -269,6 +270,7 @@ class GauntletConfig:
             "output_formats": self.output_formats,
             "save_artifacts": self.save_artifacts,
             "generate_receipt": self.generate_receipt,
+            "sign_receipt": self.sign_receipt,
             "timeout_seconds": self.timeout_seconds,
             "attack_timeout": self.attack_timeout,
             "probe_timeout": self.probe_timeout,

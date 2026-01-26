@@ -11,9 +11,12 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from html import escape
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .result import GauntletResult
+
+if TYPE_CHECKING:
+    from .signing import ReceiptSigner
 
 
 @dataclass
@@ -105,6 +108,12 @@ class DecisionReceipt:
     artifact_hash: str = ""  # Content-addressable hash of entire receipt
     config_used: dict = field(default_factory=dict)
 
+    # Signature fields for cryptographic signing
+    signature: Optional[str] = None
+    signature_algorithm: Optional[str] = None
+    signature_key_id: Optional[str] = None
+    signed_at: Optional[str] = None  # ISO format timestamp
+
     def __post_init__(self):
         """Calculate artifact hash if not provided."""
         if not self.artifact_hash:
@@ -129,6 +138,77 @@ class DecisionReceipt:
         """Verify receipt has not been tampered with."""
         expected_hash = self._calculate_hash()
         return expected_hash == self.artifact_hash
+
+    def sign(self, signer: Optional["ReceiptSigner"] = None) -> "DecisionReceipt":
+        """
+        Sign this receipt and return self with signature populated.
+
+        Args:
+            signer: Optional ReceiptSigner instance. Uses default if not provided.
+
+        Returns:
+            Self with signature fields populated.
+        """
+        from aragora.gauntlet.signing import get_default_signer
+
+        signer = signer or get_default_signer()
+        signed = signer.sign(self.to_dict())
+
+        self.signature = signed.signature
+        self.signature_algorithm = signed.signature_metadata.algorithm
+        self.signature_key_id = signed.signature_metadata.key_id
+        self.signed_at = signed.signature_metadata.timestamp
+
+        return self
+
+    def verify_signature(self, signer: Optional["ReceiptSigner"] = None) -> bool:
+        """
+        Verify the cryptographic signature on this receipt.
+
+        Args:
+            signer: Optional ReceiptSigner instance. Uses default if not provided.
+
+        Returns:
+            True if signature is valid, False otherwise.
+        """
+        if not self.signature:
+            return False
+
+        from aragora.gauntlet.signing import (
+            SignedReceipt,
+            SignatureMetadata,
+            get_default_signer,
+        )
+
+        signer = signer or get_default_signer()
+
+        # Reconstruct SignedReceipt for verification
+        # Note: We need to exclude signature fields from the receipt data
+        receipt_data = self._to_dict_for_signing()
+
+        metadata = SignatureMetadata(
+            algorithm=self.signature_algorithm or "",
+            timestamp=self.signed_at or "",
+            key_id=self.signature_key_id or "",
+        )
+
+        signed_receipt = SignedReceipt(
+            receipt_data=receipt_data,
+            signature=self.signature,
+            signature_metadata=metadata,
+        )
+
+        return signer.verify(signed_receipt)
+
+    def _to_dict_for_signing(self) -> dict:
+        """Return dict without signature fields for signing/verification."""
+        data = self.to_dict()
+        # Remove signature fields to get the original data that was signed
+        data.pop("signature", None)
+        data.pop("signature_algorithm", None)
+        data.pop("signature_key_id", None)
+        data.pop("signed_at", None)
+        return data
 
     @classmethod
     def from_result(cls, result: GauntletResult) -> "DecisionReceipt":
@@ -573,7 +653,7 @@ class DecisionReceipt:
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON export."""
-        return {
+        data = {
             "receipt_id": self.receipt_id,
             "gauntlet_id": self.gauntlet_id,
             "timestamp": self.timestamp,
@@ -595,6 +675,13 @@ class DecisionReceipt:
             "artifact_hash": self.artifact_hash,
             "config_used": self.config_used,
         }
+        # Include signature fields if present
+        if self.signature:
+            data["signature"] = self.signature
+            data["signature_algorithm"] = self.signature_algorithm
+            data["signature_key_id"] = self.signature_key_id
+            data["signed_at"] = self.signed_at
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "DecisionReceipt":
@@ -628,6 +715,11 @@ class DecisionReceipt:
             provenance_chain=provenance,
             artifact_hash=data.get("artifact_hash", ""),
             config_used=data.get("config_used", {}) or {},
+            # Signature fields
+            signature=data.get("signature"),
+            signature_algorithm=data.get("signature_algorithm"),
+            signature_key_id=data.get("signature_key_id"),
+            signed_at=data.get("signed_at"),
         )
 
     def to_markdown(self, include_provenance: bool = True, include_evidence: bool = True) -> str:
