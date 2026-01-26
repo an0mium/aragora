@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
 
 from aragora.server.validation import validate_debate_id, validate_id
+from aragora.server.versioning.compat import strip_version_prefix
 from aragora.utils.optional_imports import try_import
 
 from .base import (
@@ -61,12 +62,12 @@ class BeliefHandler(BaseHandler):
     """Handler for belief network and reasoning endpoints."""
 
     ROUTES: list[str] = [
-        "/api/v1/belief-network/*/cruxes",
-        "/api/v1/belief-network/*/load-bearing-claims",
-        "/api/v1/belief-network/*/graph",
-        "/api/v1/belief-network/*/export",
-        "/api/v1/provenance/*/claims/*/support",
-        "/api/v1/debate/*/graph-stats",
+        "/api/belief-network/*/cruxes",
+        "/api/belief-network/*/load-bearing-claims",
+        "/api/belief-network/*/graph",
+        "/api/belief-network/*/export",
+        "/api/provenance/*/claims/*/support",
+        "/api/debate/*/graph-stats",
         # Note: /api/laboratory/emergent-traits handled by LaboratoryHandler
     ]
 
@@ -175,25 +176,29 @@ class BeliefHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path in self.ROUTES:
+        normalized = strip_version_prefix(path)
+        if normalized in self.ROUTES:
             return True
         # Handle dynamic routes
-        if path.startswith("/api/v1/belief-network/") and path.endswith("/cruxes"):
+        if normalized.startswith("/api/belief-network/") and normalized.endswith("/cruxes"):
             return True
-        if path.startswith("/api/v1/belief-network/") and path.endswith("/load-bearing-claims"):
+        if normalized.startswith("/api/belief-network/") and normalized.endswith(
+            "/load-bearing-claims"
+        ):
             return True
-        if path.startswith("/api/v1/belief-network/") and path.endswith("/graph"):
+        if normalized.startswith("/api/belief-network/") and normalized.endswith("/graph"):
             return True
-        if path.startswith("/api/v1/belief-network/") and path.endswith("/export"):
+        if normalized.startswith("/api/belief-network/") and normalized.endswith("/export"):
             return True
-        if "/claims/" in path and path.endswith("/support"):
+        if "/claims/" in normalized and normalized.endswith("/support"):
             return True
-        if path.startswith("/api/v1/debate/") and path.endswith("/graph-stats"):
+        if normalized.startswith("/api/debate/") and normalized.endswith("/graph-stats"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route belief network requests to appropriate methods."""
+        normalized = strip_version_prefix(path)
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _belief_limiter.is_allowed(client_ip):
@@ -204,38 +209,40 @@ class BeliefHandler(BaseHandler):
         nomic_dir = self.ctx.get("nomic_dir")
         # Note: /api/laboratory/emergent-traits handled by LaboratoryHandler
 
-        if path.startswith("/api/v1/belief-network/") and path.endswith("/cruxes"):
-            debate_id = self._extract_debate_id(path, 3)
+        if normalized.startswith("/api/belief-network/") and normalized.endswith("/cruxes"):
+            debate_id = self._extract_debate_id(normalized, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)
             top_k = get_clamped_int_param(query_params, "top_k", 3, min_val=1, max_val=10)
             return self._get_debate_cruxes(nomic_dir, debate_id, top_k)
 
-        if path.startswith("/api/v1/belief-network/") and path.endswith("/load-bearing-claims"):
-            debate_id = self._extract_debate_id(path, 3)
+        if normalized.startswith("/api/belief-network/") and normalized.endswith(
+            "/load-bearing-claims"
+        ):
+            debate_id = self._extract_debate_id(normalized, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)
             limit = get_clamped_int_param(query_params, "limit", 5, min_val=1, max_val=20)
             return self._get_load_bearing_claims(nomic_dir, debate_id, limit)
 
-        if path.startswith("/api/v1/belief-network/") and path.endswith("/graph"):
-            debate_id = self._extract_debate_id(path, 3)
+        if normalized.startswith("/api/belief-network/") and normalized.endswith("/graph"):
+            debate_id = self._extract_debate_id(normalized, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)
             include_cruxes = query_params.get("include_cruxes", ["true"])[0].lower() == "true"
             return self._get_belief_network_graph(nomic_dir, debate_id, include_cruxes)
 
-        if path.startswith("/api/v1/belief-network/") and path.endswith("/export"):
-            debate_id = self._extract_debate_id(path, 3)
+        if normalized.startswith("/api/belief-network/") and normalized.endswith("/export"):
+            debate_id = self._extract_debate_id(normalized, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)
             format_type = query_params.get("format", ["json"])[0].lower()
             return self._export_belief_network(nomic_dir, debate_id, format_type)
 
-        if "/claims/" in path and path.endswith("/support"):
+        if "/claims/" in normalized and normalized.endswith("/support"):
             # Pattern: /api/provenance/:debate_id/claims/:claim_id/support
-            parts = path.split("/")
-            if len(parts) >= 6:
+            parts = normalized.split("/")
+            if len(parts) >= 7:
                 debate_id = parts[3]
                 claim_id = parts[5]
                 valid_debate, _ = validate_debate_id(debate_id)
@@ -245,8 +252,8 @@ class BeliefHandler(BaseHandler):
                 return self._get_claim_support(nomic_dir, debate_id, claim_id)
             return error_response("Invalid path format", 400)
 
-        if path.startswith("/api/v1/debate/") and path.endswith("/graph-stats"):
-            debate_id = self._extract_debate_id(path, 3)
+        if normalized.startswith("/api/debate/") and normalized.endswith("/graph-stats"):
+            debate_id = self._extract_debate_id(normalized, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)
             return self._get_debate_graph_stats(nomic_dir, debate_id)
