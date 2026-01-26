@@ -1384,6 +1384,11 @@ class WorkspaceHandler(SecureHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "audit.verify_integrity", auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         start_date = None
         end_date = None
         if "start_date" in query_params:
@@ -1413,6 +1418,11 @@ class WorkspaceHandler(SecureHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "audit.actor_history", auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         days = int(query_params.get("days", "30"))
         audit_log = self._get_audit_log()
         entries = self._run_async(audit_log.get_actor_history(actor_id=actor_id, days=days))
@@ -1436,6 +1446,11 @@ class WorkspaceHandler(SecureHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "audit.resource_history", auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         days = int(query_params.get("days", "30"))
         audit_log = self._get_audit_log()
         entries = self._run_async(
@@ -1458,6 +1473,11 @@ class WorkspaceHandler(SecureHandler):
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
+
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "audit.denied_access", auth_ctx)
+        if rbac_error:
+            return rbac_error
 
         days = int(query_params.get("days", "7"))
         audit_log = self._get_audit_log()
