@@ -103,6 +103,10 @@ def normalize_content(content: str) -> str:
 
     # Remove timestamp comments from datamodel-codegen
     content = re.sub(r"#\s+timestamp:.*\n", "", content)
+    # Normalize filename comments (openapi.json vs openapi_generated.json)
+    content = re.sub(
+        r"#\s+filename:\s+openapi[_a-z]*\.json", "#   filename:  openapi.json", content
+    )
     # Normalize whitespace at end of lines
     content = "\n".join(line.rstrip() for line in content.split("\n"))
     # Collapse multiple blank lines to single

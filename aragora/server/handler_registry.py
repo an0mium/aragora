@@ -1328,6 +1328,10 @@ class HandlerRegistryMixin:
     _onboarding_handler: Optional["BaseHandler"] = None
     _sme_usage_dashboard_handler: Optional["BaseHandler"] = None
     _canvas_handler: Optional["BaseHandler"] = None
+    _receipts_handler: Optional["BaseHandler"] = None
+    _backup_handler: Optional["BaseHandler"] = None
+    _dr_handler: Optional["BaseHandler"] = None
+    _compliance_handler: Optional["BaseHandler"] = None
     _handlers_initialized: bool = False
 
     @classmethod
