@@ -2932,48 +2932,7 @@ export interface paths {
          * @deprecated
          * @description Deprecated. Use POST /api/debates instead.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["DebateCreateRequest"];
-                };
-            };
-            responses: {
-                /** @description Debate created successfully */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["DebateCreateResponse"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createDebateDeprecated"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2990,6 +2949,7 @@ export interface paths {
         /**
          * Get debate by ID
          * @deprecated
+         * @description Retrieve full details for a specific debate by its unique identifier.
          */
         get: {
             parameters: {
@@ -3037,38 +2997,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get debate by ID */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Debate details */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Debate"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        /**
+         * Get debate by ID
+         * @description Retrieve full details for a specific debate by its unique identifier.
+         */
+        get: operations["getDebateById"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3087,6 +3020,7 @@ export interface paths {
         /**
          * Get debate by slug
          * @deprecated
+         * @description Retrieve full details for a specific debate by its URL-friendly slug.
          */
         get: {
             parameters: {
@@ -3134,38 +3068,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get debate by slug */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    slug: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Debate details */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Debate"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        /**
+         * Get debate by slug
+         * @description Retrieve full details for a specific debate by its URL-friendly slug.
+         */
+        get: operations["getDebateBySlug"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3228,29 +3135,7 @@ export interface paths {
          * Get debate messages
          * @description Get paginated message history for a debate
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                    offset?: number;
-                };
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Paginated messages */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getDebateMessages"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3310,26 +3195,7 @@ export interface paths {
          * Get convergence status
          * @description Check if debate has reached semantic convergence
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Convergence status */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getDebateConvergence"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3389,26 +3255,7 @@ export interface paths {
          * Get evidence citations
          * @description Get grounded verdict with evidence citations
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Citations and grounding score */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getDebateCitations"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3427,6 +3274,7 @@ export interface paths {
         /**
          * Get debate evidence
          * @deprecated
+         * @description Get all evidence and sources cited during the debate.
          */
         get: {
             parameters: {
@@ -3463,27 +3311,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get debate evidence */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Evidence data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Get debate evidence
+         * @description Get all evidence and sources cited during the debate.
+         */
+        get: operations["getDebateEvidence"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3543,26 +3375,7 @@ export interface paths {
          * Get impasse status
          * @description Check if debate reached an impasse
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Impasse status */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getDebateImpasse"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3581,6 +3394,7 @@ export interface paths {
         /**
          * Get meta-critique
          * @deprecated
+         * @description Get meta-level critique analyzing the debate's reasoning quality.
          */
         get: {
             parameters: {
@@ -3617,27 +3431,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get meta-critique */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Meta-critique data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Get meta-critique
+         * @description Get meta-level critique analyzing the debate's reasoning quality.
+         */
+        get: operations["getDebateMetaCritique"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3656,6 +3454,7 @@ export interface paths {
         /**
          * Get debate graph stats
          * @deprecated
+         * @description Get graph statistics showing argument structure and relationships.
          */
         get: {
             parameters: {
@@ -3692,27 +3491,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get debate graph stats */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Graph statistics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Get debate graph stats
+         * @description Get graph statistics showing argument structure and relationships.
+         */
+        get: operations["getDebateGraphStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3792,44 +3575,7 @@ export interface paths {
          * Fork debate
          * @description Create a counterfactual branch from a specific round
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Round to branch from */
-                        branch_point?: number;
-                        /** @description New premise for fork */
-                        new_premise?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Forked debate created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["forkDebate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3846,6 +3592,7 @@ export interface paths {
         /**
          * Export debate
          * @deprecated
+         * @description Export debate content in the specified format for sharing or archiving.
          */
         get: {
             parameters: {
@@ -3883,28 +3630,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Export debate */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                    format: "json" | "markdown" | "html" | "pdf";
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Exported debate */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Export debate
+         * @description Export debate content in the specified format for sharing or archiving.
+         */
+        get: operations["exportDebate"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3974,34 +3704,7 @@ export interface paths {
          * Generate debate broadcast
          * @description Generate audio/video broadcast of debate
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        format?: "audio" | "video";
-                        voices?: Record<string, never>;
-                    };
-                };
-            };
-            responses: {
-                /** @description Broadcast generation started */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["createDebateBroadcast"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4020,6 +3723,7 @@ export interface paths {
         /**
          * Publish to Twitter
          * @deprecated
+         * @description Publish debate summary and key points to Twitter/X.
          */
         post: {
             parameters: {
@@ -4056,27 +3760,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Publish to Twitter */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Published to Twitter */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Publish to Twitter
+         * @description Publish debate summary and key points to Twitter/X.
+         */
+        post: operations["publishDebateToTwitter"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4095,6 +3783,7 @@ export interface paths {
         /**
          * Publish to YouTube
          * @deprecated
+         * @description Publish debate video/audio to YouTube.
          */
         post: {
             parameters: {
@@ -4131,27 +3820,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Publish to YouTube */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Published to YouTube */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Publish to YouTube
+         * @description Publish debate video/audio to YouTube.
+         */
+        post: operations["publishDebateToYouTube"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4168,6 +3841,7 @@ export interface paths {
         /**
          * Get red team results
          * @deprecated
+         * @description Get adversarial analysis results from red team review.
          */
         get: {
             parameters: {
@@ -4204,27 +3878,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get red team results */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Red team results */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Get red team results
+         * @description Get adversarial analysis results from red team review.
+         */
+        get: operations["getDebateRedTeamResults"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4243,6 +3901,7 @@ export interface paths {
         /**
          * Cross-debate search
          * @deprecated
+         * @description Search across all debates for matching content and arguments.
          */
         get: {
             parameters: {
@@ -4280,28 +3939,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Cross-debate search */
-        get: {
-            parameters: {
-                query: {
-                    q: string;
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Search results */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Cross-debate search
+         * @description Search across all debates for matching content and arguments.
+         */
+        get: operations["searchDebates"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4363,28 +4005,7 @@ export interface paths {
          * Dashboard debates
          * @description Get debates formatted for dashboard display
          */
-        get: {
-            parameters: {
-                query?: {
-                    domain?: string;
-                    limit?: number;
-                    hours?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Dashboard data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getDashboardDebates"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4403,7 +4024,7 @@ export interface paths {
         /**
          * Disagreement analysis
          * @deprecated
-         * @description Get metrics on agent disagreement patterns
+         * @description Get metrics on agent disagreement patterns across debates.
          */
         get: {
             parameters: {
@@ -4440,7 +4061,7 @@ export interface paths {
         };
         /**
          * Disagreement analysis
-         * @description Get metrics on agent disagreement patterns
+         * @description Get metrics on agent disagreement patterns across debates.
          */
         get: operations["listAnalyticsDisagreements"];
         put?: never;
@@ -4461,6 +4082,7 @@ export interface paths {
         /**
          * Role rotation stats
          * @deprecated
+         * @description Get statistics on how agents rotate between proposer, critic, and judge roles.
          */
         get: {
             parameters: {
@@ -4495,7 +4117,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Role rotation stats */
+        /**
+         * Role rotation stats
+         * @description Get statistics on how agents rotate between proposer, critic, and judge roles.
+         */
         get: operations["listAnalyticsRoleRotation"];
         put?: never;
         post?: never;
@@ -4515,6 +4140,7 @@ export interface paths {
         /**
          * Early stop statistics
          * @deprecated
+         * @description Get data on debates that ended early due to early consensus or other conditions.
          */
         get: {
             parameters: {
@@ -4549,7 +4175,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Early stop statistics */
+        /**
+         * Early stop statistics
+         * @description Get data on debates that ended early due to early consensus or other conditions.
+         */
         get: operations["listAnalyticsEarlyStops"];
         put?: never;
         post?: never;
@@ -4569,6 +4198,7 @@ export interface paths {
         /**
          * Ranking statistics
          * @deprecated
+         * @description Get aggregate ELO ranking statistics across all agents.
          */
         get: {
             parameters: {
@@ -4603,7 +4233,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Ranking statistics */
+        /**
+         * Ranking statistics
+         * @description Get aggregate ELO ranking statistics across all agents.
+         */
         get: operations["listRankingStats"];
         put?: never;
         post?: never;
@@ -4623,6 +4256,7 @@ export interface paths {
         /**
          * Memory statistics
          * @deprecated
+         * @description Get statistics on memory system usage and performance.
          */
         get: {
             parameters: {
@@ -4657,7 +4291,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Memory statistics */
+        /**
+         * Memory statistics
+         * @description Get statistics on memory system usage and performance.
+         */
         get: operations["listMemoryStats"];
         put?: never;
         post?: never;
@@ -4677,6 +4314,7 @@ export interface paths {
         /**
          * Recent position flips
          * @deprecated
+         * @description Get recent instances where agents changed their positions during debate.
          */
         get: {
             parameters: {
@@ -4713,7 +4351,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recent position flips */
+        /**
+         * Recent position flips
+         * @description Get recent instances where agents changed their positions during debate.
+         */
         get: operations["listFlipsRecent"];
         put?: never;
         post?: never;
@@ -4733,6 +4374,7 @@ export interface paths {
         /**
          * Flip summary
          * @deprecated
+         * @description Get summary statistics on position flips and conviction changes.
          */
         get: {
             parameters: {
@@ -4767,7 +4409,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Flip summary */
+        /**
+         * Flip summary
+         * @description Get summary statistics on position flips and conviction changes.
+         */
         get: operations["listFlipsSummary"];
         put?: never;
         post?: never;
@@ -4787,6 +4432,7 @@ export interface paths {
         /**
          * Recent insights
          * @deprecated
+         * @description Get recent insights extracted from debates.
          */
         get: {
             parameters: {
@@ -4823,7 +4469,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recent insights */
+        /**
+         * Recent insights
+         * @description Get recent insights extracted from debates.
+         */
         get: operations["listInsightsRecent"];
         put?: never;
         post?: never;
@@ -4845,7 +4494,7 @@ export interface paths {
         /**
          * Extract detailed insights
          * @deprecated
-         * @description Computationally expensive insight extraction (requires auth)
+         * @description Computationally expensive insight extraction (requires auth).
          */
         post: {
             parameters: {
@@ -4886,7 +4535,7 @@ export interface paths {
         put?: never;
         /**
          * Extract detailed insights
-         * @description Computationally expensive insight extraction (requires auth)
+         * @description Computationally expensive insight extraction (requires auth).
          */
         post: operations["createInsightsExtractDetailed"];
         delete?: never;
@@ -4905,6 +4554,7 @@ export interface paths {
         /**
          * Moments summary
          * @deprecated
+         * @description Get summary of key moments across debates.
          */
         get: {
             parameters: {
@@ -4939,7 +4589,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Moments summary */
+        /**
+         * Moments summary
+         * @description Get summary of key moments across debates.
+         */
         get: operations["listMomentsSummary"];
         put?: never;
         post?: never;
@@ -4959,6 +4612,7 @@ export interface paths {
         /**
          * Moments timeline
          * @deprecated
+         * @description Get chronological timeline of significant debate moments.
          */
         get: {
             parameters: {
@@ -4993,7 +4647,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Moments timeline */
+        /**
+         * Moments timeline
+         * @description Get chronological timeline of significant debate moments.
+         */
         get: operations["listMomentsTimeline"];
         put?: never;
         post?: never;
@@ -5013,6 +4670,7 @@ export interface paths {
         /**
          * Trending moments
          * @deprecated
+         * @description Get currently trending debate moments based on engagement.
          */
         get: {
             parameters: {
@@ -5047,7 +4705,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Trending moments */
+        /**
+         * Trending moments
+         * @description Get currently trending debate moments based on engagement.
+         */
         get: operations["listMomentsTrending"];
         put?: never;
         post?: never;
@@ -5067,6 +4728,7 @@ export interface paths {
         /**
          * Moments by type
          * @deprecated
+         * @description Get debate moments filtered by type (e.g., breakthrough, conflict, consensus).
          */
         get: {
             parameters: {
@@ -5103,7 +4765,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Moments by type */
+        /**
+         * Moments by type
+         * @description Get debate moments filtered by type (e.g., breakthrough, conflict, consensus).
+         */
         get: operations["getMomentsByType"];
         put?: never;
         post?: never;
@@ -6040,6 +5705,7 @@ export interface paths {
         /**
          * Memory tier statistics
          * @deprecated
+         * @description Get statistics for each memory tier (fast, medium, slow, glacial).
          */
         get: {
             parameters: {
@@ -6074,7 +5740,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Memory tier statistics */
+        /**
+         * Memory tier statistics
+         * @description Get statistics for each memory tier (fast, medium, slow, glacial).
+         */
         get: operations["listMemoryTierStats"];
         put?: never;
         post?: never;
@@ -6094,6 +5763,7 @@ export interface paths {
         /**
          * Archive statistics
          * @deprecated
+         * @description Get statistics on archived memories and storage usage.
          */
         get: {
             parameters: {
@@ -6128,7 +5798,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Archive statistics */
+        /**
+         * Archive statistics
+         * @description Get statistics on archived memories and storage usage.
+         */
         get: operations["listMemoryArchiveStats"];
         put?: never;
         post?: never;
@@ -6148,6 +5821,7 @@ export interface paths {
         /**
          * Get debate cruxes
          * @deprecated
+         * @description Get the crux points where agents most strongly disagree in a debate.
          */
         get: {
             parameters: {
@@ -6184,7 +5858,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get debate cruxes */
+        /**
+         * Get debate cruxes
+         * @description Get the crux points where agents most strongly disagree in a debate.
+         */
         get: operations["getBeliefNetworkCruxe"];
         put?: never;
         post?: never;
@@ -6204,6 +5881,7 @@ export interface paths {
         /**
          * Get load-bearing claims
          * @deprecated
+         * @description Get claims that are foundational to the debate's argument structure.
          */
         get: {
             parameters: {
@@ -6240,7 +5918,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get load-bearing claims */
+        /**
+         * Get load-bearing claims
+         * @description Get claims that are foundational to the debate's argument structure.
+         */
         get: operations["getBeliefNetworkLoadBearingClaim"];
         put?: never;
         post?: never;
@@ -6260,6 +5941,7 @@ export interface paths {
         /**
          * Get debate graph stats
          * @deprecated
+         * @description Get graph-based statistics for the belief network of a debate.
          */
         get: {
             parameters: {
@@ -6296,7 +5978,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get debate graph stats */
+        /**
+         * Get debate graph stats
+         * @description Get graph-based statistics for the belief network of a debate.
+         */
         get: operations["getDebateGraphStat"];
         put?: never;
         post?: never;
@@ -6436,6 +6121,7 @@ export interface paths {
         /**
          * System metrics
          * @deprecated
+         * @description Get comprehensive system metrics for monitoring.
          */
         get: {
             parameters: {
@@ -6470,7 +6156,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** System metrics */
+        /**
+         * System metrics
+         * @description Get comprehensive system metrics for monitoring.
+         */
         get: operations["listMetrics"];
         put?: never;
         post?: never;
@@ -6490,6 +6179,7 @@ export interface paths {
         /**
          * Metrics health
          * @deprecated
+         * @description Get health status of the metrics collection system.
          */
         get: {
             parameters: {
@@ -6524,7 +6214,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Metrics health */
+        /**
+         * Metrics health
+         * @description Get health status of the metrics collection system.
+         */
         get: operations["listMetricsHealth"];
         put?: never;
         post?: never;
@@ -6544,6 +6237,7 @@ export interface paths {
         /**
          * Cache metrics
          * @deprecated
+         * @description Get cache hit rates and performance metrics.
          */
         get: {
             parameters: {
@@ -6578,7 +6272,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Cache metrics */
+        /**
+         * Cache metrics
+         * @description Get cache hit rates and performance metrics.
+         */
         get: operations["listMetricsCache"];
         put?: never;
         post?: never;
@@ -6598,6 +6295,7 @@ export interface paths {
         /**
          * System metrics
          * @deprecated
+         * @description Get system-level metrics including CPU, memory, and disk usage.
          */
         get: {
             parameters: {
@@ -6632,8 +6330,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** System metrics */
-        get: operations["getSystemMetrics"];
+        /**
+         * System metrics
+         * @description Get system-level metrics including CPU, memory, and disk usage.
+         */
+        get: operations["listMetricsSystem"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6653,7 +6354,7 @@ export interface paths {
          * Prometheus metrics
          * @description Metrics in Prometheus format
          */
-        get: operations["getPrometheusMetrics"];
+        get: operations["listMetricsSystem"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6962,6 +6663,7 @@ export interface paths {
         /**
          * List documents
          * @deprecated
+         * @description Get list of uploaded documents available for debate context.
          */
         get: {
             parameters: {
@@ -6996,7 +6698,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List documents */
+        /**
+         * List documents
+         * @description Get list of uploaded documents available for debate context.
+         */
         get: operations["listDocuments"];
         put?: never;
         post?: never;
@@ -7016,6 +6721,7 @@ export interface paths {
         /**
          * Supported formats
          * @deprecated
+         * @description Get list of supported document formats for upload.
          */
         get: {
             parameters: {
@@ -7050,7 +6756,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Supported formats */
+        /**
+         * Supported formats
+         * @description Get list of supported document formats for upload.
+         */
         get: operations["listDocumentsFormats"];
         put?: never;
         post?: never;
@@ -7072,6 +6781,7 @@ export interface paths {
         /**
          * Upload document
          * @deprecated
+         * @description Upload a document to be used as context in debates.
          */
         post: {
             parameters: {
@@ -7110,7 +6820,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Upload document */
+        /**
+         * Upload document
+         * @description Upload a document to be used as context in debates.
+         */
         post: operations["createDocumentsUpload"];
         delete?: never;
         options?: never;
@@ -7128,6 +6841,7 @@ export interface paths {
         /**
          * Podcast RSS feed
          * @deprecated
+         * @description Get RSS feed for debate podcast episodes.
          */
         get: {
             parameters: {
@@ -7164,7 +6878,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Podcast RSS feed */
+        /**
+         * Podcast RSS feed
+         * @description Get RSS feed for debate podcast episodes.
+         */
         get: operations["listPodcastFeed.Xml"];
         put?: never;
         post?: never;
@@ -7184,6 +6901,7 @@ export interface paths {
         /**
          * Podcast episodes
          * @deprecated
+         * @description Get list of available podcast episodes from debates.
          */
         get: {
             parameters: {
@@ -7218,7 +6936,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Podcast episodes */
+        /**
+         * Podcast episodes
+         * @description Get list of available podcast episodes from debates.
+         */
         get: operations["listPodcastEpisodes"];
         put?: never;
         post?: never;
@@ -7238,6 +6959,7 @@ export interface paths {
         /**
          * YouTube auth URL
          * @deprecated
+         * @description Get OAuth authorization URL for YouTube integration.
          */
         get: {
             parameters: {
@@ -7272,7 +6994,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** YouTube auth URL */
+        /**
+         * YouTube auth URL
+         * @description Get OAuth authorization URL for YouTube integration.
+         */
         get: operations["listYoutubeAuth"];
         put?: never;
         post?: never;
@@ -7292,6 +7017,7 @@ export interface paths {
         /**
          * YouTube OAuth callback
          * @deprecated
+         * @description Handle OAuth callback from YouTube authorization.
          */
         get: {
             parameters: {
@@ -7326,7 +7052,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** YouTube OAuth callback */
+        /**
+         * YouTube OAuth callback
+         * @description Handle OAuth callback from YouTube authorization.
+         */
         get: operations["listYoutubeCallback"];
         put?: never;
         post?: never;
@@ -7346,6 +7075,7 @@ export interface paths {
         /**
          * YouTube auth status
          * @deprecated
+         * @description Check current YouTube authorization status.
          */
         get: {
             parameters: {
@@ -7380,7 +7110,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** YouTube auth status */
+        /**
+         * YouTube auth status
+         * @description Check current YouTube authorization status.
+         */
         get: operations["listYoutubeStatus"];
         put?: never;
         post?: never;
@@ -7397,7 +7130,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List plugins */
+        /**
+         * List plugins
+         * @description Get list of all available plugins.
+         */
         get: operations["listPlugins"];
         put?: never;
         post?: never;
@@ -7414,7 +7150,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List installed plugins */
+        /**
+         * List installed plugins
+         * @description Get list of plugins installed for the current user.
+         */
         get: operations["listInstalledPlugins"];
         put?: never;
         post?: never;
@@ -7431,7 +7170,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get marketplace listings */
+        /**
+         * Get marketplace listings
+         * @description Get plugin marketplace with categories and featured plugins.
+         */
         get: operations["getPluginMarketplace"];
         put?: never;
         post?: never;
@@ -7450,7 +7192,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Submit plugin for review */
+        /**
+         * Submit plugin for review
+         * @description Submit a new plugin for marketplace review.
+         */
         post: operations["submitPlugin"];
         delete?: never;
         options?: never;
@@ -7465,7 +7210,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List user's plugin submissions */
+        /**
+         * List user's plugin submissions
+         * @description Get list of plugins submitted by the current user for review.
+         */
         get: operations["listPluginSubmissions"];
         put?: never;
         post?: never;
@@ -7998,6 +7746,7 @@ export interface paths {
         /**
          * List tournaments
          * @deprecated
+         * @description Get list of all agent tournaments and their status.
          */
         get: {
             parameters: {
@@ -8032,7 +7781,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List tournaments */
+        /**
+         * List tournaments
+         * @description Get list of all agent tournaments and their status.
+         */
         get: operations["listTournaments"];
         put?: never;
         post?: never;
@@ -8052,6 +7804,7 @@ export interface paths {
         /**
          * Tournament standings
          * @deprecated
+         * @description Get current standings and rankings for a tournament.
          */
         get: {
             parameters: {
@@ -8088,7 +7841,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Tournament standings */
+        /**
+         * Tournament standings
+         * @description Get current standings and rankings for a tournament.
+         */
         get: operations["getTournamentsStanding"];
         put?: never;
         post?: never;
@@ -8108,6 +7864,7 @@ export interface paths {
         /**
          * Genesis statistics
          * @deprecated
+         * @description Get statistics about agent genesis events and population.
          */
         get: {
             parameters: {
@@ -8142,7 +7899,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Genesis statistics */
+        /**
+         * Genesis statistics
+         * @description Get statistics about agent genesis events and population.
+         */
         get: operations["listGenesisStats"];
         put?: never;
         post?: never;
@@ -8162,6 +7922,7 @@ export interface paths {
         /**
          * Genesis events
          * @deprecated
+         * @description Get timeline of agent creation and evolution events.
          */
         get: {
             parameters: {
@@ -8196,7 +7957,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Genesis events */
+        /**
+         * Genesis events
+         * @description Get timeline of agent creation and evolution events.
+         */
         get: operations["listGenesisEvents"];
         put?: never;
         post?: never;
@@ -8216,6 +7980,7 @@ export interface paths {
         /**
          * Agent lineage
          * @deprecated
+         * @description Get lineage tree showing agent ancestry and descendants.
          */
         get: {
             parameters: {
@@ -8252,7 +8017,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent lineage */
+        /**
+         * Agent lineage
+         * @description Get lineage tree showing agent ancestry and descendants.
+         */
         get: operations["getGenesisLineage"];
         put?: never;
         post?: never;
@@ -8272,6 +8040,7 @@ export interface paths {
         /**
          * Agent tree
          * @deprecated
+         * @description Get hierarchical tree view of agent relationships.
          */
         get: {
             parameters: {
@@ -8308,7 +8077,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent tree */
+        /**
+         * Agent tree
+         * @description Get hierarchical tree view of agent relationships.
+         */
         get: operations["getGenesisTree"];
         put?: never;
         post?: never;
@@ -8328,6 +8100,7 @@ export interface paths {
         /**
          * Agent evolution history
          * @deprecated
+         * @description Get history of agent evolution including version changes and improvements.
          */
         get: {
             parameters: {
@@ -8364,7 +8137,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent evolution history */
+        /**
+         * Agent evolution history
+         * @description Get history of agent evolution including version changes and improvements.
+         */
         get: operations["getEvolutionHistory"];
         put?: never;
         post?: never;
@@ -8384,6 +8160,7 @@ export interface paths {
         /**
          * List replays
          * @deprecated
+         * @description Get list of available debate replays.
          */
         get: {
             parameters: {
@@ -8418,7 +8195,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List replays */
+        /**
+         * List replays
+         * @description Get list of available debate replays.
+         */
         get: operations["listReplays"];
         put?: never;
         post?: never;
@@ -8438,6 +8218,7 @@ export interface paths {
         /**
          * Get replay
          * @deprecated
+         * @description Get detailed replay data for a specific debate.
          */
         get: {
             parameters: {
@@ -8474,7 +8255,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get replay */
+        /**
+         * Get replay
+         * @description Get detailed replay data for a specific debate.
+         */
         get: operations["getReplay"];
         put?: never;
         post?: never;
@@ -8494,6 +8278,7 @@ export interface paths {
         /**
          * Learning evolution
          * @deprecated
+         * @description Get learning evolution data showing system improvements over time.
          */
         get: {
             parameters: {
@@ -8528,7 +8313,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Learning evolution */
+        /**
+         * Learning evolution
+         * @description Get learning evolution data showing system improvements over time.
+         */
         get: operations["listLearningEvolution"];
         put?: never;
         post?: never;
@@ -8548,6 +8336,7 @@ export interface paths {
         /**
          * Meta-learning statistics
          * @deprecated
+         * @description Get statistics from meta-learning processes.
          */
         get: {
             parameters: {
@@ -8582,7 +8371,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Meta-learning statistics */
+        /**
+         * Meta-learning statistics
+         * @description Get statistics from meta-learning processes.
+         */
         get: operations["listMetaLearningStats"];
         put?: never;
         post?: never;
@@ -8602,6 +8394,7 @@ export interface paths {
         /**
          * Critique patterns
          * @deprecated
+         * @description Get common critique patterns across debates.
          */
         get: {
             parameters: {
@@ -8636,7 +8429,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Critique patterns */
+        /**
+         * Critique patterns
+         * @description Get common critique patterns across debates.
+         */
         get: operations["listCritiquesPatterns"];
         put?: never;
         post?: never;
@@ -8656,6 +8452,7 @@ export interface paths {
         /**
          * Critique archive
          * @deprecated
+         * @description Get archived critiques for historical analysis.
          */
         get: {
             parameters: {
@@ -8690,7 +8487,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Critique archive */
+        /**
+         * Critique archive
+         * @description Get archived critiques for historical analysis.
+         */
         get: operations["listCritiquesArchive"];
         put?: never;
         post?: never;
@@ -8710,6 +8510,7 @@ export interface paths {
         /**
          * All reputations
          * @deprecated
+         * @description Get reputation data for all agents.
          */
         get: {
             parameters: {
@@ -8744,7 +8545,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** All reputations */
+        /**
+         * All reputations
+         * @description Get reputation data for all agents.
+         */
         get: operations["listReputationAll"];
         put?: never;
         post?: never;
@@ -8764,6 +8568,7 @@ export interface paths {
         /**
          * Best team combinations
          * @deprecated
+         * @description Get recommended team combinations based on historical performance.
          */
         get: {
             parameters: {
@@ -8801,7 +8606,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Best team combinations */
+        /**
+         * Best team combinations
+         * @description Get recommended team combinations based on historical performance.
+         */
         get: operations["listRoutingBestTeams"];
         put?: never;
         post?: never;
@@ -8823,6 +8631,7 @@ export interface paths {
         /**
          * Agent recommendations
          * @deprecated
+         * @description Get agent recommendations based on domain requirements and traits.
          */
         post: {
             parameters: {
@@ -8865,7 +8674,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Agent recommendations */
+        /**
+         * Agent recommendations
+         * @description Get agent recommendations based on domain requirements and traits.
+         */
         post: operations["createRoutingRecommendations"];
         delete?: never;
         options?: never;
@@ -8883,6 +8695,7 @@ export interface paths {
         /**
          * All introspection data
          * @deprecated
+         * @description Get comprehensive introspection data across all agents.
          */
         get: {
             parameters: {
@@ -8917,7 +8730,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** All introspection data */
+        /**
+         * All introspection data
+         * @description Get comprehensive introspection data across all agents.
+         */
         get: operations["listIntrospectionAll"];
         put?: never;
         post?: never;
@@ -8937,6 +8753,7 @@ export interface paths {
         /**
          * Introspection leaderboard
          * @deprecated
+         * @description Get leaderboard rankings based on introspection metrics.
          */
         get: {
             parameters: {
@@ -8971,7 +8788,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Introspection leaderboard */
+        /**
+         * Introspection leaderboard
+         * @description Get leaderboard rankings based on introspection metrics.
+         */
         get: operations["listIntrospectionLeaderboard"];
         put?: never;
         post?: never;
@@ -8991,6 +8811,7 @@ export interface paths {
         /**
          * Agent introspection list
          * @deprecated
+         * @description Get list of agents with introspection data available.
          */
         get: {
             parameters: {
@@ -9025,7 +8846,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent introspection list */
+        /**
+         * Agent introspection list
+         * @description Get list of agents with introspection data available.
+         */
         get: operations["listIntrospectionAgents"];
         put?: never;
         post?: never;
@@ -9045,6 +8869,7 @@ export interface paths {
         /**
          * Agent introspection
          * @deprecated
+         * @description Get detailed introspection data for a specific agent.
          */
         get: {
             parameters: {
@@ -9081,7 +8906,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent introspection */
+        /**
+         * Agent introspection
+         * @description Get detailed introspection data for a specific agent.
+         */
         get: operations["getIntrospectionAgent"];
         put?: never;
         post?: never;
@@ -9863,105 +9691,13 @@ export interface paths {
          * List workspaces
          * @description Get list of workspaces the authenticated user has access to.
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                    offset?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of workspaces */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["WorkspaceList"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["listWorkspaces"];
         put?: never;
         /**
          * Create workspace
          * @description Create a new isolated workspace for data segregation.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description Workspace name */
-                        name: string;
-                        description?: string;
-                        /**
-                         * @default internal
-                         * @enum {string}
-                         */
-                        sensitivity_default?: "public" | "internal" | "confidential" | "restricted";
-                        /** @default 365 */
-                        retention_days?: number;
-                    };
-                };
-            };
-            responses: {
-                /** @description Workspace created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Workspace"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createWorkspace"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10099,108 +9835,14 @@ export interface paths {
          * Get workspace details
          * @description Get detailed information about a specific workspace.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    workspace_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Workspace details */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Workspace"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getWorkspace"];
         put?: never;
         post?: never;
         /**
          * Delete workspace
          * @description Delete a workspace and all associated data. Requires admin permissions.
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    workspace_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Workspace deleted */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        delete: operations["deleteWorkspace"];
         options?: never;
         head?: never;
         patch?: never;
@@ -10294,61 +9936,7 @@ export interface paths {
          * Add workspace member
          * @description Add a user to the workspace with specified permissions.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    workspace_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        user_id: string;
-                        /** @enum {string} */
-                        permission: "read" | "write" | "admin";
-                    };
-                };
-            };
-            responses: {
-                /** @description Member added */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["addWorkspaceMember"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10799,98 +10387,13 @@ export interface paths {
          * List retention policies
          * @description Get all configured data retention policies.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of retention policies */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["RetentionPolicyList"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["listRetentionPolicies"];
         put?: never;
         /**
          * Create retention policy
          * @description Create a new data retention policy for automated data lifecycle management.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        name: string;
-                        retention_days: number;
-                        /** @enum {string} */
-                        action: "delete" | "archive" | "anonymize";
-                        data_types?: string[];
-                        workspace_id?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Policy created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["RetentionPolicy"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["createRetentionPolicy"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10977,53 +10480,7 @@ export interface paths {
          * Execute retention policy
          * @description Manually execute a retention policy to process affected data.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    policy_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Execution result with affected items count */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["executeRetentionPolicy"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11091,36 +10548,7 @@ export interface paths {
          * Get expiring items
          * @description Get list of items approaching their retention expiration date.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Days until expiration to include */
-                    days?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of expiring items */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getExpiringItems"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11207,51 +10635,7 @@ export interface paths {
          * Classify content sensitivity
          * @description Analyze content and determine its sensitivity classification level.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description Content to classify */
-                        content: string;
-                        /** @description Additional context */
-                        context?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Classification result with level and confidence */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["classifyContent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11327,44 +10711,7 @@ export interface paths {
          * Get classification policy
          * @description Get handling policy for a specific sensitivity level.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    level: "public" | "internal" | "confidential" | "restricted";
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Policy details for the sensitivity level */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["getClassificationPolicy"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11448,50 +10795,7 @@ export interface paths {
          * Query audit entries
          * @description Search and filter privacy audit log entries. SOC 2 Control: CC6.1
          */
-        get: {
-            parameters: {
-                query?: {
-                    actor_id?: string;
-                    resource_id?: string;
-                    action?: string;
-                    outcome?: "success" | "denied" | "error";
-                    start_time?: string;
-                    end_time?: string;
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Filtered audit entries */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["queryAuditEntries"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11580,55 +10884,7 @@ export interface paths {
          * Generate compliance report
          * @description Generate a compliance report for a specified time period. SOC 2 Control: CC6.3
          */
-        get: {
-            parameters: {
-                query: {
-                    start_date: string;
-                    end_date: string;
-                    format?: "json" | "csv" | "pdf";
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Compliance report */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["generateAuditReport"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11707,45 +10963,7 @@ export interface paths {
          * Verify audit log integrity
          * @description Verify the cryptographic integrity of audit log entries to detect tampering.
          */
-        get: {
-            parameters: {
-                query?: {
-                    start_sequence?: number;
-                    end_sequence?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Verification result with integrity status */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Forbidden - Insufficient permissions for this operation */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["verifyAuditLogIntegrity"];
         put?: never;
         post?: never;
         delete?: never;
@@ -12258,7 +11476,7 @@ export interface paths {
          * List workflow templates
          * @description Get gallery of workflow templates for quick start.
          */
-        get: operations["listWorkflowTemplatesGallery"];
+        get: operations["listWorkflowTemplates"];
         put?: never;
         post?: never;
         delete?: never;
@@ -12329,7 +11547,7 @@ export interface paths {
          * Get workflow template
          * @description Get a specific workflow template for use as starting point.
          */
-        get: operations["getWorkflowTemplateGallery"];
+        get: operations["getWorkflowTemplate"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14748,7 +13966,7 @@ export interface paths {
          * Get scan by ID
          * @description Fetch a specific scan result by scan ID.
          */
-        get: operations["getCodebaseScanById"];
+        get: operations["getCodebaseScan"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14768,7 +13986,7 @@ export interface paths {
          * List scans
          * @description List scan history for a repository.
          */
-        get: operations["listCodebaseScans"];
+        get: operations["getCodebaseScan"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15108,7 +14326,7 @@ export interface paths {
          * Get latest metrics
          * @description Fetch the latest metrics report.
          */
-        get: operations["getCodebaseLatestMetrics"];
+        get: operations["getCodebaseMetric"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15128,7 +14346,7 @@ export interface paths {
          * Get metrics by ID
          * @description Fetch a metrics report by analysis ID.
          */
-        get: operations["getCodebaseMetricById"];
+        get: operations["getCodebaseMetric"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19217,6 +18435,443 @@ export interface operations {
             };
         };
     };
+    createDebateDeprecated: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DebateCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Debate created successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebateCreateResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDebateById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Debate details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Debate"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDebateBySlug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Debate details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Debate"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDebateMessages: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated messages */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDebateConvergence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Convergence status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDebateCitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Citations and grounding score */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDebateEvidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Evidence data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDebateImpasse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Impasse status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDebateMetaCritique: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Meta-critique data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDebateGraphStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Graph statistics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    forkDebate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Round to branch from */
+                    branch_point?: number;
+                    /** @description New premise for fork */
+                    new_premise?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Forked debate created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    exportDebate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                format: "json" | "markdown" | "html" | "pdf";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exported debate */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createDebateBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    format?: "audio" | "video";
+                    voices?: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description Broadcast generation started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    publishDebateToTwitter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published to Twitter */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    publishDebateToYouTube: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published to YouTube */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDebateRedTeamResults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Red team results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    searchDebates: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Search results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDashboardDebates: {
+        parameters: {
+            query?: {
+                domain?: string;
+                limit?: number;
+                hours?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dashboard data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listAnalyticsDisagreements: {
         parameters: {
             query?: never;
@@ -19928,7 +19583,7 @@ export interface operations {
             };
         };
     };
-    getSystemMetrics: {
+    listMetricsSystem: {
         parameters: {
             query?: never;
             header?: never;
@@ -19946,7 +19601,7 @@ export interface operations {
             };
         };
     };
-    getPrometheusMetrics: {
+    listMetricsSystem: {
         parameters: {
             query?: never;
             header?: never;
@@ -21153,6 +20808,251 @@ export interface operations {
             };
         };
     };
+    listWorkspaces: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of workspaces */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceList"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createWorkspace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Workspace name */
+                    name: string;
+                    description?: string;
+                    /**
+                     * @default internal
+                     * @enum {string}
+                     */
+                    sensitivity_default?: "public" | "internal" | "confidential" | "restricted";
+                    /** @default 365 */
+                    retention_days?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Workspace created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workspace"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWorkspace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Workspace details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workspace"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteWorkspace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Workspace deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    addWorkspaceMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    user_id: string;
+                    /** @enum {string} */
+                    permission: "read" | "write" | "admin";
+                };
+            };
+        };
+        responses: {
+            /** @description Member added */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listWorkspaceProfiles: {
         parameters: {
             query?: never;
@@ -21288,6 +21188,385 @@ export interface operations {
             };
             /** @description Not found - The requested resource does not exist */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listRetentionPolicies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of retention policies */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionPolicyList"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createRetentionPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    retention_days: number;
+                    /** @enum {string} */
+                    action: "delete" | "archive" | "anonymize";
+                    data_types?: string[];
+                    workspace_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Policy created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionPolicy"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    executeRetentionPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Execution result with affected items count */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getExpiringItems: {
+        parameters: {
+            query?: {
+                /** @description Days until expiration to include */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of expiring items */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    classifyContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Content to classify */
+                    content: string;
+                    /** @description Additional context */
+                    context?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Classification result with level and confidence */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getClassificationPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                level: "public" | "internal" | "confidential" | "restricted";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Policy details for the sensitivity level */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    queryAuditEntries: {
+        parameters: {
+            query?: {
+                actor_id?: string;
+                resource_id?: string;
+                action?: string;
+                outcome?: "success" | "denied" | "error";
+                start_time?: string;
+                end_time?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Filtered audit entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    generateAuditReport: {
+        parameters: {
+            query: {
+                start_date: string;
+                end_date: string;
+                format?: "json" | "csv" | "pdf";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Compliance report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    verifyAuditLogIntegrity: {
+        parameters: {
+            query?: {
+                start_sequence?: number;
+                end_sequence?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Verification result with integrity status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -21563,7 +21842,7 @@ export interface operations {
             };
         };
     };
-    listWorkflowTemplatesGallery: {
+    listWorkflowTemplates: {
         parameters: {
             query?: {
                 /** @description Filter templates by category */
@@ -21586,7 +21865,7 @@ export interface operations {
             };
         };
     };
-    getWorkflowTemplateGallery: {
+    getWorkflowTemplate: {
         parameters: {
             query?: never;
             header?: never;
@@ -23005,7 +23284,7 @@ export interface operations {
             };
         };
     };
-    getCodebaseScanById: {
+    getCodebaseScan: {
         parameters: {
             query?: never;
             header?: never;
@@ -23064,7 +23343,7 @@ export interface operations {
             };
         };
     };
-    listCodebaseScans: {
+    getCodebaseScan: {
         parameters: {
             query?: {
                 status?: string;
@@ -24033,7 +24312,7 @@ export interface operations {
             };
         };
     };
-    getCodebaseLatestMetrics: {
+    getCodebaseMetric: {
         parameters: {
             query?: never;
             header?: never;
@@ -24091,7 +24370,7 @@ export interface operations {
             };
         };
     };
-    getCodebaseMetricById: {
+    getCodebaseMetric: {
         parameters: {
             query?: never;
             header?: never;
