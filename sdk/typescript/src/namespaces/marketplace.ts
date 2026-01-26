@@ -5,7 +5,7 @@
  * template publishing, discovery, rating, and deployment.
  */
 
-import type { MarketplaceTemplate, PaginationParams, TemplateReview } from '../types';
+import type { MarketplaceTemplate, PaginationParams } from '../types';
 
 /**
  * Template deployment status.
@@ -37,16 +37,22 @@ export interface TemplateRatings {
 }
 
 /**
+ * Marketplace list parameters.
+ */
+export interface MarketplaceListParams {
+  category?: string;
+  search?: string;
+  sort_by?: 'downloads' | 'rating' | 'newest';
+  min_rating?: number;
+  limit?: number;
+  offset?: number;
+}
+
+/**
  * Interface for the internal client methods used by MarketplaceAPI.
  */
 interface MarketplaceClientInterface {
-  listMarketplaceTemplates(params?: {
-    category?: string;
-    search?: string;
-    tags?: string[];
-    verified_only?: boolean;
-    min_rating?: number;
-  } & PaginationParams): Promise<{ templates: MarketplaceTemplate[] }>;
+  browseMarketplace(params?: MarketplaceListParams): Promise<{ templates: MarketplaceTemplate[] }>;
   getMarketplaceTemplate(templateId: string): Promise<MarketplaceTemplate>;
   publishTemplate(body: {
     template_id: string;
@@ -67,14 +73,6 @@ interface MarketplaceClientInterface {
   getFeaturedTemplates(): Promise<{ templates: MarketplaceTemplate[] }>;
   getTrendingTemplates(): Promise<{ templates: MarketplaceTemplate[] }>;
   getMarketplaceCategories(): Promise<{ categories: string[] }>;
-  // Methods that may need to be added to client
-  getTemplateReviews?(templateId: string, params?: PaginationParams): Promise<{ reviews: TemplateReview[]; total: number }>;
-  getTemplateRatings?(templateId: string): Promise<TemplateRatings>;
-  searchMarketplace?(params: { q?: string; category?: string; tags?: string[] }): Promise<{ results: MarketplaceTemplate[]; total: number }>;
-  deployTemplate?(templateId: string, body?: { name?: string; config?: Record<string, unknown> }): Promise<{ deployment: TemplateDeployment }>;
-  listDeployments?(): Promise<{ deployments: TemplateDeployment[] }>;
-  getDeployment?(deploymentId: string): Promise<{ deployment: TemplateDeployment }>;
-  deleteDeployment?(deploymentId: string): Promise<{ success: boolean }>;
 }
 
 /**
@@ -131,16 +129,8 @@ export class MarketplaceAPI {
    * @param params - Filter and pagination options
    * @returns List of templates matching the criteria
    */
-  async list(params?: {
-    category?: string;
-    search?: string;
-    tags?: string[];
-    verified_only?: boolean;
-    min_rating?: number;
-    limit?: number;
-    offset?: number;
-  }): Promise<{ templates: MarketplaceTemplate[] }> {
-    return this.client.listMarketplaceTemplates(params);
+  async list(params?: MarketplaceListParams): Promise<{ templates: MarketplaceTemplate[] }> {
+    return this.client.browseMarketplace(params);
   }
 
   /**
@@ -189,13 +179,8 @@ export class MarketplaceAPI {
   async search(params: {
     q?: string;
     category?: string;
-    tags?: string[];
   }): Promise<{ results: MarketplaceTemplate[]; total: number }> {
-    if (this.client.searchMarketplace) {
-      return this.client.searchMarketplace(params);
-    }
-    // Fallback to list with search parameter
-    const result = await this.list({ search: params.q, category: params.category, tags: params.tags });
+    const result = await this.list({ search: params.q, category: params.category });
     return { results: result.templates, total: result.templates.length };
   }
 
@@ -266,93 +251,5 @@ export class MarketplaceAPI {
       throw new Error('Rating must be between 1 and 5');
     }
     return this.client.reviewTemplate(templateId, body);
-  }
-
-  /**
-   * Get reviews for a template.
-   *
-   * @param templateId - The template ID
-   * @param params - Pagination options
-   * @returns List of reviews
-   */
-  async getReviews(templateId: string, params?: PaginationParams): Promise<{ reviews: TemplateReview[]; total: number }> {
-    if (this.client.getTemplateReviews) {
-      return this.client.getTemplateReviews(templateId, params);
-    }
-    // Return empty if method not available
-    return { reviews: [], total: 0 };
-  }
-
-  /**
-   * Get rating summary for a template.
-   *
-   * @param templateId - The template ID
-   * @returns Rating summary with average and count
-   */
-  async getRatings(templateId: string): Promise<TemplateRatings> {
-    if (this.client.getTemplateRatings) {
-      return this.client.getTemplateRatings(templateId);
-    }
-    // Return empty if method not available
-    return { ratings: [], average: 0, count: 0 };
-  }
-
-  // ===========================================================================
-  // Deployment
-  // ===========================================================================
-
-  /**
-   * Deploy a template to your environment.
-   *
-   * @param templateId - The template ID to deploy
-   * @param body - Deployment configuration
-   * @returns The created deployment
-   */
-  async deploy(templateId: string, body?: {
-    name?: string;
-    config?: Record<string, unknown>;
-  }): Promise<{ deployment: TemplateDeployment }> {
-    if (this.client.deployTemplate) {
-      return this.client.deployTemplate(templateId, body);
-    }
-    throw new Error('Template deployment not available');
-  }
-
-  /**
-   * List all template deployments.
-   *
-   * @returns List of deployments
-   */
-  async listDeployments(): Promise<{ deployments: TemplateDeployment[] }> {
-    if (this.client.listDeployments) {
-      return this.client.listDeployments();
-    }
-    return { deployments: [] };
-  }
-
-  /**
-   * Get a specific deployment by ID.
-   *
-   * @param deploymentId - The deployment ID
-   * @returns The deployment details
-   */
-  async getDeployment(deploymentId: string): Promise<{ deployment: TemplateDeployment }> {
-    if (this.client.getDeployment) {
-      return this.client.getDeployment(deploymentId);
-    }
-    throw new Error('Deployment not found');
-  }
-
-  /**
-   * Delete a deployment.
-   *
-   * @param deploymentId - The deployment ID to delete
-   * @returns Success status
-   */
-  async deleteDeployment(deploymentId: string): Promise<{ success: boolean }> {
-    if (this.client.deleteDeployment) {
-      return this.client.deleteDeployment(deploymentId);
-    }
-    throw new Error('Deployment deletion not available');
   }
 }

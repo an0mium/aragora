@@ -100,7 +100,7 @@ class MLDelegationStrategy(DelegationStrategy):
             ml_weight: Weight for ML routing in hybrid scoring (0.0-1.0)
         """
         self.config = config or MLIntegrationConfig()
-        self._router = None
+        self._router: Optional[Any] = None
         self._cache: Dict[str, Tuple[List[str], float]] = {}
 
         # Hybrid scoring components
@@ -277,7 +277,7 @@ class QualityGate:
         """
         self.threshold = threshold
         self.min_confidence = min_confidence
-        self._scorer = None
+        self._scorer: Optional[Any] = None
 
     def _get_scorer(self):
         """Lazy load quality scorer."""
@@ -424,7 +424,7 @@ class ConsensusEstimator:
         """
         self.threshold = early_termination_threshold
         self.min_rounds = min_rounds
-        self._predictor = None
+        self._predictor: Optional[Any] = None
         self._similarity_history: List[float] = []
 
     def _get_predictor(self):

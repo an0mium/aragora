@@ -37,6 +37,7 @@ export { IntegrationsAPI, type Integration, type AvailableIntegration, type Inte
 export {
   MarketplaceAPI,
   type DeploymentStatus,
+  type MarketplaceListParams,
   type TemplateDeployment,
   type TemplateRatings,
 } from './marketplace';

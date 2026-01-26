@@ -355,6 +355,12 @@ export class AragoraClient {
    */
   readonly integrations: IntegrationsAPI;
 
+  /**
+   * Marketplace API namespace.
+   * Provides methods for template publishing, discovery, and deployment.
+   */
+  readonly marketplace: MarketplaceAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
