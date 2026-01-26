@@ -3546,8 +3546,9 @@ export class AragoraClient {
    * Verify a debate conclusion.
    */
   async verifyDebateConclusion(debateId: string, options?: {
-    backend?: VerificationBackend;
-    include_assumptions?: boolean;
+    include_evidence?: boolean;
+    include_counterfactuals?: boolean;
+    depth?: 'shallow' | 'standard' | 'deep';
   }): Promise<VerificationResult> {
     return this.request<VerificationResult>(
       'POST',
@@ -4076,8 +4077,8 @@ export class AragoraClient {
   /**
    * Delete a role.
    */
-  async deleteRole(roleId: string): Promise<void> {
-    await this.request<void>('DELETE', `/api/v1/rbac/roles/${encodeURIComponent(roleId)}`);
+  async deleteRole(roleId: string): Promise<{ deleted: boolean }> {
+    return this.request<{ deleted: boolean }>('DELETE', `/api/v1/rbac/roles/${encodeURIComponent(roleId)}`);
   }
 
   /**
@@ -4190,10 +4191,11 @@ export class AragoraClient {
    */
   async submitMatchResult(tournamentId: string, matchId: string, result: {
     winner: string;
-    debate_id: string;
+    loser: string;
+    score?: { winner: number; loser: number };
     notes?: string;
-  }): Promise<{ recorded: boolean }> {
-    return this.request<{ recorded: boolean }>(
+  }): Promise<TournamentMatch> {
+    return this.request<TournamentMatch>(
       'POST',
       `/api/tournaments/${encodeURIComponent(tournamentId)}/matches/${encodeURIComponent(matchId)}/result`,
       { body: result }
@@ -4242,8 +4244,8 @@ export class AragoraClient {
     end_date: string;
     format: 'json' | 'csv' | 'pdf';
     filters?: Record<string, string>;
-  }): Promise<{ export_id: string; download_url?: string }> {
-    return this.request<{ export_id: string; download_url?: string }>('POST', '/api/v1/audit/export', { body: request });
+  }): Promise<{ url: string; expires_at: string }> {
+    return this.request<{ url: string; expires_at: string }>('POST', '/api/v1/audit/export', { body: request });
   }
 
   /**
@@ -4357,15 +4359,17 @@ export class AragoraClient {
     id: string;
     device: string;
     ip_address: string;
+    created_at: string;
     last_active: string;
-    is_current: boolean;
+    current: boolean;
   }> }> {
     return this.request<{ sessions: Array<{
       id: string;
       device: string;
       ip_address: string;
+      created_at: string;
       last_active: string;
-      is_current: boolean;
+      current: boolean;
     }> }>('GET', '/api/v1/auth/sessions');
   }
 

@@ -107,7 +107,7 @@ interface AuthClientInterface {
   listOAuthProviders(): Promise<{ providers: OAuthProviderInfo[] }>;
   linkOAuthProvider(provider: string, code: string): Promise<{ linked: boolean }>;
   unlinkOAuthProvider(provider: string): Promise<{ unlinked: boolean }>;
-  initiateSSOLogin(provider?: string, redirectUrl?: string): Promise<{ url: string; state: string }>;
+  initiateSSOLogin(provider?: string, redirectUrl?: string): Promise<{ authorization_url: string; state: string; provider: string; expires_in: number }>;
   listSSOProviders(): Promise<{ providers: Array<{ id: string; name: string; type: string }> }>;
 }
 
@@ -341,7 +341,7 @@ export class AuthAPI {
   /**
    * Initiate SSO login.
    */
-  async initiateSSOLogin(provider?: string, redirectUrl?: string): Promise<{ url: string; state: string }> {
+  async initiateSSOLogin(provider?: string, redirectUrl?: string): Promise<{ authorization_url: string; state: string; provider: string; expires_in: number }> {
     return this.client.initiateSSOLogin(provider, redirectUrl);
   }
 

@@ -48,7 +48,7 @@ export interface KnowledgeMoundQueryOptions {
  * Interface for the internal client methods used by KnowledgeAPI.
  */
 interface KnowledgeClientInterface {
-  searchKnowledge(query: string, options?: KnowledgeSearchOptions): Promise<KnowledgeSearchResult>;
+  searchKnowledge(query: string, options?: KnowledgeSearchOptions): Promise<{ results: KnowledgeSearchResult[] }>;
   addKnowledge(entry: KnowledgeEntry): Promise<{ id: string; created_at: string }>;
   getKnowledgeEntry(entryId: string): Promise<KnowledgeEntry>;
   updateKnowledge(entryId: string, updates: Partial<KnowledgeEntry>): Promise<KnowledgeEntry>;
@@ -103,7 +103,7 @@ export class KnowledgeAPI {
   /**
    * Search knowledge entries by query.
    */
-  async search(query: string, options?: KnowledgeSearchOptions): Promise<KnowledgeSearchResult> {
+  async search(query: string, options?: KnowledgeSearchOptions): Promise<{ results: KnowledgeSearchResult[] }> {
     return this.client.searchKnowledge(query, options);
   }
 
