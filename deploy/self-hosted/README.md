@@ -16,7 +16,13 @@ Deploy Aragora on your own infrastructure in under 15 minutes.
 git clone https://github.com/an0mium/aragora.git
 cd aragora/deploy/self-hosted
 
-# Copy and edit configuration
+# Quick setup with auto-generated secrets
+./init.sh
+
+# Or with auto-verify after setup
+./init.sh --verify
+
+# Manual setup: Copy and edit configuration
 cp .env.example .env
 nano .env  # or your preferred editor
 ```
@@ -43,7 +49,29 @@ docker compose --profile workers up -d
 docker compose --profile monitoring --profile workers up -d
 ```
 
-### 3. Verify
+### 3. Verify Deployment
+
+```bash
+# Run the smoke test suite
+./smoke_test.sh
+
+# Or run quick tests only
+./smoke_test.sh --quick
+
+# With verbose output
+./smoke_test.sh --verbose
+```
+
+The smoke test validates:
+- Container health (Aragora, PostgreSQL, Redis)
+- Liveness and readiness probes (`/healthz`, `/readyz`)
+- Database connectivity
+- Redis connectivity
+- WebSocket endpoint
+- API endpoints
+- Prometheus metrics (if monitoring profile enabled)
+
+**Alternative: Quick Verification**
 
 ```bash
 # Check service health
@@ -53,7 +81,7 @@ docker compose ps
 docker compose logs -f aragora
 
 # Test API
-curl http://localhost:8080/api/health
+curl http://localhost:8080/healthz
 ```
 
 ### 4. Access

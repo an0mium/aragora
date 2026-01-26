@@ -1,8 +1,31 @@
 #!/bin/bash
 # Aragora Self-Hosted Setup Script
-# Usage: ./init.sh
+# Usage: ./init.sh [--verify]
+#
+# Options:
+#   --verify    Run smoke test after setup completes
+#   --help      Show this help message
 
 set -e
+
+# Parse arguments
+RUN_VERIFY=false
+for arg in "$@"; do
+    case $arg in
+        --verify)
+            RUN_VERIFY=true
+            shift
+            ;;
+        --help|-h)
+            echo "Usage: ./init.sh [--verify]"
+            echo ""
+            echo "Options:"
+            echo "  --verify    Run smoke test after setup completes"
+            echo "  --help      Show this help message"
+            exit 0
+            ;;
+    esac
+done
 
 echo "================================"
 echo "  Aragora Self-Hosted Setup"
@@ -60,9 +83,30 @@ echo "  1. Review configuration: nano .env"
 echo "  2. Start services: docker compose up -d"
 echo "  3. Check status: docker compose ps"
 echo "  4. View logs: docker compose logs -f aragora"
+echo "  5. Verify deployment: ./smoke_test.sh"
 echo
 echo "Optional profiles:"
 echo "  docker compose --profile monitoring up -d  # Add Grafana/Prometheus"
 echo "  docker compose --profile workers up -d     # Add queue workers"
 echo "  docker compose --profile backup up -d      # Enable daily backups"
 echo
+
+# Run verification if requested
+if [ "$RUN_VERIFY" = true ]; then
+    echo "Starting services and running verification..."
+    echo
+
+    # Start core services
+    docker compose up -d
+
+    # Wait for services to be ready
+    echo "Waiting for services to start..."
+    sleep 10
+
+    # Run smoke test
+    if [ -f "./smoke_test.sh" ]; then
+        ./smoke_test.sh
+    else
+        echo "Warning: smoke_test.sh not found"
+    fi
+fi
