@@ -43,7 +43,7 @@ METRICS_ENDPOINTS = {
         "get": {
             "tags": ["Monitoring"],
             "summary": "Prometheus metrics",
-            "operationId": "listMetricsSystem",
+            "operationId": "getPrometheusMetrics",
             "description": "Metrics in Prometheus format",
             "responses": {
                 "200": {
