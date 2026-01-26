@@ -142,7 +142,7 @@ def check_agent_credentials(default_agents: str | None = None) -> list[str]:
     from aragora.config.settings import get_settings
 
     warnings: list[str] = []
-    agents_str = default_agents or get_settings().agents.default_agents
+    agents_str = default_agents or get_settings().agent.default_agents
     agent_names = [a.strip() for a in agents_str.split(",") if a.strip()]
 
     # Agents backed by OpenRouter (single key)
