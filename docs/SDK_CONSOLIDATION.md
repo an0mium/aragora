@@ -180,7 +180,7 @@ await client.controlPlane.submitTask({ ... });  // Same API
 
 ### Phase 2: SDK Enhancement (2-3 weeks) - COMPLETE
 
-- [x] Add namespace structure to sdk (deferred to v3.0.0 for full implementation)
+- [x] Add namespace structure to sdk (8 namespaces exposed: debates, agents, workflows, sme, billing, budgets, receipts, explainability)
 - [x] Port Control Plane API (registerAgent, unregisterAgent, submitTask, etc.)
 - [x] Port Graph/Matrix debates (createGraphDebate, createMatrixDebate)
 - [x] Port Formal Verification (verifyClaim, verifyDebate, getVerificationStatus)
@@ -189,12 +189,14 @@ await client.controlPlane.submitTask({ ... });  // Same API
 - [x] Add Codebase scanning (scanCodebase, getVulnerabilities)
 - [x] Add Analytics connectors (getAnalyticsPlatforms, connectAnalytics)
 
-### Phase 3: Deprecation (1 week)
+**Note:** Additional namespace APIs are defined in `src/namespaces/` (controlPlane, gauntlet, analytics, memory, rbac, knowledge, tournaments, auth, verification, audit, tenants, organizations) but require corresponding flat methods on AragoraClient to be exposed. This is planned for Phase 4.
 
-- [ ] Add deprecation warnings to client
-- [ ] Update documentation
-- [ ] Announce migration timeline
-- [ ] Publish v2.2.0 of both packages
+### Phase 3: Deprecation (1 week) - COMPLETE
+
+- [x] Add deprecation warnings to client (runtime console.warn + package.json deprecated field)
+- [x] Update documentation (JSDoc @deprecated tags added)
+- [x] Announce migration timeline (documented in SDK_CONSOLIDATION.md)
+- [ ] Publish v2.2.0 of both packages (ready for publish)
 
 ### Phase 4: Client Wrapper (1 week)
 
