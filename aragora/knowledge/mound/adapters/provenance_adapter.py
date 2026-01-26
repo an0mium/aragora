@@ -255,7 +255,7 @@ class ProvenanceAdapter:
                         if citation.support_type == "supports"
                         else RelationshipType.CONTRADICTS
                         if citation.support_type == "contradicts"
-                        else RelationshipType.RELATED
+                        else RelationshipType.RELATED_TO
                     )
 
                     try:
@@ -286,7 +286,7 @@ class ProvenanceAdapter:
                             await self._create_relationship(
                                 source_id=summary_id,
                                 target_id=item_id,
-                                relationship_type=RelationshipType.CONTAINS,
+                                relationship_type=RelationshipType.DERIVED_FROM,
                             )
                             relationships_created += 1
                         except Exception:
