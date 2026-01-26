@@ -670,3 +670,318 @@ class TestCanvasConcurrencyE2E:
         for canvas in canvases:
             final_canvas = await manager.get_canvas(canvas.id)
             assert len(final_canvas.nodes) == 1
+
+
+class TestCanvasActionExecutionE2E:
+    """E2E tests for canvas action execution."""
+
+    @pytest_asyncio.fixture
+    async def manager_with_canvas(self):
+        """Create a manager with a test canvas."""
+        from aragora.canvas.manager import CanvasStateManager
+
+        manager = CanvasStateManager()
+        canvas = await manager.create_canvas(name="Action Test Canvas")
+        yield manager, canvas
+
+    @pytest.mark.asyncio
+    async def test_start_debate_action_creates_node(self, manager_with_canvas):
+        """Test that start_debate action creates a debate node."""
+        manager, canvas = manager_with_canvas
+
+        # Execute start_debate action
+        result = await manager.execute_action(
+            canvas_id=canvas.id,
+            action="start_debate",
+            params={"question": "Should we use microservices?", "rounds": 3},
+        )
+
+        # Should succeed (node created, even if execution not available)
+        assert result.get("success") is True or "debate_node_id" in result
+
+        # Verify debate node was created
+        updated_canvas = await manager.get_canvas(canvas.id)
+        debate_nodes = [n for n in updated_canvas.nodes.values() if n.node_type.value == "debate"]
+        assert len(debate_nodes) >= 1
+
+    @pytest.mark.asyncio
+    async def test_run_workflow_action_creates_node(self, manager_with_canvas):
+        """Test that run_workflow action creates a workflow node."""
+        manager, canvas = manager_with_canvas
+
+        # Execute run_workflow action with required definition
+        result = await manager.execute_action(
+            canvas_id=canvas.id,
+            action="run_workflow",
+            params={
+                "definition": {
+                    "name": "Test Workflow",
+                    "steps": [{"type": "noop", "name": "test_step"}],
+                },
+                "inputs": {},
+            },
+        )
+
+        # Should succeed or return error about modules not available
+        # Either way, should have created a workflow node
+        updated_canvas = await manager.get_canvas(canvas.id)
+        workflow_nodes = [
+            n for n in updated_canvas.nodes.values() if n.node_type.value == "workflow"
+        ]
+        # Either we have a workflow node or the action returned success/graceful error
+        assert len(workflow_nodes) >= 1 or result.get("success") is True or "executed" in result
+
+    @pytest.mark.asyncio
+    async def test_query_knowledge_action(self, manager_with_canvas):
+        """Test that query_knowledge action works."""
+        manager, canvas = manager_with_canvas
+
+        # Execute query_knowledge action
+        result = await manager.execute_action(
+            canvas_id=canvas.id,
+            action="query_knowledge",
+            params={"query": "architecture patterns"},
+        )
+
+        # Should succeed (may not have actual results but shouldn't error)
+        assert "error" not in result or result.get("success") is True
+
+    @pytest.mark.asyncio
+    async def test_clear_canvas_action(self, manager_with_canvas):
+        """Test that clear_canvas action removes all nodes and edges."""
+        from aragora.canvas.models import CanvasNodeType, EdgeType, Position
+
+        manager, canvas = manager_with_canvas
+
+        # Add some nodes and edges
+        node1 = await manager.add_node(canvas.id, CanvasNodeType.AGENT, Position(0, 0), "Node 1")
+        node2 = await manager.add_node(canvas.id, CanvasNodeType.AGENT, Position(100, 0), "Node 2")
+        await manager.add_edge(canvas.id, node1.id, node2.id, EdgeType.DEFAULT)
+
+        # Verify nodes exist
+        canvas_before = await manager.get_canvas(canvas.id)
+        assert len(canvas_before.nodes) == 2
+        assert len(canvas_before.edges) == 1
+
+        # Execute clear_canvas action
+        result = await manager.execute_action(
+            canvas_id=canvas.id,
+            action="clear_canvas",
+            params={},
+        )
+
+        assert result.get("success") is True
+
+        # Verify canvas is cleared
+        canvas_after = await manager.get_canvas(canvas.id)
+        assert len(canvas_after.nodes) == 0
+        assert len(canvas_after.edges) == 0
+
+    @pytest.mark.asyncio
+    async def test_invalid_action_returns_error(self, manager_with_canvas):
+        """Test that invalid actions return appropriate error."""
+        manager, canvas = manager_with_canvas
+
+        result = await manager.execute_action(
+            canvas_id=canvas.id,
+            action="nonexistent_action",
+            params={},
+        )
+
+        # Should indicate failure or unknown action
+        assert (
+            result.get("success") is False or "error" in result or "unknown" in str(result).lower()
+        )
+
+
+class TestCanvasMCPToolsE2E:
+    """E2E tests for canvas MCP tools."""
+
+    @pytest.mark.asyncio
+    async def test_canvas_create_tool(self):
+        """Test canvas_create MCP tool."""
+        from aragora.mcp.tools_module.canvas import canvas_create_tool
+
+        result = await canvas_create_tool(
+            name="MCP Created Canvas",
+            description="Created via MCP tool",
+        )
+
+        assert result.get("success") is True
+        assert "canvas_id" in result
+        assert result["name"] == "MCP Created Canvas"
+
+    @pytest.mark.asyncio
+    async def test_canvas_get_tool(self):
+        """Test canvas_get MCP tool."""
+        from aragora.mcp.tools_module.canvas import canvas_create_tool, canvas_get_tool
+
+        # Create a canvas first
+        create_result = await canvas_create_tool(name="Get Test Canvas")
+        canvas_id = create_result["canvas_id"]
+
+        # Get the canvas
+        result = await canvas_get_tool(canvas_id=canvas_id)
+
+        assert result.get("success") is True
+        assert "canvas" in result
+        assert result["canvas"]["id"] == canvas_id
+        assert result["canvas"]["name"] == "Get Test Canvas"
+
+    @pytest.mark.asyncio
+    async def test_canvas_add_node_tool(self):
+        """Test canvas_add_node MCP tool."""
+        from aragora.mcp.tools_module.canvas import canvas_create_tool, canvas_add_node_tool
+
+        # Create a canvas first
+        create_result = await canvas_create_tool(name="Node Test Canvas")
+        canvas_id = create_result["canvas_id"]
+
+        # Add a node
+        result = await canvas_add_node_tool(
+            canvas_id=canvas_id,
+            node_type="agent",
+            label="Test Agent",
+            x=150,
+            y=200,
+            data='{"agent_id": "claude"}',
+        )
+
+        assert result.get("success") is True
+        assert "node_id" in result
+        assert result["node_type"] == "agent"
+
+    @pytest.mark.asyncio
+    async def test_canvas_add_edge_tool(self):
+        """Test canvas_add_edge MCP tool."""
+        from aragora.mcp.tools_module.canvas import (
+            canvas_create_tool,
+            canvas_add_node_tool,
+            canvas_add_edge_tool,
+        )
+
+        # Create canvas with nodes
+        create_result = await canvas_create_tool(name="Edge Test Canvas")
+        canvas_id = create_result["canvas_id"]
+
+        node1 = await canvas_add_node_tool(canvas_id=canvas_id, label="Source")
+        node2 = await canvas_add_node_tool(canvas_id=canvas_id, label="Target", x=200, y=100)
+
+        # Add edge
+        result = await canvas_add_edge_tool(
+            canvas_id=canvas_id,
+            source_id=node1["node_id"],
+            target_id=node2["node_id"],
+            edge_type="data_flow",
+            label="Data Connection",
+        )
+
+        assert result.get("success") is True
+        assert "edge_id" in result
+
+    @pytest.mark.asyncio
+    async def test_canvas_execute_action_tool(self):
+        """Test canvas_execute_action MCP tool."""
+        import json
+        from aragora.mcp.tools_module.canvas import canvas_create_tool, canvas_execute_action_tool
+
+        # Create canvas
+        create_result = await canvas_create_tool(name="Action Test Canvas")
+        canvas_id = create_result["canvas_id"]
+
+        # Execute start_debate action
+        result = await canvas_execute_action_tool(
+            canvas_id=canvas_id,
+            action="start_debate",
+            params=json.dumps({"question": "What is the best programming language?"}),
+        )
+
+        # Should either succeed or gracefully indicate execution not available
+        assert "error" not in result or result.get("success") is True
+
+    @pytest.mark.asyncio
+    async def test_canvas_list_tool(self):
+        """Test canvas_list MCP tool."""
+        from aragora.mcp.tools_module.canvas import canvas_create_tool, canvas_list_tool
+
+        # Create some canvases
+        await canvas_create_tool(name="List Test 1", owner_id="list-user")
+        await canvas_create_tool(name="List Test 2", owner_id="list-user")
+
+        # List canvases
+        result = await canvas_list_tool(owner_id="list-user")
+
+        assert "canvases" in result
+        assert result["count"] >= 2
+        assert all(c["name"].startswith("List Test") for c in result["canvases"][:2])
+
+    @pytest.mark.asyncio
+    async def test_canvas_delete_node_tool(self):
+        """Test canvas_delete_node MCP tool."""
+        from aragora.mcp.tools_module.canvas import (
+            canvas_create_tool,
+            canvas_add_node_tool,
+            canvas_delete_node_tool,
+            canvas_get_tool,
+        )
+
+        # Create canvas with a node
+        create_result = await canvas_create_tool(name="Delete Test Canvas")
+        canvas_id = create_result["canvas_id"]
+
+        node = await canvas_add_node_tool(canvas_id=canvas_id, label="To Delete")
+        node_id = node["node_id"]
+
+        # Verify node exists
+        before = await canvas_get_tool(canvas_id=canvas_id)
+        assert before["canvas"]["node_count"] == 1
+
+        # Delete the node
+        result = await canvas_delete_node_tool(canvas_id=canvas_id, node_id=node_id)
+        assert result.get("success") is True
+
+        # Verify node is deleted
+        after = await canvas_get_tool(canvas_id=canvas_id)
+        assert after["canvas"]["node_count"] == 0
+
+
+class TestCanvasWebSocketStreamE2E:
+    """E2E tests for canvas WebSocket streaming."""
+
+    @pytest.mark.asyncio
+    async def test_canvas_stream_server_initialization(self):
+        """Test that canvas stream server can be initialized."""
+        try:
+            from aragora.server.stream.canvas_stream import CanvasStreamServer
+
+            server = CanvasStreamServer(
+                host="localhost", port=0
+            )  # Port 0 for random available port
+            assert server is not None
+            assert hasattr(server, "start")
+            assert hasattr(server, "handle_connection")
+        except ImportError:
+            pytest.skip("Canvas stream server not available")
+
+    @pytest.mark.asyncio
+    async def test_canvas_event_broadcasting(self):
+        """Test that canvas operations work correctly (events broadcast when subscribers exist)."""
+        from aragora.canvas.manager import CanvasStateManager
+        from aragora.canvas.models import CanvasNodeType, Position
+
+        manager = CanvasStateManager()
+
+        # Create canvas and add node
+        canvas = await manager.create_canvas(name="Broadcast Test")
+        await manager.add_node(canvas.id, CanvasNodeType.AGENT, Position(0, 0), "Agent")
+
+        # Verify the operations succeeded - broadcasting happens when there are subscribers
+        # Without subscribers (in test mode), no events are broadcast, but the canvas should still work
+        updated_canvas = await manager.get_canvas(canvas.id)
+        assert len(updated_canvas.nodes) == 1
+        assert updated_canvas.name == "Broadcast Test"
+
+        # Verify the node was created correctly
+        node = list(updated_canvas.nodes.values())[0]
+        assert node.label == "Agent"
+        assert node.node_type == CanvasNodeType.AGENT

@@ -792,5 +792,13 @@ __all__ = [
     "get_control_plane_status_tool",
     "trigger_health_check_tool",
     "get_resource_utilization_tool",
+    # Canvas tools
+    "canvas_create_tool",
+    "canvas_get_tool",
+    "canvas_add_node_tool",
+    "canvas_add_edge_tool",
+    "canvas_execute_action_tool",
+    "canvas_list_tool",
+    "canvas_delete_node_tool",
     "TOOLS_METADATA",
 ]
