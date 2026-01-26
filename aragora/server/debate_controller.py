@@ -62,10 +62,13 @@ class DebateRequest:
     auto_select_config: dict = None
     use_trending: bool = False
     trending_category: Optional[str] = None
+    metadata: dict = None  # Custom metadata (e.g., is_onboarding)
 
     def __post_init__(self):
         if self.auto_select_config is None:
             self.auto_select_config = {}
+        if self.metadata is None:
+            self.metadata = {}
         # Normalize debate_format
         if self.debate_format not in ("light", "full"):
             self.debate_format = "full"
@@ -369,6 +372,7 @@ Return JSON with these exact fields:
             debate_format=request.debate_format,
             debate_id=debate_id,
             trending_topic=trending_topic,
+            metadata=request.metadata,
         )
 
         # Submit to thread pool
@@ -500,6 +504,15 @@ Return JSON with these exact fields:
             # Emit leaderboard update
             self._emit_leaderboard_update(debate_id)
 
+            # Auto-generate receipt for onboarding debates
+            if config.metadata and config.metadata.get("is_onboarding"):
+                self._generate_onboarding_receipt(
+                    debate_id=debate_id,
+                    config=config,
+                    result=result,
+                    duration_seconds=time.time() - start_time,
+                )
+
         except ValueError as e:
             # Validation errors (not enough agents, etc.)
             safe_msg = str(e)
@@ -623,6 +636,106 @@ Return JSON with these exact fields:
             )
         except Exception as e:
             logger.debug(f"Leaderboard emission failed: {e}")
+
+    def _generate_onboarding_receipt(
+        self,
+        debate_id: str,
+        config: DebateConfig,
+        result: Any,
+        duration_seconds: float,
+    ) -> None:
+        """Generate and save a receipt for onboarding debates.
+
+        Args:
+            debate_id: Unique debate identifier
+            config: Debate configuration
+            result: Debate result with final_answer, consensus, etc.
+            duration_seconds: Total debate duration
+        """
+        import hashlib
+        import uuid
+        from datetime import datetime, timezone
+
+        try:
+            from aragora.storage.receipt_store import get_receipt_store
+
+            receipt_store = get_receipt_store()
+
+            # Parse agents
+            agents_list = (
+                config.agents_str.split(",")
+                if isinstance(config.agents_str, str)
+                else config.agents_str
+            )
+
+            # Build receipt dict
+            receipt_id = str(uuid.uuid4())
+            timestamp = datetime.now(timezone.utc).isoformat()
+
+            # Determine verdict based on consensus
+            if result.consensus_reached and result.confidence >= 0.7:
+                verdict = "APPROVED"
+                risk_level = "LOW"
+            elif result.consensus_reached:
+                verdict = "APPROVED_WITH_CONDITIONS"
+                risk_level = "MEDIUM"
+            else:
+                verdict = "NEEDS_REVIEW"
+                risk_level = "MEDIUM"
+
+            # Calculate input hash
+            input_content = f"{config.question}|{config.agents_str}|{config.rounds}"
+            input_hash = hashlib.sha256(input_content.encode()).hexdigest()
+
+            receipt_dict = {
+                "receipt_id": receipt_id,
+                "gauntlet_id": f"onboarding-{debate_id}",
+                "debate_id": debate_id,
+                "timestamp": timestamp,
+                "input_summary": config.question[:200],
+                "input_hash": input_hash,
+                "verdict": verdict,
+                "confidence": result.confidence if hasattr(result, "confidence") else 0.5,
+                "risk_level": risk_level,
+                "risk_score": 1.0 - (result.confidence if hasattr(result, "confidence") else 0.5),
+                "robustness_score": result.confidence if hasattr(result, "confidence") else 0.5,
+                "agents_involved": agents_list,
+                "rounds_completed": config.rounds,
+                "duration_seconds": duration_seconds,
+                "final_answer": result.final_answer if hasattr(result, "final_answer") else "",
+                "consensus_reached": result.consensus_reached
+                if hasattr(result, "consensus_reached")
+                else False,
+                "is_onboarding": True,
+            }
+
+            # Calculate checksum
+            checksum_content = f"{receipt_id}|{debate_id}|{input_hash}|{verdict}"
+            receipt_dict["checksum"] = hashlib.sha256(checksum_content.encode()).hexdigest()
+
+            # Save receipt
+            receipt_store.save(receipt_dict)
+            logger.info(f"[onboarding] Generated receipt {receipt_id} for debate {debate_id}")
+
+            # Update onboarding flow with receipt ID if user_id is available
+            user_id = config.metadata.get("user_id") if config.metadata else None
+            org_id = config.metadata.get("organization_id") if config.metadata else None
+            if user_id:
+                try:
+                    from aragora.storage.repositories.onboarding import get_onboarding_repository
+
+                    repo = get_onboarding_repository()
+                    flow = repo.get_flow(user_id, org_id)
+                    if flow:
+                        repo.update_flow(
+                            flow["id"],
+                            {"metadata": {**flow.get("metadata", {}), "receipt_id": receipt_id}},
+                        )
+                except Exception as e:
+                    logger.debug(f"Could not update onboarding flow with receipt: {e}")
+
+        except Exception as e:
+            logger.warning(f"[onboarding] Failed to generate receipt for {debate_id}: {e}")
 
     @classmethod
     def shutdown(cls) -> None:

@@ -71,6 +71,7 @@ class DebateConfig:
     debate_format: str = "full"  # "light" (~5 min) or "full" (~30 min)
     debate_id: Optional[str] = None
     trending_topic: Optional["TrendingTopic"] = None  # TrendingTopic from pulse
+    metadata: Optional[dict] = None  # Custom metadata (e.g., is_onboarding)
 
     def parse_agent_specs(self) -> list[AgentSpec]:
         """Parse agent specifications from comma-separated string or list.
