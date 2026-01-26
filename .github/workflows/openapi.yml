@@ -147,20 +147,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: openapi-spec
-          path: docs/api/
-
-      - name: Rename generated files
-        run: |
-          if [ -f docs/api/openapi_generated.json ]; then
-            mv docs/api/openapi_generated.json docs/api/openapi.json
-          fi
-          if [ -f docs/api/openapi_generated.yaml ]; then
-            mv docs/api/openapi_generated.yaml docs/api/openapi.yaml
-          fi
+          path: /tmp/openapi-spec/
 
       - name: Check for changes
         id: changes
         run: |
+          # Copy generated files to compare
+          cp /tmp/openapi-spec/openapi_generated.json docs/api/openapi.json 2>/dev/null || true
+          cp /tmp/openapi-spec/openapi_generated.yaml docs/api/openapi.yaml 2>/dev/null || true
           git diff --quiet docs/api/openapi.json docs/api/openapi.yaml || echo "changes=true" >> $GITHUB_OUTPUT
 
       - name: Commit updated spec
@@ -168,8 +162,40 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/api/openapi.json docs/api/openapi.yaml
-          git commit -m "chore(api): auto-update OpenAPI spec [skip ci]" || true
-          # Pull with rebase to handle concurrent pushes from other workflows
-          git pull --rebase origin main || true
-          git push
+
+          # Retry loop for handling concurrent pushes
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            # Fetch latest and reset to handle concurrent changes
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Re-apply the generated spec files from temp location
+            cp /tmp/openapi-spec/openapi_generated.json docs/api/openapi.json 2>/dev/null || true
+            cp /tmp/openapi-spec/openapi_generated.yaml docs/api/openapi.yaml 2>/dev/null || true
+
+            # Check if there are actual changes
+            if git diff --quiet docs/api/openapi.json docs/api/openapi.yaml 2>/dev/null; then
+              echo "No changes to commit"
+              exit 0
+            fi
+
+            # Stage and commit
+            git add docs/api/openapi.json docs/api/openapi.yaml
+            git commit -m "chore(api): auto-update OpenAPI spec [skip ci]" || true
+
+            # Try to push
+            if git push origin main; then
+              echo "Successfully pushed OpenAPI spec update"
+              exit 0
+            fi
+
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "Push failed, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
+            sleep 5
+          done
+
+          echo "Failed to push after $MAX_RETRIES retries"
+          exit 1
