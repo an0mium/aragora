@@ -482,6 +482,9 @@ try:
     from aragora.server.handlers.sme_usage_dashboard import (
         SMEUsageDashboardHandler as _SMEUsageDashboardHandler,
     )
+    from aragora.server.handlers.canvas import (
+        CanvasHandler as _CanvasHandler,
+    )
 
     # Assign imported classes to module-level variables
     SystemHandler = _SystemHandler
@@ -591,6 +594,7 @@ try:
     MarketplaceHandler = _MarketplaceHandler
     OnboardingHandler = _OnboardingHandler
     SMEUsageDashboardHandler = _SMEUsageDashboardHandler
+    CanvasHandler = _CanvasHandler
     HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
@@ -713,6 +717,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_marketplace_handler", MarketplaceHandler),
     ("_onboarding_handler", OnboardingHandler),
     ("_sme_usage_dashboard_handler", SMEUsageDashboardHandler),
+    ("_canvas_handler", CanvasHandler),
 ]
 
 
@@ -922,6 +927,10 @@ class RouteIndex:
             ],
             "_sme_usage_dashboard_handler": [
                 "/api/v1/usage/",
+            ],
+            "_canvas_handler": [
+                "/api/v1/canvas",
+                "/api/v1/canvas/",
             ],
         }
 
@@ -1318,6 +1327,7 @@ class HandlerRegistryMixin:
     _marketplace_handler: Optional["BaseHandler"] = None
     _onboarding_handler: Optional["BaseHandler"] = None
     _sme_usage_dashboard_handler: Optional["BaseHandler"] = None
+    _canvas_handler: Optional["BaseHandler"] = None
     _handlers_initialized: bool = False
 
     @classmethod
