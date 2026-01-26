@@ -51,6 +51,7 @@ export function useDebateWebSocket({
   wsUrl = DEFAULT_WS_URL,
   enabled = true,
 }: UseDebateWebSocketOptions): UseDebateWebSocketReturn {
+  const MAX_HANDSHAKE_FAILURES = 3;
   const [status, setStatus] = useState<DebateConnectionStatus>('connecting');
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
@@ -69,6 +70,8 @@ export function useDebateWebSocket({
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const debateStartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isUnmountedRef = useRef(false);
+  const hasEverConnectedRef = useRef(false);
+  const handshakeFailuresRef = useRef(0);
 
   // Refs for callbacks to avoid triggering useEffect re-runs
   const handleMessageRef = useRef<((event: MessageEvent) => void) | null>(null);
@@ -171,6 +174,8 @@ export function useDebateWebSocket({
     setHasReceivedDebateStart(false);
     seenMessagesRef.current.clear();
     lastSeqRef.current = 0;
+    hasEverConnectedRef.current = false;
+    handshakeFailuresRef.current = 0;
   }, [debateId]);
 
   // Send vote to server
@@ -312,6 +317,8 @@ export function useDebateWebSocket({
     setError(null);
     setErrorDetails(null);
     setHasReceivedDebateStart(false);
+    hasEverConnectedRef.current = false;
+    handshakeFailuresRef.current = 0;
     setReconnectTrigger(prev => prev + 1);
   }, [clearReconnectTimeout, clearDebateStartTimeout]);
 
@@ -483,6 +490,8 @@ export function useDebateWebSocket({
       setError(null);
       setErrorDetails(null);
       setReconnectAttempt(0);
+      hasEverConnectedRef.current = true;
+      handshakeFailuresRef.current = 0;
       lastSeqRef.current = 0;
       ws.send(JSON.stringify({ type: 'subscribe', debate_id: debateId }));
 
@@ -509,6 +518,16 @@ export function useDebateWebSocket({
       }
 
       logger.warn(`[WebSocket] Connection closed (code: ${event.code}, reason: ${event.reason || 'none'})`);
+
+      if (!hasEverConnectedRef.current) {
+        handshakeFailuresRef.current += 1;
+        if (handshakeFailuresRef.current >= MAX_HANDSHAKE_FAILURES) {
+          setStatus('error');
+          setError('WebSocket unavailable');
+          setErrorDetails('Real-time updates are unavailable. Please refresh or try again later.');
+          return;
+        }
+      }
 
       if (!isUnmountedRef.current) {
         setStatus('connecting');

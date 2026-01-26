@@ -104,11 +104,17 @@ export function InfluenceGraph({
   const [selectedNode, setSelectedNode] = useState<BeliefNode | null>(null);
   const [showLabels, setShowLabels] = useState(true);
 
-  const { tokens } = useAuth();
+  const { tokens, isLoading: authLoading } = useAuth();
 
   // Fetch network data
   const fetchNetworkData = useCallback(async () => {
     if (!debateId) return;
+
+    if (authLoading || !tokens?.access_token) {
+      setLoading(false);
+      setError('Login required to load belief network');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -135,7 +141,7 @@ export function InfluenceGraph({
     } finally {
       setLoading(false);
     }
-  }, [debateId, apiBase, tokens?.access_token]);
+  }, [debateId, apiBase, tokens?.access_token, authLoading]);
 
   useEffect(() => {
     if (debateId && !initialData) {

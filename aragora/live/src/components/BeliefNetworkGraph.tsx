@@ -78,10 +78,15 @@ export function BeliefNetworkGraph({
   const [hoveredNode, setHoveredNode] = useState<BeliefNode | null>(null);
   const [simulation, setSimulation] = useState<BeliefNode[]>([]);
 
-  const { tokens } = useAuth();
+  const { tokens, isLoading: authLoading } = useAuth();
 
   const fetchGraph = useCallback(async () => {
     try {
+      if (authLoading || !tokens?.access_token) {
+        setLoading(false);
+        setError('Login required to load belief network');
+        return;
+      }
       setLoading(true);
       const headers: HeadersInit = {};
       if (tokens?.access_token) {
@@ -116,7 +121,7 @@ export function BeliefNetworkGraph({
     } finally {
       setLoading(false);
     }
-  }, [apiBase, debateId, height, tokens?.access_token, width]);
+  }, [apiBase, debateId, height, tokens?.access_token, width, authLoading]);
 
   useEffect(() => {
     fetchGraph();

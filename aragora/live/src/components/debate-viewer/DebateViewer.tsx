@@ -30,7 +30,7 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
   const [cruxes, setCruxes] = useState<CruxClaim[]>([]);
   const [showCruxHighlighting, setShowCruxHighlighting] = useState(true);
 
-  const { tokens } = useAuth();
+  const { tokens, isLoading: authLoading } = useAuth();
 
   const isLiveDebate = debateId.startsWith('adhoc_');
 
@@ -62,6 +62,7 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
   useEffect(() => {
     // Skip for non-live debates or if already fetched
     if (!isLiveDebate || cruxes.length > 0) return;
+    if (authLoading || !tokens?.access_token) return;
     // Wait until we have at least 3 messages
     if (liveMessages.length < 3) return;
 
@@ -94,7 +95,7 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
     // Delay fetch slightly to let debate settle
     const timer = setTimeout(fetchCruxes, 2000);
     return () => clearTimeout(timer);
-  }, [liveMessages.length, cruxes.length, debateId, isLiveDebate, tokens?.access_token]);
+  }, [liveMessages.length, cruxes.length, debateId, isLiveDebate, tokens?.access_token, authLoading]);
 
   // Detect when user manually scrolls up
   const handleScroll = useCallback(() => {
