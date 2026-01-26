@@ -232,7 +232,7 @@ class TestSlackSlashCommands:
             coro.close()
             return MagicMock()
 
-        with patch("aragora.server.handlers.social.slack.create_tracked_task", capture_task):
+        with patch("aragora.server.handlers.social._slack_impl.create_tracked_task", capture_task):
             result = handler._handle_slash_command(mock_http)
 
         assert result is not None
