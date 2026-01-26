@@ -47,7 +47,17 @@ def mock_continuum_memory():
             "oldest_archive": datetime.now(timezone.utc).isoformat(),
         }
     )
-    memory.get_pressure = MagicMock(return_value=0.3)
+    memory.get_memory_pressure = MagicMock(return_value=0.3)
+    memory.get_stats = MagicMock(
+        return_value={
+            "by_tier": {
+                "FAST": {"count": 10},
+                "MEDIUM": {"count": 50},
+                "SLOW": {"count": 200},
+                "GLACIAL": {"count": 500},
+            }
+        }
+    )
     memory.get_all_tiers = MagicMock(
         return_value=[
             {

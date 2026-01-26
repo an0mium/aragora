@@ -954,6 +954,7 @@ class UnifiedServer:
         UnifiedHandler.stream_emitter = self.stream_server.emitter
         UnifiedHandler.control_plane_stream = self.control_plane_stream
         UnifiedHandler.nomic_loop_stream = self.nomic_loop_stream
+        UnifiedHandler.canvas_stream = self.canvas_stream
         UnifiedHandler.persistence = self.persistence
 
         # Initialize nomic-dependent subsystems
