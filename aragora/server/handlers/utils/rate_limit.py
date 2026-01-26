@@ -292,6 +292,11 @@ def rate_limit(
             """Extract rate limit key from function arguments.
 
             Supports both old pattern (handler object) and new pattern (headers dict).
+
+            Security note: For the new pattern with headers dict, we do NOT trust
+            X-Forwarded-For or X-Real-IP headers because we cannot verify if the
+            request came from a trusted proxy (no access to client_address).
+            Use the old pattern with a handler object for proper proxy validation.
             """
             if key_func:
                 # Try old pattern first (handler object as first arg)
@@ -300,20 +305,32 @@ def rate_limit(
                 # For new pattern, key_func needs to handle kwargs
                 return key_func(kwargs)
 
-            # Old pattern: handler object with headers attribute
+            # Old pattern: handler object with headers attribute and client_address
+            # This path uses get_client_ip() which properly validates trusted proxies
             if args and hasattr(args[0], "headers"):
                 return get_client_ip(args[0])
 
             # New pattern: headers passed as kwarg
+            # SECURITY: We cannot safely use X-Forwarded-For here because we don't
+            # have access to client_address to verify the request came from a trusted
+            # proxy. Only use the validated_client_ip kwarg if explicitly provided.
+            validated_ip = kwargs.get("validated_client_ip")
+            if validated_ip and isinstance(validated_ip, str):
+                return _normalize_ip(validated_ip)
+
+            # Fallback: Use a hash of request characteristics for some differentiation
+            # This prevents all requests without IPs from sharing the same quota
             headers = kwargs.get("headers") or {}
             if isinstance(headers, dict):
-                # Extract client IP from X-Forwarded-For or X-Real-IP
-                forwarded = headers.get("X-Forwarded-For") or headers.get("x-forwarded-for") or ""
-                if forwarded:
-                    return forwarded.split(",")[0].strip()
-                real_ip = headers.get("X-Real-IP") or headers.get("x-real-ip") or ""
-                if real_ip:
-                    return real_ip.strip()
+                # Use User-Agent + Accept-Language as a weak differentiator
+                # This is NOT secure against spoofing but better than "unknown" for all
+                ua = headers.get("User-Agent") or headers.get("user-agent") or ""
+                lang = headers.get("Accept-Language") or headers.get("accept-language") or ""
+                if ua or lang:
+                    import hashlib
+
+                    key_data = f"{ua}:{lang}".encode()
+                    return f"anon:{hashlib.sha256(key_data).hexdigest()[:16]}"
 
             return "unknown"
 

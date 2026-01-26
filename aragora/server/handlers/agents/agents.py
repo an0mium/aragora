@@ -455,7 +455,7 @@ class AgentsHandler(BaseHandler):
             from aragora.agents.fallback import get_local_fallback_providers, is_local_llm_available
 
             health["fallback"] = {
-                "openrouter_available": bool(__import__("os").environ.get("OPENROUTER_API_KEY")),
+                "openrouter_available": _secret_configured("OPENROUTER_API_KEY"),
                 "local_llm_available": is_local_llm_available(),
                 "local_providers": get_local_fallback_providers(),
             }
@@ -472,22 +472,27 @@ class AgentsHandler(BaseHandler):
             register_all_agents()
             all_agents = AgentRegistry.list_all()
 
+            openrouter_available = _secret_configured("OPENROUTER_API_KEY")
             for agent_type, spec in all_agents.items():
                 agent_health = {
-                    "type": spec.get("category", "unknown"),
-                    "requires_api_key": spec.get("requires_api_key", False),
+                    "type": spec.get("type", "unknown"),
+                    "requires_api_key": bool(spec.get("env_vars")),
                     "api_key_configured": False,
                     "available": False,
                 }
 
                 # Check if required API key is configured
-                env_var = spec.get("env_var")
-                if env_var:
-                    agent_health["api_key_configured"] = bool(__import__("os").environ.get(env_var))
-                    agent_health["available"] = agent_health["api_key_configured"]
-                else:
-                    # CLI agents or agents without API keys
+                env_vars = spec.get("env_vars")
+                missing = _missing_required_env_vars(env_vars)
+                agent_health["api_key_configured"] = not missing
+                if not missing:
                     agent_health["available"] = True
+                else:
+                    fallback_model = _OPENROUTER_FALLBACK_MODELS.get(agent_type)
+                    uses_fallback = bool(openrouter_available and fallback_model)
+                    agent_health["available"] = uses_fallback
+                    agent_health["uses_openrouter_fallback"] = uses_fallback
+                    agent_health["fallback_model"] = fallback_model if uses_fallback else None
 
                 # Check circuit breaker state
                 cb_state = health["circuit_breakers"].get(agent_type, {})
