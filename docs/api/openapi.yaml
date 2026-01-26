@@ -4664,7 +4664,7 @@ paths:
       tags:
       - Monitoring
       summary: Prometheus metrics
-      operationId: listMetricsSystem
+      operationId: getPrometheusMetrics
       description: Metrics in Prometheus format
       responses:
         '200':
@@ -10060,7 +10060,7 @@ paths:
       tags:
       - Workflows
       summary: List workflow templates
-      operationId: listWorkflowTemplates
+      operationId: listWorkflowTemplatesLegacy
       description: Get gallery of workflow templates for quick start.
       parameters:
       - name: category
@@ -10115,7 +10115,7 @@ paths:
       tags:
       - Workflows
       summary: Get workflow template
-      operationId: getWorkflowTemplate
+      operationId: getWorkflowTemplateLegacy
       description: Get a specific workflow template for use as starting point.
       parameters:
       - name: template_id
@@ -13677,7 +13677,7 @@ paths:
       tags:
       - Codebase
       summary: List scans
-      operationId: getCodebaseScan
+      operationId: listCodebaseScans
       description: List scan history for a repository.
       security:
       - {}
@@ -15309,7 +15309,7 @@ paths:
       tags:
       - Codebase
       summary: Get latest metrics
-      operationId: getCodebaseMetric
+      operationId: getCodebaseMetricsLatest
       description: Fetch the latest metrics report.
       security:
       - {}
@@ -15400,7 +15400,7 @@ paths:
       tags:
       - Codebase
       summary: Get metrics by ID
-      operationId: getCodebaseMetric
+      operationId: getCodebaseMetricById
       description: Fetch a metrics report by analysis ID.
       security:
       - {}
