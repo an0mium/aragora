@@ -899,6 +899,9 @@ class GauntletHandler(BaseHandler):
                 input_hash=run.get("input_hash"),
             )
 
+            # Sign the receipt
+            receipt.sign()
+
             # Create stored receipt
             stored = StoredReceipt(
                 receipt_id=receipt.receipt_id,
@@ -1050,20 +1053,18 @@ class GauntletHandler(BaseHandler):
         # Return format based on query param
         # Supported formats: json (default), html, md, sarif, pdf, csv
         format_type = get_string_param(query_params, "format", "json")
-        # Check if cryptographic signing is requested
-        signed = get_string_param(query_params, "signed", "false") == "true"
 
-        # Prepare receipt data (potentially signed)
-        receipt_data = receipt.to_dict()
-        if signed:
+        # Sign the receipt by default (use signed=false query param to disable)
+        skip_signing = get_string_param(query_params, "signed", "true") == "false"
+        if not skip_signing:
             try:
-                from aragora.gauntlet.signing import sign_receipt
-
-                signed_receipt = sign_receipt(receipt_data)
-                receipt_data = signed_receipt.to_dict()
+                receipt.sign()
             except (ImportError, ValueError) as e:
                 logger.warning(f"Receipt signing failed: {e}")
                 # Continue with unsigned receipt
+
+        # Prepare receipt data
+        receipt_data = receipt.to_dict()
 
         def _notify_export(export_format: str, size_bytes: Optional[int] = None) -> None:
             try:

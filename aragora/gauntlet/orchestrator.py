@@ -759,6 +759,11 @@ class GauntletOrchestrator:
         # Generate and save receipt if configured
         if result.config.generate_receipt:
             receipt = DecisionReceipt.from_gauntlet_result(result)
+
+            # Sign receipt if configured (default: True)
+            if getattr(result.config, "sign_receipt", True):
+                receipt.sign()
+
             (output_dir / f"{result.id}_receipt.md").write_text(receipt.to_markdown())
             (output_dir / f"{result.id}_receipt.json").write_text(receipt.to_json())
 
