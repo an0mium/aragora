@@ -28,6 +28,8 @@ from typing import Any, Dict, List, Optional
 
 from aiohttp import web
 
+from aragora.server.handlers.utils.decorators import require_permission
+
 logger = logging.getLogger(__name__)
 
 
@@ -491,6 +493,7 @@ class CostHandler:
             logger.exception(f"Failed to get alerts: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
+    @require_permission("budget:set")
     async def handle_set_budget(self, request: web.Request) -> web.Response:
         """
         POST /api/costs/budget

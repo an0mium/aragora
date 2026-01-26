@@ -37,6 +37,7 @@ from aragora.analysis.codebase import (
     SBOMResult,
 )
 from aragora.server.handlers.base import (
+    require_permission,
     BaseHandler,
     HandlerResult,
     error_response,
@@ -643,6 +644,7 @@ def _get_or_create_secrets_scans(repo_id: str) -> Dict[str, SecretsScanResult]:
 # =============================================================================
 
 
+@require_permission("secrets:scan")
 async def handle_scan_secrets(
     repo_path: str,
     repo_id: Optional[str] = None,
@@ -750,6 +752,7 @@ async def handle_scan_secrets(
         return error_response(str(e), 500)
 
 
+@require_permission("secrets:read")
 async def handle_get_secrets_scan_status(
     repo_id: str,
     scan_id: Optional[str] = None,
@@ -783,6 +786,7 @@ async def handle_get_secrets_scan_status(
         return error_response(str(e), 500)
 
 
+@require_permission("secrets:read")
 async def handle_get_secrets(
     repo_id: str,
     severity: Optional[str] = None,

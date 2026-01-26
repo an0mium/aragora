@@ -37,6 +37,8 @@ from uuid import uuid4
 
 from aiohttp import web
 
+from aragora.server.handlers.utils.decorators import require_permission
+
 logger = logging.getLogger(__name__)
 
 
@@ -885,6 +887,7 @@ async def handle_get_customer(request: web.Request) -> web.Response:
         return web.json_response({"error": str(e)}, status=500)
 
 
+@require_permission("billing:delete")
 async def handle_delete_customer(request: web.Request) -> web.Response:
     """
     DELETE /api/payments/customer/{customer_id}
@@ -1027,6 +1030,7 @@ async def handle_create_subscription(request: web.Request) -> web.Response:
         return web.json_response({"error": str(e)}, status=500)
 
 
+@require_permission("billing:cancel")
 async def handle_cancel_subscription(request: web.Request) -> web.Response:
     """
     DELETE /api/payments/subscription/{subscription_id}
