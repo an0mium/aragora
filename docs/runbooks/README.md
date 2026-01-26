@@ -11,6 +11,22 @@ Operational runbooks for responding to Aragora alerts and incidents.
 | HighAPILatency | warning | [high-latency.md](./high-latency.md) |
 | DatabaseConnectionExhausted | critical | [database-issues.md](./database-issues.md) |
 | RedisUnavailable | critical | [redis-issues.md](./redis-issues.md) |
+| StartupSLOExceeded | warning | [RUNBOOK_STARTUP_ISSUES.md](./RUNBOOK_STARTUP_ISSUES.md) |
+| StartupFailed | critical | [RUNBOOK_STARTUP_ISSUES.md](./RUNBOOK_STARTUP_ISSUES.md) |
+| DecaySchedulerStopped | warning | [RUNBOOK_KNOWLEDGE_DECAY.md](./RUNBOOK_KNOWLEDGE_DECAY.md) |
+| StaleWorkspace | warning | [RUNBOOK_KNOWLEDGE_DECAY.md](./RUNBOOK_KNOWLEDGE_DECAY.md) |
+
+## Operational Runbooks
+
+| Topic | Runbook | Description |
+|-------|---------|-------------|
+| Server Startup | [RUNBOOK_STARTUP_ISSUES.md](./RUNBOOK_STARTUP_ISSUES.md) | Startup failures, SLO violations |
+| Database Migration | [RUNBOOK_DATABASE_CONSOLIDATION.md](./RUNBOOK_DATABASE_CONSOLIDATION.md) | Consolidating legacy databases |
+| Knowledge Decay | [RUNBOOK_KNOWLEDGE_DECAY.md](./RUNBOOK_KNOWLEDGE_DECAY.md) | Confidence decay monitoring |
+| Deployment | [RUNBOOK_DEPLOYMENT.md](./RUNBOOK_DEPLOYMENT.md) | Deployment procedures |
+| Security | [RUNBOOK_SECURITY.md](./RUNBOOK_SECURITY.md) | Security incident response |
+| Key Rotation | [RUNBOOK_KEY_ROTATION.md](./RUNBOOK_KEY_ROTATION.md) | Encryption key rotation |
+| PostgreSQL | [RUNBOOK_POSTGRESQL_MIGRATION.md](./RUNBOOK_POSTGRESQL_MIGRATION.md) | PostgreSQL migration |
 
 ## Incident Severity Levels
 
