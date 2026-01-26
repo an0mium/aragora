@@ -57,7 +57,7 @@ ANALYTICS_ENDPOINTS = {
             "parameters": [
                 {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}
             ],
-            "responses": {"200": _ok_response("Recent flips")},
+            "responses": {"200": _ok_response("Recent flips", "FlipsRecent")},
         },
     },
     "/api/flips/summary": {
@@ -66,7 +66,7 @@ ANALYTICS_ENDPOINTS = {
             "summary": "Flip summary",
             "operationId": "listFlipsSummary",
             "description": "Get summary statistics on position flips and conviction changes.",
-            "responses": {"200": _ok_response("Flip summary statistics")},
+            "responses": {"200": _ok_response("Flip summary statistics", "FlipsSummary")},
         },
     },
     "/api/insights/recent": {
@@ -78,7 +78,7 @@ ANALYTICS_ENDPOINTS = {
             "parameters": [
                 {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}
             ],
-            "responses": {"200": _ok_response("Recent insights")},
+            "responses": {"200": _ok_response("Recent insights", "InsightsRecent")},
         },
     },
     "/api/insights/extract-detailed": {
@@ -88,7 +88,7 @@ ANALYTICS_ENDPOINTS = {
             "operationId": "createInsightsExtractDetailed",
             "description": "Computationally expensive insight extraction (requires auth).",
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
-            "responses": {"200": _ok_response("Detailed insights")},
+            "responses": {"200": _ok_response("Detailed insights", "InsightsDetailed")},
             "security": [{"bearerAuth": []}],
         },
     },
@@ -98,7 +98,7 @@ ANALYTICS_ENDPOINTS = {
             "summary": "Moments summary",
             "operationId": "listMomentsSummary",
             "description": "Get summary of key moments across debates.",
-            "responses": {"200": _ok_response("Moments summary")},
+            "responses": {"200": _ok_response("Moments summary", "MomentsSummary")},
         },
     },
     "/api/moments/timeline": {
@@ -107,7 +107,7 @@ ANALYTICS_ENDPOINTS = {
             "summary": "Moments timeline",
             "operationId": "listMomentsTimeline",
             "description": "Get chronological timeline of significant debate moments.",
-            "responses": {"200": _ok_response("Timeline data")},
+            "responses": {"200": _ok_response("Timeline data", "MomentsTimeline")},
         },
     },
     "/api/moments/trending": {
@@ -116,7 +116,7 @@ ANALYTICS_ENDPOINTS = {
             "summary": "Trending moments",
             "operationId": "listMomentsTrending",
             "description": "Get currently trending debate moments based on engagement.",
-            "responses": {"200": _ok_response("Trending moments")},
+            "responses": {"200": _ok_response("Trending moments", "MomentsTrending")},
         },
     },
     "/api/moments/by-type/{type}": {
@@ -128,7 +128,7 @@ ANALYTICS_ENDPOINTS = {
             "parameters": [
                 {"name": "type", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Moments of specified type")},
+            "responses": {"200": _ok_response("Moments of specified type", "MomentsByType")},
         },
     },
 }

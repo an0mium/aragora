@@ -2278,6 +2278,115 @@ class HealthHandler(SecureHandler):
             }
         )
 
+    def _decay_health(self) -> HandlerResult:
+        """Confidence decay scheduler health - dedicated endpoint for decay monitoring.
+
+        Provides focused status for the confidence decay scheduler including:
+        - Scheduler running status
+        - Decay interval configuration
+        - Total cycles and items processed
+        - Last run timestamps per workspace
+        - Alerting for stale workspaces (>48h since last decay)
+        - Prometheus metrics availability
+        """
+        start_time = time.time()
+        warnings: list[str] = []
+
+        try:
+            from aragora.knowledge.mound.confidence_decay_scheduler import (
+                get_decay_scheduler,
+                DECAY_METRICS_AVAILABLE,
+            )
+        except ImportError:
+            return json_response(
+                {
+                    "status": "not_available",
+                    "message": "Confidence decay scheduler module not installed",
+                    "response_time_ms": round((time.time() - start_time) * 1000, 2),
+                },
+                status=503,
+            )
+
+        scheduler = get_decay_scheduler()
+        if not scheduler:
+            return json_response(
+                {
+                    "status": "not_configured",
+                    "message": "Confidence decay scheduler not initialized",
+                    "metrics_available": DECAY_METRICS_AVAILABLE,
+                    "response_time_ms": round((time.time() - start_time) * 1000, 2),
+                }
+            )
+
+        # Get scheduler statistics
+        stats = scheduler.get_stats()
+        is_running = scheduler.is_running
+
+        # Build workspace status
+        workspace_status: Dict[str, Any] = {}
+        last_runs = stats.get("last_decay_per_workspace", {})
+        now = datetime.now(timezone.utc)
+        stale_threshold_hours = 48
+
+        for workspace_id, last_run_str in last_runs.items():
+            try:
+                last_run = datetime.fromisoformat(last_run_str.replace("Z", "+00:00"))
+                hours_since = (now - last_run).total_seconds() / 3600
+                is_stale = hours_since > stale_threshold_hours
+                workspace_status[workspace_id] = {
+                    "last_decay": last_run_str,
+                    "hours_since_decay": round(hours_since, 1),
+                    "stale": is_stale,
+                }
+                if is_stale:
+                    warnings.append(
+                        f"Workspace {workspace_id} has not had decay in {round(hours_since)}h (>{stale_threshold_hours}h threshold)"
+                    )
+            except (ValueError, TypeError):
+                workspace_status[workspace_id] = {
+                    "last_decay": last_run_str,
+                    "parse_error": True,
+                }
+
+        # Determine overall status
+        stale_count = sum(1 for w in workspace_status.values() if w.get("stale", False))
+        if not is_running:
+            status = "stopped"
+        elif stale_count > 0:
+            status = "degraded"
+        else:
+            status = "healthy"
+
+        response_time_ms = round((time.time() - start_time) * 1000, 2)
+
+        return json_response(
+            {
+                "status": status,
+                "scheduler": {
+                    "running": is_running,
+                    "decay_interval_hours": stats.get("decay_interval_hours", 24),
+                    "min_confidence_threshold": stats.get("min_confidence_threshold", 0.1),
+                    "decay_rate": stats.get("decay_rate", 0.95),
+                },
+                "statistics": {
+                    "total_cycles": stats.get("total_decay_cycles", 0),
+                    "total_items_processed": stats.get("total_items_decayed", 0),
+                    "total_items_expired": stats.get("total_items_expired", 0),
+                    "errors": stats.get("decay_errors", 0),
+                },
+                "workspaces": {
+                    "total": len(workspace_status),
+                    "stale_count": stale_count,
+                    "stale_threshold_hours": stale_threshold_hours,
+                    "details": workspace_status if workspace_status else None,
+                },
+                "metrics_available": DECAY_METRICS_AVAILABLE,
+                "warnings": warnings if warnings else None,
+                "response_time_ms": response_time_ms,
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            }
+        )
+
     def _encryption_health(self) -> HandlerResult:
         """Encryption health check - verifies encryption service status.
 

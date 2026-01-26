@@ -97,6 +97,7 @@ interface MarketplaceClientInterface {
     price?: number;
   }): Promise<MarketplaceTemplate>;
   unpublishTemplate(templateId: string): Promise<{ success: boolean }>;
+  exportMarketplaceTemplate(templateId: string): Promise<Record<string, unknown>>;
 }
 
 /**
@@ -335,6 +336,24 @@ export class MarketplaceAPI {
    */
   async unpublish(templateId: string): Promise<{ success: boolean }> {
     return this.client.unpublishTemplate(templateId);
+  }
+
+  /**
+   * Export a template as JSON.
+   *
+   * Useful for backing up templates or sharing outside the marketplace.
+   *
+   * @param templateId - The template ID to export
+   * @returns The template definition as JSON
+   *
+   * @example
+   * ```typescript
+   * const templateJson = await client.marketplace.export('template-123');
+   * // Save to file or process as needed
+   * ```
+   */
+  async export(templateId: string): Promise<Record<string, unknown>> {
+    return this.client.exportMarketplaceTemplate(templateId);
   }
 
   // ===========================================================================
