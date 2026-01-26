@@ -684,6 +684,37 @@ def audit_debate(debate_id: str, action: str, **kwargs) -> None:
     get_unified_audit_logger().log_debate_event(debate_id, action, **kwargs)
 
 
+def audit_action(
+    user_id: str,
+    action: str,
+    resource_type: Optional[str] = None,
+    resource_id: Optional[str] = None,
+    **kwargs,
+) -> None:
+    """Log a generic action audit event.
+
+    This is a catch-all for actions that don't fit into other categories,
+    such as bot commands, integrations, and custom operations.
+
+    Args:
+        user_id: The ID of the user performing the action
+        action: Description of the action (e.g., "slack_slash_command")
+        resource_type: Type of resource being acted upon
+        resource_id: ID of the specific resource
+        **kwargs: Additional details to include in the audit event
+    """
+    get_unified_audit_logger().log(
+        UnifiedAuditEvent(
+            category=UnifiedAuditCategory.API_REQUEST,
+            action=action,
+            actor_id=user_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            details=kwargs,
+        )
+    )
+
+
 __all__ = [
     "UnifiedAuditCategory",
     "AuditOutcome",
@@ -700,4 +731,5 @@ __all__ = [
     "audit_admin",
     "audit_security",
     "audit_debate",
+    "audit_action",
 ]

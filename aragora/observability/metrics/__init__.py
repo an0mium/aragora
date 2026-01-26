@@ -159,6 +159,7 @@ from _aragora_metrics_impl import (  # noqa: F401, E402
     record_km_operation,
     record_km_cache_access,
     record_km_adapter_sync,
+    record_km_inbound_event,
     # Task queue metrics
     record_task_queue_operation,
     record_task_queue_recovery,

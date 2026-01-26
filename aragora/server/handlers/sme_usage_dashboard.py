@@ -424,12 +424,17 @@ class SMEUsageDashboardHandler(SecureHandler):
 
         # Build debate ROI inputs from usage data
         # This is a simplified version - real implementation would query debate records
-        from aragora.billing.roi_calculator import DebateROIInput, ROICalculator
+        from aragora.billing.roi_calculator import (
+            DebateROIInput,
+            IndustryBenchmark,
+            ROICalculator,
+        )
 
         try:
+            benchmark_enum = IndustryBenchmark(benchmark)
             if hourly_rate:
                 calculator = ROICalculator(
-                    benchmark=benchmark,
+                    benchmark=benchmark_enum,
                     hourly_rate_override=hourly_rate,
                 )
             else:
