@@ -27,6 +27,61 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
+from aragora.rbac.models import AuthorizationContext
+
+
+# ============================================================================
+# RBAC Auto-Bypass Fixture
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def mock_auth_for_handler_tests(request, monkeypatch):
+    """Bypass RBAC authentication for handler unit tests.
+
+    This autouse fixture patches get_auth_context to return an authenticated
+    admin context by default, allowing handler tests to focus on functionality
+    rather than auth setup.
+
+    To test authentication/authorization behavior specifically, use the
+    @pytest.mark.no_auto_auth marker to opt-out of auto-mocking:
+
+        @pytest.mark.no_auto_auth
+        def test_unauthenticated_returns_401(handler, mock_http_handler):
+            # get_auth_context will NOT be mocked for this test
+            result = handler.handle("/api/v1/resource", {}, mock_http_handler)
+            assert result.status_code == 401
+    """
+    # Check if test has opted out of auto-auth
+    if "no_auto_auth" in [m.name for m in request.node.iter_markers()]:
+        yield
+        return
+
+    # Create a mock auth context with admin permissions
+    mock_auth_ctx = AuthorizationContext(
+        user_id="test-user-001",
+        user_email="test@example.com",
+        org_id="test-org-001",
+        roles={"admin"},
+        permissions={"*"},  # Wildcard grants all permissions
+    )
+
+    async def mock_get_auth_context(request, require_auth=False):
+        """Mock get_auth_context that returns admin context."""
+        return mock_auth_ctx
+
+    # Patch at both locations where get_auth_context is imported
+    monkeypatch.setattr(
+        "aragora.server.handlers.utils.auth.get_auth_context",
+        mock_get_auth_context,
+    )
+    monkeypatch.setattr(
+        "aragora.server.handlers.secure.get_auth_context",
+        mock_get_auth_context,
+    )
+
+    yield mock_auth_ctx
+
 
 # ============================================================================
 # Response Helpers
