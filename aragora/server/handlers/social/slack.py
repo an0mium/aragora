@@ -1517,9 +1517,22 @@ class SlackHandler(BaseHandler):
 
             def on_round_complete(round_num: int, agent: str, response: str) -> None:
                 nonlocal last_round
+                # Post individual agent response to thread (fire-and-forget)
+                create_tracked_task(
+                    self._post_agent_response(
+                        response_url,
+                        agent,
+                        response,
+                        round_num,
+                        channel_id=channel_id,
+                        thread_ts=debate_thread_ts,
+                    ),
+                    name=f"slack-agent-{debate_id}-{agent}-{round_num}",
+                )
+
+                # Post round progress update when round changes
                 if round_num > last_round:
                     last_round = round_num
-                    # Post round update to thread (fire-and-forget)
                     create_tracked_task(
                         self._post_round_update(
                             response_url,
@@ -1672,6 +1685,80 @@ class SlackHandler(BaseHandler):
                     "text": f"*Round {round_num}/{total_rounds}* {progress_bar}\n_{agent} responded_",
                 },
             },
+        ]
+
+        # Use Web API with thread_ts when available for proper threading
+        if SLACK_BOT_TOKEN and channel_id and thread_ts:
+            await self._post_message_async(
+                channel=channel_id,
+                text=text,
+                thread_ts=thread_ts,
+                blocks=blocks,
+            )
+        else:
+            # Fall back to response_url (not threaded)
+            await self._post_to_response_url(
+                response_url,
+                {
+                    "response_type": "in_channel",
+                    "text": text,
+                    "blocks": blocks,
+                    "replace_original": False,
+                },
+            )
+
+    async def _post_agent_response(
+        self,
+        response_url: str,
+        agent: str,
+        response: str,
+        round_num: int,
+        channel_id: Optional[str] = None,
+        thread_ts: Optional[str] = None,
+    ) -> None:
+        """Post an individual agent response to the thread.
+
+        Args:
+            response_url: Slack response URL (webhook)
+            agent: Name of agent that responded
+            response: The agent's response content
+            round_num: Current round number
+            channel_id: Optional channel ID for Web API posting
+            thread_ts: Optional thread timestamp for threaded replies
+        """
+        # Agent emoji mapping for visual distinction
+        agent_emojis = {
+            "anthropic-api": ":robot_face:",
+            "openai-api": ":brain:",
+            "gemini": ":gem:",
+            "grok": ":zap:",
+            "mistral": ":wind_face:",
+            "deepseek": ":mag:",
+        }
+        emoji = agent_emojis.get(agent.lower(), ":speech_balloon:")
+
+        # Truncate response for Slack (max 3000 chars in section)
+        truncated = response[:2800] + "..." if len(response) > 2800 else response
+
+        text = f"{agent} (Round {round_num})"
+        blocks = [
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"{emoji} *{agent}* | Round {round_num}",
+                    }
+                ],
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": truncated,
+                },
+            },
+            {"type": "divider"},
         ]
 
         # Use Web API with thread_ts when available for proper threading

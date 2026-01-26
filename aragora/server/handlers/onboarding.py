@@ -723,6 +723,117 @@ async def handle_first_debate(
         return error_response(f"Failed to start debate: {str(e)}", status=500)
 
 
+async def handle_quick_debate(
+    data: Dict[str, Any],
+    user_id: str = "default",
+    organization_id: Optional[str] = None,
+) -> HandlerResult:
+    """
+    One-click quick debate creation for onboarding.
+
+    POST /api/v1/onboarding/quick-debate
+    Body: {
+        template_id: str (optional, default: "express_onboarding"),
+        topic: str (optional, use template example if not provided),
+        profile: str (optional, quick-start profile to use for agents)
+    }
+
+    Returns:
+        debate_id, websocket_url, estimated_duration, agents used
+    """
+    try:
+        from aragora.server.debate_controller import DebateController, DebateRequest
+        from aragora.server.debate_factory import DebateFactory
+        from aragora.server.stream import SyncEventEmitter
+
+        template_id = data.get("template_id", "express_onboarding")
+        topic = data.get("topic")
+        profile = data.get("profile")
+
+        # Find template
+        template = next(
+            (t for t in STARTER_TEMPLATES if t.id == template_id),
+            STARTER_TEMPLATES[-1],  # Default to express template
+        )
+
+        # Determine topic
+        if not topic:
+            topic = template.example_prompt
+
+        # Determine agents based on profile or template
+        if profile and profile in QUICK_START_CONFIGS:
+            config = QUICK_START_CONFIGS[profile]
+            agents = config.get("default_agents", ["claude", "gpt-4"])
+        else:
+            # Use minimal agents for quick onboarding
+            agents = ["anthropic-api", "openai-api"]
+
+        # Limit agents to template's count
+        agents = agents[: template.agents_count]
+        agents_str = ",".join(agents)
+
+        # Create debate request with light format for speed
+        request = DebateRequest(
+            question=topic,
+            agents_str=agents_str,
+            rounds=template.rounds,
+            consensus="judge",
+            debate_format="light",  # Always light for onboarding speed
+        )
+
+        # Create controller and start debate
+        emitter = SyncEventEmitter()
+        factory = DebateFactory()
+        controller = DebateController(factory=factory, emitter=emitter)
+
+        response = controller.start_debate(request)
+
+        if not response.success:
+            return error_response(
+                response.error or "Failed to start debate",
+                status=response.status_code,
+            )
+
+        # Update onboarding flow
+        flow_key = f"{user_id}:{organization_id or 'personal'}"
+        with _onboarding_lock:
+            flow = _onboarding_flows.get(flow_key)
+            if flow:
+                flow.first_debate_id = response.debate_id
+                flow.selected_template_id = template_id
+                flow.current_step = OnboardingStep.FIRST_DEBATE
+                flow.updated_at = datetime.now(timezone.utc).isoformat()
+
+        _track_event(
+            "quick_debate_started",
+            user_id,
+            organization_id,
+            {
+                "debate_id": response.debate_id,
+                "template_id": template_id,
+                "profile": profile,
+                "agents": agents,
+            },
+        )
+
+        return success_response(
+            {
+                "debate_id": response.debate_id,
+                "websocket_url": f"/ws/debates/{response.debate_id}",
+                "topic": topic,
+                "agents": agents,
+                "rounds": template.rounds,
+                "estimated_duration_seconds": template.estimated_minutes * 60,
+                "template": asdict(template),
+                "message": "Quick debate started successfully",
+            }
+        )
+
+    except Exception as e:
+        logger.exception("Failed to start quick debate")
+        return error_response(f"Failed to start quick debate: {str(e)}", status=500)
+
+
 async def handle_quick_start(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -897,8 +1008,83 @@ def get_onboarding_handlers() -> Dict[str, Any]:
         "get_templates": handle_get_templates,
         "first_debate": handle_first_debate,
         "quick_start": handle_quick_start,
+        "quick_debate": handle_quick_debate,
         "analytics": handle_analytics,
     }
+
+
+class OnboardingHandler:
+    """Handler class for onboarding endpoints (for handler registry)."""
+
+    ROUTES = [
+        "/api/onboarding/flow",
+        "/api/onboarding/templates",
+        "/api/onboarding/first-debate",
+        "/api/onboarding/quick-start",
+        "/api/onboarding/quick-debate",
+        "/api/onboarding/analytics",
+    ]
+
+    def __init__(self, ctx: Optional[Dict[str, Any]] = None):
+        """Initialize handler with server context."""
+        self.ctx = ctx or {}
+
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can process the given path."""
+        # Strip version prefix if present
+        normalized = path
+        if path.startswith("/api/v1/"):
+            normalized = "/api/" + path[8:]
+        elif path.startswith("/api/v2/"):
+            normalized = "/api/" + path[8:]
+        return normalized.startswith("/api/onboarding/")
+
+    async def handle(
+        self,
+        path: str,
+        method: str,
+        data: Optional[Dict[str, Any]] = None,
+        query_params: Optional[Dict[str, Any]] = None,
+        user_id: str = "default",
+        organization_id: Optional[str] = None,
+    ) -> HandlerResult:
+        """Route request to appropriate handler function."""
+        # Normalize path
+        normalized = path
+        if path.startswith("/api/v1/"):
+            normalized = "/api/" + path[8:]
+        elif path.startswith("/api/v2/"):
+            normalized = "/api/" + path[8:]
+
+        data = data or {}
+        query_params = query_params or {}
+
+        # Route based on path and method
+        if normalized == "/api/onboarding/flow":
+            if method == "GET":
+                return await handle_get_flow(user_id, organization_id)
+            elif method == "POST":
+                return await handle_init_flow(data, user_id, organization_id)
+
+        if normalized == "/api/onboarding/flow/step" and method == "PUT":
+            return await handle_update_step(data, user_id, organization_id)
+
+        if normalized == "/api/onboarding/templates" and method == "GET":
+            return await handle_get_templates(query_params, user_id, organization_id)
+
+        if normalized == "/api/onboarding/first-debate" and method == "POST":
+            return await handle_first_debate(data, user_id, organization_id)
+
+        if normalized == "/api/onboarding/quick-start" and method == "POST":
+            return await handle_quick_start(data, user_id, organization_id)
+
+        if normalized == "/api/onboarding/quick-debate" and method == "POST":
+            return await handle_quick_debate(data, user_id, organization_id)
+
+        if normalized == "/api/onboarding/analytics" and method == "GET":
+            return await handle_analytics(query_params, user_id, organization_id)
+
+        return error_response(f"Unknown onboarding endpoint: {path}", status=404)
 
 
 __all__ = [
@@ -908,8 +1094,10 @@ __all__ = [
     "handle_get_templates",
     "handle_first_debate",
     "handle_quick_start",
+    "handle_quick_debate",
     "handle_analytics",
     "get_onboarding_handlers",
+    "OnboardingHandler",
     "OnboardingStep",
     "UseCase",
     "QuickStartProfile",

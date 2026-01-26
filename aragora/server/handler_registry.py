@@ -148,6 +148,7 @@ ReceiptsHandler: HandlerType = None
 SLOHandler: HandlerType = None
 ConnectorsHandler: HandlerType = None
 MarketplaceHandler: HandlerType = None
+OnboardingHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
 # Import handlers with graceful fallback
@@ -461,6 +462,9 @@ try:
     from aragora.server.handlers import (
         MarketplaceHandler as _MarketplaceHandler,
     )
+    from aragora.server.handlers.onboarding import (
+        OnboardingHandler as _OnboardingHandler,
+    )
 
     # Assign imported classes to module-level variables
     SystemHandler = _SystemHandler
@@ -565,6 +569,7 @@ try:
     SLOHandler = _SLOHandler
     ConnectorsHandler = _ConnectorsHandler
     MarketplaceHandler = _MarketplaceHandler
+    OnboardingHandler = _OnboardingHandler
     HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
@@ -682,6 +687,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_receipts_handler", ReceiptsHandler),
     ("_connectors_handler", ConnectorsHandler),
     ("_marketplace_handler", MarketplaceHandler),
+    ("_onboarding_handler", OnboardingHandler),
 ]
 
 
@@ -872,6 +878,10 @@ class RouteIndex:
                 "/api/marketplace",
                 "/api/marketplace/",
                 "/api/v1/marketplace",
+            ],
+            "_onboarding_handler": [
+                "/api/onboarding/",
+                "/api/v1/onboarding/",
             ],
         }
 
@@ -1266,6 +1276,7 @@ class HandlerRegistryMixin:
     _ecommerce_handler: Optional["BaseHandler"] = None
     _connectors_handler: Optional["BaseHandler"] = None
     _marketplace_handler: Optional["BaseHandler"] = None
+    _onboarding_handler: Optional["BaseHandler"] = None
     _handlers_initialized: bool = False
 
     @classmethod
