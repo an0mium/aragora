@@ -131,6 +131,7 @@ from .websocket import (
     DebateStream,
     WebSocketOptions,
     stream_debate,
+    stream_debate_by_id,
 )
 
 __all__ = [
@@ -162,6 +163,7 @@ __all__ = [
     "DebateEventType",
     "WebSocketOptions",
     "stream_debate",
+    "stream_debate_by_id",
     # Enums
     "DebateStatus",
     "ConsensusType",

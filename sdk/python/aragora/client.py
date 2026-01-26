@@ -867,6 +867,126 @@ class AragoraClient:
             options=options,
         )
 
+    async def stream_debate(
+        self,
+        debate_id: str,
+        options: Optional[Any] = None,
+    ):
+        """
+        Stream events for a specific debate.
+
+        Convenience method that creates a WebSocket connection and streams
+        events for the specified debate. Handles connection lifecycle automatically.
+
+        Args:
+            debate_id: The debate ID to stream events for
+            options: Optional WebSocketOptions for connection settings
+
+        Yields:
+            WebSocketEvent objects
+
+        Example:
+            ```python
+            async for event in client.stream_debate("debate-123"):
+                if event.type == "agent_message":
+                    print(f"{event.data['agent']}: {event.data['content']}")
+                elif event.type == "debate_end":
+                    break
+            ```
+        """
+        from aragora.streaming import stream_debate
+
+        async for event in stream_debate(
+            base_url=self.config.base_url,
+            debate_id=debate_id,
+            api_key=self.config.api_key,
+            options=options,
+        ):
+            yield event
+
+    async def stream_all_debates(
+        self,
+        options: Optional[Any] = None,
+    ):
+        """
+        Stream events for all debates (no filter).
+
+        Useful for monitoring/dashboard scenarios where you want to see
+        all debate activity across your organization.
+
+        Args:
+            options: Optional WebSocketOptions for connection settings
+
+        Yields:
+            WebSocketEvent objects from all debates
+
+        Example:
+            ```python
+            async for event in client.stream_all_debates():
+                print(f"[{event.debate_id}] {event.type}: {event.data}")
+            ```
+        """
+        from aragora.streaming import stream_debate
+
+        async for event in stream_debate(
+            base_url=self.config.base_url,
+            debate_id=None,
+            api_key=self.config.api_key,
+            options=options,
+        ):
+            yield event
+
+    async def create_debate_and_stream(
+        self,
+        question: str,
+        agents: List[str],
+        rounds: int = 3,
+        stream_options: Optional[Any] = None,
+        **kwargs: Any,
+    ):
+        """
+        Create a debate and immediately start streaming its events.
+
+        Combines debate creation with streaming in a single call, reducing
+        boilerplate and ensuring you don't miss any events.
+
+        Args:
+            question: The debate question/topic
+            agents: List of agent names to participate
+            rounds: Number of debate rounds (default: 3)
+            stream_options: Optional WebSocketOptions for streaming
+            **kwargs: Additional arguments passed to create_debate
+
+        Returns:
+            Tuple of (debate_response, event_stream_generator)
+
+        Example:
+            ```python
+            debate, stream = await client.create_debate_and_stream(
+                question="Should we adopt microservices?",
+                agents=["claude", "gpt-4"],
+                rounds=3,
+            )
+            print(f"Created debate: {debate['debate_id']}")
+
+            async for event in stream:
+                print(f"{event.type}: {event.data}")
+            ```
+        """
+        debate = await self.create_debate(
+            question=question,
+            agents=agents,
+            rounds=rounds,
+            **kwargs,
+        )
+
+        debate_id = debate.get("debate_id") or debate.get("id")
+        if not debate_id:
+            raise ValueError("No debate_id in create_debate response")
+
+        stream = self.stream_debate(debate_id, stream_options)
+        return debate, stream
+
     # =========================================================================
     # Control Plane - Agent Registry
     # =========================================================================

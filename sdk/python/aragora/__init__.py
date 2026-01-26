@@ -35,6 +35,7 @@ from aragora.streaming import (
     WebSocketOptions,
     WebSocketState,
     stream_debate,
+    stream_debate_by_id,
 )
 
 __version__ = "2.4.0"
@@ -49,6 +50,7 @@ __all__ = [
     "WebSocketOptions",
     "WebSocketState",
     "stream_debate",
+    "stream_debate_by_id",
     # Version
     "__version__",
 ]

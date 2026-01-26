@@ -406,6 +406,57 @@ class DebateStream:
                 pass
         return self
 
+    async def once(
+        self,
+        event_type: str,
+        timeout: Optional[float] = None,
+    ) -> DebateEvent:
+        """
+        Wait for a single event of the specified type.
+
+        This is useful for waiting on specific events like 'debate_start' or
+        'consensus' without setting up persistent handlers.
+
+        Args:
+            event_type: The event type to wait for (e.g., 'debate_start', 'consensus')
+            timeout: Optional timeout in seconds. If exceeded, raises asyncio.TimeoutError.
+
+        Returns:
+            The first DebateEvent matching the specified type.
+
+        Raises:
+            asyncio.TimeoutError: If timeout is specified and exceeded.
+
+        Example:
+            stream = DebateStream(base_url, debate_id)
+            await stream.connect()
+
+            # Wait for debate to start (with 30s timeout)
+            start_event = await stream.once("debate_start", timeout=30.0)
+            print(f"Debate started: {start_event.data}")
+
+            # Wait for consensus (no timeout)
+            consensus = await stream.once("consensus")
+            print(f"Consensus: {consensus.data}")
+        """
+        loop = asyncio.get_event_loop()
+        future: asyncio.Future[DebateEvent] = loop.create_future()
+
+        def handler(event: DebateEvent) -> None:
+            if not future.done():
+                future.set_result(event)
+
+        # Register the one-time handler
+        self.on(event_type, handler)
+
+        try:
+            if timeout is not None:
+                return await asyncio.wait_for(future, timeout)
+            return await future
+        finally:
+            # Always clean up the handler
+            self.off(event_type, handler)
+
     async def send(self, data: Dict[str, Any]) -> None:
         """Send a message to the server."""
         if self._ws:
@@ -570,10 +621,47 @@ async def stream_debate(
         await stream.disconnect()
 
 
+async def stream_debate_by_id(
+    base_url: str,
+    debate_id: str,
+    options: Optional[WebSocketOptions] = None,
+) -> AsyncGenerator[DebateEvent, None]:
+    """
+    Stream events for a specific debate by ID.
+
+    Convenience wrapper around stream_debate() that requires a debate_id.
+    Use this when you always want to stream a specific debate's events.
+
+    Args:
+        base_url: WebSocket server URL
+        debate_id: The debate ID to stream (required)
+        options: Connection options
+
+    Yields:
+        DebateEvent objects for the specified debate
+
+    Example:
+        from aragora.client.websocket import stream_debate_by_id
+
+        async for event in stream_debate_by_id(
+            "ws://localhost:8080",
+            debate_id="debate-123",
+        ):
+            print(f"{event.type}: {event.data}")
+    """
+    async for event in stream_debate(
+        base_url=base_url,
+        debate_id=debate_id,
+        options=options,
+    ):
+        yield event
+
+
 __all__ = [
     "DebateEventType",
     "DebateEvent",
     "WebSocketOptions",
     "DebateStream",
     "stream_debate",
+    "stream_debate_by_id",
 ]

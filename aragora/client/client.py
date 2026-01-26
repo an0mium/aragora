@@ -830,6 +830,113 @@ class AragoraClient:
         response = await self._get_async("/api/health")
         return HealthCheck(**response)
 
+    async def stream_debate(self, debate_id: str, options: Optional[Any] = None):
+        """
+        Stream events for a specific debate.
+
+        This is a convenience method that creates a WebSocket connection
+        and yields events for the specified debate.
+
+        Args:
+            debate_id: The ID of the debate to stream
+            options: Optional WebSocketOptions for connection configuration
+
+        Yields:
+            DebateEvent objects for each event from the debate
+
+        Example:
+            async for event in client.stream_debate("debate-123"):
+                print(f"{event.type}: {event.data}")
+                if event.type == DebateEventType.DEBATE_END:
+                    break
+        """
+        from aragora.client.websocket import stream_debate
+
+        ws_url = self.base_url.replace("http://", "ws://").replace("https://", "wss://")
+        async for event in stream_debate(
+            base_url=ws_url,
+            debate_id=debate_id,
+            options=options,
+        ):
+            yield event
+
+    async def stream_all_debates(self, options: Optional[Any] = None):
+        """
+        Stream events for all debates (no filter).
+
+        This is a convenience method for monitoring all debate activity
+        on the server.
+
+        Args:
+            options: Optional WebSocketOptions for connection configuration
+
+        Yields:
+            DebateEvent objects for events from all debates
+
+        Example:
+            async for event in client.stream_all_debates():
+                print(f"[{event.debate_id}] {event.type}: {event.data}")
+        """
+        from aragora.client.websocket import stream_debate
+
+        ws_url = self.base_url.replace("http://", "ws://").replace("https://", "wss://")
+        async for event in stream_debate(
+            base_url=ws_url,
+            debate_id="",  # Empty string means no filter
+            options=options,
+        ):
+            yield event
+
+    async def create_debate_and_stream(
+        self,
+        task: str,
+        agents: list,
+        rounds: int = 3,
+        stream_options: Optional[Any] = None,
+        **kwargs: Any,
+    ):
+        """
+        Create a debate and immediately start streaming its events.
+
+        This is a convenience method that combines debate creation with
+        event streaming for a streamlined workflow.
+
+        Args:
+            task: The debate topic/question
+            agents: List of agent IDs to participate
+            rounds: Number of debate rounds (default: 3)
+            stream_options: Optional WebSocketOptions for connection configuration
+            **kwargs: Additional arguments passed to debates.create_async()
+
+        Returns:
+            Tuple of (debate_response, event_stream)
+
+        Example:
+            debate, stream = await client.create_debate_and_stream(
+                task="Should we use microservices?",
+                agents=["claude", "gpt-4"],
+            )
+            print(f"Created debate: {debate['debate_id']}")
+            async for event in stream:
+                print(f"{event.type}: {event.data}")
+        """
+        # Create the debate first
+        debate = await self.debates.create_async(
+            task=task,
+            agents=agents,
+            rounds=rounds,
+            **kwargs,
+        )
+
+        # Extract debate_id from response
+        debate_id = debate.debate_id if hasattr(debate, "debate_id") else debate.get("debate_id")
+        if not debate_id:
+            raise ValueError("No debate_id in create_debate response")
+
+        # Return debate and stream
+        stream = self.stream_debate(debate_id, stream_options)
+        return debate, stream
+
     def __enter__(self) -> "AragoraClient":
         """Sync context manager entry."""
         return self
