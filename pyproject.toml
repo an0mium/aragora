@@ -921,10 +921,10 @@ omit = [
 
 [tool.coverage.report]
 # Coverage threshold - incrementally raised
-# 19% (initial) -> 30% (Sprint 2.1) -> 45% (Sprint 9, Jan 2026)
-# Enterprise modules (control_plane, tenancy, policy, privacy) at 55%
-# Target: 50% by end of Q1 2026, 70% by end of Q2 2026
-fail_under = 45
+# 19% (initial) -> 30% (Sprint 2.1) -> 45% (Sprint 9) -> 65% (Jan 2026)
+# Enterprise modules (control_plane, tenancy, policy, privacy) at 70%
+# Target: 70% by end of Q1 2026, 80% by end of Q2 2026
+fail_under = 65
 show_missing = true
 skip_covered = true
 exclude_lines = [

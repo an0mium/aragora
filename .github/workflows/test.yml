@@ -211,7 +211,7 @@ jobs:
             --cov-report=term-missing \
             --cov-report=xml \
             --cov-report=html \
-            --cov-fail-under=55 \
+            --cov-fail-under=65 \
             -n auto \
             --dist loadscope \
             -v \
@@ -219,6 +219,44 @@ jobs:
         shell: bash
         env:
           PYTHONPATH: .
+
+      - name: Check critical path coverage
+        if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
+        run: |
+          # Verify critical modules meet higher coverage threshold
+          echo "Checking critical module coverage..."
+          python -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('coverage.xml')
+          root = tree.getroot()
+
+          CRITICAL_MODULES = {
+              'aragora/server': 60,
+              'aragora/debate': 55,
+              'aragora/memory': 55,
+              'aragora/knowledge/mound': 60,
+          }
+
+          failures = []
+          for package in root.findall('.//package'):
+              name = package.get('name', '')
+              for module, threshold in CRITICAL_MODULES.items():
+                  if module in name:
+                      line_rate = float(package.get('line-rate', 0)) * 100
+                      if line_rate < threshold:
+                          failures.append(f'{name}: {line_rate:.1f}% < {threshold}%')
+                      else:
+                          print(f'✓ {name}: {line_rate:.1f}% >= {threshold}%')
+                      break
+
+          if failures:
+              print('\\n⚠️ Critical module coverage below threshold:')
+              for f in failures:
+                  print(f'  • {f}')
+              # Warning only for now - will become error in future
+              print('\\nThis is a warning - will become blocking in future releases.')
+          "
+        continue-on-error: true
 
       - name: Upload coverage artifacts
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
