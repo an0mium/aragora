@@ -893,23 +893,36 @@ class HookHandlerRegistry:
 
                 # Generate receipt from debate result
                 receipt = DecisionReceipt.from_debate_result(result)
+
+                # Sign by default (auto_sign controls this)
+                if auto_sign:
+                    try:
+                        receipt.sign()
+                        logger.debug(f"Auto-signed receipt {receipt.receipt_id}")
+                    except (ImportError, ValueError) as e:
+                        logger.warning(f"Receipt signing failed: {e}")
+
                 logger.info(
                     f"Generated decision receipt {receipt.receipt_id} for debate "
                     f"{receipt.gauntlet_id} (confidence: {confidence:.2f})"
                 )
 
-                # Optional signing
-                if auto_sign:
+                # Legacy: If we have a store with save_signed, use that
+                if receipt_store and hasattr(receipt_store, "save_signed") and receipt.signature:
                     try:
-                        from aragora.gauntlet.signing import sign_receipt
+                        from aragora.gauntlet.signing import SignedReceipt, SignatureMetadata
 
-                        signed = sign_receipt(receipt.to_dict())
-                        logger.debug(f"Auto-signed receipt {receipt.receipt_id}")
-
-                        # If we have a store, save the signed version
-                        if receipt_store and hasattr(receipt_store, "save_signed"):
-                            receipt_store.save_signed(signed)
-                            return
+                        signed = SignedReceipt(
+                            receipt_data=receipt._to_dict_for_signing(),
+                            signature=receipt.signature,
+                            signature_metadata=SignatureMetadata(
+                                algorithm=receipt.signature_algorithm or "",
+                                timestamp=receipt.signed_at or "",
+                                key_id=receipt.signature_key_id or "",
+                            ),
+                        )
+                        receipt_store.save_signed(signed)
+                        return
                     except (ImportError, ValueError) as sign_err:
                         logger.warning(f"Auto-signing failed: {sign_err}")
 

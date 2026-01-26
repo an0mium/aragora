@@ -503,12 +503,20 @@ class FeedbackPhase:
                 cost_data=cost_data,
             )
 
+            # Sign the receipt
+            try:
+                signed_receipt = receipt.sign()
+                receipt_data = signed_receipt.to_dict()
+            except (ImportError, ValueError) as e:
+                logger.debug("[receipt] Signing failed, using unsigned: %s", e)
+                receipt_data = {"receipt": receipt.to_dict()}
+
             # Store receipt in receipt store
             try:
                 from aragora.storage.receipt_store import get_receipt_store
 
                 store = get_receipt_store()
-                store.save(receipt.to_dict())
+                store.save(receipt_data.get("receipt", receipt.to_dict()))
                 logger.info(
                     "[receipt] Generated receipt %s for debate %s",
                     receipt.receipt_id,
