@@ -354,6 +354,55 @@ PERM_CONTROL_PLANE_DELIBERATE = _permission(
 
 
 # ============================================================================
+# SYSTEM OPERATIONS PERMISSIONS
+# ============================================================================
+
+# Queue management permissions
+PERM_QUEUE_READ = _permission(
+    ResourceType.QUEUE, Action.READ, "View Queue", "View job queue status and messages"
+)
+PERM_QUEUE_MANAGE = _permission(
+    ResourceType.QUEUE, Action.MANAGE, "Manage Queue", "Submit, retry, and cancel queue jobs"
+)
+PERM_QUEUE_ADMIN = _permission(
+    ResourceType.QUEUE,
+    Action.ADMIN_OP,
+    "Administer Queue",
+    "Full queue administration including DLQ",
+)
+
+# Nomic self-improvement loop permissions
+PERM_NOMIC_READ = _permission(
+    ResourceType.NOMIC, Action.READ, "View Nomic", "View Nomic loop progress and results"
+)
+PERM_NOMIC_ADMIN = _permission(
+    ResourceType.NOMIC,
+    Action.ADMIN_OP,
+    "Administer Nomic",
+    "Control Nomic self-improvement operations",
+)
+
+# Orchestration permissions
+PERM_ORCHESTRATION_READ = _permission(
+    ResourceType.ORCHESTRATION,
+    Action.READ,
+    "View Orchestration",
+    "View orchestration templates and status",
+)
+PERM_ORCHESTRATION_EXECUTE = _permission(
+    ResourceType.ORCHESTRATION,
+    Action.EXECUTE,
+    "Execute Orchestration",
+    "Run multi-agent deliberations",
+)
+
+# System health permissions
+PERM_SYSTEM_HEALTH_READ = _permission(
+    ResourceType.SYSTEM, Action.READ, "View System Health", "View system health and diagnostics"
+)
+
+
+# ============================================================================
 # ENTERPRISE PERMISSIONS - Data Governance
 # ============================================================================
 
@@ -1055,6 +1104,15 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_WORKSPACE_MEMBER_REMOVE,
         PERM_WORKSPACE_MEMBER_CHANGE_ROLE,
         PERM_WORKSPACE_SHARE,
+        # System operations
+        PERM_QUEUE_READ,
+        PERM_QUEUE_MANAGE,
+        PERM_QUEUE_ADMIN,
+        PERM_NOMIC_READ,
+        PERM_NOMIC_ADMIN,
+        PERM_ORCHESTRATION_READ,
+        PERM_ORCHESTRATION_EXECUTE,
+        PERM_SYSTEM_HEALTH_READ,
     ]
 }
 
@@ -1175,6 +1233,15 @@ ROLE_ADMIN = Role(
         PERM_WORKSPACE_MEMBER_REMOVE.key,
         PERM_WORKSPACE_MEMBER_CHANGE_ROLE.key,
         PERM_WORKSPACE_SHARE.key,
+        # System operations (all admin access)
+        PERM_QUEUE_READ.key,
+        PERM_QUEUE_MANAGE.key,
+        PERM_QUEUE_ADMIN.key,
+        PERM_NOMIC_READ.key,
+        PERM_NOMIC_ADMIN.key,
+        PERM_ORCHESTRATION_READ.key,
+        PERM_ORCHESTRATION_EXECUTE.key,
+        PERM_SYSTEM_HEALTH_READ.key,
     },
     parent_roles=[],
     priority=80,

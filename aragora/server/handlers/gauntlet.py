@@ -40,6 +40,7 @@ from .base import (
     safe_error_message,
 )
 from .utils.rate_limit import rate_limit
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -449,6 +450,7 @@ class GauntletHandler(BaseHandler):
 
         return result
 
+    @require_permission("gauntlet:read")
     def _list_personas(self) -> HandlerResult:
         """List available regulatory personas."""
         try:
@@ -483,6 +485,7 @@ class GauntletHandler(BaseHandler):
                 }
             )
 
+    @require_permission("gauntlet:run")
     async def _start_gauntlet(self, handler: Any) -> HandlerResult:
         """Start a new gauntlet stress-test."""
         # Check quota before proceeding
@@ -844,6 +847,7 @@ class GauntletHandler(BaseHandler):
             except (OSError, RuntimeError, ValueError):
                 pass
 
+    @require_permission("gauntlet:read")
     async def _get_status(self, gauntlet_id: str) -> HandlerResult:
         """Get gauntlet run status."""
         # Check in-memory first (for pending/running)
@@ -973,6 +977,7 @@ class GauntletHandler(BaseHandler):
         else:
             return "CRITICAL"
 
+    @require_permission("gauntlet:read")
     async def _get_receipt(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Get decision receipt for gauntlet run."""
         from aragora.gauntlet.errors import gauntlet_error_response
@@ -1134,6 +1139,7 @@ class GauntletHandler(BaseHandler):
             _notify_export("json", len(json.dumps(receipt_data)))
             return json_response(receipt_data)
 
+    @require_permission("gauntlet:read")
     async def _verify_receipt(self, gauntlet_id: str, handler: Any) -> HandlerResult:
         """Verify a signed decision receipt.
 
@@ -1289,6 +1295,7 @@ class GauntletHandler(BaseHandler):
             # Return 200 with verification failure details (not a client error)
             return json_response(verification_result)
 
+    @require_permission("gauntlet:read")
     async def _get_heatmap(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Get risk heatmap for gauntlet run."""
         from aragora.gauntlet.heatmap import HeatmapCell, RiskHeatmap
@@ -1375,6 +1382,7 @@ class GauntletHandler(BaseHandler):
         else:
             return json_response(heatmap.to_dict())
 
+    @require_permission("gauntlet:read")
     def _list_results(self, query_params: dict) -> HandlerResult:
         """List recent gauntlet results with pagination."""
         try:
@@ -1429,6 +1437,7 @@ class GauntletHandler(BaseHandler):
             logger.error(f"Failed to list results: {e}")
             return error_response(safe_error_message(e, "list results"), 500)
 
+    @require_permission("gauntlet:compare")
     def _compare_results(self, id1: str, id2: str, query_params: dict) -> HandlerResult:
         """Compare two gauntlet results."""
         try:
@@ -1443,6 +1452,7 @@ class GauntletHandler(BaseHandler):
             logger.error(f"Failed to compare results: {e}")
             return error_response(safe_error_message(e, "compare results"), 500)
 
+    @require_permission("gauntlet:delete")
     def _delete_result(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Delete a gauntlet result."""
         try:
@@ -1462,6 +1472,7 @@ class GauntletHandler(BaseHandler):
             logger.error(f"Failed to delete result: {e}")
             return error_response(safe_error_message(e, "delete result"), 500)
 
+    @require_permission("gauntlet:export")
     async def _export_report(
         self, gauntlet_id: str, query_params: dict, handler: Any = None
     ) -> HandlerResult:

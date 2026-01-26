@@ -27,10 +27,10 @@ from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from aragora.server.handlers.base import (
-    BaseHandler,
     error_response,
     success_response,
 )
+from aragora.server.handlers.secure import SecureHandler, UnauthorizedError, ForbiddenError
 from aragora.server.handlers.utils.responses import HandlerResult
 
 logger = logging.getLogger(__name__)
@@ -737,13 +737,20 @@ def get_email_services_routes() -> list[tuple[str, str, Any]]:
     ]
 
 
-class EmailServicesHandler(BaseHandler):
+class EmailServicesHandler(SecureHandler):
     """
     HTTP handler for email services endpoints.
 
     Provides follow-up tracking, snooze management, and categorization.
     Integrates with the Aragora server routing system.
+
+    RBAC Permissions:
+    - email:read - View emails, follow-ups, categories
+    - email:create - Create follow-up tracking records
+    - email:update - Modify email states (snooze, resolve, feedback)
     """
+
+    RESOURCE_TYPE = "email"
 
     ROUTES = [
         "/api/v1/email/followups/mark",
@@ -792,10 +799,38 @@ class EmailServicesHandler(BaseHandler):
         """Route email services endpoint requests."""
         return None
 
-    async def handle_post(self, path: str, data: dict[str, Any]) -> HandlerResult:  # type: ignore[override]
-        """Handle POST requests."""
+    async def handle_post(  # type: ignore[override]
+        self,
+        path: str,
+        data: dict[str, Any],
+        query_params: dict[str, Any] | None = None,
+        handler: Any = None,
+    ) -> HandlerResult:
+        """Handle POST requests with RBAC protection."""
+        # Require authentication for all email operations
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
+        # Determine required permission based on operation
+        if path in {"/api/v1/email/followups/mark", "/api/v1/email/followups/auto-detect"}:
+            permission = "email:create"
+        else:
+            permission = "email:update"
+
+        try:
+            self.check_permission(auth_context, permission)
+        except ForbiddenError:
+            logger.warning(f"Email permission denied: {permission} for user {auth_context.user_id}")
+            return error_response(f"Permission denied: {permission}", 403)
+
+        user_id = auth_context.user_id
+
         if path == "/api/v1/email/followups/mark":
-            return await handle_mark_followup(data)
+            return await handle_mark_followup(data, user_id=user_id)
         elif path == "/api/v1/email/followups/check-replies":
             return await handle_check_replies()
         elif path == "/api/v1/email/followups/auto-detect":
@@ -815,9 +850,34 @@ class EmailServicesHandler(BaseHandler):
             return await handle_category_feedback(data)
         return error_response("Not found", status=404)
 
-    async def handle_get(self, path: str, query_params: dict[str, Any]) -> HandlerResult:
-        """Handle GET requests."""
-        user_id = query_params.get("user_id", "default")
+    async def handle_get(  # type: ignore[override]
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any = None,
+    ) -> HandlerResult:
+        """Handle GET requests with RBAC protection."""
+        # Categories endpoint is public (static reference data)
+        if path == "/api/v1/email/categories":
+            user_id = query_params.get("user_id", "default")
+            return await handle_get_categories(user_id=user_id)
+
+        # All other read operations require authentication
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
+        try:
+            self.check_permission(auth_context, "email:read")
+        except ForbiddenError:
+            logger.warning(f"Email read denied for user {auth_context.user_id}")
+            return error_response("Permission denied: email:read", 403)
+
+        user_id = auth_context.user_id
+
         if path == "/api/v1/email/followups/pending":
             return await handle_get_pending_followups(
                 user_id=user_id,
@@ -825,8 +885,6 @@ class EmailServicesHandler(BaseHandler):
             )
         elif path == "/api/v1/email/snoozed":
             return await handle_get_snoozed_emails(user_id=user_id)
-        elif path == "/api/v1/email/categories":
-            return await handle_get_categories(user_id=user_id)
         elif "snooze-suggestions" in path:
             parts = path.split("/")
             if len(parts) >= 5:
@@ -835,12 +893,31 @@ class EmailServicesHandler(BaseHandler):
                 )
         return error_response("Not found", status=404)
 
-    async def handle_delete(self, path: str, query_params: dict[str, Any]) -> HandlerResult:  # type: ignore[override]
-        """Handle DELETE requests."""
+    async def handle_delete(  # type: ignore[override]
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any = None,
+    ) -> HandlerResult:
+        """Handle DELETE requests with RBAC protection."""
+        # Require authentication for all delete operations
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
+        try:
+            self.check_permission(auth_context, "email:update")
+        except ForbiddenError:
+            logger.warning(f"Email update denied for user {auth_context.user_id}")
+            return error_response("Permission denied: email:update", 403)
+
+        user_id = auth_context.user_id
+
         if "/snooze" in path:
             parts = path.split("/")
             if len(parts) >= 5:
-                return await handle_cancel_snooze(
-                    parts[-2], user_id=query_params.get("user_id", "default")
-                )
+                return await handle_cancel_snooze(parts[-2], user_id=user_id)
         return error_response("Not found", status=404)

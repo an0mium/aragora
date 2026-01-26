@@ -82,6 +82,12 @@ class ResourceType(str, Enum):
     WORKSPACE = "workspace"  # Workspace-level access control
     WORKSPACE_MEMBER = "workspace_member"  # Workspace member management
 
+    # System operations
+    QUEUE = "queue"  # Job queue management
+    NOMIC = "nomic"  # Nomic self-improvement loop
+    ORCHESTRATION = "orchestration"  # Multi-agent orchestration
+    SYSTEM = "system"  # System-wide operations (health, etc.)
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""
@@ -190,6 +196,8 @@ class Action(str, Enum):
     EXPORT_HISTORY = "export_history"  # Export historical data
     RESTORE = "restore"  # Restore from backup
     EXECUTE = "execute"  # Execute procedures (DR, migrations)
+    MANAGE = "manage"  # Manage resources (submit, retry, cancel)
+    ADMIN_OP = "admin"  # Full administrative access
 
     # Wildcard
     ALL = "*"
