@@ -1184,11 +1184,15 @@ class DeploymentValidator:
             ComponentHealth(
                 name="tls",
                 status=status,
-                message=", ".join(issues_found)
-                if issues_found
-                else "TLS configured correctly"
-                if self._is_production
-                else "TLS not required in development",
+                message=(
+                    ", ".join(issues_found)
+                    if issues_found
+                    else (
+                        "TLS configured correctly"
+                        if self._is_production
+                        else "TLS not required in development"
+                    )
+                ),
                 metadata=metadata,
             )
         )

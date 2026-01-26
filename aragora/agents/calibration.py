@@ -361,8 +361,7 @@ class CalibrationTracker(SQLiteStore):
         """
         try:
             with self.connection() as conn:
-                conn.execute(
-                    """
+                conn.execute("""
                     CREATE TABLE IF NOT EXISTS temperature_params (
                         agent TEXT PRIMARY KEY,
                         temperature REAL DEFAULT 1.0,
@@ -370,8 +369,7 @@ class CalibrationTracker(SQLiteStore):
                         last_tuned TEXT,
                         predictions_at_tune INTEGER DEFAULT 0
                     )
-                    """
-                )
+                    """)
                 conn.commit()
         except Exception as e:
             # Log but don't fail - the table might already exist or be created elsewhere

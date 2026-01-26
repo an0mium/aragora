@@ -496,12 +496,10 @@ class SQLiteGmailTokenStore(GmailTokenStoreBackend):
 
     async def list_all(self) -> List[GmailUserState]:
         conn = self._get_conn()
-        cursor = conn.execute(
-            """SELECT user_id, email_address, access_token, refresh_token,
+        cursor = conn.execute("""SELECT user_id, email_address, access_token, refresh_token,
                       token_expiry, history_id, last_sync, indexed_count,
                       total_count, connected_at, created_at, updated_at
-               FROM gmail_tokens"""
-        )
+               FROM gmail_tokens""")
         return [GmailUserState.from_row(row) for row in cursor.fetchall()]
 
     async def get_sync_job(self, user_id: str) -> Optional[SyncJobState]:
@@ -873,12 +871,10 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
     async def list_all_async(self) -> List[GmailUserState]:
         """List all Gmail states asynchronously."""
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                """SELECT user_id, email_address, access_token, refresh_token,
+            rows = await conn.fetch("""SELECT user_id, email_address, access_token, refresh_token,
                           token_expiry, history_id, last_sync, indexed_count,
                           total_count, connected_at, created_at, updated_at
-                   FROM gmail_tokens"""
-            )
+                   FROM gmail_tokens""")
             return [self._row_to_state(row) for row in rows]
 
     async def get_sync_job(self, user_id: str) -> Optional[SyncJobState]:

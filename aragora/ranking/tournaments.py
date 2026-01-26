@@ -795,13 +795,11 @@ class TournamentManager:
                     (tournament_id,),
                 )
             else:
-                cursor = conn.execute(
-                    """
+                cursor = conn.execute("""
                     SELECT agent1, agent2, winner, score1, score2
                     FROM matches
                     WHERE completed_at IS NOT NULL
-                    """
-                )
+                    """)
 
             for row in cursor:
                 agent1 = row["agent1"]

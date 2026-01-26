@@ -575,9 +575,11 @@ class DebateAnalytics:
                 total_tokens_in=row["tokens_in"] or 0,
                 total_tokens_out=row["tokens_out"] or 0,
                 total_cost=Decimal(str(row["total_cost"] or 0)),
-                avg_cost_per_debate=Decimal(str((row["total_cost"] or 0) / debates))
-                if debates > 0
-                else Decimal("0"),
+                avg_cost_per_debate=(
+                    Decimal(str((row["total_cost"] or 0) / debates))
+                    if debates > 0
+                    else Decimal("0")
+                ),
                 current_elo=current_elo,
             )
 

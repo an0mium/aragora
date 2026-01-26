@@ -728,8 +728,7 @@ class CrossDebateMemory:
 
         parts = []
         for entry in entries:
-            parts.append(
-                f"""
+            parts.append(f"""
 ## Debate: {entry.task}
 Date: {entry.timestamp.strftime("%Y-%m-%d")}
 Participants: {", ".join(entry.participants)}
@@ -743,8 +742,7 @@ Consensus: {"Yes" if entry.consensus_reached else "No"}
 
 ### Context:
 {entry.compressed_context}
-"""
-            )
+""")
         return "\n---\n".join(parts)
 
     def _fallback_query(self, query: str, max_debates: int = 5) -> str:
@@ -772,13 +770,11 @@ Consensus: {"Yes" if entry.consensus_reached else "No"}
         # Build response from top matches
         parts = [f"Found {len(relevant_entries[:max_debates])} relevant past debates:"]
         for _, entry in relevant_entries[:max_debates]:
-            parts.append(
-                f"""
+            parts.append(f"""
 **{entry.task}** ({entry.timestamp.strftime("%Y-%m-%d")})
 Consensus: {"Yes" if entry.consensus_reached else "No"}
 Key insight: {entry.key_insights[0] if entry.key_insights else "N/A"}
-"""
-            )
+""")
 
         return "\n".join(parts)
 

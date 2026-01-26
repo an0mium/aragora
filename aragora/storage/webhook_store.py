@@ -179,15 +179,13 @@ class SQLiteWebhookStore(WebhookStoreBackend):
     def _init_schema(self) -> None:
         """Initialize database schema."""
         conn = sqlite3.connect(str(self.db_path))
-        conn.execute(
-            """
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS webhook_events (
                 event_id TEXT PRIMARY KEY,
                 processed_at REAL NOT NULL,
                 result TEXT NOT NULL
             )
-        """
-        )
+        """)
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_webhook_processed_at ON webhook_events(processed_at)"
         )

@@ -299,12 +299,16 @@ class RoutingRule:
             priority=data.get("priority", 5),
             enabled=data.get("enabled", True),
             description=data.get("description"),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if data.get("created_at")
-            else datetime.now(timezone.utc),
-            updated_at=datetime.fromisoformat(data["updated_at"])
-            if data.get("updated_at")
-            else datetime.now(timezone.utc),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if data.get("created_at")
+                else datetime.now(timezone.utc)
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"])
+                if data.get("updated_at")
+                else datetime.now(timezone.utc)
+            ),
             created_by=data.get("created_by"),
             stats=data.get("stats", {}),
         )

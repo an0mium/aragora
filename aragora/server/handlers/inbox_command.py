@@ -465,12 +465,16 @@ class InboxCommandHandler:
 
                     entry = {
                         "id": result.email_id,
-                        "from": getattr(email_data, "from_address", "unknown")
-                        if email_data
-                        else "unknown",
-                        "subject": getattr(email_data, "subject", "No subject")
-                        if email_data
-                        else "No subject",
+                        "from": (
+                            getattr(email_data, "from_address", "unknown")
+                            if email_data
+                            else "unknown"
+                        ),
+                        "subject": (
+                            getattr(email_data, "subject", "No subject")
+                            if email_data
+                            else "No subject"
+                        ),
                         "snippet": getattr(email_data, "snippet", "")[:200] if email_data else "",
                         "priority": result.priority.name.lower(),
                         "confidence": result.confidence,
@@ -484,9 +488,11 @@ class InboxCommandHandler:
                         },
                         "suggested_labels": result.suggested_labels,
                         "auto_archive": result.auto_archive,
-                        "timestamp": getattr(email_data, "date", datetime.utcnow()).isoformat()
-                        if email_data
-                        else datetime.utcnow().isoformat(),
+                        "timestamp": (
+                            getattr(email_data, "date", datetime.utcnow()).isoformat()
+                            if email_data
+                            else datetime.utcnow().isoformat()
+                        ),
                         "unread": getattr(email_data, "unread", True) if email_data else True,
                     }
 
@@ -900,9 +906,11 @@ class InboxCommandHandler:
                         "responseRate": stats.reply_rate,
                         "avgResponseTime": f"{avg_hours:.1f}h" if avg_hours else "N/A",
                         "totalEmails": stats.total_emails,
-                        "lastContact": stats.last_email_date.strftime("%Y-%m-%d")
-                        if stats.last_email_date
-                        else "Never",
+                        "lastContact": (
+                            stats.last_email_date.strftime("%Y-%m-%d")
+                            if stats.last_email_date
+                            else "Never"
+                        ),
                     }
             except Exception as e:
                 logger.warning(f"Failed to get sender stats: {e}")

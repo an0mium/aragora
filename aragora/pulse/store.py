@@ -249,8 +249,7 @@ class ScheduledDebateStore(SQLiteStore):
         analytics["total"] = self.count_total()
 
         # Consensus rate
-        row = self.fetch_one(
-            """
+        row = self.fetch_one("""
             SELECT
                 COUNT(*) as total,
                 SUM(CASE WHEN consensus_reached = 1 THEN 1 ELSE 0 END) as consensus_count,
@@ -258,8 +257,7 @@ class ScheduledDebateStore(SQLiteStore):
                 AVG(rounds_used) as avg_rounds
             FROM scheduled_debates
             WHERE debate_id IS NOT NULL
-            """
-        )
+            """)
         if row and row[0] > 0:
             analytics["completed_debates"] = row[0]
             analytics["consensus_rate"] = row[1] / row[0] if row[0] > 0 else 0
@@ -267,28 +265,24 @@ class ScheduledDebateStore(SQLiteStore):
             analytics["avg_rounds"] = row[3] or 0
 
         # By platform
-        rows = self.fetch_all(
-            """
+        rows = self.fetch_all("""
             SELECT platform, COUNT(*) as count,
                    SUM(CASE WHEN consensus_reached = 1 THEN 1 ELSE 0 END) as consensus_count
             FROM scheduled_debates
             GROUP BY platform
-            """
-        )
+            """)
         analytics["by_platform"] = {
             row[0]: {"total": row[1], "consensus_count": row[2]} for row in rows
         }
 
         # By category
-        rows = self.fetch_all(
-            """
+        rows = self.fetch_all("""
             SELECT category, COUNT(*) as count,
                    SUM(CASE WHEN consensus_reached = 1 THEN 1 ELSE 0 END) as consensus_count
             FROM scheduled_debates
             WHERE category IS NOT NULL AND category != ''
             GROUP BY category
-            """
-        )
+            """)
         analytics["by_category"] = {
             row[0]: {"total": row[1], "consensus_count": row[2]} for row in rows
         }

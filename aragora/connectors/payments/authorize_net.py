@@ -561,9 +561,11 @@ class AuthorizeNetConnector:
         payload = {
             "createCustomerProfileRequest": {
                 "profile": profile,
-                "validationMode": "testMode"
-                if self.credentials.environment == AuthorizeNetEnvironment.SANDBOX
-                else "liveMode",
+                "validationMode": (
+                    "testMode"
+                    if self.credentials.environment == AuthorizeNetEnvironment.SANDBOX
+                    else "liveMode"
+                ),
             }
         }
 

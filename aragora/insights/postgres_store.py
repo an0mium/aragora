@@ -497,8 +497,7 @@ class PostgresInsightStore(PostgresStore):
     async def get_all_agent_rankings(self) -> list[dict]:
         """Get ranked list of all agents by performance."""
         async with self.connection() as conn:
-            rows = await conn.fetch(
-                """
+            rows = await conn.fetch("""
                 SELECT
                     agent_name,
                     COUNT(*) as debate_count,
@@ -508,8 +507,7 @@ class PostgresInsightStore(PostgresStore):
                 GROUP BY agent_name
                 HAVING COUNT(*) >= 1
                 ORDER BY avg_contribution DESC
-                """
-            )
+                """)
             return [
                 {
                     "agent": row["agent_name"],
@@ -621,9 +619,11 @@ class PostgresInsightStore(PostgresStore):
                     "id": row["id"],
                     "text": row["text"],
                     "submitter_id": row["submitter_id"],
-                    "context_tags": row["context_tags"]
-                    if isinstance(row["context_tags"], list)
-                    else safe_json_loads(row["context_tags"], []),
+                    "context_tags": (
+                        row["context_tags"]
+                        if isinstance(row["context_tags"], list)
+                        else safe_json_loads(row["context_tags"], [])
+                    ),
                     "created_at": row["created_at"].isoformat() if row["created_at"] else None,
                 }
                 for row in rows

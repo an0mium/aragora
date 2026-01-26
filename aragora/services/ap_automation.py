@@ -123,15 +123,15 @@ class PayableInvoice:
             "balance": float(self.balance),
             "paymentTerms": self.payment_terms,
             "earlyPayDiscount": self.early_pay_discount,
-            "discountDeadline": self.discount_deadline.isoformat()
-            if self.discount_deadline
-            else None,
+            "discountDeadline": (
+                self.discount_deadline.isoformat() if self.discount_deadline else None
+            ),
             "discountAmount": float(self.discount_amount),
             "priority": self.priority.value,
             "preferredPaymentMethod": self.preferred_payment_method.value,
-            "scheduledPayDate": self.scheduled_pay_date.isoformat()
-            if self.scheduled_pay_date
-            else None,
+            "scheduledPayDate": (
+                self.scheduled_pay_date.isoformat() if self.scheduled_pay_date else None
+            ),
             "daysUntilDue": self.days_until_due,
             "daysUntilDiscount": self.days_until_discount,
             "isOverdue": self.is_overdue,

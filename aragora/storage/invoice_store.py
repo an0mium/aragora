@@ -375,8 +375,7 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
             conn = sqlite3.connect(str(self._db_path))
             try:
                 cursor = conn.cursor()
-                cursor.execute(
-                    """
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS invoices (
                         id TEXT PRIMARY KEY,
                         vendor_id TEXT,
@@ -394,8 +393,7 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
                         updated_at REAL NOT NULL,
                         data_json TEXT NOT NULL
                     )
-                    """
-                )
+                    """)
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_invoice_status ON invoices(status)")
                 cursor.execute(
                     "CREATE INDEX IF NOT EXISTS idx_invoice_vendor ON invoices(vendor_id)"
@@ -562,13 +560,11 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
             conn = sqlite3.connect(str(self._db_path))
             try:
                 cursor = conn.cursor()
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT data_json FROM invoices
                     WHERE status = 'pending_approval' OR requires_approval = 1
                     ORDER BY created_at ASC
-                    """
-                )
+                    """)
                 return [
                     json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
@@ -993,13 +989,11 @@ class PostgresInvoiceStore(InvoiceStoreBackend):
 
     async def list_pending_approval(self) -> list[dict[str, Any]]:
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                """
+            rows = await conn.fetch("""
                 SELECT data_json FROM invoices
                 WHERE status = 'pending_approval' OR requires_approval = TRUE
                 ORDER BY created_at ASC
-                """
-            )
+                """)
             results = []
             for row in rows:
                 data = row["data_json"]

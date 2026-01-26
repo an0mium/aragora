@@ -668,23 +668,19 @@ class EvidenceStore(SQLiteStore):
             total_count = cursor.fetchone()["count"]
 
             # Count by source
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT source, COUNT(*) as count
                 FROM evidence
                 GROUP BY source
                 ORDER BY count DESC
-            """
-            )
+            """)
             by_source = {row["source"]: row["count"] for row in cursor.fetchall()}
 
             # Average reliability
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT AVG(reliability_score) as avg_reliability
                 FROM evidence
-            """
-            )
+            """)
             avg_reliability = cursor.fetchone()["avg_reliability"] or 0.0
 
             # Debate associations
@@ -801,13 +797,11 @@ class EvidenceStore(SQLiteStore):
                 preserved_count = 0
 
             # Count linked (preserved due to debate association)
-            cursor.execute(
-                f"""
+            cursor.execute(f"""
                 SELECT COUNT(DISTINCT e.id) FROM evidence e
                 INNER JOIN debate_evidence de ON de.evidence_id = e.id
                 WHERE e.created_at < {cutoff_query}
-            """
-            )
+            """)
             linked_count = cursor.fetchone()[0]
 
             conn.commit()
@@ -844,36 +838,30 @@ class EvidenceStore(SQLiteStore):
             total_expired = cursor.fetchone()[0]
 
             # Expired but linked
-            cursor.execute(
-                f"""
+            cursor.execute(f"""
                 SELECT COUNT(DISTINCT e.id) FROM evidence e
                 INNER JOIN debate_evidence de ON de.evidence_id = e.id
                 WHERE e.created_at < {cutoff_query}
-            """
-            )
+            """)
             expired_linked = cursor.fetchone()[0]
 
             # Expired with high reliability
-            cursor.execute(
-                f"""
+            cursor.execute(f"""
                 SELECT COUNT(*) FROM evidence
                 WHERE created_at < {cutoff_query}
                 AND reliability_score >= 0.8
-            """
-            )
+            """)
             expired_high_reliability = cursor.fetchone()[0]
 
             # Deletable (expired, not linked, low reliability)
-            cursor.execute(
-                f"""
+            cursor.execute(f"""
                 SELECT COUNT(*) FROM evidence e
                 WHERE e.created_at < {cutoff_query}
                 AND e.reliability_score < 0.8
                 AND NOT EXISTS (
                     SELECT 1 FROM debate_evidence de WHERE de.evidence_id = e.id
                 )
-            """
-            )
+            """)
             deletable = cursor.fetchone()[0]
 
             return {

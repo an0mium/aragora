@@ -585,50 +585,42 @@ class IntegrityVerifier:
     async def _check_orphaned_provenance(self) -> int:
         """Check for provenance chains without parent nodes."""
         async with self._pool.acquire() as conn:
-            result = await conn.fetchval(
-                """
+            result = await conn.fetchval("""
                 SELECT COUNT(*) FROM provenance_chains pc
                 LEFT JOIN knowledge_nodes kn ON pc.node_id = kn.id
                 WHERE kn.id IS NULL
-                """
-            )
+                """)
             return result or 0
 
     async def _check_orphaned_relationships(self) -> int:
         """Check for relationships with missing nodes."""
         async with self._pool.acquire() as conn:
-            result = await conn.fetchval(
-                """
+            result = await conn.fetchval("""
                 SELECT COUNT(*) FROM knowledge_relationships kr
                 LEFT JOIN knowledge_nodes kn1 ON kr.from_node_id = kn1.id
                 LEFT JOIN knowledge_nodes kn2 ON kr.to_node_id = kn2.id
                 WHERE kn1.id IS NULL OR kn2.id IS NULL
-                """
-            )
+                """)
             return result or 0
 
     async def _check_orphaned_topics(self) -> int:
         """Check for topics without parent nodes."""
         async with self._pool.acquire() as conn:
-            result = await conn.fetchval(
-                """
+            result = await conn.fetchval("""
                 SELECT COUNT(*) FROM node_topics nt
                 LEFT JOIN knowledge_nodes kn ON nt.node_id = kn.id
                 WHERE kn.id IS NULL
-                """
-            )
+                """)
             return result or 0
 
     async def _check_orphaned_access_grants(self) -> int:
         """Check for access grants without parent nodes."""
         async with self._pool.acquire() as conn:
-            result = await conn.fetchval(
-                """
+            result = await conn.fetchval("""
                 SELECT COUNT(*) FROM access_grants ag
                 LEFT JOIN knowledge_nodes kn ON ag.item_id = kn.id
                 WHERE kn.id IS NULL
-                """
-            )
+                """)
             return result or 0
 
     async def _check_index_health(self) -> list[str]:
@@ -637,12 +629,10 @@ class IntegrityVerifier:
         try:
             async with self._pool.acquire() as conn:
                 # Check for invalid indexes
-                invalid = await conn.fetch(
-                    """
+                invalid = await conn.fetch("""
                     SELECT indexrelid::regclass AS index_name
                     FROM pg_index WHERE NOT indisvalid
-                    """
-                )
+                    """)
                 for row in invalid:
                     issues.append(f"Invalid index: {row['index_name']}")
         except (ConnectionError, TimeoutError, OSError) as e:
@@ -654,8 +644,7 @@ class IntegrityVerifier:
     async def _check_duplicate_content(self) -> int:
         """Check for duplicate content by hash."""
         async with self._pool.acquire() as conn:
-            result = await conn.fetchval(
-                """
+            result = await conn.fetchval("""
                 SELECT COUNT(*) FROM (
                     SELECT content_hash, workspace_id, COUNT(*) as cnt
                     FROM knowledge_nodes
@@ -663,8 +652,7 @@ class IntegrityVerifier:
                     GROUP BY content_hash, workspace_id
                     HAVING COUNT(*) > 1
                 ) duplicates
-                """
-            )
+                """)
             return result or 0
 
     async def repair_orphans(self, dry_run: bool = True) -> dict[str, int]:
@@ -688,37 +676,29 @@ class IntegrityVerifier:
                 repairs["access_grants"] = await self._check_orphaned_access_grants()
             else:
                 # Actually delete orphaned records
-                result = await conn.execute(
-                    """
+                result = await conn.execute("""
                     DELETE FROM provenance_chains
                     WHERE node_id NOT IN (SELECT id FROM knowledge_nodes)
-                    """
-                )
+                    """)
                 repairs["provenance_chains"] = int(result.split()[-1])
 
-                result = await conn.execute(
-                    """
+                result = await conn.execute("""
                     DELETE FROM knowledge_relationships
                     WHERE from_node_id NOT IN (SELECT id FROM knowledge_nodes)
                        OR to_node_id NOT IN (SELECT id FROM knowledge_nodes)
-                    """
-                )
+                    """)
                 repairs["relationships"] = int(result.split()[-1])
 
-                result = await conn.execute(
-                    """
+                result = await conn.execute("""
                     DELETE FROM node_topics
                     WHERE node_id NOT IN (SELECT id FROM knowledge_nodes)
-                    """
-                )
+                    """)
                 repairs["topics"] = int(result.split()[-1])
 
-                result = await conn.execute(
-                    """
+                result = await conn.execute("""
                     DELETE FROM access_grants
                     WHERE item_id NOT IN (SELECT id FROM knowledge_nodes)
-                    """
-                )
+                    """)
                 repairs["access_grants"] = int(result.split()[-1])
 
                 logger.info(f"Repaired orphaned records: {repairs}")

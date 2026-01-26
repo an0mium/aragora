@@ -107,15 +107,19 @@ class ApprovalRecord:
             "risk_level": self.risk_level,
             "status": self.status,
             "requested_by": self.requested_by,
-            "requested_at": self.requested_at.isoformat()
-            if isinstance(self.requested_at, datetime)
-            else self.requested_at,
+            "requested_at": (
+                self.requested_at.isoformat()
+                if isinstance(self.requested_at, datetime)
+                else self.requested_at
+            ),
             "changes": json.loads(self.changes_json) if self.changes_json else [],
             "timeout_seconds": self.timeout_seconds,
             "approved_by": self.approved_by,
-            "approved_at": self.approved_at.isoformat()
-            if isinstance(self.approved_at, datetime)
-            else self.approved_at,
+            "approved_at": (
+                self.approved_at.isoformat()
+                if isinstance(self.approved_at, datetime)
+                else self.approved_at
+            ),
             "rejection_reason": self.rejection_reason,
             "org_id": self.org_id,
             "workspace_id": self.workspace_id,
@@ -147,9 +151,11 @@ class VerificationRecord:
             "claim_type": self.claim_type,
             "context": self.context,
             "result": json.loads(self.result_json) if self.result_json else {},
-            "timestamp": self.timestamp.isoformat()
-            if isinstance(self.timestamp, datetime)
-            else self.timestamp,
+            "timestamp": (
+                self.timestamp.isoformat()
+                if isinstance(self.timestamp, datetime)
+                else self.timestamp
+            ),
             "verified_by": self.verified_by,
             "confidence": self.confidence,
             "proof_tree": json.loads(self.proof_tree_json) if self.proof_tree_json else None,
@@ -184,19 +190,21 @@ class DecisionRecord:
             "conclusion": self.conclusion,
             "consensus_reached": self.consensus_reached,
             "confidence": self.confidence,
-            "timestamp": self.timestamp.isoformat()
-            if isinstance(self.timestamp, datetime)
-            else self.timestamp,
-            "evidence_chain": json.loads(self.evidence_chain_json)
-            if self.evidence_chain_json
-            else [],
+            "timestamp": (
+                self.timestamp.isoformat()
+                if isinstance(self.timestamp, datetime)
+                else self.timestamp
+            ),
+            "evidence_chain": (
+                json.loads(self.evidence_chain_json) if self.evidence_chain_json else []
+            ),
             "vote_pivots": json.loads(self.vote_pivots_json) if self.vote_pivots_json else [],
-            "belief_changes": json.loads(self.belief_changes_json)
-            if self.belief_changes_json
-            else [],
-            "agents_involved": json.loads(self.agents_involved_json)
-            if self.agents_involved_json
-            else [],
+            "belief_changes": (
+                json.loads(self.belief_changes_json) if self.belief_changes_json else []
+            ),
+            "agents_involved": (
+                json.loads(self.agents_involved_json) if self.agents_involved_json else []
+            ),
             "org_id": self.org_id,
             "workspace_id": self.workspace_id,
             "metadata": json.loads(self.metadata_json) if self.metadata_json else {},
@@ -1294,18 +1302,22 @@ class PostgresGovernanceStore:
             status=row["status"],
             requested_by=row["requested_by"] or "",
             requested_at=parse_dt(row["requested_at"]),
-            changes_json=row["changes_json"]
-            if isinstance(row["changes_json"], str)
-            else json.dumps(row["changes_json"] or []),
+            changes_json=(
+                row["changes_json"]
+                if isinstance(row["changes_json"], str)
+                else json.dumps(row["changes_json"] or [])
+            ),
             timeout_seconds=row["timeout_seconds"] or 3600,
             approved_by=row["approved_by"],
             approved_at=parse_dt(row["approved_at"]) if row["approved_at"] else None,
             rejection_reason=row["rejection_reason"],
             org_id=row["org_id"],
             workspace_id=row["workspace_id"],
-            metadata_json=row["metadata_json"]
-            if isinstance(row["metadata_json"], str)
-            else json.dumps(row["metadata_json"] or {}),
+            metadata_json=(
+                row["metadata_json"]
+                if isinstance(row["metadata_json"], str)
+                else json.dumps(row["metadata_json"] or {})
+            ),
         )
 
     # =========================================================================
@@ -1467,17 +1479,21 @@ class PostgresGovernanceStore:
             claim=row["claim"],
             claim_type=row["claim_type"],
             context=row["context"] or "",
-            result_json=row["result_json"]
-            if isinstance(row["result_json"], str)
-            else json.dumps(row["result_json"] or {}),
+            result_json=(
+                row["result_json"]
+                if isinstance(row["result_json"], str)
+                else json.dumps(row["result_json"] or {})
+            ),
             timestamp=parse_dt(row["timestamp"]),
             verified_by=row["verified_by"] or "system",
             confidence=row["confidence"] or 0.0,
-            proof_tree_json=row["proof_tree_json"]
-            if isinstance(row["proof_tree_json"], str)
-            else json.dumps(row["proof_tree_json"])
-            if row["proof_tree_json"]
-            else None,
+            proof_tree_json=(
+                row["proof_tree_json"]
+                if isinstance(row["proof_tree_json"], str)
+                else json.dumps(row["proof_tree_json"])
+                if row["proof_tree_json"]
+                else None
+            ),
             org_id=row["org_id"],
             workspace_id=row["workspace_id"],
         )
@@ -1685,9 +1701,11 @@ class PostgresGovernanceStore:
             agents_involved_json=to_json_str(row["agents_involved_json"]),
             org_id=row["org_id"],
             workspace_id=row["workspace_id"],
-            metadata_json=row["metadata_json"]
-            if isinstance(row["metadata_json"], str)
-            else json.dumps(row["metadata_json"] or {}),
+            metadata_json=(
+                row["metadata_json"]
+                if isinstance(row["metadata_json"], str)
+                else json.dumps(row["metadata_json"] or {})
+            ),
         )
 
     # =========================================================================

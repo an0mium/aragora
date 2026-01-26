@@ -16,7 +16,6 @@ from aragora.speech.providers.base import (
 )
 from aragora.speech.providers.openai_whisper import OpenAIWhisperProvider
 
-
 # Re-export for convenience
 __all__ = [
     "transcribe_audio",

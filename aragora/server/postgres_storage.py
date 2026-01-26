@@ -523,9 +523,9 @@ class PostgresDebateStorage(PostgresStore):
 
             return {
                 "audio_path": row["audio_path"],
-                "audio_generated_at": row["audio_generated_at"].isoformat()
-                if row["audio_generated_at"]
-                else None,
+                "audio_generated_at": (
+                    row["audio_generated_at"].isoformat() if row["audio_generated_at"] else None
+                ),
                 "audio_duration_seconds": row["audio_duration_seconds"],
             }
 

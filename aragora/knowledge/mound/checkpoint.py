@@ -231,9 +231,11 @@ class KMCheckpointStore:
         content.workspace_metadata = {
             "workspace_id": self.mound.workspace_id,
             "config": {
-                "backend": self.mound.config.backend.value
-                if hasattr(self.mound.config.backend, "value")
-                else str(self.mound.config.backend),
+                "backend": (
+                    self.mound.config.backend.value
+                    if hasattr(self.mound.config.backend, "value")
+                    else str(self.mound.config.backend)
+                ),
                 "enable_staleness_detection": self.mound.config.enable_staleness_detection,
                 "enable_culture_accumulator": self.mound.config.enable_culture_accumulator,
             },
@@ -555,9 +557,11 @@ class KMCheckpointStore:
                         )
                     if hasattr(node, "provenance") and node.provenance:
                         node_dict["provenance"] = {
-                            "source_type": node.provenance.source_type.value
-                            if hasattr(node.provenance.source_type, "value")
-                            else str(node.provenance.source_type),
+                            "source_type": (
+                                node.provenance.source_type.value
+                                if hasattr(node.provenance.source_type, "value")
+                                else str(node.provenance.source_type)
+                            ),
                             "source_id": node.provenance.source_id,
                         }
                     nodes.append(node_dict)

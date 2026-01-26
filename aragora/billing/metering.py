@@ -271,8 +271,7 @@ class UsageMeter:
         self.config.db_path.parent.mkdir(parents=True, exist_ok=True)
 
         with sqlite3.connect(str(self.config.db_path), timeout=30.0) as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS billing_events (
                     id TEXT PRIMARY KEY,
                     tenant_id TEXT NOT NULL,
@@ -293,21 +292,16 @@ class UsageMeter:
                     billing_period TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
             # Create indexes for common queries
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_billing_tenant_period
                 ON billing_events(tenant_id, billing_period)
-            """
-            )
-            conn.execute(
-                """
+            """)
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_billing_timestamp
                 ON billing_events(timestamp)
-            """
-            )
+            """)
             conn.commit()
 
         self._db_initialized = True

@@ -17,8 +17,7 @@ import sqlite3
 
 def upgrade(conn: sqlite3.Connection) -> None:
     """Apply this migration - create initial schema."""
-    conn.executescript(
-        """
+    conn.executescript("""
         -- Users table
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
@@ -118,20 +117,17 @@ def upgrade(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);
         CREATE INDEX IF NOT EXISTS idx_invitations_token ON org_invitations(token);
         CREATE INDEX IF NOT EXISTS idx_invitations_email ON org_invitations(email);
-    """
-    )
+    """)
 
 
 def downgrade(conn: sqlite3.Connection) -> None:
     """Reverse this migration (for development only)."""
     # WARNING: This will delete all data!
-    conn.executescript(
-        """
+    conn.executescript("""
         DROP TABLE IF EXISTS org_invitations;
         DROP TABLE IF EXISTS audit_log;
         DROP TABLE IF EXISTS oauth_providers;
         DROP TABLE IF EXISTS usage_events;
         DROP TABLE IF EXISTS organizations;
         DROP TABLE IF EXISTS users;
-    """
-    )
+    """)

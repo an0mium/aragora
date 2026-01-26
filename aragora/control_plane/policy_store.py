@@ -142,9 +142,11 @@ class ControlPlanePolicyStore(SQLiteStore):
                 json.dumps(policy.workspaces),
                 json.dumps(policy.agent_allowlist),
                 json.dumps(policy.agent_blocklist),
-                json.dumps(policy.region_constraint.to_dict())
-                if policy.region_constraint
-                else None,
+                (
+                    json.dumps(policy.region_constraint.to_dict())
+                    if policy.region_constraint
+                    else None
+                ),
                 json.dumps(policy.sla.to_dict()) if policy.sla else None,
                 policy.enforcement_level.value,
                 1 if policy.enabled else 0,
@@ -407,15 +409,15 @@ class ControlPlanePolicyStore(SQLiteStore):
                 "task_types": json.loads(row["task_types"]) if row["task_types"] else [],
                 "capabilities": json.loads(row["capabilities"]) if row["capabilities"] else [],
                 "workspaces": json.loads(row["workspaces"]) if row["workspaces"] else [],
-                "agent_allowlist": json.loads(row["agent_allowlist"])
-                if row["agent_allowlist"]
-                else [],
-                "agent_blocklist": json.loads(row["agent_blocklist"])
-                if row["agent_blocklist"]
-                else [],
-                "region_constraint": json.loads(row["region_constraint"])
-                if row["region_constraint"]
-                else None,
+                "agent_allowlist": (
+                    json.loads(row["agent_allowlist"]) if row["agent_allowlist"] else []
+                ),
+                "agent_blocklist": (
+                    json.loads(row["agent_blocklist"]) if row["agent_blocklist"] else []
+                ),
+                "region_constraint": (
+                    json.loads(row["region_constraint"]) if row["region_constraint"] else None
+                ),
                 "sla": json.loads(row["sla"]) if row["sla"] else None,
                 "enforcement_level": row["enforcement_level"],
                 "enabled": bool(row["enabled"]),
@@ -459,8 +461,7 @@ class PostgresControlPlanePolicyStore:
 
     def _init_schema(self) -> None:
         """Initialize database schema."""
-        self._backend.execute_write(
-            """
+        self._backend.execute_write("""
             CREATE TABLE IF NOT EXISTS control_plane_policies (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -480,10 +481,8 @@ class PostgresControlPlanePolicyStore:
                 created_by TEXT,
                 metadata JSONB DEFAULT '{}'
             )
-            """
-        )
-        self._backend.execute_write(
-            """
+            """)
+        self._backend.execute_write("""
             CREATE TABLE IF NOT EXISTS control_plane_violations (
                 id TEXT PRIMARY KEY,
                 policy_id TEXT NOT NULL,
@@ -503,8 +502,7 @@ class PostgresControlPlanePolicyStore:
                 resolution_notes TEXT,
                 metadata JSONB DEFAULT '{}'
             )
-            """
-        )
+            """)
         self._backend.execute_write(
             "CREATE INDEX IF NOT EXISTS idx_cp_pg_policies_enabled ON control_plane_policies(enabled)"
         )
@@ -534,9 +532,11 @@ class PostgresControlPlanePolicyStore:
                 json_module.dumps(policy.workspaces),
                 json_module.dumps(policy.agent_allowlist),
                 json_module.dumps(policy.agent_blocklist),
-                json_module.dumps(policy.region_constraint.to_dict())
-                if policy.region_constraint
-                else None,
+                (
+                    json_module.dumps(policy.region_constraint.to_dict())
+                    if policy.region_constraint
+                    else None
+                ),
                 json_module.dumps(policy.sla.to_dict()) if policy.sla else None,
                 policy.enforcement_level.value,
                 policy.enabled,
@@ -815,24 +815,26 @@ class PostgresControlPlanePolicyStore:
                 "description": row["description"],
                 "scope": row["scope"],
                 "task_types": row["task_types"] if isinstance(row["task_types"], list) else [],
-                "capabilities": row["capabilities"]
-                if isinstance(row["capabilities"], list)
-                else [],
+                "capabilities": (
+                    row["capabilities"] if isinstance(row["capabilities"], list) else []
+                ),
                 "workspaces": row["workspaces"] if isinstance(row["workspaces"], list) else [],
-                "agent_allowlist": row["agent_allowlist"]
-                if isinstance(row["agent_allowlist"], list)
-                else [],
-                "agent_blocklist": row["agent_blocklist"]
-                if isinstance(row["agent_blocklist"], list)
-                else [],
+                "agent_allowlist": (
+                    row["agent_allowlist"] if isinstance(row["agent_allowlist"], list) else []
+                ),
+                "agent_blocklist": (
+                    row["agent_blocklist"] if isinstance(row["agent_blocklist"], list) else []
+                ),
                 "region_constraint": row["region_constraint"] if row["region_constraint"] else None,
                 "sla": row["sla"] if row["sla"] else None,
                 "enforcement_level": row["enforcement_level"],
                 "enabled": bool(row["enabled"]),
                 "priority": row["priority"],
-                "created_at": row["created_at"].isoformat()
-                if hasattr(row["created_at"], "isoformat")
-                else row["created_at"],
+                "created_at": (
+                    row["created_at"].isoformat()
+                    if hasattr(row["created_at"], "isoformat")
+                    else row["created_at"]
+                ),
                 "created_by": row["created_by"],
                 "metadata": row["metadata"] if isinstance(row["metadata"], dict) else {},
             }
@@ -852,13 +854,17 @@ class PostgresControlPlanePolicyStore:
             "region": row["region"],
             "workspace_id": row["workspace_id"],
             "enforcement_level": row["enforcement_level"],
-            "timestamp": row["timestamp"].isoformat()
-            if hasattr(row["timestamp"], "isoformat")
-            else row["timestamp"],
+            "timestamp": (
+                row["timestamp"].isoformat()
+                if hasattr(row["timestamp"], "isoformat")
+                else row["timestamp"]
+            ),
             "status": row["status"],
-            "resolved_at": row["resolved_at"].isoformat()
-            if row["resolved_at"] and hasattr(row["resolved_at"], "isoformat")
-            else row["resolved_at"],
+            "resolved_at": (
+                row["resolved_at"].isoformat()
+                if row["resolved_at"] and hasattr(row["resolved_at"], "isoformat")
+                else row["resolved_at"]
+            ),
             "resolved_by": row["resolved_by"],
             "resolution_notes": row["resolution_notes"],
             "metadata": row["metadata"] if isinstance(row["metadata"], dict) else {},

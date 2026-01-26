@@ -76,12 +76,16 @@ class GauntletInflightRun:
             "persona": self.persona,
             "profile": self.profile,
             "agents": self.agents,
-            "created_at": self.created_at.isoformat()
-            if isinstance(self.created_at, datetime)
-            else self.created_at,
-            "updated_at": self.updated_at.isoformat()
-            if isinstance(self.updated_at, datetime)
-            else self.updated_at,
+            "created_at": (
+                self.created_at.isoformat()
+                if isinstance(self.created_at, datetime)
+                else self.created_at
+            ),
+            "updated_at": (
+                self.updated_at.isoformat()
+                if isinstance(self.updated_at, datetime)
+                else self.updated_at
+            ),
             "current_phase": self.current_phase,
             "progress_percent": self.progress_percent,
             "error": self.error,

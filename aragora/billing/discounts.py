@@ -280,8 +280,7 @@ class DiscountManager:
     def _init_db(self) -> None:
         """Initialize database schema."""
         conn = self._get_conn()
-        conn.executescript(
-            """
+        conn.executescript("""
             CREATE TABLE IF NOT EXISTS discount_codes (
                 id TEXT PRIMARY KEY,
                 code TEXT UNIQUE NOT NULL,
@@ -330,8 +329,7 @@ class DiscountManager:
                 current_discount_percent REAL DEFAULT 0,
                 updated_at TEXT NOT NULL
             );
-            """
-        )
+            """)
         conn.commit()
 
     async def create_code(
@@ -578,9 +576,11 @@ class DiscountManager:
             discount_type=discount_code.discount_type,
             discount_percent=discount_code.discount_percent,
             discount_amount_cents=discount_cents,
-            message=f"Code valid: {discount_code.discount_percent}% off"
-            if discount_code.discount_type == DiscountType.PERCENTAGE
-            else f"Code valid: ${discount_cents / 100:.2f} off",
+            message=(
+                f"Code valid: {discount_code.discount_percent}% off"
+                if discount_code.discount_type == DiscountType.PERCENTAGE
+                else f"Code valid: ${discount_cents / 100:.2f} off"
+            ),
         )
 
     async def apply_code(
@@ -875,9 +875,9 @@ class DiscountManager:
             max_uses_per_org=row["max_uses_per_org"],
             min_purchase_cents=row["min_purchase_cents"],
             eligible_tiers=ast.literal_eval(row["eligible_tiers"]) if row["eligible_tiers"] else [],
-            eligible_org_ids=ast.literal_eval(row["eligible_org_ids"])
-            if row["eligible_org_ids"]
-            else [],
+            eligible_org_ids=(
+                ast.literal_eval(row["eligible_org_ids"]) if row["eligible_org_ids"] else []
+            ),
             status=DiscountCodeStatus(row["status"]),
             total_uses=row["total_uses"],
             total_discount_cents=row["total_discount_cents"],

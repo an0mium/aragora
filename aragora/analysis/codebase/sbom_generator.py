@@ -428,9 +428,11 @@ class SBOMGenerator:
             if comp.licenses:
                 component_json["licenses"] = [
                     {
-                        "license": {"id": lic}
-                        if self._is_spdx_license(lic)
-                        else {"license": {"name": lic}}
+                        "license": (
+                            {"id": lic}
+                            if self._is_spdx_license(lic)
+                            else {"license": {"name": lic}}
+                        )
                     }
                     for lic in comp.licenses
                 ]

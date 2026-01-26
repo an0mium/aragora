@@ -484,9 +484,9 @@ class UserRepository:
             email_verified=bool(row["email_verified"]),
             api_key_hash=safe_get("api_key_hash"),
             api_key_prefix=safe_get("api_key_prefix"),
-            api_key_created_at=parse_datetime(row["api_key_created_at"])
-            if row["api_key_created_at"]
-            else None,
+            api_key_created_at=(
+                parse_datetime(row["api_key_created_at"]) if row["api_key_created_at"] else None
+            ),
             api_key_expires_at=parse_datetime(safe_get("api_key_expires_at")),
             created_at=parse_datetime(row["created_at"]) or datetime.now(timezone.utc),
             updated_at=parse_datetime(row["updated_at"]) or datetime.now(timezone.utc),

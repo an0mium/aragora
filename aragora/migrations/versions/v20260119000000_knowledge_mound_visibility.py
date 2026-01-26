@@ -89,8 +89,7 @@ def up_fn(backend: DatabaseBackend) -> None:
 
     # Create access_grants table
     if is_postgres:
-        backend.execute_write(
-            """
+        backend.execute_write("""
             CREATE TABLE IF NOT EXISTS access_grants (
                 id TEXT PRIMARY KEY,
                 item_id TEXT NOT NULL,
@@ -103,11 +102,9 @@ def up_fn(backend: DatabaseBackend) -> None:
                 workspace_id TEXT,
                 UNIQUE(item_id, grantee_type, grantee_id)
             )
-        """
-        )
+        """)
     else:
-        backend.execute_write(
-            """
+        backend.execute_write("""
             CREATE TABLE IF NOT EXISTS access_grants (
                 id TEXT PRIMARY KEY,
                 item_id TEXT NOT NULL,
@@ -120,8 +117,7 @@ def up_fn(backend: DatabaseBackend) -> None:
                 workspace_id TEXT,
                 UNIQUE(item_id, grantee_type, grantee_id)
             )
-        """
-        )
+        """)
 
     # Create indexes for access_grants
     backend.execute_write("CREATE INDEX IF NOT EXISTS idx_grants_item_id ON access_grants(item_id)")
@@ -137,8 +133,7 @@ def up_fn(backend: DatabaseBackend) -> None:
 
     # Create federated_regions table
     if is_postgres:
-        backend.execute_write(
-            """
+        backend.execute_write("""
             CREATE TABLE IF NOT EXISTS federated_regions (
                 region_id TEXT PRIMARY KEY,
                 endpoint_url TEXT NOT NULL,
@@ -152,11 +147,9 @@ def up_fn(backend: DatabaseBackend) -> None:
                 created_at TIMESTAMP DEFAULT NOW(),
                 updated_at TIMESTAMP DEFAULT NOW()
             )
-        """
-        )
+        """)
     else:
-        backend.execute_write(
-            """
+        backend.execute_write("""
             CREATE TABLE IF NOT EXISTS federated_regions (
                 region_id TEXT PRIMARY KEY,
                 endpoint_url TEXT NOT NULL,
@@ -170,8 +163,7 @@ def up_fn(backend: DatabaseBackend) -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """
-        )
+        """)
 
     # Create index for federation status queries
     backend.execute_write(

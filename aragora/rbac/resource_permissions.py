@@ -201,13 +201,15 @@ class ResourcePermission:
             permission_id=data["permission_id"],
             resource_type=ResourceType(data["resource_type"]),
             resource_id=data["resource_id"],
-            granted_at=datetime.fromisoformat(data["granted_at"])
-            if isinstance(data["granted_at"], str)
-            else data["granted_at"],
+            granted_at=(
+                datetime.fromisoformat(data["granted_at"])
+                if isinstance(data["granted_at"], str)
+                else data["granted_at"]
+            ),
             granted_by=data.get("granted_by"),
-            expires_at=datetime.fromisoformat(data["expires_at"])
-            if data.get("expires_at")
-            else None,
+            expires_at=(
+                datetime.fromisoformat(data["expires_at"]) if data.get("expires_at") else None
+            ),
             is_active=data.get("is_active", True),
             org_id=data.get("org_id"),
             conditions=data.get("conditions", {}),

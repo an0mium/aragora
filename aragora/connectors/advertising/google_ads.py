@@ -134,9 +134,11 @@ class Campaign:
             budget_amount_micros=int(campaign.get("campaignBudget", {}).get("amountMicros", 0)),
             start_date=_parse_date(campaign.get("startDate")),
             end_date=_parse_date(campaign.get("endDate")),
-            bidding_strategy_type=BiddingStrategyType(campaign["biddingStrategyType"])
-            if campaign.get("biddingStrategyType")
-            else None,
+            bidding_strategy_type=(
+                BiddingStrategyType(campaign["biddingStrategyType"])
+                if campaign.get("biddingStrategyType")
+                else None
+            ),
             target_cpa_micros=campaign.get("targetCpa", {}).get("targetCpaMicros"),
             target_roas=campaign.get("targetRoas", {}).get("targetRoas"),
             optimization_score=campaign.get("optimizationScore"),

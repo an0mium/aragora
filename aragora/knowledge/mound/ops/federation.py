@@ -482,9 +482,11 @@ class KnowledgeFederationMixin:
             status[region.region_id] = {
                 "endpoint_url": region.endpoint_url,
                 "mode": region.mode.value if hasattr(region.mode, "value") else region.mode,
-                "sync_scope": region.sync_scope.value
-                if hasattr(region.sync_scope, "value")
-                else region.sync_scope,
+                "sync_scope": (
+                    region.sync_scope.value
+                    if hasattr(region.sync_scope, "value")
+                    else region.sync_scope
+                ),
                 "enabled": region.enabled,
                 "last_sync_at": region.last_sync_at,
                 "last_sync_error": region.last_sync_error,
@@ -510,9 +512,9 @@ class KnowledgeFederationMixin:
                     mode=FederationMode(config.mode),
                     sync_scope=SyncScope(config.sync_scope),
                     enabled=config.enabled,
-                    last_sync_at=datetime.fromisoformat(config.last_sync_at)
-                    if config.last_sync_at
-                    else None,
+                    last_sync_at=(
+                        datetime.fromisoformat(config.last_sync_at) if config.last_sync_at else None
+                    ),
                     last_sync_error=config.last_sync_error,
                 )
             # Fall through to cache check
@@ -541,9 +543,9 @@ class KnowledgeFederationMixin:
                     mode=FederationMode(config.mode),
                     sync_scope=SyncScope(config.sync_scope),
                     enabled=config.enabled,
-                    last_sync_at=datetime.fromisoformat(config.last_sync_at)
-                    if config.last_sync_at
-                    else None,
+                    last_sync_at=(
+                        datetime.fromisoformat(config.last_sync_at) if config.last_sync_at else None
+                    ),
                     last_sync_error=config.last_sync_error,
                 )
                 for config in configs
@@ -577,9 +579,9 @@ class KnowledgeFederationMixin:
                     mode=FederationMode(config.mode),
                     sync_scope=SyncScope(config.sync_scope),
                     enabled=config.enabled,
-                    last_sync_at=datetime.fromisoformat(config.last_sync_at)
-                    if config.last_sync_at
-                    else None,
+                    last_sync_at=(
+                        datetime.fromisoformat(config.last_sync_at) if config.last_sync_at else None
+                    ),
                     last_sync_error=config.last_sync_error,
                 )
                 for config in configs

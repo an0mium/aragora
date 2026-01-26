@@ -168,7 +168,6 @@ from .profiles import (
     get_lite_role_summary,
 )
 
-
 __all__ = [
     # Legacy Types (backward compatible)
     "ResourceType",

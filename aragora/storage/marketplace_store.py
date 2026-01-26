@@ -760,13 +760,11 @@ class MarketplaceStore(SQLiteStore):
             List of category dicts
         """
         with self.connection() as conn:
-            rows = conn.execute(
-                """
+            rows = conn.execute("""
                 SELECT id, name, description, template_count
                 FROM categories
                 ORDER BY template_count DESC
-                """
-            ).fetchall()
+                """).fetchall()
 
             return [
                 {
@@ -1431,13 +1429,11 @@ class PostgresMarketplaceStore:
     async def list_categories_async(self) -> list[dict[str, Any]]:
         """List categories asynchronously."""
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                """
+            rows = await conn.fetch("""
                 SELECT id, name, description, template_count
                 FROM categories
                 ORDER BY template_count DESC
-                """
-            )
+                """)
 
             return [
                 {

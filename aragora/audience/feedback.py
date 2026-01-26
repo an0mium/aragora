@@ -408,23 +408,19 @@ class SuggestionFeedbackTracker(SQLiteStore):
             stats["debates_with_suggestions"] = row[0] if row else 0
 
             # Consensus rate for debates with suggestions
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT AVG(consensus_reached) FROM suggestion_injections
                 WHERE debate_completed = 1
-            """
-            )
+            """)
             row = cursor.fetchone()
             avg = row[0] if row else None
             stats["consensus_rate"] = avg if avg else 0.0
 
             # Average effectiveness
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT AVG(effectiveness_score) FROM suggestion_injections
                 WHERE debate_completed = 1
-            """
-            )
+            """)
             row = cursor.fetchone()
             avg = row[0] if row else None
             stats["avg_effectiveness"] = avg if avg else 0.0
@@ -435,15 +431,13 @@ class SuggestionFeedbackTracker(SQLiteStore):
             stats["total_contributors"] = row[0] if row else 0
 
             # Top effectiveness suggestions
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT suggestion_text, effectiveness_score, cluster_count
                 FROM suggestion_injections
                 WHERE debate_completed = 1 AND effectiveness_score >= 0.7
                 ORDER BY effectiveness_score DESC
                 LIMIT 5
-            """
-            )
+            """)
             stats["top_suggestions"] = [
                 {"text": row[0][:100], "score": row[1], "count": row[2]}
                 for row in cursor.fetchall()

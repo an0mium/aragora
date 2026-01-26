@@ -10,7 +10,6 @@ from __future__ import annotations
 import re
 from typing import Set
 
-
 # Domain keyword mappings
 DOMAIN_KEYWORDS: dict[str, list[str]] = {
     "philosophical": [

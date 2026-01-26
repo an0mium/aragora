@@ -215,8 +215,7 @@ class DRDrillStorage:
     def _init_schema(self) -> None:
         """Initialize database schema."""
         conn = self._get_conn()
-        conn.executescript(
-            """
+        conn.executescript("""
             CREATE TABLE IF NOT EXISTS dr_drills (
                 drill_id TEXT PRIMARY KEY,
                 drill_type TEXT NOT NULL,
@@ -279,8 +278,7 @@ class DRDrillStorage:
             CREATE INDEX IF NOT EXISTS idx_drills_scheduled ON dr_drills(scheduled_at);
             CREATE INDEX IF NOT EXISTS idx_steps_drill ON drill_steps(drill_id);
             CREATE INDEX IF NOT EXISTS idx_history_type ON rto_rpo_history(drill_type, timestamp);
-            """
-        )
+            """)
         conn.commit()
 
     def save_drill(self, drill: DRDrillResult) -> None:
@@ -376,12 +374,12 @@ class DRDrillStorage:
                     component=ComponentType(sr["component"]),
                     action=sr["action"],
                     status=DrillStatus(sr["status"]),
-                    started_at=datetime.fromisoformat(sr["started_at"])
-                    if sr["started_at"]
-                    else None,
-                    completed_at=datetime.fromisoformat(sr["completed_at"])
-                    if sr["completed_at"]
-                    else None,
+                    started_at=(
+                        datetime.fromisoformat(sr["started_at"]) if sr["started_at"] else None
+                    ),
+                    completed_at=(
+                        datetime.fromisoformat(sr["completed_at"]) if sr["completed_at"] else None
+                    ),
                     duration_seconds=sr["duration_seconds"] or 0.0,
                     error_message=sr["error_message"],
                     metrics=json.loads(sr["metrics_json"] or "{}"),
@@ -394,9 +392,9 @@ class DRDrillStorage:
             status=DrillStatus(row["status"]),
             scheduled_at=datetime.fromisoformat(row["scheduled_at"]),
             started_at=datetime.fromisoformat(row["started_at"]) if row["started_at"] else None,
-            completed_at=datetime.fromisoformat(row["completed_at"])
-            if row["completed_at"]
-            else None,
+            completed_at=(
+                datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None
+            ),
             initiated_by=row["initiated_by"] or "system",
             steps=steps,
             total_duration_seconds=row["total_duration_seconds"] or 0.0,

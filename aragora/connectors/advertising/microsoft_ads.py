@@ -159,9 +159,9 @@ class Campaign:
             time_zone=data.get("TimeZone", "PacificTimeUSCanadaTijuana"),
             languages=data.get("Languages", {}).get("string", []),
             tracking_template=data.get("TrackingUrlTemplate"),
-            start_date=date.fromisoformat(data["StartDate"]["Date"])
-            if data.get("StartDate")
-            else None,
+            start_date=(
+                date.fromisoformat(data["StartDate"]["Date"]) if data.get("StartDate") else None
+            ),
             end_date=date.fromisoformat(data["EndDate"]["Date"]) if data.get("EndDate") else None,
         )
 
@@ -189,9 +189,9 @@ class AdGroup:
             name=data.get("Name", ""),
             status=AdGroupStatus(data.get("Status", "Paused")),
             cpc_bid=data.get("CpcBid", {}).get("Amount"),
-            start_date=date.fromisoformat(data["StartDate"]["Date"])
-            if data.get("StartDate")
-            else None,
+            start_date=(
+                date.fromisoformat(data["StartDate"]["Date"]) if data.get("StartDate") else None
+            ),
             end_date=date.fromisoformat(data["EndDate"]["Date"]) if data.get("EndDate") else None,
             tracking_template=data.get("TrackingUrlTemplate"),
             ad_rotation=data.get("AdRotation", {}).get("Type"),
@@ -346,9 +346,11 @@ class ConversionGoal:
             status=data.get("Status", ""),
             revenue_type=data.get("Revenue", {}).get("Type"),
             revenue_value=data.get("Revenue", {}).get("Value"),
-            conversion_window=data.get("ConversionWindowInMinutes", 0) // 1440
-            if data.get("ConversionWindowInMinutes")
-            else None,
+            conversion_window=(
+                data.get("ConversionWindowInMinutes", 0) // 1440
+                if data.get("ConversionWindowInMinutes")
+                else None
+            ),
         )
 
 

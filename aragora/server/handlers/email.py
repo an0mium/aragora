@@ -207,9 +207,11 @@ async def handle_prioritize_email(
             to_addresses=email_data.get("to_addresses", []),
             cc_addresses=email_data.get("cc_addresses", []),
             bcc_addresses=email_data.get("bcc_addresses", []),
-            date=datetime.fromisoformat(email_data["date"])
-            if email_data.get("date")
-            else datetime.now(),
+            date=(
+                datetime.fromisoformat(email_data["date"])
+                if email_data.get("date")
+                else datetime.now()
+            ),
             body_text=email_data.get("body_text", ""),
             body_html=email_data.get("body_html", ""),
             snippet=email_data.get("snippet", ""),
@@ -277,9 +279,11 @@ async def handle_rank_inbox(
                 to_addresses=email_data.get("to_addresses", []),
                 cc_addresses=email_data.get("cc_addresses", []),
                 bcc_addresses=email_data.get("bcc_addresses", []),
-                date=datetime.fromisoformat(email_data["date"])
-                if email_data.get("date")
-                else datetime.now(),
+                date=(
+                    datetime.fromisoformat(email_data["date"])
+                    if email_data.get("date")
+                    else datetime.now()
+                ),
                 body_text=email_data.get("body_text", ""),
                 body_html=email_data.get("body_html", ""),
                 snippet=email_data.get("snippet", ""),
@@ -530,9 +534,11 @@ async def handle_categorize_email(
             to_addresses=email_data.get("to_addresses", []),
             cc_addresses=email_data.get("cc_addresses", []),
             bcc_addresses=email_data.get("bcc_addresses", []),
-            date=datetime.fromisoformat(email_data["date"])
-            if email_data.get("date")
-            else datetime.now(),
+            date=(
+                datetime.fromisoformat(email_data["date"])
+                if email_data.get("date")
+                else datetime.now()
+            ),
             body_text=email_data.get("body_text", ""),
             body_html=email_data.get("body_html", ""),
             snippet=email_data.get("snippet", ""),
@@ -595,9 +601,11 @@ async def handle_categorize_batch(
                 to_addresses=email_data.get("to_addresses", []),
                 cc_addresses=email_data.get("cc_addresses", []),
                 bcc_addresses=email_data.get("bcc_addresses", []),
-                date=datetime.fromisoformat(email_data["date"])
-                if email_data.get("date")
-                else datetime.now(),
+                date=(
+                    datetime.fromisoformat(email_data["date"])
+                    if email_data.get("date")
+                    else datetime.now()
+                ),
                 body_text=email_data.get("body_text", ""),
                 body_html=email_data.get("body_html", ""),
                 snippet=email_data.get("snippet", ""),

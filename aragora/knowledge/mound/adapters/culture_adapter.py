@@ -160,18 +160,24 @@ class CultureAdapter:
                 tier="slow",  # Culture patterns are relatively stable
                 metadata={
                     "pattern_id": pattern.id,
-                    "pattern_type": pattern.pattern_type.value
-                    if hasattr(pattern.pattern_type, "value")
-                    else str(pattern.pattern_type),
+                    "pattern_type": (
+                        pattern.pattern_type.value
+                        if hasattr(pattern.pattern_type, "value")
+                        else str(pattern.pattern_type)
+                    ),
                     "pattern_key": pattern.pattern_key,
                     "pattern_value": pattern.pattern_value,
                     "observation_count": pattern.observation_count,
-                    "first_observed": pattern.first_observed_at.isoformat()
-                    if hasattr(pattern.first_observed_at, "isoformat")
-                    else str(pattern.first_observed_at),
-                    "last_observed": pattern.last_observed_at.isoformat()
-                    if hasattr(pattern.last_observed_at, "isoformat")
-                    else str(pattern.last_observed_at),
+                    "first_observed": (
+                        pattern.first_observed_at.isoformat()
+                        if hasattr(pattern.first_observed_at, "isoformat")
+                        else str(pattern.first_observed_at)
+                    ),
+                    "last_observed": (
+                        pattern.last_observed_at.isoformat()
+                        if hasattr(pattern.last_observed_at, "isoformat")
+                        else str(pattern.last_observed_at)
+                    ),
                     "contributing_debates": pattern.contributing_debates[:20],  # Limit list size
                     "adapter": "culture",
                 },

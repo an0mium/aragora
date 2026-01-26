@@ -113,28 +113,38 @@ class ChannelContext:
             "suggested_response_window": self.suggested_response_window,
             "active_projects": self.active_projects,
             "active_contacts": self.active_contacts,
-            "slack": {
-                "is_online": self.slack.is_online if self.slack else False,
-                "active_channels": self.slack.active_channels if self.slack else [],
-                "recent_mentions": self.slack.recent_mentions if self.slack else 0,
-                "activity_score": self.slack.activity_score if self.slack else 0.0,
-            }
-            if self.slack
-            else None,
-            "drive": {
-                "recently_edited_count": len(self.drive.recently_edited_files) if self.drive else 0,
-                "activity_score": self.drive.activity_score if self.drive else 0.0,
-            }
-            if self.drive
-            else None,
-            "calendar": {
-                "upcoming_meetings_count": len(self.calendar.upcoming_meetings)
+            "slack": (
+                {
+                    "is_online": self.slack.is_online if self.slack else False,
+                    "active_channels": self.slack.active_channels if self.slack else [],
+                    "recent_mentions": self.slack.recent_mentions if self.slack else 0,
+                    "activity_score": self.slack.activity_score if self.slack else 0.0,
+                }
+                if self.slack
+                else None
+            ),
+            "drive": (
+                {
+                    "recently_edited_count": (
+                        len(self.drive.recently_edited_files) if self.drive else 0
+                    ),
+                    "activity_score": self.drive.activity_score if self.drive else 0.0,
+                }
+                if self.drive
+                else None
+            ),
+            "calendar": (
+                {
+                    "upcoming_meetings_count": (
+                        len(self.calendar.upcoming_meetings) if self.calendar else 0
+                    ),
+                    "meeting_density": (
+                        self.calendar.meeting_density_score if self.calendar else 0.0
+                    ),
+                }
                 if self.calendar
-                else 0,
-                "meeting_density": self.calendar.meeting_density_score if self.calendar else 0.0,
-            }
-            if self.calendar
-            else None,
+                else None
+            ),
         }
 
 

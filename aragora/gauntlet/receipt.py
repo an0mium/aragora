@@ -497,9 +497,11 @@ class DecisionReceipt:
             supporting_agents=supporting_agents,
             dissenting_agents=dissenting_agents,
             method=getattr(result, "consensus_strength", "majority") or "majority",
-            evidence_hash=hashlib.sha256(result.final_answer.encode()).hexdigest()[:16]
-            if result.final_answer
-            else "",
+            evidence_hash=(
+                hashlib.sha256(result.final_answer.encode()).hexdigest()[:16]
+                if result.final_answer
+                else ""
+            ),
         )
 
         # Compute input hash from task if not provided

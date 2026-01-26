@@ -240,8 +240,7 @@ class UsageTracker:
         """Create database schema if not exists."""
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connection() as conn:
-            conn.executescript(
-                """
+            conn.executescript("""
                 CREATE TABLE IF NOT EXISTS usage_events (
                     id TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL,
@@ -265,8 +264,7 @@ class UsageTracker:
 
                 CREATE INDEX IF NOT EXISTS idx_usage_debate
                     ON usage_events(debate_id);
-            """
-            )
+            """)
             conn.commit()
 
     def record(self, event: UsageEvent) -> None:

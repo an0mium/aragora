@@ -184,8 +184,7 @@ class DatabaseBatchJobStore(BatchJobStore):
 
     def _init_schema(self) -> None:
         """Initialize database schema."""
-        self._backend.execute_write(
-            f"""
+        self._backend.execute_write(f"""
             CREATE TABLE IF NOT EXISTS {self._TABLE_NAME} (
                 batch_id TEXT PRIMARY KEY,
                 status TEXT NOT NULL,
@@ -199,8 +198,7 @@ class DatabaseBatchJobStore(BatchJobStore):
                 error TEXT,
                 expires_at REAL NOT NULL
             )
-            """
-        )
+            """)
         self._backend.execute_write(
             f"CREATE INDEX IF NOT EXISTS idx_{self._TABLE_NAME}_status ON {self._TABLE_NAME}(status)"
         )

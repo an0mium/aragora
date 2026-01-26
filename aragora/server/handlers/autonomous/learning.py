@@ -93,9 +93,11 @@ class LearningHandler:
                         "confidence_accuracy": calibration.confidence_accuracy,
                         "topic_strengths": calibration.topic_strengths,
                         "topic_weaknesses": calibration.topic_weaknesses,
-                        "last_updated": calibration.last_updated.isoformat()
-                        if calibration.last_updated
-                        else None,
+                        "last_updated": (
+                            calibration.last_updated.isoformat()
+                            if calibration.last_updated
+                            else None
+                        ),
                         "total_debates": calibration.total_debates,
                         "win_rate": calibration.win_rate,
                     },
@@ -131,9 +133,9 @@ class LearningHandler:
                             "elo_rating": cal.elo_rating,
                             "total_debates": cal.total_debates,
                             "win_rate": cal.win_rate,
-                            "last_updated": cal.last_updated.isoformat()
-                            if cal.last_updated
-                            else None,
+                            "last_updated": (
+                                cal.last_updated.isoformat() if cal.last_updated else None
+                            ),
                         }
                         for agent_id, cal in calibrations.items()
                     },

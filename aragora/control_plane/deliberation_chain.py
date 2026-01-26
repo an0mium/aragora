@@ -315,9 +315,11 @@ class DeliberationChain:
             entry_stage_id=data.get("entry_stage_id"),
             overall_timeout_seconds=data.get("overall_timeout_seconds", 1800),
             metadata=data.get("metadata", {}),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if "created_at" in data
-            else datetime.now(timezone.utc),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if "created_at" in data
+                else datetime.now(timezone.utc)
+            ),
             created_by=data.get("created_by"),
             tags=data.get("tags", []),
         )

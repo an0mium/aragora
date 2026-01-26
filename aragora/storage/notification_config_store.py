@@ -651,9 +651,11 @@ class NotificationConfigStore:
                     org_id=row["org_id"],  # type: ignore[call-overload]
                     email=row["email"],  # type: ignore[call-overload]
                     name=row["name"],  # type: ignore[call-overload]
-                    preferences=json.loads(row["preferences_json"])  # type: ignore[call-overload]
-                    if row["preferences_json"]  # type: ignore[call-overload]
-                    else {},
+                    preferences=(
+                        json.loads(row["preferences_json"])  # type: ignore[call-overload]
+                        if row["preferences_json"]  # type: ignore[call-overload]
+                        else {}
+                    ),
                     created_at=row["created_at"],  # type: ignore[call-overload]
                 )
             )

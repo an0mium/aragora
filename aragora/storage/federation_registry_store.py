@@ -312,8 +312,7 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
             conn = sqlite3.connect(str(self._db_path))
             try:
                 cursor = conn.cursor()
-                cursor.execute(
-                    """
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS federated_regions (
                         region_id TEXT NOT NULL,
                         workspace_id TEXT,
@@ -335,20 +334,15 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
                         data_json TEXT NOT NULL,
                         PRIMARY KEY (region_id, workspace_id)
                     )
-                    """
-                )
-                cursor.execute(
-                    """
+                    """)
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_federation_workspace
                     ON federated_regions(workspace_id)
-                    """
-                )
-                cursor.execute(
-                    """
+                    """)
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_federation_enabled
                     ON federated_regions(enabled)
-                    """
-                )
+                    """)
                 conn.commit()
             finally:
                 conn.close()

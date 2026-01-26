@@ -853,19 +853,23 @@ class AdvertisingHandler(SecureHandler):
             "id": campaign.id,
             "platform": "google_ads",
             "name": campaign.name,
-            "status": campaign.status.value
-            if hasattr(campaign.status, "value")
-            else campaign.status,
-            "objective": campaign.campaign_type.value
-            if hasattr(campaign.campaign_type, "value")
-            else campaign.campaign_type,
+            "status": (
+                campaign.status.value if hasattr(campaign.status, "value") else campaign.status
+            ),
+            "objective": (
+                campaign.campaign_type.value
+                if hasattr(campaign.campaign_type, "value")
+                else campaign.campaign_type
+            ),
             "daily_budget": campaign.budget_micros / 1_000_000 if campaign.budget_micros else None,
             "total_budget": None,
             "start_date": campaign.start_date.isoformat() if campaign.start_date else None,
             "end_date": campaign.end_date.isoformat() if campaign.end_date else None,
-            "bidding_strategy": campaign.bidding_strategy.value
-            if hasattr(campaign.bidding_strategy, "value")
-            else campaign.bidding_strategy,
+            "bidding_strategy": (
+                campaign.bidding_strategy.value
+                if hasattr(campaign.bidding_strategy, "value")
+                else campaign.bidding_strategy
+            ),
         }
 
     def _normalize_meta_campaign(self, campaign: Any) -> dict[str, Any]:
@@ -874,12 +878,14 @@ class AdvertisingHandler(SecureHandler):
             "id": campaign.id,
             "platform": "meta_ads",
             "name": campaign.name,
-            "status": campaign.status.value
-            if hasattr(campaign.status, "value")
-            else campaign.status,
-            "objective": campaign.objective.value
-            if hasattr(campaign.objective, "value")
-            else campaign.objective,
+            "status": (
+                campaign.status.value if hasattr(campaign.status, "value") else campaign.status
+            ),
+            "objective": (
+                campaign.objective.value
+                if hasattr(campaign.objective, "value")
+                else campaign.objective
+            ),
             "daily_budget": campaign.daily_budget,
             "total_budget": campaign.lifetime_budget,
             "start_date": campaign.start_time.date().isoformat() if campaign.start_time else None,
@@ -893,23 +899,29 @@ class AdvertisingHandler(SecureHandler):
             "id": campaign.id,
             "platform": "linkedin_ads",
             "name": campaign.name,
-            "status": campaign.status.value
-            if hasattr(campaign.status, "value")
-            else campaign.status,
-            "objective": campaign.objective_type.value
-            if hasattr(campaign.objective_type, "value")
-            else str(campaign.objective_type),
+            "status": (
+                campaign.status.value if hasattr(campaign.status, "value") else campaign.status
+            ),
+            "objective": (
+                campaign.objective_type.value
+                if hasattr(campaign.objective_type, "value")
+                else str(campaign.objective_type)
+            ),
             "daily_budget": campaign.daily_budget,
             "total_budget": campaign.total_budget,
-            "start_date": campaign.run_schedule_start.date().isoformat()
-            if campaign.run_schedule_start
-            else None,
-            "end_date": campaign.run_schedule_end.date().isoformat()
-            if campaign.run_schedule_end
-            else None,
-            "campaign_type": campaign.campaign_type.value
-            if hasattr(campaign.campaign_type, "value")
-            else campaign.campaign_type,
+            "start_date": (
+                campaign.run_schedule_start.date().isoformat()
+                if campaign.run_schedule_start
+                else None
+            ),
+            "end_date": (
+                campaign.run_schedule_end.date().isoformat() if campaign.run_schedule_end else None
+            ),
+            "campaign_type": (
+                campaign.campaign_type.value
+                if hasattr(campaign.campaign_type, "value")
+                else campaign.campaign_type
+            ),
         }
 
     def _normalize_microsoft_campaign(self, campaign: Any) -> dict[str, Any]:
@@ -918,19 +930,23 @@ class AdvertisingHandler(SecureHandler):
             "id": campaign.id,
             "platform": "microsoft_ads",
             "name": campaign.name,
-            "status": campaign.status.value
-            if hasattr(campaign.status, "value")
-            else campaign.status,
-            "objective": campaign.campaign_type.value
-            if hasattr(campaign.campaign_type, "value")
-            else campaign.campaign_type,
+            "status": (
+                campaign.status.value if hasattr(campaign.status, "value") else campaign.status
+            ),
+            "objective": (
+                campaign.campaign_type.value
+                if hasattr(campaign.campaign_type, "value")
+                else campaign.campaign_type
+            ),
             "daily_budget": campaign.daily_budget,
             "total_budget": None,
             "start_date": campaign.start_date.isoformat() if campaign.start_date else None,
             "end_date": campaign.end_date.isoformat() if campaign.end_date else None,
-            "bidding_scheme": campaign.bidding_scheme.value
-            if hasattr(campaign.bidding_scheme, "value")
-            else campaign.bidding_scheme,
+            "bidding_scheme": (
+                campaign.bidding_scheme.value
+                if hasattr(campaign.bidding_scheme, "value")
+                else campaign.bidding_scheme
+            ),
         }
 
     def _aggregate_google_metrics(

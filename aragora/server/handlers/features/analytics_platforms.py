@@ -938,28 +938,36 @@ class AnalyticsPlatformsHandler(SecureHandler):
     def _normalize_ga_report(self, report: Any) -> dict[str, Any]:
         """Normalize GA4 report to unified format."""
         return {
-            "dimensions": [h.name for h in report.dimension_headers]
-            if hasattr(report, "dimension_headers")
-            else [],
-            "metrics": [h.name for h in report.metric_headers]
-            if hasattr(report, "metric_headers")
-            else [],
+            "dimensions": (
+                [h.name for h in report.dimension_headers]
+                if hasattr(report, "dimension_headers")
+                else []
+            ),
+            "metrics": (
+                [h.name for h in report.metric_headers] if hasattr(report, "metric_headers") else []
+            ),
             "rows": [
                 {
-                    "dimensions": [d.value for d in row.dimension_values]
-                    if hasattr(row, "dimension_values")
-                    else [],
-                    "metrics": [m.value for m in row.metric_values]
-                    if hasattr(row, "metric_values")
-                    else [],
+                    "dimensions": (
+                        [d.value for d in row.dimension_values]
+                        if hasattr(row, "dimension_values")
+                        else []
+                    ),
+                    "metrics": (
+                        [m.value for m in row.metric_values]
+                        if hasattr(row, "metric_values")
+                        else []
+                    ),
                 }
                 for row in (report.rows if hasattr(report, "rows") else [])
             ],
-            "row_count": report.row_count
-            if hasattr(report, "row_count")
-            else len(report.rows)
-            if hasattr(report, "rows")
-            else 0,
+            "row_count": (
+                report.row_count
+                if hasattr(report, "row_count")
+                else len(report.rows)
+                if hasattr(report, "rows")
+                else 0
+            ),
         }
 
     def _extract_ga_totals(self, report: Any) -> dict[str, Any]:
@@ -986,12 +994,16 @@ class AnalyticsPlatformsHandler(SecureHandler):
             "active_users": realtime.active_users if hasattr(realtime, "active_users") else 0,
             "rows": [
                 {
-                    "dimensions": [d.value for d in row.dimension_values]
-                    if hasattr(row, "dimension_values")
-                    else [],
-                    "metrics": [m.value for m in row.metric_values]
-                    if hasattr(row, "metric_values")
-                    else [],
+                    "dimensions": (
+                        [d.value for d in row.dimension_values]
+                        if hasattr(row, "dimension_values")
+                        else []
+                    ),
+                    "metrics": (
+                        [m.value for m in row.metric_values]
+                        if hasattr(row, "metric_values")
+                        else []
+                    ),
                 }
                 for row in (realtime.rows if hasattr(realtime, "rows") else [])
             ],
@@ -1018,9 +1030,9 @@ class AnalyticsPlatformsHandler(SecureHandler):
         """Normalize Mixpanel funnel to unified format."""
         return {
             "steps": funnel.steps if hasattr(funnel, "steps") else [],
-            "conversion_rate": funnel.overall_conversion
-            if hasattr(funnel, "overall_conversion")
-            else 0,
+            "conversion_rate": (
+                funnel.overall_conversion if hasattr(funnel, "overall_conversion") else 0
+            ),
             "date_range": {
                 "start": funnel.from_date if hasattr(funnel, "from_date") else None,
                 "end": funnel.to_date if hasattr(funnel, "to_date") else None,

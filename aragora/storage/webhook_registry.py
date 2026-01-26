@@ -111,8 +111,7 @@ class SQLiteWebhookRegistry:
     def _init_schema(self) -> None:
         """Initialize database schema."""
         conn = sqlite3.connect(str(self.db_path))
-        conn.executescript(
-            """
+        conn.executescript("""
             -- Webhook registrations table
             CREATE TABLE IF NOT EXISTS webhook_registrations (
                 id TEXT PRIMARY KEY,
@@ -148,8 +147,7 @@ class SQLiteWebhookRegistry:
                 version INTEGER NOT NULL,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
-        """
-        )
+        """)
         # Record schema version
         conn.execute(
             """INSERT OR REPLACE INTO _schema_versions (module, version)

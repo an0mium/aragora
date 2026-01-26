@@ -636,9 +636,11 @@ class OrganizationStore:
                     (
                         status,
                         accepted_by,
-                        accepted_at.isoformat()
-                        if accepted_at
-                        else datetime.now(timezone.utc).isoformat(),
+                        (
+                            accepted_at.isoformat()
+                            if accepted_at
+                            else datetime.now(timezone.utc).isoformat()
+                        ),
                         invitation_id,
                     ),
                 )
@@ -660,9 +662,11 @@ class OrganizationStore:
                     (
                         status,
                         accepted_by,
-                        accepted_at.isoformat()
-                        if accepted_at
-                        else datetime.now(timezone.utc).isoformat(),
+                        (
+                            accepted_at.isoformat()
+                            if accepted_at
+                            else datetime.now(timezone.utc).isoformat()
+                        ),
                         invitation_id,
                     ),
                 )

@@ -199,8 +199,7 @@ class AnomalyStorage:
     def _init_schema(self) -> None:
         """Initialize database schema."""
         conn = self._get_conn()
-        conn.executescript(
-            """
+        conn.executescript("""
             CREATE TABLE IF NOT EXISTS auth_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
@@ -254,8 +253,7 @@ class AnomalyStorage:
             CREATE INDEX IF NOT EXISTS idx_api_requests_user_ts ON api_requests(user_id, timestamp);
             CREATE INDEX IF NOT EXISTS idx_api_requests_ip_ts ON api_requests(ip_address, timestamp);
             CREATE INDEX IF NOT EXISTS idx_anomalies_ts ON detected_anomalies(timestamp);
-            """
-        )
+            """)
         conn.commit()
 
     def record_auth_event(
@@ -471,9 +469,9 @@ class AnomalyStorage:
             avg_requests_per_hour=row["avg_requests_per_hour"] or 0.0,
             std_requests_per_hour=row["std_requests_per_hour"] or 0.0,
             learning_samples=row["learning_samples"] or 0,
-            last_updated=datetime.fromisoformat(row["last_updated"])
-            if row["last_updated"]
-            else None,
+            last_updated=(
+                datetime.fromisoformat(row["last_updated"]) if row["last_updated"] else None
+            ),
         )
 
     def record_anomaly(

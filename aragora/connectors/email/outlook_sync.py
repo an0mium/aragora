@@ -141,9 +141,9 @@ class OutlookSyncState:
             "last_sync": self.last_sync.isoformat() if self.last_sync else None,
             "initial_sync_complete": self.initial_sync_complete,
             "subscription_id": self.subscription_id,
-            "subscription_expiry": self.subscription_expiry.isoformat()
-            if self.subscription_expiry
-            else None,
+            "subscription_expiry": (
+                self.subscription_expiry.isoformat() if self.subscription_expiry else None
+            ),
             "client_state": self.client_state,
             "total_messages_synced": self.total_messages_synced,
             "total_messages_prioritized": self.total_messages_prioritized,
@@ -943,18 +943,20 @@ class OutlookSyncService:
             "status": self._status.value,
             "email_address": self._state.email_address if self._state else None,
             "delta_link": bool(self._state.delta_link) if self._state else False,
-            "last_sync": self._state.last_sync.isoformat()
-            if self._state and self._state.last_sync
-            else None,
+            "last_sync": (
+                self._state.last_sync.isoformat() if self._state and self._state.last_sync else None
+            ),
             "initial_sync_complete": self._state.initial_sync_complete if self._state else False,
             "subscription_active": bool(self._state and self._state.subscription_id),
-            "subscription_expiry": self._state.subscription_expiry.isoformat()
-            if self._state and self._state.subscription_expiry
-            else None,
+            "subscription_expiry": (
+                self._state.subscription_expiry.isoformat()
+                if self._state and self._state.subscription_expiry
+                else None
+            ),
             "total_messages_synced": self._state.total_messages_synced if self._state else 0,
-            "total_messages_prioritized": self._state.total_messages_prioritized
-            if self._state
-            else 0,
+            "total_messages_prioritized": (
+                self._state.total_messages_prioritized if self._state else 0
+            ),
             "sync_errors": self._state.sync_errors if self._state else 0,
             "last_error": self._state.last_error if self._state else None,
         }

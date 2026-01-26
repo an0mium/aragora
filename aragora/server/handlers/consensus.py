@@ -229,14 +229,12 @@ class ConsensusHandler(BaseHandler):
         with get_db_connection(memory.db_path) as conn:
             cursor = conn.cursor()
             # Combined query for better performance
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT
                     SUM(CASE WHEN confidence >= 0.7 THEN 1 ELSE 0 END) as high_conf_count,
                     AVG(confidence) as avg_conf
                 FROM consensus
-            """
-            )
+            """)
             row = cursor.fetchone()
             high_confidence_count = row[0] if row and row[0] else 0
             avg_confidence = row[1] if row and row[1] else 0.0

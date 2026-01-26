@@ -497,9 +497,9 @@ class ThreatIntelEnrichment:
                     severity=result.severity.name if result.severity else "medium",
                     confidence=result.confidence,
                     source=",".join(s.value for s in result.sources[:3]),
-                    description=result.details.get("description", "")[:200]
-                    if result.details
-                    else None,
+                    description=(
+                        result.details.get("description", "")[:200] if result.details else None
+                    ),
                 )
         except Exception as e:
             logger.debug(f"[threat_intel] URL lookup failed: {e}")

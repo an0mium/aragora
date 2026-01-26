@@ -139,8 +139,7 @@ class UserStore:
         """Initialize database schema with migration support."""
         with self._schema_lock, self._transaction() as cursor:
             # Users table
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id TEXT PRIMARY KEY,
                     email TEXT UNIQUE NOT NULL,
@@ -161,14 +160,12 @@ class UserStore:
                     last_login_at TEXT,
                     FOREIGN KEY (org_id) REFERENCES organizations(id)
                 )
-            """
-            )
+            """)
 
             self._migrate_api_key_columns(cursor)
 
             # Organizations table
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS organizations (
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -184,12 +181,10 @@ class UserStore:
                     updated_at TEXT NOT NULL,
                     FOREIGN KEY (owner_id) REFERENCES users(id)
                 )
-            """
-            )
+            """)
 
             # Usage events table
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS usage_events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     org_id TEXT NOT NULL,
@@ -199,12 +194,10 @@ class UserStore:
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (org_id) REFERENCES organizations(id)
                 )
-            """
-            )
+            """)
 
             # OAuth providers table
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS oauth_providers (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id TEXT NOT NULL,
@@ -215,12 +208,10 @@ class UserStore:
                     FOREIGN KEY (user_id) REFERENCES users(id),
                     UNIQUE(provider, provider_user_id)
                 )
-            """
-            )
+            """)
 
             # Audit log table
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS audit_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
@@ -237,12 +228,10 @@ class UserStore:
                     FOREIGN KEY (user_id) REFERENCES users(id),
                     FOREIGN KEY (org_id) REFERENCES organizations(id)
                 )
-            """
-            )
+            """)
 
             # Organization invitations table
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS org_invitations (
                     id TEXT PRIMARY KEY,
                     org_id TEXT NOT NULL,
@@ -257,8 +246,7 @@ class UserStore:
                     FOREIGN KEY (org_id) REFERENCES organizations(id),
                     FOREIGN KEY (invited_by) REFERENCES users(id)
                 )
-            """
-            )
+            """)
 
             # Create indexes
             self._create_indexes(cursor)
@@ -324,13 +312,11 @@ class UserStore:
         """Migrate existing plaintext API keys to hashed storage."""
         migrated = 0
         with self._transaction() as cursor:
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT id, api_key, api_key_created_at
                 FROM users
                 WHERE api_key IS NOT NULL AND api_key_hash IS NULL
-            """
-            )
+            """)
 
             for row in cursor.fetchall():
                 user_id, api_key, _ = row[0], row[1], row[2]
@@ -1608,9 +1594,9 @@ class PostgresUserStore:
         return {
             "org_id": org_id,
             "debates_used_this_month": org.debates_used_this_month,
-            "billing_cycle_start": org.billing_cycle_start.isoformat()
-            if org.billing_cycle_start
-            else None,
+            "billing_cycle_start": (
+                org.billing_cycle_start.isoformat() if org.billing_cycle_start else None
+            ),
             "events": {row["event_type"]: row["total"] for row in rows},
         }
 
@@ -2207,9 +2193,9 @@ class PostgresUserStore:
                 "exists": True,
                 "failed_attempts": row["failed_login_attempts"] or 0,
                 "lockout_until": row["lockout_until"].isoformat() if row["lockout_until"] else None,
-                "last_failed_at": row["last_failed_login_at"].isoformat()
-                if row["last_failed_login_at"]
-                else None,
+                "last_failed_at": (
+                    row["last_failed_login_at"].isoformat() if row["last_failed_login_at"] else None
+                ),
                 "is_locked": bool(
                     row["lockout_until"] and row["lockout_until"] > datetime.now(timezone.utc)
                 ),

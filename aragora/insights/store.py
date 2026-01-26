@@ -495,8 +495,7 @@ class InsightStore(SQLiteStore):
         """Sync helper: Get agent rankings."""
         with self.connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT
                     agent_name,
                     COUNT(*) as debate_count,
@@ -506,8 +505,7 @@ class InsightStore(SQLiteStore):
                 GROUP BY agent_name
                 HAVING debate_count >= 1
                 ORDER BY avg_contribution DESC
-                """
-            )
+                """)
             return cursor.fetchall()
 
     async def get_all_agent_rankings(self) -> list[dict]:
@@ -606,8 +604,7 @@ class InsightStore(SQLiteStore):
     def _ensure_wisdom_table(self) -> None:
         """Ensure the wisdom_submissions table exists."""
         with self.connection() as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS wisdom_submissions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     loop_id TEXT NOT NULL,
@@ -617,14 +614,11 @@ class InsightStore(SQLiteStore):
                     used INTEGER DEFAULT 0,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
-            conn.execute(
-                """
+            """)
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_wisdom_loop_id
                 ON wisdom_submissions(loop_id, used)
-            """
-            )
+            """)
             conn.commit()
 
     def add_wisdom_submission(self, loop_id: str, wisdom_data: dict) -> int:
@@ -811,8 +805,7 @@ class InsightStore(SQLiteStore):
             cursor = conn.cursor()
 
             # Ensure usage tracking table exists
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS insight_usage (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     insight_id TEXT NOT NULL,
@@ -821,8 +814,7 @@ class InsightStore(SQLiteStore):
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(insight_id, debate_id)
                 )
-            """
-            )
+            """)
 
             # Record the usage
             cursor.execute(

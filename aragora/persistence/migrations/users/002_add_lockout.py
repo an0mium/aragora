@@ -37,8 +37,7 @@ def downgrade(conn: sqlite3.Connection) -> None:
     5. Drop backup table
     6. Recreate indexes
     """
-    conn.executescript(
-        """
+    conn.executescript("""
         -- Step 1: Create backup table with all current data
         CREATE TABLE IF NOT EXISTS users_backup AS SELECT * FROM users;
 
@@ -81,5 +80,4 @@ def downgrade(conn: sqlite3.Connection) -> None:
         -- Step 6: Recreate indexes
         CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
         CREATE INDEX IF NOT EXISTS idx_users_org ON users(org_id);
-    """
-    )
+    """)

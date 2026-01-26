@@ -314,9 +314,9 @@ class BranchCoordinator:
                 source_branch=source,
                 target_branch=target,
                 success=result.returncode == 0,
-                conflicts=self._parse_merge_conflicts(result.stderr)
-                if result.returncode != 0
-                else [],
+                conflicts=(
+                    self._parse_merge_conflicts(result.stderr) if result.returncode != 0 else []
+                ),
             )
 
         # Perform actual merge

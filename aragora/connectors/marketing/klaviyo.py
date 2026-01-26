@@ -83,12 +83,16 @@ class KlaviyoList:
         return cls(
             id=data.get("id", ""),
             name=attributes.get("name", ""),
-            created=datetime.fromisoformat(attributes["created"].replace("Z", "+00:00"))
-            if attributes.get("created")
-            else None,
-            updated=datetime.fromisoformat(attributes["updated"].replace("Z", "+00:00"))
-            if attributes.get("updated")
-            else None,
+            created=(
+                datetime.fromisoformat(attributes["created"].replace("Z", "+00:00"))
+                if attributes.get("created")
+                else None
+            ),
+            updated=(
+                datetime.fromisoformat(attributes["updated"].replace("Z", "+00:00"))
+                if attributes.get("updated")
+                else None
+            ),
             profile_count=attributes.get("profile_count"),
             opt_in_process=attributes.get("opt_in_process", "single_opt_in"),
         )
@@ -115,12 +119,16 @@ class Segment:
             name=attributes.get("name", ""),
             definition=attributes.get("definition", {}),
             segment_type=SegmentType(attributes.get("segment_type", "dynamic")),
-            created=datetime.fromisoformat(attributes["created"].replace("Z", "+00:00"))
-            if attributes.get("created")
-            else None,
-            updated=datetime.fromisoformat(attributes["updated"].replace("Z", "+00:00"))
-            if attributes.get("updated")
-            else None,
+            created=(
+                datetime.fromisoformat(attributes["created"].replace("Z", "+00:00"))
+                if attributes.get("created")
+                else None
+            ),
+            updated=(
+                datetime.fromisoformat(attributes["updated"].replace("Z", "+00:00"))
+                if attributes.get("updated")
+                else None
+            ),
             profile_count=attributes.get("profile_count"),
         )
 
@@ -161,12 +169,16 @@ class Profile:
             image=attributes.get("image"),
             location=location if location else {},
             properties=attributes.get("properties", {}),
-            created=datetime.fromisoformat(attributes["created"].replace("Z", "+00:00"))
-            if attributes.get("created")
-            else None,
-            updated=datetime.fromisoformat(attributes["updated"].replace("Z", "+00:00"))
-            if attributes.get("updated")
-            else None,
+            created=(
+                datetime.fromisoformat(attributes["created"].replace("Z", "+00:00"))
+                if attributes.get("created")
+                else None
+            ),
+            updated=(
+                datetime.fromisoformat(attributes["updated"].replace("Z", "+00:00"))
+                if attributes.get("updated")
+                else None
+            ),
             subscriptions=attributes.get("subscriptions", {}),
         )
 
@@ -199,18 +211,26 @@ class Campaign:
             audiences=attributes.get("audiences", {}),
             send_options=attributes.get("send_options", {}),
             tracking_options=attributes.get("tracking_options", {}),
-            created_at=datetime.fromisoformat(attributes["created_at"].replace("Z", "+00:00"))
-            if attributes.get("created_at")
-            else None,
-            updated_at=datetime.fromisoformat(attributes["updated_at"].replace("Z", "+00:00"))
-            if attributes.get("updated_at")
-            else None,
-            scheduled_at=datetime.fromisoformat(attributes["scheduled_at"].replace("Z", "+00:00"))
-            if attributes.get("scheduled_at")
-            else None,
-            sent_at=datetime.fromisoformat(attributes["sent_at"].replace("Z", "+00:00"))
-            if attributes.get("sent_at")
-            else None,
+            created_at=(
+                datetime.fromisoformat(attributes["created_at"].replace("Z", "+00:00"))
+                if attributes.get("created_at")
+                else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(attributes["updated_at"].replace("Z", "+00:00"))
+                if attributes.get("updated_at")
+                else None
+            ),
+            scheduled_at=(
+                datetime.fromisoformat(attributes["scheduled_at"].replace("Z", "+00:00"))
+                if attributes.get("scheduled_at")
+                else None
+            ),
+            sent_at=(
+                datetime.fromisoformat(attributes["sent_at"].replace("Z", "+00:00"))
+                if attributes.get("sent_at")
+                else None
+            ),
         )
 
 
@@ -236,12 +256,16 @@ class CampaignMessage:
             channel=MessageChannel(attributes.get("channel", "email")),
             label=attributes.get("label", ""),
             content=attributes.get("content", {}),
-            created_at=datetime.fromisoformat(attributes["created_at"].replace("Z", "+00:00"))
-            if attributes.get("created_at")
-            else None,
-            updated_at=datetime.fromisoformat(attributes["updated_at"].replace("Z", "+00:00"))
-            if attributes.get("updated_at")
-            else None,
+            created_at=(
+                datetime.fromisoformat(attributes["created_at"].replace("Z", "+00:00"))
+                if attributes.get("created_at")
+                else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(attributes["updated_at"].replace("Z", "+00:00"))
+                if attributes.get("updated_at")
+                else None
+            ),
         )
 
 
@@ -266,12 +290,16 @@ class Flow:
             name=attributes.get("name", ""),
             status=FlowStatus(attributes.get("status", "draft")),
             trigger_type=attributes.get("trigger_type", ""),
-            created=datetime.fromisoformat(attributes["created"].replace("Z", "+00:00"))
-            if attributes.get("created")
-            else None,
-            updated=datetime.fromisoformat(attributes["updated"].replace("Z", "+00:00"))
-            if attributes.get("updated")
-            else None,
+            created=(
+                datetime.fromisoformat(attributes["created"].replace("Z", "+00:00"))
+                if attributes.get("created")
+                else None
+            ),
+            updated=(
+                datetime.fromisoformat(attributes["updated"].replace("Z", "+00:00"))
+                if attributes.get("updated")
+                else None
+            ),
             archived=attributes.get("archived", False),
         )
 
@@ -298,12 +326,16 @@ class FlowAction:
             action_type=attributes.get("action_type", ""),
             status=attributes.get("status", "draft"),
             settings=attributes.get("settings", {}),
-            created=datetime.fromisoformat(attributes["created"].replace("Z", "+00:00"))
-            if attributes.get("created")
-            else None,
-            updated=datetime.fromisoformat(attributes["updated"].replace("Z", "+00:00"))
-            if attributes.get("updated")
-            else None,
+            created=(
+                datetime.fromisoformat(attributes["created"].replace("Z", "+00:00"))
+                if attributes.get("created")
+                else None
+            ),
+            updated=(
+                datetime.fromisoformat(attributes["updated"].replace("Z", "+00:00"))
+                if attributes.get("updated")
+                else None
+            ),
         )
 
 
@@ -325,12 +357,16 @@ class Metric:
             id=data.get("id", ""),
             name=attributes.get("name", ""),
             integration=attributes.get("integration", {}),
-            created=datetime.fromisoformat(attributes["created"].replace("Z", "+00:00"))
-            if attributes.get("created")
-            else None,
-            updated=datetime.fromisoformat(attributes["updated"].replace("Z", "+00:00"))
-            if attributes.get("updated")
-            else None,
+            created=(
+                datetime.fromisoformat(attributes["created"].replace("Z", "+00:00"))
+                if attributes.get("created")
+                else None
+            ),
+            updated=(
+                datetime.fromisoformat(attributes["updated"].replace("Z", "+00:00"))
+                if attributes.get("updated")
+                else None
+            ),
         )
 
 
@@ -354,9 +390,11 @@ class Event:
             id=data.get("id", ""),
             metric_id=relationships.get("metric", {}).get("data", {}).get("id", ""),
             profile_id=relationships.get("profile", {}).get("data", {}).get("id", ""),
-            timestamp=datetime.fromisoformat(attributes["timestamp"].replace("Z", "+00:00"))
-            if attributes.get("timestamp")
-            else datetime.now(),
+            timestamp=(
+                datetime.fromisoformat(attributes["timestamp"].replace("Z", "+00:00"))
+                if attributes.get("timestamp")
+                else datetime.now()
+            ),
             event_properties=attributes.get("event_properties", {}),
             datetime_str=attributes.get("datetime", ""),
         )
@@ -384,12 +422,16 @@ class Template:
             editor_type=attributes.get("editor_type", "CODE"),
             html=attributes.get("html", ""),
             text=attributes.get("text", ""),
-            created=datetime.fromisoformat(attributes["created"].replace("Z", "+00:00"))
-            if attributes.get("created")
-            else None,
-            updated=datetime.fromisoformat(attributes["updated"].replace("Z", "+00:00"))
-            if attributes.get("updated")
-            else None,
+            created=(
+                datetime.fromisoformat(attributes["created"].replace("Z", "+00:00"))
+                if attributes.get("created")
+                else None
+            ),
+            updated=(
+                datetime.fromisoformat(attributes["updated"].replace("Z", "+00:00"))
+                if attributes.get("updated")
+                else None
+            ),
         )
 
 

@@ -721,12 +721,14 @@ async def handle_gusto_status(request: web.Request) -> web.Response:
             {
                 "configured": connector.is_configured,
                 "connected": connected,
-                "company": {
-                    "id": credentials.company_id,
-                    "name": credentials.company_name,
-                }
-                if credentials
-                else None,
+                "company": (
+                    {
+                        "id": credentials.company_id,
+                        "name": credentials.company_name,
+                    }
+                    if credentials
+                    else None
+                ),
             }
         )
 

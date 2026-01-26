@@ -290,8 +290,7 @@ class PostgresScheduledDebateStore(PostgresStore):
             analytics["total"] = row["count"] if row else 0
 
             # Consensus rate
-            row = await conn.fetchrow(
-                """
+            row = await conn.fetchrow("""
                 SELECT
                     COUNT(*) as total,
                     COALESCE(SUM(CASE WHEN consensus_reached THEN 1 ELSE 0 END), 0) as consensus_count,
@@ -299,8 +298,7 @@ class PostgresScheduledDebateStore(PostgresStore):
                     AVG(rounds_used) as avg_rounds
                 FROM scheduled_debates
                 WHERE debate_id IS NOT NULL
-                """
-            )
+                """)
             if row and row["total"] > 0:
                 analytics["completed_debates"] = row["total"]
                 analytics["consensus_rate"] = (
@@ -310,14 +308,12 @@ class PostgresScheduledDebateStore(PostgresStore):
                 analytics["avg_rounds"] = float(row["avg_rounds"] or 0)
 
             # By platform
-            rows = await conn.fetch(
-                """
+            rows = await conn.fetch("""
                 SELECT platform, COUNT(*) as count,
                        COALESCE(SUM(CASE WHEN consensus_reached THEN 1 ELSE 0 END), 0) as consensus_count
                 FROM scheduled_debates
                 GROUP BY platform
-                """
-            )
+                """)
             analytics["by_platform"] = {
                 row["platform"]: {
                     "total": row["count"],
@@ -327,15 +323,13 @@ class PostgresScheduledDebateStore(PostgresStore):
             }
 
             # By category
-            rows = await conn.fetch(
-                """
+            rows = await conn.fetch("""
                 SELECT category, COUNT(*) as count,
                        COALESCE(SUM(CASE WHEN consensus_reached THEN 1 ELSE 0 END), 0) as consensus_count
                 FROM scheduled_debates
                 WHERE category IS NOT NULL AND category != ''
                 GROUP BY category
-                """
-            )
+                """)
             analytics["by_category"] = {
                 row["category"]: {
                     "total": row["count"],

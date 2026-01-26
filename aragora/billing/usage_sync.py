@@ -157,8 +157,7 @@ class UsageSyncService:
 
         with sqlite3.connect(self._db_path) as conn:
             # Watermarks table (existing)
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS usage_sync_watermarks (
                     org_id TEXT NOT NULL,
                     tokens_in INTEGER DEFAULT 0,
@@ -168,12 +167,10 @@ class UsageSyncService:
                     updated_at TEXT NOT NULL,
                     PRIMARY KEY (org_id, period_start)
                 )
-            """
-            )
+            """)
 
             # Sync records table for two-phase commit (prevents double-billing on restart)
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS usage_sync_records (
                     id TEXT PRIMARY KEY,
                     org_id TEXT NOT NULL,
@@ -188,31 +185,24 @@ class UsageSyncService:
                     completed_at TEXT,
                     error TEXT
                 )
-            """
-            )
-            conn.execute(
-                """
+            """)
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_sync_records_status
                 ON usage_sync_records (status)
-            """
-            )
-            conn.execute(
-                """
+            """)
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_sync_records_org_period
                 ON usage_sync_records (org_id, period_start)
-            """
-            )
+            """)
 
             # Billing period state table (for detecting transitions across restarts)
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS usage_sync_state (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 )
-            """
-            )
+            """)
             conn.commit()
 
     def _load_last_billing_period(self) -> Optional[datetime]:
@@ -408,14 +398,12 @@ class UsageSyncService:
         """
         try:
             with sqlite3.connect(self._db_path) as conn:
-                pending = conn.execute(
-                    """
+                pending = conn.execute("""
                     SELECT id, org_id, sync_type, quantity_reported,
                            cumulative_total, idempotency_key
                     FROM usage_sync_records
                     WHERE status = 'pending'
-                    """
-                ).fetchall()
+                    """).fetchall()
 
             if not pending:
                 return

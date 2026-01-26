@@ -74,12 +74,12 @@ class EmailThread:
             "subject": self.subject,
             "participants": list(self.participants),
             "messages": [m.to_dict() for m in self.messages],
-            "first_message_date": self.first_message_date.isoformat()
-            if self.first_message_date
-            else None,
-            "last_message_date": self.last_message_date.isoformat()
-            if self.last_message_date
-            else None,
+            "first_message_date": (
+                self.first_message_date.isoformat() if self.first_message_date else None
+            ),
+            "last_message_date": (
+                self.last_message_date.isoformat() if self.last_message_date else None
+            ),
             "message_count": self.message_count,
             "unread_count": self.unread_count,
             "labels": list(self.labels),

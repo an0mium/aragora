@@ -168,9 +168,9 @@ class Campaign:
             status=CampaignStatus(data.get("status", "PAUSED")),
             daily_budget=int(data["daily_budget"]) if data.get("daily_budget") else None,
             lifetime_budget=int(data["lifetime_budget"]) if data.get("lifetime_budget") else None,
-            budget_remaining=int(data["budget_remaining"])
-            if data.get("budget_remaining")
-            else None,
+            budget_remaining=(
+                int(data["budget_remaining"]) if data.get("budget_remaining") else None
+            ),
             buying_type=data.get("buying_type", "AUCTION"),
             special_ad_categories=data.get("special_ad_categories", []),
             created_time=_parse_datetime(data.get("created_time")),

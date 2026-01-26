@@ -911,7 +911,7 @@ async def init_shared_control_plane_state() -> bool:
         True if Redis connected, False if using in-memory fallback
     """
     try:
-        from aragora.control_plane.shared_state import get_shared_state, set_shared_state  # noqa: F401
+        from aragora.control_plane.shared_state import get_shared_state
 
         state = await get_shared_state(auto_connect=True)
         if state.is_persistent:

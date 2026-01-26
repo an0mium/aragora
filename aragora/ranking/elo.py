@@ -529,16 +529,14 @@ class EloSystem:
         """
         with self._db.connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT agent_name, elo, domain_elos, wins, losses, draws,
                        debates_count, critiques_accepted, critiques_total,
                        calibration_correct, calibration_total, calibration_brier_sum,
                        updated_at
                 FROM ratings
                 ORDER BY elo DESC
-                """
-            )
+                """)
             rows = cursor.fetchall()
 
         return [

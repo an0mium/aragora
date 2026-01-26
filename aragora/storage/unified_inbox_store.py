@@ -383,8 +383,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
 
     def _init_schema(self) -> None:
         conn = sqlite3.connect(str(self.db_path))
-        conn.execute(
-            """
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS unified_inbox_accounts (
                 tenant_id TEXT NOT NULL,
                 account_id TEXT NOT NULL,
@@ -400,10 +399,8 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
                 metadata_json TEXT,
                 PRIMARY KEY (tenant_id, account_id)
             )
-        """
-        )
-        conn.execute(
-            """
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS unified_inbox_messages (
                 tenant_id TEXT NOT NULL,
                 message_id TEXT NOT NULL,
@@ -432,16 +429,12 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
                 updated_at TEXT,
                 PRIMARY KEY (tenant_id, message_id)
             )
-        """
-        )
-        conn.execute(
-            """
+        """)
+        conn.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS idx_unified_inbox_messages_external
             ON unified_inbox_messages(tenant_id, account_id, external_id)
-        """
-        )
-        conn.execute(
-            """
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS unified_inbox_triage_results (
                 tenant_id TEXT NOT NULL,
                 message_id TEXT NOT NULL,
@@ -456,8 +449,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
                 created_at TEXT,
                 PRIMARY KEY (tenant_id, message_id)
             )
-        """
-        )
+        """)
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_unified_inbox_accounts_tenant ON unified_inbox_accounts(tenant_id)"
         )

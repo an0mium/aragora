@@ -190,37 +190,31 @@ def build_review_prompt(diff: str, focus_areas: Optional[list[str]] = None) -> s
 
     focus_instructions = []
     if "security" in focus:
-        focus_instructions.append(
-            """
+        focus_instructions.append("""
 **Security** - Look for:
 - SQL/NoSQL injection, XSS, CSRF
 - Authentication/authorization bypass
 - Secrets/credentials in code
 - Insecure deserialization
-- Path traversal"""
-        )
+- Path traversal""")
 
     if "performance" in focus:
-        focus_instructions.append(
-            """
+        focus_instructions.append("""
 **Performance** - Look for:
 - N+1 query patterns
 - O(n^2) or worse algorithms
 - Memory leaks, unbounded collections
 - Missing pagination
-- Blocking operations in async code"""
-        )
+- Blocking operations in async code""")
 
     if "quality" in focus:
-        focus_instructions.append(
-            """
+        focus_instructions.append("""
 **Code Quality** - Look for:
 - Missing error handling
 - Edge cases not covered
 - Unclear or complex logic
 - Missing input validation
-- Resource cleanup issues"""
-        )
+- Resource cleanup issues""")
 
     focus_text = "\n".join(focus_instructions)
 

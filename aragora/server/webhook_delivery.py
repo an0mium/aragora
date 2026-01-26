@@ -148,9 +148,9 @@ class WebhookDelivery:
             "last_error": self.last_error,
             "last_status_code": self.last_status_code,
             "delivered_at": self.delivered_at.isoformat() if self.delivered_at else None,
-            "dead_lettered_at": self.dead_lettered_at.isoformat()
-            if self.dead_lettered_at
-            else None,
+            "dead_lettered_at": (
+                self.dead_lettered_at.isoformat() if self.dead_lettered_at else None
+            ),
         }
 
 
@@ -347,17 +347,17 @@ class DeliveryPersistence:
             updated_at=datetime.fromisoformat(row["updated_at"]),
             attempts=row["attempts"],
             max_attempts=row["max_attempts"],
-            next_retry_at=datetime.fromisoformat(row["next_retry_at"])
-            if row["next_retry_at"]
-            else None,
+            next_retry_at=(
+                datetime.fromisoformat(row["next_retry_at"]) if row["next_retry_at"] else None
+            ),
             last_error=row["last_error"],
             last_status_code=row["last_status_code"],
-            delivered_at=datetime.fromisoformat(row["delivered_at"])
-            if row["delivered_at"]
-            else None,
-            dead_lettered_at=datetime.fromisoformat(row["dead_lettered_at"])
-            if row["dead_lettered_at"]
-            else None,
+            delivered_at=(
+                datetime.fromisoformat(row["delivered_at"]) if row["delivered_at"] else None
+            ),
+            dead_lettered_at=(
+                datetime.fromisoformat(row["dead_lettered_at"]) if row["dead_lettered_at"] else None
+            ),
             metadata=metadata,
         )
         return delivery, row["url"], row["secret"]

@@ -724,9 +724,11 @@ class PostgresFactStore(PostgresStore):
                         relation_type=FactRelationType(row["relation_type"]),
                         confidence=row["confidence"],
                         created_by=row["created_by"] or "",
-                        metadata=json.loads(row["metadata"])
-                        if isinstance(row["metadata"], str)
-                        else (row["metadata"] or {}),
+                        metadata=(
+                            json.loads(row["metadata"])
+                            if isinstance(row["metadata"], str)
+                            else (row["metadata"] or {})
+                        ),
                         created_at=row["created_at"],
                     )
                 )

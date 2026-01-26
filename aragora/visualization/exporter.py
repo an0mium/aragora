@@ -237,9 +237,9 @@ class RedisCacheBackend(ExportCacheBackend):
                 "total_entries": len(keys),
                 "ttl_seconds": self._ttl,
                 "estimated_memory_bytes": estimated_total,
-                "redis_url": self._redis_url.split("@")[-1]
-                if "@" in self._redis_url
-                else "localhost",
+                "redis_url": (
+                    self._redis_url.split("@")[-1] if "@" in self._redis_url else "localhost"
+                ),
                 "hits": self._hits,
                 "misses": self._misses,
                 "hit_rate": round(hit_rate, 3),

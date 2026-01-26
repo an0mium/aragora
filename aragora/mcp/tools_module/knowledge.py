@@ -62,9 +62,11 @@ async def query_knowledge_tool(
                 "node_type": node.node_type,
                 "confidence": node.confidence,
                 "tier": node.tier,
-                "created_at": node.created_at.isoformat()
-                if hasattr(node.created_at, "isoformat")
-                else str(node.created_at),
+                "created_at": (
+                    node.created_at.isoformat()
+                    if hasattr(node.created_at, "isoformat")
+                    else str(node.created_at)
+                ),
                 "topics": node.topics[:5] if node.topics else [],
             }
 
@@ -149,12 +151,14 @@ async def store_knowledge_tool(
             confidence=confidence,
             tier=tier,
             topics=topics_list,
-            metadata={
-                "source_debate_id": source_debate_id,
-                "stored_via": "mcp_tool",
-            }
-            if source_debate_id
-            else {"stored_via": "mcp_tool"},
+            metadata=(
+                {
+                    "source_debate_id": source_debate_id,
+                    "stored_via": "mcp_tool",
+                }
+                if source_debate_id
+                else {"stored_via": "mcp_tool"}
+            ),
         )
 
         return {

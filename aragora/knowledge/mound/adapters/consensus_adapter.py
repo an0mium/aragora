@@ -461,9 +461,11 @@ class ConsensusAdapter:
                     "confidence": d.consensus.confidence,
                     "domain": d.consensus.domain,
                     "similarity": d.similarity,  # type: ignore[attr-defined]
-                    "timestamp": d.consensus.timestamp.isoformat()
-                    if hasattr(d.consensus.timestamp, "isoformat")
-                    else str(d.consensus.timestamp),
+                    "timestamp": (
+                        d.consensus.timestamp.isoformat()
+                        if hasattr(d.consensus.timestamp, "isoformat")
+                        else str(d.consensus.timestamp)
+                    ),
                 }
                 for d in similar
             ]
@@ -547,9 +549,11 @@ class ConsensusAdapter:
                                 "confidence": record.confidence,
                                 "domain": record.domain,
                                 "similarity": r.similarity,
-                                "timestamp": record.timestamp.isoformat()
-                                if hasattr(record.timestamp, "isoformat")
-                                else str(record.timestamp),
+                                "timestamp": (
+                                    record.timestamp.isoformat()
+                                    if hasattr(record.timestamp, "isoformat")
+                                    else str(record.timestamp)
+                                ),
                                 "metadata": record.metadata,
                             }
                         )
@@ -621,9 +625,9 @@ class ConsensusAdapter:
             {
                 "source": "consensus",
                 "consensus_id": record.id,
-                "topic_preview": record.topic[:50] + "..."
-                if len(record.topic) > 50
-                else record.topic,
+                "topic_preview": (
+                    record.topic[:50] + "..." if len(record.topic) > 50 else record.topic
+                ),
                 "confidence": record.confidence,
                 "strength": record.strength.value,
             },

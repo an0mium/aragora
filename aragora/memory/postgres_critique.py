@@ -174,15 +174,13 @@ class PostgresCritiqueStore:
 
         async with self.connection() as conn:
             # Create schema version tracking table
-            await conn.execute(
-                """
+            await conn.execute("""
                 CREATE TABLE IF NOT EXISTS _schema_versions (
                     module TEXT PRIMARY KEY,
                     version INTEGER NOT NULL,
                     updated_at TIMESTAMPTZ DEFAULT NOW()
                 )
-            """
-            )
+            """)
 
             # Check current version
             row = await conn.fetchrow(
@@ -336,9 +334,9 @@ class PostgresCritiqueStore:
                 "confidence": row["confidence"],
                 "rounds_used": row["rounds_used"],
                 "duration_seconds": row["duration_seconds"],
-                "grounded_verdict": json.loads(row["grounded_verdict"])
-                if row["grounded_verdict"]
-                else None,
+                "grounded_verdict": (
+                    json.loads(row["grounded_verdict"]) if row["grounded_verdict"] else None
+                ),
                 "created_at": row["created_at"].isoformat() if row["created_at"] else None,
             }
 
@@ -439,9 +437,9 @@ class PostgresCritiqueStore:
                     "agent": row["agent"],
                     "target_agent": row["target_agent"],
                     "issues": row["issues"] if isinstance(row["issues"], list) else [],
-                    "suggestions": row["suggestions"]
-                    if isinstance(row["suggestions"], list)
-                    else [],
+                    "suggestions": (
+                        row["suggestions"] if isinstance(row["suggestions"], list) else []
+                    ),
                     "severity": row["severity"] or 0.0,
                     "reasoning": row["reasoning"] or "",
                     "created_at": row["created_at"].isoformat() if row["created_at"] else None,
@@ -469,9 +467,9 @@ class PostgresCritiqueStore:
                     "agent": row["agent"],
                     "target_agent": row["target_agent"],
                     "issues": row["issues"] if isinstance(row["issues"], list) else [],
-                    "suggestions": row["suggestions"]
-                    if isinstance(row["suggestions"], list)
-                    else [],
+                    "suggestions": (
+                        row["suggestions"] if isinstance(row["suggestions"], list) else []
+                    ),
                     "severity": row["severity"] or 0.0,
                     "reasoning": row["reasoning"] or "",
                     "created_at": row["created_at"].isoformat() if row["created_at"] else None,
@@ -966,16 +964,14 @@ class PostgresCritiqueStore:
     async def get_stats(self) -> dict:
         """Get statistics about stored patterns and debates."""
         async with self.connection() as conn:
-            row = await conn.fetchrow(
-                """
+            row = await conn.fetchrow("""
                 SELECT
                     (SELECT COUNT(*) FROM debates) as total_debates,
                     (SELECT COUNT(*) FROM debates WHERE consensus_reached = TRUE) as consensus_debates,
                     (SELECT COUNT(*) FROM critiques) as total_critiques,
                     (SELECT COUNT(*) FROM patterns) as total_patterns,
                     (SELECT AVG(confidence) FROM debates WHERE consensus_reached = TRUE) as avg_confidence
-            """
-            )
+            """)
 
             stats = {
                 "total_debates": row["total_debates"] or 0,
@@ -1012,9 +1008,9 @@ class PostgresCritiqueStore:
                 {
                     "task": row["task"],
                     "issues": row["issues"] if isinstance(row["issues"], list) else [],
-                    "suggestions": row["suggestions"]
-                    if isinstance(row["suggestions"], list)
-                    else [],
+                    "suggestions": (
+                        row["suggestions"] if isinstance(row["suggestions"], list) else []
+                    ),
                     "successful_answer": row["final_answer"],
                 }
                 for row in rows
@@ -1092,13 +1088,11 @@ class PostgresCritiqueStore:
             row = await conn.fetchrow("SELECT COUNT(*) as total FROM patterns_archive")
             total = row["total"] if row else 0
 
-            type_rows = await conn.fetch(
-                """
+            type_rows = await conn.fetch("""
                 SELECT issue_type, COUNT(*) as cnt
                 FROM patterns_archive
                 GROUP BY issue_type
-            """
-            )
+            """)
             by_type = {row["issue_type"]: row["cnt"] for row in type_rows}
 
             return {"total_archived": total, "archived_by_type": by_type}

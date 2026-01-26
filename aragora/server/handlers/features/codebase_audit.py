@@ -233,9 +233,11 @@ async def run_sast_scan(
                 code_snippet=vuln.snippet,
                 rule_id=vuln.rule_id,
                 cwe_id=vuln.cwe_ids[0] if vuln.cwe_ids else None,
-                owasp_category=vuln.owasp_category.value
-                if hasattr(vuln.owasp_category, "value")
-                else str(vuln.owasp_category),
+                owasp_category=(
+                    vuln.owasp_category.value
+                    if hasattr(vuln.owasp_category, "value")
+                    else str(vuln.owasp_category)
+                ),
                 remediation=vuln.remediation,
                 confidence=vuln.confidence,
             )
@@ -356,9 +358,11 @@ async def run_dependency_scan(
                     description=vuln.description,
                     file_path=dep.file_path or "package.json",
                     cwe_id=vuln.cwe_ids[0] if vuln.cwe_ids else None,
-                    remediation=f"Upgrade to {vuln.recommended_version or 'latest'}"
-                    if vuln.recommended_version
-                    else "No fix available",
+                    remediation=(
+                        f"Upgrade to {vuln.recommended_version or 'latest'}"
+                        if vuln.recommended_version
+                        else "No fix available"
+                    ),
                     confidence=0.95,
                 )
                 findings.append(finding)

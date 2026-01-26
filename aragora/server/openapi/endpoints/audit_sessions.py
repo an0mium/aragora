@@ -2,7 +2,6 @@
 
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS, AUTH_REQUIREMENTS
 
-
 AUDIT_SESSIONS_ENDPOINTS = {
     "/api/v1/audit/sessions": {
         "get": {

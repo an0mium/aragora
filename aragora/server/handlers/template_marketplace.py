@@ -112,9 +112,9 @@ class MarketplaceTemplate:
         return {
             "id": self.id,
             "name": self.name,
-            "description": self.description[:200] + "..."
-            if len(self.description) > 200
-            else self.description,
+            "description": (
+                self.description[:200] + "..." if len(self.description) > 200 else self.description
+            ),
             "category": self.category,
             "pattern": self.pattern,
             "author_name": self.author_name,

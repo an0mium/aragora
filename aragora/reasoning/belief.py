@@ -24,7 +24,6 @@ from typing import Any, Optional, TYPE_CHECKING
 from aragora.config import BELIEF_CONVERGENCE_THRESHOLD, BELIEF_MAX_ITERATIONS
 from aragora.reasoning.claims import ClaimsKernel, ClaimType, RelationType, TypedClaim
 
-
 # Re-export crux detection classes for backward compatibility
 # Uses lazy import via __getattr__ to avoid circular imports
 _CRUX_EXPORTS = {

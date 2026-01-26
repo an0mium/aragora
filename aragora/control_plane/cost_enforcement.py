@@ -63,9 +63,9 @@ class CostEstimate:
             "confidence": self.confidence,
             "based_on_samples": self.based_on_samples,
             "model_suggestion": self.model_suggestion,
-            "estimated_savings_usd": str(self.estimated_savings_usd)
-            if self.estimated_savings_usd
-            else None,
+            "estimated_savings_usd": (
+                str(self.estimated_savings_usd) if self.estimated_savings_usd else None
+            ),
         }
 
 
@@ -90,9 +90,9 @@ class CostConstraintResult:
             "throttle_level": self.throttle_level.value,
             "enforcement_mode": self.enforcement_mode.value,
             "budget_percentage_used": self.budget_percentage_used,
-            "remaining_budget_usd": str(self.remaining_budget_usd)
-            if self.remaining_budget_usd
-            else None,
+            "remaining_budget_usd": (
+                str(self.remaining_budget_usd) if self.remaining_budget_usd else None
+            ),
             "estimated_cost": self.estimated_cost.to_dict() if self.estimated_cost else None,
             "priority_adjustment": self.priority_adjustment,
         }

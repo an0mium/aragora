@@ -184,15 +184,13 @@ class SQLiteBlacklist(BlacklistBackend):
     def _init_schema(self) -> None:
         """Initialize database schema."""
         conn = sqlite3.connect(str(self.db_path))
-        conn.execute(
-            """
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS token_blacklist (
                 jti TEXT PRIMARY KEY,
                 expires_at REAL NOT NULL,
                 revoked_at REAL NOT NULL
             )
-        """
-        )
+        """)
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_blacklist_expires ON token_blacklist(expires_at)"
         )

@@ -1389,9 +1389,9 @@ class PolicyStoreSync:
                 blocked_regions=list(set(blocked_regions)),
                 require_data_residency=True,
             ),
-            enforcement_level=EnforcementLevel.HARD
-            if policy.level == "mandatory"
-            else EnforcementLevel.WARN,
+            enforcement_level=(
+                EnforcementLevel.HARD if policy.level == "mandatory" else EnforcementLevel.WARN
+            ),
             enabled=policy.enabled,
             priority=80 if policy.level == "mandatory" else 40,
             created_by=policy.created_by,
@@ -1427,9 +1427,9 @@ class PolicyStoreSync:
             task_types=list(set(task_types)),
             agent_allowlist=list(set(allowlist)),
             agent_blocklist=list(set(blocklist)),
-            enforcement_level=EnforcementLevel.HARD
-            if policy.level == "mandatory"
-            else EnforcementLevel.WARN,
+            enforcement_level=(
+                EnforcementLevel.HARD if policy.level == "mandatory" else EnforcementLevel.WARN
+            ),
             enabled=policy.enabled,
             priority=70 if policy.level == "mandatory" else 35,
             created_by=policy.created_by,
@@ -1471,9 +1471,9 @@ class PolicyStoreSync:
                 max_queue_seconds=max_queue or 60.0,
                 min_agents_available=min_agents,
             ),
-            enforcement_level=EnforcementLevel.HARD
-            if policy.level == "mandatory"
-            else EnforcementLevel.WARN,
+            enforcement_level=(
+                EnforcementLevel.HARD if policy.level == "mandatory" else EnforcementLevel.WARN
+            ),
             enabled=policy.enabled,
             priority=60 if policy.level == "mandatory" else 30,
             created_by=policy.created_by,
@@ -1505,9 +1505,9 @@ class PolicyStoreSync:
             workspaces=[policy.workspace_id] if policy.workspace_id != "default" else [],
             task_types=list(set(task_types)),
             capabilities=list(set(capabilities)),
-            enforcement_level=EnforcementLevel.HARD
-            if policy.level == "mandatory"
-            else EnforcementLevel.WARN,
+            enforcement_level=(
+                EnforcementLevel.HARD if policy.level == "mandatory" else EnforcementLevel.WARN
+            ),
             enabled=policy.enabled,
             priority=50 if policy.level == "mandatory" else 25,
             created_by=policy.created_by,
@@ -1731,9 +1731,11 @@ class PolicyConflictDetector:
                             f"Policy '{policy_a.name}' allows agents {blocked_allowed} "
                             f"but policy '{policy_b.name}' blocks them"
                         ),
-                        severity="error"
-                        if policy_b.enforcement_level == EnforcementLevel.HARD
-                        else "warning",
+                        severity=(
+                            "error"
+                            if policy_b.enforcement_level == EnforcementLevel.HARD
+                            else "warning"
+                        ),
                     )
                 )
 
@@ -1752,9 +1754,11 @@ class PolicyConflictDetector:
                             f"Policy '{policy_b.name}' allows agents {blocked_allowed} "
                             f"but policy '{policy_a.name}' blocks them"
                         ),
-                        severity="error"
-                        if policy_a.enforcement_level == EnforcementLevel.HARD
-                        else "warning",
+                        severity=(
+                            "error"
+                            if policy_a.enforcement_level == EnforcementLevel.HARD
+                            else "warning"
+                        ),
                     )
                 )
 
@@ -1808,9 +1812,11 @@ class PolicyConflictDetector:
                             f"Policy '{policy_a.name}' allows regions {blocked_allowed} "
                             f"but policy '{policy_b.name}' blocks them"
                         ),
-                        severity="error"
-                        if policy_b.enforcement_level == EnforcementLevel.HARD
-                        else "warning",
+                        severity=(
+                            "error"
+                            if policy_b.enforcement_level == EnforcementLevel.HARD
+                            else "warning"
+                        ),
                     )
                 )
 

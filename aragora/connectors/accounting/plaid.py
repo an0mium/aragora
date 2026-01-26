@@ -479,12 +479,16 @@ class PlaidConnector:
                     subtype=item.get("subtype"),
                     mask=item.get("mask", "****"),
                     current_balance=Decimal(str(balances.get("current", 0))),
-                    available_balance=Decimal(str(balances.get("available", 0)))
-                    if balances.get("available") is not None
-                    else None,
-                    limit=Decimal(str(balances.get("limit", 0)))
-                    if balances.get("limit") is not None
-                    else None,
+                    available_balance=(
+                        Decimal(str(balances.get("available", 0)))
+                        if balances.get("available") is not None
+                        else None
+                    ),
+                    limit=(
+                        Decimal(str(balances.get("limit", 0)))
+                        if balances.get("limit") is not None
+                        else None
+                    ),
                     currency=balances.get("iso_currency_code", "USD"),
                     institution_name=credentials.institution_name,
                 )

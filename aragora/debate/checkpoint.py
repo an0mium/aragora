@@ -835,15 +835,13 @@ class DatabaseCheckpointStore(CheckpointStore):
     async def get_stats(self) -> dict:
         """Get checkpoint store statistics."""
         with self._db.connection() as conn:
-            cursor = conn.execute(
-                """
+            cursor = conn.execute("""
                 SELECT
                     COUNT(*) as total,
                     COUNT(DISTINCT debate_id) as debates,
                     SUM(LENGTH(data)) as total_bytes
                 FROM checkpoints
-            """
-            )
+            """)
             row = cursor.fetchone()
 
         pool_stats = self.get_pool_stats()

@@ -786,16 +786,14 @@ class CritiqueStore(SQLiteStore):
             cursor = conn.cursor()
 
             # Consolidated query: All counts and averages in one query using subqueries
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT
                     (SELECT COUNT(*) FROM debates) as total_debates,
                     (SELECT COUNT(*) FROM debates WHERE consensus_reached = 1) as consensus_debates,
                     (SELECT COUNT(*) FROM critiques) as total_critiques,
                     (SELECT COUNT(*) FROM patterns) as total_patterns,
                     (SELECT AVG(confidence) FROM debates WHERE consensus_reached = 1) as avg_confidence
-            """
-            )
+            """)
             row = cursor.fetchone()
 
             stats = {
@@ -1151,13 +1149,11 @@ class CritiqueStore(SQLiteStore):
             row = cursor.fetchone()
             total = row[0] if row else 0
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT issue_type, COUNT(*)
                 FROM patterns_archive
                 GROUP BY issue_type
-                """
-            )
+                """)
             by_type = dict(cursor.fetchall())
 
             return {"total_archived": total, "archived_by_type": by_type}

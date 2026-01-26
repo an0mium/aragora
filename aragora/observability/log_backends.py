@@ -895,8 +895,7 @@ class PostgreSQLAuditBackend(AuditLogBackend):
         conn = pool.getconn()
         try:
             with conn.cursor() as cur:
-                cur.execute(
-                    f"""
+                cur.execute(f"""
                     SELECT id, timestamp, sequence_number, previous_hash, entry_hash,
                            event_type, actor, actor_type, resource_type, resource_id,
                            action, details, correlation_id, workspace_id, ip_address,
@@ -904,8 +903,7 @@ class PostgreSQLAuditBackend(AuditLogBackend):
                     FROM {self.entries_table}
                     ORDER BY sequence_number DESC
                     LIMIT 1
-                    """
-                )
+                    """)
                 row = cur.fetchone()
                 if row:
                     return self._row_to_entry(row)

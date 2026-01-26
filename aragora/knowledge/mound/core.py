@@ -476,8 +476,7 @@ class KnowledgeMoundCore:
             try:
                 with self._meta_store.connection() as conn:
                     # Create archive table if it doesn't exist
-                    conn.execute(
-                        """
+                    conn.execute("""
                         CREATE TABLE IF NOT EXISTS knowledge_archive (
                             id TEXT PRIMARY KEY,
                             original_id TEXT NOT NULL,
@@ -492,8 +491,7 @@ class KnowledgeMoundCore:
                             archived_at TEXT NOT NULL,
                             workspace_id TEXT
                         )
-                    """
-                    )
+                    """)
                     conn.execute(
                         """
                         INSERT INTO knowledge_archive
@@ -662,8 +660,7 @@ class KnowledgeMoundCore:
         # Save to archive
         try:
             with self._meta_store.connection() as conn:
-                conn.execute(
-                    """
+                conn.execute("""
                     CREATE TABLE IF NOT EXISTS knowledge_archive (
                         id TEXT PRIMARY KEY,
                         original_id TEXT NOT NULL,
@@ -679,8 +676,7 @@ class KnowledgeMoundCore:
                         archived_by TEXT,
                         workspace_id TEXT
                     )
-                    """
-                )
+                    """)
                 conn.execute(
                     """
                     INSERT INTO knowledge_archive
@@ -696,9 +692,11 @@ class KnowledgeMoundCore:
                         archive_record["source_id"],
                         archive_record["confidence"],
                         archive_record["importance"],
-                        json.dumps(archive_record["metadata"])
-                        if archive_record["metadata"]
-                        else "{}",
+                        (
+                            json.dumps(archive_record["metadata"])
+                            if archive_record["metadata"]
+                            else "{}"
+                        ),
                         archive_record["created_at"],
                         archive_record["updated_at"],
                         archive_record["archived_at"],
@@ -769,8 +767,7 @@ class KnowledgeMoundCore:
         try:
             with self._meta_store.connection() as conn:
                 # Create table if needed
-                conn.execute(
-                    """
+                conn.execute("""
                     CREATE TABLE IF NOT EXISTS prune_history (
                         id TEXT PRIMARY KEY,
                         workspace_id TEXT NOT NULL,
@@ -782,8 +779,7 @@ class KnowledgeMoundCore:
                         reason TEXT,
                         executed_by TEXT
                     )
-                    """
-                )
+                    """)
                 if since:
                     rows = conn.execute(
                         "SELECT * FROM prune_history WHERE workspace_id = ? AND executed_at > ? ORDER BY executed_at DESC LIMIT ?",
@@ -817,8 +813,7 @@ class KnowledgeMoundCore:
         """Save pruning history (used by pruning operations)."""
         try:
             with self._meta_store.connection() as conn:
-                conn.execute(
-                    """
+                conn.execute("""
                     CREATE TABLE IF NOT EXISTS prune_history (
                         id TEXT PRIMARY KEY,
                         workspace_id TEXT NOT NULL,
@@ -830,8 +825,7 @@ class KnowledgeMoundCore:
                         reason TEXT,
                         executed_by TEXT
                     )
-                    """
-                )
+                    """)
                 conn.execute(
                     """
                     INSERT INTO prune_history

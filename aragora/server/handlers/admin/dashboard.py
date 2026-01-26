@@ -277,15 +277,13 @@ class DashboardHandler(BaseHandler):
         try:
             with storage.db.connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT
                         COUNT(*) as total,
                         SUM(CASE WHEN consensus_reached THEN 1 ELSE 0 END) as consensus_count,
                         AVG(confidence) as avg_conf
                     FROM debates
-                """
-                )
+                """)
                 row = cursor.fetchone()
                 if row:
                     total = row[0] or 0

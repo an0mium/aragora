@@ -137,9 +137,11 @@ class BatchJob:
             "created_at": self.created_at,
             "started_at": self.started_at,
             "completed_at": self.completed_at,
-            "progress_pct": round((self.processed_count / len(self.debate_ids)) * 100, 1)
-            if self.debate_ids
-            else 0,
+            "progress_pct": (
+                round((self.processed_count / len(self.debate_ids)) * 100, 1)
+                if self.debate_ids
+                else 0
+            ),
         }
 
 
@@ -861,12 +863,14 @@ h3 {{ color: #666; }}
                 "debate_id": getattr(decision, "debate_id", None),
                 "confidence": decision.confidence,
                 "consensus_reached": decision.consensus_reached,
-                "primary_factors": [
-                    {"name": f.name, "contribution": f.contribution}
-                    for f in decision.contributing_factors[:3]
-                ]
-                if hasattr(decision, "contributing_factors")
-                else [],
+                "primary_factors": (
+                    [
+                        {"name": f.name, "contribution": f.contribution}
+                        for f in decision.contributing_factors[:3]
+                    ]
+                    if hasattr(decision, "contributing_factors")
+                    else []
+                ),
             }
 
         if format_type == "summary":

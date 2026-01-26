@@ -2,7 +2,6 @@
 
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS, AUTH_REQUIREMENTS
 
-
 CODEBASE_METRICS_ENDPOINTS = {
     "/api/v1/codebase/{repo}/metrics/analyze": {
         "post": {

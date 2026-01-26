@@ -30,7 +30,6 @@ import time
 from dataclasses import dataclass
 from typing import Optional, Tuple, Union
 
-
 # Default tolerance for timestamp validation (5 minutes)
 DEFAULT_TIMESTAMP_TOLERANCE_SECONDS = 300
 

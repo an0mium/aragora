@@ -458,15 +458,17 @@ class MultiInboxManager:
                         email=full_msg,
                         account_id=account_id,
                         account_type=account.account_type,
-                        sender_seen_in_accounts=list(sender_profile.seen_in_accounts)
-                        if sender_profile
-                        else [],
-                        sender_replied_from_accounts=list(sender_profile.replied_from_accounts)
-                        if sender_profile
-                        else [],
-                        is_cross_account_important=sender_profile.cross_account_importance > 0.3
-                        if sender_profile
-                        else False,
+                        sender_seen_in_accounts=(
+                            list(sender_profile.seen_in_accounts) if sender_profile else []
+                        ),
+                        sender_replied_from_accounts=(
+                            list(sender_profile.replied_from_accounts) if sender_profile else []
+                        ),
+                        is_cross_account_important=(
+                            sender_profile.cross_account_importance > 0.3
+                            if sender_profile
+                            else False
+                        ),
                     )
 
                     all_emails.append(unified)

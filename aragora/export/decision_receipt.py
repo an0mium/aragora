@@ -804,17 +804,19 @@ class DecisionReceipt:
                 findings.append(
                     ReceiptFinding(
                         id=f"crit_{critique.agent}_{idx}",
-                        severity="HIGH"
-                        if critique.severity >= 7
-                        else "MEDIUM"
-                        if critique.severity >= 4
-                        else "LOW",
+                        severity=(
+                            "HIGH"
+                            if critique.severity >= 7
+                            else "MEDIUM"
+                            if critique.severity >= 4
+                            else "LOW"
+                        ),
                         category="critique",
                         title=f"Critique from {critique.agent}",
                         description=issue,
-                        mitigation=critique.suggestions[idx]
-                        if idx < len(critique.suggestions)
-                        else None,
+                        mitigation=(
+                            critique.suggestions[idx] if idx < len(critique.suggestions) else None
+                        ),
                         source=critique.agent,
                         verified=False,
                     )

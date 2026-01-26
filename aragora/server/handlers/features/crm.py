@@ -877,9 +877,11 @@ class CRMHandler(SecureHandler):
                                         "id": s.id,
                                         "name": s.label,
                                         "display_order": s.display_order,
-                                        "probability": s.metadata.get("probability")
-                                        if hasattr(s, "metadata")
-                                        else None,
+                                        "probability": (
+                                            s.metadata.get("probability")
+                                            if hasattr(s, "metadata")
+                                            else None
+                                        ),
                                     }
                                     for s in (pipe.stages if hasattr(pipe, "stages") else [])
                                 ],
@@ -1100,12 +1102,16 @@ class CRMHandler(SecureHandler):
             "lifecycle_stage": props.get("lifecyclestage"),
             "lead_status": props.get("hs_lead_status"),
             "owner_id": props.get("hubspot_owner_id"),
-            "created_at": contact.created_at.isoformat()
-            if hasattr(contact, "created_at") and contact.created_at
-            else None,
-            "updated_at": contact.updated_at.isoformat()
-            if hasattr(contact, "updated_at") and contact.updated_at
-            else None,
+            "created_at": (
+                contact.created_at.isoformat()
+                if hasattr(contact, "created_at") and contact.created_at
+                else None
+            ),
+            "updated_at": (
+                contact.updated_at.isoformat()
+                if hasattr(contact, "updated_at") and contact.updated_at
+                else None
+            ),
         }
 
     def _normalize_hubspot_company(self, company: Any) -> dict[str, Any]:
@@ -1117,16 +1123,18 @@ class CRMHandler(SecureHandler):
             "name": props.get("name"),
             "domain": props.get("domain"),
             "industry": props.get("industry"),
-            "employee_count": int(props.get("numberofemployees"))
-            if props.get("numberofemployees")
-            else None,
-            "annual_revenue": float(props.get("annualrevenue"))
-            if props.get("annualrevenue")
-            else None,
+            "employee_count": (
+                int(props.get("numberofemployees")) if props.get("numberofemployees") else None
+            ),
+            "annual_revenue": (
+                float(props.get("annualrevenue")) if props.get("annualrevenue") else None
+            ),
             "owner_id": props.get("hubspot_owner_id"),
-            "created_at": company.created_at.isoformat()
-            if hasattr(company, "created_at") and company.created_at
-            else None,
+            "created_at": (
+                company.created_at.isoformat()
+                if hasattr(company, "created_at") and company.created_at
+                else None
+            ),
         }
 
     def _normalize_hubspot_deal(self, deal: Any) -> dict[str, Any]:
@@ -1141,9 +1149,11 @@ class CRMHandler(SecureHandler):
             "pipeline": props.get("pipeline"),
             "close_date": props.get("closedate"),
             "owner_id": props.get("hubspot_owner_id"),
-            "created_at": deal.created_at.isoformat()
-            if hasattr(deal, "created_at") and deal.created_at
-            else None,
+            "created_at": (
+                deal.created_at.isoformat()
+                if hasattr(deal, "created_at") and deal.created_at
+                else None
+            ),
         }
 
     def _map_lead_to_hubspot(self, lead: dict[str, Any], source: str) -> dict[str, Any]:

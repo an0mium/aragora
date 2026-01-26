@@ -171,8 +171,7 @@ class CreditManager:
     def _init_db(self) -> None:
         """Initialize database schema."""
         conn = self._get_conn()
-        conn.executescript(
-            """
+        conn.executescript("""
             CREATE TABLE IF NOT EXISTS credit_transactions (
                 id TEXT PRIMARY KEY,
                 org_id TEXT NOT NULL,
@@ -194,8 +193,7 @@ class CreditManager:
 
             CREATE INDEX IF NOT EXISTS idx_credits_created_at
             ON credit_transactions(created_at);
-            """
-        )
+            """)
         conn.commit()
 
     async def issue_credit(

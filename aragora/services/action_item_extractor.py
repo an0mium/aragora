@@ -166,9 +166,9 @@ class ExtractionResult:
             "total_count": self.total_count,
             "high_priority_count": self.high_priority_count,
             "has_deadlines": self.has_deadlines,
-            "earliest_deadline": self.earliest_deadline.isoformat()
-            if self.earliest_deadline
-            else None,
+            "earliest_deadline": (
+                self.earliest_deadline.isoformat() if self.earliest_deadline else None
+            ),
             "extraction_confidence": self.extraction_confidence,
             "processing_time_ms": self.processing_time_ms,
         }

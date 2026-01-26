@@ -261,15 +261,17 @@ class Budget:
             "remaining_usd": self.remaining_usd,
             "usage_percentage": self.usage_percentage,
             "period_start": self.period_start,
-            "period_start_iso": datetime.fromtimestamp(
-                self.period_start, tz=timezone.utc
-            ).isoformat()
-            if self.period_start
-            else None,
+            "period_start_iso": (
+                datetime.fromtimestamp(self.period_start, tz=timezone.utc).isoformat()
+                if self.period_start
+                else None
+            ),
             "period_end": self.period_end,
-            "period_end_iso": datetime.fromtimestamp(self.period_end, tz=timezone.utc).isoformat()
-            if self.period_end
-            else None,
+            "period_end_iso": (
+                datetime.fromtimestamp(self.period_end, tz=timezone.utc).isoformat()
+                if self.period_end
+                else None
+            ),
             "status": self.status.value,
             "current_action": self.current_action.value,
             "auto_suspend": self.auto_suspend,

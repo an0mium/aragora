@@ -126,9 +126,9 @@ class TelegramHandler(BaseHandler):
                 "enabled": bool(TELEGRAM_BOT_TOKEN),
                 "token_configured": bool(TELEGRAM_BOT_TOKEN),
                 "webhook_secret_configured": bool(TELEGRAM_WEBHOOK_SECRET),
-                "webhook_token": TELEGRAM_WEBHOOK_TOKEN[:8] + "..."
-                if TELEGRAM_WEBHOOK_TOKEN
-                else None,
+                "webhook_token": (
+                    TELEGRAM_WEBHOOK_TOKEN[:8] + "..." if TELEGRAM_WEBHOOK_TOKEN else None
+                ),
             }
         )
 

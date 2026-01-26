@@ -408,12 +408,14 @@ class CallGraph:
                     "kind": n.kind.value,
                     "name": n.name,
                     "qualified_name": n.qualified_name,
-                    "location": {
-                        "file": n.location.file_path,
-                        "line": n.location.start_line,
-                    }
-                    if n.location
-                    else None,
+                    "location": (
+                        {
+                            "file": n.location.file_path,
+                            "line": n.location.start_line,
+                        }
+                        if n.location
+                        else None
+                    ),
                 }
                 for n in self._nodes.values()
             ],
@@ -538,9 +540,9 @@ class CallGraphBuilder:
                 metadata={
                     "bases": cls.bases,
                     "decorators": cls.decorators,
-                    "end_line": cls.location.start_line + len(cls.methods) * 5
-                    if cls.location
-                    else 0,
+                    "end_line": (
+                        cls.location.start_line + len(cls.methods) * 5 if cls.location else 0
+                    ),
                 },
             )
             graph.add_node(cls_node)
@@ -905,9 +907,9 @@ def analyze_codebase_dependencies(
                 {
                     "name": n.qualified_name,
                     "kind": n.kind.value,
-                    "location": f"{n.location.file_path}:{n.location.start_line}"
-                    if n.location
-                    else None,
+                    "location": (
+                        f"{n.location.file_path}:{n.location.start_line}" if n.location else None
+                    ),
                 }
                 for n in dead_code.unreachable_functions[:20]
             ],
@@ -919,9 +921,11 @@ def analyze_codebase_dependencies(
             {
                 "name": node.qualified_name,
                 "callers": degree,
-                "location": f"{node.location.file_path}:{node.location.start_line}"
-                if node.location
-                else None,
+                "location": (
+                    f"{node.location.file_path}:{node.location.start_line}"
+                    if node.location
+                    else None
+                ),
             }
             for node, degree in hotspots
         ],

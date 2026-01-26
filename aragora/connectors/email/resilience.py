@@ -385,8 +385,7 @@ class OAuthTokenStore:
     def _init_schema(self) -> None:
         """Initialize database schema."""
         conn = self._get_conn()
-        conn.executescript(
-            """
+        conn.executescript("""
             CREATE TABLE IF NOT EXISTS oauth_tokens (
                 token_key TEXT PRIMARY KEY,
                 provider TEXT NOT NULL,
@@ -403,8 +402,7 @@ class OAuthTokenStore:
 
             CREATE INDEX IF NOT EXISTS idx_tokens_provider ON oauth_tokens(provider, tenant_id, user_id);
             CREATE INDEX IF NOT EXISTS idx_tokens_expiry ON oauth_tokens(expires_at);
-            """
-        )
+            """)
         conn.commit()
 
     def _encrypt(self, plaintext: str) -> str:

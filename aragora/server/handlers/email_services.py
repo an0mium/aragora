@@ -403,13 +403,15 @@ async def handle_get_snooze_suggestions(
                     }
                     for s in recommendation.suggestions
                 ],
-                "recommended": {
-                    "snooze_until": recommendation.recommended.snooze_until.isoformat(),
-                    "label": recommendation.recommended.label,
-                    "reason": recommendation.recommended.reason,
-                }
-                if recommendation.recommended
-                else None,
+                "recommended": (
+                    {
+                        "snooze_until": recommendation.recommended.snooze_until.isoformat(),
+                        "label": recommendation.recommended.label,
+                        "reason": recommendation.recommended.reason,
+                    }
+                    if recommendation.recommended
+                    else None
+                ),
             }
         )
 

@@ -1146,9 +1146,11 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
             vendor_name=data.get("vendor_name", "Unknown"),
             amount=Decimal(str(data.get("amount", 0))),
             currency=data.get("currency", "USD"),
-            date=datetime.fromisoformat(data["expense_date"].replace("Z", "+00:00"))
-            if data.get("expense_date")
-            else datetime.now(timezone.utc),
+            date=(
+                datetime.fromisoformat(data["expense_date"].replace("Z", "+00:00"))
+                if data.get("expense_date")
+                else datetime.now(timezone.utc)
+            ),
             category=ExpenseCategory(data.get("category", "other")),
             status=ExpenseStatus(data.get("status", "pending")),
             payment_method=PaymentMethod(data.get("payment_method", "credit_card")),
@@ -1164,15 +1166,21 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
             employee_id=data.get("employee_id"),
             qbo_id=data.get("qbo_expense_id"),
             confidence_score=data.get("confidence_score", 0.0),
-            created_at=datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
-            if data.get("created_at")
-            else datetime.now(timezone.utc),
-            updated_at=datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00"))
-            if data.get("updated_at")
-            else datetime.now(timezone.utc),
-            synced_at=datetime.fromisoformat(data["synced_at"].replace("Z", "+00:00"))
-            if data.get("synced_at")
-            else None,
+            created_at=(
+                datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
+                if data.get("created_at")
+                else datetime.now(timezone.utc)
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00"))
+                if data.get("updated_at")
+                else datetime.now(timezone.utc)
+            ),
+            synced_at=(
+                datetime.fromisoformat(data["synced_at"].replace("Z", "+00:00"))
+                if data.get("synced_at")
+                else None
+            ),
             tags=data.get("tags", []),
         )
 

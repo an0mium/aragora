@@ -644,8 +644,7 @@ class StaticHTMLExporter:
             agent = node.get("agent_id", "unknown")
             content = node.get("content", "")[:50]
 
-            html_parts.append(
-                f"""
+            html_parts.append(f"""
 <div class="graph-node {node_type}"
      style="left: {x}px; top: {y}px;"
      data-node-id="{node_id}"
@@ -653,8 +652,7 @@ class StaticHTMLExporter:
      title="{self._escape(content)}...">
     <div class="agent">{self._escape(agent)}</div>
     <div class="type">{node_type}</div>
-</div>"""
-            )
+</div>""")
 
         return "".join(html_parts)
 
@@ -691,16 +689,14 @@ class StaticHTMLExporter:
                 text = content.get("content", "")[:300]
                 item_class = "synthesis"
 
-            timeline_items.append(
-                f"""
+            timeline_items.append(f"""
 <div class="timeline-item {item_class}">
     <div class="header">
         <span class="agent">{self._escape(agent)}</span>
         <span class="round">Round {round_num}</span>
     </div>
     <div class="content">{self._escape(text)}...</div>
-</div>"""
-            )
+</div>""")
 
         return f"""
 <div class="tab-panel" id="panel-timeline">
@@ -731,8 +727,7 @@ class StaticHTMLExporter:
 
         provenance_items = []
         for record in records[-10:]:  # Show last 10 records
-            provenance_items.append(
-                f"""
+            provenance_items.append(f"""
 <div class="provenance-item">
     <div class="evidence-id">{record.get("id", "unknown")}</div>
     <div class="source">
@@ -745,8 +740,7 @@ class StaticHTMLExporter:
         <span class="chain-link">{record.get("content_hash", "")[:12]}...</span>
         {f'<span>&larr;</span><span class="chain-link">{record.get("previous_hash", "")[:12]}...</span>' if record.get("previous_hash") else ""}
     </div>
-</div>"""
-            )
+</div>""")
 
         return f"""
 <div class="tab-panel" id="panel-provenance">
@@ -775,8 +769,7 @@ class StaticHTMLExporter:
                 if v.status.lower() in ["verified", "refuted", "timeout"]
                 else "timeout"
             )
-            verification_items.append(
-                f"""
+            verification_items.append(f"""
 <div class="verification-item {status_class}">
     <div>
         <span class="status {status_class}">{v.status.upper()}</span>
@@ -784,8 +777,7 @@ class StaticHTMLExporter:
     </div>
     <p style="margin-top: 0.5rem;">{self._escape(v.claim_text[:200])}</p>
     {f'<pre style="margin-top: 0.5rem;">{self._escape(v.proof_trace[:200] if v.proof_trace else "")}</pre>' if v.proof_trace else ""}
-</div>"""
-            )
+</div>""")
 
         return f"""
 <div class="tab-panel" id="panel-verification">

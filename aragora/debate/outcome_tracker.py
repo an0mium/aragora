@@ -231,8 +231,7 @@ class OutcomeTracker:
             Dict mapping confidence range (e.g., "0.7-0.8") to success rate
         """
         with self._db.connection() as conn:
-            rows = conn.execute(
-                """
+            rows = conn.execute("""
                 SELECT
                     CAST(consensus_confidence * 10 AS INTEGER) * 0.1 as bucket_start,
                     COUNT(*) as total,
@@ -241,8 +240,7 @@ class OutcomeTracker:
                 WHERE implementation_attempted = 1
                 GROUP BY bucket_start
                 ORDER BY bucket_start
-            """
-            ).fetchall()
+            """).fetchall()
 
             result = {}
             for row in rows:
@@ -325,8 +323,7 @@ class OutcomeTracker:
     def get_overall_stats(self) -> dict:
         """Get overall outcome statistics."""
         with self._db.connection() as conn:
-            row = conn.execute(
-                """
+            row = conn.execute("""
                 SELECT
                     COUNT(*) as total,
                     SUM(CASE WHEN implementation_attempted = 1 THEN 1 ELSE 0 END) as attempted,
@@ -336,8 +333,7 @@ class OutcomeTracker:
                     SUM(tests_passed) as total_tests_passed,
                     SUM(tests_failed) as total_tests_failed
                 FROM outcomes
-            """
-            ).fetchone()
+            """).fetchone()
 
             total = row[0] or 0
             attempted = row[1] or 0

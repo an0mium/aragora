@@ -220,9 +220,11 @@ class DecisionHandler(BaseHandler):
                 )
                 enforcer.require(  # type: ignore[unused-coroutine]
                     auth_ctx.user_id,
-                    ResourceType.DECISION  # type: ignore[attr-defined]
-                    if hasattr(ResourceType, "DECISION")
-                    else ResourceType.DEBATE,
+                    (
+                        ResourceType.DECISION  # type: ignore[attr-defined]
+                        if hasattr(ResourceType, "DECISION")
+                        else ResourceType.DEBATE
+                    ),
                     Action.CREATE,
                     ctx,
                 )

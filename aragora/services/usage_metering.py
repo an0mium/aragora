@@ -1153,9 +1153,11 @@ class UsageMeter:
             org_id=org_id,
             period_start=start_date,
             period_end=end_date,
-            period_type=MeteringPeriod(period)
-            if period in [p.value for p in MeteringPeriod]
-            else MeteringPeriod.MONTH,
+            period_type=(
+                MeteringPeriod(period)
+                if period in [p.value for p in MeteringPeriod]
+                else MeteringPeriod.MONTH
+            ),
         )
 
         cursor = self._conn.cursor()

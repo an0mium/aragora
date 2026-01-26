@@ -857,16 +857,14 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         """
         with self.connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT id, tier, content, importance, surprise_score, consolidation_score,
                        update_count, success_count, failure_count, created_at, updated_at, metadata,
                        COALESCE(red_line, 0), COALESCE(red_line_reason, '')
                 FROM continuum_memory
                 WHERE red_line = 1
                 ORDER BY created_at ASC
-                """
-            )
+                """)
             rows = cursor.fetchall()
 
         return [

@@ -806,9 +806,9 @@ class DevOpsHandler(BaseHandler):
                 event_type=event_type or "unknown",
                 tenant_id=tenant_id,
                 data={
-                    "payload": payload.to_dict()
-                    if payload and hasattr(payload, "to_dict")
-                    else body,
+                    "payload": (
+                        payload.to_dict() if payload and hasattr(payload, "to_dict") else body
+                    ),
                 },
             )
 

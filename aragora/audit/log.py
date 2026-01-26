@@ -900,15 +900,13 @@ class AuditLog:
 
     def get_stats(self) -> dict[str, Any]:
         """Get audit log statistics."""
-        row = self._backend.fetch_one(
-            """
+        row = self._backend.fetch_one("""
             SELECT
                 COUNT(*) as total,
                 MIN(timestamp) as oldest,
                 MAX(timestamp) as newest
             FROM audit_events
-            """
-        )
+            """)
 
         by_category = {}
         for cat_row in self._backend.fetch_all(

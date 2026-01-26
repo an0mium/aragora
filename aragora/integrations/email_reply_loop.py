@@ -176,9 +176,9 @@ class EmailReplyOrigin:
             "recipient_name": self.recipient_name,
             "sent_at": self.sent_at.isoformat() if self.sent_at else None,
             "reply_received": self.reply_received,
-            "reply_received_at": self.reply_received_at.isoformat()
-            if self.reply_received_at
-            else None,
+            "reply_received_at": (
+                self.reply_received_at.isoformat() if self.reply_received_at else None
+            ),
             "metadata": self.metadata,
         }
 
@@ -194,9 +194,9 @@ class EmailReplyOrigin:
             recipient_name=data.get("recipient_name", ""),
             sent_at=datetime.fromisoformat(sent_at) if sent_at else datetime.now(timezone.utc),
             reply_received=data.get("reply_received", False),
-            reply_received_at=datetime.fromisoformat(reply_received_at)
-            if reply_received_at
-            else None,
+            reply_received_at=(
+                datetime.fromisoformat(reply_received_at) if reply_received_at else None
+            ),
             metadata=data.get("metadata", {}),
         )
 

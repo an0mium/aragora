@@ -497,9 +497,11 @@ class DocuSignConnector:
 
         return Envelope(
             envelope_id=envelope_id,
-            status=EnvelopeStatus(status_str)
-            if status_str in [e.value for e in EnvelopeStatus]
-            else EnvelopeStatus.CREATED,
+            status=(
+                EnvelopeStatus(status_str)
+                if status_str in [e.value for e in EnvelopeStatus]
+                else EnvelopeStatus.CREATED
+            ),
             email_subject=request.email_subject,
             email_body=request.email_body,
             signers=[s for s in signers],
@@ -537,31 +539,35 @@ class DocuSignConnector:
 
             return Envelope(
                 envelope_id=envelope_id,
-                status=EnvelopeStatus(status_str)
-                if status_str in [e.value for e in EnvelopeStatus]
-                else EnvelopeStatus.CREATED,
+                status=(
+                    EnvelopeStatus(status_str)
+                    if status_str in [e.value for e in EnvelopeStatus]
+                    else EnvelopeStatus.CREATED
+                ),
                 email_subject=response.get("emailSubject", ""),
                 email_body=response.get("emailBlurb", ""),
-                created_at=datetime.fromisoformat(
-                    response["createdDateTime"].replace("Z", "+00:00")
-                )
-                if response.get("createdDateTime")
-                else None,
-                sent_at=datetime.fromisoformat(response["sentDateTime"].replace("Z", "+00:00"))
-                if response.get("sentDateTime")
-                else None,
-                completed_at=datetime.fromisoformat(
-                    response["completedDateTime"].replace("Z", "+00:00")
-                )
-                if response.get("completedDateTime")
-                else None,
+                created_at=(
+                    datetime.fromisoformat(response["createdDateTime"].replace("Z", "+00:00"))
+                    if response.get("createdDateTime")
+                    else None
+                ),
+                sent_at=(
+                    datetime.fromisoformat(response["sentDateTime"].replace("Z", "+00:00"))
+                    if response.get("sentDateTime")
+                    else None
+                ),
+                completed_at=(
+                    datetime.fromisoformat(response["completedDateTime"].replace("Z", "+00:00"))
+                    if response.get("completedDateTime")
+                    else None
+                ),
                 sender_name=response.get("sender", {}).get("userName", ""),
                 sender_email=response.get("sender", {}).get("email", ""),
-                status_changed_at=datetime.fromisoformat(
-                    response["statusChangedDateTime"].replace("Z", "+00:00")
-                )
-                if response.get("statusChangedDateTime")
-                else None,
+                status_changed_at=(
+                    datetime.fromisoformat(response["statusChangedDateTime"].replace("Z", "+00:00"))
+                    if response.get("statusChangedDateTime")
+                    else None
+                ),
             )
         except Exception as e:
             logger.error(f"Failed to get envelope {envelope_id}: {e}")
@@ -605,20 +611,22 @@ class DocuSignConnector:
             envelopes.append(
                 Envelope(
                     envelope_id=item["envelopeId"],
-                    status=EnvelopeStatus(status_str)
-                    if status_str in [e.value for e in EnvelopeStatus]
-                    else EnvelopeStatus.CREATED,
+                    status=(
+                        EnvelopeStatus(status_str)
+                        if status_str in [e.value for e in EnvelopeStatus]
+                        else EnvelopeStatus.CREATED
+                    ),
                     email_subject=item.get("emailSubject", ""),
-                    created_at=datetime.fromisoformat(
-                        item["createdDateTime"].replace("Z", "+00:00")
-                    )
-                    if item.get("createdDateTime")
-                    else None,
-                    status_changed_at=datetime.fromisoformat(
-                        item["statusChangedDateTime"].replace("Z", "+00:00")
-                    )
-                    if item.get("statusChangedDateTime")
-                    else None,
+                    created_at=(
+                        datetime.fromisoformat(item["createdDateTime"].replace("Z", "+00:00"))
+                        if item.get("createdDateTime")
+                        else None
+                    ),
+                    status_changed_at=(
+                        datetime.fromisoformat(item["statusChangedDateTime"].replace("Z", "+00:00"))
+                        if item.get("statusChangedDateTime")
+                        else None
+                    ),
                 )
             )
 

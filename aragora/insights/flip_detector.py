@@ -149,8 +149,7 @@ class FlipDetector:
     def _init_tables(self) -> None:
         """Create flips and positions tables if not exist."""
         with self.db.connection() as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS detected_flips (
                     id TEXT PRIMARY KEY,
                     agent_name TEXT NOT NULL,
@@ -167,14 +166,12 @@ class FlipDetector:
                     domain TEXT,
                     detected_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_flips_agent ON detected_flips(agent_name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_flips_type ON detected_flips(flip_type)")
             # Also create positions table (shared with PositionLedger)
             # This ensures get_agent_consistency() works even without PositionLedger
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS positions (
                     id TEXT PRIMARY KEY,
                     agent_name TEXT NOT NULL,
@@ -189,8 +186,7 @@ class FlipDetector:
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     resolved_at TEXT
                 )
-            """
-            )
+            """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_positions_agent ON positions(agent_name)")
             conn.commit()
 
@@ -573,12 +569,10 @@ class FlipDetector:
             by_agent = dict(cursor.fetchall())
 
             # Recent 24h flips
-            cursor = conn.execute(
-                """
+            cursor = conn.execute("""
                 SELECT COUNT(*) FROM detected_flips
                 WHERE detected_at > datetime('now', '-1 day')
-                """
-            )
+                """)
             row = cursor.fetchone()
             recent_24h = row[0] if row else 0
 

@@ -97,9 +97,9 @@ class WebhookSubscription:
             "created_at": self.created_at.isoformat(),
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "notification_url": self.notification_url,
-            "last_notification": self.last_notification.isoformat()
-            if self.last_notification
-            else None,
+            "last_notification": (
+                self.last_notification.isoformat() if self.last_notification else None
+            ),
             "notification_count": self.notification_count,
             "error_count": self.error_count,
         }

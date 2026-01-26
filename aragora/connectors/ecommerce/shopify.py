@@ -580,21 +580,25 @@ class ShopifyConnector(EnterpriseConnector):
             total_discounts=Decimal(str(data["total_discounts"])),
             currency=data["currency"],
             financial_status=PaymentStatus(data.get("financial_status", "pending")),
-            fulfillment_status=OrderStatus(data["fulfillment_status"])
-            if data.get("fulfillment_status")
-            else None,
+            fulfillment_status=(
+                OrderStatus(data["fulfillment_status"]) if data.get("fulfillment_status") else None
+            ),
             line_items=line_items,
             shipping_address=self._parse_address(shipping) if shipping else None,
             billing_address=self._parse_address(billing) if billing else None,
             customer_id=str(data["customer"]["id"]) if data.get("customer") else None,
             note=data.get("note"),
             tags=data.get("tags", "").split(", ") if data.get("tags") else [],
-            cancelled_at=datetime.fromisoformat(data["cancelled_at"].replace("Z", "+00:00"))
-            if data.get("cancelled_at")
-            else None,
-            closed_at=datetime.fromisoformat(data["closed_at"].replace("Z", "+00:00"))
-            if data.get("closed_at")
-            else None,
+            cancelled_at=(
+                datetime.fromisoformat(data["cancelled_at"].replace("Z", "+00:00"))
+                if data.get("cancelled_at")
+                else None
+            ),
+            closed_at=(
+                datetime.fromisoformat(data["closed_at"].replace("Z", "+00:00"))
+                if data.get("closed_at")
+                else None
+            ),
         )
 
     def _parse_address(self, data: Dict[str, Any]) -> ShopifyAddress:
@@ -712,9 +716,9 @@ class ShopifyConnector(EnterpriseConnector):
                 sku=v.get("sku"),
                 inventory_quantity=v.get("inventory_quantity", 0),
                 inventory_policy=InventoryPolicy(v.get("inventory_policy", "deny")),
-                compare_at_price=Decimal(str(v["compare_at_price"]))
-                if v.get("compare_at_price")
-                else None,
+                compare_at_price=(
+                    Decimal(str(v["compare_at_price"])) if v.get("compare_at_price") else None
+                ),
                 weight=float(v.get("weight", 0)),
                 weight_unit=v.get("weight_unit", "kg"),
                 barcode=v.get("barcode"),
@@ -736,9 +740,11 @@ class ShopifyConnector(EnterpriseConnector):
             status=data.get("status", "active"),
             created_at=datetime.fromisoformat(data["created_at"].replace("Z", "+00:00")),
             updated_at=datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00")),
-            published_at=datetime.fromisoformat(data["published_at"].replace("Z", "+00:00"))
-            if data.get("published_at")
-            else None,
+            published_at=(
+                datetime.fromisoformat(data["published_at"].replace("Z", "+00:00"))
+                if data.get("published_at")
+                else None
+            ),
             description=data.get("body_html"),
             tags=data.get("tags", "").split(", ") if data.get("tags") else [],
             variants=variants,
@@ -900,9 +906,9 @@ class ShopifyConnector(EnterpriseConnector):
             "fulfilled_orders": fulfilled_orders,
             "cancelled_orders": cancelled_orders,
             "fulfillment_rate": fulfilled_orders / total_orders if total_orders > 0 else 0,
-            "average_order_value": str(total_revenue / total_orders)
-            if total_orders > 0
-            else "0.00",
+            "average_order_value": (
+                str(total_revenue / total_orders) if total_orders > 0 else "0.00"
+            ),
         }
 
     # =========================================================================

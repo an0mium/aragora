@@ -703,9 +703,9 @@ Return JSON with these exact fields:
                 "rounds_completed": config.rounds,
                 "duration_seconds": duration_seconds,
                 "final_answer": result.final_answer if hasattr(result, "final_answer") else "",
-                "consensus_reached": result.consensus_reached
-                if hasattr(result, "consensus_reached")
-                else False,
+                "consensus_reached": (
+                    result.consensus_reached if hasattr(result, "consensus_reached") else False
+                ),
                 "is_onboarding": True,
             }
 

@@ -41,9 +41,7 @@ from aragora.storage.backends import (
 logger = logging.getLogger(__name__)
 
 # Default configuration
-DEFAULT_RETENTION_DAYS = int(
-    os.environ.get("ARAGORA_RECEIPT_RETENTION_DAYS", "2555")  # ~7 years
-)
+DEFAULT_RETENTION_DAYS = int(os.environ.get("ARAGORA_RECEIPT_RETENTION_DAYS", "2555"))  # ~7 years
 DEFAULT_DB_PATH = (
     Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))) / "receipts.db"
 )
@@ -656,11 +654,11 @@ class ReceiptStore:
             sig_meta = SignatureMetadata(
                 algorithm=receipt.signature_algorithm or "HMAC-SHA256",
                 key_id=receipt.signature_key_id or "unknown",
-                timestamp=datetime.fromtimestamp(
-                    receipt.signed_at or 0, tz=timezone.utc
-                ).isoformat()
-                if receipt.signed_at
-                else datetime.now(timezone.utc).isoformat(),
+                timestamp=(
+                    datetime.fromtimestamp(receipt.signed_at or 0, tz=timezone.utc).isoformat()
+                    if receipt.signed_at
+                    else datetime.now(timezone.utc).isoformat()
+                ),
             )
 
             # Reconstruct signed receipt

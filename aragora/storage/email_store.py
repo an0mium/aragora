@@ -715,8 +715,7 @@ class EmailStore(SQLiteStore):
 
         with self.connection() as conn:
             # Create standalone FTS5 virtual table (not content-sync to avoid complexity)
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE VIRTUAL TABLE IF NOT EXISTS shared_inbox_messages_fts USING fts5(
                     message_id,
                     inbox_id,
@@ -724,8 +723,7 @@ class EmailStore(SQLiteStore):
                     from_address,
                     snippet
                 )
-                """
-            )
+                """)
 
             # Check if we need to populate from existing data
             existing = conn.execute("SELECT COUNT(*) FROM shared_inbox_messages_fts").fetchone()
@@ -733,13 +731,11 @@ class EmailStore(SQLiteStore):
 
             if existing[0] == 0 and msg_count[0] > 0:
                 # Populate from existing messages
-                conn.execute(
-                    """
+                conn.execute("""
                     INSERT INTO shared_inbox_messages_fts(message_id, inbox_id, subject, from_address, snippet)
                     SELECT id, inbox_id, subject, from_address, snippet
                     FROM shared_inbox_messages
-                    """
-                )
+                    """)
                 logger.info(
                     f"[EmailStore] Populated FTS5 index with {msg_count[0]} existing messages"
                 )

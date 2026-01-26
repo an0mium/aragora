@@ -231,9 +231,9 @@ class CategorizationResult:
             "email_id": self.email_id,
             "category": self.category.value,
             "confidence": self.confidence,
-            "secondary_category": self.secondary_category.value
-            if self.secondary_category
-            else None,
+            "secondary_category": (
+                self.secondary_category.value if self.secondary_category else None
+            ),
             "matched_patterns": self.matched_patterns,
             "suggested_label": self.suggested_label,
             "auto_archive": self.auto_archive,

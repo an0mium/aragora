@@ -408,8 +408,7 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
                 cursor = conn.cursor()
 
                 # AR Invoices table
-                cursor.execute(
-                    """
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS ar_invoices (
                         id TEXT PRIMARY KEY,
                         customer_id TEXT NOT NULL,
@@ -426,8 +425,7 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
                         updated_at REAL NOT NULL,
                         data_json TEXT NOT NULL
                     )
-                    """
-                )
+                    """)
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_ar_status ON ar_invoices(status)")
                 cursor.execute(
                     "CREATE INDEX IF NOT EXISTS idx_ar_customer ON ar_invoices(customer_id)"
@@ -435,8 +433,7 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_ar_due ON ar_invoices(due_date)")
 
                 # Customers table
-                cursor.execute(
-                    """
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS ar_customers (
                         customer_id TEXT PRIMARY KEY,
                         name TEXT NOT NULL,
@@ -445,8 +442,7 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
                         created_at REAL NOT NULL,
                         data_json TEXT NOT NULL
                     )
-                    """
-                )
+                    """)
 
                 conn.commit()
             finally:
@@ -635,12 +631,10 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
             conn = sqlite3.connect(str(self._db_path))
             try:
                 cursor = conn.cursor()
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT data_json, due_date FROM ar_invoices
                     WHERE status NOT IN ('paid', 'void')
-                    """
-                )
+                    """)
 
                 for row in cursor.fetchall():
                     inv = json.loads(row[0], object_hook=decimal_decoder)
@@ -1108,15 +1102,13 @@ class PostgresARInvoiceStore(ARInvoiceStoreBackend):
 
     async def list_overdue(self) -> list[dict[str, Any]]:
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                """
+            rows = await conn.fetch("""
                 SELECT data_json FROM ar_invoices
                 WHERE status NOT IN ('paid', 'void')
                   AND due_date IS NOT NULL
                   AND due_date < NOW()
                 ORDER BY due_date ASC
-                """
-            )
+                """)
             results = []
             for row in rows:
                 data = row["data_json"]
@@ -1133,14 +1125,12 @@ class PostgresARInvoiceStore(ARInvoiceStoreBackend):
         }
 
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                """
+            rows = await conn.fetch("""
                 SELECT data_json,
                        EXTRACT(DAY FROM NOW() - due_date) as days_overdue
                 FROM ar_invoices
                 WHERE status NOT IN ('paid', 'void')
-                """
-            )
+                """)
 
             for row in rows:
                 data = row["data_json"]

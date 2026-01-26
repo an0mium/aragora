@@ -106,21 +106,27 @@ class CampaignGroup:
             name=data.get("name", ""),
             status=CampaignStatus(data.get("status", "DRAFT")),
             account_id=data.get("account", "").split(":")[-1] if data.get("account") else "",
-            total_budget=data.get("totalBudget", {}).get("amount")
-            if data.get("totalBudget")
-            else None,
-            run_schedule_start=datetime.fromisoformat(data["runSchedule"]["start"])
-            if data.get("runSchedule", {}).get("start")
-            else None,
-            run_schedule_end=datetime.fromisoformat(data["runSchedule"]["end"])
-            if data.get("runSchedule", {}).get("end")
-            else None,
-            created_at=datetime.fromtimestamp(data["createdAt"] / 1000)
-            if data.get("createdAt")
-            else None,
-            last_modified_at=datetime.fromtimestamp(data["lastModifiedAt"] / 1000)
-            if data.get("lastModifiedAt")
-            else None,
+            total_budget=(
+                data.get("totalBudget", {}).get("amount") if data.get("totalBudget") else None
+            ),
+            run_schedule_start=(
+                datetime.fromisoformat(data["runSchedule"]["start"])
+                if data.get("runSchedule", {}).get("start")
+                else None
+            ),
+            run_schedule_end=(
+                datetime.fromisoformat(data["runSchedule"]["end"])
+                if data.get("runSchedule", {}).get("end")
+                else None
+            ),
+            created_at=(
+                datetime.fromtimestamp(data["createdAt"] / 1000) if data.get("createdAt") else None
+            ),
+            last_modified_at=(
+                datetime.fromtimestamp(data["lastModifiedAt"] / 1000)
+                if data.get("lastModifiedAt")
+                else None
+            ),
         )
 
 
@@ -152,35 +158,43 @@ class Campaign:
             id=str(data.get("id", "")),
             name=data.get("name", ""),
             status=CampaignStatus(data.get("status", "DRAFT")),
-            campaign_group_id=data.get("campaignGroup", "").split(":")[-1]
-            if data.get("campaignGroup")
-            else "",
+            campaign_group_id=(
+                data.get("campaignGroup", "").split(":")[-1] if data.get("campaignGroup") else ""
+            ),
             account_id=data.get("account", "").split(":")[-1] if data.get("account") else "",
             campaign_type=CampaignType(data.get("type", "SPONSORED_UPDATES")),
             objective_type=ObjectiveType(data.get("objectiveType", "WEBSITE_VISITS")),
-            daily_budget=data.get("dailyBudget", {}).get("amount")
-            if data.get("dailyBudget")
-            else None,
-            total_budget=data.get("totalBudget", {}).get("amount")
-            if data.get("totalBudget")
-            else None,
-            bid_strategy=BidStrategy(data["optimizationTargetType"])
-            if data.get("optimizationTargetType")
-            else None,
+            daily_budget=(
+                data.get("dailyBudget", {}).get("amount") if data.get("dailyBudget") else None
+            ),
+            total_budget=(
+                data.get("totalBudget", {}).get("amount") if data.get("totalBudget") else None
+            ),
+            bid_strategy=(
+                BidStrategy(data["optimizationTargetType"])
+                if data.get("optimizationTargetType")
+                else None
+            ),
             bid_amount=data.get("unitCost", {}).get("amount") if data.get("unitCost") else None,
             targeting_criteria=data.get("targetingCriteria", {}),
-            run_schedule_start=datetime.fromisoformat(data["runSchedule"]["start"])
-            if data.get("runSchedule", {}).get("start")
-            else None,
-            run_schedule_end=datetime.fromisoformat(data["runSchedule"]["end"])
-            if data.get("runSchedule", {}).get("end")
-            else None,
-            created_at=datetime.fromtimestamp(data["createdAt"] / 1000)
-            if data.get("createdAt")
-            else None,
-            last_modified_at=datetime.fromtimestamp(data["lastModifiedAt"] / 1000)
-            if data.get("lastModifiedAt")
-            else None,
+            run_schedule_start=(
+                datetime.fromisoformat(data["runSchedule"]["start"])
+                if data.get("runSchedule", {}).get("start")
+                else None
+            ),
+            run_schedule_end=(
+                datetime.fromisoformat(data["runSchedule"]["end"])
+                if data.get("runSchedule", {}).get("end")
+                else None
+            ),
+            created_at=(
+                datetime.fromtimestamp(data["createdAt"] / 1000) if data.get("createdAt") else None
+            ),
+            last_modified_at=(
+                datetime.fromtimestamp(data["lastModifiedAt"] / 1000)
+                if data.get("lastModifiedAt")
+                else None
+            ),
         )
 
 
@@ -206,15 +220,17 @@ class Creative:
             status=data.get("status", ""),
             ad_format=AdFormat(data.get("type", "SINGLE_IMAGE_AD")),
             reference=data.get("reference", ""),
-            call_to_action=data.get("callToAction", {}).get("action")
-            if data.get("callToAction")
-            else None,
-            landing_page_url=data.get("callToAction", {}).get("destinationUrl")
-            if data.get("callToAction")
-            else None,
-            created_at=datetime.fromtimestamp(data["createdAt"] / 1000)
-            if data.get("createdAt")
-            else None,
+            call_to_action=(
+                data.get("callToAction", {}).get("action") if data.get("callToAction") else None
+            ),
+            landing_page_url=(
+                data.get("callToAction", {}).get("destinationUrl")
+                if data.get("callToAction")
+                else None
+            ),
+            created_at=(
+                datetime.fromtimestamp(data["createdAt"] / 1000) if data.get("createdAt") else None
+            ),
         )
 
 
@@ -300,9 +316,9 @@ class LeadGenForm:
             privacy_policy_url=data.get("privacyPolicy", {}).get("url"),
             thank_you_message=data.get("thankYouMessage", {}).get("message"),
             questions=data.get("questions", []),
-            created_at=datetime.fromtimestamp(data["createdAt"] / 1000)
-            if data.get("createdAt")
-            else None,
+            created_at=(
+                datetime.fromtimestamp(data["createdAt"] / 1000) if data.get("createdAt") else None
+            ),
         )
 
 
@@ -322,15 +338,19 @@ class Lead:
         """Create from LinkedIn API response."""
         return cls(
             id=str(data.get("id", "")),
-            form_id=data.get("leadGenFormUrn", "").split(":")[-1]
-            if data.get("leadGenFormUrn")
-            else "",
-            campaign_id=data.get("sponsoredCampaign", "").split(":")[-1]
-            if data.get("sponsoredCampaign")
-            else "",
-            created_at=datetime.fromtimestamp(data["submittedAt"] / 1000)
-            if data.get("submittedAt")
-            else datetime.now(),
+            form_id=(
+                data.get("leadGenFormUrn", "").split(":")[-1] if data.get("leadGenFormUrn") else ""
+            ),
+            campaign_id=(
+                data.get("sponsoredCampaign", "").split(":")[-1]
+                if data.get("sponsoredCampaign")
+                else ""
+            ),
+            created_at=(
+                datetime.fromtimestamp(data["submittedAt"] / 1000)
+                if data.get("submittedAt")
+                else datetime.now()
+            ),
             form_response=data.get("formResponse", {}),
             member_urn=data.get("owner"),
         )
@@ -358,9 +378,9 @@ class AudienceSegment:
             account_id=data.get("account", "").split(":")[-1] if data.get("account") else "",
             matched_count=data.get("matchedMemberCount"),
             status=data.get("status"),
-            created_at=datetime.fromtimestamp(data["createdAt"] / 1000)
-            if data.get("createdAt")
-            else None,
+            created_at=(
+                datetime.fromtimestamp(data["createdAt"] / 1000) if data.get("createdAt") else None
+            ),
         )
 
 

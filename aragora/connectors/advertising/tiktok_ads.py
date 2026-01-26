@@ -111,12 +111,16 @@ class Campaign:
             objective=CampaignObjective(data.get("objective_type", "TRAFFIC")),
             budget=float(data.get("budget", 0)) if data.get("budget") else None,
             budget_mode=data.get("budget_mode", "BUDGET_MODE_DAY"),
-            create_time=datetime.fromisoformat(data["create_time"].replace("Z", "+00:00"))
-            if data.get("create_time")
-            else None,
-            modify_time=datetime.fromisoformat(data["modify_time"].replace("Z", "+00:00"))
-            if data.get("modify_time")
-            else None,
+            create_time=(
+                datetime.fromisoformat(data["create_time"].replace("Z", "+00:00"))
+                if data.get("create_time")
+                else None
+            ),
+            modify_time=(
+                datetime.fromisoformat(data["modify_time"].replace("Z", "+00:00"))
+                if data.get("modify_time")
+                else None
+            ),
         )
 
 
@@ -151,16 +155,16 @@ class AdGroup:
             billing_event=BillingEvent(data.get("billing_event", "CPC")),
             budget=float(data.get("budget", 0)) if data.get("budget") else None,
             bid_price=float(data.get("bid_price", 0)) if data.get("bid_price") else None,
-            schedule_start_time=datetime.fromisoformat(
-                data["schedule_start_time"].replace("Z", "+00:00")
-            )
-            if data.get("schedule_start_time")
-            else None,
-            schedule_end_time=datetime.fromisoformat(
-                data["schedule_end_time"].replace("Z", "+00:00")
-            )
-            if data.get("schedule_end_time")
-            else None,
+            schedule_start_time=(
+                datetime.fromisoformat(data["schedule_start_time"].replace("Z", "+00:00"))
+                if data.get("schedule_start_time")
+                else None
+            ),
+            schedule_end_time=(
+                datetime.fromisoformat(data["schedule_end_time"].replace("Z", "+00:00"))
+                if data.get("schedule_end_time")
+                else None
+            ),
         )
 
 
@@ -190,9 +194,11 @@ class Ad:
             landing_page_url=data.get("landing_page_url"),
             video_id=data.get("video_id"),
             image_ids=data.get("image_ids", []),
-            create_time=datetime.fromisoformat(data["create_time"].replace("Z", "+00:00"))
-            if data.get("create_time")
-            else None,
+            create_time=(
+                datetime.fromisoformat(data["create_time"].replace("Z", "+00:00"))
+                if data.get("create_time")
+                else None
+            ),
         )
 
 
@@ -286,9 +292,11 @@ class CustomAudience:
             audience_sub_type=data.get("audience_sub_type"),
             is_valid=data.get("is_valid", True),
             audience_size=data.get("audience_size"),
-            create_time=datetime.fromisoformat(data["create_time"].replace("Z", "+00:00"))
-            if data.get("create_time")
-            else None,
+            create_time=(
+                datetime.fromisoformat(data["create_time"].replace("Z", "+00:00"))
+                if data.get("create_time")
+                else None
+            ),
         )
 
 
@@ -310,9 +318,11 @@ class Pixel:
             name=data.get("pixel_name", ""),
             advertiser_id=str(data.get("advertiser_id", "")),
             code=data.get("pixel_code"),
-            create_time=datetime.fromisoformat(data["create_time"].replace("Z", "+00:00"))
-            if data.get("create_time")
-            else None,
+            create_time=(
+                datetime.fromisoformat(data["create_time"].replace("Z", "+00:00"))
+                if data.get("create_time")
+                else None
+            ),
         )
 
 

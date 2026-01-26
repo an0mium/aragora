@@ -51,8 +51,7 @@ def up_fn(backend: DatabaseBackend) -> None:
     if not _table_exists(backend, "integration_configs"):
         logger.info("Creating integration_configs table")
         if is_postgres:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE integration_configs (
                     integration_type TEXT NOT NULL,
                     integration_id TEXT NOT NULL,
@@ -62,11 +61,9 @@ def up_fn(backend: DatabaseBackend) -> None:
                     updated_at TIMESTAMP DEFAULT NOW(),
                     PRIMARY KEY (integration_type, integration_id)
                 )
-            """
-            )
+            """)
         else:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE integration_configs (
                     integration_type TEXT NOT NULL,
                     integration_id TEXT NOT NULL,
@@ -76,8 +73,7 @@ def up_fn(backend: DatabaseBackend) -> None:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (integration_type, integration_id)
                 )
-            """
-            )
+            """)
         backend.execute_write(
             "CREATE INDEX IF NOT EXISTS idx_integrations_type ON integration_configs(integration_type)"
         )
@@ -91,27 +87,23 @@ def up_fn(backend: DatabaseBackend) -> None:
     if not _table_exists(backend, "gmail_tokens"):
         logger.info("Creating gmail_tokens table")
         if is_postgres:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE gmail_tokens (
                     user_id TEXT PRIMARY KEY,
                     state_data JSONB NOT NULL,
                     created_at TIMESTAMP DEFAULT NOW(),
                     updated_at TIMESTAMP DEFAULT NOW()
                 )
-            """
-            )
+            """)
         else:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE gmail_tokens (
                     user_id TEXT PRIMARY KEY,
                     state_data TEXT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
 
     # =========================================================================
     # 3. Gmail Sync Jobs Table
@@ -119,8 +111,7 @@ def up_fn(backend: DatabaseBackend) -> None:
     if not _table_exists(backend, "gmail_sync_jobs"):
         logger.info("Creating gmail_sync_jobs table")
         if is_postgres:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE gmail_sync_jobs (
                     job_id TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL,
@@ -128,11 +119,9 @@ def up_fn(backend: DatabaseBackend) -> None:
                     created_at TIMESTAMP DEFAULT NOW(),
                     updated_at TIMESTAMP DEFAULT NOW()
                 )
-            """
-            )
+            """)
         else:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE gmail_sync_jobs (
                     job_id TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL,
@@ -140,8 +129,7 @@ def up_fn(backend: DatabaseBackend) -> None:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
         backend.execute_write(
             "CREATE INDEX IF NOT EXISTS idx_gmail_jobs_user ON gmail_sync_jobs(user_id)"
         )
@@ -152,8 +140,7 @@ def up_fn(backend: DatabaseBackend) -> None:
     if not _table_exists(backend, "finding_workflows"):
         logger.info("Creating finding_workflows table")
         if is_postgres:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE finding_workflows (
                     finding_id TEXT PRIMARY KEY,
                     workflow_data JSONB NOT NULL,
@@ -164,11 +151,9 @@ def up_fn(backend: DatabaseBackend) -> None:
                     created_at TIMESTAMP DEFAULT NOW(),
                     updated_at TIMESTAMP DEFAULT NOW()
                 )
-            """
-            )
+            """)
         else:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE finding_workflows (
                     finding_id TEXT PRIMARY KEY,
                     workflow_data TEXT NOT NULL,
@@ -179,8 +164,7 @@ def up_fn(backend: DatabaseBackend) -> None:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
         backend.execute_write(
             "CREATE INDEX IF NOT EXISTS idx_workflows_state ON finding_workflows(current_state)"
         )
@@ -197,8 +181,7 @@ def up_fn(backend: DatabaseBackend) -> None:
     if not _table_exists(backend, "federation_registry"):
         logger.info("Creating federation_registry table")
         if is_postgres:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE federation_registry (
                     region_id TEXT NOT NULL,
                     workspace_id TEXT NOT NULL DEFAULT '__global__',
@@ -216,11 +199,9 @@ def up_fn(backend: DatabaseBackend) -> None:
                     updated_at TIMESTAMP DEFAULT NOW(),
                     PRIMARY KEY (region_id, workspace_id)
                 )
-            """
-            )
+            """)
         else:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE federation_registry (
                     region_id TEXT NOT NULL,
                     workspace_id TEXT NOT NULL DEFAULT '__global__',
@@ -238,8 +219,7 @@ def up_fn(backend: DatabaseBackend) -> None:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (region_id, workspace_id)
                 )
-            """
-            )
+            """)
         backend.execute_write(
             "CREATE INDEX IF NOT EXISTS idx_federation_workspace ON federation_registry(workspace_id)"
         )

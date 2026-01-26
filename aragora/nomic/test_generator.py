@@ -60,9 +60,9 @@ class TestCase:
             "test_type": self.test_type.value,
             "function_under_test": self.function_under_test,
             "input_values": self.input_values,
-            "expected_output": repr(self.expected_output)
-            if self.expected_output is not None
-            else None,
+            "expected_output": (
+                repr(self.expected_output) if self.expected_output is not None else None
+            ),
             "expected_exception": self.expected_exception,
             "assertions": self.assertions,
             "tags": self.tags,

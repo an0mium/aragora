@@ -433,13 +433,11 @@ class GenesisLedger:
             cursor = conn.cursor()
 
             # Get all spawn events
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT data FROM genesis_events
                 WHERE event_type IN ('debate_spawn', 'debate_merge', 'debate_start')
                 ORDER BY timestamp
-            """
-            )
+            """)
 
             for (data_json,) in cursor.fetchall():
                 try:

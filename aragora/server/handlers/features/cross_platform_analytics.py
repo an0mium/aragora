@@ -281,7 +281,10 @@ async def fetch_aragora_metrics(tenant_id: str, time_range: str) -> Dict[str, fl
 async def fetch_ga4_metrics(tenant_id: str, time_range: str) -> Dict[str, float]:
     """Fetch Google Analytics 4 metrics."""
     try:
-        from aragora.connectors.analytics.google_analytics import GoogleAnalyticsConnector  # noqa: F401
+        from aragora.connectors.analytics.google_analytics import (  # noqa: F401
+            GoogleAnalyticsConnector,
+        )
+
         # In real implementation, would use actual client
     except ImportError:
         pass
@@ -302,6 +305,7 @@ async def fetch_mixpanel_metrics(tenant_id: str, time_range: str) -> Dict[str, f
     """Fetch Mixpanel metrics."""
     try:
         from aragora.connectors.analytics.mixpanel import MixpanelConnector  # noqa: F401
+
         # In real implementation, would use actual client
     except ImportError:
         pass
@@ -321,6 +325,7 @@ async def fetch_metabase_metrics(tenant_id: str, time_range: str) -> Dict[str, f
     """Fetch Metabase dashboard metrics."""
     try:
         from aragora.connectors.analytics.metabase import MetabaseConnector  # noqa: F401
+
         # In real implementation, would use actual client
     except ImportError:
         pass
@@ -338,6 +343,7 @@ async def fetch_segment_metrics(tenant_id: str, time_range: str) -> Dict[str, fl
     """Fetch Segment metrics."""
     try:
         from aragora.connectors.analytics.segment import SegmentConnector  # noqa: F401
+
         # In real implementation, would use actual client
     except ImportError:
         pass

@@ -223,12 +223,14 @@ class UnifiedMessage:
                 "tier": self.priority_tier,
                 "reasons": self.priority_reasons,
             },
-            "triage": {
-                "action": self.triage_action.value if self.triage_action else None,
-                "rationale": self.triage_rationale,
-            }
-            if self.triage_action
-            else None,
+            "triage": (
+                {
+                    "action": self.triage_action.value if self.triage_action else None,
+                    "rationale": self.triage_rationale,
+                }
+                if self.triage_action
+                else None
+            ),
         }
 
 
@@ -725,9 +727,9 @@ class UnifiedInboxHandler(BaseHandler):
                     settings={
                         "refresh_token": refresh_token,
                         "access_token": connector.access_token or "",
-                        "token_expiry": connector.token_expiry.isoformat()
-                        if connector.token_expiry
-                        else None,
+                        "token_expiry": (
+                            connector.token_expiry.isoformat() if connector.token_expiry else None
+                        ),
                         "account_id": account.id,
                         "tenant_id": tenant_id,
                         "email_address": account.email_address,

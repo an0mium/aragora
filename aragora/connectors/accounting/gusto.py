@@ -561,9 +561,9 @@ class GustoConnector:
                     pay_type=pay_type,
                     department=item.get("department"),
                     job_title=item.get("jobs", [{}])[0].get("title") if item.get("jobs") else None,
-                    hire_date=date.fromisoformat(item["hire_date"])
-                    if item.get("hire_date")
-                    else None,
+                    hire_date=(
+                        date.fromisoformat(item["hire_date"]) if item.get("hire_date") else None
+                    ),
                     is_active=not item.get("terminated", False),
                 )
             )
@@ -622,9 +622,11 @@ class GustoConnector:
                     total_employee_taxes=Decimal(
                         str(item.get("totals", {}).get("employee_taxes", 0))
                     ),
-                    processed_at=datetime.fromisoformat(item["processed_date"])
-                    if item.get("processed_date")
-                    else None,
+                    processed_at=(
+                        datetime.fromisoformat(item["processed_date"])
+                        if item.get("processed_date")
+                        else None
+                    ),
                 )
             )
 

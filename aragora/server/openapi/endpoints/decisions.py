@@ -2,7 +2,6 @@
 
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS, AUTH_REQUIREMENTS
 
-
 DECISION_ENDPOINTS = {
     "/api/v1/decisions": {
         "get": {

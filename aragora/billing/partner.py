@@ -221,8 +221,7 @@ class PartnerStore:
     def _init_db(self) -> None:
         """Initialize database schema."""
         with self._get_connection() as conn:
-            conn.executescript(
-                """
+            conn.executescript("""
                 CREATE TABLE IF NOT EXISTS partners (
                     partner_id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -283,8 +282,7 @@ class PartnerStore:
                 CREATE INDEX IF NOT EXISTS idx_api_keys_partner ON api_keys(partner_id);
                 CREATE INDEX IF NOT EXISTS idx_usage_partner_time ON usage_records(partner_id, timestamp);
                 CREATE INDEX IF NOT EXISTS idx_revenue_partner_period ON revenue_shares(partner_id, period_start);
-            """
-            )
+            """)
             conn.commit()
 
     def create_partner(self, partner: Partner) -> Partner:

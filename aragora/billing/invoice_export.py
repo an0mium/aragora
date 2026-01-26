@@ -341,16 +341,14 @@ class InvoiceExporter:
                 rows = []
                 for item in line_items:
                     if isinstance(item, dict):
-                        rows.append(
-                            f"""
+                        rows.append(f"""
                             <tr>
                                 <td>{item.get("description", "")}</td>
                                 <td class="right">{item.get("quantity", 1)}</td>
                                 <td class="right">{self.config.currency_symbol}{item.get("unit_price", 0):.2f}</td>
                                 <td class="right">{self.config.currency_symbol}{item.get("amount", 0):.2f}</td>
                             </tr>
-                            """
-                        )
+                            """)
                 line_items_html = f"""
                 <table class="line-items">
                     <thead>

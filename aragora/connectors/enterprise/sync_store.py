@@ -316,8 +316,7 @@ class SyncStore:
             raise RuntimeError("Database connection failed")
 
         # Create tables
-        await self._connection.executescript(
-            """
+        await self._connection.executescript("""
             CREATE TABLE IF NOT EXISTS connectors (
                 id TEXT PRIMARY KEY,
                 connector_type TEXT NOT NULL,
@@ -350,8 +349,7 @@ class SyncStore:
 
             CREATE INDEX IF NOT EXISTS idx_connectors_status
                 ON connectors(status);
-        """
-        )
+        """)
         await self._connection.commit()
 
         # Load connectors into cache
@@ -400,8 +398,7 @@ class SyncStore:
             raise RuntimeError("Database connection failed")
 
         # Create tables
-        await self._connection.execute(
-            """
+        await self._connection.execute("""
             CREATE TABLE IF NOT EXISTS connectors (
                 id TEXT PRIMARY KEY,
                 connector_type TEXT NOT NULL,
@@ -433,8 +430,7 @@ class SyncStore:
 
             CREATE INDEX IF NOT EXISTS idx_connectors_status
                 ON connectors(status);
-        """
-        )
+        """)
 
         # Load connectors into cache
         rows = await self._connection.fetch("SELECT * FROM connectors")

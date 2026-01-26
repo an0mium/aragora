@@ -84,9 +84,9 @@ async def _execute_workflow_async(
                         {
                             "step_id": s.step_id,
                             "step_name": s.step_name,
-                            "status": s.status.value
-                            if hasattr(s.status, "value")
-                            else str(s.status),
+                            "status": (
+                                s.status.value if hasattr(s.status, "value") else str(s.status)
+                            ),
                             "duration_ms": s.duration_ms,
                             "error": s.error,
                         }
@@ -261,9 +261,9 @@ class WorkflowTemplatesHandler(BaseHandler):
                     **t,
                     "steps_count": len(template_def.get("steps", [])) if template_def else 0,
                     "pattern": template_def.get("pattern") if template_def else None,
-                    "estimated_duration": template_def.get("estimated_duration")
-                    if template_def
-                    else None,
+                    "estimated_duration": (
+                        template_def.get("estimated_duration") if template_def else None
+                    ),
                 }
             )
 
@@ -480,9 +480,11 @@ class WorkflowPatternsHandler(BaseHandler):
                 {
                     "id": pattern_type.value,
                     "name": pattern_type.value.replace("_", " ").title(),
-                    "description": pattern_class.__doc__.split("\n")[0]
-                    if pattern_class and pattern_class.__doc__
-                    else "",
+                    "description": (
+                        pattern_class.__doc__.split("\n")[0]
+                        if pattern_class and pattern_class.__doc__
+                        else ""
+                    ),
                     "available": pattern_class is not None,
                 }
             )

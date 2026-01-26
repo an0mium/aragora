@@ -108,16 +108,14 @@ class PostgresMigrationRunner:
 
     async def _ensure_migrations_table(self, conn: "Connection") -> None:
         """Create migrations tracking table if it doesn't exist."""
-        await conn.execute(
-            f"""
+        await conn.execute(f"""
             CREATE TABLE IF NOT EXISTS {self.MIGRATIONS_TABLE} (
                 version INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,
                 applied_at TIMESTAMPTZ DEFAULT NOW(),
                 checksum TEXT
             )
-        """
-        )
+        """)
 
     async def _get_applied_versions(self, conn: "Connection") -> set[int]:
         """Get set of applied migration versions."""

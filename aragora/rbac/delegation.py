@@ -248,19 +248,21 @@ class PermissionDelegation:
             permission_id=data["permission_id"],
             org_id=data.get("org_id"),
             workspace_id=data.get("workspace_id"),
-            resource_type=ResourceType(data["resource_type"])
-            if data.get("resource_type")
-            else None,
+            resource_type=(
+                ResourceType(data["resource_type"]) if data.get("resource_type") else None
+            ),
             resource_ids=set(data.get("resource_ids", [])),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if isinstance(data["created_at"], str)
-            else data["created_at"],
-            expires_at=datetime.fromisoformat(data["expires_at"])
-            if data.get("expires_at")
-            else None,
-            revoked_at=datetime.fromisoformat(data["revoked_at"])
-            if data.get("revoked_at")
-            else None,
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if isinstance(data["created_at"], str)
+                else data["created_at"]
+            ),
+            expires_at=(
+                datetime.fromisoformat(data["expires_at"]) if data.get("expires_at") else None
+            ),
+            revoked_at=(
+                datetime.fromisoformat(data["revoked_at"]) if data.get("revoked_at") else None
+            ),
             revoked_by=data.get("revoked_by"),
             status=DelegationStatus(data.get("status", "active")),
             reason=data.get("reason", ""),

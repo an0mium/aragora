@@ -691,13 +691,11 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
 
     async def list_all(self) -> List[IntegrationConfig]:
         conn = self._get_conn()
-        cursor = conn.execute(
-            """SELECT integration_type, enabled, created_at, updated_at,
+        cursor = conn.execute("""SELECT integration_type, enabled, created_at, updated_at,
                       notify_on_consensus, notify_on_debate_end, notify_on_error,
                       notify_on_leaderboard, settings_json, messages_sent,
                       errors_24h, last_activity, last_error, user_id, workspace_id
-               FROM integrations"""
-        )
+               FROM integrations""")
         configs = []
         for row in cursor.fetchall():
             config = IntegrationConfig.from_row(row)
@@ -1244,8 +1242,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
     async def list_all_async(self) -> List[IntegrationConfig]:
         """List all integrations asynchronously."""
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                """SELECT integration_type, enabled,
+            rows = await conn.fetch("""SELECT integration_type, enabled,
                           EXTRACT(EPOCH FROM created_at) as created_at,
                           EXTRACT(EPOCH FROM updated_at) as updated_at,
                           notify_on_consensus, notify_on_debate_end, notify_on_error,
@@ -1253,8 +1250,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
                           errors_24h,
                           EXTRACT(EPOCH FROM last_activity) as last_activity,
                           last_error, user_id, workspace_id
-                   FROM integrations"""
-            )
+                   FROM integrations""")
             configs = []
             for row in rows:
                 config = self._row_to_config(row)

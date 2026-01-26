@@ -490,9 +490,11 @@ class AmazonConnector(EnterpriseConnector):
             order_status=AmazonOrderStatus(data["OrderStatus"]),
             fulfillment_channel=FulfillmentChannel(data.get("FulfillmentChannel", "MFN")),
             sales_channel=data.get("SalesChannel", "Amazon.com"),
-            order_total=Decimal(str(data["OrderTotal"]["Amount"]))
-            if data.get("OrderTotal")
-            else Decimal("0.00"),
+            order_total=(
+                Decimal(str(data["OrderTotal"]["Amount"]))
+                if data.get("OrderTotal")
+                else Decimal("0.00")
+            ),
             currency_code=data.get("OrderTotal", {}).get("CurrencyCode", "USD"),
             number_of_items_shipped=data.get("NumberOfItemsShipped", 0),
             number_of_items_unshipped=data.get("NumberOfItemsUnshipped", 0),

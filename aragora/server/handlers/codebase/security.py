@@ -418,16 +418,18 @@ async def handle_list_scans(
                         "status": s.status,
                         "started_at": s.started_at.isoformat(),
                         "completed_at": s.completed_at.isoformat() if s.completed_at else None,
-                        "summary": {
-                            "total_dependencies": s.total_dependencies,
-                            "vulnerable_dependencies": s.vulnerable_dependencies,
-                            "critical_count": s.critical_count,
-                            "high_count": s.high_count,
-                            "medium_count": s.medium_count,
-                            "low_count": s.low_count,
-                        }
-                        if s.status == "completed"
-                        else None,
+                        "summary": (
+                            {
+                                "total_dependencies": s.total_dependencies,
+                                "vulnerable_dependencies": s.vulnerable_dependencies,
+                                "critical_count": s.critical_count,
+                                "high_count": s.high_count,
+                                "medium_count": s.medium_count,
+                                "low_count": s.low_count,
+                            }
+                            if s.status == "completed"
+                            else None
+                        ),
                     }
                     for s in scans
                 ],
@@ -578,9 +580,11 @@ async def _emit_secrets_events(
                     line_number=secret.line_number,
                     recommendation="Rotate the credential immediately and remove from codebase",
                     metadata={
-                        "secret_type": secret.secret_type.value
-                        if hasattr(secret.secret_type, "value")
-                        else str(secret.secret_type),
+                        "secret_type": (
+                            secret.secret_type.value
+                            if hasattr(secret.secret_type, "value")
+                            else str(secret.secret_type)
+                        ),
                         "confidence": secret.confidence,
                         "is_in_history": getattr(secret, "is_in_history", False),
                     },
@@ -886,15 +890,17 @@ async def handle_list_secrets_scans(
                         "files_scanned": s.files_scanned,
                         "scanned_history": s.scanned_history,
                         "history_depth": s.history_depth,
-                        "summary": {
-                            "total_secrets": len(s.secrets),
-                            "critical_count": s.critical_count,
-                            "high_count": s.high_count,
-                            "medium_count": s.medium_count,
-                            "low_count": s.low_count,
-                        }
-                        if s.status == "completed"
-                        else None,
+                        "summary": (
+                            {
+                                "total_secrets": len(s.secrets),
+                                "critical_count": s.critical_count,
+                                "high_count": s.high_count,
+                                "medium_count": s.medium_count,
+                                "low_count": s.low_count,
+                            }
+                            if s.status == "completed"
+                            else None
+                        ),
                     }
                     for s in scans
                 ],

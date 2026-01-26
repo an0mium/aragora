@@ -142,12 +142,10 @@ class MetaLearner(SQLiteStore):
             with self.connection() as conn:
                 cursor = conn.cursor()
 
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT hyperparams FROM meta_hyperparams
                     ORDER BY created_at DESC LIMIT 1
-                """
-                )
+                """)
                 row = cursor.fetchone()
 
             if row:
@@ -238,12 +236,10 @@ class MetaLearner(SQLiteStore):
                 cursor = conn.cursor()
 
                 # Pattern retention: % of patterns with success_rate > 0.5
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT COUNT(*) FROM continuum_memory
                     WHERE (success_count * 1.0 / NULLIF(success_count + failure_count, 0)) > 0.5
-                """
-                )
+                """)
                 row = cursor.fetchone()
                 useful_count = (row[0] if row else 0) or 0
                 metrics.pattern_retention_rate = (
@@ -251,13 +247,11 @@ class MetaLearner(SQLiteStore):
                 )
 
                 # Forgetting rate: % of patterns that became less useful over time
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT COUNT(*) FROM continuum_memory
                     WHERE failure_count > success_count
                       AND update_count > 5
-                """
-                )
+                """)
                 row = cursor.fetchone()
                 forgotten_count = (row[0] if row else 0) or 0
                 metrics.forgetting_rate = (
@@ -279,12 +273,10 @@ class MetaLearner(SQLiteStore):
                     metrics.tier_efficiency[tier] = result or 0.5
 
                 # Learning velocity: new patterns per cycle
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT COUNT(*) FROM continuum_memory
                     WHERE julianday('now') - julianday(created_at) < 1
-                """
-                )
+                """)
                 row = cursor.fetchone()
                 metrics.learning_velocity = (row[0] if row else 0) or 0
         except sqlite3.Error as e:

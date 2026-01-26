@@ -92,7 +92,8 @@ class StructuredContent(BaseModel):
         # Limit number of keys
         if len(v) > MAX_METADATA_SIZE:
             v = dict(list(v.items())[:MAX_METADATA_SIZE])
-        return v
+        result: Dict[str, Any] = v
+        return result
 
 
 class AgentResponseSchema(BaseModel):
@@ -160,7 +161,8 @@ class AgentResponseSchema(BaseModel):
             return None
         if len(v) > MAX_METADATA_SIZE:
             v = dict(list(v.items())[:MAX_METADATA_SIZE])
-        return v
+        result: Dict[str, Any] = v
+        return result
 
     @model_validator(mode="after")
     def extract_ready_signal(self) -> "AgentResponseSchema":
@@ -176,8 +178,8 @@ class ValidationResult:
 
     is_valid: bool
     response: Optional[AgentResponseSchema] = None
-    errors: List[str] = None
-    warnings: List[str] = None
+    errors: Optional[List[str]] = None
+    warnings: Optional[List[str]] = None
 
     def __post_init__(self) -> None:
         if self.errors is None:

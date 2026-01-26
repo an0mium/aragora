@@ -458,9 +458,11 @@ async def _persist_approval_request(request: OperationApprovalRequest) -> None:
             status=request.state.value,
             requested_by=request.requester_id,
             changes=[],
-            timeout_seconds=int((request.expires_at - request.created_at).total_seconds())
-            if request.expires_at
-            else 86400,
+            timeout_seconds=(
+                int((request.expires_at - request.created_at).total_seconds())
+                if request.expires_at
+                else 86400
+            ),
             workspace_id=request.workspace_id,
             metadata={
                 "operation": request.operation,
@@ -525,9 +527,11 @@ async def _recover_approval_request(request_id: str) -> Optional[OperationApprov
             context=metadata.get("context", {}),
             state=ApprovalState(record.status),
             created_at=record.created_at,  # type: ignore[attr-defined]
-            expires_at=record.created_at + timedelta(seconds=record.timeout_seconds)  # type: ignore[attr-defined]
-            if record.timeout_seconds  # type: ignore[attr-defined]
-            else None,
+            expires_at=(
+                record.created_at + timedelta(seconds=record.timeout_seconds)  # type: ignore[attr-defined]
+                if record.timeout_seconds  # type: ignore[attr-defined]
+                else None
+            ),
             approved_by=record.approved_by,
             approved_at=record.approved_at,
             rejection_reason=record.rejection_reason,
@@ -673,9 +677,11 @@ async def recover_pending_approvals() -> int:
                     context=metadata.get("context", {}),
                     state=ApprovalState.PENDING,
                     created_at=record.requested_at,
-                    expires_at=record.requested_at + timedelta(seconds=record.timeout_seconds)
-                    if record.timeout_seconds
-                    else None,
+                    expires_at=(
+                        record.requested_at + timedelta(seconds=record.timeout_seconds)
+                        if record.timeout_seconds
+                        else None
+                    ),
                 )
 
                 _pending_approvals[record.approval_id] = request

@@ -732,12 +732,14 @@ class GoogleChatHandler(BaseHandler):
                     await connector.send_message(
                         space_name,
                         "Gauntlet complete",
-                        blocks=connector.format_blocks(
-                            title=f"{status_emoji} Gauntlet Results",
-                            body=body,
-                        )
-                        if hasattr(connector, "format_blocks")
-                        else None,
+                        blocks=(
+                            connector.format_blocks(
+                                title=f"{status_emoji} Gauntlet Results",
+                                body=body,
+                            )
+                            if hasattr(connector, "format_blocks")
+                            else None
+                        ),
                     )
 
         except Exception as e:

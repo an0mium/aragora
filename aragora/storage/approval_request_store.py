@@ -324,8 +324,7 @@ class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
             conn = sqlite3.connect(str(self._db_path))
             try:
                 cursor = conn.cursor()
-                cursor.execute(
-                    """
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS approval_requests (
                         request_id TEXT PRIMARY KEY,
                         workflow_id TEXT NOT NULL,
@@ -342,32 +341,23 @@ class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
                         updated_at REAL NOT NULL,
                         data_json TEXT NOT NULL
                     )
-                    """
-                )
-                cursor.execute(
-                    """
+                    """)
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_approval_status
                     ON approval_requests(status)
-                    """
-                )
-                cursor.execute(
-                    """
+                    """)
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_approval_workflow
                     ON approval_requests(workflow_id)
-                    """
-                )
-                cursor.execute(
-                    """
+                    """)
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_approval_expires
                     ON approval_requests(expires_at)
-                    """
-                )
-                cursor.execute(
-                    """
+                    """)
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_approval_workspace
                     ON approval_requests(workspace_id)
-                    """
-                )
+                    """)
                 conn.commit()
             finally:
                 conn.close()
@@ -499,13 +489,11 @@ class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
             conn = sqlite3.connect(str(self._db_path))
             try:
                 cursor = conn.cursor()
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT data_json FROM approval_requests
                     WHERE status = 'pending'
                     ORDER BY priority ASC, created_at DESC
-                    """
-                )
+                    """)
                 return [json.loads(row[0]) for row in cursor.fetchall()]
             finally:
                 conn.close()
@@ -985,10 +973,8 @@ class PostgresApprovalRequestStore(ApprovalRequestStoreBackend):
     async def list_all_async(self) -> list[dict[str, Any]]:
         """List all requests asynchronously."""
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                """SELECT data_json FROM approval_requests
-                   ORDER BY EXTRACT(EPOCH FROM created_at) DESC"""
-            )
+            rows = await conn.fetch("""SELECT data_json FROM approval_requests
+                   ORDER BY EXTRACT(EPOCH FROM created_at) DESC""")
             results = []
             for row in rows:
                 data = row["data_json"]
@@ -1044,13 +1030,11 @@ class PostgresApprovalRequestStore(ApprovalRequestStoreBackend):
     async def list_pending_async(self) -> list[dict[str, Any]]:
         """List pending requests asynchronously."""
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                """
+            rows = await conn.fetch("""
                 SELECT data_json FROM approval_requests
                 WHERE status = 'pending'
                 ORDER BY priority ASC, EXTRACT(EPOCH FROM created_at) DESC
-                """
-            )
+                """)
             results = []
             for row in rows:
                 data = row["data_json"]

@@ -654,15 +654,13 @@ class PostgresCheckpointStore:
 
         async with self._pool.acquire() as conn:
             # Create schema version tracking table
-            await conn.execute(
-                """
+            await conn.execute("""
                 CREATE TABLE IF NOT EXISTS _schema_versions (
                     module TEXT PRIMARY KEY,
                     version INTEGER NOT NULL,
                     updated_at TIMESTAMPTZ DEFAULT NOW()
                 )
-            """
-            )
+            """)
 
             # Check current version
             row = await conn.fetchrow(

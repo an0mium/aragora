@@ -145,9 +145,9 @@ class RotationResult:
             "initiated_by": self.initiated_by,
             "old_version": self.old_version,
             "new_version": self.new_version,
-            "grace_period_ends": self.grace_period_ends.isoformat()
-            if self.grace_period_ends
-            else None,
+            "grace_period_ends": (
+                self.grace_period_ends.isoformat() if self.grace_period_ends else None
+            ),
             "duration_seconds": self.duration_seconds,
             "verification_passed": self.verification_passed,
             "error_message": self.error_message,
@@ -214,8 +214,7 @@ class SecretsRotationStorage:
     def _init_schema(self) -> None:
         """Initialize database schema."""
         conn = self._get_conn()
-        conn.executescript(
-            """
+        conn.executescript("""
             CREATE TABLE IF NOT EXISTS managed_secrets (
                 secret_id TEXT PRIMARY KEY,
                 secret_type TEXT NOT NULL,
@@ -264,8 +263,7 @@ class SecretsRotationStorage:
             CREATE INDEX IF NOT EXISTS idx_history_secret ON rotation_history(secret_id);
             CREATE INDEX IF NOT EXISTS idx_history_status ON rotation_history(status);
             CREATE INDEX IF NOT EXISTS idx_schedule_next ON rotation_schedule(next_rotation);
-            """
-        )
+            """)
         conn.commit()
 
     def save_secret(self, metadata: SecretMetadata) -> None:
@@ -316,12 +314,12 @@ class SecretsRotationStorage:
             name=row["name"],
             description=row["description"] or "",
             created_at=datetime.fromisoformat(row["created_at"]),
-            last_rotated_at=datetime.fromisoformat(row["last_rotated_at"])
-            if row["last_rotated_at"]
-            else None,
-            next_rotation_at=datetime.fromisoformat(row["next_rotation_at"])
-            if row["next_rotation_at"]
-            else None,
+            last_rotated_at=(
+                datetime.fromisoformat(row["last_rotated_at"]) if row["last_rotated_at"] else None
+            ),
+            next_rotation_at=(
+                datetime.fromisoformat(row["next_rotation_at"]) if row["next_rotation_at"] else None
+            ),
             rotation_interval_days=row["rotation_interval_days"],
             owner=row["owner"],
             tags=json.loads(row["tags_json"] or "{}"),
@@ -353,12 +351,16 @@ class SecretsRotationStorage:
                     name=row["name"],
                     description=row["description"] or "",
                     created_at=datetime.fromisoformat(row["created_at"]),
-                    last_rotated_at=datetime.fromisoformat(row["last_rotated_at"])
-                    if row["last_rotated_at"]
-                    else None,
-                    next_rotation_at=datetime.fromisoformat(row["next_rotation_at"])
-                    if row["next_rotation_at"]
-                    else None,
+                    last_rotated_at=(
+                        datetime.fromisoformat(row["last_rotated_at"])
+                        if row["last_rotated_at"]
+                        else None
+                    ),
+                    next_rotation_at=(
+                        datetime.fromisoformat(row["next_rotation_at"])
+                        if row["next_rotation_at"]
+                        else None
+                    ),
                     rotation_interval_days=row["rotation_interval_days"],
                     owner=row["owner"],
                     tags=json.loads(row["tags_json"] or "{}"),
@@ -391,12 +393,16 @@ class SecretsRotationStorage:
                 name=row["name"],
                 description=row["description"] or "",
                 created_at=datetime.fromisoformat(row["created_at"]),
-                last_rotated_at=datetime.fromisoformat(row["last_rotated_at"])
-                if row["last_rotated_at"]
-                else None,
-                next_rotation_at=datetime.fromisoformat(row["next_rotation_at"])
-                if row["next_rotation_at"]
-                else None,
+                last_rotated_at=(
+                    datetime.fromisoformat(row["last_rotated_at"])
+                    if row["last_rotated_at"]
+                    else None
+                ),
+                next_rotation_at=(
+                    datetime.fromisoformat(row["next_rotation_at"])
+                    if row["next_rotation_at"]
+                    else None
+                ),
                 rotation_interval_days=row["rotation_interval_days"],
                 owner=row["owner"],
                 tags=json.loads(row["tags_json"] or "{}"),
@@ -472,15 +478,17 @@ class SecretsRotationStorage:
                 status=RotationStatus(row["status"]),
                 trigger=RotationTrigger(row["trigger"]),
                 started_at=datetime.fromisoformat(row["started_at"]) if row["started_at"] else None,
-                completed_at=datetime.fromisoformat(row["completed_at"])
-                if row["completed_at"]
-                else None,
+                completed_at=(
+                    datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None
+                ),
                 initiated_by=row["initiated_by"] or "system",
                 old_version=row["old_version"],
                 new_version=row["new_version"],
-                grace_period_ends=datetime.fromisoformat(row["grace_period_ends"])
-                if row["grace_period_ends"]
-                else None,
+                grace_period_ends=(
+                    datetime.fromisoformat(row["grace_period_ends"])
+                    if row["grace_period_ends"]
+                    else None
+                ),
                 duration_seconds=row["duration_seconds"] or 0.0,
                 verification_passed=bool(row["verification_passed"]),
                 error_message=row["error_message"],
@@ -508,12 +516,16 @@ class SecretsRotationStorage:
                 name=row["name"],
                 description=row["description"] or "",
                 created_at=datetime.fromisoformat(row["created_at"]),
-                last_rotated_at=datetime.fromisoformat(row["last_rotated_at"])
-                if row["last_rotated_at"]
-                else None,
-                next_rotation_at=datetime.fromisoformat(row["next_rotation_at"])
-                if row["next_rotation_at"]
-                else None,
+                last_rotated_at=(
+                    datetime.fromisoformat(row["last_rotated_at"])
+                    if row["last_rotated_at"]
+                    else None
+                ),
+                next_rotation_at=(
+                    datetime.fromisoformat(row["next_rotation_at"])
+                    if row["next_rotation_at"]
+                    else None
+                ),
                 rotation_interval_days=row["rotation_interval_days"],
                 owner=row["owner"],
                 tags=json.loads(row["tags_json"] or "{}"),

@@ -280,8 +280,7 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
             conn = sqlite3.connect(str(self._db_path))
             try:
                 cursor = conn.cursor()
-                cursor.execute(
-                    """
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS gauntlet_runs (
                         run_id TEXT PRIMARY KEY,
                         template_id TEXT NOT NULL,
@@ -294,26 +293,19 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
                         updated_at REAL NOT NULL,
                         data_json TEXT NOT NULL
                     )
-                    """
-                )
-                cursor.execute(
-                    """
+                    """)
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_gauntlet_run_status
                     ON gauntlet_runs(status)
-                    """
-                )
-                cursor.execute(
-                    """
+                    """)
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_gauntlet_run_template
                     ON gauntlet_runs(template_id)
-                    """
-                )
-                cursor.execute(
-                    """
+                    """)
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_gauntlet_run_workspace
                     ON gauntlet_runs(workspace_id)
-                    """
-                )
+                    """)
                 conn.commit()
             finally:
                 conn.close()
@@ -489,8 +481,7 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
             try:
                 cursor = conn.cursor()
                 # Use window functions for comprehensive analytics
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT
                         run_id,
                         template_id,
@@ -507,8 +498,7 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
                     ORDER BY
                         CASE status WHEN 'running' THEN 0 ELSE 1 END,
                         created_at ASC
-                    """
-                )
+                    """)
                 rows = cursor.fetchall()
 
                 if not rows:
@@ -1039,11 +1029,9 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
     async def list_active(self) -> list[dict[str, Any]]:
         """List active (pending/running) runs."""
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                """SELECT data_json FROM gauntlet_runs
+            rows = await conn.fetch("""SELECT data_json FROM gauntlet_runs
                    WHERE status IN ('pending', 'running')
-                   ORDER BY created_at DESC"""
-            )
+                   ORDER BY created_at DESC""")
             results = []
             for row in rows:
                 data = row["data_json"]

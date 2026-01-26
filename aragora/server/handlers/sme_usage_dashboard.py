@@ -551,9 +551,9 @@ class SMEUsageDashboardHandler(SecureHandler):
                     "limit_usd": str(budget.daily_limit_usd or "unlimited"),
                     "spent_usd": str(budget.current_daily_spend),
                 },
-                "alert_level": budget.check_alert_level().value
-                if budget.check_alert_level()
-                else None,
+                "alert_level": (
+                    budget.check_alert_level().value if budget.check_alert_level() else None
+                ),
             }
         else:
             # No budget set - return workspace stats

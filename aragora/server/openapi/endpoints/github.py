@@ -2,7 +2,6 @@
 
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS, AUTH_REQUIREMENTS
 
-
 GITHUB_ENDPOINTS = {
     "/api/v1/github/pr/review": {
         "post": {

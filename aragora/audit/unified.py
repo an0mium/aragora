@@ -467,9 +467,9 @@ class UnifiedAuditLogger:
         """Log a login attempt."""
         self.log(
             UnifiedAuditEvent(
-                category=UnifiedAuditCategory.AUTH_LOGIN
-                if success
-                else UnifiedAuditCategory.AUTH_FAILED,
+                category=(
+                    UnifiedAuditCategory.AUTH_LOGIN if success else UnifiedAuditCategory.AUTH_FAILED
+                ),
                 action=f"User login via {method}",
                 outcome=AuditOutcome.SUCCESS if success else AuditOutcome.FAILURE,
                 actor_id=user_id,
@@ -502,9 +502,11 @@ class UnifiedAuditLogger:
         """Log an access control check."""
         self.log(
             UnifiedAuditEvent(
-                category=UnifiedAuditCategory.ACCESS_GRANTED
-                if granted
-                else UnifiedAuditCategory.ACCESS_DENIED,
+                category=(
+                    UnifiedAuditCategory.ACCESS_GRANTED
+                    if granted
+                    else UnifiedAuditCategory.ACCESS_DENIED
+                ),
                 action=f"Permission check: {permission}",
                 outcome=AuditOutcome.SUCCESS if granted else AuditOutcome.DENIED,
                 actor_id=user_id,

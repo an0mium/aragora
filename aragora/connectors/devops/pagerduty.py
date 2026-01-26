@@ -137,9 +137,11 @@ class OnCallSchedule:
         """Create OnCallSchedule from API response."""
         user_data = data.get("user", {})
         return cls(
-            user=User.from_api(user_data)
-            if user_data
-            else User(id="unknown", name="Unknown", email="unknown@example.com"),
+            user=(
+                User.from_api(user_data)
+                if user_data
+                else User(id="unknown", name="Unknown", email="unknown@example.com")
+            ),
             schedule_id=data.get("schedule", {}).get("id", ""),
             schedule_name=data.get("schedule", {}).get("summary", ""),
             start=datetime.fromisoformat(data["start"].replace("Z", "+00:00")),

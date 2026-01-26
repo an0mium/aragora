@@ -168,8 +168,7 @@ class ContinuumGlacialMixin:
             cursor = conn.cursor()
 
             # Get counts and averages for glacial tier
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT
                     COUNT(*) as count,
                     AVG(importance) as avg_importance,
@@ -181,18 +180,15 @@ class ContinuumGlacialMixin:
                     MAX(updated_at) as newest_update
                 FROM continuum_memory
                 WHERE tier = 'glacial'
-                """
-            )
+                """)
             row = cursor.fetchone()
 
             # Get top tags in glacial tier
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT metadata FROM continuum_memory
                 WHERE tier = 'glacial'
                 LIMIT 100
-                """
-            )
+                """)
             tag_counts: Dict[str, int] = {}
             for (metadata_json,) in cursor.fetchall():
                 metadata: dict[str, Any] = safe_json_loads(metadata_json, {})

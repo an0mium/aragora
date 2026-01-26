@@ -288,8 +288,7 @@ class DeadLetterQueue:
                 return
 
             with self._get_connection() as conn:
-                conn.execute(
-                    """
+                conn.execute("""
                     CREATE TABLE IF NOT EXISTS dead_letters (
                         id TEXT PRIMARY KEY,
                         platform TEXT NOT NULL,
@@ -303,20 +302,15 @@ class DeadLetterQueue:
                         metadata TEXT,
                         status TEXT NOT NULL DEFAULT 'pending'
                     )
-                """
-                )
-                conn.execute(
-                    """
+                """)
+                conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_dlq_platform
                     ON dead_letters(platform, status)
-                """
-                )
-                conn.execute(
-                    """
+                """)
+                conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_dlq_next_retry
                     ON dead_letters(next_retry_at) WHERE status = 'pending'
-                """
-                )
+                """)
                 conn.commit()
 
             self._initialized = True
@@ -544,13 +538,11 @@ class DeadLetterQueue:
 
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute(
-                    """
+                cursor = conn.execute("""
                     SELECT status, platform, COUNT(*) as count
                     FROM dead_letters
                     GROUP BY status, platform
-                """
-                )
+                """)
 
                 stats: dict[str, Any] = {
                     "total": 0,

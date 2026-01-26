@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from .models import Action, Permission, ResourceType, Role
 
-
 # ============================================================================
 # SYSTEM PERMISSIONS
 # ============================================================================
@@ -210,6 +209,9 @@ PERM_WEBHOOK_CREATE = _permission(
 )
 PERM_WEBHOOK_DELETE = _permission(
     ResourceType.WEBHOOK, Action.DELETE, "Delete Webhooks", "Remove webhook configurations"
+)
+PERM_WEBHOOK_ADMIN = _permission(
+    ResourceType.WEBHOOK, Action.ALL, "Webhook Admin", "Admin webhook operations (DLQ management)"
 )
 
 # Checkpoint permissions
@@ -917,6 +919,7 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_WEBHOOK_READ,
         PERM_WEBHOOK_CREATE,
         PERM_WEBHOOK_DELETE,
+        PERM_WEBHOOK_ADMIN,
         # Checkpoints
         PERM_CHECKPOINT_READ,
         PERM_CHECKPOINT_CREATE,
@@ -1131,6 +1134,7 @@ ROLE_ADMIN = Role(
         PERM_WEBHOOK_READ.key,
         PERM_WEBHOOK_CREATE.key,
         PERM_WEBHOOK_DELETE.key,
+        PERM_WEBHOOK_ADMIN.key,
         # Checkpoints
         PERM_CHECKPOINT_READ.key,
         PERM_CHECKPOINT_CREATE.key,

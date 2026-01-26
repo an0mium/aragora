@@ -519,12 +519,12 @@ class ChannelContext:
             ],
             "message_count": len(self.messages),
             "participant_count": len(self.participants),
-            "oldest_timestamp": self.oldest_timestamp.isoformat()
-            if self.oldest_timestamp
-            else None,
-            "newest_timestamp": self.newest_timestamp.isoformat()
-            if self.newest_timestamp
-            else None,
+            "oldest_timestamp": (
+                self.oldest_timestamp.isoformat() if self.oldest_timestamp else None
+            ),
+            "newest_timestamp": (
+                self.newest_timestamp.isoformat() if self.newest_timestamp else None
+            ),
             "fetched_at": self.fetched_at.isoformat(),
             "warnings": self.warnings,
             "metadata": self.metadata,

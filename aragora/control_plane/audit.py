@@ -210,9 +210,11 @@ class AuditEntry:
             actor=AuditActor.from_dict(data.get("actor", {})),
             resource_type=data.get("resource_type", "unknown"),
             resource_id=data.get("resource_id", "unknown"),
-            timestamp=datetime.fromisoformat(data["timestamp"])
-            if isinstance(data.get("timestamp"), str)
-            else datetime.now(timezone.utc),
+            timestamp=(
+                datetime.fromisoformat(data["timestamp"])
+                if isinstance(data.get("timestamp"), str)
+                else datetime.now(timezone.utc)
+            ),
             workspace_id=data.get("workspace_id"),
             details=data.get("details", {}),
             outcome=data.get("outcome", "success"),

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-
 # JSON Schema version
 SCHEMA_VERSION = "1.0.0"
 JSON_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"

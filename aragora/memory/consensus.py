@@ -1068,8 +1068,7 @@ class ConsensusMemory(SQLiteStore):
                     cursor.execute("DROP TABLE IF EXISTS consensus_archive")
                     cursor.execute("DROP TABLE IF EXISTS dissent_archive")
 
-                cursor.execute(
-                    """
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS consensus_archive (
                         id TEXT PRIMARY KEY,
                         topic TEXT NOT NULL,
@@ -1083,10 +1082,8 @@ class ConsensusMemory(SQLiteStore):
                         data TEXT NOT NULL,
                         archived_at TEXT DEFAULT CURRENT_TIMESTAMP
                     )
-                """
-                )
-                cursor.execute(
-                    """
+                """)
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS dissent_archive (
                         id TEXT PRIMARY KEY,
                         debate_id TEXT NOT NULL,
@@ -1098,8 +1095,7 @@ class ConsensusMemory(SQLiteStore):
                         data TEXT NOT NULL,
                         archived_at TEXT DEFAULT CURRENT_TIMESTAMP
                     )
-                """
-                )
+                """)
 
                 # Archive old consensus records (select columns that exist in main table)
                 cursor.execute(

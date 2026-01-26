@@ -470,9 +470,9 @@ class SharedControlPlaneState:
 
         await self._broadcast_event(
             {
-                "type": f"agent_{status}"
-                if status in ("paused", "resumed")
-                else "agent_status_changed",
+                "type": (
+                    f"agent_{status}" if status in ("paused", "resumed") else "agent_status_changed"
+                ),
                 "agent_id": agent_id,
                 "old_status": old_status,
                 "new_status": status,

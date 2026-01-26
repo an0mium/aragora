@@ -372,8 +372,7 @@ class SemanticRetriever:
         with self.db.connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS embeddings (
                     id TEXT PRIMARY KEY,
                     text_hash TEXT UNIQUE,
@@ -382,8 +381,7 @@ class SemanticRetriever:
                     provider TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
 
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_embeddings_hash ON embeddings(text_hash)"

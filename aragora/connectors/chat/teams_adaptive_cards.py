@@ -263,19 +263,21 @@ class TeamsAdaptiveCards:
                             }
                         ],
                     },
-                    {
-                        "type": "Column",
-                        "width": 100 - progress_pct,
-                        "items": [
-                            {
-                                "type": "Container",
-                                "style": "default",
-                                "height": "8px",
-                            }
-                        ],
-                    }
-                    if progress_pct < 100
-                    else {},
+                    (
+                        {
+                            "type": "Column",
+                            "width": 100 - progress_pct,
+                            "items": [
+                                {
+                                    "type": "Container",
+                                    "style": "default",
+                                    "height": "8px",
+                                }
+                            ],
+                        }
+                        if progress_pct < 100
+                        else {}
+                    ),
                 ],
             },
         ]
@@ -322,9 +324,11 @@ class TeamsAdaptiveCards:
                                             },
                                             {
                                                 "type": "TextBlock",
-                                                "text": msg.get("summary", "")[:200] + "..."
-                                                if len(msg.get("summary", "")) > 200
-                                                else msg.get("summary", ""),
+                                                "text": (
+                                                    msg.get("summary", "")[:200] + "..."
+                                                    if len(msg.get("summary", "")) > 200
+                                                    else msg.get("summary", "")
+                                                ),
                                                 "wrap": True,
                                                 "size": "Small",
                                             },

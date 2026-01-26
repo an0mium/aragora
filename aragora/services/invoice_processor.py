@@ -184,9 +184,9 @@ class InvoiceData:
             "matchedPoId": self.matched_po_id,
             "approvalLevel": self.approval_level.value,
             "approverId": self.approver_id,
-            "scheduledPayDate": self.scheduled_pay_date.isoformat()
-            if self.scheduled_pay_date
-            else None,
+            "scheduledPayDate": (
+                self.scheduled_pay_date.isoformat() if self.scheduled_pay_date else None
+            ),
             "qboId": self.qbo_id,
             "confidenceScore": self.confidence_score,
             "anomalies": self.anomalies,
@@ -220,9 +220,9 @@ class PurchaseOrder:
             "vendorName": self.vendor_name,
             "totalAmount": float(self.total_amount),
             "orderDate": self.order_date.isoformat(),
-            "expectedDelivery": self.expected_delivery.isoformat()
-            if self.expected_delivery
-            else None,
+            "expectedDelivery": (
+                self.expected_delivery.isoformat() if self.expected_delivery else None
+            ),
             "lineItems": self.line_items,
             "status": self.status,
             "receivedAmount": float(self.received_amount),
@@ -772,9 +772,9 @@ class InvoiceProcessor:
                         {
                             "description": match.group(1).strip(),
                             "quantity": int(match.group(2)),
-                            "unit_price": float(match.group(3).replace(",", ""))
-                            if match.group(3)
-                            else 0,
+                            "unit_price": (
+                                float(match.group(3).replace(",", "")) if match.group(3) else 0
+                            ),
                             "amount": float(match.group(4).replace(",", "")),
                         }
                     )

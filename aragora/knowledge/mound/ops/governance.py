@@ -867,9 +867,9 @@ class AuditTrail:
             "by_action": by_action,
             "by_resource": by_resource,
             "failures": failures,
-            "success_rate": (len(self._entries) - failures) / len(self._entries)
-            if self._entries
-            else 1.0,
+            "success_rate": (
+                (len(self._entries) - failures) / len(self._entries) if self._entries else 1.0
+            ),
         }
 
 

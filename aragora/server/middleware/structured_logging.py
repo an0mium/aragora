@@ -231,9 +231,11 @@ def redact_sensitive(data: Dict[str, Any], depth: int = 0) -> Dict[str, Any]:
             result[key] = redact_sensitive(value, depth + 1)
         elif isinstance(value, list):
             result[key] = [
-                redact_sensitive(item, depth + 1)
-                if isinstance(item, dict)
-                else (redact_string(item) if isinstance(item, str) else item)
+                (
+                    redact_sensitive(item, depth + 1)
+                    if isinstance(item, dict)
+                    else (redact_string(item) if isinstance(item, str) else item)
+                )
                 for item in value
             ]
         elif isinstance(value, str):

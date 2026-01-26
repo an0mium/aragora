@@ -161,8 +161,7 @@ class EloRepository(BaseRepository[RatingEntity]):
         """Create database schema if needed."""
         with self._connection() as conn:
             # Ratings table
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS ratings (
                     agent_name TEXT PRIMARY KEY,
                     elo REAL DEFAULT 1500,
@@ -178,12 +177,10 @@ class EloRepository(BaseRepository[RatingEntity]):
                     calibration_brier_sum REAL DEFAULT 0.0,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
 
             # Matches table
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS matches (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     debate_id TEXT UNIQUE,
@@ -194,12 +191,10 @@ class EloRepository(BaseRepository[RatingEntity]):
                     elo_changes TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
 
             # ELO history table
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS elo_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     agent_name TEXT NOT NULL,
@@ -207,8 +202,7 @@ class EloRepository(BaseRepository[RatingEntity]):
                     debate_id TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
 
             # Indexes
             conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_winner ON matches(winner)")

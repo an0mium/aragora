@@ -304,15 +304,15 @@ async def _charge_stripe(
         return PaymentResult(
             transaction_id=intent.id,
             provider=PaymentProvider.STRIPE,
-            status=PaymentStatus.APPROVED
-            if intent.status == "succeeded"
-            else PaymentStatus.PENDING,
+            status=(
+                PaymentStatus.APPROVED if intent.status == "succeeded" else PaymentStatus.PENDING
+            ),
             amount=amount,
             currency=currency,
             message=f"Payment intent {intent.status}",
-            metadata={"client_secret": intent.client_secret}
-            if hasattr(intent, "client_secret")
-            else {},
+            metadata=(
+                {"client_secret": intent.client_secret} if hasattr(intent, "client_secret") else {}
+            ),
         )
 
     except Exception as e:

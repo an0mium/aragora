@@ -437,9 +437,11 @@ class RabbitMQConnector(EnterpriseConnector):
                 reply_to=reply_to,
                 expiration=expiration,
                 priority=priority,
-                delivery_mode=aio_pika.DeliveryMode.PERSISTENT
-                if self.config.durable
-                else aio_pika.DeliveryMode.NOT_PERSISTENT,
+                delivery_mode=(
+                    aio_pika.DeliveryMode.PERSISTENT
+                    if self.config.durable
+                    else aio_pika.DeliveryMode.NOT_PERSISTENT
+                ),
             )
 
             # Get exchange

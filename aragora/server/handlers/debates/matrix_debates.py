@@ -15,7 +15,6 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-
 if TYPE_CHECKING:
     from typing import TypeAlias
 

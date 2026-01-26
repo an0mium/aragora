@@ -924,11 +924,11 @@ class ThreatIntelligenceService:
                 "status": cb.get_status(),
                 "failures": cb.failures,
                 "threshold": cb.failure_threshold,
-                "cooldown_remaining": max(
-                    0, cb.cooldown_seconds - (time.time() - cb._last_failure_time)
-                )
-                if hasattr(cb, "_last_failure_time") and cb.get_status() == "open"
-                else 0,
+                "cooldown_remaining": (
+                    max(0, cb.cooldown_seconds - (time.time() - cb._last_failure_time))
+                    if hasattr(cb, "_last_failure_time") and cb.get_status() == "open"
+                    else 0
+                ),
             }
             for service, cb in self._circuit_breakers.items()
         }
@@ -1648,9 +1648,9 @@ class ThreatIntelligenceService:
                     target=ip,
                     target_type="ip",
                     is_malicious=ip_result.is_malicious,
-                    threat_type=ThreatType.MALICIOUS_IP
-                    if ip_result.is_malicious
-                    else ThreatType.NONE,
+                    threat_type=(
+                        ThreatType.MALICIOUS_IP if ip_result.is_malicious else ThreatType.NONE
+                    ),
                     severity=ThreatSeverity.HIGH if ip_result.is_malicious else ThreatSeverity.NONE,
                     confidence=ip_result.abuse_score / 100,
                     sources=[ThreatSource.ABUSEIPDB],

@@ -409,14 +409,12 @@ class ReplaysHandler(BaseHandler):
                 conn.row_factory = sqlite3.Row
 
                 # Get current hyperparameters (most recent)
-                cursor = conn.execute(
-                    """
+                cursor = conn.execute("""
                     SELECT hyperparams, metrics, adjustment_reason, created_at
                     FROM meta_hyperparams
                     ORDER BY created_at DESC
                     LIMIT 1
-                """
-                )
+                """)
                 row = cursor.fetchone()
                 current_hyperparams = safe_json_parse(row["hyperparams"], {}) if row else {}
 

@@ -4325,7 +4325,7 @@ export interface paths {
          * Prometheus metrics
          * @description Metrics in Prometheus format
          */
-        get: operations["listMetricsSystem2"];
+        get: operations["getPrometheusMetrics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7316,7 +7316,7 @@ export interface paths {
          * List workflow templates
          * @description Get gallery of workflow templates for quick start.
          */
-        get: operations["listWorkflowTemplates1"];
+        get: operations["listWorkflowTemplatesLegacy"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7357,7 +7357,7 @@ export interface paths {
          * Get workflow template
          * @description Get a specific workflow template for use as starting point.
          */
-        get: operations["getWorkflowTemplate"];
+        get: operations["getWorkflowTemplateLegacy"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8298,7 +8298,7 @@ export interface paths {
          * @deprecated
          * @description Get list of available workflow templates with optional filtering.
          */
-        get: operations["listWorkflowTemplates2"];
+        get: operations["listWorkflowTemplates1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8318,7 +8318,7 @@ export interface paths {
          * List workflow templates
          * @description Get list of available workflow templates with optional filtering.
          */
-        get: operations["listWorkflowTemplates3"];
+        get: operations["listWorkflowTemplates2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8359,7 +8359,7 @@ export interface paths {
          * Get template details
          * @description Get detailed information about a specific workflow template.
          */
-        get: operations["getWorkflowTemplate1"];
+        get: operations["getWorkflowTemplate"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8708,7 +8708,7 @@ export interface paths {
          * List scans
          * @description List scan history for a repository.
          */
-        get: operations["getCodebaseScan1"];
+        get: operations["listCodebaseScans"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9048,7 +9048,7 @@ export interface paths {
          * Get latest metrics
          * @description Fetch the latest metrics report.
          */
-        get: operations["getCodebaseMetric"];
+        get: operations["getCodebaseMetricsLatest"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9068,7 +9068,7 @@ export interface paths {
          * Get metrics by ID
          * @description Fetch a metrics report by analysis ID.
          */
-        get: operations["getCodebaseMetric1"];
+        get: operations["getCodebaseMetricById"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16231,7 +16231,7 @@ export interface operations {
             };
         };
     };
-    listMetricsSystem2: {
+    getPrometheusMetrics: {
         parameters: {
             query?: never;
             header?: never;
@@ -20790,7 +20790,7 @@ export interface operations {
             };
         };
     };
-    listWorkflowTemplates1: {
+    listWorkflowTemplatesLegacy: {
         parameters: {
             query?: {
                 /** @description Filter templates by category */
@@ -20845,7 +20845,7 @@ export interface operations {
             };
         };
     };
-    getWorkflowTemplate: {
+    getWorkflowTemplateLegacy: {
         parameters: {
             query?: never;
             header?: never;
@@ -22537,7 +22537,7 @@ export interface operations {
             };
         };
     };
-    listWorkflowTemplates2: {
+    listWorkflowTemplates1: {
         parameters: {
             query?: {
                 /** @description Filter by category */
@@ -22575,7 +22575,7 @@ export interface operations {
             };
         };
     };
-    listWorkflowTemplates3: {
+    listWorkflowTemplates2: {
         parameters: {
             query?: {
                 /** @description Filter by category */
@@ -22645,7 +22645,7 @@ export interface operations {
             };
         };
     };
-    getWorkflowTemplate1: {
+    getWorkflowTemplate: {
         parameters: {
             query?: never;
             header?: never;
@@ -23494,7 +23494,7 @@ export interface operations {
             };
         };
     };
-    getCodebaseScan1: {
+    listCodebaseScans: {
         parameters: {
             query?: {
                 /** @description Filter by status (e.g., pending, active, completed, failed) */
@@ -24489,7 +24489,7 @@ export interface operations {
             };
         };
     };
-    getCodebaseMetric: {
+    getCodebaseMetricsLatest: {
         parameters: {
             query?: never;
             header?: never;
@@ -24548,7 +24548,7 @@ export interface operations {
             };
         };
     };
-    getCodebaseMetric1: {
+    getCodebaseMetricById: {
         parameters: {
             query?: never;
             header?: never;

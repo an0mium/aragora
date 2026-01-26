@@ -74,18 +74,18 @@ class CircuitBreakerConfig:
             New CircuitBreakerConfig with overrides applied
         """
         return CircuitBreakerConfig(
-            failure_threshold=failure_threshold
-            if failure_threshold is not None
-            else self.failure_threshold,
-            success_threshold=success_threshold
-            if success_threshold is not None
-            else self.success_threshold,
-            timeout_seconds=timeout_seconds
-            if timeout_seconds is not None
-            else self.timeout_seconds,
-            half_open_max_calls=half_open_max_calls
-            if half_open_max_calls is not None
-            else self.half_open_max_calls,
+            failure_threshold=(
+                failure_threshold if failure_threshold is not None else self.failure_threshold
+            ),
+            success_threshold=(
+                success_threshold if success_threshold is not None else self.success_threshold
+            ),
+            timeout_seconds=(
+                timeout_seconds if timeout_seconds is not None else self.timeout_seconds
+            ),
+            half_open_max_calls=(
+                half_open_max_calls if half_open_max_calls is not None else self.half_open_max_calls
+            ),
         )
 
 

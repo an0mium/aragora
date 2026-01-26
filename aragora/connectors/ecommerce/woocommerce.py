@@ -531,12 +531,16 @@ class WooCommerceConnector(EnterpriseConnector):
             shipping=self._parse_address(data.get("shipping", {})),
             line_items=line_items,
             customer_note=data.get("customer_note"),
-            date_paid=datetime.fromisoformat(data["date_paid_gmt"] + "+00:00")
-            if data.get("date_paid_gmt")
-            else None,
-            date_completed=datetime.fromisoformat(data["date_completed_gmt"] + "+00:00")
-            if data.get("date_completed_gmt")
-            else None,
+            date_paid=(
+                datetime.fromisoformat(data["date_paid_gmt"] + "+00:00")
+                if data.get("date_paid_gmt")
+                else None
+            ),
+            date_completed=(
+                datetime.fromisoformat(data["date_completed_gmt"] + "+00:00")
+                if data.get("date_completed_gmt")
+                else None
+            ),
             transaction_id=data.get("transaction_id"),
         )
 
@@ -707,9 +711,9 @@ class WooCommerceConnector(EnterpriseConnector):
             "cancelled_orders": cancelled_orders,
             "refunded_orders": refunded_orders,
             "completion_rate": completed_orders / total_orders if total_orders > 0 else 0,
-            "average_order_value": str(total_revenue / total_orders)
-            if total_orders > 0
-            else "0.00",
+            "average_order_value": (
+                str(total_revenue / total_orders) if total_orders > 0 else "0.00"
+            ),
             "status_breakdown": status_counts,
         }
 

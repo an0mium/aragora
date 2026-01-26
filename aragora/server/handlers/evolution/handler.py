@@ -231,27 +231,23 @@ class EvolutionHandler(BaseHandler):
                 total_patterns = cursor.fetchone()[0]
 
                 # Get pattern type distribution
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT pattern_type, COUNT(*) as count
                     FROM extracted_patterns
                     GROUP BY pattern_type
                     ORDER BY count DESC
-                """
-                )
+                """)
                 pattern_distribution = {row[0]: row[1] for row in cursor.fetchall()}
 
                 # Get top performing agents
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT agent_name, MAX(performance_score) as best_score,
                            MAX(version) as latest_version
                     FROM prompt_versions
                     GROUP BY agent_name
                     ORDER BY best_score DESC
                     LIMIT 10
-                """
-                )
+                """)
                 top_agents = [
                     {
                         "agent": row[0],
@@ -262,14 +258,12 @@ class EvolutionHandler(BaseHandler):
                 ]
 
                 # Get recent evolution activity
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT agent_name, strategy, created_at
                     FROM evolution_history
                     ORDER BY created_at DESC
                     LIMIT 5
-                """
-                )
+                """)
                 recent_activity = [
                     {
                         "agent": row[0],

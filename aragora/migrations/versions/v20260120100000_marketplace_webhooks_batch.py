@@ -53,8 +53,7 @@ def up_fn(backend: DatabaseBackend) -> None:
     if not _table_exists(backend, "marketplace_templates"):
         logger.info("Creating marketplace_templates table")
         if is_postgres:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE marketplace_templates (
                     template_id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -73,11 +72,9 @@ def up_fn(backend: DatabaseBackend) -> None:
                     created_at TIMESTAMP DEFAULT NOW(),
                     updated_at TIMESTAMP DEFAULT NOW()
                 )
-            """
-            )
+            """)
         else:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE marketplace_templates (
                     template_id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -96,8 +93,7 @@ def up_fn(backend: DatabaseBackend) -> None:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
         backend.execute_write(
             "CREATE INDEX IF NOT EXISTS idx_templates_category ON marketplace_templates(category)"
         )
@@ -120,8 +116,7 @@ def up_fn(backend: DatabaseBackend) -> None:
     if not _table_exists(backend, "marketplace_reviews"):
         logger.info("Creating marketplace_reviews table")
         if is_postgres:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE marketplace_reviews (
                     review_id TEXT PRIMARY KEY,
                     template_id TEXT NOT NULL,
@@ -135,11 +130,9 @@ def up_fn(backend: DatabaseBackend) -> None:
                     updated_at TIMESTAMP DEFAULT NOW(),
                     UNIQUE(template_id, user_id)
                 )
-            """
-            )
+            """)
         else:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE marketplace_reviews (
                     review_id TEXT PRIMARY KEY,
                     template_id TEXT NOT NULL,
@@ -153,8 +146,7 @@ def up_fn(backend: DatabaseBackend) -> None:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(template_id, user_id)
                 )
-            """
-            )
+            """)
         backend.execute_write(
             "CREATE INDEX IF NOT EXISTS idx_reviews_template ON marketplace_reviews(template_id)"
         )
@@ -171,8 +163,7 @@ def up_fn(backend: DatabaseBackend) -> None:
     if not _table_exists(backend, "webhook_registrations"):
         logger.info("Creating webhook_registrations table")
         if is_postgres:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE webhook_registrations (
                     webhook_id TEXT PRIMARY KEY,
                     owner_id TEXT NOT NULL,
@@ -190,11 +181,9 @@ def up_fn(backend: DatabaseBackend) -> None:
                     created_at TIMESTAMP DEFAULT NOW(),
                     updated_at TIMESTAMP DEFAULT NOW()
                 )
-            """
-            )
+            """)
         else:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE webhook_registrations (
                     webhook_id TEXT PRIMARY KEY,
                     owner_id TEXT NOT NULL,
@@ -212,8 +201,7 @@ def up_fn(backend: DatabaseBackend) -> None:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
         backend.execute_write(
             "CREATE INDEX IF NOT EXISTS idx_webhooks_owner ON webhook_registrations(owner_id)"
         )
@@ -227,8 +215,7 @@ def up_fn(backend: DatabaseBackend) -> None:
     if not _table_exists(backend, "webhook_delivery_receipts"):
         logger.info("Creating webhook_delivery_receipts table")
         if is_postgres:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE webhook_delivery_receipts (
                     receipt_id TEXT PRIMARY KEY,
                     webhook_id TEXT NOT NULL,
@@ -245,11 +232,9 @@ def up_fn(backend: DatabaseBackend) -> None:
                     next_retry_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT NOW()
                 )
-            """
-            )
+            """)
         else:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE webhook_delivery_receipts (
                     receipt_id TEXT PRIMARY KEY,
                     webhook_id TEXT NOT NULL,
@@ -266,8 +251,7 @@ def up_fn(backend: DatabaseBackend) -> None:
                     next_retry_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
         backend.execute_write(
             "CREATE INDEX IF NOT EXISTS idx_receipts_webhook ON webhook_delivery_receipts(webhook_id)"
         )
@@ -287,8 +271,7 @@ def up_fn(backend: DatabaseBackend) -> None:
     if not _table_exists(backend, "batch_explainability_jobs"):
         logger.info("Creating batch_explainability_jobs table")
         if is_postgres:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE batch_explainability_jobs (
                     job_id TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL,
@@ -304,11 +287,9 @@ def up_fn(backend: DatabaseBackend) -> None:
                     created_at TIMESTAMP DEFAULT NOW(),
                     updated_at TIMESTAMP DEFAULT NOW()
                 )
-            """
-            )
+            """)
         else:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE batch_explainability_jobs (
                     job_id TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL,
@@ -324,8 +305,7 @@ def up_fn(backend: DatabaseBackend) -> None:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
         backend.execute_write(
             "CREATE INDEX IF NOT EXISTS idx_batch_jobs_user ON batch_explainability_jobs(user_id)"
         )
@@ -342,8 +322,7 @@ def up_fn(backend: DatabaseBackend) -> None:
     if not _table_exists(backend, "batch_explainability_results"):
         logger.info("Creating batch_explainability_results table")
         if is_postgres:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE batch_explainability_results (
                     result_id TEXT PRIMARY KEY,
                     job_id TEXT NOT NULL,
@@ -355,11 +334,9 @@ def up_fn(backend: DatabaseBackend) -> None:
                     created_at TIMESTAMP DEFAULT NOW(),
                     UNIQUE(job_id, debate_id)
                 )
-            """
-            )
+            """)
         else:
-            backend.execute_write(
-                """
+            backend.execute_write("""
                 CREATE TABLE batch_explainability_results (
                     result_id TEXT PRIMARY KEY,
                     job_id TEXT NOT NULL,
@@ -371,8 +348,7 @@ def up_fn(backend: DatabaseBackend) -> None:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(job_id, debate_id)
                 )
-            """
-            )
+            """)
         backend.execute_write(
             "CREATE INDEX IF NOT EXISTS idx_results_job ON batch_explainability_results(job_id)"
         )

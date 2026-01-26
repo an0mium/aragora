@@ -161,9 +161,9 @@ class QueuedNotification:
             channel_config=channel_config,
             attempt=data.get("attempt", 0),
             created_at=datetime.fromisoformat(data["created_at"]),
-            next_retry_at=datetime.fromisoformat(data["next_retry_at"])
-            if data.get("next_retry_at")
-            else None,
+            next_retry_at=(
+                datetime.fromisoformat(data["next_retry_at"]) if data.get("next_retry_at") else None
+            ),
             last_error=data.get("last_error"),
         )
 

@@ -23,7 +23,6 @@ from typing import Any, Optional, Union
 
 from aragora.protocols import AgentRating
 
-
 # =============================================================================
 # Environment Defaults
 # =============================================================================

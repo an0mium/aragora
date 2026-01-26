@@ -105,9 +105,9 @@ class OperationStats:
             "success_count": self.success_count,
             "error_count": self.error_count,
             "avg_latency_ms": round(self.avg_latency_ms, 2),
-            "min_latency_ms": round(self.min_latency_ms, 2)
-            if self.min_latency_ms != float("inf")
-            else 0,
+            "min_latency_ms": (
+                round(self.min_latency_ms, 2) if self.min_latency_ms != float("inf") else 0
+            ),
             "max_latency_ms": round(self.max_latency_ms, 2),
             "success_rate": round(self.success_rate, 2),
             "last_error": self.last_error,

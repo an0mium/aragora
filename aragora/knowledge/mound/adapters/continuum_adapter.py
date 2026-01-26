@@ -632,9 +632,9 @@ class ContinuumAdapter:
                 "memory_id": entry.id,
                 "tier": entry.tier.value,
                 "importance": entry.importance,
-                "content_preview": entry.content[:100] + "..."
-                if len(entry.content) > 100
-                else entry.content,
+                "content_preview": (
+                    entry.content[:100] + "..." if len(entry.content) > 100 else entry.content
+                ),
             },
         )
 

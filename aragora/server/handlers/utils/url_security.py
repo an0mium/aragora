@@ -19,7 +19,6 @@ import socket
 from typing import Tuple
 from urllib.parse import urlparse
 
-
 # DNS resolution timeout (seconds)
 DNS_RESOLUTION_TIMEOUT = 5.0
 

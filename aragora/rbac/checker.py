@@ -713,9 +713,11 @@ class PermissionChecker:
                     permission_key=cached_dict.get("permission_key", permission_key),
                     resource_id=cached_dict.get("resource_id"),
                     context=context,
-                    checked_at=datetime.fromisoformat(cached_dict["checked_at"])
-                    if cached_dict.get("checked_at")
-                    else datetime.now(timezone.utc),
+                    checked_at=(
+                        datetime.fromisoformat(cached_dict["checked_at"])
+                        if cached_dict.get("checked_at")
+                        else datetime.now(timezone.utc)
+                    ),
                     cached=True,
                 )
 
@@ -769,9 +771,11 @@ class PermissionChecker:
                     "reason": decision.reason,
                     "permission_key": decision.permission_key,
                     "resource_id": decision.resource_id,
-                    "checked_at": decision.checked_at.isoformat()
-                    if decision.checked_at
-                    else datetime.now(timezone.utc).isoformat(),
+                    "checked_at": (
+                        decision.checked_at.isoformat()
+                        if decision.checked_at
+                        else datetime.now(timezone.utc).isoformat()
+                    ),
                 },
             )
 

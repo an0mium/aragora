@@ -556,12 +556,10 @@ class TournamentManager:
             with self.db.connection() as conn:
                 cursor = conn.cursor()
 
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT tournament_id, name, format, champion, started_at, completed_at
                     FROM tournaments LIMIT 1
-                """
-                )
+                """)
                 row = cursor.fetchone()
 
                 if not row:
@@ -638,14 +636,12 @@ class TournamentManager:
                         (limit,),
                     )
                 else:
-                    cursor.execute(
-                        """
+                    cursor.execute("""
                         SELECT match_id, round_num, participants, task_id, scores, winner,
                                started_at, completed_at
                         FROM tournament_matches
                         ORDER BY round_num DESC, match_id DESC
-                    """
-                    )
+                    """)
 
                 matches = []
                 for row in cursor.fetchall():
@@ -674,15 +670,13 @@ class TournamentManager:
             with self.db.connection() as conn:
                 cursor = conn.cursor()
 
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT
                         COUNT(*) as total_matches,
                         SUM(CASE WHEN winner IS NOT NULL THEN 1 ELSE 0 END) as decided_matches,
                         MAX(round_num) as max_round
                     FROM tournament_matches
-                """
-                )
+                """)
                 row = cursor.fetchone()
 
                 return {

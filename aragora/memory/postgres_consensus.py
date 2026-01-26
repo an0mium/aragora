@@ -776,45 +776,39 @@ class PostgresConsensusMemory(PostgresStore):
         """Get statistics about the consensus memory."""
         async with self.connection() as conn:
             # Count by strength
-            strength_counts = await conn.fetch(
-                """
+            strength_counts = await conn.fetch("""
                 SELECT strength, COUNT(*) as count
                 FROM consensus
                 GROUP BY strength
-                """
-            )
+                """)
 
             # Count by domain
-            domain_counts = await conn.fetch(
-                """
+            domain_counts = await conn.fetch("""
                 SELECT domain, COUNT(*) as count
                 FROM consensus
                 GROUP BY domain
                 ORDER BY count DESC
                 LIMIT 10
-                """
-            )
+                """)
 
             # Total counts
-            totals = await conn.fetchrow(
-                """
+            totals = await conn.fetchrow("""
                 SELECT
                     (SELECT COUNT(*) FROM consensus) as total_consensus,
                     (SELECT COUNT(*) FROM dissent) as total_dissent,
                     (SELECT COUNT(*) FROM verified_proofs) as total_proofs,
                     (SELECT COUNT(*) FROM verified_proofs WHERE is_verified = TRUE) as verified_proofs,
                     (SELECT AVG(confidence) FROM consensus) as avg_confidence
-                """
-            )
+                """)
 
         return {
             "total_consensus": totals["total_consensus"] if totals else 0,
             "total_dissent": totals["total_dissent"] if totals else 0,
             "total_proofs": totals["total_proofs"] if totals else 0,
             "verified_proofs": totals["verified_proofs"] if totals else 0,
-            "avg_confidence": float(totals["avg_confidence"])
-            if totals and totals["avg_confidence"]
-            else 0.0,
+            "avg_confidence": (
+                float(totals["avg_confidence"]) if totals and totals["avg_confidence"] else 0.0
+            ),
             "by_strength": {row["strength"]: row["count"] for row in strength_counts},
             "by_domain": {row["domain"]: row["count"] for row in domain_counts},
         }

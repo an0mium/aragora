@@ -1124,9 +1124,9 @@ class ControlPlaneCoordinator:
                         task_type=task.task_type if task else "unknown",
                         agent_id=agent_id,
                         duration_seconds=(latency_ms or 0.0) / 1000.0,
-                        workspace_id=task.metadata.get("workspace_id")
-                        if task and task.metadata
-                        else None,
+                        workspace_id=(
+                            task.metadata.get("workspace_id") if task and task.metadata else None
+                        ),
                     )
                 except Exception as e:
                     logger.debug(f"Notification error on task completion: {e}")
@@ -1220,9 +1220,9 @@ class ControlPlaneCoordinator:
                     agent_id=agent_id,
                     error=error,
                     will_retry=requeue,
-                    workspace_id=task.metadata.get("workspace_id")
-                    if task and task.metadata
-                    else None,
+                    workspace_id=(
+                        task.metadata.get("workspace_id") if task and task.metadata else None
+                    ),
                 )
             except Exception as e:
                 logger.debug(f"Notification error on task failure: {e}")

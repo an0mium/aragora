@@ -351,9 +351,11 @@ class FeatureDevelopmentAgent:
                             {
                                 "requirement": req,
                                 "files": pattern_understanding.relevant_files,
-                                "summary": pattern_understanding.answer[:200]
-                                if pattern_understanding.answer
-                                else None,
+                                "summary": (
+                                    pattern_understanding.answer[:200]
+                                    if pattern_understanding.answer
+                                    else None
+                                ),
                             }
                         )
 

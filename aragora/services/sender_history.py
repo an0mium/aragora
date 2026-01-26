@@ -168,8 +168,7 @@ class SenderHistoryService:
             self._connection.row_factory = sqlite3.Row
 
             # Create tables
-            self._connection.executescript(
-                """
+            self._connection.executescript("""
                 -- Sender statistics table
                 CREATE TABLE IF NOT EXISTS sender_stats (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -224,8 +223,7 @@ class SenderHistoryService:
                 CREATE INDEX IF NOT EXISTS idx_interaction_log_user ON interaction_log(user_id);
                 CREATE INDEX IF NOT EXISTS idx_interaction_log_sender ON interaction_log(sender_email);
                 CREATE INDEX IF NOT EXISTS idx_priority_feedback_user ON priority_feedback(user_id);
-                """
-            )
+                """)
             self._connection.commit()
             logger.info(f"[sender-history] Initialized database at {self.db_path}")
 

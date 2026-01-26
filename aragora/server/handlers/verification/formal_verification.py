@@ -621,9 +621,11 @@ class FormalVerificationHandler(BaseHandler):
                         claim_type=rec.claim_type,
                         context=rec.context,
                         result=rec.to_dict().get("result", {}),
-                        timestamp=rec.timestamp.timestamp()
-                        if hasattr(rec.timestamp, "timestamp")
-                        else time.time(),
+                        timestamp=(
+                            rec.timestamp.timestamp()
+                            if hasattr(rec.timestamp, "timestamp")
+                            else time.time()
+                        ),
                         proof_tree=rec.to_dict().get("proof_tree"),
                     )
                     all_entries.append(entry)
@@ -721,9 +723,11 @@ class FormalVerificationHandler(BaseHandler):
                             claim_type=rec.claim_type,
                             context=rec.context,
                             result=rec.to_dict().get("result", {}),
-                            timestamp=rec.timestamp.timestamp()
-                            if hasattr(rec.timestamp, "timestamp")
-                            else time.time(),
+                            timestamp=(
+                                rec.timestamp.timestamp()
+                                if hasattr(rec.timestamp, "timestamp")
+                                else time.time()
+                            ),
                             proof_tree=rec.to_dict().get("proof_tree"),
                         )
                         # Cache in memory for future lookups

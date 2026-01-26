@@ -19,7 +19,6 @@ import json
 import re
 from dataclasses import dataclass, field
 
-
 # RLM Ready Signal Configuration
 # Minimum confidence threshold to consider an agent "ready"
 RLM_READY_CONFIDENCE_THRESHOLD = 0.8

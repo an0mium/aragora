@@ -153,9 +153,9 @@ class StripePrice:
         recurring = data.get("recurring", {})
         return cls(
             id=data["id"],
-            product_id=data["product"]
-            if isinstance(data["product"], str)
-            else data["product"]["id"],
+            product_id=(
+                data["product"] if isinstance(data["product"], str) else data["product"]["id"]
+            ),
             active=data.get("active", True),
             currency=data.get("currency", "usd"),
             unit_amount=data.get("unit_amount"),
@@ -189,24 +189,28 @@ class StripeSubscription:
     def from_api(cls, data: dict[str, Any]) -> StripeSubscription:
         return cls(
             id=data["id"],
-            customer_id=data["customer"]
-            if isinstance(data["customer"], str)
-            else data["customer"]["id"],
+            customer_id=(
+                data["customer"] if isinstance(data["customer"], str) else data["customer"]["id"]
+            ),
             status=SubscriptionStatus(data["status"]),
-            current_period_start=datetime.fromtimestamp(data["current_period_start"])
-            if data.get("current_period_start")
-            else None,
-            current_period_end=datetime.fromtimestamp(data["current_period_end"])
-            if data.get("current_period_end")
-            else None,
+            current_period_start=(
+                datetime.fromtimestamp(data["current_period_start"])
+                if data.get("current_period_start")
+                else None
+            ),
+            current_period_end=(
+                datetime.fromtimestamp(data["current_period_end"])
+                if data.get("current_period_end")
+                else None
+            ),
             cancel_at_period_end=data.get("cancel_at_period_end", False),
-            canceled_at=datetime.fromtimestamp(data["canceled_at"])
-            if data.get("canceled_at")
-            else None,
+            canceled_at=(
+                datetime.fromtimestamp(data["canceled_at"]) if data.get("canceled_at") else None
+            ),
             ended_at=datetime.fromtimestamp(data["ended_at"]) if data.get("ended_at") else None,
-            trial_start=datetime.fromtimestamp(data["trial_start"])
-            if data.get("trial_start")
-            else None,
+            trial_start=(
+                datetime.fromtimestamp(data["trial_start"]) if data.get("trial_start") else None
+            ),
             trial_end=datetime.fromtimestamp(data["trial_end"]) if data.get("trial_end") else None,
             items=data.get("items", {}).get("data", []),
             metadata=data.get("metadata", {}),
@@ -240,9 +244,9 @@ class StripeInvoice:
     def from_api(cls, data: dict[str, Any]) -> StripeInvoice:
         return cls(
             id=data["id"],
-            customer_id=data["customer"]
-            if isinstance(data["customer"], str)
-            else data["customer"]["id"],
+            customer_id=(
+                data["customer"] if isinstance(data["customer"], str) else data["customer"]["id"]
+            ),
             subscription_id=data.get("subscription"),
             status=InvoiceStatus(data.get("status", "draft")),
             currency=data.get("currency", "usd"),

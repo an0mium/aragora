@@ -1242,9 +1242,9 @@ class DecisionRouter:
                 request_id=request.request_id,
                 decision_type=DecisionType.DEBATE,
                 answer=debate_result.final_answer or "",
-                confidence=debate_result.confidence
-                if hasattr(debate_result, "confidence")
-                else 0.8,
+                confidence=(
+                    debate_result.confidence if hasattr(debate_result, "confidence") else 0.8
+                ),
                 consensus_reached=debate_result.consensus_reached,
                 reasoning=debate_result.summary if hasattr(debate_result, "summary") else None,
                 debate_result=debate_result,

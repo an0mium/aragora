@@ -897,16 +897,14 @@ class PostgresContinuumMemory(PostgresStore):
     async def get_red_line_memories(self) -> List[ContinuumMemoryEntryDict]:
         """Get all red-lined memory entries."""
         async with self.connection() as conn:
-            rows = await conn.fetch(
-                """
+            rows = await conn.fetch("""
                 SELECT id, tier, content, importance, surprise_score, consolidation_score,
                        update_count, success_count, failure_count, created_at, updated_at,
                        metadata, COALESCE(red_line, FALSE), COALESCE(red_line_reason, '')
                 FROM continuum_memory
                 WHERE red_line = TRUE
                 ORDER BY created_at ASC
-                """
-            )
+                """)
 
         return [self._row_to_entry(row) for row in rows]
 
@@ -918,14 +916,12 @@ class PostgresContinuumMemory(PostgresStore):
         """Get statistics about the continuum memory system."""
         async with self.connection() as conn:
             # Get counts by tier
-            tier_counts = await conn.fetch(
-                """
+            tier_counts = await conn.fetch("""
                 SELECT tier, COUNT(*) as count, AVG(importance) as avg_importance,
                        AVG(surprise_score) as avg_surprise
                 FROM continuum_memory
                 GROUP BY tier
-                """
-            )
+                """)
 
             total = await conn.fetchrow("SELECT COUNT(*) as count FROM continuum_memory")
 
@@ -966,20 +962,17 @@ class PostgresContinuumMemory(PostgresStore):
 
         async with self.connection() as conn:
             # Find candidates for promotion (high surprise)
-            promotion_candidates = await conn.fetch(
-                """
+            promotion_candidates = await conn.fetch("""
                 SELECT id, tier, surprise_score
                 FROM continuum_memory
                 WHERE tier != 'fast'
                   AND surprise_score > 0.7
                 ORDER BY surprise_score DESC
                 LIMIT 100
-                """
-            )
+                """)
 
             # Find candidates for demotion (high stability, many updates)
-            demotion_candidates = await conn.fetch(
-                """
+            demotion_candidates = await conn.fetch("""
                 SELECT id, tier, surprise_score, update_count
                 FROM continuum_memory
                 WHERE tier != 'glacial'
@@ -987,8 +980,7 @@ class PostgresContinuumMemory(PostgresStore):
                   AND update_count > 10
                 ORDER BY surprise_score ASC
                 LIMIT 100
-                """
-            )
+                """)
 
         # Process promotions
         for row in promotion_candidates:
@@ -1064,22 +1056,18 @@ class PostgresContinuumMemory(PostgresStore):
     async def get_archive_stats(self) -> Dict[str, Any]:
         """Get statistics about archived memories."""
         async with self.connection() as conn:
-            stats = await conn.fetchrow(
-                """
+            stats = await conn.fetchrow("""
                 SELECT COUNT(*) as total,
                        MIN(archived_at) as oldest,
                        MAX(archived_at) as newest
                 FROM continuum_memory_archive
-                """
-            )
+                """)
 
-            by_tier = await conn.fetch(
-                """
+            by_tier = await conn.fetch("""
                 SELECT tier, COUNT(*) as count
                 FROM continuum_memory_archive
                 GROUP BY tier
-                """
-            )
+                """)
 
         return {
             "total": stats["total"] if stats else 0,
@@ -1180,12 +1168,12 @@ class PostgresContinuumMemory(PostgresStore):
                 "update_count": row[6] or 0,
                 "success_count": row[7] or 0,
                 "failure_count": row[8] or 0,
-                "created_at": created_at.isoformat()
-                if hasattr(created_at, "isoformat")
-                else str(created_at),
-                "updated_at": updated_at.isoformat()
-                if hasattr(updated_at, "isoformat")
-                else str(updated_at),
+                "created_at": (
+                    created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at)
+                ),
+                "updated_at": (
+                    updated_at.isoformat() if hasattr(updated_at, "isoformat") else str(updated_at)
+                ),
                 "metadata": metadata or {},
                 "red_line": bool(row[12]),
                 "red_line_reason": row[13] or "",

@@ -123,9 +123,11 @@ class SharingNotification:
             from_user_name=data.get("from_user_name"),
             workspace_id=data.get("workspace_id"),
             status=NotificationStatus(data.get("status", "unread")),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if data.get("created_at")
-            else datetime.now(),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if data.get("created_at")
+                else datetime.now()
+            ),
             read_at=datetime.fromisoformat(data["read_at"]) if data.get("read_at") else None,
             metadata=data.get("metadata", {}),
         )

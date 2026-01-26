@@ -287,16 +287,14 @@ class TaskPatternMatcher:
 
             # If no pattern-specific data, fall back to general agent reputation
             if not results:
-                cursor.execute(
-                    """
+                cursor.execute("""
                     SELECT agent_name,
                            CAST(critiques_valuable AS REAL) / NULLIF(critiques_given, 0) as rate
                     FROM agent_reputation
                     WHERE critiques_given > 0
                     ORDER BY rate DESC
                     LIMIT 10
-                    """
-                )
+                    """)
                 for row in cursor.fetchall():
                     if row[1] is not None:
                         results[row[0]] = row[1]

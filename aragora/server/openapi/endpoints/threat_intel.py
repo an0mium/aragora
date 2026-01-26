@@ -2,7 +2,6 @@
 
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS, AUTH_REQUIREMENTS
 
-
 THREAT_INTEL_ENDPOINTS = {
     "/api/v1/threat/url": {
         "post": {

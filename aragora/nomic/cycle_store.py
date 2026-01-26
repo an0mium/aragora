@@ -63,8 +63,7 @@ class CycleLearningStore:
         """Initialize database schema."""
         conn = sqlite3.connect(self.db_path)
         try:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS cycles (
                     cycle_id TEXT PRIMARY KEY,
                     started_at REAL NOT NULL,
@@ -74,20 +73,15 @@ class CycleLearningStore:
                     topics_json TEXT,
                     data_json TEXT NOT NULL
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_cycles_started
                 ON cycles(started_at DESC)
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_cycles_success
                 ON cycles(success)
-                """
-            )
+                """)
             conn.commit()
         finally:
             conn.close()

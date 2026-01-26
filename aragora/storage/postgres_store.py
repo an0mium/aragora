@@ -424,9 +424,9 @@ async def acquire_connection_resilient(
             _pool_metrics["failed_acquisitions"] += 1
             last_error = PoolExhaustedError(
                 timeout=timeout,
-                utilization=pool.get_size() / pool.get_max_size()
-                if pool.get_max_size() > 0
-                else 1.0,
+                utilization=(
+                    pool.get_size() / pool.get_max_size() if pool.get_max_size() > 0 else 1.0
+                ),
             )
 
             if circuit_breaker:
@@ -547,15 +547,13 @@ class PostgresStore(ABC):
 
         async with self.connection() as conn:
             # Create schema version tracking table
-            await conn.execute(
-                """
+            await conn.execute("""
                 CREATE TABLE IF NOT EXISTS _schema_versions (
                     module TEXT PRIMARY KEY,
                     version INTEGER NOT NULL,
                     updated_at TIMESTAMPTZ DEFAULT NOW()
                 )
-            """
-            )
+            """)
 
             # Check current version
             row = await conn.fetchrow(

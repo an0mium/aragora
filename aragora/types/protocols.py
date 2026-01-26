@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from typing import Any, Callable, Coroutine, Optional, Protocol, runtime_checkable
 
-
 # Type alias for event data
 EventData = dict[str, Any]
 

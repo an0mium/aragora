@@ -55,8 +55,7 @@ class RelationshipTracker(BaseRelationshipTracker):
     def _ensure_tables(self) -> None:
         """Ensure relationship tables exist."""
         with self._db.connection() as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS agent_relationships (
                     agent_a TEXT NOT NULL,
                     agent_b TEXT NOT NULL,
@@ -74,8 +73,7 @@ class RelationshipTracker(BaseRelationshipTracker):
                     PRIMARY KEY (agent_a, agent_b),
                     CHECK (agent_a < agent_b)
                 )
-            """
-            )
+            """)
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_relationships_a ON agent_relationships(agent_a)"
             )

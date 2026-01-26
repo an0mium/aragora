@@ -27,13 +27,11 @@ def get_stats(cms: "ContinuumMemory") -> Dict[str, Any]:
         stats: Dict[str, Any] = {}
 
         # Count by tier
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT tier, COUNT(*), AVG(importance), AVG(surprise_score), AVG(consolidation_score)
             FROM continuum_memory
             GROUP BY tier
-        """
-        )
+        """)
         stats["by_tier"] = {
             row[0]: {
                 "count": row[1],
@@ -50,13 +48,11 @@ def get_stats(cms: "ContinuumMemory") -> Dict[str, Any]:
         stats["total_memories"] = row[0] if row else 0
 
         # Transition history
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT from_tier, to_tier, COUNT(*)
             FROM tier_transitions
             GROUP BY from_tier, to_tier
-        """
-        )
+        """)
         stats["transitions"] = [
             {"from": row[0], "to": row[1], "count": row[2]} for row in cursor.fetchall()
         ]
@@ -100,13 +96,11 @@ def get_memory_pressure(cms: "ContinuumMemory") -> float:
 
     with cms.connection() as conn:
         cursor = conn.cursor()
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT tier, COUNT(*)
             FROM continuum_memory
             GROUP BY tier
-        """
-        )
+        """)
         tier_counts: Dict[str, int] = {row[0]: row[1] for row in cursor.fetchall()}
 
     # Calculate utilization for each tier
@@ -410,13 +404,11 @@ def get_archive_stats(cms: "ContinuumMemory") -> Dict[str, Any]:
         stats: Dict[str, Any] = {}
 
         # Count by tier and reason
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT tier, archive_reason, COUNT(*)
             FROM continuum_memory_archive
             GROUP BY tier, archive_reason
-        """
-        )
+        """)
         by_tier_reason: Dict[str, Dict[str, int]] = {}
         for row in cursor.fetchall():
             tier, reason, count = row
@@ -431,12 +423,10 @@ def get_archive_stats(cms: "ContinuumMemory") -> Dict[str, Any]:
         stats["total_archived"] = row[0] if row else 0
 
         # Oldest and newest archived
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT MIN(archived_at), MAX(archived_at)
             FROM continuum_memory_archive
-        """
-        )
+        """)
         row = cursor.fetchone()
         stats["oldest_archived"] = row[0]
         stats["newest_archived"] = row[1]

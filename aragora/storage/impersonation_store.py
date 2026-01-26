@@ -73,18 +73,22 @@ class SessionRecord:
             "target_user_id": self.target_user_id,
             "target_email": self.target_email,
             "reason": self.reason,
-            "started_at": self.started_at.isoformat()
-            if isinstance(self.started_at, datetime)
-            else self.started_at,
-            "expires_at": self.expires_at.isoformat()
-            if isinstance(self.expires_at, datetime)
-            else self.expires_at,
+            "started_at": (
+                self.started_at.isoformat()
+                if isinstance(self.started_at, datetime)
+                else self.started_at
+            ),
+            "expires_at": (
+                self.expires_at.isoformat()
+                if isinstance(self.expires_at, datetime)
+                else self.expires_at
+            ),
             "ip_address": self.ip_address,
             "user_agent": self.user_agent,
             "actions_performed": self.actions_performed,
-            "ended_at": self.ended_at.isoformat()
-            if isinstance(self.ended_at, datetime)
-            else self.ended_at,
+            "ended_at": (
+                self.ended_at.isoformat() if isinstance(self.ended_at, datetime) else self.ended_at
+            ),
             "ended_by": self.ended_by,
         }
 
@@ -110,17 +114,19 @@ class AuditRecord:
         """Convert to dictionary."""
         return {
             "audit_id": self.audit_id,
-            "timestamp": self.timestamp.isoformat()
-            if isinstance(self.timestamp, datetime)
-            else self.timestamp,
+            "timestamp": (
+                self.timestamp.isoformat()
+                if isinstance(self.timestamp, datetime)
+                else self.timestamp
+            ),
             "event_type": self.event_type,
             "session_id": self.session_id,
             "admin_user_id": self.admin_user_id,
             "target_user_id": self.target_user_id,
             "reason": self.reason,
-            "action_details": json.loads(self.action_details_json)
-            if self.action_details_json
-            else None,
+            "action_details": (
+                json.loads(self.action_details_json) if self.action_details_json else None
+            ),
             "ip_address": self.ip_address,
             "user_agent": self.user_agent,
             "success": self.success,

@@ -218,15 +218,13 @@ class SchemaManager:
 
     def _ensure_version_table(self) -> None:
         """Create the schema versions table if it doesn't exist."""
-        self.conn.execute(
-            """
+        self.conn.execute("""
             CREATE TABLE IF NOT EXISTS _schema_versions (
                 module TEXT PRIMARY KEY,
                 version INTEGER NOT NULL,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """
-        )
+        """)
         self.conn.commit()
 
     def get_version(self) -> int:

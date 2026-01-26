@@ -499,9 +499,11 @@ class ControlPlaneHandler(BaseHandler):
                     breakers.append(
                         {
                             "name": name,
-                            "state": breaker.state.value
-                            if hasattr(breaker.state, "value")
-                            else str(breaker.state),
+                            "state": (
+                                breaker.state.value
+                                if hasattr(breaker.state, "value")
+                                else str(breaker.state)
+                            ),
                             "failure_count": getattr(breaker, "failure_count", 0),
                             "success_count": getattr(breaker, "success_count", 0),
                             "last_failure": getattr(breaker, "last_failure_time", None),
@@ -1353,15 +1355,21 @@ class ControlPlaneHandler(BaseHandler):
                 end_time=end_time,
                 actions=actions,
                 actor_types=actor_types,
-                actor_ids=query_params.get("actor_ids", "").split(",")
-                if query_params.get("actor_ids")
-                else None,
-                resource_types=query_params.get("resource_types", "").split(",")
-                if query_params.get("resource_types")
-                else None,
-                workspace_ids=query_params.get("workspace_ids", "").split(",")
-                if query_params.get("workspace_ids")
-                else None,
+                actor_ids=(
+                    query_params.get("actor_ids", "").split(",")
+                    if query_params.get("actor_ids")
+                    else None
+                ),
+                resource_types=(
+                    query_params.get("resource_types", "").split(",")
+                    if query_params.get("resource_types")
+                    else None
+                ),
+                workspace_ids=(
+                    query_params.get("workspace_ids", "").split(",")
+                    if query_params.get("workspace_ids")
+                    else None
+                ),
                 limit=int(query_params.get("limit", 100)),
                 offset=int(query_params.get("offset", 0)),
             )
@@ -1438,9 +1446,11 @@ class ControlPlaneHandler(BaseHandler):
                     "valid": is_valid,
                     "start_seq": start_seq,
                     "end_seq": end_seq,
-                    "message": "Integrity verified"
-                    if is_valid
-                    else "Integrity check failed - possible tampering detected",
+                    "message": (
+                        "Integrity verified"
+                        if is_valid
+                        else "Integrity check failed - possible tampering detected"
+                    ),
                 }
             )
         except Exception as e:

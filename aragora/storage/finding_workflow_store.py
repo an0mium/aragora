@@ -274,8 +274,7 @@ class SQLiteFindingWorkflowStore(FindingWorkflowStoreBackend):
             conn = sqlite3.connect(str(self._db_path))
             try:
                 cursor = conn.cursor()
-                cursor.execute(
-                    """
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS finding_workflows (
                         finding_id TEXT PRIMARY KEY,
                         current_state TEXT NOT NULL DEFAULT 'open',
@@ -289,26 +288,19 @@ class SQLiteFindingWorkflowStore(FindingWorkflowStoreBackend):
                         updated_at REAL NOT NULL,
                         data_json TEXT NOT NULL
                     )
-                    """
-                )
-                cursor.execute(
-                    """
+                    """)
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_workflow_assigned_to
                     ON finding_workflows(assigned_to)
-                    """
-                )
-                cursor.execute(
-                    """
+                    """)
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_workflow_state
                     ON finding_workflows(current_state)
-                    """
-                )
-                cursor.execute(
-                    """
+                    """)
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_workflow_due_date
                     ON finding_workflows(due_date)
-                    """
-                )
+                    """)
                 conn.commit()
             finally:
                 conn.close()

@@ -291,9 +291,11 @@ class GmailThreadsHandler(BaseHandler):
                             "message_count": thread.message_count,
                             "participants": thread.participants,
                             "labels": thread.labels,
-                            "last_message_date": thread.last_message_date.isoformat()
-                            if thread.last_message_date
-                            else None,
+                            "last_message_date": (
+                                thread.last_message_date.isoformat()
+                                if thread.last_message_date
+                                else None
+                            ),
                             "messages": [
                                 {
                                     "id": msg.id,

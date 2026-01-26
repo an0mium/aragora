@@ -186,9 +186,11 @@ class Card:
             id=data.get("id", 0),
             name=data.get("name", ""),
             description=data.get("description"),
-            display=DisplayType(display)
-            if display in DisplayType.__members__.values()
-            else DisplayType.TABLE,
+            display=(
+                DisplayType(display)
+                if display in DisplayType.__members__.values()
+                else DisplayType.TABLE
+            ),
             database_id=data.get("database_id"),
             table_id=data.get("table_id"),
             collection_id=data.get("collection_id"),

@@ -89,9 +89,9 @@ class FundingInstrument:
             currency=data.get("currency", "USD"),
             funded_amount=float(data.get("funded_amount_local_micro", 0)) / 1_000_000,
             credit_remaining=float(data.get("credit_remaining_local_micro", 0)) / 1_000_000,
-            start_time=datetime.fromisoformat(data["start_time"])
-            if data.get("start_time")
-            else None,
+            start_time=(
+                datetime.fromisoformat(data["start_time"]) if data.get("start_time") else None
+            ),
             end_time=datetime.fromisoformat(data["end_time"]) if data.get("end_time") else None,
         )
 
@@ -123,22 +123,26 @@ class Campaign:
             status=CampaignStatus(data.get("entity_status", "PAUSED")),
             objective=CampaignObjective(data.get("objective", "WEBSITE_CLICKS")),
             funding_instrument_id=data.get("funding_instrument_id", ""),
-            daily_budget=float(data.get("daily_budget_amount_local_micro", 0)) / 1_000_000
-            if data.get("daily_budget_amount_local_micro")
-            else None,
-            total_budget=float(data.get("total_budget_amount_local_micro", 0)) / 1_000_000
-            if data.get("total_budget_amount_local_micro")
-            else None,
-            start_time=datetime.fromisoformat(data["start_time"])
-            if data.get("start_time")
-            else None,
+            daily_budget=(
+                float(data.get("daily_budget_amount_local_micro", 0)) / 1_000_000
+                if data.get("daily_budget_amount_local_micro")
+                else None
+            ),
+            total_budget=(
+                float(data.get("total_budget_amount_local_micro", 0)) / 1_000_000
+                if data.get("total_budget_amount_local_micro")
+                else None
+            ),
+            start_time=(
+                datetime.fromisoformat(data["start_time"]) if data.get("start_time") else None
+            ),
             end_time=datetime.fromisoformat(data["end_time"]) if data.get("end_time") else None,
-            created_at=datetime.fromisoformat(data["created_at"])
-            if data.get("created_at")
-            else None,
-            updated_at=datetime.fromisoformat(data["updated_at"])
-            if data.get("updated_at")
-            else None,
+            created_at=(
+                datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None
+            ),
         )
 
 
@@ -167,15 +171,19 @@ class LineItem:
             status=data.get("entity_status", "PAUSED"),
             line_item_type=LineItemType(data.get("product_type", "PROMOTED_TWEETS")),
             placements=[PlacementType(p) for p in data.get("placements", [])],
-            bid_amount=float(data.get("bid_amount_local_micro", 0)) / 1_000_000
-            if data.get("bid_amount_local_micro")
-            else None,
-            total_budget=float(data.get("total_budget_amount_local_micro", 0)) / 1_000_000
-            if data.get("total_budget_amount_local_micro")
-            else None,
-            start_time=datetime.fromisoformat(data["start_time"])
-            if data.get("start_time")
-            else None,
+            bid_amount=(
+                float(data.get("bid_amount_local_micro", 0)) / 1_000_000
+                if data.get("bid_amount_local_micro")
+                else None
+            ),
+            total_budget=(
+                float(data.get("total_budget_amount_local_micro", 0)) / 1_000_000
+                if data.get("total_budget_amount_local_micro")
+                else None
+            ),
+            start_time=(
+                datetime.fromisoformat(data["start_time"]) if data.get("start_time") else None
+            ),
             end_time=datetime.fromisoformat(data["end_time"]) if data.get("end_time") else None,
         )
 
@@ -200,9 +208,9 @@ class PromotedTweet:
             tweet_id=data.get("tweet_id", ""),
             status=data.get("entity_status", ""),
             approval_status=data.get("approval_status", ""),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if data.get("created_at")
-            else None,
+            created_at=(
+                datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None
+            ),
         )
 
 
@@ -282,9 +290,9 @@ class TailoredAudience:
             audience_type=data.get("audience_type", ""),
             audience_size=data.get("audience_size"),
             targetable=data.get("targetable", True),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if data.get("created_at")
-            else None,
+            created_at=(
+                datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None
+            ),
         )
 
 

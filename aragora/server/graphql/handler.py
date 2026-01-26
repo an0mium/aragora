@@ -459,9 +459,11 @@ class GraphQLHandler(BaseHandler):
             elif isinstance(value, list):
                 # Array - resolve each element
                 resolved[key] = [
-                    self._resolve_arguments({"_": v}, variables).get("_", v)
-                    if isinstance(v, dict)
-                    else v
+                    (
+                        self._resolve_arguments({"_": v}, variables).get("_", v)
+                        if isinstance(v, dict)
+                        else v
+                    )
                     for v in value
                 ]
             else:

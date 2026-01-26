@@ -235,8 +235,6 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
 
             # Sync RankingAdapter state
             try:
-                from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter  # noqa: F401
-
                 ranking_adapter = getattr(manager, "_ranking_adapter", None)
                 if ranking_adapter is not None:
                     stats = ranking_adapter.get_stats()

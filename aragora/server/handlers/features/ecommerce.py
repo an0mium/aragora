@@ -789,12 +789,12 @@ class EcommerceHandler(SecureHandler):
                 return self._json_response(
                     201,
                     {
-                        "shipment_id": str(label.shipment_id)
-                        if hasattr(label, "shipment_id")
-                        else None,
-                        "tracking_number": label.tracking_number
-                        if hasattr(label, "tracking_number")
-                        else None,
+                        "shipment_id": (
+                            str(label.shipment_id) if hasattr(label, "shipment_id") else None
+                        ),
+                        "tracking_number": (
+                            label.tracking_number if hasattr(label, "tracking_number") else None
+                        ),
                         "label_url": label.label_data if hasattr(label, "label_data") else None,
                         "platform": platform,
                     },
@@ -942,14 +942,18 @@ class EcommerceHandler(SecureHandler):
             "financial_status": order.financial_status,
             "fulfillment_status": order.fulfillment_status,
             "customer_email": order.email,
-            "customer_name": f"{order.customer.first_name} {order.customer.last_name}".strip()
-            if hasattr(order, "customer") and order.customer
-            else None,
+            "customer_name": (
+                f"{order.customer.first_name} {order.customer.last_name}".strip()
+                if hasattr(order, "customer") and order.customer
+                else None
+            ),
             "total_price": float(order.total_price),
             "subtotal": float(order.subtotal_price),
-            "shipping_price": float(order.total_shipping_price_set.shop_money.amount)
-            if hasattr(order, "total_shipping_price_set")
-            else 0,
+            "shipping_price": (
+                float(order.total_shipping_price_set.shop_money.amount)
+                if hasattr(order, "total_shipping_price_set")
+                else 0
+            ),
             "tax": float(order.total_tax),
             "currency": order.currency,
             "line_items": [
@@ -975,19 +979,21 @@ class EcommerceHandler(SecureHandler):
             "financial_status": order.payment_status if hasattr(order, "payment_status") else None,
             "fulfillment_status": order.order_status,
             "customer_email": order.customer_email if hasattr(order, "customer_email") else None,
-            "customer_name": order.ship_to.name
-            if hasattr(order, "ship_to") and order.ship_to
-            else None,
+            "customer_name": (
+                order.ship_to.name if hasattr(order, "ship_to") and order.ship_to else None
+            ),
             "total_price": float(order.order_total) if hasattr(order, "order_total") else 0,
             "subtotal": float(order.order_total) if hasattr(order, "order_total") else 0,
-            "shipping_price": float(order.shipping_amount)
-            if hasattr(order, "shipping_amount")
-            else 0,
+            "shipping_price": (
+                float(order.shipping_amount) if hasattr(order, "shipping_amount") else 0
+            ),
             "tax": float(order.tax_amount) if hasattr(order, "tax_amount") else 0,
             "currency": "USD",
-            "created_at": order.order_date.isoformat()
-            if hasattr(order, "order_date") and order.order_date
-            else None,
+            "created_at": (
+                order.order_date.isoformat()
+                if hasattr(order, "order_date") and order.order_date
+                else None
+            ),
         }
 
     def _normalize_walmart_order(self, order: Any) -> dict[str, Any]:
@@ -996,25 +1002,33 @@ class EcommerceHandler(SecureHandler):
             "id": order.purchase_order_id,
             "platform": "walmart",
             "order_number": order.customer_order_id,
-            "status": order.order_status.value
-            if hasattr(order.order_status, "value")
-            else order.order_status,
+            "status": (
+                order.order_status.value
+                if hasattr(order.order_status, "value")
+                else order.order_status
+            ),
             "financial_status": None,
-            "fulfillment_status": order.order_status.value
-            if hasattr(order.order_status, "value")
-            else order.order_status,
+            "fulfillment_status": (
+                order.order_status.value
+                if hasattr(order.order_status, "value")
+                else order.order_status
+            ),
             "customer_email": order.customer_email if hasattr(order, "customer_email") else None,
-            "customer_name": order.shipping_info.postal_address.name
-            if hasattr(order, "shipping_info") and order.shipping_info
-            else None,
+            "customer_name": (
+                order.shipping_info.postal_address.name
+                if hasattr(order, "shipping_info") and order.shipping_info
+                else None
+            ),
             "total_price": float(order.order_total) if hasattr(order, "order_total") else 0,
             "subtotal": float(order.order_total) if hasattr(order, "order_total") else 0,
             "shipping_price": 0,
             "tax": 0,
             "currency": "USD",
-            "created_at": order.order_date.isoformat()
-            if hasattr(order, "order_date") and order.order_date
-            else None,
+            "created_at": (
+                order.order_date.isoformat()
+                if hasattr(order, "order_date") and order.order_date
+                else None
+            ),
         }
 
     def _normalize_shopify_product(self, product: Any) -> dict[str, Any]:
@@ -1027,9 +1041,9 @@ class EcommerceHandler(SecureHandler):
             "sku": variant.sku if variant else None,
             "barcode": variant.barcode if variant else None,
             "price": float(variant.price) if variant else 0,
-            "compare_at_price": float(variant.compare_at_price)
-            if variant and variant.compare_at_price
-            else None,
+            "compare_at_price": (
+                float(variant.compare_at_price) if variant and variant.compare_at_price else None
+            ),
             "inventory_quantity": variant.inventory_quantity if variant else 0,
             "status": product.status,
             "vendor": product.vendor,
@@ -1050,9 +1064,11 @@ class EcommerceHandler(SecureHandler):
             "price": float(item.price.amount) if hasattr(item, "price") else 0,
             "compare_at_price": None,
             "inventory_quantity": item.quantity if hasattr(item, "quantity") else 0,
-            "status": item.lifecycle_status.value
-            if hasattr(item.lifecycle_status, "value")
-            else item.lifecycle_status,
+            "status": (
+                item.lifecycle_status.value
+                if hasattr(item.lifecycle_status, "value")
+                else item.lifecycle_status
+            ),
             "vendor": item.brand if hasattr(item, "brand") else None,
             "product_type": item.product_type if hasattr(item, "product_type") else None,
             "tags": [],

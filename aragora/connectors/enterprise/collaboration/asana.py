@@ -106,9 +106,11 @@ class AsanaProject:
             modified_at=_parse_datetime(data.get("modified_at")),
             due_date=_parse_date(data.get("due_date")),
             start_date=_parse_date(data.get("start_on")),
-            current_status=data.get("current_status_update", {}).get("status_type", "")
-            if data.get("current_status_update")
-            else "",
+            current_status=(
+                data.get("current_status_update", {}).get("status_type", "")
+                if data.get("current_status_update")
+                else ""
+            ),
             url=data.get("permalink_url", ""),
         )
 

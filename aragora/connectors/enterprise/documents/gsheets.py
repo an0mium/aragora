@@ -269,9 +269,11 @@ class GoogleSheetsConnector(EnterpriseConnector):
             created_time=created,
             modified_time=modified,
             web_view_link=metadata.get("webViewLink", ""),
-            owner=metadata.get("owners", [{}])[0].get("displayName", "")
-            if metadata.get("owners")
-            else "",
+            owner=(
+                metadata.get("owners", [{}])[0].get("displayName", "")
+                if metadata.get("owners")
+                else ""
+            ),
         )
 
         # Process each sheet

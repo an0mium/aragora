@@ -128,6 +128,7 @@ if LANGCHAIN_AVAILABLE:
         include_evidence: Optional[bool] = Field(
             default=True, description="Whether to search for and include evidence"
         )
+
 else:
 
     @dataclass

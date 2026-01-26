@@ -170,8 +170,7 @@ class DebateRepository(BaseRepository[DebateEntity]):
     def _ensure_schema(self) -> None:
         """Create database schema if needed."""
         with self._connection() as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS debates (
                     id TEXT PRIMARY KEY,
                     slug TEXT UNIQUE NOT NULL,
@@ -186,8 +185,7 @@ class DebateRepository(BaseRepository[DebateEntity]):
                     audio_generated_at TIMESTAMP,
                     audio_duration_seconds INTEGER
                 )
-            """
-            )
+            """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_slug ON debates(slug)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_created ON debates(created_at)")
             conn.commit()

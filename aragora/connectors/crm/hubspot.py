@@ -145,9 +145,9 @@ class Company:
             city=props.get("city"),
             state=props.get("state"),
             country=props.get("country"),
-            num_employees=int(props["numberofemployees"])
-            if props.get("numberofemployees")
-            else None,
+            num_employees=(
+                int(props["numberofemployees"]) if props.get("numberofemployees") else None
+            ),
             annual_revenue=Decimal(str(revenue)) if revenue else None,
             lifecycle_stage=props.get("lifecyclestage"),
             owner_id=props.get("hubspot_owner_id"),

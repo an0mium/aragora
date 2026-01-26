@@ -172,9 +172,9 @@ async def list_integrations_tool(
     total = sum(len(v) for v in integrations.values())
 
     return {
-        "integrations": integrations
-        if platform == "all"
-        else {platform: integrations.get(platform, [])},
+        "integrations": (
+            integrations if platform == "all" else {platform: integrations.get(platform, [])}
+        ),
         "total": total,
         "platform_filter": platform,
         "workspace_filter": workspace_id,

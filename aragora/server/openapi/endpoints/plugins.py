@@ -119,9 +119,9 @@ def _plugin_installed_endpoint(deprecated: bool = False, versioned: bool = True)
             "tags": ["Plugins"],
             "summary": "List installed plugins",
             "operationId": op_id,
-            "description": "Get list of plugins installed for the current user."
-            if not deprecated
-            else None,
+            "description": (
+                "Get list of plugins installed for the current user." if not deprecated else None
+            ),
             "responses": {"200": _ok_response("Installed plugins list")},
             "security": [{"bearerAuth": []}],
         },
@@ -144,9 +144,11 @@ def _plugin_marketplace_endpoint(
             "tags": ["Plugins"],
             "summary": "Get marketplace listings",
             "operationId": op_id,
-            "description": "Get plugin marketplace with categories and featured plugins."
-            if not deprecated
-            else None,
+            "description": (
+                "Get plugin marketplace with categories and featured plugins."
+                if not deprecated
+                else None
+            ),
             "responses": {"200": _ok_response("Marketplace data with categories")},
         },
     }
@@ -166,9 +168,9 @@ def _plugin_submit_endpoint(deprecated: bool = False, versioned: bool = True) ->
             "tags": ["Plugins"],
             "summary": "Submit plugin for review",
             "operationId": op_id,
-            "description": "Submit a new plugin for marketplace review."
-            if not deprecated
-            else None,
+            "description": (
+                "Submit a new plugin for marketplace review." if not deprecated else None
+            ),
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
             "responses": {"200": _ok_response("Submission confirmation")},
             "security": [{"bearerAuth": []}],
@@ -192,9 +194,11 @@ def _plugin_submissions_endpoint(
             "tags": ["Plugins"],
             "summary": "List user's plugin submissions",
             "operationId": op_id,
-            "description": "Get list of plugins submitted by the current user for review."
-            if not deprecated
-            else None,
+            "description": (
+                "Get list of plugins submitted by the current user for review."
+                if not deprecated
+                else None
+            ),
             "responses": {"200": _ok_response("Submissions list")},
             "security": [{"bearerAuth": []}],
         },

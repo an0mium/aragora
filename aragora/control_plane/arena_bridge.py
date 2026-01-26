@@ -336,9 +336,9 @@ class ArenaEventAdapter:
                 "elapsed_seconds": elapsed_seconds,
                 "timeout_seconds": timeout_seconds,
                 "remaining_seconds": timeout_seconds - elapsed_seconds,
-                "pct_used": (elapsed_seconds / timeout_seconds * 100)
-                if timeout_seconds > 0
-                else 100,
+                "pct_used": (
+                    (elapsed_seconds / timeout_seconds * 100) if timeout_seconds > 0 else 100
+                ),
             },
         )
 

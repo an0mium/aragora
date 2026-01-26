@@ -166,13 +166,17 @@ class OwnershipRecord:
             resource_id=data["resource_id"],
             owner_id=data["owner_id"],
             org_id=data["org_id"],
-            created_at=datetime.fromisoformat(data["created_at"])
-            if isinstance(data["created_at"], str)
-            else data["created_at"],
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if isinstance(data["created_at"], str)
+                else data["created_at"]
+            ),
             transferred_from=data.get("transferred_from"),
-            transferred_at=datetime.fromisoformat(data["transferred_at"])
-            if data.get("transferred_at")
-            else None,
+            transferred_at=(
+                datetime.fromisoformat(data["transferred_at"])
+                if data.get("transferred_at")
+                else None
+            ),
             transferred_by=data.get("transferred_by"),
             metadata=data.get("metadata", {}),
         )

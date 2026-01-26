@@ -181,9 +181,11 @@ def admin_secure_endpoint(
                             "permission_checked": permission,
                         },
                         ip_address=getattr(request, "remote", None),
-                        user_agent=request.headers.get("User-Agent")
-                        if hasattr(request, "headers")
-                        else None,
+                        user_agent=(
+                            request.headers.get("User-Agent")
+                            if hasattr(request, "headers")
+                            else None
+                        ),
                     )
 
                 return result

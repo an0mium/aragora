@@ -362,9 +362,11 @@ Guidelines:
                         "option": opt.get("name", str(opt)) if isinstance(opt, dict) else str(opt),
                         "pros": opt.get("pros", []) if isinstance(opt, dict) else [],
                         "cons": opt.get("cons", []) if isinstance(opt, dict) else [],
-                        "rejected_reason": opt.get("rejected_reason", "Not selected")
-                        if isinstance(opt, dict)
-                        else "Not selected",
+                        "rejected_reason": (
+                            opt.get("rejected_reason", "Not selected")
+                            if isinstance(opt, dict)
+                            else "Not selected"
+                        ),
                     }
                 )
 

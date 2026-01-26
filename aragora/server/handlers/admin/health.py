@@ -2282,9 +2282,9 @@ class HealthHandler(BaseHandler):
                     cb = get_circuit_breaker(f"platform_{platform}")
                     if cb:
                         platform_circuits[platform] = {
-                            "state": cb.state.value
-                            if hasattr(cb.state, "value")
-                            else str(cb.state),
+                            "state": (
+                                cb.state.value if hasattr(cb.state, "value") else str(cb.state)
+                            ),
                             "failure_count": cb.failure_count,  # type: ignore[attr-defined]
                             "success_count": getattr(cb, "success_count", 0),
                         }

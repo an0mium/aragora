@@ -179,8 +179,7 @@ class PluginRevenueTracker:
         """Create database schema if not exists."""
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connection() as conn:
-            conn.executescript(
-                """
+            conn.executescript("""
                 -- Plugin installs
                 CREATE TABLE IF NOT EXISTS plugin_installs (
                     id TEXT PRIMARY KEY,
@@ -239,8 +238,7 @@ class PluginRevenueTracker:
 
                 CREATE INDEX IF NOT EXISTS idx_payouts_developer
                     ON developer_payouts(developer_id, status);
-            """
-            )
+            """)
             conn.commit()
 
     def record_install(

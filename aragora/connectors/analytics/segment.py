@@ -87,12 +87,16 @@ class Source:
             source_type=data.get("sourceDefinitionId", data.get("source_definition_id", "")),
             workspace_id=data.get("workspaceId", data.get("workspace_id", "")),
             enabled=data.get("enabled", True),
-            created_at=datetime.fromisoformat(data["createdAt"].replace("Z", "+00:00"))
-            if data.get("createdAt")
-            else None,
-            updated_at=datetime.fromisoformat(data["updatedAt"].replace("Z", "+00:00"))
-            if data.get("updatedAt")
-            else None,
+            created_at=(
+                datetime.fromisoformat(data["createdAt"].replace("Z", "+00:00"))
+                if data.get("createdAt")
+                else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updatedAt"].replace("Z", "+00:00"))
+                if data.get("updatedAt")
+                else None
+            ),
             write_key=data.get("writeKey") or data.get("write_key"),
         )
 
@@ -120,9 +124,11 @@ class Destination:
                 "destinationDefinitionId", data.get("destination_definition_id", "")
             ),
             enabled=data.get("enabled", True),
-            created_at=datetime.fromisoformat(data["createdAt"].replace("Z", "+00:00"))
-            if data.get("createdAt")
-            else None,
+            created_at=(
+                datetime.fromisoformat(data["createdAt"].replace("Z", "+00:00"))
+                if data.get("createdAt")
+                else None
+            ),
             settings=data.get("settings", {}),
         )
 
@@ -260,12 +266,16 @@ class Audience:
             name=data.get("name", ""),
             space_id=data.get("spaceId", data.get("space_id", "")),
             description=data.get("description"),
-            created_at=datetime.fromisoformat(data["createdAt"].replace("Z", "+00:00"))
-            if data.get("createdAt")
-            else None,
-            updated_at=datetime.fromisoformat(data["updatedAt"].replace("Z", "+00:00"))
-            if data.get("updatedAt")
-            else None,
+            created_at=(
+                datetime.fromisoformat(data["createdAt"].replace("Z", "+00:00"))
+                if data.get("createdAt")
+                else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updatedAt"].replace("Z", "+00:00"))
+                if data.get("updatedAt")
+                else None
+            ),
             size=data.get("size"),
         )
 
@@ -289,12 +299,12 @@ class Profile:
             user_id=data.get("user_id"),
             anonymous_id=data.get("anonymous_id"),
             traits=data.get("traits", {}),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if data.get("created_at")
-            else None,
-            updated_at=datetime.fromisoformat(data["updated_at"])
-            if data.get("updated_at")
-            else None,
+            created_at=(
+                datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None
+            ),
         )
 
 

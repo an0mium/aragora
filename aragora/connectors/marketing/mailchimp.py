@@ -96,23 +96,27 @@ class AudienceStats:
             unsubscribe_count_since_send=data.get("unsubscribe_count_since_send", 0),
             cleaned_count_since_send=data.get("cleaned_count_since_send", 0),
             campaign_count=data.get("campaign_count", 0),
-            campaign_last_sent=datetime.fromisoformat(
-                data["campaign_last_sent"].replace("Z", "+00:00")
-            )
-            if data.get("campaign_last_sent")
-            else None,
+            campaign_last_sent=(
+                datetime.fromisoformat(data["campaign_last_sent"].replace("Z", "+00:00"))
+                if data.get("campaign_last_sent")
+                else None
+            ),
             merge_field_count=data.get("merge_field_count", 0),
             avg_sub_rate=data.get("avg_sub_rate", 0.0),
             avg_unsub_rate=data.get("avg_unsub_rate", 0.0),
             target_sub_rate=data.get("target_sub_rate", 0.0),
             open_rate=data.get("open_rate", 0.0),
             click_rate=data.get("click_rate", 0.0),
-            last_sub_date=datetime.fromisoformat(data["last_sub_date"].replace("Z", "+00:00"))
-            if data.get("last_sub_date")
-            else None,
-            last_unsub_date=datetime.fromisoformat(data["last_unsub_date"].replace("Z", "+00:00"))
-            if data.get("last_unsub_date")
-            else None,
+            last_sub_date=(
+                datetime.fromisoformat(data["last_sub_date"].replace("Z", "+00:00"))
+                if data.get("last_sub_date")
+                else None
+            ),
+            last_unsub_date=(
+                datetime.fromisoformat(data["last_unsub_date"].replace("Z", "+00:00"))
+                if data.get("last_unsub_date")
+                else None
+            ),
         )
 
 
@@ -142,9 +146,11 @@ class Audience:
             campaign_defaults=data.get("campaign_defaults", {}),
             notify_on_subscribe=data.get("notify_on_subscribe", ""),
             notify_on_unsubscribe=data.get("notify_on_unsubscribe", ""),
-            date_created=datetime.fromisoformat(data["date_created"].replace("Z", "+00:00"))
-            if data.get("date_created")
-            else None,
+            date_created=(
+                datetime.fromisoformat(data["date_created"].replace("Z", "+00:00"))
+                if data.get("date_created")
+                else None
+            ),
             stats=AudienceStats.from_api(data["stats"]) if data.get("stats") else None,
             double_optin=data.get("double_optin", False),
         )
@@ -190,17 +196,23 @@ class Member:
             location=data.get("location", {}),
             marketing_permissions=data.get("marketing_permissions", []),
             ip_signup=data.get("ip_signup", ""),
-            timestamp_signup=datetime.fromisoformat(data["timestamp_signup"].replace("Z", "+00:00"))
-            if data.get("timestamp_signup") and data["timestamp_signup"]
-            else None,
+            timestamp_signup=(
+                datetime.fromisoformat(data["timestamp_signup"].replace("Z", "+00:00"))
+                if data.get("timestamp_signup") and data["timestamp_signup"]
+                else None
+            ),
             ip_opt=data.get("ip_opt", ""),
-            timestamp_opt=datetime.fromisoformat(data["timestamp_opt"].replace("Z", "+00:00"))
-            if data.get("timestamp_opt") and data["timestamp_opt"]
-            else None,
+            timestamp_opt=(
+                datetime.fromisoformat(data["timestamp_opt"].replace("Z", "+00:00"))
+                if data.get("timestamp_opt") and data["timestamp_opt"]
+                else None
+            ),
             member_rating=data.get("member_rating", 0),
-            last_changed=datetime.fromisoformat(data["last_changed"].replace("Z", "+00:00"))
-            if data.get("last_changed")
-            else None,
+            last_changed=(
+                datetime.fromisoformat(data["last_changed"].replace("Z", "+00:00"))
+                if data.get("last_changed")
+                else None
+            ),
             email_client=data.get("email_client", ""),
             tags_count=data.get("tags_count", 0),
             tags=data.get("tags", []),
@@ -233,16 +245,20 @@ class Campaign:
             id=data.get("id", ""),
             web_id=data.get("web_id", 0),
             type=CampaignType(data.get("type", "regular")),
-            create_time=datetime.fromisoformat(data["create_time"].replace("Z", "+00:00"))
-            if data.get("create_time")
-            else None,
+            create_time=(
+                datetime.fromisoformat(data["create_time"].replace("Z", "+00:00"))
+                if data.get("create_time")
+                else None
+            ),
             archive_url=data.get("archive_url", ""),
             long_archive_url=data.get("long_archive_url", ""),
             status=CampaignStatus(data.get("status", "save")),
             emails_sent=data.get("emails_sent", 0),
-            send_time=datetime.fromisoformat(data["send_time"].replace("Z", "+00:00"))
-            if data.get("send_time")
-            else None,
+            send_time=(
+                datetime.fromisoformat(data["send_time"].replace("Z", "+00:00"))
+                if data.get("send_time")
+                else None
+            ),
             content_type=data.get("content_type", ""),
             recipients=data.get("recipients", {}),
             settings=data.get("settings", {}),
@@ -303,9 +319,11 @@ class CampaignReport:
             emails_sent=data.get("emails_sent", 0),
             abuse_reports=data.get("abuse_reports", 0),
             unsubscribed=data.get("unsubscribed", 0),
-            send_time=datetime.fromisoformat(data["send_time"].replace("Z", "+00:00"))
-            if data.get("send_time")
-            else None,
+            send_time=(
+                datetime.fromisoformat(data["send_time"].replace("Z", "+00:00"))
+                if data.get("send_time")
+                else None
+            ),
             opens=data.get("opens", {}),
             clicks=data.get("clicks", {}),
             bounces=data.get("bounces", {}),
@@ -338,12 +356,16 @@ class Template:
             type=data.get("type", ""),
             category=data.get("category", ""),
             created_by=data.get("created_by", ""),
-            date_created=datetime.fromisoformat(data["date_created"].replace("Z", "+00:00"))
-            if data.get("date_created")
-            else None,
-            date_edited=datetime.fromisoformat(data["date_edited"].replace("Z", "+00:00"))
-            if data.get("date_edited")
-            else None,
+            date_created=(
+                datetime.fromisoformat(data["date_created"].replace("Z", "+00:00"))
+                if data.get("date_created")
+                else None
+            ),
+            date_edited=(
+                datetime.fromisoformat(data["date_edited"].replace("Z", "+00:00"))
+                if data.get("date_edited")
+                else None
+            ),
             active=data.get("active", True),
             folder_id=data.get("folder_id", ""),
             thumbnail=data.get("thumbnail", ""),
@@ -377,12 +399,16 @@ class Automation:
             settings=data.get("settings", {}),
             tracking=data.get("tracking", {}),
             trigger_settings=data.get("trigger_settings", {}),
-            create_time=datetime.fromisoformat(data["create_time"].replace("Z", "+00:00"))
-            if data.get("create_time")
-            else None,
-            start_time=datetime.fromisoformat(data["start_time"].replace("Z", "+00:00"))
-            if data.get("start_time")
-            else None,
+            create_time=(
+                datetime.fromisoformat(data["create_time"].replace("Z", "+00:00"))
+                if data.get("create_time")
+                else None
+            ),
+            start_time=(
+                datetime.fromisoformat(data["start_time"].replace("Z", "+00:00"))
+                if data.get("start_time")
+                else None
+            ),
         )
 
 

@@ -180,9 +180,11 @@ class Condition:
         """Serialize condition to dictionary."""
         return {
             "field": self.field,
-            "operator": self.operator.value
-            if isinstance(self.operator, ConditionOperator)
-            else self.operator,
+            "operator": (
+                self.operator.value
+                if isinstance(self.operator, ConditionOperator)
+                else self.operator
+            ),
             "value": self.value,
             "case_sensitive": self.case_sensitive,
         }
@@ -337,12 +339,16 @@ class RoutingRule:
             actions=[Action.from_dict(a) for a in data.get("actions", [])],
             priority=data.get("priority", 0),
             enabled=data.get("enabled", True),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if "created_at" in data
-            else datetime.utcnow(),
-            updated_at=datetime.fromisoformat(data["updated_at"])
-            if "updated_at" in data
-            else datetime.utcnow(),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if "created_at" in data
+                else datetime.utcnow()
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"])
+                if "updated_at" in data
+                else datetime.utcnow()
+            ),
             created_by=data.get("created_by"),
             match_mode=data.get("match_mode", "all"),
             stop_processing=data.get("stop_processing", False),

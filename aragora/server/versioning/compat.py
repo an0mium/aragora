@@ -13,7 +13,6 @@ from typing import Dict, Optional, Set, Tuple
 
 from aragora.server.versioning.router import APIVersion
 
-
 # Current release version
 API_RELEASE_VERSION = "2.0.3"
 

@@ -87,12 +87,12 @@ class OperationMetrics:
             "successful_calls": self.successful_calls,
             "failed_calls": self.failed_calls,
             "avg_latency_seconds": round(self.avg_latency_seconds, 4),
-            "min_latency_seconds": round(self.min_latency_seconds, 4)
-            if self.min_latency_seconds
-            else None,
-            "max_latency_seconds": round(self.max_latency_seconds, 4)
-            if self.max_latency_seconds
-            else None,
+            "min_latency_seconds": (
+                round(self.min_latency_seconds, 4) if self.min_latency_seconds else None
+            ),
+            "max_latency_seconds": (
+                round(self.max_latency_seconds, 4) if self.max_latency_seconds else None
+            ),
             "success_rate": round(self.success_rate, 2),
             "last_call_at": self.last_call_at.isoformat() if self.last_call_at else None,
             "last_error": self.last_error,
@@ -150,9 +150,9 @@ class IntegrationStoreMetrics:
         return {
             "backend_type": self.backend_type,
             "is_healthy": self.is_healthy,
-            "last_health_check": self.last_health_check.isoformat()
-            if self.last_health_check
-            else None,
+            "last_health_check": (
+                self.last_health_check.isoformat() if self.last_health_check else None
+            ),
             "consecutive_failures": self.consecutive_failures,
             "active_integrations": self.active_integrations,
             "cache_hit_rate": round(self.cache_hit_rate, 2),
@@ -403,9 +403,9 @@ async def get_integration_health() -> Dict[str, Any]:
         "healthy": metrics.is_healthy,
         "backend_type": metrics.backend_type,
         "consecutive_failures": metrics.consecutive_failures,
-        "last_health_check": metrics.last_health_check.isoformat()
-        if metrics.last_health_check
-        else None,
+        "last_health_check": (
+            metrics.last_health_check.isoformat() if metrics.last_health_check else None
+        ),
         "operations_summary": {
             "get_success_rate": metrics.get_operations.success_rate,
             "save_success_rate": metrics.save_operations.success_rate,

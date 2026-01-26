@@ -165,16 +165,14 @@ def _build_messages_html(messages: list, limit: int = 50) -> str:
         content = html.escape(msg.get("content", "")[:500])
         role = msg.get("role", "speaker")
         round_num = msg.get("round", 0)
-        html_parts.append(
-            f"""
+        html_parts.append(f"""
         <div class="message {role}">
             <div class="message-header">
                 <span class="agent">{agent}</span>
                 <span class="round">Round {round_num}</span>
             </div>
             <div class="message-content">{content}</div>
-        </div>"""
-        )
+        </div>""")
     return "".join(html_parts)
 
 

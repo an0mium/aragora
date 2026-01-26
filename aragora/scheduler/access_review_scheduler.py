@@ -190,8 +190,7 @@ class AccessReviewStorage:
     def _init_schema(self) -> None:
         """Initialize database schema."""
         conn = self._get_conn()
-        conn.executescript(
-            """
+        conn.executescript("""
             CREATE TABLE IF NOT EXISTS access_reviews (
                 review_id TEXT PRIMARY KEY,
                 review_type TEXT NOT NULL,
@@ -248,8 +247,7 @@ class AccessReviewStorage:
             CREATE INDEX IF NOT EXISTS idx_items_review ON review_items(review_id);
             CREATE INDEX IF NOT EXISTS idx_items_user ON review_items(user_id);
             CREATE INDEX IF NOT EXISTS idx_access_log_user ON user_access_log(user_id, resource_type);
-            """
-        )
+            """)
         conn.commit()
 
     def save_review(self, review: AccessReview) -> None:
@@ -342,17 +340,17 @@ class AccessReviewStorage:
                     resource_type=ir["resource_type"],
                     resource_id=ir["resource_id"],
                     resource_name=ir["resource_name"] or "",
-                    granted_at=datetime.fromisoformat(ir["granted_at"])
-                    if ir["granted_at"]
-                    else None,
+                    granted_at=(
+                        datetime.fromisoformat(ir["granted_at"]) if ir["granted_at"] else None
+                    ),
                     last_used=datetime.fromisoformat(ir["last_used"]) if ir["last_used"] else None,
                     granted_by=ir["granted_by"],
                     risk_level=ir["risk_level"],
                     status=ReviewItemStatus(ir["status"]),
                     decision_by=ir["decision_by"],
-                    decision_at=datetime.fromisoformat(ir["decision_at"])
-                    if ir["decision_at"]
-                    else None,
+                    decision_at=(
+                        datetime.fromisoformat(ir["decision_at"]) if ir["decision_at"] else None
+                    ),
                     decision_notes=ir["decision_notes"],
                     metadata=json.loads(ir["metadata_json"] or "{}"),
                 )
@@ -366,9 +364,9 @@ class AccessReviewStorage:
             scope_users=json.loads(row["scope_users_json"] or "[]"),
             created_at=datetime.fromisoformat(row["created_at"]),
             due_date=datetime.fromisoformat(row["due_date"]) if row["due_date"] else None,
-            completed_at=datetime.fromisoformat(row["completed_at"])
-            if row["completed_at"]
-            else None,
+            completed_at=(
+                datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None
+            ),
             created_by=row["created_by"],
             assigned_reviewer=row["assigned_reviewer"],
             items=items,

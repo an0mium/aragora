@@ -149,8 +149,7 @@ class MemoryRepository(BaseRepository[MemoryEntity]):
         """Create tables and indexes if they don't exist."""
         with self._transaction() as conn:
             # Memories table
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS memories (
                     id TEXT PRIMARY KEY,
                     agent_name TEXT NOT NULL,
@@ -161,40 +160,31 @@ class MemoryRepository(BaseRepository[MemoryEntity]):
                     metadata TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
 
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_memories_agent
                 ON memories(agent_name)
-            """
-            )
+            """)
 
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_memories_type
                 ON memories(agent_name, memory_type)
-            """
-            )
+            """)
 
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_memories_importance
                 ON memories(agent_name, importance DESC)
-            """
-            )
+            """)
 
             # Reflection schedule table
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS reflection_schedule (
                     agent_name TEXT PRIMARY KEY,
                     last_reflection TEXT,
                     memories_since_reflection INTEGER DEFAULT 0
                 )
-            """
-            )
+            """)
 
     def _to_entity(self, row: sqlite3.Row) -> MemoryEntity:
         """Convert database row to MemoryEntity."""

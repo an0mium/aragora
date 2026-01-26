@@ -196,15 +196,15 @@ class MeetingDetectionResult:
             "organizer": self.organizer.to_dict() if self.organizer else None,
             "participants": [p.to_dict() for p in self.participants],
             "meeting_links": [ml.to_dict() for ml in self.meeting_links],
-            "primary_meeting_link": self.primary_meeting_link.to_dict()
-            if self.primary_meeting_link
-            else None,
+            "primary_meeting_link": (
+                self.primary_meeting_link.to_dict() if self.primary_meeting_link else None
+            ),
             "conflicts": [c.to_dict() for c in self.conflicts],
             "has_conflicts": self.has_conflicts,
             "availability_checked": self.availability_checked,
-            "suggested_snooze_until": self.suggested_snooze_until.isoformat()
-            if self.suggested_snooze_until
-            else None,
+            "suggested_snooze_until": (
+                self.suggested_snooze_until.isoformat() if self.suggested_snooze_until else None
+            ),
             "matched_patterns": self.matched_patterns,
             "rationale": self.rationale,
         }

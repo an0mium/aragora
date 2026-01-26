@@ -504,9 +504,11 @@ class BackupScheduler:
 
                     if self._status == SchedulerStatus.RUNNING:
                         job = BackupJob(
-                            id=str(uuid.uuid4())
-                            if "uuid" in dir()
-                            else f"hourly-{datetime.now().timestamp()}",
+                            id=(
+                                str(uuid.uuid4())
+                                if "uuid" in dir()
+                                else f"hourly-{datetime.now().timestamp()}"
+                            ),
                             schedule_type=ScheduleType.HOURLY,
                             scheduled_at=next_time,
                         )
@@ -832,7 +834,6 @@ async def stop_backup_scheduler() -> None:
 
 # Import uuid at module level for use in methods
 import uuid
-
 
 __all__ = [
     "BackupScheduler",

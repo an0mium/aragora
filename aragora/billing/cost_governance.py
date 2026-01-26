@@ -118,9 +118,9 @@ class SpendingLimit:
             "daily_limit_usd": str(self.daily_limit_usd) if self.daily_limit_usd else None,
             "weekly_limit_usd": str(self.weekly_limit_usd) if self.weekly_limit_usd else None,
             "monthly_limit_usd": str(self.monthly_limit_usd) if self.monthly_limit_usd else None,
-            "per_operation_limit_usd": str(self.per_operation_limit_usd)
-            if self.per_operation_limit_usd
-            else None,
+            "per_operation_limit_usd": (
+                str(self.per_operation_limit_usd) if self.per_operation_limit_usd else None
+            ),
             "alert_threshold_percent": self.alert_threshold_percent,
             "hard_limit": self.hard_limit,
         }
@@ -129,18 +129,20 @@ class SpendingLimit:
     def from_dict(cls, data: Dict[str, Any]) -> "SpendingLimit":
         """Create from dictionary."""
         return cls(
-            daily_limit_usd=Decimal(data["daily_limit_usd"])
-            if data.get("daily_limit_usd")
-            else None,
-            weekly_limit_usd=Decimal(data["weekly_limit_usd"])
-            if data.get("weekly_limit_usd")
-            else None,
-            monthly_limit_usd=Decimal(data["monthly_limit_usd"])
-            if data.get("monthly_limit_usd")
-            else None,
-            per_operation_limit_usd=Decimal(data["per_operation_limit_usd"])
-            if data.get("per_operation_limit_usd")
-            else None,
+            daily_limit_usd=(
+                Decimal(data["daily_limit_usd"]) if data.get("daily_limit_usd") else None
+            ),
+            weekly_limit_usd=(
+                Decimal(data["weekly_limit_usd"]) if data.get("weekly_limit_usd") else None
+            ),
+            monthly_limit_usd=(
+                Decimal(data["monthly_limit_usd"]) if data.get("monthly_limit_usd") else None
+            ),
+            per_operation_limit_usd=(
+                Decimal(data["per_operation_limit_usd"])
+                if data.get("per_operation_limit_usd")
+                else None
+            ),
             alert_threshold_percent=data.get("alert_threshold_percent", 80.0),
             hard_limit=data.get("hard_limit", True),
         )
@@ -281,13 +283,13 @@ class CostGovernancePolicy:
             "model_restrictions": [r.to_dict() for r in self.model_restrictions],
             "spending_limit": self.spending_limit.to_dict() if self.spending_limit else None,
             "time_restriction": self.time_restriction.to_dict() if self.time_restriction else None,
-            "approval_threshold_usd": str(self.approval_threshold_usd)
-            if self.approval_threshold_usd
-            else None,
+            "approval_threshold_usd": (
+                str(self.approval_threshold_usd) if self.approval_threshold_usd else None
+            ),
             "approvers": self.approvers,
-            "auto_approve_under_usd": str(self.auto_approve_under_usd)
-            if self.auto_approve_under_usd
-            else None,
+            "auto_approve_under_usd": (
+                str(self.auto_approve_under_usd) if self.auto_approve_under_usd else None
+            ),
             "priority": self.priority,
             "enabled": self.enabled,
             "created_at": self.created_at.isoformat(),
@@ -325,13 +327,17 @@ class CostGovernancePolicy:
             model_restrictions=model_restrictions,
             spending_limit=spending_limit,
             time_restriction=time_restriction,
-            approval_threshold_usd=Decimal(data["approval_threshold_usd"])
-            if data.get("approval_threshold_usd")
-            else None,
+            approval_threshold_usd=(
+                Decimal(data["approval_threshold_usd"])
+                if data.get("approval_threshold_usd")
+                else None
+            ),
             approvers=data.get("approvers", []),
-            auto_approve_under_usd=Decimal(data["auto_approve_under_usd"])
-            if data.get("auto_approve_under_usd")
-            else None,
+            auto_approve_under_usd=(
+                Decimal(data["auto_approve_under_usd"])
+                if data.get("auto_approve_under_usd")
+                else None
+            ),
             priority=data.get("priority", 0),
             enabled=data.get("enabled", True),
             created_by=data.get("created_by"),

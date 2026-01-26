@@ -737,9 +737,11 @@ class DependencyAnalyzer:
                             description=vuln.get("description", ""),
                             affected_package=vuln.get("name", ""),
                             affected_versions=vuln.get("version", "*"),
-                            fixed_version=vuln.get("fix_versions", [None])[0]
-                            if vuln.get("fix_versions")
-                            else None,
+                            fixed_version=(
+                                vuln.get("fix_versions", [None])[0]
+                                if vuln.get("fix_versions")
+                                else None
+                            ),
                             references=vuln.get("references", []),
                         )
                     )
@@ -815,15 +817,19 @@ class DependencyAnalyzer:
                                     affected_versions=vuln_info.get(
                                         "vulnerable_versions", adv.get("range", "*")
                                     ),
-                                    fixed_version=adv.get("fixAvailable", {}).get("version")
-                                    if isinstance(adv.get("fixAvailable"), dict)
-                                    else None,
-                                    cwe_id=str(vuln_info.get("cwe", [""])[0])
-                                    if vuln_info.get("cwe")
-                                    else None,
-                                    references=[vuln_info.get("url", "")]
-                                    if vuln_info.get("url")
-                                    else [],
+                                    fixed_version=(
+                                        adv.get("fixAvailable", {}).get("version")
+                                        if isinstance(adv.get("fixAvailable"), dict)
+                                        else None
+                                    ),
+                                    cwe_id=(
+                                        str(vuln_info.get("cwe", [""])[0])
+                                        if vuln_info.get("cwe")
+                                        else None
+                                    ),
+                                    references=(
+                                        [vuln_info.get("url", "")] if vuln_info.get("url") else []
+                                    ),
                                 )
                             )
 

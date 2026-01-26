@@ -966,8 +966,7 @@ def init_circuit_breaker_persistence(db_path: str = ".data/circuit_breaker.db") 
     # Use timeout and WAL mode for concurrent access
     with sqlite3.connect(db_path, timeout=_CB_TIMEOUT_SECONDS) as conn:
         conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute(
-            """
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS circuit_breakers (
                 name TEXT PRIMARY KEY,
                 state_json TEXT NOT NULL,
@@ -975,14 +974,11 @@ def init_circuit_breaker_persistence(db_path: str = ".data/circuit_breaker.db") 
                 cooldown_seconds REAL NOT NULL,
                 updated_at TEXT NOT NULL
             )
-        """
-        )
-        conn.execute(
-            """
+        """)
+        conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_circuit_breakers_updated
             ON circuit_breakers(updated_at)
-        """
-        )
+        """)
         conn.commit()
 
     logger.info(f"Circuit breaker persistence initialized: {db_path}")
@@ -1057,12 +1053,10 @@ def load_circuit_breakers() -> int:
 
     try:
         with _get_cb_connection() as conn:
-            cursor = conn.execute(
-                """
+            cursor = conn.execute("""
                 SELECT name, state_json, failure_threshold, cooldown_seconds
                 FROM circuit_breakers
-            """
-            )
+            """)
 
             count = 0
             with _circuit_breakers_lock:

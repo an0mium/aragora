@@ -558,9 +558,11 @@ class CodebaseUnderstandingAgent:
                     {
                         "name": n.qualified_name,
                         "kind": n.kind.value,
-                        "location": f"{n.location.file_path}:{n.location.start_line}"
-                        if n.location
-                        else None,
+                        "location": (
+                            f"{n.location.file_path}:{n.location.start_line}"
+                            if n.location
+                            else None
+                        ),
                     }
                     for n in dead_code.unreachable_functions[:50]
                 ]

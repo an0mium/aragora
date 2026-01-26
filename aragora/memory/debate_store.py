@@ -60,8 +60,7 @@ class DebateStore:
     def _ensure_schema(self) -> None:
         """Ensure the deliberation tables exist."""
         with self._connection() as conn:
-            conn.executescript(
-                """
+            conn.executescript("""
                 CREATE TABLE IF NOT EXISTS deliberations (
                     id TEXT PRIMARY KEY,
                     org_id TEXT NOT NULL,
@@ -105,8 +104,7 @@ class DebateStore:
 
                 CREATE INDEX IF NOT EXISTS idx_delib_agents_agent_id
                     ON deliberation_agents(agent_id);
-                """
-            )
+                """)
             conn.commit()
 
     def get_deliberation_stats(

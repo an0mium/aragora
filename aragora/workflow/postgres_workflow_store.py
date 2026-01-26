@@ -358,9 +358,11 @@ class PostgresWorkflowStore(PostgresStore):
                 {
                     "version": row["version"],
                     "created_by": row["created_by"],
-                    "created_at": row["created_at"].isoformat()
-                    if hasattr(row["created_at"], "isoformat")
-                    else str(row["created_at"]),
+                    "created_at": (
+                        row["created_at"].isoformat()
+                        if hasattr(row["created_at"], "isoformat")
+                        else str(row["created_at"])
+                    ),
                     "step_count": len(data.get("steps", [])),
                 }
             )
@@ -563,22 +565,32 @@ class PostgresWorkflowStore(PostgresStore):
                 "workflow_id": row["workflow_id"],
                 "tenant_id": row["tenant_id"],
                 "status": row["status"],
-                "inputs": json.loads(row["inputs"])
-                if isinstance(row["inputs"], str)
-                else (row["inputs"] or {}),
-                "outputs": json.loads(row["outputs"])
-                if isinstance(row["outputs"], str)
-                else (row["outputs"] or {}),
-                "steps": json.loads(row["steps"])
-                if isinstance(row["steps"], str)
-                else (row["steps"] or []),
+                "inputs": (
+                    json.loads(row["inputs"])
+                    if isinstance(row["inputs"], str)
+                    else (row["inputs"] or {})
+                ),
+                "outputs": (
+                    json.loads(row["outputs"])
+                    if isinstance(row["outputs"], str)
+                    else (row["outputs"] or {})
+                ),
+                "steps": (
+                    json.loads(row["steps"])
+                    if isinstance(row["steps"], str)
+                    else (row["steps"] or [])
+                ),
                 "error": row["error"],
-                "started_at": row["started_at"].isoformat()
-                if hasattr(row["started_at"], "isoformat")
-                else row["started_at"],
-                "completed_at": row["completed_at"].isoformat()
-                if hasattr(row["completed_at"], "isoformat")
-                else row["completed_at"],
+                "started_at": (
+                    row["started_at"].isoformat()
+                    if hasattr(row["started_at"], "isoformat")
+                    else row["started_at"]
+                ),
+                "completed_at": (
+                    row["completed_at"].isoformat()
+                    if hasattr(row["completed_at"], "isoformat")
+                    else row["completed_at"]
+                ),
                 "duration_ms": row["duration_ms"],
             }
         return None
@@ -638,22 +650,32 @@ class PostgresWorkflowStore(PostgresStore):
                     "workflow_id": row["workflow_id"],
                     "tenant_id": row["tenant_id"],
                     "status": row["status"],
-                    "inputs": json.loads(row["inputs"])
-                    if isinstance(row["inputs"], str)
-                    else (row["inputs"] or {}),
-                    "outputs": json.loads(row["outputs"])
-                    if isinstance(row["outputs"], str)
-                    else (row["outputs"] or {}),
-                    "steps": json.loads(row["steps"])
-                    if isinstance(row["steps"], str)
-                    else (row["steps"] or []),
+                    "inputs": (
+                        json.loads(row["inputs"])
+                        if isinstance(row["inputs"], str)
+                        else (row["inputs"] or {})
+                    ),
+                    "outputs": (
+                        json.loads(row["outputs"])
+                        if isinstance(row["outputs"], str)
+                        else (row["outputs"] or {})
+                    ),
+                    "steps": (
+                        json.loads(row["steps"])
+                        if isinstance(row["steps"], str)
+                        else (row["steps"] or [])
+                    ),
                     "error": row["error"],
-                    "started_at": row["started_at"].isoformat()
-                    if hasattr(row["started_at"], "isoformat")
-                    else row["started_at"],
-                    "completed_at": row["completed_at"].isoformat()
-                    if hasattr(row["completed_at"], "isoformat")
-                    else row["completed_at"],
+                    "started_at": (
+                        row["started_at"].isoformat()
+                        if hasattr(row["started_at"], "isoformat")
+                        else row["started_at"]
+                    ),
+                    "completed_at": (
+                        row["completed_at"].isoformat()
+                        if hasattr(row["completed_at"], "isoformat")
+                        else row["completed_at"]
+                    ),
                     "duration_ms": row["duration_ms"],
                 }
             )

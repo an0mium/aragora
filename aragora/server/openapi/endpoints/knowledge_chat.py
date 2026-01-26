@@ -2,7 +2,6 @@
 
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS, AUTH_REQUIREMENTS
 
-
 KNOWLEDGE_CHAT_ENDPOINTS = {
     "/api/v1/chat/knowledge/search": {
         "post": {

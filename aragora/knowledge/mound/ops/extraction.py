@@ -564,9 +564,9 @@ class DebateKnowledgeExtractor:
             "total_claims": len(self._extracted_claims),
             "total_relationships": len(self._extracted_relationships),
             "by_type": by_type,
-            "average_confidence": total_confidence / len(self._extracted_claims)
-            if self._extracted_claims
-            else 0.0,
+            "average_confidence": (
+                total_confidence / len(self._extracted_claims) if self._extracted_claims else 0.0
+            ),
         }
 
 

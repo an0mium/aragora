@@ -102,9 +102,9 @@ class UnifiedTicket:
             "tags": self.tags,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "first_response_at": self.first_response_at.isoformat()
-            if self.first_response_at
-            else None,
+            "first_response_at": (
+                self.first_response_at.isoformat() if self.first_response_at else None
+            ),
             "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
         }
 
@@ -966,9 +966,9 @@ class SupportHandler(SecureHandler):
             "subject": ticket.subject,
             "description": ticket.description,
             "status": ticket.status.value if hasattr(ticket.status, "value") else ticket.status,
-            "priority": ticket.priority.value
-            if hasattr(ticket.priority, "value")
-            else ticket.priority,
+            "priority": (
+                ticket.priority.value if hasattr(ticket.priority, "value") else ticket.priority
+            ),
             "requester_email": ticket.requester_email,
             "requester_name": ticket.requester_name,
             "assignee_id": str(ticket.assignee_id) if ticket.assignee_id else None,
@@ -1011,22 +1011,30 @@ class SupportHandler(SecureHandler):
             "id": conv.id,
             "platform": "intercom",
             "subject": conv.title if hasattr(conv, "title") else None,
-            "description": conv.source.body
-            if hasattr(conv, "source") and hasattr(conv.source, "body")
-            else None,
+            "description": (
+                conv.source.body
+                if hasattr(conv, "source") and hasattr(conv.source, "body")
+                else None
+            ),
             "status": conv.state,
-            "priority": conv.priority.value
-            if hasattr(conv, "priority") and hasattr(conv.priority, "value")
-            else None,
-            "requester_email": conv.contacts[0].email
-            if hasattr(conv, "contacts") and conv.contacts
-            else None,
-            "created_at": conv.created_at.isoformat()
-            if hasattr(conv, "created_at") and conv.created_at
-            else None,
-            "updated_at": conv.updated_at.isoformat()
-            if hasattr(conv, "updated_at") and conv.updated_at
-            else None,
+            "priority": (
+                conv.priority.value
+                if hasattr(conv, "priority") and hasattr(conv.priority, "value")
+                else None
+            ),
+            "requester_email": (
+                conv.contacts[0].email if hasattr(conv, "contacts") and conv.contacts else None
+            ),
+            "created_at": (
+                conv.created_at.isoformat()
+                if hasattr(conv, "created_at") and conv.created_at
+                else None
+            ),
+            "updated_at": (
+                conv.updated_at.isoformat()
+                if hasattr(conv, "updated_at") and conv.updated_at
+                else None
+            ),
         }
 
     def _normalize_helpscout_conversation(self, conv: Any) -> dict[str, Any]:
@@ -1038,19 +1046,23 @@ class SupportHandler(SecureHandler):
             "description": conv.preview if hasattr(conv, "preview") else None,
             "status": conv.status.value if hasattr(conv.status, "value") else conv.status,
             "priority": None,  # Help Scout doesn't have priority on conversations
-            "requester_email": conv.customer.email
-            if hasattr(conv, "customer") and conv.customer
-            else None,
-            "requester_name": f"{conv.customer.first_name} {conv.customer.last_name}".strip()
-            if hasattr(conv, "customer") and conv.customer
-            else None,
-            "assignee_id": str(conv.assignee.id)
-            if hasattr(conv, "assignee") and conv.assignee
-            else None,
+            "requester_email": (
+                conv.customer.email if hasattr(conv, "customer") and conv.customer else None
+            ),
+            "requester_name": (
+                f"{conv.customer.first_name} {conv.customer.last_name}".strip()
+                if hasattr(conv, "customer") and conv.customer
+                else None
+            ),
+            "assignee_id": (
+                str(conv.assignee.id) if hasattr(conv, "assignee") and conv.assignee else None
+            ),
             "tags": conv.tags if hasattr(conv, "tags") else [],
-            "created_at": conv.created_at.isoformat()
-            if hasattr(conv, "created_at") and conv.created_at
-            else None,
+            "created_at": (
+                conv.created_at.isoformat()
+                if hasattr(conv, "created_at") and conv.created_at
+                else None
+            ),
         }
 
     def _map_freshdesk_status(self, status: int) -> str:

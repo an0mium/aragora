@@ -1388,9 +1388,11 @@ async def notify_batch_job_failed(
         title=title,
         message="\n".join(message_parts),
         severity=severity,
-        priority=NotificationPriority.HIGH
-        if failure_count > success_count
-        else NotificationPriority.NORMAL,
+        priority=(
+            NotificationPriority.HIGH
+            if failure_count > success_count
+            else NotificationPriority.NORMAL
+        ),
         resource_type="batch_job",
         resource_id=job_id,
         workspace_id=workspace_id,

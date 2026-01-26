@@ -230,15 +230,21 @@ async def get_cost_summary(
                 tokens_used=report.total_tokens_in + report.total_tokens_out,
                 api_calls=report.total_api_calls,
                 last_updated=now,
-                cost_by_provider=cost_by_provider
-                if cost_by_provider
-                else _generate_mock_summary(time_range).cost_by_provider,
-                cost_by_feature=cost_by_feature
-                if cost_by_feature
-                else _generate_mock_summary(time_range).cost_by_feature,
-                daily_costs=report.cost_over_time
-                if report.cost_over_time
-                else _generate_mock_summary(time_range).daily_costs,
+                cost_by_provider=(
+                    cost_by_provider
+                    if cost_by_provider
+                    else _generate_mock_summary(time_range).cost_by_provider
+                ),
+                cost_by_feature=(
+                    cost_by_feature
+                    if cost_by_feature
+                    else _generate_mock_summary(time_range).cost_by_feature
+                ),
+                daily_costs=(
+                    report.cost_over_time
+                    if report.cost_over_time
+                    else _generate_mock_summary(time_range).daily_costs
+                ),
                 alerts=_get_active_alerts(tracker, workspace_id),
             )
 
@@ -444,9 +450,9 @@ class CostHandler:
                 {
                     "timeline": summary.daily_costs,
                     "total": summary.total_cost,
-                    "average": summary.total_cost / len(summary.daily_costs)
-                    if summary.daily_costs
-                    else 0,
+                    "average": (
+                        summary.total_cost / len(summary.daily_costs) if summary.daily_costs else 0
+                    ),
                 }
             )
 
