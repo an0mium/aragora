@@ -16,6 +16,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
+
 from ..base import (
     HandlerResult,
     error_response,
@@ -30,7 +31,7 @@ from ..utils.rate_limit import RateLimiter, get_client_ip
 logger = logging.getLogger(__name__)
 
 # RBAC permission for learning endpoints
-LEARNING_PERMISSION = "memory:read"
+LEARNING_PERMISSION = "memory:write"
 
 # Rate limiter for learning endpoints (30 requests per minute - ML operations)
 _learning_limiter = RateLimiter(requests_per_minute=30)
