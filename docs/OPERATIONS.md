@@ -171,7 +171,7 @@ Key metrics:
 | `aragora_fallback_activations_total` | Counter | Fallback activations |
 | `aragora_fallback_success_total` | Counter | Fallback outcomes |
 | `aragora_fallback_latency_seconds` | Histogram | Fallback latency |
-| `aragora_ws_connections_active` | Gauge | Active WebSocket connections |
+| `aragora_websocket_connections` | Gauge | Active WebSocket connections |
 | `aragora_circuit_breaker_state` | Gauge | Circuit breaker status per agent |
 
 ### Grafana Dashboard
