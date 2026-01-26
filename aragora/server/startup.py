@@ -1818,7 +1818,10 @@ async def run_startup_sequence(
     except ImportError:
         logger.debug("Database validator not available - skipping schema validation")
 
+    import time as time_mod
+
     status: dict[str, Any] = {
+        "_startup_start_time": time_mod.time(),  # For duration calculation
         "backend_connectivity": connectivity,
         "storage_backend": storage_backend,
         "schema_validation": schema_validation,
@@ -1916,6 +1919,50 @@ async def run_startup_sequence(
 
     # Run comprehensive deployment validation and log results
     status["deployment_validation"] = await init_deployment_validation()
+
+    # Record startup completion time and store report
+    import time as time_mod
+
+    startup_end_time = time_mod.time()
+    startup_duration = startup_end_time - (status.get("_startup_start_time", startup_end_time))
+
+    try:
+        from aragora.server.startup_transaction import (
+            StartupReport,
+            set_last_startup_report,
+        )
+
+        # Generate report from status
+        components_initialized = [k for k, v in status.items() if v and not k.startswith("_")]
+        components_failed = [k for k, v in status.items() if v is False]
+
+        report = StartupReport(
+            success=len(components_failed) == 0,
+            total_duration_seconds=startup_duration,
+            slo_seconds=30.0,
+            slo_met=startup_duration <= 30.0,
+            components_initialized=len(components_initialized),
+            components_failed=components_failed,
+            checkpoints=[],
+            error=None,
+        )
+        set_last_startup_report(report)
+
+        if startup_duration > 30.0:
+            logger.warning(
+                f"[STARTUP] Completed in {startup_duration:.2f}s (exceeds 30s SLO target)"
+            )
+        else:
+            logger.info(
+                f"[STARTUP] Completed in {startup_duration:.2f}s "
+                f"({len(components_initialized)} components)"
+            )
+
+        status["startup_report"] = report.to_dict()
+
+    except ImportError:
+        logger.debug("startup_transaction module not available - skipping report")
+        status["startup_duration_seconds"] = round(startup_duration, 2)
 
     return status
 

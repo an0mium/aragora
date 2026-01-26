@@ -86,6 +86,7 @@ class HealthHandler(SecureHandler):
         "/api/v1/health/cross-pollination",
         "/api/v1/health/knowledge-mound",
         "/api/v1/health/decay",  # Confidence decay scheduler status
+        "/api/v1/health/startup",  # Startup report and SLO status
         "/api/v1/health/encryption",
         "/api/v1/health/database",
         "/api/v1/health/platform",
@@ -145,6 +146,7 @@ class HealthHandler(SecureHandler):
             "/api/health/cross-pollination": self._cross_pollination_health,
             "/api/health/knowledge-mound": self._knowledge_mound_health,
             "/api/health/decay": self._decay_health,  # Confidence decay status
+            "/api/health/startup": self._startup_health,  # Startup report
             "/api/health/database": self._database_schema_health,
             "/api/health/platform": self._platform_health,
             "/api/platform/health": self._platform_health,
@@ -2386,6 +2388,81 @@ class HealthHandler(SecureHandler):
                 "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             }
         )
+
+    def _startup_health(self) -> HandlerResult:
+        """Startup health status - reports server startup information.
+
+        Returns:
+        - Success status
+        - Total startup duration
+        - SLO compliance (target: 30s)
+        - Components initialized/failed
+        - Checkpoints reached
+        """
+        start_time = time.time()
+
+        try:
+            from aragora.server.startup_transaction import (
+                get_last_startup_report,
+            )
+
+            report = get_last_startup_report()
+            if report is None:
+                return json_response(
+                    {
+                        "status": "unknown",
+                        "message": "No startup report available",
+                        "response_time_ms": round((time.time() - start_time) * 1000, 2),
+                    }
+                )
+
+            response_time_ms = round((time.time() - start_time) * 1000, 2)
+
+            # Determine overall status
+            if report.success and report.slo_met:
+                status = "healthy"
+            elif report.success:
+                status = "warning"  # Started but SLO exceeded
+            else:
+                status = "degraded"
+
+            return json_response(
+                {
+                    "status": status,
+                    "startup": {
+                        "success": report.success,
+                        "duration_seconds": round(report.total_duration_seconds, 2),
+                        "slo_seconds": report.slo_seconds,
+                        "slo_met": report.slo_met,
+                    },
+                    "components": {
+                        "initialized": report.components_initialized,
+                        "failed": report.components_failed,
+                    },
+                    "checkpoints": [
+                        {
+                            "name": cp.name,
+                            "elapsed_seconds": round(cp.elapsed_seconds, 2),
+                        }
+                        for cp in report.checkpoints
+                    ]
+                    if report.checkpoints
+                    else None,
+                    "error": report.error,
+                    "response_time_ms": response_time_ms,
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                }
+            )
+
+        except ImportError:
+            return json_response(
+                {
+                    "status": "not_available",
+                    "message": "Startup transaction module not installed",
+                    "response_time_ms": round((time.time() - start_time) * 1000, 2),
+                },
+                status=503,
+            )
 
     def _encryption_health(self) -> HandlerResult:
         """Encryption health check - verifies encryption service status.
