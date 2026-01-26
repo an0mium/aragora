@@ -486,7 +486,7 @@ class GoogleChatHandler(BaseHandler):
 
         if len(statement) > MAX_STATEMENT_LENGTH:
             return self._card_response(
-                body="Statement is too long. Please limit to {MAX_STATEMENT_LENGTH} characters."
+                body=f"Statement is too long. Please limit to {MAX_STATEMENT_LENGTH} characters."
             )
 
         user_name = user.get("displayName", "Unknown")
