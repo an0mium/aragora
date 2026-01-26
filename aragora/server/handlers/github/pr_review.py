@@ -32,6 +32,7 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.services import ServiceRegistry
 
 if TYPE_CHECKING:
@@ -1023,6 +1024,7 @@ async def handle_list_pr_reviews(
         }
 
 
+@require_permission("connectors:create")
 async def handle_submit_review(
     repository: str,
     pr_number: int,

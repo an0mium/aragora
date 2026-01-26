@@ -33,6 +33,7 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -565,6 +566,7 @@ def get_labels_for_finding(finding: Dict[str, Any]) -> List[str]:
 # =============================================================================
 
 
+@require_permission("connectors:create")
 async def handle_create_issue(
     repository: str,
     finding: Dict[str, Any],
@@ -745,6 +747,7 @@ async def handle_bulk_create_issues(
     }
 
 
+@require_permission("connectors:create")
 async def handle_create_fix_pr(
     repository: str,
     session_id: str,
