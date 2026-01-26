@@ -723,6 +723,7 @@ async def handle_void(request: web.Request) -> web.Response:
         return web.json_response({"error": str(e)}, status=500)
 
 
+@require_permission("payments:read")
 async def handle_get_transaction(request: web.Request) -> web.Response:
     """
     GET /api/payments/transaction/{transaction_id}
