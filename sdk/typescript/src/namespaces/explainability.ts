@@ -18,6 +18,59 @@ import type {
 /**
  * Interface for the internal client methods used by ExplainabilityAPI.
  */
+/**
+ * Evidence item from a debate.
+ */
+export interface EvidenceItem {
+  id: string;
+  source: string;
+  content: string;
+  relevance_score: number;
+  cited_by: string[];
+}
+
+/**
+ * Evidence response from getEvidence.
+ */
+export interface EvidenceResponse {
+  debate_id: string;
+  evidence_count: number;
+  evidence_quality_score: number;
+  evidence: EvidenceItem[];
+}
+
+/**
+ * Vote pivot item from a debate.
+ */
+export interface VotePivot {
+  agent_id: string;
+  vote: string;
+  influence_score: number;
+  reasoning?: string;
+}
+
+/**
+ * Vote pivots response from getVotePivots.
+ */
+export interface VotePivotsResponse {
+  debate_id: string;
+  total_votes: number;
+  pivotal_votes: number;
+  pivot_threshold: number;
+  votes: VotePivot[];
+}
+
+/**
+ * Comparison result from compare.
+ */
+export interface ComparisonResponse {
+  debates: Record<string, unknown>;
+  comparison: {
+    fields: Record<string, Array<{ debate_id: string; value: unknown }>>;
+    summary: string;
+  };
+}
+
 interface ExplainabilityClientInterface {
   getExplanation(debateId: string, options?: {
     include_factors?: boolean;
@@ -54,6 +107,17 @@ interface ExplainabilityClientInterface {
     limit?: number;
     offset?: number;
   }): Promise<{ results: Array<{ debate_id: string; status: string; explanation?: unknown }> }>;
+  getDebateEvidence(debateId: string, options?: {
+    limit?: number;
+    min_relevance?: number;
+  }): Promise<EvidenceResponse>;
+  getDebateVotePivots(debateId: string, options?: {
+    min_influence?: number;
+  }): Promise<VotePivotsResponse>;
+  compareExplanations(body: {
+    debate_ids: string[];
+    compare_fields?: string[];
+  }): Promise<ComparisonResponse>;
 }
 
 /**

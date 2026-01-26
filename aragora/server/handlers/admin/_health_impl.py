@@ -144,6 +144,7 @@ class HealthHandler(SecureHandler):
             "/api/health/slow-debates": self._slow_debates_status,
             "/api/health/cross-pollination": self._cross_pollination_health,
             "/api/health/knowledge-mound": self._knowledge_mound_health,
+            "/api/health/decay": self._decay_health,  # Confidence decay status
             "/api/health/database": self._database_schema_health,
             "/api/health/platform": self._platform_health,
             "/api/platform/health": self._platform_health,
