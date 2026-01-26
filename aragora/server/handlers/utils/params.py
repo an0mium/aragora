@@ -5,11 +5,11 @@ Provides type-safe parameter extraction from query strings with support
 for defaults, bounds, and list value handling.
 """
 
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import parse_qs
 
 
-def parse_query_params(query_string: str) -> dict:
+def parse_query_params(query_string: str) -> dict[str, Any]:
     """Parse query string into a dictionary."""
     if not query_string:
         return {}
@@ -18,7 +18,7 @@ def parse_query_params(query_string: str) -> dict:
     return {k: v[0] if len(v) == 1 else v for k, v in params.items()}
 
 
-def get_int_param(params: dict, key: str, default: int = 0) -> int:
+def get_int_param(params: dict[str, Any], key: str, default: int = 0) -> int:
     """Safely get an integer parameter, handling list values from query strings."""
     try:
         value = params.get(key, default)
@@ -29,7 +29,7 @@ def get_int_param(params: dict, key: str, default: int = 0) -> int:
         return default
 
 
-def get_float_param(params: dict, key: str, default: float = 0.0) -> float:
+def get_float_param(params: dict[str, Any], key: str, default: float = 0.0) -> float:
     """Safely get a float parameter, handling list values from query strings."""
     try:
         value = params.get(key, default)
@@ -40,7 +40,7 @@ def get_float_param(params: dict, key: str, default: float = 0.0) -> float:
         return default
 
 
-def get_bool_param(params: dict, key: str, default: bool = False) -> bool:
+def get_bool_param(params: dict[str, Any], key: str, default: bool = False) -> bool:
     """Safely get a boolean parameter, handling various input types."""
     value = params.get(key)
     if value is None:
@@ -60,7 +60,7 @@ def get_bool_param(params: dict, key: str, default: bool = False) -> bool:
     return bool(value)
 
 
-def get_string_param(params: dict, key: str, default: str | None = None) -> Optional[str]:
+def get_string_param(params: dict[str, Any], key: str, default: str | None = None) -> Optional[str]:
     """Safely get a string parameter, handling list values from query strings."""
     value = params.get(key, default)
     if value is None:
@@ -71,7 +71,7 @@ def get_string_param(params: dict, key: str, default: str | None = None) -> Opti
 
 
 def get_clamped_int_param(
-    params: dict,
+    params: dict[str, Any],
     key: str,
     default: int,
     min_val: int,
@@ -94,7 +94,7 @@ def get_clamped_int_param(
 
 
 def get_bounded_float_param(
-    params: dict,
+    params: dict[str, Any],
     key: str,
     default: float,
     min_val: float,
@@ -117,7 +117,7 @@ def get_bounded_float_param(
 
 
 def get_bounded_string_param(
-    params: dict,
+    params: dict[str, Any],
     key: str,
     default: str | None = None,
     max_length: int = 500,

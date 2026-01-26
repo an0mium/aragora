@@ -14,7 +14,7 @@ __all__ = [
 from typing import Any, Optional
 
 
-def fetch_scalar(cursor, default: Any = 0) -> Any:
+def fetch_scalar(cursor: Any, default: Any = 0) -> Any:
     """
     Safely fetch a single scalar value from a database cursor.
 
@@ -38,7 +38,7 @@ def fetch_scalar(cursor, default: Any = 0) -> Any:
     return row[0] if row else default
 
 
-def fetch_scalar_or_none(cursor) -> Optional[Any]:
+def fetch_scalar_or_none(cursor: Any) -> Optional[Any]:
     """
     Fetch a single scalar value, returning None if no rows.
 
@@ -54,7 +54,7 @@ def fetch_scalar_or_none(cursor) -> Optional[Any]:
     return row[0] if row else None
 
 
-def fetch_row_or_default(cursor, default: tuple = ()) -> tuple:
+def fetch_row_or_default(cursor: Any, default: tuple[Any, ...] = ()) -> tuple[Any, ...]:
     """
     Safely fetch a single row from a database cursor.
 

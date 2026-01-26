@@ -36,11 +36,11 @@ class PositionTrackerProtocol(Protocol):
         """Record an agent's position on a claim."""
         ...
 
-    def get_positions(self, agent_name: str) -> list[dict]:
+    def get_positions(self, agent_name: str) -> list[dict[str, Any]]:
         """Get all positions recorded for an agent."""
         ...
 
-    def get_position_history(self, claim_text: str) -> list[dict]:
+    def get_position_history(self, claim_text: str) -> list[dict[str, Any]]:
         """Get position history for a specific claim."""
         ...
 
@@ -115,9 +115,9 @@ class BeliefPropagationAnalyzerProtocol(Protocol):
 
     def analyze_debate(
         self,
-        messages: list,
+        messages: list[Any],
         network: Optional[BeliefNetworkProtocol] = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Analyze belief changes during a debate."""
         ...
 
@@ -126,15 +126,15 @@ class BeliefPropagationAnalyzerProtocol(Protocol):
 class CitationExtractorProtocol(Protocol):
     """Interface for extracting citations from text."""
 
-    def extract(self, text: str) -> list[dict]:
+    def extract(self, text: str) -> list[dict[str, Any]]:
         """Extract citations from text."""
         ...
 
     def validate_citations(
         self,
-        citations: list[dict],
+        citations: list[dict[str, Any]],
         evidence_store: Optional[Any] = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Validate extracted citations."""
         ...
 
@@ -146,8 +146,8 @@ class InsightExtractorProtocol(Protocol):
     def extract_insights(
         self,
         text: str,
-        context: Optional[dict] = None,
-    ) -> list[dict]:
+        context: Optional[dict[str, Any]] = None,
+    ) -> list[dict[str, Any]]:
         """Extract insights from debate text."""
         ...
 
@@ -158,7 +158,7 @@ class InsightStoreProtocol(Protocol):
 
     def store_insight(
         self,
-        insight: dict,
+        insight: dict[str, Any],
         debate_id: Optional[str] = None,
     ) -> str:
         """Store an insight and return its ID."""
@@ -168,7 +168,7 @@ class InsightStoreProtocol(Protocol):
         self,
         debate_id: Optional[str] = None,
         limit: int = 100,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Retrieve stored insights."""
         ...
 
@@ -176,7 +176,7 @@ class InsightStoreProtocol(Protocol):
         self,
         query: str,
         limit: int = 10,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Search insights by query."""
         ...
 
@@ -197,7 +197,7 @@ class CritiqueStoreProtocol(Protocol):
         self,
         task: str,
         limit: int = 10,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Get critique patterns relevant to a task."""
         ...
 
@@ -208,15 +208,15 @@ class ArgumentCartographerProtocol(Protocol):
 
     def map_arguments(
         self,
-        messages: list,
-        context: Optional[dict] = None,
-    ) -> dict:
+        messages: list[Any],
+        context: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Map argument structure from messages."""
         ...
 
     def visualize(
         self,
-        argument_map: dict,
+        argument_map: dict[str, Any],
         format: str = "json",
     ) -> Any:
         """Visualize the argument map."""
