@@ -8,6 +8,7 @@ DECISION_ENDPOINTS = {
         "get": {
             "tags": ["Decisions"],
             "summary": "List decisions",
+            "operationId": "listDecisions",
             "description": "List recent decision records (most recent first).",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -25,6 +26,7 @@ DECISION_ENDPOINTS = {
         "post": {
             "tags": ["Decisions"],
             "summary": "Create decision",
+            "operationId": "createDecisions",
             "description": "Submit a decision request for debate, workflow, or gauntlet routing.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -44,6 +46,7 @@ DECISION_ENDPOINTS = {
         "get": {
             "tags": ["Decisions"],
             "summary": "Get decision",
+            "operationId": "getDecision",
             "description": "Get a decision result by request ID.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -65,6 +68,7 @@ DECISION_ENDPOINTS = {
         "get": {
             "tags": ["Decisions"],
             "summary": "Get decision status",
+            "operationId": "getDecisionsStatu",
             "description": "Get decision status for polling.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [

@@ -7,6 +7,7 @@ PATTERN_ENDPOINTS = {
         "get": {
             "tags": ["Patterns"],
             "summary": "List pattern templates",
+            "operationId": "listPatterns",
             "description": "Get list of available workflow pattern templates.",
             "parameters": [
                 {
@@ -31,6 +32,7 @@ PATTERN_ENDPOINTS = {
         "get": {
             "tags": ["Patterns"],
             "summary": "Get pattern template",
+            "operationId": "getPattern",
             "description": "Get a specific pattern template by ID.",
             "parameters": [
                 {
@@ -50,6 +52,7 @@ PATTERN_ENDPOINTS = {
         "post": {
             "tags": ["Patterns"],
             "summary": "Create Hive Mind workflow",
+            "operationId": "createPatternsHiveMind",
             "description": "Create a workflow from the Hive Mind pattern template.",
             "requestBody": {
                 "required": False,
@@ -101,6 +104,7 @@ PATTERN_ENDPOINTS = {
         "post": {
             "tags": ["Patterns"],
             "summary": "Create MapReduce workflow",
+            "operationId": "createPatternsMapReduce",
             "description": "Create a workflow from the MapReduce pattern template.",
             "requestBody": {
                 "required": False,
@@ -161,6 +165,7 @@ PATTERN_ENDPOINTS = {
         "post": {
             "tags": ["Patterns"],
             "summary": "Create Review Cycle workflow",
+            "operationId": "createPatternsReviewCycle",
             "description": "Create a workflow from the Review Cycle pattern template.",
             "requestBody": {
                 "required": False,

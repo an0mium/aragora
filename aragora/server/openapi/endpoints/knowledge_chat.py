@@ -8,6 +8,7 @@ KNOWLEDGE_CHAT_ENDPOINTS = {
         "post": {
             "tags": ["Knowledge Mound"],
             "summary": "Search knowledge",
+            "operationId": "createChatKnowledgeSearch",
             "description": "Search knowledge from chat context.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -41,6 +42,7 @@ KNOWLEDGE_CHAT_ENDPOINTS = {
         "post": {
             "tags": ["Knowledge Mound"],
             "summary": "Inject knowledge",
+            "operationId": "createChatKnowledgeInject",
             "description": "Retrieve knowledge context for a conversation.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -58,6 +60,7 @@ KNOWLEDGE_CHAT_ENDPOINTS = {
         "post": {
             "tags": ["Knowledge Mound"],
             "summary": "Store chat knowledge",
+            "operationId": "createChatKnowledgeStore",
             "description": "Persist chat conversation as knowledge.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -75,6 +78,7 @@ KNOWLEDGE_CHAT_ENDPOINTS = {
         "get": {
             "tags": ["Knowledge Mound"],
             "summary": "Channel summary",
+            "operationId": "getChatKnowledgeChannelSummary",
             "description": "Get channel knowledge summary.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [

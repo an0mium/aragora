@@ -7,6 +7,7 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Analytics"],
             "summary": "Disagreement analysis",
+            "operationId": "listAnalyticsDisagreements",
             "description": "Get metrics on agent disagreement patterns",
             "responses": {"200": _ok_response("Disagreement statistics")},
         },
@@ -15,6 +16,7 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Analytics"],
             "summary": "Role rotation stats",
+            "operationId": "listAnalyticsRoleRotation",
             "responses": {"200": _ok_response("Role rotation data")},
         },
     },
@@ -22,6 +24,7 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Analytics"],
             "summary": "Early stop statistics",
+            "operationId": "listAnalyticsEarlyStops",
             "responses": {"200": _ok_response("Early stop data")},
         },
     },
@@ -29,6 +32,7 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Analytics"],
             "summary": "Ranking statistics",
+            "operationId": "listRankingStats",
             "responses": {"200": _ok_response("Ranking stats")},
         },
     },
@@ -36,6 +40,7 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Analytics"],
             "summary": "Memory statistics",
+            "operationId": "listMemoryStats",
             "responses": {"200": _ok_response("Memory stats")},
         },
     },
@@ -43,6 +48,7 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Insights"],
             "summary": "Recent position flips",
+            "operationId": "listFlipsRecent",
             "parameters": [
                 {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}
             ],
@@ -53,6 +59,7 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Insights"],
             "summary": "Flip summary",
+            "operationId": "listFlipsSummary",
             "responses": {"200": _ok_response("Flip summary statistics")},
         },
     },
@@ -60,6 +67,7 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Insights"],
             "summary": "Recent insights",
+            "operationId": "listInsightsRecent",
             "parameters": [
                 {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}
             ],
@@ -70,6 +78,7 @@ ANALYTICS_ENDPOINTS = {
         "post": {
             "tags": ["Insights"],
             "summary": "Extract detailed insights",
+            "operationId": "createInsightsExtractDetailed",
             "description": "Computationally expensive insight extraction (requires auth)",
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
             "responses": {"200": _ok_response("Detailed insights")},
@@ -80,6 +89,7 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Insights"],
             "summary": "Moments summary",
+            "operationId": "listMomentsSummary",
             "responses": {"200": _ok_response("Moments summary")},
         },
     },
@@ -87,6 +97,7 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Insights"],
             "summary": "Moments timeline",
+            "operationId": "listMomentsTimeline",
             "responses": {"200": _ok_response("Timeline data")},
         },
     },
@@ -94,6 +105,7 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Insights"],
             "summary": "Trending moments",
+            "operationId": "listMomentsTrending",
             "responses": {"200": _ok_response("Trending moments")},
         },
     },
@@ -101,6 +113,7 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Insights"],
             "summary": "Moments by type",
+            "operationId": "getMomentsByType",
             "parameters": [
                 {"name": "type", "in": "path", "required": True, "schema": {"type": "string"}}
             ],

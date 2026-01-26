@@ -8,6 +8,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "get": {
             "tags": ["Control Plane"],
             "summary": "List control plane agents",
+            "operationId": "listControlPlaneAgents",
             "description": "List registered agents. Supports filtering by capability.",
             "parameters": [
                 {
@@ -34,6 +35,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "post": {
             "tags": ["Control Plane"],
             "summary": "Register agent",
+            "operationId": "createControlPlaneAgents",
             "description": "Register an agent with capabilities and model metadata.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
@@ -70,6 +72,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "get": {
             "tags": ["Control Plane"],
             "summary": "Get agent",
+            "operationId": "getControlPlaneAgent",
             "description": "Get a specific agent by ID.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -91,6 +94,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "delete": {
             "tags": ["Control Plane"],
             "summary": "Unregister agent",
+            "operationId": "deleteControlPlaneAgent",
             "description": "Unregister an agent by ID.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -114,6 +118,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "post": {
             "tags": ["Control Plane"],
             "summary": "Send heartbeat",
+            "operationId": "createControlPlaneAgentsHeartbeat",
             "description": "Update agent heartbeat and status.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -150,6 +155,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "post": {
             "tags": ["Control Plane"],
             "summary": "Submit task",
+            "operationId": "createControlPlaneTasks",
             "description": "Submit a task to the control plane scheduler.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
@@ -190,6 +196,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "get": {
             "tags": ["Control Plane"],
             "summary": "Get task",
+            "operationId": "getControlPlaneTask",
             "description": "Get task status and metadata by ID.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -213,6 +220,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "post": {
             "tags": ["Control Plane"],
             "summary": "Complete task",
+            "operationId": "createControlPlaneTasksComplete",
             "description": "Mark a task as completed.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -251,6 +259,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "post": {
             "tags": ["Control Plane"],
             "summary": "Fail task",
+            "operationId": "createControlPlaneTasksFail",
             "description": "Mark a task as failed.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -289,6 +298,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "post": {
             "tags": ["Control Plane"],
             "summary": "Cancel task",
+            "operationId": "createControlPlaneTasksCancel",
             "description": "Cancel a task by ID.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -312,6 +322,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "post": {
             "tags": ["Control Plane"],
             "summary": "Claim task",
+            "operationId": "createControlPlaneTasksClaim",
             "description": "Claim the next available task for an agent.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
@@ -345,6 +356,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "get": {
             "tags": ["Control Plane"],
             "summary": "Queue snapshot",
+            "operationId": "listControlPlaneQueue",
             "description": "Get pending and running tasks for dashboard queue.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -366,6 +378,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "get": {
             "tags": ["Control Plane"],
             "summary": "Control plane metrics",
+            "operationId": "listControlPlaneMetrics",
             "description": "Get dashboard metrics derived from scheduler and registry stats.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "responses": {
@@ -380,6 +393,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "get": {
             "tags": ["Control Plane"],
             "summary": "Control plane stats",
+            "operationId": "listControlPlaneStats",
             "description": "Get scheduler and registry stats.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "responses": {
@@ -394,6 +408,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "get": {
             "tags": ["Control Plane"],
             "summary": "System health",
+            "operationId": "listControlPlaneHealth",
             "description": "Get system health with agent health summaries.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "responses": {
@@ -408,6 +423,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "get": {
             "tags": ["Control Plane"],
             "summary": "Agent health",
+            "operationId": "getControlPlaneHealth",
             "description": "Get health status for a specific agent.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -431,6 +447,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "post": {
             "tags": ["Control Plane"],
             "summary": "Run vetted decisionmaking session",
+            "operationId": "createControlPlaneDeliberations",
             "description": "Run or queue a vetted decisionmaking session (async when async=true).",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
@@ -455,6 +472,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "get": {
             "tags": ["Control Plane"],
             "summary": "Get vetted decisionmaking result",
+            "operationId": "getControlPlaneDeliberation",
             "description": "Fetch a stored vetted decisionmaking record by request ID.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -478,6 +496,7 @@ CONTROL_PLANE_ENDPOINTS = {
         "get": {
             "tags": ["Control Plane"],
             "summary": "Get vetted decisionmaking status",
+            "operationId": "getControlPlaneDeliberationsStatu",
             "description": "Check vetted decisionmaking status for polling.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [

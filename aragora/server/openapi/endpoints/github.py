@@ -8,6 +8,7 @@ GITHUB_ENDPOINTS = {
         "post": {
             "tags": ["GitHub"],
             "summary": "Trigger PR review",
+            "operationId": "createGithubPrReview",
             "description": "Trigger an automated PR review run.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -31,6 +32,7 @@ GITHUB_ENDPOINTS = {
         "get": {
             "tags": ["GitHub"],
             "summary": "Get PR details",
+            "operationId": "getGithubPr",
             "description": "Fetch PR metadata and file diffs.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -61,6 +63,7 @@ GITHUB_ENDPOINTS = {
         "get": {
             "tags": ["GitHub"],
             "summary": "Get review status",
+            "operationId": "getGithubPrReview",
             "description": "Fetch review status and results.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -84,6 +87,7 @@ GITHUB_ENDPOINTS = {
         "get": {
             "tags": ["GitHub"],
             "summary": "List PR reviews",
+            "operationId": "getGithubPrReview",
             "description": "List review runs for a PR.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -113,6 +117,7 @@ GITHUB_ENDPOINTS = {
         "post": {
             "tags": ["GitHub"],
             "summary": "Submit PR review",
+            "operationId": "createGithubPrReview",
             "description": "Submit a review verdict back to GitHub.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -144,6 +149,7 @@ GITHUB_ENDPOINTS = {
         "post": {
             "tags": ["GitHub"],
             "summary": "Create issues from findings",
+            "operationId": "createGithubAuditIssues",
             "description": "Create GitHub issues from audit findings.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -162,6 +168,7 @@ GITHUB_ENDPOINTS = {
         "post": {
             "tags": ["GitHub"],
             "summary": "Bulk create issues",
+            "operationId": "createGithubAuditIssuesBulk",
             "description": "Bulk create GitHub issues from findings.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -180,6 +187,7 @@ GITHUB_ENDPOINTS = {
         "post": {
             "tags": ["GitHub"],
             "summary": "Create PR with fixes",
+            "operationId": "createGithubAuditPr",
             "description": "Create a remediation PR from audit findings.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -198,6 +206,7 @@ GITHUB_ENDPOINTS = {
         "get": {
             "tags": ["GitHub"],
             "summary": "Get sync status",
+            "operationId": "getGithubAuditSync",
             "description": "Get status of a GitHub audit sync.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -218,6 +227,7 @@ GITHUB_ENDPOINTS = {
         "post": {
             "tags": ["GitHub"],
             "summary": "Sync findings",
+            "operationId": "createGithubAuditSync",
             "description": "Sync an audit session to GitHub.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [

@@ -7,6 +7,7 @@ CHECKPOINT_ENDPOINTS = {
         "get": {
             "tags": ["Knowledge Mound"],
             "summary": "List checkpoints",
+            "operationId": "listKmCheckpoints",
             "description": "Get list of Knowledge Mound checkpoints.",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -25,6 +26,7 @@ CHECKPOINT_ENDPOINTS = {
         "post": {
             "tags": ["Knowledge Mound"],
             "summary": "Create checkpoint",
+            "operationId": "createKmCheckpoints",
             "description": "Create a new Knowledge Mound checkpoint.",
             "security": [{"bearerAuth": []}],
             "requestBody": {
@@ -79,6 +81,7 @@ CHECKPOINT_ENDPOINTS = {
         "get": {
             "tags": ["Knowledge Mound"],
             "summary": "Get checkpoint",
+            "operationId": "getKmCheckpoint",
             "description": "Get checkpoint metadata by name.",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -98,6 +101,7 @@ CHECKPOINT_ENDPOINTS = {
         "delete": {
             "tags": ["Knowledge Mound"],
             "summary": "Delete checkpoint",
+            "operationId": "deleteKmCheckpoint",
             "description": "Delete a checkpoint by name.",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -119,6 +123,7 @@ CHECKPOINT_ENDPOINTS = {
         "post": {
             "tags": ["Knowledge Mound"],
             "summary": "Restore checkpoint",
+            "operationId": "createKmCheckpointsRestore",
             "description": "Restore Knowledge Mound state from a checkpoint.",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -164,6 +169,7 @@ CHECKPOINT_ENDPOINTS = {
         "get": {
             "tags": ["Knowledge Mound"],
             "summary": "Compare checkpoint",
+            "operationId": "getKmCheckpointsCompare",
             "description": "Compare checkpoint with current Knowledge Mound state.",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -203,6 +209,7 @@ CHECKPOINT_ENDPOINTS = {
         "post": {
             "tags": ["Knowledge Mound"],
             "summary": "Compare two checkpoints",
+            "operationId": "createKmCheckpointsCompare",
             "description": "Compare two checkpoints to see differences.",
             "security": [{"bearerAuth": []}],
             "requestBody": {
@@ -257,6 +264,7 @@ CHECKPOINT_ENDPOINTS = {
         "get": {
             "tags": ["Knowledge Mound"],
             "summary": "Download checkpoint",
+            "operationId": "getKmCheckpointsDownload",
             "description": "Download checkpoint file for backup or transfer.",
             "security": [{"bearerAuth": []}],
             "parameters": [

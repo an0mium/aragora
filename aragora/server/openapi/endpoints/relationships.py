@@ -7,6 +7,7 @@ RELATIONSHIP_ENDPOINTS = {
         "get": {
             "tags": ["Relationships"],
             "summary": "Relationship summary",
+            "operationId": "listRelationshipsSummary",
             "responses": {"200": _ok_response("Relationship summary")},
         },
     },
@@ -14,6 +15,7 @@ RELATIONSHIP_ENDPOINTS = {
         "get": {
             "tags": ["Relationships"],
             "summary": "Relationship graph",
+            "operationId": "listRelationshipsGraph",
             "description": "Get graph data for agent relationships",
             "responses": {"200": _ok_response("Graph data")},
         },
@@ -22,6 +24,7 @@ RELATIONSHIP_ENDPOINTS = {
         "get": {
             "tags": ["Relationships"],
             "summary": "Relationship statistics",
+            "operationId": "listRelationshipsStats",
             "responses": {"200": _ok_response("Relationship stats")},
         },
     },
@@ -29,6 +32,7 @@ RELATIONSHIP_ENDPOINTS = {
         "get": {
             "tags": ["Relationships"],
             "summary": "Get relationship between two agents",
+            "operationId": "getRelationship",
             "parameters": [
                 {"name": "agent_a", "in": "path", "required": True, "schema": {"type": "string"}},
                 {"name": "agent_b", "in": "path", "required": True, "schema": {"type": "string"}},

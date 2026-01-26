@@ -7,6 +7,7 @@ GAUNTLET_ENDPOINTS = {
         "get": {
             "tags": ["Gauntlet"],
             "summary": "List decision receipts",
+            "operationId": "listGauntletReceipts",
             "description": "Get list of decision receipts with optional filtering.",
             "parameters": [
                 {
@@ -59,6 +60,7 @@ GAUNTLET_ENDPOINTS = {
         "get": {
             "tags": ["Gauntlet"],
             "summary": "Get decision receipt",
+            "operationId": "getGauntletReceipt",
             "description": "Get a specific decision receipt by ID.",
             "parameters": [
                 {
@@ -78,6 +80,7 @@ GAUNTLET_ENDPOINTS = {
         "get": {
             "tags": ["Gauntlet"],
             "summary": "Export decision receipt",
+            "operationId": "getGauntletReceiptsExport",
             "description": "Export a decision receipt in various formats.",
             "parameters": [
                 {
@@ -147,6 +150,7 @@ GAUNTLET_ENDPOINTS = {
         "post": {
             "tags": ["Gauntlet"],
             "summary": "Export receipts bundle",
+            "operationId": "createGauntletReceiptsExportBundle",
             "description": "Export multiple receipts as a bundle.",
             "requestBody": {
                 "required": True,
@@ -184,6 +188,7 @@ GAUNTLET_ENDPOINTS = {
         "get": {
             "tags": ["Gauntlet"],
             "summary": "List risk heatmaps",
+            "operationId": "listGauntletHeatmaps",
             "description": "Get list of generated risk heatmaps.",
             "parameters": [
                 {
@@ -207,6 +212,7 @@ GAUNTLET_ENDPOINTS = {
         "get": {
             "tags": ["Gauntlet"],
             "summary": "Get risk heatmap",
+            "operationId": "getGauntletHeatmap",
             "description": "Get a specific risk heatmap by ID.",
             "parameters": [
                 {
@@ -226,6 +232,7 @@ GAUNTLET_ENDPOINTS = {
         "get": {
             "tags": ["Gauntlet"],
             "summary": "Export risk heatmap",
+            "operationId": "getGauntletHeatmapsExport",
             "description": "Export a risk heatmap in various formats.",
             "parameters": [
                 {
@@ -268,6 +275,7 @@ GAUNTLET_ENDPOINTS = {
         "get": {
             "tags": ["Gauntlet"],
             "summary": "Stream receipt export",
+            "operationId": "getGauntletReceiptsStream",
             "description": "Stream receipt export for large receipts.",
             "parameters": [
                 {

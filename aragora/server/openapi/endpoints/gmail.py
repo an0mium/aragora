@@ -8,6 +8,7 @@ GMAIL_ENDPOINTS = {
         "get": {
             "tags": ["Email"],
             "summary": "List Gmail labels",
+            "operationId": "listGmailLabels",
             "description": "List Gmail labels for a connected account.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -22,6 +23,7 @@ GMAIL_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Create Gmail label",
+            "operationId": "createGmailLabels",
             "description": "Create a Gmail label.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -53,6 +55,7 @@ GMAIL_ENDPOINTS = {
         "patch": {
             "tags": ["Email"],
             "summary": "Update Gmail label",
+            "operationId": "patchGmailLabel",
             "description": "Update a Gmail label.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -90,6 +93,7 @@ GMAIL_ENDPOINTS = {
         "delete": {
             "tags": ["Email"],
             "summary": "Delete Gmail label",
+            "operationId": "deleteGmailLabel",
             "description": "Delete a Gmail label.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -113,6 +117,7 @@ GMAIL_ENDPOINTS = {
         "get": {
             "tags": ["Email"],
             "summary": "List Gmail filters",
+            "operationId": "listGmailFilters",
             "description": "List Gmail filters.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -127,6 +132,7 @@ GMAIL_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Create Gmail filter",
+            "operationId": "createGmailFilters",
             "description": "Create a Gmail filter.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -145,6 +151,7 @@ GMAIL_ENDPOINTS = {
         "delete": {
             "tags": ["Email"],
             "summary": "Delete Gmail filter",
+            "operationId": "deleteGmailFilter",
             "description": "Delete a Gmail filter.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -168,6 +175,7 @@ GMAIL_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Modify message labels",
+            "operationId": "createGmailMessagesLabel",
             "description": "Add or remove labels for a message.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -194,6 +202,7 @@ GMAIL_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Mark message read/unread",
+            "operationId": "createGmailMessagesRead",
             "description": "Toggle read state for a message.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -219,6 +228,7 @@ GMAIL_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Star or unstar message",
+            "operationId": "createGmailMessagesStar",
             "description": "Toggle star state for a message.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -244,6 +254,7 @@ GMAIL_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Archive message",
+            "operationId": "createGmailMessagesArchive",
             "description": "Archive a message.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -265,6 +276,7 @@ GMAIL_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Trash message",
+            "operationId": "createGmailMessagesTrash",
             "description": "Trash or untrash a message.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -290,6 +302,7 @@ GMAIL_ENDPOINTS = {
         "get": {
             "tags": ["Email"],
             "summary": "Get attachment",
+            "operationId": "getGmailMessagesAttachment",
             "description": "Fetch a message attachment.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -319,6 +332,7 @@ GMAIL_ENDPOINTS = {
         "get": {
             "tags": ["Email"],
             "summary": "List Gmail threads",
+            "operationId": "listGmailThreads",
             "description": "List Gmail threads.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -339,6 +353,7 @@ GMAIL_ENDPOINTS = {
         "get": {
             "tags": ["Email"],
             "summary": "Get Gmail thread",
+            "operationId": "getGmailThread",
             "description": "Fetch a thread with messages.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -362,6 +377,7 @@ GMAIL_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Archive thread",
+            "operationId": "createGmailThreadsArchive",
             "description": "Archive a Gmail thread.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -383,6 +399,7 @@ GMAIL_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Trash thread",
+            "operationId": "createGmailThreadsTrash",
             "description": "Trash or untrash a thread.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -408,6 +425,7 @@ GMAIL_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Modify thread labels",
+            "operationId": "createGmailThreadsLabel",
             "description": "Add or remove labels on a thread.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -433,6 +451,7 @@ GMAIL_ENDPOINTS = {
         "get": {
             "tags": ["Email"],
             "summary": "List drafts",
+            "operationId": "listGmailDrafts",
             "description": "List Gmail drafts.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -449,6 +468,7 @@ GMAIL_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Create draft",
+            "operationId": "createGmailDrafts",
             "description": "Create a Gmail draft.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -467,6 +487,7 @@ GMAIL_ENDPOINTS = {
         "get": {
             "tags": ["Email"],
             "summary": "Get draft",
+            "operationId": "getGmailDraft",
             "description": "Get a Gmail draft by ID.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -488,6 +509,7 @@ GMAIL_ENDPOINTS = {
         "put": {
             "tags": ["Email"],
             "summary": "Update draft",
+            "operationId": "updateGmailDraft",
             "description": "Update a Gmail draft.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -513,6 +535,7 @@ GMAIL_ENDPOINTS = {
         "delete": {
             "tags": ["Email"],
             "summary": "Delete draft",
+            "operationId": "deleteGmailDraft",
             "description": "Delete a Gmail draft.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -536,6 +559,7 @@ GMAIL_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Send draft",
+            "operationId": "createGmailDraftsSend",
             "description": "Send a Gmail draft.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [

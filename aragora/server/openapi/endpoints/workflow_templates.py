@@ -7,6 +7,7 @@ WORKFLOW_TEMPLATES_ENDPOINTS = {
         "get": {
             "tags": ["Workflow Templates"],
             "summary": "List workflow templates",
+            "operationId": "listWorkflowTemplates",
             "description": "Get list of available workflow templates with optional filtering.",
             "parameters": [
                 {
@@ -74,6 +75,7 @@ WORKFLOW_TEMPLATES_ENDPOINTS = {
         "get": {
             "tags": ["Workflow Templates"],
             "summary": "Get template details",
+            "operationId": "getWorkflowTemplate",
             "description": "Get detailed information about a specific workflow template.",
             "parameters": [
                 {
@@ -94,6 +96,7 @@ WORKFLOW_TEMPLATES_ENDPOINTS = {
         "get": {
             "tags": ["Workflow Templates"],
             "summary": "Get template package",
+            "operationId": "getWorkflowTemplatesPackage",
             "description": "Get the full template package including workflow definition, metadata, and documentation.",
             "parameters": [
                 {
@@ -153,6 +156,7 @@ WORKFLOW_TEMPLATES_ENDPOINTS = {
         "post": {
             "tags": ["Workflow Templates"],
             "summary": "Run workflow template",
+            "operationId": "createWorkflowTemplatesRun",
             "description": "Execute a workflow template with the provided inputs.",
             "parameters": [
                 {
@@ -238,6 +242,7 @@ WORKFLOW_TEMPLATES_ENDPOINTS = {
         "get": {
             "tags": ["Workflow Templates"],
             "summary": "List template categories",
+            "operationId": "listWorkflowCategories",
             "description": "Get list of available template categories with counts.",
             "responses": {
                 "200": {
@@ -272,6 +277,7 @@ WORKFLOW_TEMPLATES_ENDPOINTS = {
         "get": {
             "tags": ["Workflow Templates"],
             "summary": "List workflow patterns",
+            "operationId": "listWorkflowPatterns",
             "description": "Get list of available workflow patterns.",
             "responses": {
                 "200": {
@@ -309,6 +315,7 @@ WORKFLOW_TEMPLATES_ENDPOINTS = {
         "post": {
             "tags": ["Workflow Templates"],
             "summary": "Instantiate pattern as template",
+            "operationId": "createWorkflowPatternsInstantiate",
             "description": "Create a new template instance from a workflow pattern.",
             "parameters": [
                 {

@@ -8,6 +8,7 @@ CODEBASE_METRICS_ENDPOINTS = {
         "post": {
             "tags": ["Codebase"],
             "summary": "Run metrics analysis",
+            "operationId": "createCodebaseMetricsAnalyze",
             "description": "Analyze code complexity and duplication for a repository.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -56,6 +57,7 @@ CODEBASE_METRICS_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Get latest metrics",
+            "operationId": "getCodebaseMetric",
             "description": "Fetch the latest metrics report.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -79,6 +81,7 @@ CODEBASE_METRICS_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Get metrics by ID",
+            "operationId": "getCodebaseMetric",
             "description": "Fetch a metrics report by analysis ID.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -108,6 +111,7 @@ CODEBASE_METRICS_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Metrics history",
+            "operationId": "getCodebaseMetricsHistory",
             "description": "List metrics analyses for a repository.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -140,6 +144,7 @@ CODEBASE_METRICS_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Complexity hotspots",
+            "operationId": "getCodebaseHotspot",
             "description": "List complexity hotspots from the latest analysis.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -172,6 +177,7 @@ CODEBASE_METRICS_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Code duplicates",
+            "operationId": "getCodebaseDuplicate",
             "description": "List duplicate code blocks from the latest analysis.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -204,6 +210,7 @@ CODEBASE_METRICS_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "File metrics",
+            "operationId": "getCodebaseMetricsFile",
             "description": "Get metrics for a specific file (URL-encoded path).",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [

@@ -85,6 +85,7 @@ WEBHOOK_ENDPOINTS = {
         "get": {
             "tags": ["Webhooks"],
             "summary": "List webhooks",
+            "operationId": "listWebhooks",
             "description": "List all webhooks for the authenticated user/organization.",
             "responses": {
                 "200": {
@@ -110,6 +111,7 @@ WEBHOOK_ENDPOINTS = {
         "post": {
             "tags": ["Webhooks"],
             "summary": "Create webhook",
+            "operationId": "createWebhooks",
             "description": "Register a new webhook to receive event notifications.",
             "requestBody": {
                 "required": True,
@@ -133,6 +135,7 @@ WEBHOOK_ENDPOINTS = {
         "get": {
             "tags": ["Webhooks"],
             "summary": "List available event types",
+            "operationId": "listWebhooksEvents",
             "description": "Get all event types that can be subscribed to via webhooks.",
             "responses": {
                 "200": {
@@ -158,6 +161,7 @@ WEBHOOK_ENDPOINTS = {
         "get": {
             "tags": ["Webhooks"],
             "summary": "Get webhook",
+            "operationId": "getWebhook",
             "description": "Get details of a specific webhook.",
             "parameters": [_WEBHOOK_ID_PARAM],
             "responses": {
@@ -172,6 +176,7 @@ WEBHOOK_ENDPOINTS = {
         "patch": {
             "tags": ["Webhooks"],
             "summary": "Update webhook",
+            "operationId": "patchWebhook",
             "description": "Update webhook configuration.",
             "parameters": [_WEBHOOK_ID_PARAM],
             "requestBody": {
@@ -190,6 +195,7 @@ WEBHOOK_ENDPOINTS = {
         "delete": {
             "tags": ["Webhooks"],
             "summary": "Delete webhook",
+            "operationId": "deleteWebhook",
             "description": "Delete a webhook subscription.",
             "parameters": [_WEBHOOK_ID_PARAM],
             "responses": {
@@ -203,6 +209,7 @@ WEBHOOK_ENDPOINTS = {
         "post": {
             "tags": ["Webhooks"],
             "summary": "Test webhook",
+            "operationId": "createWebhooksTest",
             "description": "Send a test event to verify webhook configuration.",
             "parameters": [_WEBHOOK_ID_PARAM],
             "requestBody": {
@@ -247,6 +254,7 @@ WEBHOOK_ENDPOINTS = {
         "get": {
             "tags": ["Webhooks"],
             "summary": "Get SLO webhook status",
+            "operationId": "listWebhooksSloStatus",
             "description": "Get status of SLO (Service Level Objective) webhook notifications.",
             "responses": {
                 "200": {
@@ -273,6 +281,7 @@ WEBHOOK_ENDPOINTS = {
         "post": {
             "tags": ["Webhooks"],
             "summary": "Test SLO webhook",
+            "operationId": "createWebhooksSloTest",
             "description": "Send a test SLO violation notification.",
             "responses": {
                 "200": {

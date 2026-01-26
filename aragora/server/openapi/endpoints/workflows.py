@@ -7,6 +7,7 @@ WORKFLOW_ENDPOINTS = {
         "get": {
             "tags": ["Workflows"],
             "summary": "List workflows",
+            "operationId": "listWorkflows",
             "description": "Get list of workflows with optional filtering by category, tags, or search term.",
             "parameters": [
                 {
@@ -48,6 +49,7 @@ WORKFLOW_ENDPOINTS = {
         "post": {
             "tags": ["Workflows"],
             "summary": "Create workflow",
+            "operationId": "createWorkflows",
             "description": "Create a new workflow definition with steps and transitions.",
             "requestBody": {
                 "required": True,
@@ -89,6 +91,7 @@ WORKFLOW_ENDPOINTS = {
         "get": {
             "tags": ["Workflows"],
             "summary": "Get workflow",
+            "operationId": "getWorkflow",
             "description": "Get detailed workflow definition by ID.",
             "parameters": [
                 {
@@ -106,6 +109,7 @@ WORKFLOW_ENDPOINTS = {
         "put": {
             "tags": ["Workflows"],
             "summary": "Update workflow",
+            "operationId": "updateWorkflow",
             "description": "Update an existing workflow definition. Creates a new version.",
             "parameters": [
                 {
@@ -132,6 +136,7 @@ WORKFLOW_ENDPOINTS = {
         "delete": {
             "tags": ["Workflows"],
             "summary": "Delete workflow",
+            "operationId": "deleteWorkflow",
             "description": "Delete a workflow definition.",
             "parameters": [
                 {
@@ -151,6 +156,7 @@ WORKFLOW_ENDPOINTS = {
         "post": {
             "tags": ["Workflows"],
             "summary": "Execute workflow",
+            "operationId": "createWorkflowsExecute",
             "description": "Start execution of a workflow with provided inputs.",
             "parameters": [
                 {
@@ -193,6 +199,7 @@ WORKFLOW_ENDPOINTS = {
         "get": {
             "tags": ["Workflows"],
             "summary": "Get workflow versions",
+            "operationId": "getWorkflowsVersion",
             "description": "Get version history of a workflow.",
             "parameters": [
                 {
@@ -217,6 +224,7 @@ WORKFLOW_ENDPOINTS = {
         "get": {
             "tags": ["Workflows"],
             "summary": "List workflow templates",
+            "operationId": "listWorkflowTemplates",
             "description": "Get gallery of workflow templates for quick start.",
             "parameters": [
                 {
@@ -235,6 +243,7 @@ WORKFLOW_ENDPOINTS = {
         "get": {
             "tags": ["Workflows"],
             "summary": "Get workflow template",
+            "operationId": "getWorkflowTemplate",
             "description": "Get a specific workflow template for use as starting point.",
             "parameters": [
                 {
@@ -254,6 +263,7 @@ WORKFLOW_ENDPOINTS = {
         "get": {
             "tags": ["Workflows"],
             "summary": "List workflow executions",
+            "operationId": "listWorkflowExecutions",
             "description": "Get list of all workflow executions for the runtime dashboard.",
             "parameters": [
                 {
@@ -286,6 +296,7 @@ WORKFLOW_ENDPOINTS = {
         "get": {
             "tags": ["Workflows"],
             "summary": "Get execution status",
+            "operationId": "getWorkflowExecution",
             "description": "Get detailed status of a workflow execution.",
             "parameters": [
                 {
@@ -303,6 +314,7 @@ WORKFLOW_ENDPOINTS = {
         "delete": {
             "tags": ["Workflows"],
             "summary": "Cancel execution",
+            "operationId": "deleteWorkflowExecution",
             "description": "Cancel a running workflow execution.",
             "parameters": [
                 {
@@ -323,6 +335,7 @@ WORKFLOW_ENDPOINTS = {
         "get": {
             "tags": ["Workflows"],
             "summary": "List pending approvals",
+            "operationId": "listWorkflowApprovals",
             "description": "Get list of workflow steps awaiting human approval.",
             "security": [{"bearerAuth": []}],
             "responses": {
@@ -335,6 +348,7 @@ WORKFLOW_ENDPOINTS = {
         "post": {
             "tags": ["Workflows"],
             "summary": "Submit approval decision",
+            "operationId": "createWorkflowApproval",
             "description": "Approve or reject a workflow step requiring human approval.",
             "security": [{"bearerAuth": []}],
             "parameters": [

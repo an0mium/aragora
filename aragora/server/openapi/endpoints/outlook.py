@@ -8,6 +8,7 @@ OUTLOOK_ENDPOINTS = {
         "get": {
             "tags": ["Email"],
             "summary": "Get OAuth URL",
+            "operationId": "listOutlookOauthUrl",
             "description": "Generate Outlook OAuth authorization URL.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -30,6 +31,7 @@ OUTLOOK_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "OAuth callback",
+            "operationId": "createOutlookOauthCallback",
             "description": "Handle Outlook OAuth callback.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -59,6 +61,7 @@ OUTLOOK_ENDPOINTS = {
         "get": {
             "tags": ["Email"],
             "summary": "List folders",
+            "operationId": "listOutlookFolders",
             "description": "List Outlook mail folders.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -75,6 +78,7 @@ OUTLOOK_ENDPOINTS = {
         "get": {
             "tags": ["Email"],
             "summary": "List messages",
+            "operationId": "listOutlookMessages",
             "description": "List Outlook messages.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -95,6 +99,7 @@ OUTLOOK_ENDPOINTS = {
         "get": {
             "tags": ["Email"],
             "summary": "Get message",
+            "operationId": "getOutlookMessage",
             "description": "Fetch Outlook message details.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -116,6 +121,7 @@ OUTLOOK_ENDPOINTS = {
         "delete": {
             "tags": ["Email"],
             "summary": "Delete message",
+            "operationId": "deleteOutlookMessage",
             "description": "Delete an Outlook message.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -138,6 +144,7 @@ OUTLOOK_ENDPOINTS = {
         "get": {
             "tags": ["Email"],
             "summary": "Get conversation",
+            "operationId": "getOutlookConversation",
             "description": "Fetch Outlook conversation thread.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -161,6 +168,7 @@ OUTLOOK_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Send message",
+            "operationId": "createOutlookSend",
             "description": "Send a new Outlook message.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -179,6 +187,7 @@ OUTLOOK_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Reply to message",
+            "operationId": "createOutlookReply",
             "description": "Reply to an Outlook message.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -197,6 +206,7 @@ OUTLOOK_ENDPOINTS = {
         "get": {
             "tags": ["Email"],
             "summary": "Search messages",
+            "operationId": "listOutlookSearch",
             "description": "Search Outlook messages with OData filters.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -214,6 +224,7 @@ OUTLOOK_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Mark read/unread",
+            "operationId": "createOutlookMessagesRead",
             "description": "Toggle read state for an Outlook message.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -239,6 +250,7 @@ OUTLOOK_ENDPOINTS = {
         "post": {
             "tags": ["Email"],
             "summary": "Move message",
+            "operationId": "createOutlookMessagesMove",
             "description": "Move a message to a folder.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -264,6 +276,7 @@ OUTLOOK_ENDPOINTS = {
         "get": {
             "tags": ["Email"],
             "summary": "Connection status",
+            "operationId": "listOutlookStatus",
             "description": "Get Outlook integration status.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [

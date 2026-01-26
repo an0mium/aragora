@@ -7,6 +7,7 @@ METRICS_ENDPOINTS = {
         "get": {
             "tags": ["Monitoring"],
             "summary": "System metrics",
+            "operationId": "listMetrics",
             "responses": {"200": _ok_response("Metrics data")},
         },
     },
@@ -14,6 +15,7 @@ METRICS_ENDPOINTS = {
         "get": {
             "tags": ["Monitoring"],
             "summary": "Metrics health",
+            "operationId": "listMetricsHealth",
             "responses": {"200": _ok_response("Metrics health")},
         },
     },
@@ -21,6 +23,7 @@ METRICS_ENDPOINTS = {
         "get": {
             "tags": ["Monitoring"],
             "summary": "Cache metrics",
+            "operationId": "listMetricsCache",
             "responses": {"200": _ok_response("Cache metrics")},
         },
     },
@@ -28,6 +31,7 @@ METRICS_ENDPOINTS = {
         "get": {
             "tags": ["Monitoring"],
             "summary": "System metrics",
+            "operationId": "listMetricsSystem",
             "responses": {"200": _ok_response("System metrics")},
         },
     },
@@ -35,6 +39,7 @@ METRICS_ENDPOINTS = {
         "get": {
             "tags": ["Monitoring"],
             "summary": "Prometheus metrics",
+            "operationId": "listMetricsSystem",
             "description": "Metrics in Prometheus format",
             "responses": {
                 "200": {

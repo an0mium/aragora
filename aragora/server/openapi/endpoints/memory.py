@@ -7,6 +7,7 @@ MEMORY_ENDPOINTS = {
         "get": {
             "tags": ["Memory"],
             "summary": "Retrieve memories",
+            "operationId": "listMemoryContinuumRetrieve",
             "description": "Retrieve memories from continuum store",
             "parameters": [
                 {"name": "query", "in": "query", "schema": {"type": "string"}},
@@ -24,6 +25,7 @@ MEMORY_ENDPOINTS = {
         "post": {
             "tags": ["Memory"],
             "summary": "Consolidate memories",
+            "operationId": "createMemoryContinuumConsolidate",
             "description": "Trigger memory consolidation across tiers",
             "responses": {"200": _ok_response("Consolidation result")},
             "security": [{"bearerAuth": []}],
@@ -33,6 +35,7 @@ MEMORY_ENDPOINTS = {
         "post": {
             "tags": ["Memory"],
             "summary": "Cleanup memories",
+            "operationId": "createMemoryContinuumCleanup",
             "description": "Remove expired memories",
             "responses": {"200": _ok_response("Cleanup result")},
             "security": [{"bearerAuth": []}],
@@ -42,6 +45,7 @@ MEMORY_ENDPOINTS = {
         "get": {
             "tags": ["Memory"],
             "summary": "Memory tier statistics",
+            "operationId": "listMemoryTierStats",
             "responses": {"200": _ok_response("Tier stats")},
         },
     },
@@ -49,6 +53,7 @@ MEMORY_ENDPOINTS = {
         "get": {
             "tags": ["Memory"],
             "summary": "Archive statistics",
+            "operationId": "listMemoryArchiveStats",
             "responses": {"200": _ok_response("Archive stats")},
         },
     },

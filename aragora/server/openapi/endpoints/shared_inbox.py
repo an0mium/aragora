@@ -8,6 +8,7 @@ INBOX_ENDPOINTS = {
         "post": {
             "tags": ["Inbox"],
             "summary": "Create shared inbox",
+            "operationId": "createInboxShared",
             "description": "Create a shared inbox for collaborative triage.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -29,6 +30,7 @@ INBOX_ENDPOINTS = {
         "get": {
             "tags": ["Inbox"],
             "summary": "List shared inboxes",
+            "operationId": "listInboxShared",
             "description": "List shared inboxes for a workspace.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -47,6 +49,7 @@ INBOX_ENDPOINTS = {
         "get": {
             "tags": ["Inbox"],
             "summary": "Get shared inbox",
+            "operationId": "getInboxShared",
             "description": "Fetch shared inbox details.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -65,6 +68,7 @@ INBOX_ENDPOINTS = {
         "get": {
             "tags": ["Inbox"],
             "summary": "List inbox messages",
+            "operationId": "getInboxSharedMessage",
             "description": "List messages for a shared inbox.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -88,6 +92,7 @@ INBOX_ENDPOINTS = {
         "post": {
             "tags": ["Inbox"],
             "summary": "Assign message",
+            "operationId": "createInboxSharedMessagesAssign",
             "description": "Assign a shared inbox message to a team member.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -116,6 +121,7 @@ INBOX_ENDPOINTS = {
         "post": {
             "tags": ["Inbox"],
             "summary": "Update message status",
+            "operationId": "createInboxSharedMessagesStatu",
             "description": "Update shared inbox message status.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -144,6 +150,7 @@ INBOX_ENDPOINTS = {
         "post": {
             "tags": ["Inbox"],
             "summary": "Add message tag",
+            "operationId": "createInboxSharedMessagesTag",
             "description": "Add a tag to a shared inbox message.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -172,6 +179,7 @@ INBOX_ENDPOINTS = {
         "post": {
             "tags": ["Inbox"],
             "summary": "Create routing rule",
+            "operationId": "createInboxRoutingRules",
             "description": "Create a routing rule for inbox automation.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -193,6 +201,7 @@ INBOX_ENDPOINTS = {
         "get": {
             "tags": ["Inbox"],
             "summary": "List routing rules",
+            "operationId": "listInboxRoutingRules",
             "description": "List routing rules for a workspace.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -213,6 +222,7 @@ INBOX_ENDPOINTS = {
         "patch": {
             "tags": ["Inbox"],
             "summary": "Update routing rule",
+            "operationId": "patchInboxRoutingRule",
             "description": "Update an inbox routing rule.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -238,6 +248,7 @@ INBOX_ENDPOINTS = {
         "delete": {
             "tags": ["Inbox"],
             "summary": "Delete routing rule",
+            "operationId": "deleteInboxRoutingRule",
             "description": "Delete an inbox routing rule.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -256,6 +267,7 @@ INBOX_ENDPOINTS = {
         "post": {
             "tags": ["Inbox"],
             "summary": "Test routing rule",
+            "operationId": "createInboxRoutingRulesTest",
             "description": "Test a routing rule against existing messages.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [

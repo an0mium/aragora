@@ -8,6 +8,7 @@ CODEBASE_QUICK_SCAN_ENDPOINTS = {
         "post": {
             "tags": ["Codebase"],
             "summary": "Quick scan",
+            "operationId": "createCodebaseQuickScan",
             "description": "Run a quick security scan.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -25,6 +26,7 @@ CODEBASE_QUICK_SCAN_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Quick scan result",
+            "operationId": "getCodebaseQuickScan",
             "description": "Get a quick scan result.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -41,6 +43,7 @@ CODEBASE_QUICK_SCAN_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "List quick scans",
+            "operationId": "listCodebaseQuickScans",
             "description": "List recent quick scans.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "responses": {

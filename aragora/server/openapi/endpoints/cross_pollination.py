@@ -7,6 +7,7 @@ CROSS_POLLINATION_ENDPOINTS = {
         "get": {
             "tags": ["Cross-Pollination"],
             "summary": "Get subscriber statistics",
+            "operationId": "listCrossPollinationStats",
             "description": (
                 "Get statistics for all cross-subsystem event subscribers including "
                 "event counts, success/failure rates, circuit breaker status, and latency metrics."
@@ -20,6 +21,7 @@ CROSS_POLLINATION_ENDPOINTS = {
         "get": {
             "tags": ["Cross-Pollination"],
             "summary": "List all subscribers",
+            "operationId": "listCrossPollinationSubscribers",
             "description": (
                 "Get a list of all registered cross-subsystem event subscribers "
                 "with their subscribed event types and handler metadata."
@@ -33,6 +35,7 @@ CROSS_POLLINATION_ENDPOINTS = {
         "get": {
             "tags": ["Cross-Pollination"],
             "summary": "Get arena bridge status",
+            "operationId": "listCrossPollinationBridge",
             "description": (
                 "Get status of the Arena-to-CrossSubscriber event bridge including "
                 "connection state, event mappings, and throughput statistics."
@@ -46,6 +49,7 @@ CROSS_POLLINATION_ENDPOINTS = {
         "get": {
             "tags": ["Cross-Pollination"],
             "summary": "Get Prometheus metrics",
+            "operationId": "listCrossPollinationMetrics",
             "description": (
                 "Get cross-pollination metrics in Prometheus/OpenMetrics text format. "
                 "Includes event counts, handler durations, and circuit breaker states."
@@ -62,6 +66,7 @@ CROSS_POLLINATION_ENDPOINTS = {
         "post": {
             "tags": ["Cross-Pollination"],
             "summary": "Reset statistics",
+            "operationId": "createCrossPollinationReset",
             "description": (
                 "Reset all cross-pollination statistics counters and circuit breaker states. "
                 "Useful for testing and debugging."
@@ -75,6 +80,7 @@ CROSS_POLLINATION_ENDPOINTS = {
         "get": {
             "tags": ["Cross-Pollination"],
             "summary": "Get handler circuit breaker status",
+            "operationId": "getCrossPollinationHandlersCircuitBreaker",
             "description": "Get circuit breaker state for a specific handler including failure count and cooldown.",
             "parameters": [
                 {
@@ -93,6 +99,7 @@ CROSS_POLLINATION_ENDPOINTS = {
         "post": {
             "tags": ["Cross-Pollination"],
             "summary": "Reset handler circuit breaker",
+            "operationId": "createCrossPollinationHandlersCircuitBreaker",
             "description": "Reset the circuit breaker for a specific handler, clearing failure count and closing circuit.",
             "parameters": [
                 {

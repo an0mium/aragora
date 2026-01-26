@@ -8,6 +8,7 @@ COSTS_ENDPOINTS = {
         "get": {
             "tags": ["Costs"],
             "summary": "Get cost summary",
+            "operationId": "listCosts",
             "description": "Fetch cost dashboard summary data.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -26,6 +27,7 @@ COSTS_ENDPOINTS = {
         "get": {
             "tags": ["Costs"],
             "summary": "Get cost breakdown",
+            "operationId": "listCostsBreakdown",
             "description": "Fetch cost breakdown by provider or feature.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -49,6 +51,7 @@ COSTS_ENDPOINTS = {
         "get": {
             "tags": ["Costs"],
             "summary": "Get cost timeline",
+            "operationId": "listCostsTimeline",
             "description": "Fetch cost timeline data.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -67,6 +70,7 @@ COSTS_ENDPOINTS = {
         "get": {
             "tags": ["Costs"],
             "summary": "Get budget alerts",
+            "operationId": "listCostsAlerts",
             "description": "Fetch active budget alerts.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -84,6 +88,7 @@ COSTS_ENDPOINTS = {
         "post": {
             "tags": ["Costs"],
             "summary": "Set budget limits",
+            "operationId": "createCostsBudget",
             "description": "Set workspace budget limit.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -107,6 +112,7 @@ COSTS_ENDPOINTS = {
         "post": {
             "tags": ["Costs"],
             "summary": "Dismiss alert",
+            "operationId": "createCostsAlertsDismis",
             "description": "Dismiss a budget alert.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [

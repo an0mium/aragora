@@ -7,6 +7,7 @@ EXPLAINABILITY_ENDPOINTS = {
         "get": {
             "tags": ["Explainability"],
             "summary": "Get decision explanation",
+            "operationId": "getDebatesExplainability",
             "description": "Get a full explanation of how the debate decision was reached, including narrative, factors, counterfactuals, and provenance.",
             "parameters": [
                 {
@@ -48,6 +49,7 @@ EXPLAINABILITY_ENDPOINTS = {
         "get": {
             "tags": ["Explainability"],
             "summary": "Get contributing factors",
+            "operationId": "getDebatesExplainabilityFactor",
             "description": "Get the factors that contributed to the debate decision with their relative contributions.",
             "parameters": [
                 {
@@ -112,6 +114,7 @@ EXPLAINABILITY_ENDPOINTS = {
         "get": {
             "tags": ["Explainability"],
             "summary": "Get counterfactual scenarios",
+            "operationId": "getDebatesExplainabilityCounterfactual",
             "description": "Generate what-if scenarios showing how different inputs might have changed the outcome.",
             "parameters": [
                 {
@@ -168,6 +171,7 @@ EXPLAINABILITY_ENDPOINTS = {
         "post": {
             "tags": ["Explainability"],
             "summary": "Generate custom counterfactual",
+            "operationId": "createDebatesExplainabilityCounterfactual",
             "description": "Generate a counterfactual scenario based on custom hypothetical changes.",
             "parameters": [
                 {
@@ -210,6 +214,7 @@ EXPLAINABILITY_ENDPOINTS = {
         "get": {
             "tags": ["Explainability"],
             "summary": "Get decision provenance",
+            "operationId": "getDebatesExplainabilityProvenance",
             "description": "Get the provenance chain showing how the decision was reached step by step.",
             "parameters": [
                 {
@@ -280,6 +285,7 @@ EXPLAINABILITY_ENDPOINTS = {
         "get": {
             "tags": ["Explainability"],
             "summary": "Get decision narrative",
+            "operationId": "getDebatesExplainabilityNarrative",
             "description": "Get a natural language explanation of the decision.",
             "parameters": [
                 {

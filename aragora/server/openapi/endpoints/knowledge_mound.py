@@ -8,6 +8,7 @@ KNOWLEDGE_MOUND_ENDPOINTS = {
         "post": {
             "tags": ["Knowledge Mound"],
             "summary": "Create role",
+            "operationId": "createKnowledgeMoundGovernanceRoles",
             "description": "Create a Knowledge Mound governance role.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -25,6 +26,7 @@ KNOWLEDGE_MOUND_ENDPOINTS = {
         "post": {
             "tags": ["Knowledge Mound"],
             "summary": "Assign role",
+            "operationId": "createKnowledgeMoundGovernanceRolesAssign",
             "description": "Assign a governance role to a user.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -42,6 +44,7 @@ KNOWLEDGE_MOUND_ENDPOINTS = {
         "post": {
             "tags": ["Knowledge Mound"],
             "summary": "Revoke role",
+            "operationId": "createKnowledgeMoundGovernanceRolesRevoke",
             "description": "Revoke a governance role from a user.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -59,6 +62,7 @@ KNOWLEDGE_MOUND_ENDPOINTS = {
         "get": {
             "tags": ["Knowledge Mound"],
             "summary": "Get permissions",
+            "operationId": "getKnowledgeMoundGovernancePermission",
             "description": "Get governance permissions for a user.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -75,6 +79,7 @@ KNOWLEDGE_MOUND_ENDPOINTS = {
         "post": {
             "tags": ["Knowledge Mound"],
             "summary": "Check permissions",
+            "operationId": "createKnowledgeMoundGovernancePermissionsCheck",
             "description": "Check a permission against governance rules.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -92,6 +97,7 @@ KNOWLEDGE_MOUND_ENDPOINTS = {
         "get": {
             "tags": ["Knowledge Mound"],
             "summary": "Audit trail",
+            "operationId": "listKnowledgeMoundGovernanceAudit",
             "description": "Query governance audit trail.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -108,6 +114,7 @@ KNOWLEDGE_MOUND_ENDPOINTS = {
         "get": {
             "tags": ["Knowledge Mound"],
             "summary": "User audit trail",
+            "operationId": "getKnowledgeMoundGovernanceAuditUser",
             "description": "Get governance activity for a user.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -124,6 +131,7 @@ KNOWLEDGE_MOUND_ENDPOINTS = {
         "get": {
             "tags": ["Knowledge Mound"],
             "summary": "Governance stats",
+            "operationId": "listKnowledgeMoundGovernanceStats",
             "description": "Get governance stats.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "responses": {

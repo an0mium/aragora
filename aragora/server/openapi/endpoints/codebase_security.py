@@ -8,6 +8,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "post": {
             "tags": ["Codebase"],
             "summary": "Run dependency vulnerability scan",
+            "operationId": "createCodebaseScan",
             "description": "Trigger a dependency vulnerability scan for a repository.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -48,6 +49,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Get latest scan",
+            "operationId": "getCodebaseScanLatest",
             "description": "Fetch the most recent dependency scan result.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -71,6 +73,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Get scan by ID",
+            "operationId": "getCodebaseScan",
             "description": "Fetch a specific scan result by scan ID.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -100,6 +103,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "List scans",
+            "operationId": "getCodebaseScan",
             "description": "List scan history for a repository.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -137,6 +141,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "List vulnerabilities",
+            "operationId": "getCodebaseVulnerabilitie",
             "description": "List vulnerabilities from the latest scan.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -184,6 +189,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Query package vulnerabilities",
+            "operationId": "getCodebasePackageVulnerabilitie",
             "description": "Query advisories for a package and ecosystem.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -219,6 +225,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Get CVE details",
+            "operationId": "getCve",
             "description": "Fetch CVE details from vulnerability databases.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -242,6 +249,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "post": {
             "tags": ["Codebase"],
             "summary": "Analyze dependencies",
+            "operationId": "createCodebaseAnalyzeDependencies",
             "description": "Analyze dependency graph and inventory.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -265,6 +273,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "post": {
             "tags": ["Codebase"],
             "summary": "Scan vulnerabilities",
+            "operationId": "createCodebaseScanVulnerabilities",
             "description": "Scan a repository for CVEs.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -288,6 +297,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "post": {
             "tags": ["Codebase"],
             "summary": "Check licenses",
+            "operationId": "createCodebaseCheckLicenses",
             "description": "Check license compatibility.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -311,6 +321,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "post": {
             "tags": ["Codebase"],
             "summary": "Generate SBOM",
+            "operationId": "createCodebaseSbom",
             "description": "Generate SBOM for a repository.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -334,6 +345,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "post": {
             "tags": ["Codebase"],
             "summary": "Clear dependency cache",
+            "operationId": "createCodebaseClearCache",
             "description": "Clear cached dependency analysis results.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "responses": {
@@ -348,6 +360,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "post": {
             "tags": ["Codebase"],
             "summary": "Trigger secrets scan",
+            "operationId": "createCodebaseScanSecret",
             "description": "Trigger secrets scan for a repository.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -374,6 +387,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Get latest secrets scan",
+            "operationId": "getCodebaseScanSecretsLatest",
             "description": "Fetch the latest secrets scan.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -392,6 +406,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Get secrets scan by ID",
+            "operationId": "getCodebaseScanSecret",
             "description": "Fetch a secrets scan result by ID.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -411,6 +426,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "List secrets",
+            "operationId": "getCodebaseSecret",
             "description": "List secrets from the latest scan.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -428,6 +444,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "List secrets scans",
+            "operationId": "getCodebaseScansSecret",
             "description": "List secrets scan history.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -445,6 +462,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "post": {
             "tags": ["Codebase"],
             "summary": "Trigger SAST scan",
+            "operationId": "createCodebaseScanSast",
             "description": "Trigger a SAST scan for a repository.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -479,6 +497,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Get SAST scan status",
+            "operationId": "getCodebaseScanSast",
             "description": "Fetch SAST scan status by scan ID.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -498,6 +517,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "List SAST findings",
+            "operationId": "getCodebaseSastFinding",
             "description": "List SAST findings for the latest scan.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -519,6 +539,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "OWASP summary",
+            "operationId": "getCodebaseSastOwaspSummary",
             "description": "Summarize SAST findings by OWASP category.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [

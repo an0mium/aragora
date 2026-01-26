@@ -7,6 +7,7 @@ DOCUMENT_ENDPOINTS = {
         "get": {
             "tags": ["Documents"],
             "summary": "List documents",
+            "operationId": "listDocuments",
             "responses": {"200": _ok_response("Document list")},
         },
     },
@@ -14,6 +15,7 @@ DOCUMENT_ENDPOINTS = {
         "get": {
             "tags": ["Documents"],
             "summary": "Supported formats",
+            "operationId": "listDocumentsFormats",
             "responses": {"200": _ok_response("Supported formats")},
         },
     },
@@ -21,6 +23,7 @@ DOCUMENT_ENDPOINTS = {
         "post": {
             "tags": ["Documents"],
             "summary": "Upload document",
+            "operationId": "createDocumentsUpload",
             "requestBody": {"content": {"multipart/form-data": {"schema": {"type": "object"}}}},
             "responses": {"201": _ok_response("Document uploaded")},
             "security": [{"bearerAuth": []}],
@@ -30,6 +33,7 @@ DOCUMENT_ENDPOINTS = {
         "get": {
             "tags": ["Media"],
             "summary": "Podcast RSS feed",
+            "operationId": "listPodcastFeed.Xml",
             "responses": {"200": {"description": "RSS feed", "content": {"application/xml": {}}}},
         },
     },
@@ -37,6 +41,7 @@ DOCUMENT_ENDPOINTS = {
         "get": {
             "tags": ["Media"],
             "summary": "Podcast episodes",
+            "operationId": "listPodcastEpisodes",
             "responses": {"200": _ok_response("Episode list")},
         },
     },
@@ -44,6 +49,7 @@ DOCUMENT_ENDPOINTS = {
         "get": {
             "tags": ["Social"],
             "summary": "YouTube auth URL",
+            "operationId": "listYoutubeAuth",
             "responses": {"200": _ok_response("Auth URL")},
         },
     },
@@ -51,6 +57,7 @@ DOCUMENT_ENDPOINTS = {
         "get": {
             "tags": ["Social"],
             "summary": "YouTube OAuth callback",
+            "operationId": "listYoutubeCallback",
             "responses": {"200": _ok_response("Auth complete")},
         },
     },
@@ -58,6 +65,7 @@ DOCUMENT_ENDPOINTS = {
         "get": {
             "tags": ["Social"],
             "summary": "YouTube auth status",
+            "operationId": "listYoutubeStatus",
             "responses": {"200": _ok_response("Auth status")},
         },
     },

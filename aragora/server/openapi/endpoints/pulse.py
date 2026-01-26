@@ -7,6 +7,7 @@ PULSE_ENDPOINTS = {
         "get": {
             "tags": ["Pulse"],
             "summary": "Trending topics",
+            "operationId": "listPulseTrending",
             "description": "Get current trending debate topics",
             "parameters": [
                 {
@@ -22,6 +23,7 @@ PULSE_ENDPOINTS = {
         "get": {
             "tags": ["Pulse"],
             "summary": "Suggest debate topic",
+            "operationId": "listPulseSuggest",
             "description": "Get AI-suggested debate topic based on trends",
             "parameters": [{"name": "category", "in": "query", "schema": {"type": "string"}}],
             "responses": {"200": _ok_response("Suggested topic")},

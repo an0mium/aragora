@@ -8,6 +8,7 @@ ACCOUNTING_ENDPOINTS = {
         "get": {
             "tags": ["Accounting"],
             "summary": "Get accounting status",
+            "operationId": "listAccountingStatus",
             "description": "Fetch QuickBooks connection status and dashboard data.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "responses": {
@@ -20,6 +21,7 @@ ACCOUNTING_ENDPOINTS = {
         "get": {
             "tags": ["Accounting"],
             "summary": "Start OAuth",
+            "operationId": "listAccountingConnect",
             "description": "Start QuickBooks OAuth flow.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "responses": {
@@ -32,6 +34,7 @@ ACCOUNTING_ENDPOINTS = {
         "get": {
             "tags": ["Accounting"],
             "summary": "OAuth callback",
+            "operationId": "listAccountingCallback",
             "description": "Handle QuickBooks OAuth callback.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "responses": {
@@ -45,6 +48,7 @@ ACCOUNTING_ENDPOINTS = {
         "post": {
             "tags": ["Accounting"],
             "summary": "Disconnect",
+            "operationId": "createAccountingDisconnect",
             "description": "Disconnect QuickBooks integration.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "responses": {
@@ -57,6 +61,7 @@ ACCOUNTING_ENDPOINTS = {
         "get": {
             "tags": ["Accounting"],
             "summary": "List customers",
+            "operationId": "listAccountingCustomers",
             "description": "List QuickBooks customers.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "responses": {
@@ -69,6 +74,7 @@ ACCOUNTING_ENDPOINTS = {
         "get": {
             "tags": ["Accounting"],
             "summary": "List transactions",
+            "operationId": "listAccountingTransactions",
             "description": "List QuickBooks transactions.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "responses": {
@@ -81,6 +87,7 @@ ACCOUNTING_ENDPOINTS = {
         "post": {
             "tags": ["Accounting"],
             "summary": "Generate report",
+            "operationId": "createAccountingReport",
             "description": "Generate an accounting report.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -98,6 +105,7 @@ ACCOUNTING_ENDPOINTS = {
         "get": {
             "tags": ["Accounting"],
             "summary": "Gusto status",
+            "operationId": "listAccountingGustoStatus",
             "description": "Fetch Gusto connection status.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "responses": {
@@ -110,6 +118,7 @@ ACCOUNTING_ENDPOINTS = {
         "get": {
             "tags": ["Accounting"],
             "summary": "Start Gusto OAuth",
+            "operationId": "listAccountingGustoConnect",
             "description": "Start Gusto OAuth flow.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "responses": {
@@ -122,6 +131,7 @@ ACCOUNTING_ENDPOINTS = {
         "get": {
             "tags": ["Accounting"],
             "summary": "Gusto OAuth callback",
+            "operationId": "listAccountingGustoCallback",
             "description": "Handle Gusto OAuth callback.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "responses": {
@@ -135,6 +145,7 @@ ACCOUNTING_ENDPOINTS = {
         "post": {
             "tags": ["Accounting"],
             "summary": "Disconnect Gusto",
+            "operationId": "createAccountingGustoDisconnect",
             "description": "Disconnect Gusto integration.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "responses": {
@@ -147,6 +158,7 @@ ACCOUNTING_ENDPOINTS = {
         "get": {
             "tags": ["Accounting"],
             "summary": "List employees",
+            "operationId": "listAccountingGustoEmployees",
             "description": "List employees from Gusto.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -162,6 +174,7 @@ ACCOUNTING_ENDPOINTS = {
         "get": {
             "tags": ["Accounting"],
             "summary": "List payrolls",
+            "operationId": "listAccountingGustoPayrolls",
             "description": "List payroll runs from Gusto.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -180,6 +193,7 @@ ACCOUNTING_ENDPOINTS = {
         "get": {
             "tags": ["Accounting"],
             "summary": "Get payroll",
+            "operationId": "getAccountingGustoPayroll",
             "description": "Fetch a payroll run by ID.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -201,6 +215,7 @@ ACCOUNTING_ENDPOINTS = {
         "post": {
             "tags": ["Accounting"],
             "summary": "Generate journal entry",
+            "operationId": "createAccountingGustoPayrollsJournalEntry",
             "description": "Generate a journal entry for a payroll run.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [

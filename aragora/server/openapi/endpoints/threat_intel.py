@@ -8,6 +8,7 @@ THREAT_INTEL_ENDPOINTS = {
         "post": {
             "tags": ["Threat Intel"],
             "summary": "Scan URL",
+            "operationId": "createThreatUrl",
             "description": "Check a URL against threat intel feeds.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
@@ -26,6 +27,7 @@ THREAT_INTEL_ENDPOINTS = {
         "post": {
             "tags": ["Threat Intel"],
             "summary": "Batch scan URLs",
+            "operationId": "createThreatUrls",
             "description": "Check multiple URLs for threats.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
@@ -44,6 +46,7 @@ THREAT_INTEL_ENDPOINTS = {
         "get": {
             "tags": ["Threat Intel"],
             "summary": "IP reputation",
+            "operationId": "getThreatIp",
             "description": "Check IP reputation.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -65,6 +68,7 @@ THREAT_INTEL_ENDPOINTS = {
         "post": {
             "tags": ["Threat Intel"],
             "summary": "Batch IP reputation",
+            "operationId": "createThreatIps",
             "description": "Check multiple IPs for reputation.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
@@ -83,6 +87,7 @@ THREAT_INTEL_ENDPOINTS = {
         "get": {
             "tags": ["Threat Intel"],
             "summary": "File hash lookup",
+            "operationId": "getThreatHash",
             "description": "Check a file hash for malware.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -104,6 +109,7 @@ THREAT_INTEL_ENDPOINTS = {
         "post": {
             "tags": ["Threat Intel"],
             "summary": "Batch hash lookup",
+            "operationId": "createThreatHashes",
             "description": "Check multiple hashes for malware.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
@@ -122,6 +128,7 @@ THREAT_INTEL_ENDPOINTS = {
         "post": {
             "tags": ["Threat Intel"],
             "summary": "Scan email content",
+            "operationId": "createThreatEmail",
             "description": "Scan email body for threats.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
@@ -140,6 +147,7 @@ THREAT_INTEL_ENDPOINTS = {
         "get": {
             "tags": ["Threat Intel"],
             "summary": "Service status",
+            "operationId": "listThreatStatus",
             "description": "Get threat intel service status.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "responses": {

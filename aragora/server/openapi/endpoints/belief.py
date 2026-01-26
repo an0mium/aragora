@@ -7,6 +7,7 @@ BELIEF_ENDPOINTS = {
         "get": {
             "tags": ["Belief"],
             "summary": "Get debate cruxes",
+            "operationId": "getBeliefNetworkCruxe",
             "parameters": [
                 {"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
@@ -17,6 +18,7 @@ BELIEF_ENDPOINTS = {
         "get": {
             "tags": ["Belief"],
             "summary": "Get load-bearing claims",
+            "operationId": "getBeliefNetworkLoadBearingClaim",
             "parameters": [
                 {"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
@@ -27,6 +29,7 @@ BELIEF_ENDPOINTS = {
         "get": {
             "tags": ["Belief"],
             "summary": "Get debate graph stats",
+            "operationId": "getDebateGraphStat",
             "parameters": [
                 {"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],

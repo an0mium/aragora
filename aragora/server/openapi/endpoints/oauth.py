@@ -7,6 +7,7 @@ OAUTH_ENDPOINTS = {
         "get": {
             "tags": ["OAuth"],
             "summary": "Start Google OAuth flow",
+            "operationId": "listAuthOauthGoogle",
             "description": "Redirect user to Google OAuth consent screen for authentication. Supports optional account linking for already-authenticated users.",
             "parameters": [
                 {
@@ -28,6 +29,7 @@ OAUTH_ENDPOINTS = {
         "get": {
             "tags": ["OAuth"],
             "summary": "Google OAuth callback",
+            "operationId": "listAuthOauthGoogleCallback",
             "description": "Handle the OAuth callback from Google after user consent. Exchanges authorization code for tokens and creates/links user account.",
             "parameters": [
                 {
@@ -62,6 +64,7 @@ OAUTH_ENDPOINTS = {
         "get": {
             "tags": ["OAuth"],
             "summary": "Start GitHub OAuth flow",
+            "operationId": "listAuthOauthGithub",
             "description": "Redirect user to GitHub OAuth consent screen for authentication.",
             "parameters": [
                 {
@@ -83,6 +86,7 @@ OAUTH_ENDPOINTS = {
         "get": {
             "tags": ["OAuth"],
             "summary": "GitHub OAuth callback",
+            "operationId": "listAuthOauthGithubCallback",
             "description": "Handle the OAuth callback from GitHub after user consent.",
             "parameters": [
                 {
@@ -111,6 +115,7 @@ OAUTH_ENDPOINTS = {
         "post": {
             "tags": ["OAuth"],
             "summary": "Link OAuth account",
+            "operationId": "createAuthOauthLink",
             "description": "Link an OAuth provider account to the current authenticated user.",
             "security": [{"bearerAuth": []}],
             "requestBody": {
@@ -146,6 +151,7 @@ OAUTH_ENDPOINTS = {
         "delete": {
             "tags": ["OAuth"],
             "summary": "Unlink OAuth account",
+            "operationId": "deleteAuthOauthUnlink",
             "description": "Remove OAuth provider link from the current user's account.",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -169,6 +175,7 @@ OAUTH_ENDPOINTS = {
         "get": {
             "tags": ["OAuth"],
             "summary": "List available OAuth providers",
+            "operationId": "listAuthOauthProviders",
             "description": "Get list of configured OAuth providers available for authentication.",
             "responses": {
                 "200": _ok_response("List of available providers", "OAuthProviders"),
@@ -179,6 +186,7 @@ OAUTH_ENDPOINTS = {
         "get": {
             "tags": ["OAuth"],
             "summary": "Get user's linked providers",
+            "operationId": "listUserOauthProviders",
             "description": "Get list of OAuth providers linked to the current user's account.",
             "security": [{"bearerAuth": []}],
             "responses": {

@@ -8,6 +8,7 @@ AUDIT_SESSIONS_ENDPOINTS = {
         "get": {
             "tags": ["Audit"],
             "summary": "List audit sessions",
+            "operationId": "listAuditSessions",
             "description": "List audit sessions with optional filters.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -23,6 +24,7 @@ AUDIT_SESSIONS_ENDPOINTS = {
         "post": {
             "tags": ["Audit"],
             "summary": "Create audit session",
+            "operationId": "createAuditSessions",
             "description": "Create a new audit session.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
@@ -40,6 +42,7 @@ AUDIT_SESSIONS_ENDPOINTS = {
         "get": {
             "tags": ["Audit"],
             "summary": "Get audit session",
+            "operationId": "getAuditSession",
             "description": "Get audit session details.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -59,6 +62,7 @@ AUDIT_SESSIONS_ENDPOINTS = {
         "delete": {
             "tags": ["Audit"],
             "summary": "Delete audit session",
+            "operationId": "deleteAuditSession",
             "description": "Delete an audit session.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -80,6 +84,7 @@ AUDIT_SESSIONS_ENDPOINTS = {
         "post": {
             "tags": ["Audit"],
             "summary": "Start audit",
+            "operationId": "createAuditSessionsStart",
             "description": "Start an audit session.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -101,6 +106,7 @@ AUDIT_SESSIONS_ENDPOINTS = {
         "post": {
             "tags": ["Audit"],
             "summary": "Pause audit",
+            "operationId": "createAuditSessionsPause",
             "description": "Pause an audit session.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -122,6 +128,7 @@ AUDIT_SESSIONS_ENDPOINTS = {
         "post": {
             "tags": ["Audit"],
             "summary": "Resume audit",
+            "operationId": "createAuditSessionsResume",
             "description": "Resume an audit session.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -143,6 +150,7 @@ AUDIT_SESSIONS_ENDPOINTS = {
         "post": {
             "tags": ["Audit"],
             "summary": "Cancel audit",
+            "operationId": "createAuditSessionsCancel",
             "description": "Cancel an audit session.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -164,6 +172,7 @@ AUDIT_SESSIONS_ENDPOINTS = {
         "get": {
             "tags": ["Audit"],
             "summary": "List findings",
+            "operationId": "getAuditSessionsFinding",
             "description": "List audit findings for a session.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -186,6 +195,7 @@ AUDIT_SESSIONS_ENDPOINTS = {
         "get": {
             "tags": ["Audit"],
             "summary": "Stream audit events",
+            "operationId": "getAuditSessionsEvent",
             "description": "Stream audit events via SSE.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -207,6 +217,7 @@ AUDIT_SESSIONS_ENDPOINTS = {
         "post": {
             "tags": ["Audit"],
             "summary": "Intervene in audit",
+            "operationId": "createAuditSessionsIntervene",
             "description": "Submit a human intervention.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -233,6 +244,7 @@ AUDIT_SESSIONS_ENDPOINTS = {
         "get": {
             "tags": ["Audit"],
             "summary": "Export audit report",
+            "operationId": "getAuditSessionsReport",
             "description": "Export audit report for a session.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
