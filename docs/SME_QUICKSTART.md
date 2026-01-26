@@ -114,6 +114,73 @@ The dashboard requires authentication with `dashboard.read` permission. Your org
 - Resource allocation
 - Example: "Should we build vs. buy this feature?"
 
+### SME-Specific Templates
+
+These templates are specifically designed for common SME business decisions:
+
+| Template | Category | Agents | Rounds | Time |
+|----------|----------|--------|--------|------|
+| `sme_hiring_decision` | Team | 2 | 3 | 5 min |
+| `sme_performance_review` | Team | 2 | 2 | 3 min |
+| `sme_feature_prioritization` | Project | 3 | 3 | 5 min |
+| `sme_sprint_planning` | Project | 2 | 2 | 3 min |
+| `sme_tool_selection` | Vendor | 3 | 4 | 7 min |
+| `sme_contract_review` | Vendor | 2 | 3 | 5 min |
+| `sme_remote_work_policy` | Policy | 3 | 3 | 5 min |
+| `sme_budget_allocation` | Policy | 3 | 2 | 3 min |
+
+#### Hiring Decision (`sme_hiring_decision`)
+
+Evaluate candidates with structured multi-agent debate:
+
+```bash
+curl -X POST /api/v1/debates \
+  -d '{
+    "template": "sme_hiring_decision",
+    "topic": "Should we hire Jane Doe for Senior Developer?",
+    "context": {
+      "position": "Senior Developer",
+      "candidate": "Jane Doe",
+      "interview_notes": "Strong Python skills, 5 years experience, good culture fit"
+    }
+  }'
+```
+
+#### Feature Prioritization (`sme_feature_prioritization`)
+
+Prioritize features based on impact, effort, and strategic alignment:
+
+```bash
+curl -X POST /api/v1/debates \
+  -d '{
+    "template": "sme_feature_prioritization",
+    "topic": "Prioritize Q1 features",
+    "context": {
+      "features": ["Dark mode", "API v2", "Mobile app", "Export to PDF"],
+      "constraints": ["2 developers", "Must ship by March"],
+      "timeline": "Q1 2025"
+    }
+  }'
+```
+
+#### Tool Selection (`sme_tool_selection`)
+
+Compare tools with comprehensive multi-agent analysis:
+
+```bash
+curl -X POST /api/v1/debates \
+  -d '{
+    "template": "sme_tool_selection",
+    "topic": "Select project management tool",
+    "context": {
+      "category": "Project Management",
+      "candidates": ["Jira", "Linear", "Asana"],
+      "requirements": ["GitHub integration", "Agile support"],
+      "budget": "$50/user/month"
+    }
+  }'
+```
+
 ## Best Practices
 
 ### Writing Good Topics
