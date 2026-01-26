@@ -33,6 +33,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,7 @@ class ComplianceHandler(BaseHandler):
             logger.exception(f"Error handling compliance request: {e}")
             return error_response(f"Internal error: {str(e)}", 500)
 
+    @require_permission("compliance:read")
     async def _get_status(self) -> HandlerResult:
         """
         Get overall compliance status.
@@ -158,6 +160,7 @@ class ComplianceHandler(BaseHandler):
             }
         )
 
+    @require_permission("compliance:soc2")
     async def _get_soc2_report(self, query_params: Dict[str, str]) -> HandlerResult:
         """
         Generate SOC 2 Type II compliance report summary.
@@ -225,6 +228,7 @@ class ComplianceHandler(BaseHandler):
 
         return json_response(report)
 
+    @require_permission("compliance:gdpr")
     async def _gdpr_export(self, query_params: Dict[str, str]) -> HandlerResult:
         """
         Export user data for GDPR compliance.
@@ -283,6 +287,7 @@ class ComplianceHandler(BaseHandler):
 
         return json_response(export_data)
 
+    @require_permission("compliance:audit")
     async def _verify_audit(self, body: Dict[str, Any]) -> HandlerResult:
         """
         Verify audit trail integrity.
@@ -347,6 +352,7 @@ class ComplianceHandler(BaseHandler):
 
         return json_response(verification_results)
 
+    @require_permission("compliance:audit")
     async def _get_audit_events(self, query_params: Dict[str, str]) -> HandlerResult:
         """
         Export audit events in SIEM-compatible format.
