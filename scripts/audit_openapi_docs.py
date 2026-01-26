@@ -7,6 +7,7 @@ Helps identify endpoints missing descriptions, operationIds, and other required 
 
 Usage:
     python scripts/audit_openapi_docs.py [--min-coverage 80] [--fail-on-missing] [--json]
+    python scripts/audit_openapi_docs.py --spec docs/api/openapi.json
 
 Exit codes:
     0: Success (coverage meets threshold)
@@ -205,6 +206,35 @@ def scan_all_endpoints() -> AuditReport:
     return report
 
 
+def scan_openapi_spec(spec_path: Path) -> AuditReport:
+    """Scan a generated OpenAPI spec JSON file."""
+    report = AuditReport()
+
+    if not spec_path.exists():
+        print(f"Spec file not found: {spec_path}", file=sys.stderr)
+        return report
+
+    try:
+        spec = json.loads(spec_path.read_text())
+    except json.JSONDecodeError as e:
+        print(f"Failed to parse OpenAPI spec: {e}", file=sys.stderr)
+        return report
+
+    paths = spec.get("paths", {})
+    report.files_scanned = 1
+    for path, methods in paths.items():
+        if not isinstance(methods, dict):
+            continue
+        for method, op_spec in methods.items():
+            if method.lower() in ("get", "post", "put", "delete", "patch"):
+                if isinstance(op_spec, dict):
+                    doc = analyze_endpoint_operation(path, method, op_spec, spec_path.name)
+                    report.endpoints.append(doc)
+
+    report.total_endpoints = len(report.endpoints)
+    return report
+
+
 def print_summary(report: AuditReport) -> None:
     """Print summary report to stdout."""
     print("=" * 70)
@@ -328,13 +358,21 @@ def main():
         type=str,
         help="Audit only a specific file (e.g., debates.py)",
     )
+    parser.add_argument(
+        "--spec",
+        type=str,
+        help="Audit a generated OpenAPI spec JSON file instead of source endpoints",
+    )
     args = parser.parse_args()
 
     # Run audit
-    report = scan_all_endpoints()
+    if args.spec:
+        report = scan_openapi_spec(Path(args.spec))
+    else:
+        report = scan_all_endpoints()
 
     # Filter by file if specified
-    if args.file:
+    if args.file and not args.spec:
         report.endpoints = [e for e in report.endpoints if e.file == args.file]
         report.total_endpoints = len(report.endpoints)
 
