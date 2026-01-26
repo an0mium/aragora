@@ -369,12 +369,12 @@ class TestReviews:
         assert "pagination" in result["data"]
 
     def test_get_reviews_not_found(self, mock_marketplace_state, marketplace_handler):
-        """Test getting reviews for non-existent template."""
+        """Test getting reviews for non-existent template returns 404."""
         result = marketplace_handler._get_reviews("nonexistent", {})
 
-        # Should return empty list, not error
-        assert result["success"] is True
-        assert result["data"]["reviews"] == []
+        # Template not found returns 404
+        assert result["success"] is False
+        assert result["status_code"] == 404
 
     def test_submit_review_success(self, mock_marketplace_state, marketplace_handler):
         """Test submitting a review."""
@@ -405,9 +405,8 @@ class TestImportTemplate:
     def test_import_template_success(self, mock_marketplace_state, marketplace_handler):
         """Test importing a template."""
         mock_handler = MagicMock()
-        mock_handler.get_json_body.return_value = {
-            "workspace_id": "ws-123",
-        }
+        mock_handler.headers = {"Content-Length": "30"}
+        mock_handler.rfile.read.return_value = b'{"workspace_id": "ws-123"}'
 
         result = marketplace_handler._import_template("tpl-123", mock_handler)
 
@@ -417,7 +416,8 @@ class TestImportTemplate:
     def test_import_template_not_found(self, mock_marketplace_state, marketplace_handler):
         """Test importing non-existent template returns 404."""
         mock_handler = MagicMock()
-        mock_handler.get_json_body.return_value = {}
+        mock_handler.headers = {"Content-Length": "2"}
+        mock_handler.rfile.read.return_value = b"{}"
 
         result = marketplace_handler._import_template("nonexistent", mock_handler)
 
@@ -431,7 +431,8 @@ class TestImportTemplate:
         initial_count = _marketplace_templates["tpl-123"].download_count
 
         mock_handler = MagicMock()
-        mock_handler.get_json_body.return_value = {}
+        mock_handler.headers = {"Content-Length": "2"}
+        mock_handler.rfile.read.return_value = b"{}"
 
         marketplace_handler._import_template("tpl-123", mock_handler)
 
