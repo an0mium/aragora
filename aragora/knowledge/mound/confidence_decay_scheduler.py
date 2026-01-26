@@ -39,6 +39,69 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Prometheus metrics for monitoring decay operations
+_DECAY_CYCLES: Any = None
+_DECAY_ITEMS_PROCESSED: Any = None
+_DECAY_ITEMS_DECAYED: Any = None
+_DECAY_DURATION_SECONDS: Any = None
+_DECAY_AVG_CHANGE: Any = None
+
+
+def _init_decay_metrics() -> bool:
+    """Initialize Prometheus metrics for confidence decay. Returns True if successful."""
+    global _DECAY_CYCLES, _DECAY_ITEMS_PROCESSED, _DECAY_ITEMS_DECAYED
+    global _DECAY_DURATION_SECONDS, _DECAY_AVG_CHANGE
+
+    if _DECAY_CYCLES is not None:
+        return True
+
+    try:
+        from prometheus_client import Counter, Gauge, Histogram
+
+        _DECAY_CYCLES = Counter(
+            "aragora_knowledge_decay_cycles_total",
+            "Total confidence decay cycles completed",
+            ["workspace"],
+        )
+        _DECAY_ITEMS_PROCESSED = Counter(
+            "aragora_knowledge_decay_items_processed_total",
+            "Total items processed by confidence decay",
+            ["workspace"],
+        )
+        _DECAY_ITEMS_DECAYED = Counter(
+            "aragora_knowledge_decay_items_decayed_total",
+            "Total items that had confidence reduced",
+            ["workspace"],
+        )
+        _DECAY_DURATION_SECONDS = Histogram(
+            "aragora_knowledge_decay_duration_seconds",
+            "Duration of decay operations",
+            ["workspace"],
+            buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0],
+        )
+        _DECAY_AVG_CHANGE = Gauge(
+            "aragora_knowledge_decay_avg_change",
+            "Average confidence change in last decay cycle",
+            ["workspace"],
+        )
+        return True
+    except ImportError:
+        logger.debug("prometheus_client not installed - decay metrics disabled")
+        return False
+
+
+def record_decay_metrics(report: "DecayScheduleReport") -> None:
+    """Record Prometheus metrics for a decay operation."""
+    if not _init_decay_metrics():
+        return
+
+    workspace = report.workspace_id or "default"
+    _DECAY_CYCLES.labels(workspace=workspace).inc()
+    _DECAY_ITEMS_PROCESSED.labels(workspace=workspace).inc(report.items_processed)
+    _DECAY_ITEMS_DECAYED.labels(workspace=workspace).inc(report.items_decayed)
+    _DECAY_DURATION_SECONDS.labels(workspace=workspace).observe(report.duration_ms / 1000)
+    _DECAY_AVG_CHANGE.labels(workspace=workspace).set(report.average_change)
+
 
 @dataclass
 class DecayScheduleReport:
@@ -207,6 +270,9 @@ class ConfidenceDecayScheduler:
                 report = await self._apply_decay_to_workspace(workspace_id, force)
                 if report:
                     reports.append(report)
+
+                    # Record Prometheus metrics
+                    record_decay_metrics(report)
 
                     if self._on_decay_complete:
                         self._on_decay_complete(report)
