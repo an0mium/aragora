@@ -256,7 +256,7 @@
         ],
         "summary": "Health check",
         "description": "Get system health status for load balancers and monitoring.\n\n**Returns:** 200 when healthy, 503 when degraded.\n\n**Use cases:**\n- Load balancer health probes\n- Kubernetes liveness/readiness checks\n- Uptime monitoring services",
-        "operationId": "getHealth",
+        "operationId": "getHealth1",
         "responses": {
           "200": {
             "description": "System healthy",
@@ -376,7 +376,7 @@
         ],
         "summary": "Nomic loop health",
         "description": "Get nomic loop health with stall detection.\n\n**Stall detection:** Alerts if the nomic loop hasn't progressed within expected timeframes.\n\n**Response includes:**\n- Health status (healthy, stalled, degraded)\n- Time since last activity\n- Phase duration statistics",
-        "operationId": "getNomicHealth",
+        "operationId": "getNomicHealth1",
         "responses": {
           "200": {
             "description": "Nomic health status"
@@ -538,7 +538,7 @@
         ],
         "summary": "List operational modes",
         "description": "Get available operational modes including builtin and custom modes.\n\n**Builtin modes:** debate, gauntlet, research, code-review, etc.\n\n**Custom modes:** User-defined workflow configurations.",
-        "operationId": "listModes",
+        "operationId": "listModes1",
         "responses": {
           "200": {
             "description": "Available modes"
@@ -980,7 +980,7 @@
         ],
         "summary": "List all agents",
         "description": "Get list of all known AI agents with optional performance statistics.\n\n**Rate Limit:** 60 requests per minute (free), 300/min (pro), 1000/min (enterprise)\n\n**Response:** Returns agent metadata including name, model, provider, and ELO rating.\nOptionally includes detailed statistics when `include_stats=true`.",
-        "operationId": "listAgents",
+        "operationId": "listAgents1",
         "parameters": [
           {
             "name": "include_stats",
@@ -2546,7 +2546,7 @@
         ],
         "summary": "List all personas",
         "description": "Get all agent personas including their communication styles and reasoning patterns.",
-        "operationId": "listPersonas",
+        "operationId": "listPersonas1",
         "responses": {
           "200": {
             "description": "All personas"
@@ -2877,7 +2877,7 @@
         ],
         "summary": "List debates",
         "description": "Get list of all debates for the authenticated user.\n\n**Rate Limit:** 60 requests per minute (free), 300/min (pro), 1000/min (enterprise)\n\n**Pagination:** Use `limit` and `offset` for pagination. Maximum 100 items per request.\n\n**Filtering:** Results are filtered to debates owned by or shared with the authenticated user.",
-        "operationId": "listDebates",
+        "operationId": "listDebates1",
         "parameters": [
           {
             "name": "limit",

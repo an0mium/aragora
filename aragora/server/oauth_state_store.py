@@ -42,7 +42,7 @@ class OAuthState:
     redirect_url: Optional[str]
     expires_at: float
     created_at: float = 0.0
-    metadata: Optional[dict[str, Any]] = None  # Provider-specific data (tenant_id, org_id)
+    metadata: Optional[dict[str, Any]] = None  # Provider-specific data (tenant_id, org_id, etc.)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for storage."""
@@ -82,7 +82,17 @@ class OAuthStateStore(ABC):
         ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
         metadata: Optional[dict[str, Any]] = None,
     ) -> str:
-        """Generate and store a new state token."""
+        """Generate and store a new state token.
+
+        Args:
+            user_id: Optional user ID for the OAuth flow.
+            redirect_url: Optional URL to redirect after OAuth completion.
+            ttl_seconds: Time-to-live for the state token in seconds.
+            metadata: Optional provider-specific data (tenant_id, org_id, etc.)
+
+        Returns:
+            The generated state token string.
+        """
         pass
 
     @abstractmethod
@@ -202,20 +212,13 @@ class SQLiteOAuthStateStore(OAuthStateStore):
                     user_id TEXT,
                     redirect_url TEXT,
                     expires_at REAL NOT NULL,
-                    created_at REAL NOT NULL,
-                    metadata TEXT
+                    created_at REAL NOT NULL
                 )
             """)
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_oauth_expires
                 ON oauth_states(expires_at)
             """)
-            # Add metadata column if it doesn't exist (migration for existing DBs)
-            try:
-                conn.execute("ALTER TABLE oauth_states ADD COLUMN metadata TEXT")
-                conn.commit()
-            except sqlite3.OperationalError:
-                pass  # Column already exists
             conn.commit()
             logger.info(f"SQLite OAuth state store initialized: {self._db_path}")
 
@@ -224,7 +227,6 @@ class SQLiteOAuthStateStore(OAuthStateStore):
         user_id: Optional[str] = None,
         redirect_url: Optional[str] = None,
         ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
-        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """Generate and store a new state token."""
         # Cleanup before adding new state
@@ -232,7 +234,6 @@ class SQLiteOAuthStateStore(OAuthStateStore):
 
         state_token = secrets.token_urlsafe(32)
         now = time.time()
-        metadata_json = json.dumps(metadata) if metadata else None
 
         conn = self._get_connection()
         try:
@@ -257,10 +258,10 @@ class SQLiteOAuthStateStore(OAuthStateStore):
             # Insert new state
             conn.execute(
                 """
-                INSERT INTO oauth_states (state_token, user_id, redirect_url, expires_at, created_at, metadata)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO oauth_states (state_token, user_id, redirect_url, expires_at, created_at)
+                VALUES (?, ?, ?, ?, ?)
             """,
-                (state_token, user_id, redirect_url, now + ttl_seconds, now, metadata_json),
+                (state_token, user_id, redirect_url, now + ttl_seconds, now),
             )
             conn.commit()
         except Exception as e:
@@ -278,7 +279,7 @@ class SQLiteOAuthStateStore(OAuthStateStore):
             # Get and delete atomically
             cursor = conn.execute(
                 """
-                SELECT user_id, redirect_url, expires_at, created_at, metadata
+                SELECT user_id, redirect_url, expires_at, created_at
                 FROM oauth_states WHERE state_token = ?
             """,
                 (state,),
@@ -292,20 +293,11 @@ class SQLiteOAuthStateStore(OAuthStateStore):
             conn.execute("DELETE FROM oauth_states WHERE state_token = ?", (state,))
             conn.commit()
 
-            # Parse metadata JSON
-            metadata = None
-            if row[4]:
-                try:
-                    metadata = json.loads(row[4])
-                except json.JSONDecodeError:
-                    pass
-
             state_data = OAuthState(
                 user_id=row[0],
                 redirect_url=row[1],
                 expires_at=row[2],
                 created_at=row[3],
-                metadata=metadata,
             )
 
             if state_data.is_expired:
@@ -404,7 +396,6 @@ class RedisOAuthStateStore(OAuthStateStore):
         user_id: Optional[str] = None,
         redirect_url: Optional[str] = None,
         ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
-        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """Generate and store a new state token in Redis."""
         redis_client = self._get_redis()
@@ -419,7 +410,6 @@ class RedisOAuthStateStore(OAuthStateStore):
             redirect_url=redirect_url,
             expires_at=now + ttl_seconds,
             created_at=now,
-            metadata=metadata,
         )
 
         # Store in Redis with TTL
@@ -529,7 +519,6 @@ class JWTOAuthStateStore(OAuthStateStore):
         user_id: Optional[str] = None,
         redirect_url: Optional[str] = None,
         ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
-        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """Generate a signed JWT state token."""
         import base64
@@ -540,15 +529,13 @@ class JWTOAuthStateStore(OAuthStateStore):
         nonce = secrets.token_urlsafe(16)
 
         # Build payload
-        payload: dict[str, Any] = {
+        payload = {
             "n": nonce,  # Nonce for replay protection
             "u": user_id,  # User ID (if linking)
             "r": redirect_url,  # Redirect URL
             "e": now + ttl_seconds,  # Expiration timestamp
             "c": now,  # Created timestamp
         }
-        if metadata:
-            payload["m"] = metadata  # Provider-specific metadata
 
         # Encode payload as JSON, then base64
         payload_json = json.dumps(payload, separators=(",", ":"))
@@ -626,7 +613,6 @@ class JWTOAuthStateStore(OAuthStateStore):
             redirect_url=payload.get("r"),
             expires_at=expires_at,
             created_at=payload.get("c", 0),
-            metadata=payload.get("m"),
         )
 
     def cleanup_expired(self) -> int:
@@ -767,7 +753,6 @@ class FallbackOAuthStateStore(OAuthStateStore):
         user_id: Optional[str] = None,
         redirect_url: Optional[str] = None,
         ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
-        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """Generate state using active backend."""
         store = self._get_active_store()
@@ -778,7 +763,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
             f"redis_failed={self._redis_failed}"
         )
         try:
-            state = store.generate(user_id, redirect_url, ttl_seconds, metadata)
+            state = store.generate(user_id, redirect_url, ttl_seconds)
             logger.info(
                 f"OAuth state generated: len={len(state)}, has_dot={'.' in state}, "
                 f"prefix={state[:30]}..."

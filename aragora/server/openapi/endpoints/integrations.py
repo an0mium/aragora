@@ -309,6 +309,75 @@ INTEGRATION_ENDPOINTS = {
             },
         },
     },
+    "/api/v2/integrations/{type}/health": {
+        "get": {
+            "tags": ["Integrations"],
+            "summary": "Get integration health",
+            "description": "Get detailed health status for an integration including connection status, token validity, and last successful operation.",
+            "operationId": "getIntegrationHealth",
+            "parameters": [
+                {
+                    "name": "type",
+                    "in": "path",
+                    "required": True,
+                    "description": "Integration type",
+                    "schema": {
+                        "type": "string",
+                        "enum": ["slack", "teams", "discord", "email"],
+                    },
+                },
+                {
+                    "name": "workspace_id",
+                    "in": "query",
+                    "description": "Specific workspace/tenant ID to check (optional, returns aggregate if omitted)",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _response(
+                    "Integration health status",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "type": {"type": "string"},
+                            "healthy": {"type": "boolean"},
+                            "status": {
+                                "type": "string",
+                                "enum": [
+                                    "healthy",
+                                    "degraded",
+                                    "unhealthy",
+                                    "not_configured",
+                                    "token_expired",
+                                    "error",
+                                ],
+                            },
+                            "workspace_id": {"type": "string"},
+                            "workspace_name": {"type": "string"},
+                            "workspaces": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "workspace_id": {"type": "string"},
+                                        "workspace_name": {"type": "string"},
+                                        "status": {"type": "string"},
+                                        "error": {"type": "string"},
+                                    },
+                                },
+                            },
+                            "error": {"type": "string"},
+                        },
+                        "required": ["type", "healthy"],
+                    },
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
     "/api/v2/integrations/{type}/test": {
         "post": {
             "tags": ["Integrations"],

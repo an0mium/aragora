@@ -121,7 +121,12 @@ class IntegrationsHandler(BaseHandler):
                         400,
                     )
 
-                # Test endpoint
+                # Health endpoint (GET)
+                if len(parts) > 5 and parts[5] == "health" and method == "GET":
+                    workspace_id = query_params.get("workspace_id")
+                    return await self._get_health(integration_type, workspace_id, tenant_id)
+
+                # Test endpoint (POST - legacy, calls health check)
                 if len(parts) > 5 and parts[5] == "test" and method == "POST":
                     workspace_id = body.get("workspace_id") or query_params.get("workspace_id")
                     return await self._test_integration(integration_type, workspace_id, tenant_id)
@@ -459,6 +464,147 @@ class IntegrationsHandler(BaseHandler):
             )
 
         return error_response(f"Cannot test {integration_type}", 400)
+
+    async def _get_health(
+        self,
+        integration_type: str,
+        workspace_id: Optional[str],
+        tenant_id: Optional[str],
+    ) -> HandlerResult:
+        """
+        Get health status for an integration.
+
+        Returns detailed health information including:
+        - Connection status
+        - Token validity
+        - Last successful operation
+        - Error details if unhealthy
+        """
+        if integration_type == "slack":
+            if not workspace_id:
+                # Return aggregate health for all Slack workspaces
+                store = self._get_slack_store()
+                workspaces = (
+                    store.get_by_tenant(tenant_id) if tenant_id else store.list_active(limit=10)
+                )
+
+                if not workspaces:
+                    return json_response(
+                        {
+                            "type": "slack",
+                            "status": "not_configured",
+                            "healthy": False,
+                            "workspaces": [],
+                        }
+                    )
+
+                workspace_health = []
+                all_healthy = True
+                for ws in workspaces:
+                    health = await self._check_slack_health(ws)
+                    is_healthy = health.get("status") == "healthy"
+                    all_healthy = all_healthy and is_healthy
+                    workspace_health.append(
+                        {
+                            "workspace_id": ws.workspace_id,
+                            "workspace_name": ws.workspace_name,
+                            **health,
+                        }
+                    )
+
+                return json_response(
+                    {
+                        "type": "slack",
+                        "status": "healthy" if all_healthy else "degraded",
+                        "healthy": all_healthy,
+                        "workspaces": workspace_health,
+                    }
+                )
+
+            # Health for specific workspace
+            store = self._get_slack_store()
+            workspace = store.get(workspace_id)
+            if not workspace:
+                return error_response("Slack workspace not found", 404)
+
+            health = await self._check_slack_health(workspace)
+            return json_response(
+                {
+                    "type": "slack",
+                    "workspace_id": workspace_id,
+                    "workspace_name": workspace.workspace_name,
+                    "healthy": health.get("status") == "healthy",
+                    **health,
+                }
+            )
+
+        elif integration_type == "teams":
+            if not workspace_id:
+                store = self._get_teams_store()
+                workspaces = (
+                    store.get_by_aragora_tenant(tenant_id)
+                    if tenant_id
+                    else store.list_active(limit=10)
+                )
+
+                if not workspaces:
+                    return json_response(
+                        {
+                            "type": "teams",
+                            "status": "not_configured",
+                            "healthy": False,
+                            "workspaces": [],
+                        }
+                    )
+
+                workspace_health = []
+                all_healthy = True
+                for ws in workspaces:
+                    health = await self._check_teams_health(ws)
+                    is_healthy = health.get("status") == "healthy"
+                    all_healthy = all_healthy and is_healthy
+                    workspace_health.append(
+                        {"tenant_id": ws.tenant_id, "tenant_name": ws.tenant_name, **health}
+                    )
+
+                return json_response(
+                    {
+                        "type": "teams",
+                        "status": "healthy" if all_healthy else "degraded",
+                        "healthy": all_healthy,
+                        "workspaces": workspace_health,
+                    }
+                )
+
+            store = self._get_teams_store()
+            workspace = store.get(workspace_id)
+            if not workspace:
+                return error_response("Teams tenant not found", 404)
+
+            health = await self._check_teams_health(workspace)
+            return json_response(
+                {
+                    "type": "teams",
+                    "tenant_id": workspace_id,
+                    "tenant_name": workspace.tenant_name,
+                    "healthy": health.get("status") == "healthy",
+                    **health,
+                }
+            )
+
+        elif integration_type == "discord":
+            health = await self._check_discord_health()
+            return json_response(
+                {"type": "discord", "healthy": health.get("status") == "healthy", **health}
+            )
+
+        elif integration_type == "email":
+            health = await self._check_email_health()
+            return json_response(
+                {"type": "email", "healthy": health.get("status") == "healthy", **health}
+            )
+
+        return error_response(f"Unknown integration type: {integration_type}", 400)
 
     async def _get_stats(self, tenant_id: Optional[str]) -> HandlerResult:
         """Get integration statistics."""

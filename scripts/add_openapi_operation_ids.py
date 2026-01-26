@@ -83,13 +83,14 @@ def generate_operation_id(method: str, path: str) -> str:
     return operation_id
 
 
-def add_operation_ids(spec: dict) -> tuple[dict, int, int]:
-    """Add operationIds to all endpoints missing them.
+def add_operation_ids(spec: dict) -> tuple[dict, int, int, int]:
+    """Add or dedupe operationIds for all endpoints.
 
-    Returns: (updated_spec, added_count, existing_count)
+    Returns: (updated_spec, added_count, existing_count, updated_count)
     """
     added = 0
     existing = 0
+    updated = 0
     seen_ids = set()
 
     for path, methods in spec.get("paths", {}).items():
@@ -99,24 +100,29 @@ def add_operation_ids(spec: dict) -> tuple[dict, int, int]:
             if method.lower() not in ("get", "post", "put", "patch", "delete", "head", "options"):
                 continue
 
+            base_id = details.get("operationId") or generate_operation_id(method, path)
+            operation_id = base_id
+
+            # Handle duplicates by appending a numeric suffix
+            original_id = operation_id
+            counter = 1
+            while operation_id in seen_ids:
+                operation_id = f"{original_id}{counter}"
+                counter += 1
+
             if "operationId" in details:
-                seen_ids.add(details["operationId"])
-                existing += 1
+                if operation_id != details["operationId"]:
+                    details["operationId"] = operation_id
+                    updated += 1
+                else:
+                    existing += 1
             else:
-                operation_id = generate_operation_id(method, path)
-
-                # Handle duplicates by appending method
-                original_id = operation_id
-                counter = 1
-                while operation_id in seen_ids:
-                    operation_id = f"{original_id}{counter}"
-                    counter += 1
-
                 details["operationId"] = operation_id
-                seen_ids.add(operation_id)
                 added += 1
 
-    return spec, added, existing
+            seen_ids.add(operation_id)
+
+    return spec, added, existing, updated
 
 
 def main():
@@ -132,7 +138,7 @@ def main():
         spec = json.load(f)
 
     print("Adding operationIds...")
-    spec, added, existing = add_operation_ids(spec)
+    spec, added, existing, updated = add_operation_ids(spec)
 
     print(f"Writing {spec_path}...")
     with open(spec_path, "w") as f:
@@ -141,6 +147,7 @@ def main():
     print("\nResults:")
     print(f"  - Already had operationId: {existing}")
     print(f"  - Added operationId: {added}")
+    print(f"  - Updated duplicate operationId: {updated}")
     print(f"  - Total endpoints: {added + existing}")
 
 
