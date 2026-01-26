@@ -5,7 +5,7 @@ description: |
   Evaluates terms, identifies risks, and provides negotiation recommendations
   without requiring dedicated legal counsel.
 version: "1.0.0"
-category: vendor
+category: sme
 tags:
   - sme
   - vendor

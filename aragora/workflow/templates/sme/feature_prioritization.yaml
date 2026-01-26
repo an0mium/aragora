@@ -5,7 +5,7 @@ description: |
   Evaluates features based on business impact, effort, and strategic alignment
   using diverse AI perspectives to reduce bias.
 version: "1.0.0"
-category: project
+category: sme
 tags:
   - sme
   - product

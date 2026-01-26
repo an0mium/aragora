@@ -5,7 +5,7 @@ description: |
   Helps SME leaders allocate limited resources across competing
   priorities with data-driven AI consensus.
 version: "1.0.0"
-category: policy
+category: sme
 tags:
   - sme
   - policy

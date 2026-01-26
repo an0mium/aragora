@@ -5,7 +5,7 @@ description: |
   Helps scope sprints, estimate effort, and balance workload
   with AI-assisted capacity planning.
 version: "1.0.0"
-category: project
+category: sme
 tags:
   - sme
   - agile

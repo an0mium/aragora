@@ -5,7 +5,7 @@ description: |
   Provides structured comparison across multiple criteria with diverse
   AI perspectives to reduce selection bias.
 version: "1.0.0"
-category: vendor
+category: sme
 tags:
   - sme
   - vendor

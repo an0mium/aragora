@@ -5,7 +5,7 @@ description: |
   Provides structured analysis of qualifications, culture fit, and hiring
   recommendations with diverse AI perspectives.
 version: "1.0.0"
-category: team
+category: sme
 tags:
   - sme
   - hiring
