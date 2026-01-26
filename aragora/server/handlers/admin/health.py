@@ -170,6 +170,13 @@ class HealthHandler(BaseHandler):
         """
         import os
 
+        # Return cached result if available (1 second cache)
+        cached = _get_cached_health("readiness")
+        if cached is not None:
+            status_code = 200 if cached.get("status") == "ready" else 503
+            return json_response(cached, status=status_code)
+
+        start_time = time.time()
         ready = True
         checks: Dict[str, Any] = {}
 
@@ -340,10 +347,17 @@ class HealthHandler(BaseHandler):
             checks["postgresql"] = {"error": str(e)[:80]}
 
         status_code = 200 if ready else 503
-        return json_response(
-            {"status": "ready" if ready else "not_ready", "checks": checks},
-            status=status_code,
-        )
+        latency_ms = (time.time() - start_time) * 1000
+        result = {
+            "status": "ready" if ready else "not_ready",
+            "checks": checks,
+            "latency_ms": round(latency_ms, 2),
+        }
+
+        # Cache result for subsequent requests
+        _set_cached_health("readiness", result)
+
+        return json_response(result, status=status_code)
 
     def _health_check(self) -> HandlerResult:
         """Comprehensive health check for k8s/docker deployments.
