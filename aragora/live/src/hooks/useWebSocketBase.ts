@@ -124,6 +124,7 @@ export function useWebSocketBase<TEvent = unknown>({
   onError,
   logPrefix = '[WebSocket]',
 }: WebSocketBaseOptions<TEvent>): WebSocketBaseReturn {
+  const MAX_HANDSHAKE_FAILURES = 3;
   const [status, setStatus] = useState<WebSocketConnectionStatus>('disconnected');
   const [error, setError] = useState<string | null>(null);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
@@ -131,6 +132,8 @@ export function useWebSocketBase<TEvent = unknown>({
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isUnmountedRef = useRef(false);
+  const hasEverConnectedRef = useRef(false);
+  const handshakeFailuresRef = useRef(0);
 
   // Track reconnect trigger to force reconnection
   const [reconnectTrigger, setReconnectTrigger] = useState(0);
@@ -183,6 +186,8 @@ export function useWebSocketBase<TEvent = unknown>({
   const reconnect = useCallback(() => {
     setReconnectAttempt(0);
     setError(null);
+    hasEverConnectedRef.current = false;
+    handshakeFailuresRef.current = 0;
     setReconnectTrigger(prev => prev + 1);
   }, []);
 
@@ -235,6 +240,8 @@ export function useWebSocketBase<TEvent = unknown>({
         logger.debug(`${logPrefix} Connected (attempt ${reconnectAttempt + 1})`);
         setStatus('connected');
         setReconnectAttempt(0);
+        hasEverConnectedRef.current = true;
+        handshakeFailuresRef.current = 0;
         clearReconnectTimeout();
 
         // Send subscription message if provided
@@ -254,10 +261,22 @@ export function useWebSocketBase<TEvent = unknown>({
         // Normal closure
         if (event.code === 1000) {
           setStatus('disconnected');
-        } else {
-          scheduleReconnect();
+          onDisconnect?.();
+          return;
         }
 
+        if (!hasEverConnectedRef.current) {
+          handshakeFailuresRef.current += 1;
+          if (handshakeFailuresRef.current >= MAX_HANDSHAKE_FAILURES) {
+            setStatus('error');
+            setError('WebSocket unavailable');
+            onError?.('WebSocket unavailable');
+            onDisconnect?.();
+            return;
+          }
+        }
+
+        scheduleReconnect();
         onDisconnect?.();
       };
 
