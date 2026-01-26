@@ -248,6 +248,10 @@ class KnowledgeChatHandler(BaseHandler):
     HTTP handler for Knowledge + Chat bridge endpoints.
     """
 
+    # RBAC permission keys
+    KNOWLEDGE_READ_PERMISSION = "knowledge.read"
+    KNOWLEDGE_WRITE_PERMISSION = "knowledge.write"
+
     ROUTES = [
         "/api/v1/chat/knowledge/search",
         "/api/v1/chat/knowledge/inject",
@@ -267,10 +271,35 @@ class KnowledgeChatHandler(BaseHandler):
                 return True
         return False
 
+    def _check_auth(self, handler: Any) -> Optional[HandlerResult]:
+        """Check authentication and return error response if not authenticated."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        return None
+
+    def _check_permission(self, handler: Any, permission: str) -> Optional[HandlerResult]:
+        """Check RBAC permission and return error response if denied."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        # Check permission
+        permissions = getattr(user, "permissions", []) or []
+        roles = getattr(user, "roles", []) or []
+        if permission not in permissions and "admin" not in roles and "admin" not in permissions:
+            return error_response(f"Permission denied: requires {permission}", 403)
+        return None
+
     def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle GET requests."""
+        # Check read permission for all GET requests
+        perm_error = self._check_permission(handler, self.KNOWLEDGE_READ_PERMISSION)
+        if perm_error:
+            return perm_error
+
         # GET /api/v1/chat/knowledge/channel/:id/summary
         if path.startswith("/api/v1/chat/knowledge/channel/") and path.endswith("/summary"):
             # Extract channel_id from path
@@ -306,6 +335,16 @@ class KnowledgeChatHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
+        # Check appropriate permission based on operation
+        if path == "/api/v1/chat/knowledge/store":
+            # Store requires write permission
+            perm_error = self._check_permission(handler, self.KNOWLEDGE_WRITE_PERMISSION)
+        else:
+            # Search/inject requires read permission
+            perm_error = self._check_permission(handler, self.KNOWLEDGE_READ_PERMISSION)
+        if perm_error:
+            return perm_error
+
         body, err = self.read_json_body_validated(handler)
         if err:
             return err

@@ -66,6 +66,11 @@ class KnowledgeHandler(
     - Search and statistics (SearchOperationsMixin)
     """
 
+    # RBAC permission keys
+    KNOWLEDGE_READ_PERMISSION = "knowledge.read"
+    KNOWLEDGE_WRITE_PERMISSION = "knowledge.write"
+    KNOWLEDGE_DELETE_PERMISSION = "knowledge.delete"
+
     ROUTES = [
         "/api/v1/knowledge/query",
         "/api/v1/knowledge/facts",
@@ -112,6 +117,19 @@ class KnowledgeHandler(
             return True
         return False
 
+    def _check_permission(self, handler: Any, permission: str) -> Optional[HandlerResult]:
+        """Check RBAC permission and return error response if denied."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        # Check permission
+        permissions = getattr(user, "permissions", []) or []
+        roles = getattr(user, "roles", []) or []
+        if permission not in permissions and "admin" not in roles and "admin" not in permissions:
+            return error_response(f"Permission denied: requires {permission}", 403)
+        return None
+
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route knowledge requests to appropriate methods."""
         # Rate limit check
@@ -119,6 +137,29 @@ class KnowledgeHandler(
         if not _knowledge_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for knowledge endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # Check read permission for GET requests
+        method = getattr(handler, "command", "GET")
+        if method == "GET":
+            perm_error = self._check_permission(handler, self.KNOWLEDGE_READ_PERMISSION)
+            if perm_error:
+                return perm_error
+        elif method == "POST":
+            # Query is read, create fact is write
+            if path == "/api/v1/knowledge/query":
+                perm_error = self._check_permission(handler, self.KNOWLEDGE_READ_PERMISSION)
+            else:
+                perm_error = self._check_permission(handler, self.KNOWLEDGE_WRITE_PERMISSION)
+            if perm_error:
+                return perm_error
+        elif method == "PUT":
+            perm_error = self._check_permission(handler, self.KNOWLEDGE_WRITE_PERMISSION)
+            if perm_error:
+                return perm_error
+        elif method == "DELETE":
+            perm_error = self._check_permission(handler, self.KNOWLEDGE_DELETE_PERMISSION)
+            if perm_error:
+                return perm_error
 
         # Query endpoint (POST)
         if path == "/api/v1/knowledge/query":
