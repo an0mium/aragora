@@ -33,16 +33,22 @@ from aragora.config import CACHE_TTL_ANALYTICS
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
     json_response,
     ttl_cache,
 )
-from .utils.rate_limit import rate_limit
+from .secure import ForbiddenError, SecureHandler, UnauthorizedError
+from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Permission required for analytics metrics access
+ANALYTICS_METRICS_PERMISSION = "analytics:read"
+
+# Rate limiter for analytics metrics endpoints (60 requests per minute)
+_analytics_metrics_limiter = RateLimiter(requests_per_minute=60)
 
 # Valid time granularities
 VALID_GRANULARITIES = {"daily", "weekly", "monthly"}
@@ -118,8 +124,11 @@ def _group_by_time(
     return dict(groups)
 
 
-class AnalyticsMetricsHandler(BaseHandler):
-    """Handler for analytics metrics dashboard endpoints."""
+class AnalyticsMetricsHandler(SecureHandler):
+    """Handler for analytics metrics dashboard endpoints.
+
+    Requires authentication and analytics:read permission (RBAC).
+    """
 
     ROUTES = [
         # Debate Analytics
@@ -148,10 +157,27 @@ class AnalyticsMetricsHandler(BaseHandler):
         # Check agent performance pattern
         return bool(self.AGENT_PERFORMANCE_PATTERN.match(normalized))
 
-    @rate_limit(rpm=60)
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
-        """Route GET requests to appropriate methods."""
+    async def handle(  # type: ignore[override]
+        self, path: str, query_params: dict, handler: Any
+    ) -> Optional[HandlerResult]:
+        """Route GET requests to appropriate methods with RBAC."""
         normalized = strip_version_prefix(path)
+
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _analytics_metrics_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for analytics metrics: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # RBAC: Require authentication and analytics:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, ANALYTICS_METRICS_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Analytics metrics access denied: {e}")
+            return error_response(str(e), 403)
 
         # Debate Analytics
         if normalized == "/api/analytics/debates/overview":
