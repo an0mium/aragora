@@ -550,7 +550,7 @@ class CanvasStateManager:
             await self._broadcast(
                 canvas.id,
                 CanvasEvent(
-                    event_type=CanvasEventType.NODE_UPDATED,
+                    event_type=CanvasEventType.NODE_UPDATE,
                     canvas_id=canvas.id,
                     node_id=debate_node.id,
                     data={"status": "running"},
@@ -685,7 +685,7 @@ class CanvasStateManager:
             await self._broadcast(
                 canvas.id,
                 CanvasEvent(
-                    event_type=CanvasEventType.NODE_UPDATED,
+                    event_type=CanvasEventType.NODE_UPDATE,
                     canvas_id=canvas.id,
                     node_id=workflow_node.id,
                     data={"status": "running"},
@@ -722,7 +722,7 @@ class CanvasStateManager:
             await self._broadcast(
                 canvas.id,
                 CanvasEvent(
-                    event_type=CanvasEventType.NODE_UPDATED,
+                    event_type=CanvasEventType.NODE_UPDATE,
                     canvas_id=canvas.id,
                     node_id=workflow_node.id,
                     data=workflow_node.data,
@@ -794,7 +794,7 @@ class CanvasStateManager:
             await self._broadcast(
                 canvas.id,
                 CanvasEvent(
-                    event_type=CanvasEventType.NODE_UPDATED,
+                    event_type=CanvasEventType.NODE_UPDATE,
                     canvas_id=canvas.id,
                     node_id=knowledge_node.id,
                     data={"status": "searching"},
@@ -816,7 +816,7 @@ class CanvasStateManager:
             await self._broadcast(
                 canvas.id,
                 CanvasEvent(
-                    event_type=CanvasEventType.NODE_UPDATED,
+                    event_type=CanvasEventType.NODE_UPDATE,
                     canvas_id=canvas.id,
                     node_id=knowledge_node.id,
                     data=knowledge_node.data,
