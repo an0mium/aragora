@@ -20,6 +20,9 @@ import pytest
 
 from aragora.server.handlers.admin.health import HealthHandler
 
+# Mark all tests in this module as async
+pytestmark = pytest.mark.asyncio
+
 
 @pytest.fixture
 def mock_server_context():
@@ -178,112 +181,112 @@ class TestHealthHandlerRouteDispatch:
     def handler(self, mock_server_context):
         return HealthHandler(mock_server_context)
 
-    def test_handle_healthz_returns_result(self, handler):
+    async def test_handle_healthz_returns_result(self, handler):
         """Handle returns result for healthz endpoint."""
         mock_http = MagicMock()
 
-        result = handler.handle("/healthz", {}, mock_http)
+        result = await handler.handle("/healthz", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
 
-    def test_handle_readyz_returns_result(self, handler):
+    async def test_handle_readyz_returns_result(self, handler):
         """Handle returns result for readyz endpoint."""
         mock_http = MagicMock()
 
-        result = handler.handle("/readyz", {}, mock_http)
+        result = await handler.handle("/readyz", {}, mock_http)
 
         assert result is not None
         # May return 200 or 503 depending on system state
         assert result.status_code in (200, 503)
 
-    def test_handle_health_returns_result(self, handler):
+    async def test_handle_health_returns_result(self, handler):
         """Handle returns result for health endpoint."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health", {}, mock_http)
+        result = await handler.handle("/api/v1/health", {}, mock_http)
 
         assert result is not None
         # May return 200 or 503 depending on health
         assert result.status_code in (200, 503)
 
-    def test_handle_health_detailed_returns_result(self, handler):
+    async def test_handle_health_detailed_returns_result(self, handler):
         """Handle returns result for detailed health endpoint."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/detailed", {}, mock_http)
+        result = await handler.handle("/api/v1/health/detailed", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
 
-    def test_handle_health_stores_returns_result(self, handler):
+    async def test_handle_health_stores_returns_result(self, handler):
         """Handle returns result for stores health endpoint."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/stores", {}, mock_http)
+        result = await handler.handle("/api/v1/health/stores", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
 
-    def test_handle_health_sync_returns_result(self, handler):
+    async def test_handle_health_sync_returns_result(self, handler):
         """Handle returns result for sync status endpoint."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/sync", {}, mock_http)
+        result = await handler.handle("/api/v1/health/sync", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
 
-    def test_handle_health_circuits_returns_result(self, handler):
+    async def test_handle_health_circuits_returns_result(self, handler):
         """Handle returns result for circuit breakers endpoint."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/circuits", {}, mock_http)
+        result = await handler.handle("/api/v1/health/circuits", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
 
-    def test_handle_health_slow_debates_returns_result(self, handler):
+    async def test_handle_health_slow_debates_returns_result(self, handler):
         """Handle returns result for slow debates endpoint."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/slow-debates", {}, mock_http)
+        result = await handler.handle("/api/v1/health/slow-debates", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
 
-    def test_handle_health_cross_pollination_returns_result(self, handler):
+    async def test_handle_health_cross_pollination_returns_result(self, handler):
         """Handle returns result for cross-pollination health endpoint."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/cross-pollination", {}, mock_http)
+        result = await handler.handle("/api/v1/health/cross-pollination", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
 
-    def test_handle_health_knowledge_mound_returns_result(self, handler):
+    async def test_handle_health_knowledge_mound_returns_result(self, handler):
         """Handle returns result for knowledge mound health endpoint."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/knowledge-mound", {}, mock_http)
+        result = await handler.handle("/api/v1/health/knowledge-mound", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
 
-    def test_handle_health_platform_returns_result(self, handler):
+    async def test_handle_health_platform_returns_result(self, handler):
         """Handle returns result for platform health endpoint."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/platform", {}, mock_http)
+        result = await handler.handle("/api/v1/health/platform", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
 
-    def test_handle_unknown_returns_none(self, handler):
+    async def test_handle_unknown_returns_none(self, handler):
         """Handle returns None for unknown paths."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/unknown", {}, mock_http)
+        result = await handler.handle("/api/v1/unknown", {}, mock_http)
 
         assert result is None
 
@@ -295,29 +298,29 @@ class TestHealthHandlerResponseFormat:
     def handler(self, mock_server_context):
         return HealthHandler(mock_server_context)
 
-    def test_healthz_response_is_json(self, handler):
+    async def test_healthz_response_is_json(self, handler):
         """Healthz endpoint returns JSON response."""
         mock_http = MagicMock()
 
-        result = handler.handle("/healthz", {}, mock_http)
+        result = await handler.handle("/healthz", {}, mock_http)
 
         assert result is not None
         assert result.content_type == "application/json"
 
-    def test_readyz_response_is_json(self, handler):
+    async def test_readyz_response_is_json(self, handler):
         """Readyz endpoint returns JSON response."""
         mock_http = MagicMock()
 
-        result = handler.handle("/readyz", {}, mock_http)
+        result = await handler.handle("/readyz", {}, mock_http)
 
         assert result is not None
         assert result.content_type == "application/json"
 
-    def test_health_response_includes_status(self, handler):
+    async def test_health_response_includes_status(self, handler):
         """Health endpoint response includes status field."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health", {}, mock_http)
+        result = await handler.handle("/api/v1/health", {}, mock_http)
 
         assert result is not None
         import json
@@ -325,11 +328,11 @@ class TestHealthHandlerResponseFormat:
         body = json.loads(result.body)
         assert "status" in body
 
-    def test_healthz_response_includes_status(self, handler):
+    async def test_healthz_response_includes_status(self, handler):
         """Healthz endpoint response includes status field."""
         mock_http = MagicMock()
 
-        result = handler.handle("/healthz", {}, mock_http)
+        result = await handler.handle("/healthz", {}, mock_http)
 
         assert result is not None
         import json
@@ -345,11 +348,11 @@ class TestHealthHandlerLivenessProbe:
     def handler(self, mock_server_context):
         return HealthHandler(mock_server_context)
 
-    def test_liveness_returns_ok_status(self, handler):
+    async def test_liveness_returns_ok_status(self, handler):
         """Liveness probe returns ok status when server is running."""
         mock_http = MagicMock()
 
-        result = handler.handle("/healthz", {}, mock_http)
+        result = await handler.handle("/healthz", {}, mock_http)
 
         assert result is not None
         import json
@@ -357,11 +360,11 @@ class TestHealthHandlerLivenessProbe:
         body = json.loads(result.body)
         assert body["status"] == "ok"
 
-    def test_liveness_returns_200(self, handler):
+    async def test_liveness_returns_200(self, handler):
         """Liveness probe returns 200 status code."""
         mock_http = MagicMock()
 
-        result = handler.handle("/healthz", {}, mock_http)
+        result = await handler.handle("/healthz", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -374,11 +377,11 @@ class TestHealthHandlerDetailedHealth:
     def handler(self, mock_server_context):
         return HealthHandler(mock_server_context)
 
-    def test_detailed_health_includes_components(self, handler):
+    async def test_detailed_health_includes_components(self, handler):
         """Detailed health includes components section."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/detailed", {}, mock_http)
+        result = await handler.handle("/api/v1/health/detailed", {}, mock_http)
 
         assert result is not None
         import json
@@ -386,11 +389,11 @@ class TestHealthHandlerDetailedHealth:
         body = json.loads(result.body)
         assert "components" in body
 
-    def test_detailed_health_includes_version(self, handler):
+    async def test_detailed_health_includes_version(self, handler):
         """Detailed health includes version field."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/detailed", {}, mock_http)
+        result = await handler.handle("/api/v1/health/detailed", {}, mock_http)
 
         assert result is not None
         import json
@@ -406,11 +409,11 @@ class TestHealthHandlerStoresHealth:
     def handler(self, mock_server_context):
         return HealthHandler(mock_server_context)
 
-    def test_stores_health_includes_status(self, handler):
+    async def test_stores_health_includes_status(self, handler):
         """Stores health includes overall status."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/stores", {}, mock_http)
+        result = await handler.handle("/api/v1/health/stores", {}, mock_http)
 
         assert result is not None
         import json
@@ -418,11 +421,11 @@ class TestHealthHandlerStoresHealth:
         body = json.loads(result.body)
         assert "status" in body
 
-    def test_stores_health_includes_stores(self, handler):
+    async def test_stores_health_includes_stores(self, handler):
         """Stores health includes stores section."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/stores", {}, mock_http)
+        result = await handler.handle("/api/v1/health/stores", {}, mock_http)
 
         assert result is not None
         import json
@@ -430,11 +433,11 @@ class TestHealthHandlerStoresHealth:
         body = json.loads(result.body)
         assert "stores" in body
 
-    def test_stores_health_includes_summary(self, handler):
+    async def test_stores_health_includes_summary(self, handler):
         """Stores health includes summary section."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/stores", {}, mock_http)
+        result = await handler.handle("/api/v1/health/stores", {}, mock_http)
 
         assert result is not None
         import json
@@ -450,11 +453,11 @@ class TestHealthHandlerCrossPollination:
     def handler(self, mock_server_context):
         return HealthHandler(mock_server_context)
 
-    def test_cross_pollination_includes_status(self, handler):
+    async def test_cross_pollination_includes_status(self, handler):
         """Cross-pollination health includes status."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/cross-pollination", {}, mock_http)
+        result = await handler.handle("/api/v1/health/cross-pollination", {}, mock_http)
 
         assert result is not None
         import json
@@ -462,11 +465,11 @@ class TestHealthHandlerCrossPollination:
         body = json.loads(result.body)
         assert "status" in body
 
-    def test_cross_pollination_includes_features(self, handler):
+    async def test_cross_pollination_includes_features(self, handler):
         """Cross-pollination health includes features section."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/cross-pollination", {}, mock_http)
+        result = await handler.handle("/api/v1/health/cross-pollination", {}, mock_http)
 
         assert result is not None
         import json
@@ -474,11 +477,11 @@ class TestHealthHandlerCrossPollination:
         body = json.loads(result.body)
         assert "features" in body
 
-    def test_cross_pollination_includes_timestamp(self, handler):
+    async def test_cross_pollination_includes_timestamp(self, handler):
         """Cross-pollination health includes timestamp."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/cross-pollination", {}, mock_http)
+        result = await handler.handle("/api/v1/health/cross-pollination", {}, mock_http)
 
         assert result is not None
         import json
@@ -494,11 +497,11 @@ class TestHealthHandlerKnowledgeMound:
     def handler(self, mock_server_context):
         return HealthHandler(mock_server_context)
 
-    def test_knowledge_mound_includes_status(self, handler):
+    async def test_knowledge_mound_includes_status(self, handler):
         """Knowledge Mound health includes status."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/knowledge-mound", {}, mock_http)
+        result = await handler.handle("/api/v1/health/knowledge-mound", {}, mock_http)
 
         assert result is not None
         import json
@@ -506,11 +509,11 @@ class TestHealthHandlerKnowledgeMound:
         body = json.loads(result.body)
         assert "status" in body
 
-    def test_knowledge_mound_includes_components(self, handler):
+    async def test_knowledge_mound_includes_components(self, handler):
         """Knowledge Mound health includes components section."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/knowledge-mound", {}, mock_http)
+        result = await handler.handle("/api/v1/health/knowledge-mound", {}, mock_http)
 
         assert result is not None
         import json
@@ -518,11 +521,11 @@ class TestHealthHandlerKnowledgeMound:
         body = json.loads(result.body)
         assert "components" in body
 
-    def test_knowledge_mound_includes_timestamp(self, handler):
+    async def test_knowledge_mound_includes_timestamp(self, handler):
         """Knowledge Mound health includes timestamp."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/v1/health/knowledge-mound", {}, mock_http)
+        result = await handler.handle("/api/v1/health/knowledge-mound", {}, mock_http)
 
         assert result is not None
         import json
@@ -538,13 +541,13 @@ class TestHealthHandlerPathNormalization:
     def handler(self, mock_server_context):
         return HealthHandler(mock_server_context)
 
-    def test_v1_path_normalized_to_non_v1(self, handler):
+    async def test_v1_path_normalized_to_non_v1(self, handler):
         """Versioned paths are normalized to non-versioned internally."""
         mock_http = MagicMock()
 
         # Both versioned and non-versioned should work
-        result_v1 = handler.handle("/api/v1/health", {}, mock_http)
-        result_nonv1 = handler.handle("/api/health", {}, mock_http)
+        result_v1 = await handler.handle("/api/v1/health", {}, mock_http)
+        result_nonv1 = await handler.handle("/api/health", {}, mock_http)
 
         assert result_v1 is not None
         assert result_nonv1 is not None

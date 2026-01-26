@@ -116,14 +116,20 @@ def mock_cost_tracker():
     return MockCostTracker()
 
 
+@pytest.fixture
+def mock_server_context():
+    """Create mock server context for handler initialization."""
+    return {"storage": None, "elo_system": None, "nomic_dir": None}
+
+
 class TestDebateAnalytics:
     """Tests for debate analytics endpoints."""
 
-    def test_debates_overview_returns_stats(self, mock_storage):
+    def test_debates_overview_returns_stats(self, mock_storage, mock_server_context):
         """Test debates overview returns correct statistics."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_storage", return_value=mock_storage):
             result = handler._get_debates_overview({"time_range": "30d"})
@@ -135,11 +141,11 @@ class TestDebateAnalytics:
         assert "avg_confidence" in data
         assert data["total_debates"] == 5
 
-    def test_debates_overview_empty_storage(self):
+    def test_debates_overview_empty_storage(self, mock_server_context):
         """Test debates overview with no debates."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
         mock_storage = MagicMock()
         mock_storage.list_debates.return_value = []
 
@@ -150,11 +156,11 @@ class TestDebateAnalytics:
         assert result["data"]["total_debates"] == 0
         assert result["data"]["consensus_rate"] == 0
 
-    def test_debates_trends_grouping(self, mock_storage):
+    def test_debates_trends_grouping(self, mock_storage, mock_server_context):
         """Test debates trends groups by time correctly."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_storage", return_value=mock_storage):
             result = handler._get_debates_trends(
@@ -167,11 +173,11 @@ class TestDebateAnalytics:
         assert result["success"] is True
         assert "trends" in result["data"]
 
-    def test_debates_topics_extracts_keywords(self, mock_storage):
+    def test_debates_topics_extracts_keywords(self, mock_storage, mock_server_context):
         """Test debates topics extracts and counts keywords."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_storage", return_value=mock_storage):
             result = handler._get_debates_topics({"limit": "10"})
@@ -179,11 +185,11 @@ class TestDebateAnalytics:
         assert result["success"] is True
         assert "topics" in result["data"]
 
-    def test_debates_outcomes_buckets_confidence(self, mock_storage):
+    def test_debates_outcomes_buckets_confidence(self, mock_storage, mock_server_context):
         """Test debates outcomes buckets by confidence level."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_storage", return_value=mock_storage):
             result = handler._get_debates_outcomes({})
@@ -195,7 +201,7 @@ class TestDebateAnalytics:
         """Test various time range formats are parsed correctly."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         for time_range in ["7d", "14d", "30d", "90d", "180d", "365d", "all"]:
             with patch.object(handler, "_get_storage", return_value=mock_storage):
@@ -206,7 +212,7 @@ class TestDebateAnalytics:
         """Test invalid time range defaults to 30d."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_storage", return_value=mock_storage):
             result = handler._get_debates_overview({"time_range": "invalid"})
@@ -221,7 +227,7 @@ class TestAgentAnalytics:
         """Test leaderboard returns agent rankings."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_elo_system", return_value=mock_elo_system):
             result = handler._get_agents_leaderboard({"limit": "10"})
@@ -234,7 +240,7 @@ class TestAgentAnalytics:
         """Test leaderboard filters by domain."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_elo_system", return_value=mock_elo_system):
             result = handler._get_agents_leaderboard(
@@ -250,7 +256,7 @@ class TestAgentAnalytics:
         """Test agent performance returns data for existing agent."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_elo_system", return_value=mock_elo_system):
             result = handler._get_agent_performance("agent-1", {})
@@ -263,7 +269,7 @@ class TestAgentAnalytics:
         """Test agent performance returns 404 for missing agent."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_elo_system", return_value=mock_elo_system):
             result = handler._get_agent_performance("nonexistent", {})
@@ -275,7 +281,7 @@ class TestAgentAnalytics:
         """Test agents comparison returns head-to-head stats."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_elo_system", return_value=mock_elo_system):
             result = handler._get_agents_comparison(
@@ -291,7 +297,7 @@ class TestAgentAnalytics:
         """Test agents trends returns historical data."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_elo_system", return_value=mock_elo_system):
             result = handler._get_agents_trends(
@@ -308,7 +314,7 @@ class TestAgentAnalytics:
         """Test missing ELO system returns 503."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_elo_system", return_value=None):
             result = handler._get_agents_leaderboard({})
@@ -324,7 +330,7 @@ class TestUsageAnalytics:
         """Test usage tokens returns token statistics."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_cost_tracker", return_value=mock_cost_tracker):
             result = handler._get_usage_tokens({})
@@ -337,7 +343,7 @@ class TestUsageAnalytics:
         """Test usage costs returns cost breakdown."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_cost_tracker", return_value=mock_cost_tracker):
             result = handler._get_usage_costs({})
@@ -351,7 +357,7 @@ class TestUsageAnalytics:
         """Test usage endpoints respect org_id filter."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_cost_tracker", return_value=mock_cost_tracker):
             result = handler._get_usage_tokens({"org_id": "org-123"})
@@ -362,7 +368,7 @@ class TestUsageAnalytics:
         """Test active users returns user counts."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
         mock_user_store = MagicMock()
         mock_user_store.get_active_user_counts.return_value = {
             "daily": 50,
@@ -388,7 +394,7 @@ class TestHandlerRouting:
         """Test handler recognizes analytics paths."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         assert handler.can_handle("/api/analytics/debates/overview")
         assert handler.can_handle("/api/analytics/agents/leaderboard")
@@ -398,7 +404,7 @@ class TestHandlerRouting:
         """Test handler rejects non-analytics paths."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         assert not handler.can_handle("/api/debates")
         assert not handler.can_handle("/api/agents")
@@ -412,7 +418,7 @@ class TestParameterValidation:
         """Test limit parameter is clamped to valid range."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_storage", return_value=mock_storage):
             # Test very high limit
@@ -427,7 +433,7 @@ class TestParameterValidation:
         """Test offset parameter validation."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_storage", return_value=mock_storage):
             result = handler._get_debates_overview({"offset": "10"})
@@ -437,7 +443,7 @@ class TestParameterValidation:
         """Test granularity parameter validation."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         for granularity in ["daily", "weekly", "monthly"]:
             with patch.object(handler, "_get_storage", return_value=mock_storage):
@@ -448,7 +454,7 @@ class TestParameterValidation:
         """Test invalid granularity defaults to daily."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
 
-        handler = AnalyticsMetricsHandler()
+        handler = AnalyticsMetricsHandler(mock_server_context)
 
         with patch.object(handler, "_get_storage", return_value=mock_storage):
             result = handler._get_debates_trends({"granularity": "invalid"})

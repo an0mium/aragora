@@ -79,6 +79,8 @@ _EXCEPTION_STATUS_MAP = {
     "AuthenticationError": 401,
     "TokenExpiredError": 401,
     "AuthorizationError": 403,
+    "PermissionDeniedError": 403,
+    "RoleRequiredError": 403,
     "RateLimitExceededError": 429,
     # Aragora storage errors (500/503)
     "StorageError": 500,

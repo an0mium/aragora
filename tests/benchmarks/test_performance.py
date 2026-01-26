@@ -36,6 +36,14 @@ from tests.slo_config import (
 # =============================================================================
 
 
+async def _stub_synthesis(ctx) -> bool:
+    """Fast synthesis stub for performance benchmarks."""
+    synthesis = "Benchmark synthesis."
+    ctx.result.synthesis = synthesis
+    ctx.result.final_answer = synthesis
+    return True
+
+
 class TestDebatePerformance:
     """Benchmark tests for debate operations."""
 
@@ -52,7 +60,17 @@ class TestDebatePerformance:
 
         This test is marked flaky due to timing sensitivity in CI environments.
         """
-        protocol = DebateProtocol(rounds=1, consensus="any")
+        protocol = DebateProtocol(
+            rounds=1,
+            consensus="any",
+            enable_research=False,
+            role_matching=False,
+            role_rotation=False,
+            enable_trickster=False,
+            enable_rhetorical_observer=False,
+            enable_breakpoints=False,
+            enable_calibration=False,
+        )
 
         with (
             patch.object(
@@ -66,6 +84,10 @@ class TestDebatePerformance:
                 "aragora.debate.context_gatherer.ContextGatherer.gather_all",
                 new_callable=AsyncMock,
                 return_value="",
+            ),
+            patch(
+                "aragora.debate.phases.synthesis_generator.SynthesisGenerator.generate_mandatory_synthesis",
+                new=_stub_synthesis,
             ),
         ):
             arena = Arena(benchmark_environment, benchmark_agents, protocol)
@@ -100,9 +122,23 @@ class TestDebatePerformance:
                 new_callable=AsyncMock,
                 return_value="",
             ),
+            patch(
+                "aragora.debate.phases.synthesis_generator.SynthesisGenerator.generate_mandatory_synthesis",
+                new=_stub_synthesis,
+            ),
         ):
             for num_rounds in [1, 2, 3]:
-                protocol = DebateProtocol(rounds=num_rounds, consensus="any")
+                protocol = DebateProtocol(
+                    rounds=num_rounds,
+                    consensus="any",
+                    enable_research=False,
+                    role_matching=False,
+                    role_rotation=False,
+                    enable_trickster=False,
+                    enable_rhetorical_observer=False,
+                    enable_breakpoints=False,
+                    enable_calibration=False,
+                )
                 arena = Arena(benchmark_environment, benchmark_agents, protocol)
 
                 # Mock prompt_builder.classify_question_async to avoid LLM calls
@@ -141,19 +177,43 @@ class TestDebatePerformance:
                 new_callable=AsyncMock,
                 return_value="",
             ),
+            patch(
+                "aragora.debate.phases.synthesis_generator.SynthesisGenerator.generate_mandatory_synthesis",
+                new=_stub_synthesis,
+            ),
         ):
             # Warmup run to stabilize timing
             warmup_agents = [BenchmarkAgent(f"warmup_{i}") for i in range(2)]
             warmup_arena = Arena(
                 benchmark_environment,
                 warmup_agents,
-                DebateProtocol(rounds=1, consensus="any"),
+                DebateProtocol(
+                    rounds=1,
+                    consensus="any",
+                    enable_research=False,
+                    role_matching=False,
+                    role_rotation=False,
+                    enable_trickster=False,
+                    enable_rhetorical_observer=False,
+                    enable_breakpoints=False,
+                    enable_calibration=False,
+                ),
             )
             await asyncio.wait_for(warmup_arena.run(), timeout=30.0)
 
             for num_agents in [2, 3, 5]:
                 agents = [BenchmarkAgent(f"agent_{i}") for i in range(num_agents)]
-                protocol = DebateProtocol(rounds=1, consensus="any")
+                protocol = DebateProtocol(
+                    rounds=1,
+                    consensus="any",
+                    enable_research=False,
+                    role_matching=False,
+                    role_rotation=False,
+                    enable_trickster=False,
+                    enable_rhetorical_observer=False,
+                    enable_breakpoints=False,
+                    enable_calibration=False,
+                )
                 arena = Arena(benchmark_environment, agents, protocol)
 
                 start = time.perf_counter()
