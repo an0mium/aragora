@@ -876,6 +876,7 @@ class UnifiedServer:
         ws_port: int = 8765,
         control_plane_port: int = 8766,
         nomic_loop_port: int = 8767,
+        canvas_port: int = 8768,
         ws_host: str = os.environ.get("ARAGORA_BIND_HOST", "127.0.0.1"),
         http_host: str = os.environ.get("ARAGORA_BIND_HOST", "127.0.0.1"),
         static_dir: Optional[Path] = None,
@@ -920,6 +921,7 @@ class UnifiedServer:
         self.ws_port = ws_port
         self.control_plane_port = control_plane_port
         self.nomic_loop_port = nomic_loop_port
+        self.canvas_port = canvas_port
         self.ws_host = ws_host
         self.http_host = http_host
         self.static_dir = static_dir
@@ -933,6 +935,15 @@ class UnifiedServer:
         self.stream_server = DebateStreamServer(host=ws_host, port=ws_port)
         self.control_plane_stream = ControlPlaneStreamServer(host=ws_host, port=control_plane_port)
         self.nomic_loop_stream = NomicLoopStreamServer(host=ws_host, port=nomic_loop_port)
+
+        # Create Canvas WebSocket server
+        try:
+            from aragora.server.stream.canvas_stream import CanvasStreamServer
+
+            self.canvas_stream = CanvasStreamServer(host=ws_host, port=canvas_port)
+        except ImportError:
+            logger.warning("Canvas stream server not available")
+            self.canvas_stream = None
 
         # Initialize Supabase persistence if available
         self.persistence = init_persistence(enable_persistence)
