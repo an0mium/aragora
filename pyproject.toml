@@ -71,7 +71,7 @@ dev = [
     "bandit>=1.7,<2.0",
     "mypy>=1.8,<2.0",
     "mutmut>=3.0,<4.0",
-    "pre-commit>=3.6,<4.0",  # Git hooks for code quality
+    "pre-commit>=3.6,<5.0",  # Git hooks for code quality
     "datamodel-code-generator>=0.25,<1.0",  # Python SDK type generation from OpenAPI
 ]
 # Test dependencies - install with: pip install -e ".[test]"
