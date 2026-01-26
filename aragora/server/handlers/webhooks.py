@@ -246,7 +246,7 @@ class WebhookHandler(SecureHandler):
 
         # GET /api/webhooks/dead-letter/:id - get specific dead-letter delivery
         if path.startswith("/api/v1/webhooks/dead-letter/") and not path.endswith("/retry"):
-            delivery_id, err = self.extract_path_param(path, 4, "delivery_id", SAFE_ID_PATTERN)
+            delivery_id, err = self.extract_path_param(path, 5, "delivery_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_get_dead_letter(delivery_id, handler)
@@ -257,7 +257,7 @@ class WebhookHandler(SecureHandler):
 
         # GET /api/webhooks/:id
         if path.startswith("/api/v1/webhooks/") and path.count("/") == 4:
-            webhook_id, err = self.extract_path_param(path, 3, "webhook_id", SAFE_ID_PATTERN)
+            webhook_id, err = self.extract_path_param(path, 4, "webhook_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_get_webhook(webhook_id, handler)
@@ -278,14 +278,14 @@ class WebhookHandler(SecureHandler):
 
         # POST /api/webhooks/dead-letter/:id/retry - retry dead-letter delivery
         if path.endswith("/retry") and "/dead-letter/" in path:
-            delivery_id, err = self.extract_path_param(path, 4, "delivery_id", SAFE_ID_PATTERN)
+            delivery_id, err = self.extract_path_param(path, 5, "delivery_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_retry_dead_letter(delivery_id, handler)
 
         # POST /api/v1/webhooks/:id/test
         if path.endswith("/test") and path.count("/") == 5:
-            webhook_id, err = self.extract_path_param(path, 3, "webhook_id", SAFE_ID_PATTERN)
+            webhook_id, err = self.extract_path_param(path, 4, "webhook_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_test_webhook(webhook_id, handler)
@@ -305,14 +305,14 @@ class WebhookHandler(SecureHandler):
         """Handle DELETE requests for webhook endpoints."""
         # DELETE /api/webhooks/dead-letter/:id - remove from dead-letter queue
         if "/dead-letter/" in path:
-            delivery_id, err = self.extract_path_param(path, 4, "delivery_id", SAFE_ID_PATTERN)
+            delivery_id, err = self.extract_path_param(path, 5, "delivery_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_delete_dead_letter(delivery_id, handler)
 
         # DELETE /api/webhooks/:id
         if path.startswith("/api/v1/webhooks/") and path.count("/") == 4:
-            webhook_id, err = self.extract_path_param(path, 3, "webhook_id", SAFE_ID_PATTERN)
+            webhook_id, err = self.extract_path_param(path, 4, "webhook_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_delete_webhook(webhook_id, handler)
@@ -325,7 +325,7 @@ class WebhookHandler(SecureHandler):
         """Handle PATCH requests for webhook endpoints."""
         # PATCH /api/webhooks/:id
         if path.startswith("/api/v1/webhooks/") and path.count("/") == 4:
-            webhook_id, err = self.extract_path_param(path, 3, "webhook_id", SAFE_ID_PATTERN)
+            webhook_id, err = self.extract_path_param(path, 4, "webhook_id", SAFE_ID_PATTERN)
             if err:
                 return err
             body, err = self.read_json_body_validated(handler)
