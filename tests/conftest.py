@@ -1876,7 +1876,7 @@ def mock_websocket():
 # Track skip counts to warn when threshold is exceeded.
 # See tests/SKIP_AUDIT.md for skip marker inventory.
 
-SKIP_THRESHOLD = 650  # Maximum allowed skips (conditional + unconditional)
+SKIP_THRESHOLD = 550  # Maximum allowed skips (reduced from 650 to drive improvement)
 UNCONDITIONAL_SKIP_THRESHOLD = 5  # Maximum unconditional @pytest.mark.skip (reduced from 35)
 
 

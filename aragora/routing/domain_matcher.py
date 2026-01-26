@@ -470,7 +470,7 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
             if not hasattr(first_block, "text"):
                 logger.warning("Response does not contain text content")
                 return []
-            content = first_block.text.strip()  # type: ignore[union-attr]
+            content: str = getattr(first_block, "text", "").strip()
 
             # Extract JSON from response
             if "```json" in content:

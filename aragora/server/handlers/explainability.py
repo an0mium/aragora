@@ -622,6 +622,7 @@ class ExplainabilityHandler(BaseHandler):
             elif format_type == "html":
                 import markdown
 
+                html_body: str = markdown.markdown(summary)  # type: ignore[attr-defined]
                 html_content = f"""
 <!DOCTYPE html>
 <html>
@@ -633,7 +634,7 @@ h3 {{ color: #666; }}
 </style>
 </head>
 <body>
-{markdown.markdown(summary)}
+{html_body}
 </body>
 </html>
 """

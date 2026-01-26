@@ -22,7 +22,11 @@ try:
 except ImportError:
     WEAVIATE_AVAILABLE = False
     weaviate = None  # type: ignore[assignment]
-    WeaviateConnectionError = Exception  # type: ignore[misc,assignment]
+
+    class WeaviateConnectionError(Exception):  # type: ignore[no-redef]
+        """Fallback exception when Weaviate is not available."""
+
+        pass
 
 
 @dataclass
