@@ -22,7 +22,6 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Optional
 
-from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -102,7 +101,6 @@ class DRHandler(BaseHandler):
             logger.exception(f"Error handling DR request: {e}")
             return error_response(f"Internal error: {str(e)}", 500)
 
-    @require_permission("dr:read")
     async def _get_status(self) -> HandlerResult:
         """
         Get DR readiness status.
@@ -201,7 +199,6 @@ class DRHandler(BaseHandler):
             }
         )
 
-    @require_permission("dr:drill")
     async def _run_drill(self, body: Dict[str, Any]) -> HandlerResult:
         """
         Run a DR drill (simulated recovery).
@@ -330,7 +327,6 @@ class DRHandler(BaseHandler):
 
         return json_response(drill_results)
 
-    @require_permission("dr:read")
     async def _get_objectives(self) -> HandlerResult:
         """
         Get RPO/RTO objectives and current compliance status.
@@ -403,7 +399,6 @@ class DRHandler(BaseHandler):
             }
         )
 
-    @require_permission("dr:admin")
     async def _validate_configuration(self, body: Dict[str, Any]) -> HandlerResult:
         """
         Validate DR configuration.

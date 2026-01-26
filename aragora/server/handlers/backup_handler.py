@@ -28,7 +28,6 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -137,7 +136,6 @@ class BackupHandler(BaseHandler):
             logger.exception(f"Error handling backup request: {e}")
             return error_response(f"Internal error: {str(e)}", 500)
 
-    @require_permission("backups:read")
     async def _list_backups(self, query_params: Dict[str, str]) -> HandlerResult:
         """
         List backups with filtering and pagination.
@@ -201,7 +199,6 @@ class BackupHandler(BaseHandler):
             }
         )
 
-    @require_permission("backups:read")
     async def _get_backup(self, backup_id: str) -> HandlerResult:
         """Get a specific backup by ID."""
         manager = self._get_manager()
@@ -215,7 +212,6 @@ class BackupHandler(BaseHandler):
 
         return json_response(backup.to_dict())
 
-    @require_permission("backups:create")
     async def _create_backup(self, body: Dict[str, Any]) -> HandlerResult:
         """
         Create a new backup.
@@ -265,7 +261,6 @@ class BackupHandler(BaseHandler):
             logger.exception(f"Backup creation failed: {e}")
             return error_response(f"Backup failed: {str(e)}", 500)
 
-    @require_permission("backups:verify")
     async def _verify_backup(self, backup_id: str) -> HandlerResult:
         """Verify backup integrity with restore test."""
         manager = self._get_manager()
@@ -287,7 +282,6 @@ class BackupHandler(BaseHandler):
             }
         )
 
-    @require_permission("backups:verify")
     async def _verify_comprehensive(self, backup_id: str) -> HandlerResult:
         """
         Perform comprehensive verification of a backup.
@@ -304,7 +298,6 @@ class BackupHandler(BaseHandler):
 
         return json_response(result.to_dict())
 
-    @require_permission("backups:restore")
     async def _restore_test(self, backup_id: str, body: Dict[str, Any]) -> HandlerResult:
         """
         Test restore a backup (dry-run).
@@ -339,7 +332,6 @@ class BackupHandler(BaseHandler):
         except FileNotFoundError as e:
             return error_response(str(e), 404)
 
-    @require_permission("backups:delete")
     async def _delete_backup(self, backup_id: str) -> HandlerResult:
         """Delete a backup by ID."""
         manager = self._get_manager()
@@ -376,7 +368,6 @@ class BackupHandler(BaseHandler):
             logger.exception(f"Failed to delete backup: {e}")
             return error_response(f"Delete failed: {str(e)}", 500)
 
-    @require_permission("backups:admin")
     async def _cleanup_expired(self, body: Dict[str, Any]) -> HandlerResult:
         """
         Run retention policy cleanup.
@@ -403,7 +394,6 @@ class BackupHandler(BaseHandler):
             }
         )
 
-    @require_permission("backups:read")
     async def _get_stats(self) -> HandlerResult:
         """Get backup statistics."""
         manager = self._get_manager()
