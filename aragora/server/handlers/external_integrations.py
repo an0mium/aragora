@@ -483,6 +483,11 @@ class ExternalIntegrationsHandler(SecureHandler):
 
     def _handle_subscribe_zapier_trigger(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/zapier/triggers - subscribe to trigger."""
+        # Check RBAC permission - subscribing creates webhooks
+        perm_error = self._check_permission(handler, "integrations.create")
+        if perm_error:
+            return perm_error
+
         app_id = body.get("app_id")
         trigger_type = body.get("trigger_type")
         webhook_url = body.get("webhook_url")
@@ -523,6 +528,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         self, app_id: str, trigger_id: str, handler: Any
     ) -> HandlerResult:
         """Handle DELETE /api/integrations/zapier/triggers/:id - unsubscribe."""
+        # Check RBAC permission
+        perm_error = self._check_permission(handler, "integrations.delete", trigger_id)
+        if perm_error:
+            return perm_error
+
         if not app_id:
             return error_response("app_id query parameter is required", 400)
 
@@ -637,6 +647,11 @@ class ExternalIntegrationsHandler(SecureHandler):
 
     def _handle_register_make_webhook(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/make/webhooks - register webhook."""
+        # Check RBAC permission - registering webhooks exposes external URLs
+        perm_error = self._check_permission(handler, "integrations.create")
+        if perm_error:
+            return perm_error
+
         conn_id = body.get("connection_id")
         module_type = body.get("module_type")
         webhook_url = body.get("webhook_url")
@@ -676,6 +691,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         self, conn_id: str, webhook_id: str, handler: Any
     ) -> HandlerResult:
         """Handle DELETE /api/integrations/make/webhooks/:id - unregister."""
+        # Check RBAC permission
+        perm_error = self._check_permission(handler, "integrations.delete", webhook_id)
+        if perm_error:
+            return perm_error
+
         if not conn_id:
             return error_response("connection_id query parameter is required", 400)
 
@@ -798,6 +818,11 @@ class ExternalIntegrationsHandler(SecureHandler):
 
     def _handle_register_n8n_webhook(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/n8n/webhooks - register webhook."""
+        # Check RBAC permission - registering webhooks creates external endpoints
+        perm_error = self._check_permission(handler, "integrations.create")
+        if perm_error:
+            return perm_error
+
         cred_id = body.get("credential_id")
         events = body.get("events", [])
 
@@ -834,6 +859,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         self, cred_id: str, webhook_id: str, handler: Any
     ) -> HandlerResult:
         """Handle DELETE /api/integrations/n8n/webhooks/:id - unregister."""
+        # Check RBAC permission
+        perm_error = self._check_permission(handler, "integrations.delete", webhook_id)
+        if perm_error:
+            return perm_error
+
         if not cred_id:
             return error_response("credential_id query parameter is required", 400)
 
@@ -850,6 +880,11 @@ class ExternalIntegrationsHandler(SecureHandler):
 
     def _handle_test_integration(self, platform: str, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/:platform/test - test integration."""
+        # Check RBAC permission - testing requires read access
+        perm_error = self._check_permission(handler, "integrations.read")
+        if perm_error:
+            return perm_error
+
         if platform == "zapier":
             zapier = self._get_zapier()
             return json_response(
