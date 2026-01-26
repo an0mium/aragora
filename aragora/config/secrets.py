@@ -71,6 +71,10 @@ MANAGED_SECRETS = frozenset(
         "OPENROUTER_API_KEY",
         "MISTRAL_API_KEY",
         "DEEPSEEK_API_KEY",
+        "KIMI_API_KEY",
+        "ELEVENLABS_API_KEY",
+        "AZURE_CLIENT_SECRET",
+        "SUPABASE_PROJECT_ID",
         # Monitoring
         "SENTRY_DSN",
     }
