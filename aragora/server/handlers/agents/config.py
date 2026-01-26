@@ -4,9 +4,14 @@ Agent configuration endpoint handlers.
 Endpoints:
 - GET /api/agents/configs - List available YAML agent configurations
 - GET /api/agents/configs/{name} - Get specific agent configuration
-- POST /api/agents/configs/{name}/create - Create agent from configuration
-- POST /api/agents/configs/reload - Reload all configurations from disk
+- POST /api/agents/configs/{name}/create - Create agent from configuration (requires agents.create)
+- POST /api/agents/configs/reload - Reload all configurations from disk (requires admin)
 - GET /api/agents/configs/search - Search configs by expertise/capability/tag
+
+RBAC:
+- Read endpoints (GET): require agents.read permission
+- Create endpoint: requires agents.create permission
+- Reload endpoint: requires admin role
 """
 
 from __future__ import annotations
@@ -17,7 +22,6 @@ from typing import Any, Optional
 
 from ..base import (
     SAFE_AGENT_PATTERN,
-    BaseHandler,
     HandlerResult,
     error_response,
     get_string_param,
@@ -25,6 +29,7 @@ from ..base import (
     json_response,
     validate_path_segment,
 )
+from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -51,8 +56,14 @@ def get_config_loader() -> Any:
     return _config_loader
 
 
-class AgentConfigHandler(BaseHandler):
-    """Handler for agent configuration endpoints."""
+class AgentConfigHandler(SecureHandler):
+    """Handler for agent configuration endpoints.
+
+    RBAC Policy:
+    - GET endpoints: require agents.read permission
+    - POST /reload: requires admin role
+    - POST /create: requires agents.create permission
+    """
 
     ROUTES = [
         "/api/v1/agents/configs",
@@ -62,12 +73,39 @@ class AgentConfigHandler(BaseHandler):
         "/api/v1/agents/configs/*/create",
     ]
 
+    # Permission keys
+    READ_PERMISSION = "agents.read"
+    CREATE_PERMISSION = "agents.create"
+    RESOURCE_TYPE = "agent_config"
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/agents/configs")
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
-        """Route config requests to appropriate methods."""
+    async def handle(  # type: ignore[override]
+        self, path: str, query_params: dict, handler
+    ) -> Optional[HandlerResult]:
+        """Route config requests to appropriate methods with RBAC."""
+        # Determine required permission based on endpoint
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+
+            # Reload requires admin role
+            if path == "/api/v1/agents/configs/reload":
+                if not auth_context.has_any_role("owner", "admin"):
+                    return error_response("Admin access required for config reload", 403)
+            # Create requires agents.create permission
+            elif path.endswith("/create"):
+                self.check_permission(auth_context, self.CREATE_PERMISSION)
+            # All other endpoints require agents.read
+            else:
+                self.check_permission(auth_context, self.READ_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Agent config access denied: {e}")
+            return error_response(str(e), 403)
+
         # List all configs
         if path == "/api/v1/agents/configs":
             return self._list_configs(query_params)
