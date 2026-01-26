@@ -2,13 +2,14 @@
 Health and readiness endpoint handlers.
 
 Endpoints:
-- GET /healthz - Kubernetes liveness probe (lightweight)
-- GET /readyz - Kubernetes readiness probe (checks dependencies)
-- GET /api/health - Comprehensive health check
-- GET /api/health/detailed - Detailed health with observer metrics
-- GET /api/health/deep - Deep health check with all external dependencies
+- GET /healthz - Kubernetes liveness probe (lightweight, public)
+- GET /readyz - Kubernetes readiness probe (checks dependencies, public)
+- GET /api/health - Comprehensive health check (requires auth)
+- GET /api/health/detailed - Detailed health with observer metrics (requires auth)
+- GET /api/health/deep - Deep health check with all external dependencies (requires auth)
 
 Extracted from system.py for better modularity.
+RBAC: K8s probes are public; detailed endpoints require system.health.read permission.
 """
 
 from __future__ import annotations
@@ -22,10 +23,11 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     json_response,
+    error_response,
 )
+from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 from .health_utils import (
     check_ai_providers_health,
     check_filesystem_health,
@@ -59,8 +61,13 @@ def _set_cached_health(key: str, value: Dict[str, Any]) -> None:
     _HEALTH_CACHE_TIMESTAMPS[key] = time.time()
 
 
-class HealthHandler(BaseHandler):
-    """Handler for health and readiness endpoints."""
+class HealthHandler(SecureHandler):
+    """Handler for health and readiness endpoints.
+
+    RBAC Policy:
+    - /healthz, /readyz: Public (K8s probes, no auth required)
+    - All other endpoints: Require authentication and system.health.read permission
+    """
 
     ROUTES = [
         "/healthz",
@@ -89,14 +96,33 @@ class HealthHandler(BaseHandler):
         "/api/diagnostics/deployment",
     ]
 
+    # K8s probe routes that remain public (no auth required)
+    PUBLIC_ROUTES = {"/healthz", "/readyz"}
+
+    # Permission required for protected health endpoints
+    HEALTH_PERMISSION = "system.health.read"
+    RESOURCE_TYPE = "health"
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
         return path in self.ROUTES
 
-    def handle(
+    async def handle(  # type: ignore[override]
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
-        """Route health endpoint requests."""
+        """Route health endpoint requests with RBAC for non-public routes."""
+        # K8s probes are public - no auth required
+        if path not in self.PUBLIC_ROUTES:
+            # All other health endpoints require authentication and permission
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=True)
+                self.check_permission(auth_context, self.HEALTH_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                logger.warning(f"Health endpoint access denied: {e}")
+                return error_response(str(e), 403)
+
         # Normalize path for routing (support both v1 and non-v1)
         normalized = path.replace("/api/v1/", "/api/")
 
