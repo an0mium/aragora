@@ -8,6 +8,7 @@ const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/w
 // Reconnection configuration
 const MAX_RECONNECT_ATTEMPTS = 15;
 const MAX_RECONNECT_DELAY_MS = 30000; // 30 seconds cap
+const MAX_HANDSHAKE_FAILURES = 3;
 
 // Graph debate event types
 export type GraphEventType =
@@ -73,6 +74,8 @@ export function useGraphDebateWebSocket({
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isUnmountedRef = useRef(false);
+  const hasEverConnectedRef = useRef(false);
+  const handshakeFailuresRef = useRef(0);
 
   // Clear any pending reconnection timeout
   const clearReconnectTimeout = useCallback(() => {
@@ -150,6 +153,8 @@ export function useGraphDebateWebSocket({
         logger.debug(`Graph WebSocket connected (attempt ${reconnectAttempt + 1})`);
         setStatus('connected');
         setReconnectAttempt(0);  // Reset on successful connection
+        hasEverConnectedRef.current = true;
+        handshakeFailuresRef.current = 0;
 
         // Subscribe to graph events if debate ID is provided
         if (debateId) {
@@ -185,6 +190,15 @@ export function useGraphDebateWebSocket({
           return;
         }
 
+        if (!hasEverConnectedRef.current) {
+          handshakeFailuresRef.current += 1;
+          if (handshakeFailuresRef.current >= MAX_HANDSHAKE_FAILURES) {
+            setStatus('error');
+            setError('WebSocket unavailable');
+            return;
+          }
+        }
+
         // Abnormal closure - attempt reconnection
         if (!isUnmountedRef.current && autoReconnect) {
           setStatus('connecting');
@@ -215,6 +229,8 @@ export function useGraphDebateWebSocket({
     setEvents([]);
     setLastEvent(null);
     setReconnectAttempt(0);
+    hasEverConnectedRef.current = false;
+    handshakeFailuresRef.current = 0;
     // Will trigger connection via useEffect
   }, [clearReconnectTimeout]);
 
