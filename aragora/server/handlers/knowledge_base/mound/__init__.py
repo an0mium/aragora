@@ -18,8 +18,10 @@ The handlers are split into mixins for better maintainability:
 - PruningOperationsMixin: Knowledge pruning and archival
 """
 
+from .base_mixin import KnowledgeMoundMixinBase
 from .handler import KnowledgeMoundHandler
 
 __all__ = [
     "KnowledgeMoundHandler",
+    "KnowledgeMoundMixinBase",
 ]
