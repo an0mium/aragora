@@ -45,6 +45,10 @@ export interface UpdateRoleRequest {
  * Interface for the internal client methods used by RBACAPI.
  */
 interface RBACClientInterface {
+  // Generic request method for extended endpoints
+  request<T = unknown>(method: string, path: string, options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }): Promise<T>;
+
+  // Core RBAC methods
   listRoles(params?: PaginationParams): Promise<{ roles: Role[] }>;
   getRole(roleId: string): Promise<Role>;
   createRole(request: CreateRoleRequest): Promise<Role>;
@@ -175,5 +179,211 @@ export class RBACAPI {
    */
   async bulkAssign(body: BulkAssignRequest): Promise<BulkAssignResponse> {
     return this.client.bulkAssignRoles(body);
+  }
+
+  // =========================================================================
+  // User Management
+  // =========================================================================
+
+  /**
+   * List users in organization.
+   */
+  async listUsers(params?: PaginationParams): Promise<{ users: unknown[]; total: number }> {
+    return this.client.request('GET', '/api/users', { params });
+  }
+
+  /**
+   * Invite a new user to the organization.
+   */
+  async inviteUser(email: string, role?: string): Promise<{ invitation_id: string; email: string }> {
+    return this.client.request('POST', '/api/users/invite', { json: { email, role } });
+  }
+
+  /**
+   * Remove a user from the organization.
+   */
+  async removeUser(userId: string): Promise<{ removed: boolean }> {
+    return this.client.request('DELETE', `/api/users/${userId}`);
+  }
+
+  /**
+   * Change a user's role in the organization.
+   */
+  async changeUserRole(userId: string, role: string): Promise<{ updated: boolean }> {
+    return this.client.request('PUT', `/api/users/${userId}/role`, { json: { role } });
+  }
+
+  // =========================================================================
+  // Workspace Roles
+  // =========================================================================
+
+  /**
+   * Get available roles for a workspace based on RBAC profile.
+   */
+  async getWorkspaceRoles(workspaceId: string): Promise<{ roles: unknown[]; profile: string }> {
+    return this.client.request('GET', `/api/v1/workspaces/${workspaceId}/roles`);
+  }
+
+  /**
+   * Update a member's role in a workspace.
+   */
+  async updateMemberRole(workspaceId: string, userId: string, role: string): Promise<{ updated: boolean }> {
+    return this.client.request('PUT', `/api/v1/workspaces/${workspaceId}/members/${userId}/role`, { json: { role } });
+  }
+
+  /**
+   * Add a member to a workspace.
+   */
+  async addWorkspaceMember(workspaceId: string, userId: string, role?: string): Promise<{ added: boolean }> {
+    return this.client.request('POST', `/api/v1/workspaces/${workspaceId}/members`, { json: { user_id: userId, role } });
+  }
+
+  /**
+   * Remove a member from a workspace.
+   */
+  async removeWorkspaceMember(workspaceId: string, userId: string): Promise<{ removed: boolean }> {
+    return this.client.request('DELETE', `/api/v1/workspaces/${workspaceId}/members/${userId}`);
+  }
+
+  /**
+   * List available RBAC profiles.
+   */
+  async listProfiles(): Promise<{ profiles: unknown[] }> {
+    return this.client.request('GET', '/api/v1/workspaces/profiles');
+  }
+
+  // =========================================================================
+  // Audit
+  // =========================================================================
+
+  /**
+   * Query privacy audit entries.
+   */
+  async queryAudit(options?: { action?: string; user_id?: string; since?: string; limit?: number }): Promise<{ entries: unknown[]; total: number }> {
+    return this.client.request('GET', '/api/v1/audit/entries', { params: options });
+  }
+
+  /**
+   * Generate compliance audit report.
+   */
+  async getAuditReport(options?: { framework?: string; since?: string }): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/audit/report', { params: options });
+  }
+
+  /**
+   * Verify audit log integrity.
+   */
+  async verifyAuditIntegrity(): Promise<{ valid: boolean; issues: unknown[] }> {
+    return this.client.request('GET', '/api/v1/audit/verify');
+  }
+
+  /**
+   * Get user activity history.
+   */
+  async getUserActivityHistory(userId: string, options?: PaginationParams): Promise<{ activities: unknown[]; total: number }> {
+    return this.client.request('GET', `/api/v1/audit/actor/${userId}/history`, { params: options });
+  }
+
+  /**
+   * Get resource access history.
+   */
+  async getResourceHistory(resourceType: string, resourceId: string, options?: PaginationParams): Promise<{ accesses: unknown[]; total: number }> {
+    return this.client.request('GET', `/api/v1/audit/resource/${resourceType}/${resourceId}/history`, { params: options });
+  }
+
+  /**
+   * Get denied access attempts.
+   */
+  async getDeniedAccess(options?: PaginationParams): Promise<{ denied: unknown[]; total: number }> {
+    return this.client.request('GET', '/api/v1/audit/denied', { params: options });
+  }
+
+  // =========================================================================
+  // API Keys
+  // =========================================================================
+
+  /**
+   * Generate a new API key.
+   */
+  async generateApiKey(name: string, permissions?: string[], expires_at?: string): Promise<{ key: string; key_id: string }> {
+    return this.client.request('POST', '/api/auth/api-key', { json: { name, permissions, expires_at } });
+  }
+
+  /**
+   * List API keys.
+   */
+  async listApiKeys(): Promise<{ keys: unknown[] }> {
+    return this.client.request('GET', '/api/keys');
+  }
+
+  /**
+   * Revoke an API key.
+   */
+  async revokeApiKey(keyId: string): Promise<{ revoked: boolean }> {
+    return this.client.request('DELETE', `/api/keys/${keyId}`);
+  }
+
+  // =========================================================================
+  // Sessions
+  // =========================================================================
+
+  /**
+   * List active sessions for the current user.
+   */
+  async listSessions(): Promise<{ sessions: unknown[] }> {
+    return this.client.request('GET', '/api/auth/sessions');
+  }
+
+  /**
+   * Revoke a specific session.
+   */
+  async revokeSession(sessionId: string): Promise<{ revoked: boolean }> {
+    return this.client.request('DELETE', `/api/auth/sessions/${sessionId}`);
+  }
+
+  /**
+   * Logout from all devices.
+   */
+  async logoutAll(): Promise<{ logged_out: boolean }> {
+    return this.client.request('POST', '/api/auth/logout-all');
+  }
+
+  // =========================================================================
+  // MFA
+  // =========================================================================
+
+  /**
+   * Setup MFA - generate secret and QR code.
+   */
+  async setupMfa(): Promise<{ secret: string; qr_code: string }> {
+    return this.client.request('POST', '/api/auth/mfa/setup');
+  }
+
+  /**
+   * Enable MFA by verifying setup code.
+   */
+  async enableMfa(code: string): Promise<{ enabled: boolean; backup_codes: string[] }> {
+    return this.client.request('POST', '/api/auth/mfa/enable', { json: { code } });
+  }
+
+  /**
+   * Disable MFA.
+   */
+  async disableMfa(code: string): Promise<{ disabled: boolean }> {
+    return this.client.request('POST', '/api/auth/mfa/disable', { json: { code } });
+  }
+
+  /**
+   * Verify MFA code during login.
+   */
+  async verifyMfa(code: string): Promise<{ verified: boolean; token?: string }> {
+    return this.client.request('POST', '/api/auth/mfa/verify', { json: { code } });
+  }
+
+  /**
+   * Regenerate MFA backup codes.
+   */
+  async regenerateBackupCodes(code: string): Promise<{ backup_codes: string[] }> {
+    return this.client.request('POST', '/api/auth/mfa/backup-codes', { json: { code } });
   }
 }
