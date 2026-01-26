@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, ContextManager, Dict, Optional
 
+from aragora.persistence.db_config import DatabaseType
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,7 +47,7 @@ class OnboardingRepository:
         """Get default database path."""
         from aragora.persistence.db_config import get_db_path
 
-        return get_db_path("onboarding")
+        return get_db_path(DatabaseType.ONBOARDING)
 
     def _init_schema(self) -> None:
         """Initialize database schema."""

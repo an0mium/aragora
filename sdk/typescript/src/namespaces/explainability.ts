@@ -25,11 +25,10 @@ interface ExplainabilityClientInterface {
     include_provenance?: boolean;
   }): Promise<ExplainabilityResult>;
   getExplanationFactors(debateId: string, options?: {
-    min_weight?: number;
-    limit?: number;
+    min_contribution?: number;
   }): Promise<{ factors: ExplanationFactor[] }>;
   getCounterfactuals(debateId: string, options?: {
-    limit?: number;
+    max_scenarios?: number;
   }): Promise<CounterfactualList>;
   generateCounterfactual(debateId: string, body: {
     changes: string[];
@@ -132,8 +131,7 @@ export class ExplainabilityAPI {
    * ```
    */
   async getFactors(debateId: string, options?: {
-    min_weight?: number;
-    limit?: number;
+    min_contribution?: number;
   }): Promise<{ factors: ExplanationFactor[] }> {
     return this.client.getExplanationFactors(debateId, options);
   }
