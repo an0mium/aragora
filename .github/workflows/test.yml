@@ -299,13 +299,14 @@ jobs:
           SERVER_PID=$!
           trap "kill $SERVER_PID" EXIT
           for i in {1..10}; do
-            if curl -fsS http://127.0.0.1:8090/api/health >/dev/null; then
+            # Use /healthz (K8s liveness probe) - public, no auth required
+            if curl -fsS http://127.0.0.1:8090/healthz >/dev/null; then
               echo "Server is healthy."
               break
             fi
             sleep 1
           done
-          curl -fsS http://127.0.0.1:8090/api/health >/dev/null
+          curl -fsS http://127.0.0.1:8090/healthz >/dev/null
 
   frontend:
     name: Frontend E2E Tests
