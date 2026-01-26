@@ -712,6 +712,7 @@ class TestGetSSOConfig:
     config retrieval logic by calling the inner function directly.
     """
 
+    @pytest.mark.no_auto_auth
     async def test_get_sso_config_requires_auth(self):
         """Test that get_sso_config requires authentication (returns 401 without handler)."""
         from aragora.server.handlers.auth.sso_handlers import handle_get_sso_config

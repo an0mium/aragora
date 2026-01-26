@@ -728,6 +728,7 @@ class TestAuthHandlerLogout:
         data = json.loads(result.body.decode())
         assert "logged out" in data.get("message", "").lower()
 
+    @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_logout_not_authenticated(self, mock_auth, auth_handler):
         mock_auth.return_value = MockAuthContext(is_authenticated=False)
@@ -808,6 +809,7 @@ class TestAuthHandlerUserInfo:
         assert "organization" in data
         assert data["organization"] is not None
 
+    @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_get_me_not_authenticated(self, mock_auth, auth_handler):
         mock_auth.return_value = MockAuthContext(is_authenticated=False)

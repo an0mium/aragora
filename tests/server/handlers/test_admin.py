@@ -311,6 +311,7 @@ class TestAdminAuthorization:
         assert result is not None
         assert get_status(result) == 403
 
+    @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
     def test_unauthenticated_denied(self, mock_auth, admin_handler):
         mock_auth.return_value = MockAuthContext(is_authenticated=False)

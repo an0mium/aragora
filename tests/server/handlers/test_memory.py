@@ -540,6 +540,7 @@ class TestConsolidateEndpoint:
         assert data["success"] is True
         assert "entries_processed" in data
 
+    @pytest.mark.no_auto_auth
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_consolidate_unauthenticated(self, mock_auth, memory_handler, reset_rate_limiters):
         """Test consolidation requires authentication."""
@@ -639,6 +640,7 @@ class TestDeleteMemory:
         assert result is not None
         assert get_status(result) == 404
 
+    @pytest.mark.no_auto_auth
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_delete_unauthenticated(self, mock_auth, memory_handler, reset_rate_limiters):
         """Test deletion requires authentication."""

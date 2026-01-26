@@ -532,6 +532,7 @@ class TestBillingHandlerResume:
 class TestBillingHandlerUsageExport:
     """Tests for usage export endpoint."""
 
+    @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.admin.billing._billing_limiter")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_export_usage_not_authenticated(self, mock_auth, mock_limiter, billing_handler):
@@ -570,6 +571,7 @@ class TestBillingHandlerUsageForecast:
         assert "forecast" in data
         assert "projection" in data["forecast"]
 
+    @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.admin.billing._billing_limiter")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_forecast_not_authenticated(self, mock_auth, mock_limiter, billing_handler):
@@ -592,6 +594,7 @@ class TestBillingHandlerUsageForecast:
 class TestBillingHandlerInvoices:
     """Tests for invoices endpoint."""
 
+    @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.admin.billing._billing_limiter")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_invoices_not_authenticated(self, mock_auth, mock_limiter, billing_handler):
