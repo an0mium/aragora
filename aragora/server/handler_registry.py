@@ -145,6 +145,9 @@ CodebaseAuditHandler: HandlerType = None
 LegalHandler: HandlerType = None
 DevOpsHandler: HandlerType = None
 ReceiptsHandler: HandlerType = None
+BackupHandler: HandlerType = None
+DRHandler: HandlerType = None
+ComplianceHandler: HandlerType = None
 SLOHandler: HandlerType = None
 ConnectorsHandler: HandlerType = None
 MarketplaceHandler: HandlerType = None
@@ -453,6 +456,15 @@ try:
     )
     from aragora.server.handlers.receipts import (
         ReceiptsHandler as _ReceiptsHandler,
+    )
+    from aragora.server.handlers.backup_handler import (
+        BackupHandler as _BackupHandler,
+    )
+    from aragora.server.handlers.dr_handler import (
+        DRHandler as _DRHandler,
+    )
+    from aragora.server.handlers.compliance_handler import (
+        ComplianceHandler as _ComplianceHandler,
     )
     from aragora.server.handlers import (
         SLOHandler as _SLOHandler,

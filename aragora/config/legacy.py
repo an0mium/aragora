@@ -452,6 +452,7 @@ def get_db_path(name: str, ensure_dir: bool = True) -> Path:
 
     This is the preferred method for getting database paths.
     Ensures all databases are stored under DATA_DIR.
+    Respects ARAGORA_DB_MODE for consolidated vs legacy mode.
 
     Args:
         name: Database name (e.g., "agent_elo.db", "continuum.db")
@@ -462,10 +463,32 @@ def get_db_path(name: str, ensure_dir: bool = True) -> Path:
 
     Example:
         >>> elo_path = get_db_path("agent_elo.db")
-        >>> # Returns: /absolute/path/to/.nomic/agent_elo.db
+        >>> # Returns: /absolute/path/to/.nomic/agent_elo.db (legacy)
+        >>> # Returns: /absolute/path/to/.nomic/analytics.db (consolidated)
     """
     if ensure_dir:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Check if we should use consolidated mode
+    try:
+        from aragora.persistence.db_config import (
+            CONSOLIDATED_DB_MAPPING,
+            LEGACY_DB_NAMES,
+            DatabaseMode,
+            DatabaseType,
+            get_db_mode,
+        )
+
+        mode = get_db_mode()
+        if mode == DatabaseMode.CONSOLIDATED:
+            # Map legacy name to DatabaseType
+            for db_type, legacy_name in LEGACY_DB_NAMES.items():
+                if legacy_name == name:
+                    consolidated_name = CONSOLIDATED_DB_MAPPING[db_type]
+                    return DATA_DIR / consolidated_name
+            # If not found in mapping, fall through to legacy behavior
+    except ImportError:
+        pass  # db_config not available, use legacy behavior
 
     return validate_db_path(name)
 

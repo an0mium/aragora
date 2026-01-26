@@ -1105,6 +1105,8 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             )
             if path.endswith("/resolve"):
                 required_perm = "workflow.approve"
+            elif path.endswith("/restore"):
+                required_perm = "workflow.update"
             if (
                 required_perm not in auth_ctx.permissions
                 and "workflow.*" not in auth_ctx.permissions
@@ -1127,6 +1129,14 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             workflow_id = self._extract_id(path, suffix="/simulate")
             if workflow_id:
                 return self._handle_simulate(workflow_id, body, query_params, handler)
+
+        # POST /api/workflows/{id}/versions/{version}/restore
+        if "/versions/" in path and path.endswith("/restore"):
+            parts = path.strip("/").split("/")
+            if len(parts) >= 7 and parts[4] == "versions" and parts[6] == "restore":
+                workflow_id = parts[3]
+                version = parts[5]
+                return self._handle_restore_version(workflow_id, version, query_params, handler)
 
         # POST /api/workflow-approvals/{id}/resolve
         if "/workflow-approvals/" in path and path.endswith("/resolve"):
@@ -1202,6 +1212,14 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         workflow_id = self._extract_id(path)
         if workflow_id:
             return self._handle_delete_workflow(workflow_id, query_params, handler)
+
+        # DELETE /api/workflow-executions/{id} - terminate execution
+        if "/workflow-executions/" in path:
+            parts = path.strip("/").split("/")
+            # Expected: api, v1, workflow-executions, {id}
+            if len(parts) >= 4 and parts[2] == "workflow-executions":
+                execution_id = parts[3]
+                return self._handle_terminate_execution(execution_id, query_params, handler)
 
         return None
 
@@ -1500,6 +1518,57 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
             logger.error(f"Data error getting workflow versions: {e}")
+            return error_response("Internal data error", 500)
+
+    def _handle_restore_version(
+        self, workflow_id: str, version: str, query_params: dict, handler: Any
+    ) -> HandlerResult:
+        """Handle POST /api/workflows/{id}/versions/{version}/restore.
+
+        Restores a workflow to a specific previous version.
+        Requires workflows.update permission.
+        """
+        # RBAC check - restore requires update permission
+        if error := self._check_permission(handler, "workflows.update", workflow_id):
+            return error
+
+        try:
+            tenant_id = self._get_tenant_id(handler, query_params)
+            result = _run_async(restore_workflow_version(workflow_id, version, tenant_id=tenant_id))
+            if result:
+                logger.info(f"Restored workflow {workflow_id} to version {version}")
+                return json_response({"restored": True, "workflow": result})
+            return error_response(f"Version not found: {version}", 404)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error restoring workflow version: {e}")
+            return error_response("Storage error", 503)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error restoring workflow version: {e}")
+            return error_response("Internal data error", 500)
+
+    def _handle_terminate_execution(
+        self, execution_id: str, query_params: dict, handler: Any
+    ) -> HandlerResult:
+        """Handle DELETE /api/workflow-executions/{id}.
+
+        Terminates a running workflow execution.
+        Requires workflows.execute permission.
+        """
+        # RBAC check - terminate requires execute permission
+        if error := self._check_permission(handler, "workflows.execute", execution_id):
+            return error
+
+        try:
+            success = _run_async(terminate_execution(execution_id))
+            if success:
+                logger.info(f"Terminated execution {execution_id}")
+                return json_response({"terminated": True, "execution_id": execution_id})
+            return error_response(f"Cannot terminate execution: {execution_id}", 400)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error terminating execution: {e}")
+            return error_response("Storage error", 503)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.error(f"Data error terminating execution: {e}")
             return error_response("Internal data error", 500)
 
     def _handle_list_templates(self, query_params: dict, handler: Any) -> HandlerResult:
