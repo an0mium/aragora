@@ -233,39 +233,42 @@ class TestConsensusMemoryLeaderboardChain:
 class TestHandlerCoordination:
     """Test multiple handlers working together."""
 
-    def test_debates_handler_returns_valid_response(self, handler_context, mock_request):
+    @pytest.mark.asyncio
+    async def test_debates_handler_returns_valid_response(self, handler_context, mock_request):
         """DebatesHandler should return proper JSON response."""
         from aragora.server.handlers.debates import DebatesHandler
 
         handler = DebatesHandler(handler_context)
 
         # Test list debates endpoint
-        result = handler.handle("/api/v1/debates", {}, mock_request)
+        result = await handler.handle("/api/v1/debates", {}, mock_request)
 
         if result:
             # HandlerResult is a dataclass with status_code attribute
             # 503 is valid when storage isn't available
             assert result.status_code in [200, 401, 403, 503]  # Valid HTTP codes
 
-    def test_health_handler_always_responds(self, handler_context, mock_request):
+    @pytest.mark.asyncio
+    async def test_health_handler_always_responds(self, handler_context, mock_request):
         """HealthHandler health endpoint should always work."""
         from aragora.server.handlers import HealthHandler
 
         handler = HealthHandler(handler_context)
 
-        result = handler.handle("/api/v1/health", {}, mock_request)
+        result = await handler.handle("/api/v1/health", {}, mock_request)
 
         assert result is not None
         # HandlerResult is a dataclass with status_code attribute
         # Health check returns 200 (healthy) or 503 (degraded) based on system state
         assert result.status_code in [200, 503]
 
-    def test_system_handler_returns_valid_json(self, handler_context, mock_request):
+    @pytest.mark.asyncio
+    async def test_system_handler_returns_valid_json(self, handler_context, mock_request):
         """HealthHandler should return valid JSON body."""
         from aragora.server.handlers import HealthHandler
 
         handler = HealthHandler(handler_context)
-        result = handler.handle("/api/v1/health", {}, mock_request)
+        result = await handler.handle("/api/v1/health", {}, mock_request)
 
         assert result is not None
         assert result.content_type == "application/json"

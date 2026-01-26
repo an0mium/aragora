@@ -172,11 +172,12 @@ class TestAuthenticationWorkflow:
 class TestHealthEndpointWorkflow:
     """Test health check endpoint."""
 
-    def test_health_returns_status(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_health_returns_status(self, handler_context):
         """Test health endpoint returns proper status."""
         handler = HealthHandler(handler_context)
 
-        result = handler.handle("/api/v1/health", {}, None)
+        result = await handler.handle("/api/v1/health", {}, None)
         data, status = parse_handler_result(result)
 
         # Health check returns 200 (healthy) or 503 (degraded)
@@ -185,17 +186,19 @@ class TestHealthEndpointWorkflow:
         assert "checks" in data
         assert "timestamp" in data
 
-    def test_health_checks_elo_system(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_health_checks_elo_system(self, handler_context):
         """Test health endpoint verifies ELO system."""
         handler = HealthHandler(handler_context)
 
-        result = handler.handle("/api/v1/health", {}, None)
+        result = await handler.handle("/api/v1/health", {}, None)
         data, status = parse_handler_result(result)
 
         assert "elo_system" in data["checks"]
         assert data["checks"]["elo_system"]["healthy"] is True
 
-    def test_health_handles_missing_components(self, temp_dir):
+    @pytest.mark.asyncio
+    async def test_health_handles_missing_components(self, temp_dir):
         """Test health endpoint handles missing components gracefully."""
         handler = HealthHandler(
             {
@@ -205,7 +208,7 @@ class TestHealthEndpointWorkflow:
             }
         )
 
-        result = handler.handle("/api/v1/health", {}, None)
+        result = await handler.handle("/api/v1/health", {}, None)
         data, status = parse_handler_result(result)
 
         # Should still return a response, not crash
@@ -216,7 +219,8 @@ class TestHealthEndpointWorkflow:
 class TestLeaderboardWorkflow:
     """Test leaderboard API workflow."""
 
-    def test_leaderboard_returns_rankings(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_leaderboard_returns_rankings(self, handler_context):
         """Test leaderboard endpoint returns agent rankings."""
         # Add some ratings using the proper API
         elo = handler_context["elo_system"]
@@ -225,7 +229,7 @@ class TestLeaderboardWorkflow:
 
         handler = AgentsHandler(handler_context)
 
-        result = handler.handle("/api/v1/leaderboard", {}, None)
+        result = await handler.handle("/api/v1/leaderboard", {}, None)
         data, status = parse_handler_result(result)
 
         assert status == 200
@@ -235,7 +239,8 @@ class TestLeaderboardWorkflow:
         else:
             assert isinstance(data, list)
 
-    def test_leaderboard_respects_limit(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_leaderboard_respects_limit(self, handler_context):
         """Test leaderboard limit parameter."""
         elo = handler_context["elo_system"]
         for i in range(10):
@@ -245,7 +250,7 @@ class TestLeaderboardWorkflow:
 
         handler = AgentsHandler(handler_context)
 
-        result = handler.handle("/api/v1/leaderboard", {"limit": "5"}, None)
+        result = await handler.handle("/api/v1/leaderboard", {"limit": "5"}, None)
         data, status = parse_handler_result(result)
 
         assert len(data) <= 5
@@ -254,7 +259,8 @@ class TestLeaderboardWorkflow:
 class TestDebateHistoryWorkflow:
     """Test debate history API workflow."""
 
-    def test_debates_list_returns_debates(self, handler_context, temp_dir):
+    @pytest.mark.asyncio
+    async def test_debates_list_returns_debates(self, handler_context, temp_dir):
         """Test debates list endpoint."""
         from aragora.server.storage import DebateStorage
 
@@ -263,13 +269,14 @@ class TestDebateHistoryWorkflow:
 
         handler = DebatesHandler(handler_context)
 
-        result = handler.handle("/api/v1/debates", {}, None)
+        result = await handler.handle("/api/v1/debates", {}, None)
         data, status = parse_handler_result(result)
 
         assert status == 200
         assert isinstance(data, (list, dict))
 
-    def test_debates_pagination(self, handler_context, temp_dir):
+    @pytest.mark.asyncio
+    async def test_debates_pagination(self, handler_context, temp_dir):
         """Test debates pagination."""
         from aragora.server.storage import DebateStorage
 
@@ -279,7 +286,7 @@ class TestDebateHistoryWorkflow:
         handler = DebatesHandler(handler_context)
 
         # Test with pagination params
-        result = handler.handle("/api/v1/debates", {"limit": "10", "offset": "0"}, None)
+        result = await handler.handle("/api/v1/debates", {"limit": "10", "offset": "0"}, None)
         data, status = parse_handler_result(result)
 
         assert status == 200
@@ -288,11 +295,12 @@ class TestDebateHistoryWorkflow:
 class TestModesSwitchWorkflow:
     """Test modes API workflow."""
 
-    def test_modes_list_returns_available_modes(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_modes_list_returns_available_modes(self, handler_context):
         """Test modes list endpoint."""
         handler = NomicHandler(handler_context)
 
-        result = handler.handle("/api/v1/modes", {}, None)
+        result = await handler.handle("/api/v1/modes", {}, None)
         data, status = parse_handler_result(result)
 
         assert status == 200
@@ -302,7 +310,8 @@ class TestModesSwitchWorkflow:
 class TestNomicStateWorkflow:
     """Test nomic state API workflow."""
 
-    def test_nomic_state_returns_current_state(self, handler_context, temp_dir):
+    @pytest.mark.asyncio
+    async def test_nomic_state_returns_current_state(self, handler_context, temp_dir):
         """Test nomic state endpoint."""
         # Create nomic state file
         state_file = temp_dir / "nomic_state.json"
@@ -312,7 +321,7 @@ class TestNomicStateWorkflow:
 
         handler = SystemHandler(handler_context)
 
-        result = handler.handle("/api/v1/nomic/state", {}, None)
+        result = await handler.handle("/api/v1/nomic/state", {}, None)
         data, status = parse_handler_result(result)
 
         # Should return something (even if empty state)
@@ -339,24 +348,26 @@ class TestCritiquesWorkflow:
 class TestConcurrentRequests:
     """Test handling of concurrent API requests."""
 
-    def test_multiple_health_checks(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_multiple_health_checks(self, handler_context):
         """Test multiple sequential health check requests."""
         handler = HealthHandler(handler_context)
 
         # Make 10 sequential requests
         for _ in range(10):
-            result = handler.handle("/api/v1/health", {}, None)
+            result = await handler.handle("/api/v1/health", {}, None)
             data, status = parse_handler_result(result)
             # Health check may return 200 or 503 depending on components
             assert status in (200, 503)
 
-    def test_multiple_leaderboard_requests(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_multiple_leaderboard_requests(self, handler_context):
         """Test multiple sequential leaderboard requests."""
         handler = AgentsHandler(handler_context)
 
         # Make 10 sequential requests
         for _ in range(10):
-            result = handler.handle("/api/v1/leaderboard", {}, None)
+            result = await handler.handle("/api/v1/leaderboard", {}, None)
             data, status = parse_handler_result(result)
             assert status == 200
 
@@ -371,18 +382,20 @@ class TestErrorHandling:
         # Check if handler can handle this path
         assert not handler.can_handle("/api/v1/nonexistent/endpoint")
 
-    def test_invalid_query_params_handled(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_invalid_query_params_handled(self, handler_context):
         """Test invalid query parameters are handled gracefully."""
         handler = AgentsHandler(handler_context)
 
         # Pass invalid limit
-        result = handler.handle("/api/v1/leaderboard", {"limit": "not-a-number"}, None)
+        result = await handler.handle("/api/v1/leaderboard", {"limit": "not-a-number"}, None)
         data, status = parse_handler_result(result)
 
         # Should handle gracefully (either default or error response)
         assert status in (200, 400)
 
-    def test_missing_resource_handled_gracefully(self, handler_context, temp_dir):
+    @pytest.mark.asyncio
+    async def test_missing_resource_handled_gracefully(self, handler_context, temp_dir):
         """Test missing resource is handled gracefully."""
         from aragora.server.storage import DebateStorage
 
@@ -391,7 +404,7 @@ class TestErrorHandling:
 
         handler = DebatesHandler(handler_context)
 
-        result = handler.handle("/api/v1/debates/nonexistent-id", {}, None)
+        result = await handler.handle("/api/v1/debates/nonexistent-id", {}, None)
         data, status = parse_handler_result(result)
 
         # Should return 404 or 500 (depending on implementation)
@@ -401,25 +414,27 @@ class TestErrorHandling:
 class TestResponseFormat:
     """Test API response format consistency."""
 
-    def test_health_response_format(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_health_response_format(self, handler_context):
         """Test health endpoint response format."""
         handler = HealthHandler(handler_context)
 
-        result = handler.handle("/api/v1/health", {}, None)
+        result = await handler.handle("/api/v1/health", {}, None)
         data, status = parse_handler_result(result)
 
         required_fields = ["status", "checks", "timestamp"]
         for field in required_fields:
             assert field in data, f"Missing required field: {field}"
 
-    def test_leaderboard_response_format(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_leaderboard_response_format(self, handler_context):
         """Test leaderboard response format."""
         elo = handler_context["elo_system"]
         elo.record_match("agent-x", "agent-y", {"agent-x": 1.0, "agent-y": 0.0}, "test")
 
         handler = AgentsHandler(handler_context)
 
-        result = handler.handle("/api/v1/leaderboard", {}, None)
+        result = await handler.handle("/api/v1/leaderboard", {}, None)
         data, status = parse_handler_result(result)
 
         # Response can be list or dict with rankings

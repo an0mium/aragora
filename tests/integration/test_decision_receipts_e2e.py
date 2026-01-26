@@ -121,28 +121,32 @@ class TestReceiptsHandler:
     @pytest.fixture
     def mock_store(self):
         """Create a mock receipt store."""
+        from aragora.gauntlet.receipt import DecisionReceipt
+
+        # Create a mock receipt object
+        mock_receipt = MagicMock(spec=DecisionReceipt)
+        mock_receipt.receipt_id = "rcpt_001"
+        mock_receipt.verdict = "APPROVED"
+        mock_receipt.to_dict.return_value = {
+            "receipt_id": "rcpt_001",
+            "verdict": "APPROVED",
+            "timestamp": "2024-01-01T00:00:00Z",
+        }
+
         store = MagicMock()
+        # Mock the methods the handler actually calls
+        store.list = MagicMock(return_value=[mock_receipt])
+        store.count = MagicMock(return_value=1)
+        store.get = MagicMock(return_value=mock_receipt)
+        store.verify = MagicMock(return_value={"valid": True, "checksum_match": True})
+        # Also keep the async versions in case some code uses them
         store.list_receipts = AsyncMock(
             return_value={
-                "receipts": [
-                    {
-                        "receipt_id": "rcpt_001",
-                        "verdict": "APPROVED",
-                        "timestamp": "2024-01-01T00:00:00Z",
-                    }
-                ],
+                "receipts": [mock_receipt.to_dict()],
                 "total": 1,
             }
         )
-        store.get_receipt = AsyncMock(
-            return_value={
-                "receipt_id": "rcpt_001",
-                "gauntlet_id": "gnt_001",
-                "verdict": "APPROVED",
-                "confidence": 0.85,
-                "risk_level": "LOW",
-            }
-        )
+        store.get_receipt = AsyncMock(return_value=mock_receipt.to_dict())
         store.verify_receipt = AsyncMock(return_value={"valid": True, "checksum_match": True})
         return store
 
