@@ -10,6 +10,7 @@ This package organizes MCP tools into logical modules:
 - verification: Consensus verification and proofs
 - evidence: Evidence collection and citation
 - trending: Trending topic analysis
+- browser: Browser automation with Playwright
 """
 
 from aragora.mcp.tools_module.debate import (
@@ -90,6 +91,20 @@ from aragora.mcp.tools_module.control_plane import (
     trigger_health_check_tool,
     get_resource_utilization_tool,
 )
+from aragora.mcp.tools_module.browser import (
+    browser_navigate_tool,
+    browser_click_tool,
+    browser_fill_tool,
+    browser_screenshot_tool,
+    browser_get_text_tool,
+    browser_extract_tool,
+    browser_execute_script_tool,
+    browser_wait_for_tool,
+    browser_get_html_tool,
+    browser_close_tool,
+    browser_get_cookies_tool,
+    browser_clear_cookies_tool,
+)
 
 __all__ = [
     # Debate tools
@@ -161,4 +176,17 @@ __all__ = [
     "get_control_plane_status_tool",
     "trigger_health_check_tool",
     "get_resource_utilization_tool",
+    # Browser automation tools
+    "browser_navigate_tool",
+    "browser_click_tool",
+    "browser_fill_tool",
+    "browser_screenshot_tool",
+    "browser_get_text_tool",
+    "browser_extract_tool",
+    "browser_execute_script_tool",
+    "browser_wait_for_tool",
+    "browser_get_html_tool",
+    "browser_close_tool",
+    "browser_get_cookies_tool",
+    "browser_clear_cookies_tool",
 ]
