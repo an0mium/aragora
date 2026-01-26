@@ -663,6 +663,7 @@ async def handle_refund(request: web.Request) -> web.Response:
         return web.json_response({"error": str(e)}, status=500)
 
 
+@require_permission("payments:void")
 async def handle_void(request: web.Request) -> web.Response:
     """
     POST /api/payments/void
@@ -785,6 +786,7 @@ async def handle_get_transaction(request: web.Request) -> web.Response:
 # =============================================================================
 
 
+@require_permission("payments:customer:create")
 async def handle_create_customer(request: web.Request) -> web.Response:
     """
     POST /api/payments/customer
