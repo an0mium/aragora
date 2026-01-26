@@ -177,6 +177,190 @@ All tiers include:
 
 ---
 
+## Security & Compliance
+
+### Data Protection
+
+| Control | Implementation | Status |
+|---------|----------------|--------|
+| Encryption at rest | AES-256-GCM | Production-ready |
+| Encryption in transit | TLS 1.3 | Production-ready |
+| API authentication | JWT + API keys | Production-ready |
+| Session management | Secure cookies, 24h expiry | Production-ready |
+
+### Access Control (RBAC-lite)
+
+SME tier includes simplified role model:
+
+| Role | Permissions |
+|------|-------------|
+| **Owner** | Full workspace control, billing, member management |
+| **Admin** | Manage integrations, templates, view all debates |
+| **Member** | Run debates, view own results, export receipts |
+
+**Implementation:** `aragora/rbac/` module with 50+ granular permissions mapped to these simplified roles.
+
+### Compliance
+
+- **SOC 2 Type II:** 98% controls implemented (see `docs/COMMERCIAL_OVERVIEW.md`)
+- **GDPR:** Data export, deletion APIs available
+- **Audit Logging:** All debate actions logged with 90-day retention
+
+### Security Best Practices
+
+```
+Workspace Security Checklist:
+[ ] Enable SSO (optional, available on Business tier)
+[ ] Configure IP allowlisting (optional)
+[ ] Review member permissions quarterly
+[ ] Enable 2FA for admin accounts
+[ ] Configure budget alerts
+```
+
+---
+
+## Integration Setup Guide
+
+### Slack Integration
+
+**OAuth Flow:**
+1. Click "Connect Slack" in integrations
+2. Authorize Aragora app with requested scopes:
+   - `channels:read` - List channels for debate routing
+   - `chat:write` - Post debate results
+   - `users:read` - Display member names
+3. Select default channel for results
+4. Send test message to confirm
+
+**Error Handling:**
+| Error | Resolution |
+|-------|------------|
+| "OAuth rejected" | Re-authorize with workspace admin |
+| "Token expired" | Reconnect integration |
+| "Rate limited" | Results queued, delivered within 5min |
+
+**Implementation:** `aragora/connectors/chat/slack.py` (circuit breaker enabled)
+
+### Gmail Integration
+
+**OAuth Flow:**
+1. Click "Connect Gmail" in integrations
+2. Sign in with Google account
+3. Grant permissions:
+   - `gmail.readonly` - Read emails for context
+   - `gmail.send` - Send debate summaries
+4. Configure email routing rules
+
+**Scopes Justification:**
+- Read access enables evidence collection from email threads
+- Send access allows sharing receipts via email
+
+### Google Drive Integration
+
+**Setup:**
+1. Connect Google account (shared OAuth with Gmail)
+2. Select folders for document access
+3. Configure auto-scan for decision-relevant documents
+
+### Outlook Integration
+
+**OAuth Flow:**
+1. Click "Connect Outlook" in integrations
+2. Sign in with Microsoft account
+3. Grant permissions:
+   - `Mail.Read` - Access email context
+   - `Mail.Send` - Share results
+4. Configure routing
+
+---
+
+## Budget Controls API
+
+### Configuration
+
+Budget controls are configured per workspace:
+
+```python
+# API: POST /api/v2/workspaces/{workspace_id}/budget
+{
+    "monthly_cap_usd": 500.00,
+    "per_debate_limit_usd": 5.00,
+    "alert_thresholds": [0.50, 0.75, 0.90],
+    "hard_stop_at_cap": true,
+    "notification_channels": ["email", "slack"]
+}
+```
+
+### Alert Thresholds
+
+| Threshold | Action | Notification |
+|-----------|--------|--------------|
+| 50% | Info alert | Email to admins |
+| 75% | Warning | Email + Slack |
+| 90% | Critical | Email + Slack + UI banner |
+| 100% | Hard stop | Block new debates until reset |
+
+### Cost Estimation
+
+| Operation | Estimated Cost |
+|-----------|---------------|
+| 2-agent, 2-round debate | ~$0.15 |
+| 3-agent, 3-round debate | ~$0.35 |
+| 5-agent, 4-round debate | ~$0.80 |
+| Document ingestion (per 10 pages) | ~$0.05 |
+
+**Implementation:** `aragora/billing/budget_manager.py`, `aragora/server/handlers/costs.py`
+
+### Webhooks
+
+Configure budget webhooks for external monitoring:
+
+```python
+# API: POST /api/v2/workspaces/{workspace_id}/webhooks
+{
+    "event": "budget.threshold_reached",
+    "url": "https://your-system.com/webhook",
+    "threshold": 0.75
+}
+```
+
+---
+
+## Support & Troubleshooting
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| Debate timeout | Check agent availability, retry with fewer agents |
+| Low confidence result | Add more context, increase rounds |
+| Integration disconnected | Re-authorize OAuth in settings |
+| Budget exceeded | Upgrade tier or wait for monthly reset |
+
+### Support Channels
+
+| Tier | Support Level | Response Time |
+|------|---------------|---------------|
+| Starter | Email | 48h business hours |
+| Team | Email + Chat | 24h business hours |
+| Business | Email + Chat + Priority | 4h business hours |
+
+### Escalation Path
+
+1. **Self-Service:** Check `docs/TROUBLESHOOTING.md`
+2. **Email Support:** support@aragora.io
+3. **Priority Escalation:** Contact your account manager (Business tier)
+
+### SLA Definitions
+
+| Metric | Target |
+|--------|--------|
+| API uptime | 99.9% |
+| Debate completion rate | >99% |
+| Receipt generation | <30s |
+
+---
+
 ## Dependencies
 
 | Dependency | Status | Risk | Mitigation |
