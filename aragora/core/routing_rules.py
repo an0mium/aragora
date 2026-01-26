@@ -119,17 +119,17 @@ class Condition:
         # Evaluate based on operator
         match self.operator:
             case ConditionOperator.EQUALS:
-                return bool(field_value == compare_value)  # type: ignore[no-any-return]
+                return bool(field_value == compare_value)
             case ConditionOperator.NOT_EQUALS:
-                return bool(field_value != compare_value)  # type: ignore[no-any-return]
+                return bool(field_value != compare_value)
             case ConditionOperator.GREATER_THAN:
-                return bool(field_value > compare_value)  # type: ignore[no-any-return]
+                return bool(field_value > compare_value)
             case ConditionOperator.GREATER_THAN_OR_EQUAL:
-                return bool(field_value >= compare_value)  # type: ignore[no-any-return]
+                return bool(field_value >= compare_value)
             case ConditionOperator.LESS_THAN:
-                return bool(field_value < compare_value)  # type: ignore[no-any-return]
+                return bool(field_value < compare_value)
             case ConditionOperator.LESS_THAN_OR_EQUAL:
-                return bool(field_value <= compare_value)  # type: ignore[no-any-return]
+                return bool(field_value <= compare_value)
             case ConditionOperator.CONTAINS:
                 if isinstance(field_value, str):
                     return str(compare_value) in field_value
@@ -166,7 +166,7 @@ class Condition:
     def _get_nested_value(self, data: dict[str, Any], path: str) -> Any:
         """Get a value from a nested dictionary using dot notation."""
         parts = path.split(".")
-        current = data
+        current: Any = data
         for part in parts:
             if isinstance(current, dict):
                 current = current.get(part)

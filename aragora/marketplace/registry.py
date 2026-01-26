@@ -91,10 +91,10 @@ class TemplateRegistry:
 
     def _load_builtins(self) -> None:
         """Load built-in templates into the registry."""
-        for template in BUILTIN_AGENT_TEMPLATES:
-            self._upsert_template(template, is_builtin=True)
-        for template in BUILTIN_DEBATE_TEMPLATES:
-            self._upsert_template(template, is_builtin=True)
+        for agent_template in BUILTIN_AGENT_TEMPLATES:
+            self._upsert_template(agent_template, is_builtin=True)
+        for debate_template in BUILTIN_DEBATE_TEMPLATES:
+            self._upsert_template(debate_template, is_builtin=True)
 
     def _upsert_template(
         self,
