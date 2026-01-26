@@ -156,6 +156,22 @@ import {
   BudgetsAPI,
   ReceiptsAPI,
   ExplainabilityAPI,
+  ControlPlaneAPI,
+  GauntletAPI,
+  AnalyticsAPI,
+  MemoryAPI,
+  RBACAPI,
+  KnowledgeAPI,
+  TournamentsAPI,
+  AuthAPI,
+  VerificationAPI,
+  AuditAPI,
+  TenantsAPI,
+  OrganizationsAPI,
+  WebhooksAPI,
+  PluginsAPI,
+  WorkspacesAPI,
+  IntegrationsAPI,
 } from './namespaces';
 
 interface RequestOptions {
@@ -243,6 +259,102 @@ export class AragoraClient {
    */
   readonly explainability: ExplainabilityAPI;
 
+  /**
+   * Control Plane API namespace.
+   * Provides methods for agent registry, scheduling, and health monitoring.
+   */
+  readonly controlPlane: ControlPlaneAPI;
+
+  /**
+   * Gauntlet API namespace.
+   * Provides methods for security auditing and compliance testing.
+   */
+  readonly gauntlet: GauntletAPI;
+
+  /**
+   * Analytics API namespace.
+   * Provides methods for debate metrics and performance analytics.
+   */
+  readonly analytics: AnalyticsAPI;
+
+  /**
+   * Memory API namespace.
+   * Provides methods for multi-tier memory management.
+   */
+  readonly memory: MemoryAPI;
+
+  /**
+   * RBAC API namespace.
+   * Provides methods for role-based access control management.
+   */
+  readonly rbac: RBACAPI;
+
+  /**
+   * Knowledge API namespace.
+   * Provides methods for knowledge management and retrieval.
+   */
+  readonly knowledge: KnowledgeAPI;
+
+  /**
+   * Tournaments API namespace.
+   * Provides methods for agent tournaments and rankings.
+   */
+  readonly tournaments: TournamentsAPI;
+
+  /**
+   * Auth API namespace.
+   * Provides methods for authentication and session management.
+   */
+  readonly auth: AuthAPI;
+
+  /**
+   * Verification API namespace.
+   * Provides methods for formal verification of debate conclusions.
+   */
+  readonly verification: VerificationAPI;
+
+  /**
+   * Audit API namespace.
+   * Provides methods for audit logging and compliance.
+   */
+  readonly audit: AuditAPI;
+
+  /**
+   * Tenants API namespace.
+   * Provides methods for multi-tenant management.
+   */
+  readonly tenants: TenantsAPI;
+
+  /**
+   * Organizations API namespace.
+   * Provides methods for organization management.
+   */
+  readonly organizations: OrganizationsAPI;
+
+  /**
+   * Webhooks API namespace.
+   * Provides methods for webhook management and event subscriptions.
+   */
+  readonly webhooks: WebhooksAPI;
+
+  /**
+   * Plugins API namespace.
+   * Provides methods for plugin marketplace and management.
+   */
+  readonly plugins: PluginsAPI;
+
+  /**
+   * Workspaces API namespace.
+   * Provides methods for workspace and team management.
+   */
+  readonly workspaces: WorkspacesAPI;
+
+  /**
+   * Integrations API namespace.
+   * Provides methods for external service integrations.
+   */
+  readonly integrations: IntegrationsAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -263,6 +375,22 @@ export class AragoraClient {
     this.budgets = new BudgetsAPI(this);
     this.receipts = new ReceiptsAPI(this);
     this.explainability = new ExplainabilityAPI(this);
+    this.controlPlane = new ControlPlaneAPI(this);
+    this.gauntlet = new GauntletAPI(this);
+    this.analytics = new AnalyticsAPI(this);
+    this.memory = new MemoryAPI(this);
+    this.rbac = new RBACAPI(this);
+    this.knowledge = new KnowledgeAPI(this);
+    this.tournaments = new TournamentsAPI(this);
+    this.auth = new AuthAPI(this);
+    this.verification = new VerificationAPI(this);
+    this.audit = new AuditAPI(this);
+    this.tenants = new TenantsAPI(this);
+    this.organizations = new OrganizationsAPI(this);
+    this.webhooks = new WebhooksAPI(this);
+    this.plugins = new PluginsAPI(this);
+    this.workspaces = new WorkspacesAPI(this);
+    this.integrations = new IntegrationsAPI(this);
   }
 
   // ===========================================================================
