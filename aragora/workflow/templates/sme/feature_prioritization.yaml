@@ -127,11 +127,3 @@ steps:
     next_steps: []
 
 entry_step: analyze_features
-
-transitions:
-  - from_step: analyze_features
-    to_step: prioritization_debate
-  - from_step: prioritization_debate
-    to_step: generate_prioritization
-  - from_step: generate_prioritization
-    to_step: store_prioritization

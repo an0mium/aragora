@@ -136,11 +136,3 @@ steps:
     next_steps: []
 
 entry_step: research_tools
-
-transitions:
-  - from_step: research_tools
-    to_step: selection_debate
-  - from_step: selection_debate
-    to_step: generate_recommendation
-  - from_step: generate_recommendation
-    to_step: store_selection

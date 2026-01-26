@@ -138,11 +138,3 @@ steps:
     next_steps: []
 
 entry_step: gather_inputs
-
-transitions:
-  - from_step: gather_inputs
-    to_step: policy_debate
-  - from_step: policy_debate
-    to_step: draft_policy
-  - from_step: draft_policy
-    to_step: store_policy

@@ -130,11 +130,3 @@ steps:
     next_steps: []
 
 entry_step: analyze_backlog
-
-transitions:
-  - from_step: analyze_backlog
-    to_step: planning_debate
-  - from_step: planning_debate
-    to_step: finalize_sprint
-  - from_step: finalize_sprint
-    to_step: store_sprint_plan

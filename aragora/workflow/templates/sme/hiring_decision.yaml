@@ -127,11 +127,3 @@ steps:
     next_steps: []
 
 entry_step: gather_context
-
-transitions:
-  - from_step: gather_context
-    to_step: hiring_debate
-  - from_step: hiring_debate
-    to_step: synthesize_decision
-  - from_step: synthesize_decision
-    to_step: store_decision

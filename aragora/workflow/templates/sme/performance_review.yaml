@@ -131,11 +131,3 @@ steps:
     next_steps: []
 
 entry_step: compile_review_data
-
-transitions:
-  - from_step: compile_review_data
-    to_step: performance_debate
-  - from_step: performance_debate
-    to_step: generate_review
-  - from_step: generate_review
-    to_step: store_review

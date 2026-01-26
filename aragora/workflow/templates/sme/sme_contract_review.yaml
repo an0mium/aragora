@@ -135,11 +135,3 @@ steps:
     next_steps: []
 
 entry_step: extract_terms
-
-transitions:
-  - from_step: extract_terms
-    to_step: contract_debate
-  - from_step: contract_debate
-    to_step: generate_review
-  - from_step: generate_review
-    to_step: store_review
