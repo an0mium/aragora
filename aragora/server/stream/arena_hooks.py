@@ -117,6 +117,14 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
                     )
                 )
 
+            if not full_response.strip():
+                logger.warning(
+                    f"Empty streamed response for {agent.name}, falling back to non-streaming generate."
+                )
+                fallback_response = await original_generate(prompt, context)
+                if fallback_response:
+                    full_response = fallback_response
+
             # Emit end event
             emitter.emit(
                 StreamEvent(

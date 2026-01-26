@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 from aragora.config import (
     DEBATE_TIMEOUT_SECONDS,
+    DEFAULT_AGENTS,
     MAX_AGENTS_PER_DEBATE,
 )
 from aragora.server.errors import safe_error_message as _safe_error_message
@@ -93,7 +94,15 @@ def parse_debate_request(data: dict) -> tuple[Optional[dict], Optional[str]]:
         return None, "question must be under 10,000 characters"
 
     # Parse optional fields with validation
-    agents_str = data.get("agents", "anthropic-api,openai-api,gemini,grok")
+    agents_value = data.get("agents")
+    if isinstance(agents_value, list):
+        agents_str = ",".join(str(agent).strip() for agent in agents_value if str(agent).strip())
+    elif isinstance(agents_value, str):
+        agents_str = agents_value.strip()
+    else:
+        agents_str = DEFAULT_AGENTS
+    if not agents_str:
+        agents_str = DEFAULT_AGENTS
     try:
         rounds = min(max(int(data.get("rounds", 3)), 1), 10)  # Clamp to 1-10
     except (ValueError, TypeError):
