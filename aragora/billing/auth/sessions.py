@@ -68,6 +68,10 @@ class JWTSession:
     device_name: Optional[str] = None  # Derived from user agent
     expires_at: Optional[float] = None  # Token expiration time
 
+    # MFA tracking for step-up authentication
+    mfa_verified_at: Optional[float] = None  # Unix timestamp of last MFA verification
+    mfa_methods_used: Optional[List[str]] = None  # ['totp', 'backup_code', etc.]
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
@@ -83,6 +87,12 @@ class JWTSession:
                 if self.expires_at
                 else None
             ),
+            "mfa_verified_at": (
+                datetime.fromtimestamp(self.mfa_verified_at, timezone.utc).isoformat()
+                if self.mfa_verified_at
+                else None
+            ),
+            "mfa_methods_used": self.mfa_methods_used or [],
         }
 
     def is_expired(self) -> bool:
