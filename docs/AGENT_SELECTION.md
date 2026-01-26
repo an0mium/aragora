@@ -186,6 +186,15 @@ export OPENROUTER_API_KEY=fallback_key
 aragora review --agents anthropic-api,openai-api
 ```
 
+If a provider key is missing and `OPENROUTER_API_KEY` is set, Aragora will
+substitute OpenRouter models to keep the debate running:
+
+- `anthropic-api` -> `anthropic/claude-3.5-sonnet`
+- `openai-api` -> `openai/gpt-4o-mini`
+- `gemini` -> `google/gemini-2.0-flash-exp:free`
+- `grok` -> `x-ai/grok-2-1212`
+- `mistral-api` -> `mistralai/mistral-large-2411`
+
 ## Capability Matrix
 
 | Capability | Anthropic | OpenAI | Gemini | Mistral | DeepSeek |

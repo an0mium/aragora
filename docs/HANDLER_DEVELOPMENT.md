@@ -173,6 +173,18 @@ def handle(self, path, query_params, handler):
         return error_response("Rate limit exceeded", 429)
 ```
 
+You can also use the decorator (supports sync and async handlers). When using
+handlers that pass headers directly, provide `headers=...` so the decorator can
+extract client IPs consistently:
+
+```python
+from ..utils.rate_limit import rate_limit
+
+@rate_limit(requests_per_minute=60)
+async def handle(self, path, query_params, headers=None):
+    ...
+```
+
 ### Error Handling
 
 Use the `@handle_errors` decorator:
