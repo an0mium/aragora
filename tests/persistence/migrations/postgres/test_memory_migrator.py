@@ -311,7 +311,7 @@ class TestPostgresOperations:
         migrator._pool = mock_pool
 
         # Create proper async context manager
-        async def async_ctx():
+        async def async_ctx(self):
             return mock_connection
 
         mock_pool.acquire.return_value.__aenter__ = async_ctx

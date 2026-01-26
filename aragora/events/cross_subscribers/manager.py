@@ -651,6 +651,7 @@ class CrossSubscriberManager(
             "batch_size": self._async_config.batch_size,
             "timeout_seconds": self._async_config.batch_timeout_seconds,
             "batching_enabled": self._async_config.enable_batching,
+            "async_event_types": [e.value for e in _default_async_event_types()],
         }
 
     # =========================================================================
