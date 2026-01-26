@@ -318,15 +318,18 @@ class TestGenerateMandatorySynthesis:
     """Tests for generate_mandatory_synthesis method."""
 
     @pytest.mark.asyncio
-    async def test_no_proposals_returns_false(self):
-        """Returns False when no proposals."""
+    async def test_no_proposals_generates_fallback_synthesis(self):
+        """When no proposals, generates fallback synthesis instead of returning False."""
         ctx = MockDebateContext()
         ctx.proposals = {}
 
         gen = SynthesisGenerator()
         result = await gen.generate_mandatory_synthesis(ctx)
 
-        assert result is False
+        # Now returns True with fallback synthesis (avoids silent endings)
+        assert result is True
+        assert "No proposals were generated" in ctx.result.synthesis
+        assert ctx.result.final_answer == ctx.result.synthesis
 
     @pytest.mark.asyncio
     async def test_synthesis_stored_in_result(self):
