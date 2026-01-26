@@ -865,6 +865,7 @@ async def handle_gusto_disconnect(request: web.Request) -> web.Response:
         )
 
 
+@require_permission("hr:read")
 async def handle_gusto_employees(request: web.Request) -> web.Response:
     """
     GET /api/accounting/gusto/employees
@@ -901,6 +902,7 @@ async def handle_gusto_employees(request: web.Request) -> web.Response:
         )
 
 
+@require_permission("hr:read")
 async def handle_gusto_payrolls(request: web.Request) -> web.Response:
     """
     GET /api/accounting/gusto/payrolls
@@ -951,6 +953,7 @@ async def handle_gusto_payrolls(request: web.Request) -> web.Response:
         )
 
 
+@require_permission("hr:read")
 async def handle_gusto_payroll_detail(request: web.Request) -> web.Response:
     """
     GET /api/accounting/gusto/payrolls/{payroll_id}
