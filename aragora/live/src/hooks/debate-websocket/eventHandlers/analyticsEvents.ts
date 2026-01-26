@@ -7,6 +7,20 @@ import type { StreamEvent } from '@/types/events';
 import { logger } from '@/utils/logger';
 import type { EventHandlerContext, ParsedEventData } from './types';
 
+const AGENT_ERROR_THROTTLE_MS = 10000;
+const agentErrorTimestamps = new Map<string, number>();
+
+function shouldEmitAgentError(debateId: string, agentName: string, round?: number): boolean {
+  const key = `${debateId}:${agentName}:${round ?? 'none'}`;
+  const now = Date.now();
+  const last = agentErrorTimestamps.get(key) || 0;
+  if (now - last < AGENT_ERROR_THROTTLE_MS) {
+    return false;
+  }
+  agentErrorTimestamps.set(key, now);
+  return true;
+}
+
 /**
  * Create a generic stream event handler
  */
@@ -96,15 +110,28 @@ export function handleTricksterEvent(data: ParsedEventData, ctx: EventHandlerCon
  */
 export function handleAgentErrorEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
   const eventData = data.data;
+  const agentName = (data.agent as string) || (eventData?.agent as string) || 'unknown';
   const event: StreamEvent = {
     type: 'agent_error',
     data: (eventData as Record<string, unknown>) || {},
     timestamp: (data.timestamp as number) || Date.now() / 1000,
-    agent: (data.agent as string) || (eventData?.agent as string),
+    agent: agentName,
   };
   ctx.addStreamEvent(event);
-  // Log for debugging but don't show error state - debate continues
-  logger.warn(`[Agent Error] ${data.agent}: ${eventData?.message}`);
+
+  if (shouldEmitAgentError(ctx.debateId, agentName, data.round as number)) {
+    // Log for debugging but don't show error state - debate continues
+    logger.warn(`[Agent Error] ${agentName}: ${eventData?.message}`);
+
+    const message = (eventData?.message as string) || 'Agent failed during this phase';
+    ctx.addMessageIfNew({
+      agent: agentName,
+      role: 'system',
+      content: `[AGENT ERROR] ${message}`,
+      round: data.round as number,
+      timestamp: (data.timestamp as number) || Date.now() / 1000,
+    });
+  }
 }
 
 /**
