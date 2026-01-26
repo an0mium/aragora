@@ -58,6 +58,10 @@ class TemplateCategory(str, Enum):
     COMPLIANCE = "compliance"
     FINANCE = "finance"
     CUSTOM = "custom"
+    # SME-specific categories
+    SME = "sme"
+    QUICKSTART = "quickstart"
+    RETAIL = "retail"
 
 
 @dataclass
