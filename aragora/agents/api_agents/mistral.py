@@ -57,7 +57,7 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):  # type: ignore[misc]
         api_key: str | None = None,
         enable_fallback: bool | None = None,  # None = use config setting
         circuit_breaker_threshold: int = 5,  # Increased from 3 - less aggressive fallback
-    ):
+    ) -> None:
         super().__init__(
             name=name,
             model=model,
@@ -98,7 +98,7 @@ class CodestralAgent(MistralAPIAgent):
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,
-    ):
+    ) -> None:
         super().__init__(
             name=name,
             model=model,
