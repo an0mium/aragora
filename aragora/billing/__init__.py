@@ -106,6 +106,14 @@ from aragora.billing.discounts import (
     get_discount_manager,
 )
 from aragora.billing.cost_tracker import DebateBudgetExceededError
+from aragora.billing.roi_calculator import (
+    ROICalculator,
+    ROIMetrics,
+    DebateROIInput,
+    IndustryBenchmark,
+    BENCHMARK_COSTS,
+    get_roi_calculator,
+)
 
 __all__ = [
     # Models
@@ -199,4 +207,11 @@ __all__ = [
     "get_discount_manager",
     # Budget Errors
     "DebateBudgetExceededError",
+    # ROI Calculator
+    "ROICalculator",
+    "ROIMetrics",
+    "DebateROIInput",
+    "IndustryBenchmark",
+    "BENCHMARK_COSTS",
+    "get_roi_calculator",
 ]
