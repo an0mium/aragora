@@ -41,6 +41,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Gauntlet](#gauntlet)
 - [Genesis](#genesis)
 - [Inbox Command](#inbox-command)
+- [Integrations](#integrations)
 - [Introspection](#introspection)
 - [Invoices](#invoices)
 - [KnowledgeChat](#knowledgechat)
@@ -50,6 +51,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Moments](#moments)
 - [Nomic](#nomic)
 - [Oauth](#oauth)
+- [Oauth Wizard](#oauth-wizard)
 - [Onboarding](#onboarding)
 - [Orchestration](#orchestration)
 - [Organizations](#organizations)
@@ -67,6 +69,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Selection](#selection)
 - [Shared Inbox](#shared-inbox)
 - [Slo](#slo)
+- [SMEUsageDashboard](#smeusagedashboard)
 - [Template Marketplace](#template-marketplace)
 - [Threat Intel](#threat-intel)
 - [Tournaments](#tournaments)
@@ -1326,6 +1329,32 @@ Trigger AI re-prioritization
 
 ---
 
+## Integrations
+
+Integration Management HTTP Handlers for Aragora.
+
+### `GET` `/api/v2/integrations`
+
+List all integrations
+
+### `GET` `/api/v2/integrations/:type`
+
+Get specific integration status
+
+### `DELETE` `/api/v2/integrations/:type`
+
+Disconnect integration
+
+### `POST` `/api/v2/integrations/:type/test`
+
+Test integration connectivity
+
+### `GET` `/api/v2/integrations/stats`
+
+Integration statistics
+
+---
+
 ## Introspection
 
 Introspection endpoint handlers.
@@ -1448,31 +1477,45 @@ Suggest beneficial trait transfers
 
 ## Metrics
 
-Operational metrics endpoint handlers.
+Handler for operational metrics endpoints.
 
 ### `GET` `/api/metrics`
 
-Get operational metrics for monitoring
+Get comprehensive operational metrics
 
 ### `GET` `/api/metrics/health`
 
-Detailed health check
+Get detailed health check status
 
 ### `GET` `/api/metrics/cache`
 
-Cache statistics
+Get cache statistics
 
 ### `GET` `/api/metrics/verification`
 
-Z3 formal verification statistics
+Get formal verification statistics
 
 ### `GET` `/api/metrics/system`
 
-System information
+Get system information
+
+### `GET` `/api/metrics/background`
+
+Get background task statistics
+
+### `GET` `/api/metrics/debate`
+
+Get debate performance statistics
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `debate_id` | string | Optional specific debate to get insights for |
 
 ### `GET` `/metrics`
 
-Prometheus-format metrics (OpenMetrics)
+Get comprehensive operational metrics
 
 ---
 
@@ -1585,6 +1628,28 @@ Link OAuth account to existing user
 ### `DELETE` `/api/auth/oauth/unlink`
 
 Unlink OAuth provider from account
+
+---
+
+## Oauth Wizard
+
+Unified OAuth Wizard Handler for SME Onboarding.
+
+### `GET` `/api/v2/integrations/wizard`
+
+Get wizard configuration
+
+### `GET` `/api/v2/integrations/wizard/providers`
+
+List all available providers
+
+### `GET` `/api/v2/integrations/wizard/status`
+
+Get status of all integrations
+
+### `POST` `/api/v2/integrations/wizard/validate`
+
+Validate configuration before connecting
 
 ---
 
@@ -2191,6 +2256,40 @@ Recent SLO violations
 ### `GET` `/api/v1/slos/status`
 
 Versioned endpoint
+
+---
+
+## SMEUsageDashboard
+
+Handler for SME usage dashboard endpoints.
+
+### `GET` `/api/v1/usage/summary` 🔒
+
+Get unified usage summary for the SME dashboard
+
+### `GET` `/api/v1/usage/breakdown` 🔒
+
+Get detailed usage breakdown by dimension
+
+### `GET` `/api/v1/usage/roi` 🔒
+
+Get ROI analysis for the organization
+
+### `GET` `/api/v1/usage/export` 🔒
+
+Export usage data in various formats
+
+### `GET` `/api/v1/usage/budget-status`
+
+GET /api/v1/usage/budget-status
+
+### `GET` `/api/v1/usage/forecast` 🔒
+
+Get usage forecast based on current patterns
+
+### `GET` `/api/v1/usage/benchmarks` 🔒
+
+Get industry benchmark comparison data
 
 ---
 
