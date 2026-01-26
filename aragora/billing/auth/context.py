@@ -87,7 +87,8 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
     if hasattr(handler, "headers"):
         auth_header = handler.headers.get("Authorization", "")
 
-    if not auth_header:
+    # Ensure auth_header is a string (handles MagicMock in tests)
+    if not isinstance(auth_header, str) or not auth_header:
         logger.info("[AUTH_DEBUG] extract_user_from_request: No Authorization header")
         return context
 
