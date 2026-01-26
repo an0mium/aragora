@@ -189,9 +189,14 @@ code-intel = [
     # Call graph and analysis
     "networkx>=3.0,<4.0",
 ]
+browser = [
+    # Playwright for browser automation connector
+    # Requires: playwright install chromium (or playwright install)
+    "playwright>=1.40,<2.0",
+]
 all = [
     # Note: 'rlm' excluded due to dependency conflicts (requires pytest>=9, openai>=2)
-    "aragora[test,persistence,documents,broadcast-premium,research,monitoring,ml,redis,control-plane,postgres,observability,code-intel]",
+    "aragora[test,persistence,documents,broadcast-premium,research,monitoring,ml,redis,control-plane,postgres,observability,code-intel,browser]",
 ]
 
 [project.scripts]
