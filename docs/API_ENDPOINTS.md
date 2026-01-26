@@ -14,11 +14,13 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Audit Export](#audit-export)
 - [Audit Trail](#audit-trail)
 - [Auditing](#auditing)
+- [Backup Handler](#backup-handler)
 - [Belief](#belief)
 - [Breakpoints](#breakpoints)
 - [Budgets](#budgets)
 - [Checkpoints](#checkpoints)
 - [Code Review](#code-review)
+- [Compliance Handler](#compliance-handler)
 - [Composite](#composite)
 - [Consensus](#consensus)
 - [Control Plane](#control-plane)
@@ -30,6 +32,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Deliberations](#deliberations)
 - [Dependency Analysis](#dependency-analysis)
 - [Docs](#docs)
+- [Dr Handler](#dr-handler)
 - [Email](#email)
 - [EmailDebate](#emaildebate)
 - [Email Services](#email-services)
@@ -471,6 +474,48 @@ Run red team analysis on a debate
 
 ---
 
+## Backup Handler
+
+Backup HTTP Handlers for Aragora.
+
+### `GET` `/api/v2/backups`
+
+List backups with filters
+
+### `POST` `/api/v2/backups`
+
+Create new backup
+
+### `GET` `/api/v2/backups/:backup_id`
+
+Get specific backup metadata
+
+### `POST` `/api/v2/backups/:backup_id/verify`
+
+Verify backup integrity
+
+### `POST` `/api/v2/backups/:backup_id/verify-comprehensive`
+
+Comprehensive verification
+
+### `POST` `/api/v2/backups/:backup_id/restore-test`
+
+Dry-run restore test
+
+### `DELETE` `/api/v2/backups/:backup_id`
+
+Delete a backup
+
+### `POST` `/api/v2/backups/cleanup`
+
+Run retention policy cleanup
+
+### `GET` `/api/v2/backups/stats`
+
+Backup statistics
+
+---
+
 ## Belief
 
 Belief Network and Reasoning endpoint handlers.
@@ -626,6 +671,32 @@ Get review results
 ### `GET` `/api/v1/code-review/history`
 
 Get review history
+
+---
+
+## Compliance Handler
+
+Compliance HTTP Handlers for Aragora.
+
+### `GET` `/api/v2/compliance/soc2-report`
+
+Generate SOC 2 compliance summary
+
+### `GET` `/api/v2/compliance/gdpr-export`
+
+Export user data for GDPR
+
+### `POST` `/api/v2/compliance/audit-verify`
+
+Verify audit trail integrity
+
+### `GET` `/api/v2/compliance/audit-events`
+
+Export audit events (Elasticsearch/SIEM)
+
+### `GET` `/api/v2/compliance/status`
+
+Overall compliance status
 
 ---
 
@@ -892,6 +963,28 @@ Swagger UI interactive documentation
 ### `GET` `/api/redoc`
 
 ReDoc API documentation viewer
+
+---
+
+## Dr Handler
+
+Disaster Recovery HTTP Handlers for Aragora.
+
+### `GET` `/api/v2/dr/status`
+
+Get DR readiness status
+
+### `POST` `/api/v2/dr/drill`
+
+Run DR drill (simulated recovery)
+
+### `GET` `/api/v2/dr/objectives`
+
+Get RPO/RTO objectives and current status
+
+### `POST` `/api/v2/dr/validate`
+
+Validate DR configuration
 
 ---
 
@@ -2576,6 +2669,14 @@ Handle GET /api/webhooks/events - list available event types
 ### `GET` `/api/v1/webhooks/slo/status`
 
 Handle GET /api/webhooks/slo/status - get SLO webhook status
+
+### `GET` `/api/v1/webhooks/dead-letter`
+
+GET /api/v1/webhooks/dead-letter
+
+### `GET` `/api/v1/webhooks/queue/stats`
+
+Handle GET /api/webhooks/queue/stats - get queue statistics
 
 ---
 
