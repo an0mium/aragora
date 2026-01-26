@@ -274,7 +274,8 @@ class DiscountManager:
         if not hasattr(self._local, "conn"):
             self._local.conn = sqlite3.connect(self.db_path)
             self._local.conn.row_factory = sqlite3.Row
-        return self._local.conn
+        conn: sqlite3.Connection = self._local.conn
+        return conn
 
     def _init_db(self) -> None:
         """Initialize database schema."""

@@ -251,7 +251,7 @@ def compress_brotli(
     """
     if not BROTLI_AVAILABLE:
         raise RuntimeError("brotli not available")
-    return brotli.compress(data, quality=level)
+    return bytes(brotli.compress(data, quality=level))
 
 
 def compress_response(
