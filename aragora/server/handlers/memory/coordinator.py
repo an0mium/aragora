@@ -12,15 +12,18 @@ import logging
 from typing import Optional
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
     json_response,
 )
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# RBAC permission for coordinator endpoints
+COORDINATOR_PERMISSION = "memory:read"
 
 # Rate limiter for coordinator endpoints (30 requests per minute)
 _coordinator_limiter = RateLimiter(requests_per_minute=30)
@@ -36,8 +39,11 @@ except ImportError:
     CoordinatorOptions = None  # type: ignore[misc,assignment]
 
 
-class CoordinatorHandler(BaseHandler):
-    """Handler for memory coordinator endpoints."""
+class CoordinatorHandler(SecureHandler):
+    """Handler for memory coordinator endpoints.
+
+    Requires authentication and memory:read permission (RBAC).
+    """
 
     ROUTES = [
         "/api/v1/memory/coordinator/metrics",
@@ -48,14 +54,26 @@ class CoordinatorHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
-        """Route coordinator requests to appropriate handler methods."""
+    async def handle(  # type: ignore[override]
+        self, path: str, query_params: dict, handler=None
+    ) -> Optional[HandlerResult]:
+        """Route coordinator requests with RBAC."""
         client_ip = get_client_ip(handler)
 
         # Rate limit all coordinator endpoints
         if not _coordinator_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for coordinator endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # RBAC: Require authentication and memory:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, COORDINATOR_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required to access coordinator data", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Coordinator access denied: {e}")
+            return error_response(str(e), 403)
 
         if not COORDINATOR_AVAILABLE:
             return error_response(
