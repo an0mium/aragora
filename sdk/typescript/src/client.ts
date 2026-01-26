@@ -4315,10 +4315,11 @@ export class AragoraClient {
   /**
    * Assign a role to a user.
    */
-  async assignRole(userId: string, roleId: string, tenantId?: string): Promise<void> {
+  async assignRole(userId: string, roleId: string, tenantId?: string): Promise<{ assigned: boolean }> {
     await this.request<void>('POST', '/api/v1/rbac/assignments', {
       body: { user_id: userId, role_id: roleId, tenant_id: tenantId },
     });
+    return { assigned: true };
   }
 
   /**
