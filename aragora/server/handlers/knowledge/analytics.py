@@ -20,6 +20,21 @@ from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# RBAC Permissions
+# =============================================================================
+
+KNOWLEDGE_ANALYTICS_READ_PERMISSION = "knowledge:analytics:read"
+
+# RBAC imports with fallback
+try:
+    from aragora.rbac.checker import get_permission_checker
+    from aragora.rbac.models import AuthorizationContext as RBACContext
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
 # Rate limiter for analytics endpoints
 _analytics_limiter = RateLimiter(requests_per_minute=60)
 
@@ -67,6 +82,27 @@ class AnalyticsHandler(BaseHandler):
         except Exception as e:
             logger.warning(f"Authentication failed for knowledge analytics: {e}")
             return error_response("Authentication required", 401)
+
+        # RBAC permission check
+        if RBAC_AVAILABLE and user:
+            try:
+                auth_ctx = RBACContext(
+                    user_id=user_id or "anonymous",
+                    user_email=user.get("email"),  # type: ignore[union-attr]
+                    org_id=user.get("org_id"),  # type: ignore[union-attr]
+                    workspace_id=query_params.get("workspace_id"),
+                    roles=set(user.get("roles", ["member"])) if user else {"member"},  # type: ignore[union-attr]
+                )
+                checker = get_permission_checker()
+                decision = checker.check_permission(auth_ctx, KNOWLEDGE_ANALYTICS_READ_PERMISSION)
+                if not decision.allowed:
+                    logger.warning(
+                        f"Knowledge analytics access denied for {user_id}: {decision.reason}"
+                    )
+                    return error_response(f"Permission denied: {decision.reason}", 403)
+            except Exception as e:
+                logger.warning(f"RBAC check failed for knowledge analytics: {e}")
+                # Continue without RBAC if it fails (graceful degradation)
 
         workspace_id = query_params.get("workspace_id")
 

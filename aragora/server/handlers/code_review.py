@@ -28,8 +28,13 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
+
+# RBAC permissions for code review
+CODE_REVIEW_READ_PERMISSION = "code_review:read"
+CODE_REVIEW_WRITE_PERMISSION = "code_review:write"
 
 # Thread-safe service instance
 _code_reviewer: Optional[Any] = None
@@ -71,6 +76,7 @@ def store_review_result(result: Any) -> str:
 # =============================================================================
 
 
+@require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_review_code(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -122,6 +128,7 @@ async def handle_review_code(
         return error_response(f"Failed to review code: {e}", status=500)
 
 
+@require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_review_diff(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -168,6 +175,7 @@ async def handle_review_diff(
         return error_response(f"Failed to review diff: {e}", status=500)
 
 
+@require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_review_pr(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -217,6 +225,7 @@ async def handle_review_pr(
         return error_response(f"Failed to review PR: {e}", status=500)
 
 
+@require_permission(CODE_REVIEW_READ_PERMISSION)
 async def handle_get_review_result(
     data: Dict[str, Any],
     result_id: str,
@@ -241,6 +250,7 @@ async def handle_get_review_result(
         return error_response(f"Failed to get result: {e}", status=500)
 
 
+@require_permission(CODE_REVIEW_READ_PERMISSION)
 async def handle_get_review_history(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -286,6 +296,7 @@ async def handle_get_review_history(
 # =============================================================================
 
 
+@require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_quick_security_scan(
     data: Dict[str, Any],
     user_id: str = "default",

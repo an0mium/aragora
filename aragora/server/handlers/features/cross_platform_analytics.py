@@ -35,13 +35,21 @@ from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     success_response,
 )
+from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# RBAC Permissions
+# =============================================================================
+
+ANALYTICS_READ_PERMISSION = "analytics:read"
+ANALYTICS_WRITE_PERMISSION = "analytics:write"
+ANALYTICS_EXPORT_PERMISSION = "analytics:export"
 
 
 # =============================================================================
@@ -448,8 +456,14 @@ def calculate_correlation(
 # =============================================================================
 
 
-class CrossPlatformAnalyticsHandler(BaseHandler):
-    """Handler for cross-platform analytics endpoints."""
+class CrossPlatformAnalyticsHandler(SecureHandler):
+    """Handler for cross-platform analytics endpoints.
+
+    RBAC Protected:
+    - analytics:read - required for GET endpoints (summary, metrics, trends, etc.)
+    - analytics:write - required for POST endpoints (query, create alerts)
+    - analytics:export - required for export endpoint
+    """
 
     ROUTES = [
         "/api/v1/analytics/cross-platform/summary",
@@ -474,6 +488,23 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
     ) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:
+            # RBAC: Determine required permission based on path and method
+            if "/export" in path:
+                required_permission = ANALYTICS_EXPORT_PERMISSION
+            elif method == "POST":
+                required_permission = ANALYTICS_WRITE_PERMISSION
+            else:
+                required_permission = ANALYTICS_READ_PERMISSION
+
+            try:
+                auth_context = await self.get_auth_context(request, require_auth=True)
+                self.check_permission(auth_context, required_permission)
+            except UnauthorizedError:
+                return error_response("Authentication required for analytics", 401)
+            except ForbiddenError as e:
+                logger.warning(f"Analytics access denied: {e}")
+                return error_response(str(e), 403)
+
             tenant_id = self._get_tenant_id(request)
 
             # Summary

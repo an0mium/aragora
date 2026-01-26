@@ -35,13 +35,22 @@ from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     success_response,
 )
+from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# RBAC Permissions
+# =============================================================================
+
+# Read: view scan results, findings, dashboard
+CODEBASE_AUDIT_READ_PERMISSION = "codebase_audit:read"
+# Write: start scans, dismiss findings, create issues
+CODEBASE_AUDIT_WRITE_PERMISSION = "codebase_audit:write"
 
 
 # =============================================================================
@@ -610,8 +619,13 @@ def _get_mock_metrics() -> Dict[str, Any]:
 # =============================================================================
 
 
-class CodebaseAuditHandler(BaseHandler):
-    """Handler for codebase audit API endpoints."""
+class CodebaseAuditHandler(SecureHandler):
+    """Handler for codebase audit API endpoints.
+
+    RBAC Protected:
+    - codebase_audit:read - required for GET endpoints (list scans, findings, dashboard)
+    - codebase_audit:write - required for POST endpoints (start scans, dismiss, create issues)
+    """
 
     ROUTES = [
         "/api/v1/codebase/scan",
@@ -642,6 +656,21 @@ class CodebaseAuditHandler(BaseHandler):
     ) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:
+            # RBAC: Require authentication and appropriate permission
+            required_permission = (
+                CODEBASE_AUDIT_WRITE_PERMISSION
+                if method == "POST"
+                else CODEBASE_AUDIT_READ_PERMISSION
+            )
+            try:
+                auth_context = await self.get_auth_context(request, require_auth=True)
+                self.check_permission(auth_context, required_permission)
+            except UnauthorizedError:
+                return error_response("Authentication required for codebase audit", 401)
+            except ForbiddenError as e:
+                logger.warning(f"Codebase audit access denied: {e}")
+                return error_response(str(e), 403)
+
             tenant_id = self._get_tenant_id(request)
 
             # Comprehensive scan

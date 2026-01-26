@@ -24,6 +24,22 @@ from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# RBAC Permissions
+# =============================================================================
+
+NOTIFICATIONS_READ_PERMISSION = "knowledge:notifications:read"
+NOTIFICATIONS_WRITE_PERMISSION = "knowledge:notifications:write"
+
+# RBAC imports with fallback
+try:
+    from aragora.rbac.checker import get_permission_checker
+    from aragora.rbac.models import AuthorizationContext as RBACContext
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
 # Rate limiter for notification endpoints
 _notifications_limiter = RateLimiter(requests_per_minute=60)
 
@@ -64,6 +80,27 @@ class SharingNotificationsHandler(BaseHandler):
 
         user_id = user.get("sub") or user.get("user_id") or user.get("id", "anonymous")  # type: ignore[union-attr]
 
+        # RBAC permission check for read operations
+        if RBAC_AVAILABLE and user:
+            try:
+                auth_ctx = RBACContext(
+                    user_id=str(user_id),
+                    user_email=user.get("email"),  # type: ignore[union-attr]
+                    org_id=user.get("org_id"),  # type: ignore[union-attr]
+                    workspace_id=query_params.get("workspace_id"),
+                    roles=set(user.get("roles", ["member"])) if user else {"member"},  # type: ignore[union-attr]
+                )
+                checker = get_permission_checker()
+                decision = checker.check_permission(auth_ctx, NOTIFICATIONS_READ_PERMISSION)
+                if not decision.allowed:
+                    logger.warning(
+                        f"Notifications read access denied for {user_id}: {decision.reason}"
+                    )
+                    return error_response(f"Permission denied: {decision.reason}", 403)
+            except Exception as e:
+                logger.warning(f"RBAC check failed for notifications: {e}")
+                # Continue without RBAC if it fails (graceful degradation)
+
         if path == "/api/v1/knowledge/notifications":
             return self._get_notifications(user_id, query_params)
 
@@ -93,6 +130,27 @@ class SharingNotificationsHandler(BaseHandler):
             return err
 
         user_id = user.get("sub") or user.get("user_id") or user.get("id", "anonymous")  # type: ignore[union-attr]
+
+        # RBAC permission check for write operations
+        if RBAC_AVAILABLE and user:
+            try:
+                auth_ctx = RBACContext(
+                    user_id=str(user_id),
+                    user_email=user.get("email"),  # type: ignore[union-attr]
+                    org_id=user.get("org_id"),  # type: ignore[union-attr]
+                    workspace_id=query_params.get("workspace_id"),
+                    roles=set(user.get("roles", ["member"])) if user else {"member"},  # type: ignore[union-attr]
+                )
+                checker = get_permission_checker()
+                decision = checker.check_permission(auth_ctx, NOTIFICATIONS_WRITE_PERMISSION)
+                if not decision.allowed:
+                    logger.warning(
+                        f"Notifications write access denied for {user_id}: {decision.reason}"
+                    )
+                    return error_response(f"Permission denied: {decision.reason}", 403)
+            except Exception as e:
+                logger.warning(f"RBAC check failed for notifications write: {e}")
+                # Continue without RBAC if it fails (graceful degradation)
 
         if path == "/api/v1/knowledge/notifications/read-all":
             return self._mark_all_read(user_id)

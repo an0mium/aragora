@@ -36,9 +36,16 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
-from aragora.server.handlers.base import BaseHandler
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# RBAC Permissions
+# =============================================================================
+
+CONTROL_PLANE_READ_PERMISSION = "control_plane:read"
+CONTROL_PLANE_WRITE_PERMISSION = "control_plane:write"
 
 
 # In-memory agent registry (fallback when shared state not available)
@@ -71,7 +78,7 @@ def _get_shared_state() -> Optional[Any]:
         return None
 
 
-class AgentDashboardHandler(BaseHandler):
+class AgentDashboardHandler(SecureHandler):
     """
     Handler for agent dashboard endpoints.
 
@@ -80,6 +87,10 @@ class AgentDashboardHandler(BaseHandler):
 
     For enterprise deployments with Redis-backed task scheduling,
     see ControlPlaneHandler in aragora/server/handlers/control_plane.py.
+
+    RBAC Protected:
+    - control_plane:read - required for GET endpoints (list agents, queue, metrics)
+    - control_plane:write - required for POST endpoints (pause, resume, prioritize)
     """
 
     ROUTES = [
@@ -104,6 +115,19 @@ class AgentDashboardHandler(BaseHandler):
         """Route request to appropriate handler."""
         method = request.method
         path = str(request.path)
+
+        # RBAC: Require authentication and appropriate permission
+        required_permission = (
+            CONTROL_PLANE_WRITE_PERMISSION if method == "POST" else CONTROL_PLANE_READ_PERMISSION
+        )
+        try:
+            auth_context = await self.get_auth_context(request, require_auth=True)
+            self.check_permission(auth_context, required_permission)
+        except UnauthorizedError:
+            return self._error_response(401, "Authentication required for control plane")
+        except ForbiddenError as e:
+            logger.warning(f"Control plane access denied: {e}")
+            return self._error_response(403, str(e))
 
         # Parse agent_id from path if present
         agent_id = None
