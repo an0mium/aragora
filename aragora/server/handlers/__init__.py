@@ -68,6 +68,7 @@ from .belief import BeliefHandler
 from .admin import BillingHandler  # Moved to admin/
 from .budgets import BudgetHandler
 from .usage_metering import UsageMeteringHandler  # Token-level usage metering
+from .sme_usage_dashboard import SMEUsageDashboardHandler  # SME usage dashboard
 from .breakpoints import BreakpointsHandler
 from .features import AudioHandler  # Moved to features/
 from .transcription import TranscriptionHandler
@@ -330,6 +331,7 @@ ALL_HANDLERS = [
     BillingHandler,
     BudgetHandler,
     UsageMeteringHandler,  # Token-level usage metering for ENTERPRISE_PLUS
+    SMEUsageDashboardHandler,  # SME usage dashboard with ROI metrics
     OrganizationsHandler,
     OAuthHandler,
     FeaturesHandler,
@@ -695,6 +697,8 @@ __all__ = [
     "AuthHandler",
     "BillingHandler",
     "BudgetHandler",
+    "UsageMeteringHandler",
+    "SMEUsageDashboardHandler",
     "OrganizationsHandler",
     # Onboarding handlers
     "handle_get_flow",
