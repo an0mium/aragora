@@ -70,6 +70,21 @@ def _to_iso_string(value: Any) -> Optional[str]:
     return str(value)
 
 
+def _to_enum_value(value: Any) -> Any:
+    """Safely extract value from enum or return string as-is.
+
+    Handles both enum instances and raw string values to ensure
+    consistent serialization regardless of how the value was stored.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value  # Already a string value
+    if hasattr(value, "value"):
+        return value.value
+    return str(value)
+
+
 # Type alias for node types
 NodeType = Literal["fact", "claim", "memory", "evidence", "consensus", "entity"]
 
@@ -476,11 +491,11 @@ class KnowledgeMoundMetaStore(SQLiteStore):
                     node.content,
                     node.content_hash,
                     node.confidence,
-                    node.tier.value,
+                    _to_enum_value(node.tier),
                     node.surprise_score,
                     node.update_count,
                     node.consolidation_score,
-                    node.validation_status.value,
+                    _to_enum_value(node.validation_status),
                     node.consensus_proof_id,
                     _to_iso_string(node.created_at),
                     _to_iso_string(node.updated_at),
@@ -501,14 +516,14 @@ class KnowledgeMoundMetaStore(SQLiteStore):
                     (
                         prov_id,
                         node.id,
-                        node.provenance.source_type.value,
+                        _to_enum_value(node.provenance.source_type),
                         node.provenance.source_id,
                         node.provenance.agent_id,
                         node.provenance.debate_id,
                         node.provenance.document_id,
                         node.provenance.user_id,
                         json.dumps(node.provenance.transformations),
-                        node.provenance.created_at.isoformat(),
+                        _to_iso_string(node.provenance.created_at),
                     ),
                 )
 

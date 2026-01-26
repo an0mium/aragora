@@ -123,7 +123,7 @@ class TestMarkValidated:
         assert len(mound._updates) == 1
         node_id, updates = mound._updates[0]
         assert node_id == "node-123"
-        assert updates["validation_status"] == "verified"
+        assert updates["validation_status"] == "majority_agreed"
         assert updates["staleness_score"] == 0.0
         assert "last_validated_at" in updates
 
@@ -298,7 +298,7 @@ class TestStalenessIntegration:
         await mound.mark_validated("item-1", validator="revalidation_worker", confidence=0.9)
 
         node_id, updates = mound._updates[0]
-        assert updates["validation_status"] == "verified"
+        assert updates["validation_status"] == "majority_agreed"
         assert updates["confidence"] == 0.9
         assert updates["staleness_score"] == 0.0
 

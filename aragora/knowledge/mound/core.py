@@ -69,6 +69,21 @@ def _to_iso_string(value: Any) -> Optional[str]:
     return str(value)
 
 
+def _to_enum_value(value: Any) -> Any:
+    """Safely extract value from enum or return string as-is.
+
+    Handles both enum instances and raw string values to ensure
+    consistent serialization regardless of how the value was stored.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value  # Already a string value
+    if hasattr(value, "value"):
+        return value.value
+    return str(value)
+
+
 class KnowledgeMoundCore:
     """
     Core foundation for the Knowledge Mound facade.
@@ -850,9 +865,9 @@ class KnowledgeMoundCore:
                     (
                         history.history_id,
                         history.workspace_id,
-                        history.executed_at.isoformat(),
+                        _to_iso_string(history.executed_at),
                         history.policy_id,
-                        history.action.value,
+                        _to_enum_value(history.action),
                         history.items_pruned,
                         json.dumps(history.pruned_item_ids),
                         history.reason,

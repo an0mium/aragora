@@ -235,7 +235,7 @@ class TestStalenessOperationsMixin:
         assert len(host._updates) == 1
         node_id, updates = host._updates[0]
         assert node_id == "kn_123"
-        assert updates["validation_status"] == "verified"
+        assert updates["validation_status"] == "majority_agreed"
         assert updates["staleness_score"] == 0.0
         assert updates["confidence"] == 0.95
         assert "last_validated_at" in updates

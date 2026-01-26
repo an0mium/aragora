@@ -64,7 +64,7 @@ class StalenessOperationsMixin:
         self._ensure_initialized()
 
         updates: Dict[str, Any] = {
-            "validation_status": "verified",
+            "validation_status": "majority_agreed",  # Valid ValidationStatus value
             "last_validated_at": datetime.now().isoformat(),
             "staleness_score": 0.0,
         }

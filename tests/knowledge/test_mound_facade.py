@@ -680,16 +680,12 @@ class TestKnowledgeMoundAdvanced:
         )
         store_result = await mound.store(request)
 
-        # Mark as validated - may fail due to internal update implementation
-        try:
-            await mound.mark_validated(
-                store_result.node_id,
-                validator="test_user",
-                confidence=0.95,
-            )
-        except AttributeError:
-            # Known issue with date serialization in update path
-            pytest.skip("Update path has known serialization issue")
+        # Mark as validated
+        await mound.mark_validated(
+            store_result.node_id,
+            validator="test_user",
+            confidence=0.95,
+        )
 
     @pytest.mark.asyncio
     async def test_schedule_revalidation(self, mound):
