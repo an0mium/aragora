@@ -1978,6 +1978,171 @@ COMMON_SCHEMAS: dict[str, Any] = {
         },
         "required": ["override_added", "budget_id", "user_id"],
     },
+    # ==========================================================================
+    # Analytics Response Schemas
+    # ==========================================================================
+    "DisagreementStats": {
+        "type": "object",
+        "description": "Statistics about debate disagreements",
+        "properties": {
+            "total_debates": {"type": "integer", "description": "Total debates analyzed"},
+            "with_disagreements": {"type": "integer", "description": "Debates with disagreements"},
+            "unanimous": {"type": "integer", "description": "Unanimous debates"},
+            "disagreement_types": {
+                "type": "object",
+                "additionalProperties": {"type": "integer"},
+                "description": "Count by disagreement type",
+            },
+        },
+    },
+    "RoleRotationStats": {
+        "type": "object",
+        "description": "Statistics about agent role rotation",
+        "properties": {
+            "total_rotations": {"type": "integer"},
+            "by_agent": {
+                "type": "object",
+                "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                        "proposer": {"type": "integer"},
+                        "critic": {"type": "integer"},
+                        "judge": {"type": "integer"},
+                    },
+                },
+            },
+        },
+    },
+    "EarlyStopStats": {
+        "type": "object",
+        "description": "Statistics about early debate stops",
+        "properties": {
+            "total_early_stops": {"type": "integer"},
+            "by_reason": {
+                "type": "object",
+                "additionalProperties": {"type": "integer"},
+            },
+            "average_rounds_saved": {"type": "number"},
+        },
+    },
+    "RankingStats": {
+        "type": "object",
+        "description": "Aggregate ELO ranking statistics",
+        "properties": {
+            "total_agents": {"type": "integer"},
+            "average_elo": {"type": "number"},
+            "highest_elo": {"type": "number"},
+            "lowest_elo": {"type": "number"},
+            "total_matches": {"type": "integer"},
+        },
+    },
+    "MemoryStats": {
+        "type": "object",
+        "description": "Memory system statistics",
+        "properties": {
+            "total_entries": {"type": "integer"},
+            "by_tier": {
+                "type": "object",
+                "properties": {
+                    "fast": {"type": "integer"},
+                    "medium": {"type": "integer"},
+                    "slow": {"type": "integer"},
+                    "glacial": {"type": "integer"},
+                },
+            },
+            "cache_hit_rate": {"type": "number"},
+        },
+    },
+    # ==========================================================================
+    # Knowledge Mound Response Schemas
+    # ==========================================================================
+    "KnowledgeNode": {
+        "type": "object",
+        "description": "A knowledge node in the mound",
+        "properties": {
+            "id": {"type": "string", "description": "Unique node ID"},
+            "content": {"type": "string", "description": "Node content"},
+            "source": {"type": "string", "description": "Knowledge source type"},
+            "confidence": {"type": "number", "description": "Confidence score 0-1"},
+            "created_at": {"type": "string", "format": "date-time"},
+            "updated_at": {"type": "string", "format": "date-time"},
+            "topics": {"type": "array", "items": {"type": "string"}},
+            "metadata": {"type": "object", "additionalProperties": True},
+        },
+        "required": ["id", "content"],
+    },
+    "KnowledgeQueryResult": {
+        "type": "object",
+        "description": "Result of a knowledge query",
+        "properties": {
+            "items": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/KnowledgeNode"},
+            },
+            "total": {"type": "integer"},
+            "query": {"type": "string"},
+            "relevance_scores": {
+                "type": "array",
+                "items": {"type": "number"},
+            },
+        },
+    },
+    "KnowledgeStoreResult": {
+        "type": "object",
+        "description": "Result of storing knowledge",
+        "properties": {
+            "node_id": {"type": "string"},
+            "success": {"type": "boolean"},
+            "duplicate": {"type": "boolean"},
+            "topics_extracted": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["node_id", "success"],
+    },
+    # ==========================================================================
+    # Control Plane Response Schemas
+    # ==========================================================================
+    "AgentRegistration": {
+        "type": "object",
+        "description": "Registered agent information",
+        "properties": {
+            "agent_id": {"type": "string"},
+            "name": {"type": "string"},
+            "capabilities": {"type": "array", "items": {"type": "string"}},
+            "status": {"type": "string", "enum": ["healthy", "degraded", "unhealthy"]},
+            "last_heartbeat": {"type": "string", "format": "date-time"},
+            "metadata": {"type": "object", "additionalProperties": True},
+        },
+        "required": ["agent_id", "name", "status"],
+    },
+    "TaskStatus": {
+        "type": "object",
+        "description": "Task execution status",
+        "properties": {
+            "task_id": {"type": "string"},
+            "status": {
+                "type": "string",
+                "enum": ["pending", "running", "completed", "failed", "cancelled"],
+            },
+            "progress": {"type": "number", "minimum": 0, "maximum": 100},
+            "result": {"type": "object", "additionalProperties": True},
+            "error": {"type": "string", "nullable": True},
+            "created_at": {"type": "string", "format": "date-time"},
+            "updated_at": {"type": "string", "format": "date-time"},
+        },
+        "required": ["task_id", "status"],
+    },
+    "PolicyEvaluation": {
+        "type": "object",
+        "description": "Policy evaluation result",
+        "properties": {
+            "allowed": {"type": "boolean"},
+            "policy_id": {"type": "string"},
+            "reason": {"type": "string"},
+            "conditions_met": {"type": "array", "items": {"type": "string"}},
+            "conditions_failed": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["allowed"],
+    },
 }
 
 

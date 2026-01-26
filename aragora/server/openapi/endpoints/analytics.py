@@ -9,7 +9,7 @@ ANALYTICS_ENDPOINTS = {
             "summary": "Disagreement analysis",
             "operationId": "listAnalyticsDisagreements",
             "description": "Get metrics on agent disagreement patterns across debates.",
-            "responses": {"200": _ok_response("Disagreement statistics")},
+            "responses": {"200": _ok_response("Disagreement statistics", "DisagreementStats")},
         },
     },
     "/api/analytics/role-rotation": {
@@ -18,7 +18,7 @@ ANALYTICS_ENDPOINTS = {
             "summary": "Role rotation stats",
             "operationId": "listAnalyticsRoleRotation",
             "description": "Get statistics on how agents rotate between proposer, critic, and judge roles.",
-            "responses": {"200": _ok_response("Role rotation data")},
+            "responses": {"200": _ok_response("Role rotation data", "RoleRotationStats")},
         },
     },
     "/api/analytics/early-stops": {
@@ -27,7 +27,7 @@ ANALYTICS_ENDPOINTS = {
             "summary": "Early stop statistics",
             "operationId": "listAnalyticsEarlyStops",
             "description": "Get data on debates that ended early due to early consensus or other conditions.",
-            "responses": {"200": _ok_response("Early stop data")},
+            "responses": {"200": _ok_response("Early stop data", "EarlyStopStats")},
         },
     },
     "/api/ranking/stats": {
@@ -36,7 +36,7 @@ ANALYTICS_ENDPOINTS = {
             "summary": "Ranking statistics",
             "operationId": "listRankingStats",
             "description": "Get aggregate ELO ranking statistics across all agents.",
-            "responses": {"200": _ok_response("Ranking stats")},
+            "responses": {"200": _ok_response("Ranking stats", "RankingStats")},
         },
     },
     "/api/memory/stats": {
@@ -45,7 +45,7 @@ ANALYTICS_ENDPOINTS = {
             "summary": "Memory statistics",
             "operationId": "listMemoryStats",
             "description": "Get statistics on memory system usage and performance.",
-            "responses": {"200": _ok_response("Memory stats")},
+            "responses": {"200": _ok_response("Memory stats", "MemoryStats")},
         },
     },
     "/api/flips/recent": {
