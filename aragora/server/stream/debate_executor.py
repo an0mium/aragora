@@ -103,6 +103,18 @@ def parse_debate_request(data: dict) -> tuple[Optional[dict], Optional[str]]:
         agents_str = DEFAULT_AGENTS
     if not agents_str:
         agents_str = DEFAULT_AGENTS
+    # Validate agent providers early to avoid starting invalid debates
+    try:
+        from aragora.agents.spec import AgentSpec
+
+        AgentSpec.parse_list(agents_str, _warn=False)
+    except Exception as e:
+        return None, str(e)
+    agent_count = len([s for s in agents_str.split(",") if s.strip()])
+    if agent_count < 2:
+        return None, "At least 2 agents required for a debate"
+    if agent_count > MAX_AGENTS_PER_DEBATE:
+        return None, f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
     try:
         rounds = min(max(int(data.get("rounds", 3)), 1), 10)  # Clamp to 1-10
     except (ValueError, TypeError):
