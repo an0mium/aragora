@@ -13,23 +13,29 @@ import logging
 from typing import Optional
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     get_clamped_int_param,
     handle_errors,
     json_response,
 )
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# RBAC permission for memory analytics endpoints
+MEMORY_ANALYTICS_PERMISSION = "memory:read"
 
 # Rate limiter for memory analytics endpoints (30 requests per minute - query-heavy)
 _memory_analytics_limiter = RateLimiter(requests_per_minute=30)
 
 
-class MemoryAnalyticsHandler(BaseHandler):
-    """Handler for memory analytics endpoints."""
+class MemoryAnalyticsHandler(SecureHandler):
+    """Handler for memory analytics endpoints.
+
+    Requires authentication and memory:read permission (RBAC).
+    """
 
     ROUTES = [
         "/api/v1/memory/analytics",
@@ -63,13 +69,25 @@ class MemoryAnalyticsHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
-        """Route GET requests to appropriate methods."""
+    async def handle(  # type: ignore[override]
+        self, path: str, query_params: dict, handler=None
+    ) -> Optional[HandlerResult]:
+        """Route GET requests with RBAC."""
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _memory_analytics_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for memory analytics endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # RBAC: Require authentication and memory:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, MEMORY_ANALYTICS_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required to access memory analytics", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Memory analytics access denied: {e}")
+            return error_response(str(e), 403)
 
         if path == "/api/v1/memory/analytics":
             days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
@@ -82,8 +100,20 @@ class MemoryAnalyticsHandler(BaseHandler):
 
         return None
 
-    def handle_post(self, path: str, body: dict, handler=None) -> Optional[HandlerResult]:
-        """Handle POST requests."""
+    async def handle_post(  # type: ignore[override]
+        self, path: str, body: dict, handler=None
+    ) -> Optional[HandlerResult]:
+        """Handle POST requests with RBAC."""
+        # RBAC: Require authentication and memory:read permission for POST too
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, MEMORY_ANALYTICS_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Memory analytics POST access denied: {e}")
+            return error_response(str(e), 403)
+
         if path == "/api/v1/memory/analytics/snapshot":
             return self._take_snapshot()
         return None

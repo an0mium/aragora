@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Optional
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     get_clamped_int_param,
@@ -25,16 +24,23 @@ from ..base import (
     handle_errors,
     json_response,
 )
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# RBAC permission for learning endpoints
+LEARNING_PERMISSION = "memory:read"
 
 # Rate limiter for learning endpoints (30 requests per minute - ML operations)
 _learning_limiter = RateLimiter(requests_per_minute=30)
 
 
-class LearningHandler(BaseHandler):
-    """Handler for cross-cycle learning analytics endpoints."""
+class LearningHandler(SecureHandler):
+    """Handler for cross-cycle learning analytics endpoints.
+
+    Requires authentication and memory:read permission (RBAC).
+    """
 
     ROUTES = [
         "/api/v1/learning/cycles",
@@ -47,13 +53,25 @@ class LearningHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
-        """Route GET requests to appropriate methods."""
+    async def handle(  # type: ignore[override]
+        self, path: str, query_params: dict, handler=None
+    ) -> Optional[HandlerResult]:
+        """Route GET requests with RBAC."""
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _learning_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for learning endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # RBAC: Require authentication and memory:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, LEARNING_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required to access learning data", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Learning endpoint access denied: {e}")
+            return error_response(str(e), 403)
 
         if path == "/api/v1/learning/cycles":
             limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
