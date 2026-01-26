@@ -253,7 +253,7 @@ export class KnowledgeAPI {
   /**
    * Get knowledge nodes related to a given node.
    */
-  async getRelated(nodeId: string, options?: { types?: string[]; limit?: number }): Promise<{ related: KnowledgeMoundNode[] }> {
+  async getRelated(nodeId: string, options?: { relationship_types?: string[]; limit?: number }): Promise<{ nodes: unknown[]; relationships: unknown[] }> {
     return this.client.getRelatedKnowledge(nodeId, options);
   }
 }

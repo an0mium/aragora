@@ -748,6 +748,7 @@ async def handle_gusto_status(request: web.Request) -> web.Response:
         )
 
 
+@require_permission("admin:system")
 async def handle_gusto_connect(request: web.Request) -> web.Response:
     """
     GET /api/accounting/gusto/connect
