@@ -931,6 +931,719 @@ def create_budget_allocation_workflow(
     )
 
 
+def create_performance_review_workflow(
+    employee_name: str,
+    role: str,
+    review_period: str = "Q4 2024",
+    self_assessment: Optional[str] = None,
+    manager_notes: Optional[str] = None,
+    goals_met: Optional[List[str]] = None,
+) -> WorkflowDefinition:
+    """Create a performance review workflow.
+
+    Uses multi-agent debate to ensure balanced, fair performance
+    assessment with multiple perspectives.
+
+    Args:
+        employee_name: Employee being reviewed
+        role: Employee's role/title
+        review_period: Review period (e.g., "Q4 2024", "Annual 2024")
+        self_assessment: Employee's self-assessment summary
+        manager_notes: Manager's preliminary notes
+        goals_met: List of goals achieved/not achieved
+
+    Returns:
+        WorkflowDefinition for performance review
+
+    Example:
+        workflow = create_performance_review_workflow(
+            employee_name="Jane Doe",
+            role="Senior Developer",
+            review_period="Q4 2024",
+            self_assessment="Exceeded sprint goals, led migration project...",
+        )
+    """
+    workflow_id = (
+        f"perf_review_{role.lower().replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}"
+    )
+
+    return WorkflowDefinition(
+        id=workflow_id,
+        name=f"Performance Review: {employee_name}",
+        description=f"Review {employee_name}'s performance for {review_period}",
+        category=WorkflowCategory.GENERAL,
+        tags=["sme", "hr", "performance", "review"],
+        inputs={
+            "employee_name": employee_name,
+            "role": role,
+            "review_period": review_period,
+            "self_assessment": self_assessment,
+            "manager_notes": manager_notes,
+            "goals_met": goals_met or [],
+        },
+        steps=[
+            StepDefinition(
+                id="context",
+                name="Gather Context",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": f"Summarize {employee_name}'s role expectations and review context",
+                },
+                next_steps=["debate"],
+            ),
+            StepDefinition(
+                id="debate",
+                name="Multi-Perspective Review",
+                step_type="debate",
+                config={
+                    "agents": ["claude", "gemini"],
+                    "topic": f"Evaluate {employee_name}'s performance in {role}",
+                    "rounds": 2,
+                    "focus_areas": ["achievements", "growth_areas", "team_contribution"],
+                },
+                next_steps=["strengths"],
+            ),
+            StepDefinition(
+                id="strengths",
+                name="Identify Strengths",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Identify key strengths and accomplishments",
+                },
+                next_steps=["development"],
+            ),
+            StepDefinition(
+                id="development",
+                name="Development Areas",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Identify growth opportunities and development areas",
+                },
+                next_steps=["recommend"],
+            ),
+            StepDefinition(
+                id="recommend",
+                name="Generate Recommendation",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Generate balanced performance review with rating recommendation",
+                },
+                next_steps=["review"],
+            ),
+            StepDefinition(
+                id="review",
+                name="Manager Review",
+                step_type="human_checkpoint",
+                config={
+                    "checkpoint_type": "approval",
+                    "title": f"Review {employee_name}'s performance assessment",
+                },
+                next_steps=["store"],
+            ),
+            StepDefinition(
+                id="store",
+                name="Record Review",
+                step_type="memory_write",
+                config={
+                    "collection": "performance_reviews",
+                },
+                next_steps=[],
+            ),
+        ],
+        entry_step="context",
+    )
+
+
+def create_feature_prioritization_workflow(
+    features: List[str],
+    constraints: Optional[List[str]] = None,
+    team_capacity: Optional[str] = None,
+    timeline: str = "next quarter",
+    scoring_criteria: Optional[List[str]] = None,
+) -> WorkflowDefinition:
+    """Create a feature prioritization workflow.
+
+    Uses multi-agent debate to prioritize features based on impact,
+    effort, dependencies, and strategic alignment.
+
+    Args:
+        features: List of features to prioritize
+        constraints: Resource or technical constraints
+        team_capacity: Available team capacity description
+        timeline: Planning timeline
+        scoring_criteria: Custom scoring criteria
+
+    Returns:
+        WorkflowDefinition for feature prioritization
+
+    Example:
+        workflow = create_feature_prioritization_workflow(
+            features=["Dark mode", "Export to PDF", "API v2", "Mobile app"],
+            constraints=["2 developers available", "Must ship before Q2"],
+            timeline="next quarter",
+        )
+    """
+    workflow_id = f"feature_priority_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    criteria = scoring_criteria or ["impact", "effort", "urgency", "dependencies"]
+
+    return WorkflowDefinition(
+        id=workflow_id,
+        name=f"Feature Prioritization ({len(features)} features)",
+        description=f"Prioritize {len(features)} features for {timeline}",
+        category=WorkflowCategory.GENERAL,
+        tags=["sme", "product", "prioritization", "planning"],
+        inputs={
+            "features": features,
+            "constraints": constraints or [],
+            "team_capacity": team_capacity,
+            "timeline": timeline,
+            "criteria": criteria,
+        },
+        steps=[
+            StepDefinition(
+                id="analyze",
+                name="Analyze Features",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": f"Analyze {len(features)} features for prioritization",
+                },
+                next_steps=["debate"],
+            ),
+            StepDefinition(
+                id="debate",
+                name="Prioritization Debate",
+                step_type="debate",
+                config={
+                    "agents": ["claude", "gpt-4", "mistral"],
+                    "topic": f"How should we prioritize: {', '.join(features[:3])}...?",
+                    "rounds": 3,
+                    "criteria": criteria,
+                },
+                next_steps=["score"],
+            ),
+            StepDefinition(
+                id="score",
+                name="Score Features",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Score each feature on criteria (1-10)",
+                },
+                next_steps=["rank"],
+            ),
+            StepDefinition(
+                id="rank",
+                name="Create Ranking",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Generate final priority ranking with rationale",
+                },
+                next_steps=["review"],
+            ),
+            StepDefinition(
+                id="review",
+                name="Team Review",
+                step_type="human_checkpoint",
+                config={
+                    "checkpoint_type": "approval",
+                    "title": "Review feature prioritization",
+                },
+                next_steps=["store"],
+            ),
+            StepDefinition(
+                id="store",
+                name="Record Priorities",
+                step_type="memory_write",
+                config={
+                    "collection": "feature_prioritizations",
+                },
+                next_steps=[],
+            ),
+        ],
+        entry_step="analyze",
+    )
+
+
+def create_sprint_planning_workflow(
+    sprint_name: str,
+    backlog_items: List[str],
+    team_size: int = 5,
+    sprint_duration: str = "2 weeks",
+    velocity: Optional[int] = None,
+) -> WorkflowDefinition:
+    """Create a sprint planning workflow.
+
+    Uses multi-agent debate to select and scope sprint work
+    based on team capacity and priorities.
+
+    Args:
+        sprint_name: Sprint identifier (e.g., "Sprint 24")
+        backlog_items: Available backlog items to consider
+        team_size: Number of team members
+        sprint_duration: Sprint length
+        velocity: Historical team velocity (story points)
+
+    Returns:
+        WorkflowDefinition for sprint planning
+
+    Example:
+        workflow = create_sprint_planning_workflow(
+            sprint_name="Sprint 24",
+            backlog_items=["User auth", "Dashboard", "API refactor"],
+            team_size=4,
+            velocity=32,
+        )
+    """
+    workflow_id = (
+        f"sprint_{sprint_name.lower().replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}"
+    )
+
+    return WorkflowDefinition(
+        id=workflow_id,
+        name=f"Sprint Planning: {sprint_name}",
+        description=f"Plan {sprint_name} for {team_size} team members",
+        category=WorkflowCategory.GENERAL,
+        tags=["sme", "agile", "sprint", "planning"],
+        inputs={
+            "sprint_name": sprint_name,
+            "backlog_items": backlog_items,
+            "team_size": team_size,
+            "sprint_duration": sprint_duration,
+            "velocity": velocity,
+        },
+        steps=[
+            StepDefinition(
+                id="capacity",
+                name="Calculate Capacity",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": f"Calculate sprint capacity for {team_size} members over {sprint_duration}",
+                },
+                next_steps=["debate"],
+            ),
+            StepDefinition(
+                id="debate",
+                name="Sprint Scope Debate",
+                step_type="debate",
+                config={
+                    "agents": ["claude", "gpt-4"],
+                    "topic": f"What should we commit to in {sprint_name}?",
+                    "rounds": 2,
+                    "backlog": backlog_items,
+                },
+                next_steps=["estimate"],
+            ),
+            StepDefinition(
+                id="estimate",
+                name="Estimate Items",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Estimate selected items and validate against capacity",
+                },
+                next_steps=["finalize"],
+            ),
+            StepDefinition(
+                id="finalize",
+                name="Finalize Sprint",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Generate sprint commitment with goals and risks",
+                },
+                next_steps=["approval"],
+            ),
+            StepDefinition(
+                id="approval",
+                name="Team Approval",
+                step_type="human_checkpoint",
+                config={
+                    "checkpoint_type": "approval",
+                    "title": f"Approve {sprint_name} commitment",
+                },
+                next_steps=["store"],
+            ),
+            StepDefinition(
+                id="store",
+                name="Record Sprint",
+                step_type="memory_write",
+                config={
+                    "collection": "sprint_plans",
+                },
+                next_steps=[],
+            ),
+        ],
+        entry_step="capacity",
+    )
+
+
+def create_tool_selection_workflow(
+    category: str,
+    candidates: List[str],
+    requirements: Optional[List[str]] = None,
+    budget: Optional[str] = None,
+    team_size: int = 10,
+) -> WorkflowDefinition:
+    """Create a tool selection workflow.
+
+    Uses multi-agent debate to evaluate and compare tools or
+    software solutions for a specific category.
+
+    Args:
+        category: Tool category (e.g., "CI/CD", "CRM", "Analytics")
+        candidates: List of tools to evaluate
+        requirements: Must-have requirements
+        budget: Budget constraint
+        team_size: Number of users
+
+    Returns:
+        WorkflowDefinition for tool selection
+
+    Example:
+        workflow = create_tool_selection_workflow(
+            category="Project Management",
+            candidates=["Jira", "Linear", "Asana", "Monday"],
+            requirements=["GitHub integration", "Agile support"],
+            budget="$50/user/month",
+        )
+    """
+    workflow_id = (
+        f"tool_select_{category.lower().replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}"
+    )
+    reqs = requirements or []
+
+    return WorkflowDefinition(
+        id=workflow_id,
+        name=f"Tool Selection: {category}",
+        description=f"Select best {category} tool from {len(candidates)} options",
+        category=WorkflowCategory.GENERAL,
+        tags=["sme", "tools", "selection", "vendor"],
+        inputs={
+            "category": category,
+            "candidates": candidates,
+            "requirements": reqs,
+            "budget": budget,
+            "team_size": team_size,
+        },
+        steps=[
+            StepDefinition(
+                id="research",
+                name="Research Tools",
+                step_type="parallel",
+                config={
+                    "sub_steps": [
+                        f"research_{c.lower().replace(' ', '_')}" for c in candidates[:4]
+                    ],
+                },
+                next_steps=["debate"],
+            ),
+            StepDefinition(
+                id="debate",
+                name="Tool Comparison Debate",
+                step_type="debate",
+                config={
+                    "agents": ["claude", "gpt-4", "gemini"],
+                    "topic": f"Which {category} tool is best: {', '.join(candidates)}?",
+                    "rounds": 4,
+                    "requirements": reqs,
+                },
+                next_steps=["score"],
+            ),
+            StepDefinition(
+                id="score",
+                name="Score Matrix",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Create comparison matrix scoring each tool",
+                },
+                next_steps=["cost"],
+            ),
+            StepDefinition(
+                id="cost",
+                name="Cost Analysis",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": f"Calculate TCO for {team_size} users over 1-3 years",
+                },
+                next_steps=["recommend"],
+            ),
+            StepDefinition(
+                id="recommend",
+                name="Final Recommendation",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Generate recommendation with migration plan",
+                },
+                next_steps=["review"],
+            ),
+            StepDefinition(
+                id="review",
+                name="Stakeholder Review",
+                step_type="human_checkpoint",
+                config={
+                    "checkpoint_type": "selection",
+                    "title": f"Select {category} tool",
+                },
+                next_steps=["store"],
+            ),
+            StepDefinition(
+                id="store",
+                name="Record Selection",
+                step_type="memory_write",
+                config={
+                    "collection": "tool_selections",
+                },
+                next_steps=[],
+            ),
+        ],
+        entry_step="research",
+    )
+
+
+def create_contract_review_workflow(
+    contract_type: str,
+    counterparty: str,
+    contract_value: Optional[str] = None,
+    key_terms: Optional[List[str]] = None,
+    concerns: Optional[List[str]] = None,
+) -> WorkflowDefinition:
+    """Create a contract review workflow.
+
+    Uses multi-agent debate to identify risks, negotiate points,
+    and ensure favorable terms.
+
+    Args:
+        contract_type: Type of contract (e.g., "SaaS", "NDA", "Employment")
+        counterparty: Other party name
+        contract_value: Contract value if applicable
+        key_terms: Important terms to focus on
+        concerns: Specific concerns to address
+
+    Returns:
+        WorkflowDefinition for contract review
+
+    Example:
+        workflow = create_contract_review_workflow(
+            contract_type="SaaS Agreement",
+            counterparty="Vendor Corp",
+            contract_value="$120k/year",
+            key_terms=["SLA", "data ownership", "termination"],
+        )
+    """
+    workflow_id = (
+        f"contract_{contract_type.lower().replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}"
+    )
+    terms_focus = key_terms or ["liability", "termination", "IP", "confidentiality"]
+
+    return WorkflowDefinition(
+        id=workflow_id,
+        name=f"Contract Review: {counterparty}",
+        description=f"Review {contract_type} with {counterparty}",
+        category=WorkflowCategory.GENERAL,
+        tags=["sme", "legal", "contract", "review"],
+        inputs={
+            "contract_type": contract_type,
+            "counterparty": counterparty,
+            "contract_value": contract_value,
+            "key_terms": terms_focus,
+            "concerns": concerns or [],
+        },
+        steps=[
+            StepDefinition(
+                id="parse",
+                name="Parse Contract",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": f"Extract key clauses from {contract_type}",
+                },
+                next_steps=["debate"],
+            ),
+            StepDefinition(
+                id="debate",
+                name="Risk Assessment Debate",
+                step_type="debate",
+                config={
+                    "agents": ["claude", "gpt-4"],
+                    "topic": f"What are the risks in this {contract_type}?",
+                    "rounds": 3,
+                    "focus_terms": terms_focus,
+                },
+                next_steps=["risks"],
+            ),
+            StepDefinition(
+                id="risks",
+                name="Identify Red Flags",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "List potential risks and unfavorable terms",
+                },
+                next_steps=["negotiate"],
+            ),
+            StepDefinition(
+                id="negotiate",
+                name="Negotiation Points",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Generate negotiation points and alternative language",
+                },
+                next_steps=["summary"],
+            ),
+            StepDefinition(
+                id="summary",
+                name="Executive Summary",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Create executive summary with recommendation",
+                },
+                next_steps=["review"],
+            ),
+            StepDefinition(
+                id="review",
+                name="Legal Review",
+                step_type="human_checkpoint",
+                config={
+                    "checkpoint_type": "approval",
+                    "title": f"Approve {counterparty} contract analysis",
+                },
+                next_steps=["store"],
+            ),
+            StepDefinition(
+                id="store",
+                name="Record Review",
+                step_type="memory_write",
+                config={
+                    "collection": "contract_reviews",
+                },
+                next_steps=[],
+            ),
+        ],
+        entry_step="parse",
+    )
+
+
+def create_remote_work_policy_workflow(
+    company_size: int = 50,
+    current_policy: Optional[str] = None,
+    concerns: Optional[List[str]] = None,
+    industry: str = "tech",
+) -> WorkflowDefinition:
+    """Create a remote work policy review workflow.
+
+    Uses multi-agent debate to design or refine remote work
+    policies balancing flexibility and productivity.
+
+    Args:
+        company_size: Number of employees
+        current_policy: Existing policy summary if any
+        concerns: Specific concerns to address
+        industry: Company industry
+
+    Returns:
+        WorkflowDefinition for remote work policy
+
+    Example:
+        workflow = create_remote_work_policy_workflow(
+            company_size=75,
+            current_policy="3 days in office required",
+            concerns=["collaboration", "timezone coverage"],
+            industry="fintech",
+        )
+    """
+    workflow_id = f"remote_policy_{datetime.now().strftime('%Y%m%d')}"
+
+    return WorkflowDefinition(
+        id=workflow_id,
+        name="Remote Work Policy Review",
+        description=f"Design remote work policy for {company_size}-person {industry} company",
+        category=WorkflowCategory.GENERAL,
+        tags=["sme", "hr", "policy", "remote"],
+        inputs={
+            "company_size": company_size,
+            "current_policy": current_policy,
+            "concerns": concerns or [],
+            "industry": industry,
+        },
+        steps=[
+            StepDefinition(
+                id="benchmark",
+                name="Industry Benchmark",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": f"Research remote work best practices for {industry}",
+                },
+                next_steps=["debate"],
+            ),
+            StepDefinition(
+                id="debate",
+                name="Policy Debate",
+                step_type="debate",
+                config={
+                    "agents": ["claude", "gpt-4", "gemini"],
+                    "topic": "What remote work policy best balances flexibility and productivity?",
+                    "rounds": 3,
+                    "perspectives": ["employee", "manager", "executive"],
+                },
+                next_steps=["draft"],
+            ),
+            StepDefinition(
+                id="draft",
+                name="Draft Policy",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Draft comprehensive remote work policy",
+                },
+                next_steps=["legal"],
+            ),
+            StepDefinition(
+                id="legal",
+                name="Legal Considerations",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Identify legal and compliance considerations",
+                },
+                next_steps=["review"],
+            ),
+            StepDefinition(
+                id="review",
+                name="HR Review",
+                step_type="human_checkpoint",
+                config={
+                    "checkpoint_type": "approval",
+                    "title": "Review remote work policy draft",
+                },
+                next_steps=["store"],
+            ),
+            StepDefinition(
+                id="store",
+                name="Record Policy",
+                step_type="memory_write",
+                config={
+                    "collection": "hr_policies",
+                },
+                next_steps=[],
+            ),
+        ],
+        entry_step="benchmark",
+    )
+
+
 def create_business_decision_workflow(
     decision_topic: str,
     context: Optional[str] = None,
