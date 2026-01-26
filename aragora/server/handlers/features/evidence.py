@@ -22,6 +22,7 @@ from aragora.evidence import (
     EvidenceStore,
     QualityContext,
 )
+from aragora.rbac.decorators import require_permission
 
 # Type checking import for KM adapter
 from typing import TYPE_CHECKING
@@ -201,6 +202,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
                 self.ctx["evidence_collector"] = self._evidence_collector
         return self._evidence_collector
 
+    @require_permission("evidence:read")
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
@@ -237,6 +239,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
         return None
 
+    @require_permission("evidence:create")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
@@ -274,6 +277,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
         return None
 
+    @require_permission("evidence:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:

@@ -30,6 +30,8 @@ from typing import Any, Optional
 from aragora.server.http_utils import run_async as _run_async
 from aragora.server.versioning.compat import strip_version_prefix
 
+from aragora.rbac.decorators import require_permission
+
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -143,6 +145,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         normalized = strip_version_prefix(path)
         return normalized in self.ROUTES
 
+    @require_permission("analytics:read")
     @rate_limit(rpm=60)
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""

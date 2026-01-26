@@ -36,6 +36,8 @@ logger = logging.getLogger(__name__)
 # This allows FeedbackPhase to record outcomes that persist across requests
 import threading
 
+from aragora.rbac.decorators import require_permission
+
 from ..base import (
     SAFE_ID_PATTERN,
     BaseHandler,
@@ -189,6 +191,7 @@ class PulseHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    @require_permission("pulse:read")
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route pulse requests to appropriate methods."""
         logger.debug(f"Pulse request: {path} params={query_params}")
@@ -385,6 +388,7 @@ class PulseHandler(BaseHandler):
         analytics = manager.get_analytics()
         return json_response(analytics)
 
+    @require_permission("pulse:create")
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests for pulse endpoints."""
         if path == "/api/v1/pulse/debate-topic":
@@ -399,6 +403,7 @@ class PulseHandler(BaseHandler):
             return self._resume_scheduler(handler)
         return None
 
+    @require_permission("pulse:update")
     def handle_patch(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle PATCH requests for pulse endpoints."""
         if path == "/api/v1/pulse/scheduler/config":
