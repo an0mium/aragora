@@ -1285,6 +1285,11 @@ class WorkspaceHandler(SecureHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "audit.query", auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         # Parse filters
         start_date = None
         end_date = None
@@ -1332,6 +1337,11 @@ class WorkspaceHandler(SecureHandler):
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
+
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "audit.report", auth_ctx)
+        if rbac_error:
+            return rbac_error
 
         start_date = None
         end_date = None
