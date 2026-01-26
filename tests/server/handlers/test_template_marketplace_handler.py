@@ -379,30 +379,21 @@ class TestReviews:
     def test_submit_review_success(self, mock_marketplace_state, marketplace_handler):
         """Test submitting a review."""
         mock_handler = MagicMock()
-        mock_handler.get_json_body.return_value = {
-            "rating": 4,
-            "content": "Good template, works well.",
-            "title": "Solid choice",
-            "user_id": "user-4",
-            "user_name": "New Reviewer",
-        }
+        mock_handler.headers = {"Content-Length": "150"}
+        mock_handler.rfile.read.return_value = b'{"rating": 4, "content": "Good template, works well.", "title": "Solid choice", "user_id": "user-4", "user_name": "New Reviewer"}'
 
-        with patch.object(marketplace_handler, "_check_rate_limit", return_value=True):
-            result = marketplace_handler._submit_review("tpl-123", mock_handler, "127.0.0.1")
+        result = marketplace_handler._submit_review("tpl-123", mock_handler, "127.0.0.1")
 
         assert result["success"] is True
-        assert "id" in result["data"]
+        assert "review" in result["data"]
 
     def test_submit_review_missing_content(self, mock_marketplace_state, marketplace_handler):
         """Test submitting review without content returns 400."""
         mock_handler = MagicMock()
-        mock_handler.get_json_body.return_value = {
-            "rating": 4,
-            # Missing content
-        }
+        mock_handler.headers = {"Content-Length": "20"}
+        mock_handler.rfile.read.return_value = b'{"rating": 4}'
 
-        with patch.object(marketplace_handler, "_check_rate_limit", return_value=True):
-            result = marketplace_handler._submit_review("tpl-123", mock_handler, "127.0.0.1")
+        result = marketplace_handler._submit_review("tpl-123", mock_handler, "127.0.0.1")
 
         assert result["success"] is False
         assert result["status_code"] == 400
