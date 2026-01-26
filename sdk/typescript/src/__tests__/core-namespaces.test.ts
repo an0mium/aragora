@@ -437,7 +437,7 @@ describe('Core Namespace APIs', () => {
         })),
       });
 
-      const stats = await client.knowledge.getStats();
+      const stats = await client.knowledge.stats();
       expect(stats.total_entries).toBe(1000);
     });
   });
@@ -479,7 +479,7 @@ describe('Core Namespace APIs', () => {
       expect(result.id).toBe('tournament-123');
     });
 
-    it('should get tournament leaderboard via namespace', async () => {
+    it('should get tournament standings via namespace', async () => {
       const client = createClient({ baseUrl: 'https://api.example.com' });
 
       mockFetch.mockResolvedValueOnce({
@@ -489,7 +489,7 @@ describe('Core Namespace APIs', () => {
         })),
       });
 
-      const result = await client.tournaments.getLeaderboard('tournament-123');
+      const result = await client.tournaments.getStandings('tournament-123');
       expect(result.rankings).toHaveLength(1);
     });
   });
@@ -498,24 +498,24 @@ describe('Core Namespace APIs', () => {
     it('should expose auth namespace', () => {
       const client = createClient({ baseUrl: 'https://api.example.com' });
       expect(client.auth).toBeDefined();
-      expect(typeof client.auth.getSession).toBe('function');
+      expect(typeof client.auth.me).toBe('function');
       expect(typeof client.auth.listApiKeys).toBe('function');
     });
 
-    it('should get session via namespace', async () => {
+    it('should get current user via namespace', async () => {
       const client = createClient({ baseUrl: 'https://api.example.com' });
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
         text: () => Promise.resolve(JSON.stringify({
-          user_id: 'user-123',
+          id: 'user-123',
           email: 'user@example.com',
           roles: ['admin']
         })),
       });
 
-      const session = await client.auth.getSession();
-      expect(session.user_id).toBe('user-123');
+      const user = await client.auth.me();
+      expect(user.id).toBe('user-123');
     });
 
     it('should list API keys via namespace', async () => {

@@ -89,6 +89,143 @@ export interface UpdateIntegrationRequest {
 }
 
 /**
+ * Bot status response
+ */
+export interface BotStatus {
+  platform: string;
+  connected: boolean;
+  last_activity_at?: string;
+  active_debates: number;
+  error?: string;
+}
+
+/**
+ * Zapier app configuration
+ */
+export interface ZapierApp {
+  id: string;
+  name: string;
+  api_key: string;
+  triggers_enabled: string[];
+  actions_enabled: string[];
+  created_at: string;
+}
+
+/**
+ * Zapier trigger type
+ */
+export interface ZapierTrigger {
+  id: string;
+  name: string;
+  description: string;
+  sample_payload: Record<string, unknown>;
+}
+
+/**
+ * Make connection
+ */
+export interface MakeConnection {
+  id: string;
+  name: string;
+  status: 'active' | 'inactive' | 'error';
+  last_used_at?: string;
+  created_at: string;
+}
+
+/**
+ * Make module definition
+ */
+export interface MakeModule {
+  id: string;
+  name: string;
+  description: string;
+  type: 'action' | 'trigger' | 'search';
+  inputs: { name: string; type: string; required: boolean }[];
+  outputs: { name: string; type: string }[];
+}
+
+/**
+ * n8n credential
+ */
+export interface N8nCredential {
+  id: string;
+  name: string;
+  type: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * n8n node definition
+ */
+export interface N8nNode {
+  name: string;
+  displayName: string;
+  description: string;
+  version: number;
+  inputs: string[];
+  outputs: string[];
+  properties: Record<string, unknown>[];
+}
+
+/**
+ * Teams status
+ */
+export interface TeamsStatus {
+  connected: boolean;
+  tenant_id?: string;
+  bot_id?: string;
+  channels: number;
+  error?: string;
+}
+
+/**
+ * Wizard provider
+ */
+export interface WizardProvider {
+  type: string;
+  name: string;
+  description: string;
+  category: string;
+  icon_url?: string;
+  oauth_url?: string;
+  fields: { name: string; type: string; required: boolean; description: string }[];
+}
+
+/**
+ * Wizard step status
+ */
+export interface WizardStepStatus {
+  step: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Integration health status
+ */
+export interface IntegrationHealth {
+  type: string;
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  latency_ms?: number;
+  last_check_at: string;
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Integration stats
+ */
+export interface IntegrationStats {
+  total_integrations: number;
+  active_integrations: number;
+  by_type: Record<string, number>;
+  by_status: Record<string, number>;
+  total_syncs_24h: number;
+  failed_syncs_24h: number;
+}
+
+/**
  * Interface for the internal client used by IntegrationsAPI.
  */
 interface IntegrationsClientInterface {
@@ -96,6 +233,7 @@ interface IntegrationsClientInterface {
   post<T>(path: string, body?: unknown): Promise<T>;
   put<T>(path: string, body?: unknown): Promise<T>;
   delete<T>(path: string): Promise<T>;
+  request<T = unknown>(method: string, path: string, options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }): Promise<T>;
 }
 
 /**
