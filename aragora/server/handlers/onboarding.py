@@ -33,6 +33,7 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.storage.repositories.onboarding import get_onboarding_repository
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,31 @@ _onboarding_lock = threading.Lock()
 
 _analytics_events: List[Dict[str, Any]] = []
 _analytics_lock = threading.Lock()
+
+
+def _sync_flow_to_repo(flow: OnboardingState) -> None:
+    """Sync flow state to persistent repository."""
+    try:
+        repo = get_onboarding_repository()
+        repo.update_flow(
+            flow.id,
+            {
+                "current_step": flow.current_step.value,
+                "completed_steps": flow.completed_steps,
+                "use_case": flow.use_case,
+                "selected_template": flow.selected_template_id,
+                "first_debate_id": flow.first_debate_id,
+                "quick_start_profile": flow.quick_start_profile,
+                "metadata": {
+                    **flow.metadata,
+                    "team_invites": flow.team_invites,
+                    "skipped": flow.skipped,
+                },
+                "completed_at": flow.completed_at,
+            },
+        )
+    except Exception as e:
+        logger.warning(f"Failed to sync flow to repository: {e}")
 
 
 # =============================================================================
@@ -344,10 +370,34 @@ async def handle_get_flow(
     GET /api/v1/onboarding/flow
     """
     try:
-        flow_key = f"{user_id}:{organization_id or 'personal'}"
+        # Try persistent storage first, fall back to in-memory
+        repo = get_onboarding_repository()
+        flow_data = repo.get_flow(user_id, organization_id)
 
-        with _onboarding_lock:
-            flow = _onboarding_flows.get(flow_key)
+        if flow_data:
+            # Convert dict from repo to OnboardingState for compatibility
+            flow = OnboardingState(
+                id=flow_data["id"],
+                user_id=flow_data["user_id"],
+                organization_id=flow_data["org_id"],
+                current_step=OnboardingStep(flow_data["current_step"]),
+                completed_steps=flow_data["completed_steps"],
+                use_case=flow_data["use_case"],
+                selected_template_id=flow_data["selected_template"],
+                first_debate_id=flow_data["first_debate_id"],
+                quick_start_profile=flow_data["quick_start_profile"],
+                team_invites=flow_data.get("metadata", {}).get("team_invites", []),
+                started_at=flow_data["started_at"],
+                updated_at=flow_data["updated_at"],
+                completed_at=flow_data["completed_at"],
+                skipped=flow_data.get("metadata", {}).get("skipped", False),
+                metadata=flow_data.get("metadata", {}),
+            )
+        else:
+            # Fall back to in-memory storage for backward compatibility
+            flow_key = f"{user_id}:{organization_id or 'personal'}"
+            with _onboarding_lock:
+                flow = _onboarding_flows.get(flow_key)
 
         if not flow:
             return success_response(
@@ -447,6 +497,22 @@ async def handle_init_flow(
             metadata={},
         )
 
+        # Save to persistent storage
+        repo = get_onboarding_repository()
+        repo.create_flow(
+            user_id=user_id,
+            org_id=organization_id,
+            current_step=starting_step.value,
+            use_case=use_case,
+            metadata={
+                "quick_start_profile": quick_start_profile,
+                "selected_template": template_id,
+                "team_invites": [],
+                "skipped": False,
+            },
+        )
+
+        # Also save to in-memory for backward compatibility
         with _onboarding_lock:
             _onboarding_flows[flow_key] = flow
 
@@ -563,6 +629,9 @@ async def handle_update_step(
                     flow.completed_at = now
 
             flow.updated_at = now
+
+        # Sync to persistent storage
+        _sync_flow_to_repo(flow)
 
         _track_event(
             "step_updated",
@@ -692,6 +761,10 @@ async def handle_first_debate(
                 flow.first_debate_id = debate_id
                 flow.selected_template_id = template_id
                 flow.updated_at = datetime.now(timezone.utc).isoformat()
+
+        # Sync to persistent storage
+        if flow:
+            _sync_flow_to_repo(flow)
 
         _track_event(
             "first_debate_started",
@@ -893,11 +966,29 @@ async def handle_quick_start(
                     metadata={"quick_start": True},
                 )
                 _onboarding_flows[flow_key] = flow
+                # Create in repository as well
+                repo = get_onboarding_repository()
+                repo.create_flow(
+                    user_id=user_id,
+                    org_id=organization_id,
+                    current_step=OnboardingStep.FIRST_DEBATE.value,
+                    use_case=config.get("focus_areas", ["general"])[0],
+                    metadata={
+                        "quick_start": True,
+                        "quick_start_profile": profile,
+                        "selected_template": config["default_template"],
+                        "team_invites": [],
+                        "skipped": False,
+                    },
+                )
             else:
                 flow.quick_start_profile = profile
                 flow.selected_template_id = config["default_template"]
                 flow.current_step = OnboardingStep.FIRST_DEBATE
                 flow.updated_at = now
+
+        # Sync to persistent storage
+        _sync_flow_to_repo(flow)
 
         # Get the default template
         template = next(
