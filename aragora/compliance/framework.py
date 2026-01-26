@@ -151,7 +151,7 @@ class ComplianceRule:
             if keyword.lower() in content_lower:
                 # Find first occurrence
                 idx = content_lower.find(keyword.lower())
-                line_num = content[:idx].count("\n") + 1 if idx >= 0 else None
+                line_num: int | None = content[:idx].count("\n") + 1 if idx >= 0 else None
                 issues.append(
                     ComplianceIssue(
                         framework=self.framework,

@@ -500,12 +500,13 @@ class WorkflowDefinition:
 
     def to_yaml(self) -> str:
         """Serialize workflow to YAML format."""
-        return yaml.safe_dump(
+        result = yaml.safe_dump(
             self.to_dict(),
             default_flow_style=False,
             sort_keys=False,
             allow_unicode=True,
         )
+        return str(result) if result else ""
 
     @classmethod
     def from_yaml(cls, yaml_str: str) -> "WorkflowDefinition":
