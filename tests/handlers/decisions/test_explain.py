@@ -437,9 +437,6 @@ class TestOutputFormats:
             body = json.loads(result.body)
             assert isinstance(body, dict)
 
-    @pytest.mark.skip(
-        reason="Handler bug: _format_markdown uses 'status=' instead of 'status_code='"
-    )
     def test_markdown_format(self, explain_handler, mock_trace_file, mock_http_handler):
         """Test Markdown format output."""
         mock_result = MockDebateResult(
@@ -466,7 +463,6 @@ class TestOutputFormats:
             assert "# Decision Explanation" in content
             assert "## Summary" in content
 
-    @pytest.mark.skip(reason="Handler bug: _format_html uses 'status=' instead of 'status_code='")
     def test_html_format(self, explain_handler, mock_trace_file, mock_http_handler):
         """Test HTML format output."""
         mock_result = MockDebateResult(

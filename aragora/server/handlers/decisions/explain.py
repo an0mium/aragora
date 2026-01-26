@@ -567,7 +567,7 @@ class DecisionExplainHandler(BaseHandler):
 
         content = "\n".join(lines)
         return HandlerResult(  # type: ignore[call-arg]
-            status=200,
+            status_code=200,
             body=content.encode("utf-8"),
             headers={"Content-Type": "text/markdown; charset=utf-8"},
         )
@@ -682,7 +682,7 @@ class DecisionExplainHandler(BaseHandler):
 """
 
         return HandlerResult(  # type: ignore[call-arg]
-            status=200,
+            status_code=200,
             body=html.encode("utf-8"),
             headers={"Content-Type": "text/html; charset=utf-8"},
         )
