@@ -4,6 +4,7 @@
  */
 
 import type { EventHandlerContext, ParsedEventData } from './types';
+import type { StreamEvent } from '@/types/events';
 import { logger } from '@/utils/logger';
 
 /**
@@ -34,6 +35,15 @@ export function handleErrorEvent(data: ParsedEventData, ctx: EventHandlerContext
   }
 
   const errorMsg = (eventData?.message as string) || 'Unknown error';
+
+  if (eventData?.phase === 'initialization') {
+    const event: StreamEvent = {
+      type: 'error',
+      data: (eventData as Record<string, unknown>) || {},
+      timestamp: (data.timestamp as number) || Date.now() / 1000,
+    };
+    ctx.addStreamEvent(event);
+  }
 
   if (ctx.errorCallbackRef.current) {
     ctx.errorCallbackRef.current(errorMsg);
