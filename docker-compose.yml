@@ -1,171 +1,89 @@
-# Aragora Multi-Agent Debate Framework
-# Docker Compose Configuration
+# Aragora Production Docker Compose
+# Usage: docker compose up -d
 #
-# Usage:
-#   Development (SQLite):  docker compose up
-#   Production (Postgres): docker compose --profile postgres up
-#   With workers:          docker compose --profile with-workers up
-#   Full production:       docker compose --profile postgres --profile with-workers up
+# Prerequisites:
+#   1. Copy .env.example to .env and configure
+#   2. At minimum, set ANTHROPIC_API_KEY or OPENAI_API_KEY
 
 services:
-  # PostgreSQL for production deployments (recommended for >10 concurrent users)
-  postgres:
-    image: postgres:16-alpine
-    container_name: aragora-postgres
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-aragora}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aragora_dev_password}
-      POSTGRES_DB: ${POSTGRES_DB:-aragora}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      # Mount schema file for initialization
-      - ./aragora/db/schema/postgres_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aragora}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    profiles:
-      - postgres
-
-  # Redis for session state, caching, and multi-instance coordination
-  redis:
-    image: redis:7-alpine
-    container_name: aragora-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy volatile-lru
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    restart: unless-stopped
-
   aragora:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: aragora
     ports:
-      - "8080:8080"
-    depends_on:
-      redis:
-        condition: service_healthy
+      - "${ARAGORA_API_PORT:-8080}:8080"
+      - "${ARAGORA_WS_PORT:-8765}:8765"
     environment:
-      # === AWS Secrets Manager (Production) ===
-      # Set ARAGORA_USE_SECRETS_MANAGER=true to load secrets from AWS
-      # Requires: boto3 installed, IAM role with secretsmanager:GetSecretValue
-      - ARAGORA_USE_SECRETS_MANAGER=${ARAGORA_USE_SECRETS_MANAGER:-false}
-      - ARAGORA_SECRET_NAME=${ARAGORA_SECRET_NAME:-aragora/production}
-      - AWS_REGION=${AWS_REGION:-us-east-1}
-      # === Local Development (fallback) ===
-      # These are used when AWS Secrets Manager is disabled
-      # Required: At least one AI provider key
+      # API Keys (at least one required)
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      # Optional: Additional providers
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - XAI_API_KEY=${XAI_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-      # Security settings
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+      # Database
+      - DATABASE_URL=postgresql://aragora:${POSTGRES_PASSWORD:-aragora}@db:5432/aragora
+      - ARAGORA_POSTGRES_DSN=postgresql://aragora:${POSTGRES_PASSWORD:-aragora}@db:5432/aragora
+      # Redis
+      - ARAGORA_REDIS_URL=redis://redis:6379
+      # Server settings
+      - ARAGORA_ENV=production
+      - ARAGORA_HOST=0.0.0.0
+      - ARAGORA_API_PORT=8080
+      - ARAGORA_WS_PORT=8765
+      # Security
+      - ARAGORA_SECRET_KEY=${ARAGORA_SECRET_KEY:-}
       - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN:-}
-      - ARAGORA_ALLOWED_ORIGINS=${ARAGORA_ALLOWED_ORIGINS:-http://localhost:3000}
-      - ARAGORA_TRUSTED_PROXIES=${ARAGORA_TRUSTED_PROXIES:-127.0.0.1,::1}
-      # Performance
-      - ARAGORA_MAX_CONCURRENT_DEBATES=${ARAGORA_MAX_CONCURRENT_DEBATES:-5}
-      # Environment mode
-      - ARAGORA_ENV=${ARAGORA_ENV:-development}
-      - ARAGORA_ENVIRONMENT=${ARAGORA_ENVIRONMENT:-development}
-      # Redis (for OAuth state, session management, and caching)
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
-      # Database (PostgreSQL for production, SQLite for development)
-      # When using postgres profile, set ARAGORA_POSTGRES_DSN or DATABASE_URL.
-      - DATABASE_URL=${DATABASE_URL:-}
-      - ARAGORA_POSTGRES_DSN=${ARAGORA_POSTGRES_DSN:-}
-      - ARAGORA_DB_BACKEND=${ARAGORA_DB_BACKEND:-auto}
-      - ARAGORA_DB_MODE=${ARAGORA_DB_MODE:-legacy}
-      # Stripe billing (use Secrets Manager in production)
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
-      - STRIPE_PRICE_STARTER=${STRIPE_PRICE_STARTER:-}
-      - STRIPE_PRICE_PROFESSIONAL=${STRIPE_PRICE_PROFESSIONAL:-}
-      - STRIPE_PRICE_ENTERPRISE=${STRIPE_PRICE_ENTERPRISE:-}
-      # OAuth (use Secrets Manager in production)
-      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
-      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-}
-      - GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-}
-      # JWT (use Secrets Manager in production)
-      - ARAGORA_JWT_SECRET=${ARAGORA_JWT_SECRET:-}
-      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
-    volumes:
-      # Persist debate data
-      - aragora-data:/app/data
-      - aragora-nomic:/app/.nomic
-      - aragora-logs:/app/logs
-    restart: unless-stopped
+      - ARAGORA_ALLOWED_ORIGINS=${ARAGORA_ALLOWED_ORIGINS:-*}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
-
-  # Debate queue workers (for horizontal scaling)
-  debate-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: python -m scripts.queue_worker --concurrency 3
-    depends_on:
-      redis:
-        condition: service_healthy
-      aragora:
-        condition: service_healthy
-    environment:
-      # AI provider keys
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - XAI_API_KEY=${XAI_API_KEY:-}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-      # Redis for queue
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
-      # Queue settings
-      - ARAGORA_QUEUE_RETRY_MAX=${ARAGORA_QUEUE_RETRY_MAX:-3}
-      - ARAGORA_QUEUE_CLAIM_IDLE_MS=${ARAGORA_QUEUE_CLAIM_IDLE_MS:-60000}
-    volumes:
-      - aragora-data:/app/data
     restart: unless-stopped
-    deploy:
-      replicas: 2  # Scale horizontally
-    profiles:
-      - with-workers
+    volumes:
+      - aragora_data:/app/data
 
-  # Optional: Frontend (when built)
-  frontend:
-    build:
-      context: ./aragora/live
-      dockerfile: Dockerfile
-    container_name: aragora-frontend
-    ports:
-      - "3000:3000"
+  db:
+    image: postgres:15-alpine
     environment:
-      - NEXT_PUBLIC_API_URL=http://aragora:8080
-      - NEXT_PUBLIC_WS_URL=ws://aragora:8080/ws
-    depends_on:
-      - aragora
-    profiles:
-      - with-frontend
+      POSTGRES_DB: aragora
+      POSTGRES_USER: aragora
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aragora}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aragora"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
 volumes:
-  aragora-data:
-  aragora-nomic:
-  aragora-logs:
-  redis-data:
-  postgres-data:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  aragora_data:
+    driver: local
+
+# Network (optional, for production you may want custom network config)
+networks:
+  default:
+    name: aragora-network
