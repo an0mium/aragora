@@ -295,6 +295,15 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
             logger.warning(f"Rate limit exceeded for mound endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
+        # Require authentication for all knowledge mound endpoints
+        try:
+            user, err = self.require_auth_or_error(handler)
+            if err:
+                return err
+        except Exception as e:
+            logger.warning(f"Authentication failed for knowledge mound: {e}")
+            return error_response("Authentication required", 401)
+
         # Semantic query
         if path == "/api/v1/knowledge/mound/query":
             return self._handle_mound_query(handler)
