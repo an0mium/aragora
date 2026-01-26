@@ -69,6 +69,9 @@ class DebateHooks:
     calibration_tracker: Optional["CalibrationTracker"] = None
     event_emitter: Optional["EventEmitter"] = None
 
+    # Slack webhook for notifications
+    slack_webhook_url: Optional[str] = None
+
     # Tracking state
     _continuum_retrieved_ids: List[str] = field(default_factory=list)
     _continuum_retrieved_tiers: dict = field(default_factory=dict)
@@ -196,6 +199,9 @@ class DebateHooks:
 
         # Trigger formal verification (async)
         await self._verify_claims(result)
+
+        # Send Slack webhook notification (fire-and-forget)
+        self._notify_slack_webhook(result, task, participants)
 
     def _update_relationships(
         self,
@@ -498,6 +504,124 @@ class DebateHooks:
             return None
 
     # =========================================================================
+    # Slack Webhook Notifications
+    # =========================================================================
+
+    def _notify_slack_webhook(
+        self,
+        result: "DebateResult",
+        task: str,
+        participants: List[str],
+    ) -> None:
+        """Send debate completion notification to Slack webhook.
+
+        Uses fire-and-forget pattern - errors are logged but don't block.
+
+        Args:
+            result: The debate result
+            task: The debate task/question
+            participants: List of participant names
+        """
+        if not self.slack_webhook_url:
+            return
+
+        try:
+            import urllib.request
+            import json
+            import threading
+
+            # Build Slack Block Kit message
+            status_emoji = ":white_check_mark:" if result.consensus_reached else ":warning:"
+            status_text = "Consensus Reached" if result.consensus_reached else "No Consensus"
+
+            blocks = [
+                {
+                    "type": "header",
+                    "text": {
+                        "type": "plain_text",
+                        "text": f"{status_emoji} Debate Complete",
+                        "emoji": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {"type": "mrkdwn", "text": f"*Question:*\n{task[:200]}"},
+                        {"type": "mrkdwn", "text": f"*Status:*\n{status_text}"},
+                    ],
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {"type": "mrkdwn", "text": f"*Confidence:*\n{result.confidence:.0%}"},
+                        {"type": "mrkdwn", "text": f"*Rounds:*\n{result.rounds_used}"},
+                    ],
+                },
+            ]
+
+            # Add winner if present
+            winner = getattr(result, "winner", None)
+            if winner:
+                blocks.append(
+                    {
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": f"*Winner:* {winner}"},
+                    }
+                )
+
+            # Add participants
+            blocks.append(
+                {
+                    "type": "context",
+                    "elements": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"Participants: {', '.join(participants[:5])}",
+                        }
+                    ],
+                }
+            )
+
+            # Add answer preview
+            if result.final_answer:
+                answer_preview = result.final_answer[:300]
+                if len(result.final_answer) > 300:
+                    answer_preview += "..."
+                blocks.append(
+                    {
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": f"*Answer:*\n{answer_preview}"},
+                    }
+                )
+
+            payload = {
+                "text": f"Debate complete: {task[:50]}...",
+                "blocks": blocks,
+            }
+
+            def send_webhook():
+                """Send webhook in background thread."""
+                try:
+                    req = urllib.request.Request(
+                        self.slack_webhook_url,
+                        data=json.dumps(payload).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        if resp.status != 200:
+                            logger.debug(f"Slack webhook returned {resp.status}")
+                except Exception as e:
+                    logger.debug(f"Slack webhook error: {e}")
+
+            # Fire and forget
+            thread = threading.Thread(target=send_webhook, daemon=True)
+            thread.start()
+
+        except Exception as e:
+            logger.debug(f"Slack webhook setup error: {e}")
+
+    # =========================================================================
     # Diagnostics
     # =========================================================================
 
@@ -513,6 +637,7 @@ class DebateHooks:
                 "elo_system": self.elo_system is not None,
                 "memory_manager": self.memory_manager is not None,
                 "evidence_grounder": self.evidence_grounder is not None,
+                "slack_webhook": self.slack_webhook_url is not None,
             },
             "tracking": {
                 "retrieved_memory_count": len(self._continuum_retrieved_ids),
@@ -531,6 +656,7 @@ class HooksConfig:
     elo_system: Optional[Any] = None
     memory_manager: Optional[Any] = None
     evidence_grounder: Optional[Any] = None
+    slack_webhook_url: Optional[str] = None
 
     def create_hooks(self) -> DebateHooks:
         """Create DebateHooks from this configuration.
@@ -543,6 +669,7 @@ class HooksConfig:
             elo_system=self.elo_system,
             memory_manager=self.memory_manager,
             evidence_grounder=self.evidence_grounder,
+            slack_webhook_url=self.slack_webhook_url,
         )
 
 
