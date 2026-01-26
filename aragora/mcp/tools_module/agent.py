@@ -192,7 +192,10 @@ async def get_agent_lineage_tool(
             # Get first parent for next iteration
             if current.parent_genomes:
                 parent_id = current.parent_genomes[0]
-                current = store.get(parent_id)
+                parent_genome = store.get(parent_id)
+                if parent_genome is None:
+                    break
+                current = parent_genome
             else:
                 break
 

@@ -152,13 +152,15 @@ class DiscordReceiptFormatter(ReceiptFormatter):
                     }
                 )
 
+        description = (
+            getattr(receipt, "topic", None)
+            or getattr(receipt, "question", None)
+            or getattr(receipt, "input_summary", None)
+            or ""
+        )
         embed = {
             "title": "Decision Receipt",
-            "description": (
-                getattr(receipt, "topic", None)
-                or getattr(receipt, "question", None)
-                or getattr(receipt, "input_summary", "")
-            )[:4096],
+            "description": description[:4096],
             "color": color,
             "fields": fields,
             "footer": {

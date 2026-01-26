@@ -461,7 +461,7 @@ class TemplateEngine:
 
     def _get_nested(self, data: dict[str, Any], keys: list[str]) -> Any:
         """Get a nested value from a dictionary."""
-        current = data
+        current: Any = data
         for key in keys:
             if isinstance(current, dict):
                 current = current.get(key)
@@ -673,10 +673,13 @@ class ChainExecutor:
 
         # Execute with retries
         retries = 0
+        # Get deliberation manager (guaranteed non-None by caller check)
+        deliberation_manager = self._deliberation_manager
+        assert deliberation_manager is not None  # Checked by execute() method
         while retries <= stage.retry_count:
             try:
                 # Submit deliberation through the manager
-                task_id = await self._deliberation_manager.submit_deliberation(
+                task_id = await deliberation_manager.submit_deliberation(
                     question=topic,
                     context=None,  # Context is in the topic
                     agents=stage.agents if stage.agents else None,
@@ -697,7 +700,7 @@ class ChainExecutor:
                 result.task_id = task_id
 
                 # Wait for outcome
-                outcome = await self._deliberation_manager.wait_for_outcome(
+                outcome = await deliberation_manager.wait_for_outcome(
                     task_id,
                     timeout=float(stage.timeout_seconds) + 30,  # Buffer
                 )

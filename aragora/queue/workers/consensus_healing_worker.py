@@ -254,10 +254,14 @@ class ConsensusHealingWorker:
         try:
             # Try to get recent debates without consensus
             if hasattr(memory, "query_unconverged"):
-                return await memory.query_unconverged(
+                result = await memory.query_unconverged(
                     min_age_seconds=self.config.min_age_for_healing_seconds,
                     max_results=100,
                 )
+                # Ensure we return a properly typed list
+                if isinstance(result, list):
+                    return result  # type: ignore[return-value]
+                return []
             return []
         except Exception:
             return []

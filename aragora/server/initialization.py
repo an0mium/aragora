@@ -574,7 +574,7 @@ class SubsystemRegistry:
             if nomic_dir:
                 # Phase 1: Initialize independent subsystems in parallel
                 # These don't depend on each other
-                independent_futures = [
+                independent_futures: list[asyncio.Future[Any]] = [
                     loop.run_in_executor(executor, init_insight_store, nomic_dir),
                     loop.run_in_executor(executor, init_elo_system, nomic_dir),
                     loop.run_in_executor(executor, init_flip_detector, nomic_dir),
@@ -586,7 +586,7 @@ class SubsystemRegistry:
                     loop.run_in_executor(executor, init_consensus_memory),
                 ]
 
-                results = await asyncio.gather(*independent_futures)
+                results: list[Any] = await asyncio.gather(*independent_futures)
 
                 # Assign results
                 (

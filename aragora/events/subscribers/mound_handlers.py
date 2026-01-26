@@ -46,9 +46,11 @@ class MoundHandlersMixin:
             return
 
         try:
-            from aragora.observability.metrics.slo import check_and_record_slo
+            from aragora.observability.metrics.slo import check_and_record_slo as _check_slo
+
+            slo_checker = _check_slo
         except ImportError:
-            check_and_record_slo = None
+            slo_checker = None
 
         import time
 
@@ -87,9 +89,9 @@ class MoundHandlersMixin:
             self.stats["mound_to_memory"]["events"] += 1
 
             # Record SLO if available
-            if check_and_record_slo:
+            if slo_checker is not None:
                 latency_ms = (time.time() - start) * 1000
-                check_and_record_slo("km_mound_to_memory", latency_ms)
+                slo_checker("km_mound_to_memory", latency_ms)
 
         except Exception as e:
             logger.error(f"Mound → Memory handler error: {e}")
@@ -104,9 +106,11 @@ class MoundHandlersMixin:
             return
 
         try:
-            from aragora.observability.metrics.slo import check_and_record_slo
+            from aragora.observability.metrics.slo import check_and_record_slo as _check_slo
+
+            slo_checker = _check_slo
         except ImportError:
-            check_and_record_slo = None
+            slo_checker = None
 
         import time
 
@@ -138,9 +142,9 @@ class MoundHandlersMixin:
             self.stats["memory_to_mound"]["events"] += 1
 
             # Record SLO
-            if check_and_record_slo:
+            if slo_checker is not None:
                 latency_ms = (time.time() - start) * 1000
-                check_and_record_slo("km_memory_to_mound", latency_ms)
+                slo_checker("km_memory_to_mound", latency_ms)
 
         except Exception as e:
             logger.error(f"Memory → Mound handler error: {e}")

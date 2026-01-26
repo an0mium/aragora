@@ -228,11 +228,12 @@ class RoutingWorker:
         if not debate_id or not recipient_email:
             raise ValueError("Missing debate_id or recipient_email in payload")
 
-        return await send_debate_result_email(
+        email_result = await send_debate_result_email(
             debate_id=debate_id,
             result=result,
             recipient_email=recipient_email,
         )
+        return bool(email_result)
 
 
 async def enqueue_routing_job(

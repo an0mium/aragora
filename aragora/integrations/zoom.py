@@ -312,7 +312,8 @@ class ZoomIntegration:
                 if response.status == 204:
                     return {}
 
-                return await response.json()
+                result: dict[str, Any] = await response.json()
+                return result
 
         except aiohttp.ClientError as e:
             logger.error(f"Zoom API connection error: {e}")
@@ -444,7 +445,8 @@ class ZoomIntegration:
             params["to"] = to_date.strftime("%Y-%m-%d")
 
         result = await self._api_request("GET", f"/users/{user_id}/recordings", params=params)
-        return result.get("meetings", [])
+        meetings: list[dict[str, Any]] = result.get("meetings", [])
+        return meetings
 
     async def get_recording_transcript(
         self,
