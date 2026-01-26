@@ -151,7 +151,7 @@ class DRHandler(BaseHandler):
             issues.append("No verified backup available")
             recommendations.append("Verify at least one backup")
 
-        if not rpo_compliant:
+        if hours_since_backup is not None and not rpo_compliant:
             score -= 20
             issues.append(f"RPO violation: {hours_since_backup:.1f} hours since last backup")
             recommendations.append(f"Create a backup to meet {rpo_hours}h RPO")

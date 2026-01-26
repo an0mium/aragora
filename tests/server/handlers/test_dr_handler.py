@@ -167,7 +167,7 @@ def mock_backup_manager():
 def handler(mock_server_context, mock_backup_manager):
     """Create handler with mocked dependencies."""
     with patch(
-        "aragora.server.handlers.dr_handler.get_backup_manager",
+        "aragora.backup.manager.get_backup_manager",
         return_value=mock_backup_manager,
     ):
         h = DRHandler(mock_server_context)
