@@ -142,7 +142,8 @@ class AwsKmsProvider(KmsProvider):
         )
 
         # Return the plaintext key (also stores encrypted version for envelope)
-        return response["Plaintext"]
+        plaintext: bytes = response["Plaintext"]
+        return plaintext
 
     async def decrypt_data_key(self, encrypted_key: bytes, key_id: str) -> bytes:
         """Decrypt a data key using AWS KMS."""
@@ -153,7 +154,8 @@ class AwsKmsProvider(KmsProvider):
             KeyId=key_id or self.default_key_id,
         )
 
-        return response["Plaintext"]
+        plaintext: bytes = response["Plaintext"]
+        return plaintext
 
     async def encrypt_data_key(self, plaintext_key: bytes, key_id: str) -> bytes:
         """Encrypt a data key using AWS KMS."""
@@ -164,7 +166,8 @@ class AwsKmsProvider(KmsProvider):
             Plaintext=plaintext_key,
         )
 
-        return response["CiphertextBlob"]
+        ciphertext: bytes = response["CiphertextBlob"]
+        return ciphertext
 
     async def get_key_metadata(self, key_id: str) -> KmsKeyMetadata:
         """Get metadata about an AWS KMS key."""
@@ -257,7 +260,8 @@ class AzureKeyVaultProvider(KmsProvider):
                 encrypted_key,
             )
 
-            return result.plaintext
+            plaintext: bytes = result.plaintext
+            return plaintext
         except Exception as e:
             logger.error(f"Azure Key Vault decrypt failed: {e}")
             raise
@@ -278,7 +282,8 @@ class AzureKeyVaultProvider(KmsProvider):
                 plaintext_key,
             )
 
-            return result.ciphertext
+            ciphertext: bytes = result.ciphertext
+            return ciphertext
         except Exception as e:
             logger.error(f"Azure Key Vault encrypt failed: {e}")
             raise
@@ -371,7 +376,8 @@ class GcpKmsProvider(KmsProvider):
             }
         )
 
-        return response.plaintext
+        plaintext: bytes = response.plaintext
+        return plaintext
 
     async def encrypt_data_key(self, plaintext_key: bytes, key_id: str) -> bytes:
         """Encrypt a data key using GCP KMS."""
@@ -384,7 +390,8 @@ class GcpKmsProvider(KmsProvider):
             }
         )
 
-        return response.ciphertext
+        ciphertext: bytes = response.ciphertext
+        return ciphertext
 
     async def get_key_metadata(self, key_id: str) -> KmsKeyMetadata:
         """Get metadata about a GCP KMS key."""

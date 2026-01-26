@@ -120,13 +120,15 @@ def record_webhook_delivery(
         return
 
     # Record delivery counter
-    _DELIVERIES_TOTAL.labels(
-        event_type=event_type,
-        success=str(success).lower(),
-    ).inc()
+    if _DELIVERIES_TOTAL is not None:
+        _DELIVERIES_TOTAL.labels(
+            event_type=event_type,
+            success=str(success).lower(),
+        ).inc()
 
     # Record duration histogram
-    _DELIVERY_DURATION.labels(event_type=event_type).observe(duration_seconds)
+    if _DELIVERY_DURATION is not None:
+        _DELIVERY_DURATION.labels(event_type=event_type).observe(duration_seconds)
 
     # Record failure by status code
     if not success and status_code is not None and _FAILURES_BY_STATUS:
@@ -147,10 +149,11 @@ def record_webhook_retry(event_type: str, attempt: int) -> None:
     if not _init_metrics():
         return
 
-    _RETRIES_TOTAL.labels(
-        event_type=event_type,
-        attempt=str(min(attempt, 5)),  # Cap at 5 to limit cardinality
-    ).inc()
+    if _RETRIES_TOTAL is not None:
+        _RETRIES_TOTAL.labels(
+            event_type=event_type,
+            attempt=str(min(attempt, 5)),  # Cap at 5 to limit cardinality
+        ).inc()
 
 
 def set_queue_size(size: int) -> None:
@@ -163,7 +166,8 @@ def set_queue_size(size: int) -> None:
     if not _init_metrics():
         return
 
-    _QUEUE_SIZE.set(size)
+    if _QUEUE_SIZE is not None:
+        _QUEUE_SIZE.set(size)
 
 
 def set_active_endpoints(event_type: str, count: int) -> None:
@@ -177,21 +181,24 @@ def set_active_endpoints(event_type: str, count: int) -> None:
     if not _init_metrics():
         return
 
-    _ACTIVE_ENDPOINTS.labels(event_type=event_type).set(count)
+    if _ACTIVE_ENDPOINTS is not None:
+        _ACTIVE_ENDPOINTS.labels(event_type=event_type).set(count)
 
 
 def increment_queue() -> None:
     """Increment the queue size by 1."""
     if not _init_metrics():
         return
-    _QUEUE_SIZE.inc()
+    if _QUEUE_SIZE is not None:
+        _QUEUE_SIZE.inc()
 
 
 def decrement_queue() -> None:
     """Decrement the queue size by 1."""
     if not _init_metrics():
         return
-    _QUEUE_SIZE.dec()
+    if _QUEUE_SIZE is not None:
+        _QUEUE_SIZE.dec()
 
 
 class WebhookDeliveryTimer:
