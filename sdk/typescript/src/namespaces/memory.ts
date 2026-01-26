@@ -8,6 +8,7 @@
 import type {
   MemoryEntry,
   MemoryStats,
+  MemoryTier,
   MemoryTierStats,
   MemorySearchParams,
   CritiqueEntry,
@@ -64,9 +65,9 @@ interface MemoryClientInterface {
   getMemoryTiers(): Promise<{ tiers: MemoryTierStats[] }>;
   getMemoryCritiques(options?: PaginationParams): Promise<{ critiques: CritiqueEntry[] }>;
   storeToContinuum(content: string, options?: ContinuumStoreOptions): Promise<ContinuumStoreResult>;
-  retrieveFromContinuum(query: string, options?: ContinuumRetrieveOptions): Promise<MemoryEntry[]>;
+  retrieveFromContinuum(query: string, options?: ContinuumRetrieveOptions): Promise<{ entries: MemoryEntry[] }>;
   getContinuumStats(): Promise<MemoryStats>;
-  consolidateMemory(): Promise<{ consolidated: number; freed: number }>;
+  consolidateMemory(): Promise<{ success: boolean }>;
 }
 
 /**
@@ -178,7 +179,7 @@ export class MemoryAPI {
   async retrieveFromContinuum(
     query: string,
     options?: ContinuumRetrieveOptions
-  ): Promise<MemoryEntry[]> {
+  ): Promise<{ entries: MemoryEntry[] }> {
     return this.client.retrieveFromContinuum(query, options);
   }
 
@@ -192,7 +193,7 @@ export class MemoryAPI {
   /**
    * Consolidate memory by archiving old entries.
    */
-  async consolidate(): Promise<{ consolidated: number; freed: number }> {
+  async consolidate(): Promise<{ success: boolean }> {
     return this.client.consolidateMemory();
   }
 }

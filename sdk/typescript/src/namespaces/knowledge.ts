@@ -80,9 +80,9 @@ interface KnowledgeClientInterface {
     metadata?: Record<string, unknown>;
   }): Promise<{ id: string; created_at: string }>;
   getKnowledgeMoundStats(): Promise<KnowledgeMoundStats>;
-  getStaleKnowledge(options?: { days?: number; limit?: number }): Promise<{ entries: KnowledgeEntry[] }>;
-  revalidateKnowledge(nodeId: string, validation: { valid: boolean; notes?: string }): Promise<KnowledgeMoundNode>;
-  getKnowledgeLineage(nodeId: string, options?: { depth?: number }): Promise<{ lineage: KnowledgeMoundNode[] }>;
+  getStaleKnowledge(options?: { max_age_days?: number; limit?: number }): Promise<{ items: unknown[]; total: number }>;
+  revalidateKnowledge(nodeId: string, validation: { valid: boolean; new_confidence?: number; notes?: string }): Promise<{ updated: boolean }>;
+  getKnowledgeLineage(nodeId: string, options?: { direction?: 'ancestors' | 'descendants' | 'both'; max_depth?: number }): Promise<{ nodes: unknown[]; relationships: unknown[] }>;
   getRelatedKnowledge(nodeId: string, options?: { types?: string[]; limit?: number }): Promise<{ related: KnowledgeMoundNode[] }>;
 }
 
@@ -232,21 +232,21 @@ export class KnowledgeAPI {
   /**
    * Get stale knowledge entries that need revalidation.
    */
-  async getStale(options?: { days?: number; limit?: number }): Promise<{ entries: KnowledgeEntry[] }> {
+  async getStale(options?: { max_age_days?: number; limit?: number }): Promise<{ items: unknown[]; total: number }> {
     return this.client.getStaleKnowledge(options);
   }
 
   /**
    * Revalidate a knowledge node.
    */
-  async revalidate(nodeId: string, validation: { valid: boolean; notes?: string }): Promise<KnowledgeMoundNode> {
+  async revalidate(nodeId: string, validation: { valid: boolean; new_confidence?: number; notes?: string }): Promise<{ updated: boolean }> {
     return this.client.revalidateKnowledge(nodeId, validation);
   }
 
   /**
    * Get the lineage/provenance of a knowledge node.
    */
-  async getLineage(nodeId: string, options?: { depth?: number }): Promise<{ lineage: KnowledgeMoundNode[] }> {
+  async getLineage(nodeId: string, options?: { direction?: 'ancestors' | 'descendants' | 'both'; max_depth?: number }): Promise<{ nodes: unknown[]; relationships: unknown[] }> {
     return this.client.getKnowledgeLineage(nodeId, options);
   }
 

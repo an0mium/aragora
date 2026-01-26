@@ -37,7 +37,7 @@ interface GauntletClientInterface {
   listGauntletPersonas(params?: { category?: string; enabled?: boolean }): Promise<{ personas: GauntletPersona[] }>;
   listGauntletResults(params?: { gauntlet_id?: string; status?: string } & PaginationParams): Promise<{ results: GauntletResult[] }>;
   getGauntletHeatmap(gauntletId: string, format?: 'json' | 'svg'): Promise<GauntletHeatmapExtended>;
-  compareGauntlets(gauntletIds: string[]): Promise<GauntletComparison>;
+  compareGauntlets(gauntletId1: string, gauntletId2: string): Promise<GauntletComparison>;
 }
 
 /**
@@ -141,9 +141,9 @@ export class GauntletAPI {
   }
 
   /**
-   * Compare multiple gauntlet runs.
+   * Compare two gauntlet runs.
    */
-  async compare(gauntletIds: string[]): Promise<GauntletComparison> {
-    return this.client.compareGauntlets(gauntletIds);
+  async compare(gauntletId1: string, gauntletId2: string): Promise<GauntletComparison> {
+    return this.client.compareGauntlets(gauntletId1, gauntletId2);
   }
 }
