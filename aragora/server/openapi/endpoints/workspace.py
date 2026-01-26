@@ -142,6 +142,122 @@ WORKSPACE_ENDPOINTS = {
             },
         },
     },
+    "/api/workspaces/profiles": {
+        "get": {
+            "tags": ["Workspace"],
+            "summary": "List RBAC profiles",
+            "description": """Get available RBAC profiles for workspace configuration.
+
+**Profiles:**
+- **lite**: 3 roles (owner, admin, member) - ideal for SME workspaces
+- **standard**: 5 roles (adds analyst, viewer) - for growing teams
+- **enterprise**: 8 roles - full governance with compliance roles
+
+**Recommendation:** Use 'lite' for most workspaces; upgrade as needed.""",
+            "operationId": "listWorkspaceProfiles",
+            "security": [{"bearerAuth": []}],
+            "responses": {
+                "200": _ok_response("Available RBAC profiles with role details"),
+                "401": STANDARD_ERRORS["401"],
+            },
+        },
+    },
+    "/api/workspaces/{workspace_id}/roles": {
+        "get": {
+            "tags": ["Workspace"],
+            "summary": "Get workspace roles",
+            "description": """Get available roles for a workspace based on its RBAC profile.
+
+**Response includes:**
+- Roles available in the workspace's profile
+- Which roles the current user can assign
+- Current user's role in the workspace
+
+**Role assignment rules:**
+- Owners can assign all roles except owner
+- Admins can assign member, analyst, viewer
+- Members cannot assign roles""",
+            "operationId": "getWorkspaceRoles",
+            "security": [{"bearerAuth": []}],
+            "parameters": [
+                {
+                    "name": "workspace_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Workspace ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Workspace roles with assignment permissions"),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/workspaces/{workspace_id}/members/{user_id}/role": {
+        "put": {
+            "tags": ["Workspace"],
+            "summary": "Update member role",
+            "description": """Update a workspace member's role.
+
+**Role hierarchy:** owner > admin > member
+
+**Restrictions:**
+- Cannot remove the last owner
+- Can only assign roles within your permission level
+- Role changes are audit logged
+
+**Lite profile roles:**
+- `owner`: Full workspace control including billing
+- `admin`: Manage users and debates, no billing
+- `member`: Create and run debates""",
+            "operationId": "updateWorkspaceMemberRole",
+            "security": [{"bearerAuth": []}],
+            "parameters": [
+                {
+                    "name": "workspace_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Workspace ID",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "user_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "User ID of the member",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["role"],
+                            "properties": {
+                                "role": {
+                                    "type": "string",
+                                    "description": "New role for the member",
+                                    "enum": ["owner", "admin", "member", "analyst", "viewer"],
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            "responses": {
+                "200": _ok_response("Role updated successfully"),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
     "/api/retention/policies": {
         "get": {
             "tags": ["Retention"],
