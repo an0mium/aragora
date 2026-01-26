@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 
 interface BeliefNode {
   id: string;
@@ -77,11 +78,18 @@ export function BeliefNetworkGraph({
   const [hoveredNode, setHoveredNode] = useState<BeliefNode | null>(null);
   const [simulation, setSimulation] = useState<BeliefNode[]>([]);
 
+  const { tokens } = useAuth();
+
   const fetchGraph = useCallback(async () => {
     try {
       setLoading(true);
+      const headers: HeadersInit = {};
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
       const response = await fetch(
-        `${apiBase}/api/belief-network/${debateId}/graph?include_cruxes=true`
+        `${apiBase}/api/belief-network/${debateId}/graph?include_cruxes=true`,
+        { headers }
       );
 
       if (!response.ok) {
@@ -108,7 +116,7 @@ export function BeliefNetworkGraph({
     } finally {
       setLoading(false);
     }
-  }, [apiBase, debateId, width, height]);
+  }, [apiBase, debateId, height, tokens?.access_token, width]);
 
   useEffect(() => {
     fetchGraph();

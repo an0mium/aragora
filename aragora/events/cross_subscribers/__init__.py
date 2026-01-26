@@ -29,6 +29,7 @@ from aragora.events.subscribers.config import (
     RetryConfig,
     SubscriberStats,
 )
+from aragora.observability.metrics import record_km_inbound_event
 
 from .manager import CrossSubscriberManager
 
@@ -57,4 +58,5 @@ __all__ = [
     "AsyncDispatchConfig",
     "get_cross_subscriber_manager",
     "reset_cross_subscriber_manager",
+    "record_km_inbound_event",
 ]

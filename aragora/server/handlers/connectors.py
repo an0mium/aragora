@@ -36,6 +36,7 @@ try:
         check_permission,
         PermissionDeniedError,
     )
+    from aragora.server.handlers.utils.decorators import require_permission
 
     RBAC_AVAILABLE = True
 except ImportError:
@@ -279,6 +280,7 @@ async def handle_update_connector(
     }
 
 
+@require_permission("connectors:delete")
 async def handle_delete_connector(
     connector_id: str,
     tenant_id: str = "default",

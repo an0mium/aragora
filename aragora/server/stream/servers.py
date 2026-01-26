@@ -975,13 +975,12 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                 authenticated, remaining = check_auth(headers, "", loop_id="", ip_address=client_ip)
 
                 if not authenticated:
-                    status = 429 if remaining == 0 else 401
-                    error_msg = (
-                        "Rate limit exceeded" if remaining == 0 else "Authentication required"
-                    )
-                    return web.Response(status=status, text=error_msg)
-
-                is_authenticated = True
+                    if remaining == 0:
+                        return web.Response(status=429, text="Rate limit exceeded")
+                    # Allow unauthenticated read-only connections; write ops remain gated
+                    is_authenticated = False
+                else:
+                    is_authenticated = True
             else:
                 # Auth disabled - still track token if provided for optional validation
                 is_authenticated = True  # Everyone is "authenticated" when auth is disabled

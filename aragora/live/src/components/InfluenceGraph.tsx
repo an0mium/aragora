@@ -6,6 +6,7 @@ import * as d3Select from 'd3-selection';
 import { zoom as d3Zoom } from 'd3-zoom';
 import { drag as d3Drag, type D3DragEvent } from 'd3-drag';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 
 // =============================================================================
 // Types
@@ -103,6 +104,8 @@ export function InfluenceGraph({
   const [selectedNode, setSelectedNode] = useState<BeliefNode | null>(null);
   const [showLabels, setShowLabels] = useState(true);
 
+  const { tokens } = useAuth();
+
   // Fetch network data
   const fetchNetworkData = useCallback(async () => {
     if (!debateId) return;
@@ -111,8 +114,13 @@ export function InfluenceGraph({
     setError(null);
 
     try {
+      const headers: HeadersInit = {};
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
       const response = await fetch(
-        `${apiBase}/api/belief-network/${debateId}/graph`
+        `${apiBase}/api/belief-network/${debateId}/graph`,
+        { headers }
       );
 
       if (!response.ok) {
@@ -127,7 +135,7 @@ export function InfluenceGraph({
     } finally {
       setLoading(false);
     }
-  }, [debateId, apiBase]);
+  }, [debateId, apiBase, tokens?.access_token]);
 
   useEffect(() => {
     if (debateId && !initialData) {

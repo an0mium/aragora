@@ -32,6 +32,7 @@ from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     error_response,
+    require_permission,
     success_response,
 )
 from aragora.server.handlers.utils.responses import HandlerResult
@@ -227,6 +228,7 @@ async def handle_add_team_member(
         return error_response(f"Add team member failed: {str(e)}", status=500)
 
 
+@require_permission("org:members")
 async def handle_remove_team_member(
     data: dict[str, Any],
     inbox_id: str = "",

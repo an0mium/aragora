@@ -38,6 +38,7 @@ from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    require_permission,
     success_response,
 )
 
@@ -395,6 +396,7 @@ async def handle_update_expense(
         return error_response(f"Failed to update expense: {e}", status=500)
 
 
+@require_permission("admin:audit")
 async def handle_delete_expense(
     expense_id: str,
     user_id: str = "default",

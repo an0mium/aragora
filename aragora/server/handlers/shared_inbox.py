@@ -37,6 +37,7 @@ from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    require_permission,
     success_response,
 )
 
@@ -1299,6 +1300,7 @@ async def handle_update_routing_rule(
         }
 
 
+@require_permission("admin:system")
 async def handle_delete_routing_rule(
     rule_id: str,
 ) -> Dict[str, Any]:

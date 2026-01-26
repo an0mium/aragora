@@ -72,6 +72,26 @@ from aragora.workflow.templates.marketing import (
     ECOMMERCE_ORDER_SYNC_TEMPLATE,
     MARKETING_TEMPLATES,
 )
+from aragora.workflow.templates.sme import (
+    create_vendor_evaluation_workflow,
+    create_hiring_decision_workflow,
+    create_budget_allocation_workflow,
+    create_business_decision_workflow,
+    create_invoice_workflow,
+    create_followup_workflow,
+    create_inventory_alert_workflow,
+    create_report_workflow,
+)
+from aragora.workflow.templates.quickstart import (
+    create_yes_no_workflow,
+    create_pros_cons_workflow,
+    create_risk_assessment_workflow,
+    create_brainstorm_workflow,
+    quick_decision,
+    quick_analysis,
+    quick_risks,
+    quick_ideas,
+)
 
 # Template registry
 WORKFLOW_TEMPLATES = {
@@ -215,4 +235,22 @@ __all__ = [
     "SUPPORT_TICKET_TRIAGE_TEMPLATE",
     "ECOMMERCE_ORDER_SYNC_TEMPLATE",
     "MARKETING_TEMPLATES",
+    # SME Templates
+    "create_vendor_evaluation_workflow",
+    "create_hiring_decision_workflow",
+    "create_budget_allocation_workflow",
+    "create_business_decision_workflow",
+    "create_invoice_workflow",
+    "create_followup_workflow",
+    "create_inventory_alert_workflow",
+    "create_report_workflow",
+    # Quickstart Templates
+    "create_yes_no_workflow",
+    "create_pros_cons_workflow",
+    "create_risk_assessment_workflow",
+    "create_brainstorm_workflow",
+    "quick_decision",
+    "quick_analysis",
+    "quick_risks",
+    "quick_ideas",
 ]

@@ -12,6 +12,7 @@ import { ArchivedDebateView } from './ArchivedDebateView';
 import type { DebateViewerProps, DebateArtifact, StreamingMessage, CruxClaim } from './types';
 import { logger } from '@/utils/logger';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
 
@@ -28,6 +29,8 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
   // Crux highlighting state
   const [cruxes, setCruxes] = useState<CruxClaim[]>([]);
   const [showCruxHighlighting, setShowCruxHighlighting] = useState(true);
+
+  const { tokens } = useAuth();
 
   const isLiveDebate = debateId.startsWith('adhoc_');
 
@@ -64,7 +67,14 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
 
     const fetchCruxes = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/belief-network/${debateId}/cruxes?top_k=5`);
+        const headers: HeadersInit = {};
+        if (tokens?.access_token) {
+          headers['Authorization'] = `Bearer ${tokens.access_token}`;
+        }
+        const response = await fetch(
+          `${API_BASE_URL}/api/belief-network/${debateId}/cruxes?top_k=5`,
+          { headers }
+        );
         if (response.ok) {
           const data = await response.json();
           if (data.cruxes && data.cruxes.length > 0) {
@@ -84,7 +94,7 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
     // Delay fetch slightly to let debate settle
     const timer = setTimeout(fetchCruxes, 2000);
     return () => clearTimeout(timer);
-  }, [liveMessages.length, cruxes.length, debateId, isLiveDebate]);
+  }, [liveMessages.length, cruxes.length, debateId, isLiveDebate, tokens?.access_token]);
 
   // Detect when user manually scrolls up
   const handleScroll = useCallback(() => {

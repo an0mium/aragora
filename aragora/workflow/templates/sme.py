@@ -571,12 +571,497 @@ def renewal_followup_campaign() -> WorkflowDefinition:
     )
 
 
+# =============================================================================
+# SME Decision Templates
+# =============================================================================
+
+
+def create_vendor_evaluation_workflow(
+    vendor_name: str,
+    evaluation_criteria: Optional[List[str]] = None,
+    budget_range: Optional[str] = None,
+    timeline: str = "30 days",
+    require_approval: bool = True,
+) -> WorkflowDefinition:
+    """Create a vendor evaluation workflow.
+
+    Evaluates potential vendors based on criteria like cost, reliability,
+    quality, and fit with business needs.
+
+    Args:
+        vendor_name: Name of vendor to evaluate
+        evaluation_criteria: Custom criteria (defaults to standard set)
+        budget_range: Budget constraints (e.g., "$10k-$50k")
+        timeline: Decision timeline
+        require_approval: Whether to require human approval
+
+    Returns:
+        WorkflowDefinition for vendor evaluation
+
+    Example:
+        workflow = create_vendor_evaluation_workflow(
+            vendor_name="Acme Corp",
+            evaluation_criteria=["price", "support", "integration"],
+            budget_range="$20k-$40k",
+        )
+    """
+    workflow_id = (
+        f"vendor_eval_{vendor_name.lower().replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}"
+    )
+    criteria = evaluation_criteria or [
+        "pricing",
+        "reliability",
+        "support",
+        "integration",
+        "scalability",
+    ]
+
+    return WorkflowDefinition(
+        id=workflow_id,
+        name=f"Vendor Evaluation: {vendor_name}",
+        description=f"Evaluate {vendor_name} as a potential vendor",
+        category=WorkflowCategory.GENERAL,
+        tags=["sme", "vendor", "evaluation", "decision"],
+        inputs={
+            "vendor_name": vendor_name,
+            "criteria": criteria,
+            "budget_range": budget_range,
+            "timeline": timeline,
+        },
+        steps=[
+            StepDefinition(
+                id="gather",
+                name="Gather Information",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": f"Research {vendor_name}: pricing, reviews, capabilities",
+                },
+                next_steps=["debate"],
+            ),
+            StepDefinition(
+                id="debate",
+                name="Multi-Agent Evaluation",
+                step_type="debate",
+                config={
+                    "agents": ["claude", "gpt-4", "gemini"],
+                    "topic": f"Should we proceed with {vendor_name}?",
+                    "rounds": 3,
+                    "criteria": criteria,
+                },
+                next_steps=["score"],
+            ),
+            StepDefinition(
+                id="score",
+                name="Score Criteria",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Score vendor on each criterion (1-10)",
+                },
+                next_steps=["recommend"],
+            ),
+            StepDefinition(
+                id="recommend",
+                name="Generate Recommendation",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Synthesize debate and generate recommendation",
+                },
+                next_steps=["review"] if require_approval else ["store"],
+            ),
+            StepDefinition(
+                id="review",
+                name="Human Review",
+                step_type="human_checkpoint",
+                config={
+                    "checkpoint_type": "approval",
+                    "title": f"Review {vendor_name} Evaluation",
+                },
+                next_steps=["store"],
+            ),
+            StepDefinition(
+                id="store",
+                name="Store Decision",
+                step_type="memory_write",
+                config={
+                    "collection": "vendor_evaluations",
+                },
+                next_steps=[],
+            ),
+        ],
+        entry_step="gather",
+    )
+
+
+def create_hiring_decision_workflow(
+    position: str,
+    candidate_name: str,
+    interview_notes: Optional[str] = None,
+    team_size: int = 5,
+    urgency: str = "normal",
+) -> WorkflowDefinition:
+    """Create a hiring decision workflow.
+
+    Evaluates a candidate for a position using multi-agent debate
+    to assess fit, skills, and potential.
+
+    Args:
+        position: Job position/title
+        candidate_name: Candidate's name
+        interview_notes: Interview notes or resume summary
+        team_size: Current team size (for fit assessment)
+        urgency: Urgency level (low, normal, high)
+
+    Returns:
+        WorkflowDefinition for hiring decision
+
+    Example:
+        workflow = create_hiring_decision_workflow(
+            position="Senior Developer",
+            candidate_name="Jane Doe",
+            interview_notes="Strong Python skills, 5 years experience...",
+        )
+    """
+    workflow_id = f"hire_{position.lower().replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}"
+
+    return WorkflowDefinition(
+        id=workflow_id,
+        name=f"Hiring Decision: {candidate_name} for {position}",
+        description=f"Evaluate {candidate_name} for {position}",
+        category=WorkflowCategory.GENERAL,
+        tags=["sme", "hiring", "hr", "decision"],
+        inputs={
+            "position": position,
+            "candidate_name": candidate_name,
+            "interview_notes": interview_notes,
+            "team_size": team_size,
+            "urgency": urgency,
+        },
+        steps=[
+            StepDefinition(
+                id="analyze",
+                name="Analyze Candidate",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": f"Analyze {candidate_name}'s qualifications for {position}",
+                },
+                next_steps=["debate"],
+            ),
+            StepDefinition(
+                id="debate",
+                name="Team Fit Debate",
+                step_type="debate",
+                config={
+                    "agents": ["claude", "gpt-4"],
+                    "topic": f"Is {candidate_name} a good fit for {position}?",
+                    "rounds": 3,
+                    "focus_areas": ["skills", "culture", "growth_potential"],
+                },
+                next_steps=["risks"],
+            ),
+            StepDefinition(
+                id="risks",
+                name="Risk Assessment",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Identify hiring risks and mitigation strategies",
+                },
+                next_steps=["recommend"],
+            ),
+            StepDefinition(
+                id="recommend",
+                name="Final Recommendation",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Generate hiring recommendation with rationale",
+                },
+                next_steps=["approval"],
+            ),
+            StepDefinition(
+                id="approval",
+                name="Manager Approval",
+                step_type="human_checkpoint",
+                config={
+                    "checkpoint_type": "approval",
+                    "title": f"Approve hiring {candidate_name}?",
+                },
+                next_steps=["store"],
+            ),
+            StepDefinition(
+                id="store",
+                name="Record Decision",
+                step_type="memory_write",
+                config={
+                    "collection": "hiring_decisions",
+                },
+                next_steps=[],
+            ),
+        ],
+        entry_step="analyze",
+    )
+
+
+def create_budget_allocation_workflow(
+    department: str,
+    total_budget: float,
+    categories: Optional[List[str]] = None,
+    fiscal_year: Optional[str] = None,
+    constraints: Optional[List[str]] = None,
+) -> WorkflowDefinition:
+    """Create a budget allocation workflow.
+
+    Uses multi-agent debate to determine optimal budget allocation
+    across categories or projects.
+
+    Args:
+        department: Department name
+        total_budget: Total budget amount
+        categories: Budget categories to allocate
+        fiscal_year: Fiscal year for allocation
+        constraints: Budget constraints or requirements
+
+    Returns:
+        WorkflowDefinition for budget allocation
+
+    Example:
+        workflow = create_budget_allocation_workflow(
+            department="Engineering",
+            total_budget=500000,
+            categories=["infrastructure", "tools", "training", "contractors"],
+        )
+    """
+    workflow_id = (
+        f"budget_{department.lower().replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}"
+    )
+    year = fiscal_year or datetime.now().strftime("%Y")
+    budget_categories = categories or ["operations", "growth", "maintenance", "innovation"]
+
+    return WorkflowDefinition(
+        id=workflow_id,
+        name=f"Budget Allocation: {department} FY{year}",
+        description=f"Allocate ${total_budget:,.0f} budget for {department}",
+        category=WorkflowCategory.ACCOUNTING,
+        tags=["sme", "budget", "finance", "decision"],
+        inputs={
+            "department": department,
+            "total_budget": total_budget,
+            "categories": budget_categories,
+            "fiscal_year": year,
+            "constraints": constraints or [],
+        },
+        steps=[
+            StepDefinition(
+                id="analyze",
+                name="Analyze Needs",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": f"Analyze {department}'s budget needs for FY{year}",
+                },
+                next_steps=["historical"],
+            ),
+            StepDefinition(
+                id="historical",
+                name="Historical Analysis",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Analyze historical spending patterns and trends",
+                },
+                next_steps=["debate"],
+            ),
+            StepDefinition(
+                id="debate",
+                name="Allocation Debate",
+                step_type="debate",
+                config={
+                    "agents": ["claude", "gpt-4", "gemini"],
+                    "topic": f"How to allocate ${total_budget:,.0f} across {len(budget_categories)} categories?",
+                    "rounds": 3,
+                    "categories": budget_categories,
+                },
+                next_steps=["propose"],
+            ),
+            StepDefinition(
+                id="propose",
+                name="Generate Proposals",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Generate 3 budget allocation proposals",
+                },
+                next_steps=["review"],
+            ),
+            StepDefinition(
+                id="review",
+                name="CFO Review",
+                step_type="human_checkpoint",
+                config={
+                    "checkpoint_type": "selection",
+                    "title": "Select budget allocation proposal",
+                },
+                next_steps=["finalize"],
+            ),
+            StepDefinition(
+                id="finalize",
+                name="Finalize Budget",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Finalize budget with selected allocation",
+                },
+                next_steps=["store"],
+            ),
+            StepDefinition(
+                id="store",
+                name="Record Allocation",
+                step_type="memory_write",
+                config={
+                    "collection": "budget_allocations",
+                },
+                next_steps=[],
+            ),
+        ],
+        entry_step="analyze",
+    )
+
+
+def create_business_decision_workflow(
+    decision_topic: str,
+    context: Optional[str] = None,
+    stakeholders: Optional[List[str]] = None,
+    urgency: str = "normal",
+    impact_level: str = "medium",
+) -> WorkflowDefinition:
+    """Create a general business decision workflow.
+
+    Flexible workflow for any strategic business decision using
+    multi-agent debate for thorough analysis.
+
+    Args:
+        decision_topic: Topic or question to decide
+        context: Background context for the decision
+        stakeholders: List of stakeholders affected
+        urgency: Decision urgency (low, normal, high, critical)
+        impact_level: Impact level (low, medium, high)
+
+    Returns:
+        WorkflowDefinition for business decision
+
+    Example:
+        workflow = create_business_decision_workflow(
+            decision_topic="Should we expand to the European market?",
+            context="We have 50% US market share...",
+            impact_level="high",
+        )
+    """
+    workflow_id = f"decision_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+    return WorkflowDefinition(
+        id=workflow_id,
+        name=f"Business Decision: {decision_topic[:50]}",
+        description=f"Analyze and decide: {decision_topic}",
+        category=WorkflowCategory.GENERAL,
+        tags=["sme", "business", "strategy", "decision"],
+        inputs={
+            "topic": decision_topic,
+            "context": context,
+            "stakeholders": stakeholders or [],
+            "urgency": urgency,
+            "impact_level": impact_level,
+        },
+        steps=[
+            StepDefinition(
+                id="frame",
+                name="Frame Decision",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": f"Frame the decision: {decision_topic}",
+                },
+                next_steps=["research"],
+            ),
+            StepDefinition(
+                id="research",
+                name="Research & Analysis",
+                step_type="parallel",
+                config={
+                    "sub_steps": ["market", "internal", "risks"],
+                },
+                next_steps=["debate"],
+            ),
+            StepDefinition(
+                id="debate",
+                name="Strategic Debate",
+                step_type="debate",
+                config={
+                    "agents": ["claude", "gpt-4", "gemini"],
+                    "topic": decision_topic,
+                    "rounds": 4,
+                    "perspectives": ["optimist", "skeptic", "pragmatist"],
+                },
+                next_steps=["options"],
+            ),
+            StepDefinition(
+                id="options",
+                name="Generate Options",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Generate 3-5 decision options with pros/cons",
+                },
+                next_steps=["recommend"],
+            ),
+            StepDefinition(
+                id="recommend",
+                name="Final Recommendation",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Synthesize debate into recommendation",
+                },
+                next_steps=["approve"] if impact_level == "high" else ["store"],
+            ),
+            StepDefinition(
+                id="approve",
+                name="Executive Approval",
+                step_type="human_checkpoint",
+                config={
+                    "checkpoint_type": "approval",
+                    "title": f"Approve: {decision_topic[:30]}",
+                },
+                next_steps=["store"],
+            ),
+            StepDefinition(
+                id="store",
+                name="Record Decision",
+                step_type="memory_write",
+                config={
+                    "collection": "business_decisions",
+                },
+                next_steps=[],
+            ),
+        ],
+        entry_step="frame",
+    )
+
+
 __all__ = [
     # Main factory functions
     "create_invoice_workflow",
     "create_followup_workflow",
     "create_inventory_alert_workflow",
     "create_report_workflow",
+    # SME Decision templates
+    "create_vendor_evaluation_workflow",
+    "create_hiring_decision_workflow",
+    "create_budget_allocation_workflow",
+    "create_business_decision_workflow",
     # Quick convenience functions
     "quick_invoice",
     "weekly_sales_report",
