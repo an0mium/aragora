@@ -495,6 +495,52 @@ PERM_TEAM_SHARE = _permission(
 )
 
 # ============================================================================
+# WORKSPACE PERMISSIONS - SME RBAC-lite
+# ============================================================================
+
+# Workspace CRUD operations
+PERM_WORKSPACE_CREATE = _permission(
+    ResourceType.WORKSPACE, Action.CREATE, "Create Workspaces", "Create new workspaces"
+)
+PERM_WORKSPACE_READ = _permission(
+    ResourceType.WORKSPACE, Action.READ, "View Workspaces", "View workspace details and settings"
+)
+PERM_WORKSPACE_UPDATE = _permission(
+    ResourceType.WORKSPACE, Action.UPDATE, "Update Workspaces", "Modify workspace settings"
+)
+PERM_WORKSPACE_DELETE = _permission(
+    ResourceType.WORKSPACE, Action.DELETE, "Delete Workspaces", "Remove workspaces"
+)
+
+# Workspace member management
+PERM_WORKSPACE_MEMBER_ADD = _permission(
+    ResourceType.WORKSPACE_MEMBER,
+    Action.ADD_MEMBER,
+    "Add Workspace Members",
+    "Invite users to workspaces",
+)
+PERM_WORKSPACE_MEMBER_REMOVE = _permission(
+    ResourceType.WORKSPACE_MEMBER,
+    Action.REMOVE_MEMBER,
+    "Remove Workspace Members",
+    "Remove users from workspaces",
+)
+PERM_WORKSPACE_MEMBER_CHANGE_ROLE = _permission(
+    ResourceType.WORKSPACE_MEMBER,
+    Action.CHANGE_ROLE,
+    "Change Member Roles",
+    "Modify member roles within workspaces",
+)
+
+# Workspace resource access
+PERM_WORKSPACE_SHARE = _permission(
+    ResourceType.WORKSPACE,
+    Action.SHARE,
+    "Share with Workspace",
+    "Grant workspace access to resources",
+)
+
+# ============================================================================
 # ENTERPRISE PERMISSIONS - Cost & Quota Management
 # ============================================================================
 
@@ -997,6 +1043,15 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_BACKUP_DELETE,
         PERM_DR_READ,
         PERM_DR_EXECUTE,
+        # Workspaces (SME RBAC-lite)
+        PERM_WORKSPACE_CREATE,
+        PERM_WORKSPACE_READ,
+        PERM_WORKSPACE_UPDATE,
+        PERM_WORKSPACE_DELETE,
+        PERM_WORKSPACE_MEMBER_ADD,
+        PERM_WORKSPACE_MEMBER_REMOVE,
+        PERM_WORKSPACE_MEMBER_CHANGE_ROLE,
+        PERM_WORKSPACE_SHARE,
     ]
 }
 
