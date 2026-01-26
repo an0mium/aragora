@@ -539,12 +539,12 @@ describe('Core Namespace APIs', () => {
         ok: true,
         text: () => Promise.resolve(JSON.stringify({
           id: 'key-new',
-          name: 'New Key',
+          prefix: 'ak_test_',
           key: 'ak_test_xxx'
         })),
       });
 
-      const result = await client.auth.createApiKey({ name: 'New Key' });
+      const result = await client.auth.createApiKey('New Key');
       expect(result.key).toBeDefined();
     });
   });
@@ -743,7 +743,7 @@ describe('Core Namespace APIs', () => {
     it('should expose explainability namespace', () => {
       const client = createClient({ baseUrl: 'https://api.example.com' });
       expect(client.explainability).toBeDefined();
-      expect(typeof client.explainability.explain).toBe('function');
+      expect(typeof client.explainability.get).toBe('function');
       expect(typeof client.explainability.getFactors).toBe('function');
     });
 
@@ -758,7 +758,7 @@ describe('Core Namespace APIs', () => {
         })),
       });
 
-      const result = await client.explainability.explain('debate-123');
+      const result = await client.explainability.get('debate-123');
       expect(result.summary).toContain('decision');
     });
 
