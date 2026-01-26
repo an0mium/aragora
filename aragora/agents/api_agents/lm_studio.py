@@ -50,7 +50,7 @@ class LMStudioAgent(APIAgent):
         timeout: int = 180,
         base_url: str | None = None,
         max_tokens: int = 4096,
-    ):
+    ) -> None:
         resolved_base = base_url or os.environ.get("LM_STUDIO_HOST", "http://localhost:1234")
         # Ensure /v1 suffix for OpenAI compatibility
         if not resolved_base.endswith("/v1"):

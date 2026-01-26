@@ -52,7 +52,7 @@ class OllamaAgent(APIAgent):
         role: AgentRole = "proposer",
         timeout: int = 180,
         base_url: str | None = None,
-    ):
+    ) -> None:
         super().__init__(
             name=name,
             model=model,
