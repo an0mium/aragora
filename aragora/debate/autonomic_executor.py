@@ -753,6 +753,27 @@ class AutonomicExecutor:
                     phase=phase,
                 )
                 return None
+            if not str(getattr(result, "choice", "")).strip():
+                if tracking_id and self.performance_monitor:
+                    self.performance_monitor.record_completion(
+                        tracking_id, success=False, error="empty vote choice"
+                    )
+                self._emit_agent_telemetry(
+                    agent.name,
+                    "vote",
+                    start_time,
+                    success=False,
+                    output=None,
+                    input_text=input_text,
+                )
+                self._emit_agent_error(
+                    agent.name,
+                    error_type="empty",
+                    message="Agent returned empty vote choice",
+                    recoverable=True,
+                    phase=phase,
+                )
+                return None
             if tracking_id and self.performance_monitor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=True, response=str(result) if result else None
