@@ -437,7 +437,7 @@ class KnowledgeMoundHandler(ChangeEventHandler):
         if self._mound is None:
             from aragora.knowledge.mound import KnowledgeMound
 
-            self._mound = KnowledgeMound(workspace_id=self.workspace_id)
+            self._mound = KnowledgeMound(workspace_id=self.workspace_id)  # type: ignore[abstract]
         return self._mound
 
     async def handle(self, event: ChangeEvent) -> bool:

@@ -477,9 +477,9 @@ class NomicHandler(SecureHandler):
     # =========================================================================
 
     @rate_limit(rpm=30)
-    async def handle_post(
+    async def handle_post(  # type: ignore[override]
         self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:  # type: ignore[override]
+    ) -> Optional[HandlerResult]:
         """Handle POST requests for control operations."""
         # Require authentication and admin permission for control operations
         try:

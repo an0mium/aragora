@@ -610,7 +610,7 @@ class EnterpriseConnector(BaseConnector):
                 },
             )
 
-            mound = KnowledgeMound(workspace_id=self.tenant_id)
+            mound = KnowledgeMound(workspace_id=self.tenant_id)  # type: ignore[abstract]
             await mound.initialize()
             result = await mound.store(request)  # type: ignore[arg-type,misc]
 

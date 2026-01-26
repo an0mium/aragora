@@ -200,7 +200,7 @@ class ContextGatherer:
         if self._enable_knowledge_grounding and KnowledgeMound is not None:
             if not self._knowledge_mound:
                 try:
-                    self._knowledge_mound = KnowledgeMound(
+                    self._knowledge_mound = KnowledgeMound(  # type: ignore[abstract]
                         workspace_id=self._knowledge_workspace_id
                     )
                     logger.info(

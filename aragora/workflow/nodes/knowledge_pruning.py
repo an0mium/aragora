@@ -80,7 +80,7 @@ class KnowledgePruningStep(BaseStep):
             from aragora.knowledge.mound import KnowledgeMound
             from aragora.knowledge.mound.ops.pruning import PruningAction, PruningPolicy
 
-            mound = KnowledgeMound(workspace_id=workspace_id)
+            mound = KnowledgeMound(workspace_id=workspace_id)  # type: ignore[abstract]
             await mound.initialize()
 
             # Create policy
@@ -192,7 +192,7 @@ class KnowledgeDedupStep(BaseStep):
         try:
             from aragora.knowledge.mound import KnowledgeMound
 
-            mound = KnowledgeMound(workspace_id=workspace_id)
+            mound = KnowledgeMound(workspace_id=workspace_id)  # type: ignore[abstract]
             await mound.initialize()
 
             # Generate dedup report
@@ -290,7 +290,7 @@ class ConfidenceDecayStep(BaseStep):
         try:
             from aragora.knowledge.mound import KnowledgeMound
 
-            mound = KnowledgeMound(workspace_id=workspace_id)
+            mound = KnowledgeMound(workspace_id=workspace_id)  # type: ignore[abstract]
             await mound.initialize()
 
             items_decayed = await mound.apply_confidence_decay(

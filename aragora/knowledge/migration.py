@@ -643,7 +643,7 @@ async def run_migration_cli(
     consensus = ConsensusMemory(db_path=get_db_path(DatabaseType.CONSENSUS_MEMORY))
 
     # Initialize target
-    mound = KnowledgeMound(workspace_id=workspace_id)
+    mound = KnowledgeMound(workspace_id=workspace_id)  # type: ignore[abstract]
     await mound.initialize()
 
     # Create migrator

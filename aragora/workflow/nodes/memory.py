@@ -76,7 +76,7 @@ class MemoryReadStep(BaseStep):
             )
 
             # Execute query
-            mound = KnowledgeMound(workspace_id=request.tenant_id)
+            mound = KnowledgeMound(workspace_id=request.tenant_id)  # type: ignore[abstract]
             await mound.initialize()
 
             result = await mound.query(
@@ -215,7 +215,7 @@ class MemoryWriteStep(BaseStep):
                         request.derived_from.append(target)
 
             # Execute write
-            mound = KnowledgeMound(workspace_id=tenant_id)
+            mound = KnowledgeMound(workspace_id=tenant_id)  # type: ignore[abstract]
             await mound.initialize()
 
             result = await mound.store(request)  # type: ignore[arg-type, misc]

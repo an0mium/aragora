@@ -274,7 +274,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
         if self._mound is None:
             from aragora.knowledge.mound import KnowledgeMound
 
-            self._mound = KnowledgeMound(workspace_id="default")
+            self._mound = KnowledgeMound(workspace_id="default")  # type: ignore[abstract]
             try:
                 _run_async(self._mound.initialize())
                 self._mound_initialized = True

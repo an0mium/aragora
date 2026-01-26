@@ -60,7 +60,7 @@ async def _get_orchestrator() -> Optional[Any]:
             from aragora.knowledge.mound import KnowledgeMound
 
             # Initialize with default mound
-            mound = KnowledgeMound()
+            mound = KnowledgeMound()  # type: ignore[abstract]
             await mound.initialize()
 
             _orchestrator_instance = RepositoryOrchestrator(

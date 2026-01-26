@@ -461,7 +461,7 @@ class RLMHandler(BaseHandler):
         try:
             from aragora.knowledge.mound import KnowledgeMound
 
-            mound = KnowledgeMound()
+            mound = KnowledgeMound()  # type: ignore[abstract]
         except ImportError:
             return {
                 "answer": "Knowledge Mound not available",
