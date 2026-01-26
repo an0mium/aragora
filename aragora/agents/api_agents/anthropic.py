@@ -239,15 +239,25 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                                         if title and url:
                                             text_parts.append(f"\n[Source: {title}]({url})")
 
+                        if text_parts:
+                            output = "\n".join(text_parts)
+                        else:
+                            # Fallback to old format
+                            output = data["content"][0]["text"]
+
+                        if not output or not output.strip():
+                            if self._circuit_breaker is not None:
+                                self._circuit_breaker.record_failure()
+                            raise AgentAPIError(
+                                "Anthropic returned empty content",
+                                agent_name=self.name,
+                            )
+
                         # Record success for circuit breaker
                         if self._circuit_breaker is not None:
                             self._circuit_breaker.record_success()
 
-                        if text_parts:
-                            return "\n".join(text_parts)
-
-                        # Fallback to old format
-                        return data["content"][0]["text"]
+                        return output
                     except (KeyError, IndexError):
                         if self._circuit_breaker is not None:
                             self._circuit_breaker.record_failure()

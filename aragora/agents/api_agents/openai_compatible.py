@@ -226,11 +226,18 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
                         tokens_out=usage.get("completion_tokens", 0),
                     )
 
+                    content = self._parse_response(data)
+                    if not content or not content.strip():
+                        if cb is not None:
+                            cb.record_failure()
+                        raise AgentAPIError(
+                            f"{self._get_error_prefix()} returned empty response",
+                            agent_name=self.name,
+                        )
                     # Record success for circuit breaker
                     if cb is not None:
                         cb.record_success()
-
-                    return self._parse_response(data)
+                    return content
         except (AgentAPIError, AgentCircuitOpenError):
             raise  # Re-raise without double-recording
         except Exception:
