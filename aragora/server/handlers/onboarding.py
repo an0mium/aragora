@@ -595,6 +595,7 @@ async def handle_update_step(
 async def handle_get_templates(
     data: Dict[str, Any],
     user_id: str = "default",
+    organization_id: Optional[str] = None,
 ) -> HandlerResult:
     """
     Get recommended starter templates.
@@ -938,6 +939,8 @@ async def handle_quick_start(
 
 
 async def handle_analytics(
+    data: Dict[str, Any],
+    user_id: str = "default",
     organization_id: Optional[str] = None,
 ) -> HandlerResult:
     """

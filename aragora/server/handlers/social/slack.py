@@ -1741,7 +1741,7 @@ class SlackHandler(BaseHandler):
         truncated = response[:2800] + "..." if len(response) > 2800 else response
 
         text = f"{agent} (Round {round_num})"
-        blocks = [
+        blocks: List[Dict[str, Any]] = [
             {
                 "type": "context",
                 "elements": [

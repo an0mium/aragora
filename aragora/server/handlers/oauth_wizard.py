@@ -36,7 +36,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 logger = logging.getLogger(__name__)
 
 # Provider configurations
-PROVIDERS = {
+PROVIDERS: Dict[str, Dict[str, Any]] = {
     "slack": {
         "name": "Slack",
         "description": "Connect Aragora to Slack workspaces for AI-powered debates in your channels",
