@@ -466,11 +466,13 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
             )
 
             # Extract text content from response
+            from anthropic.types import TextBlock
+
             first_block = response.content[0]
-            if not hasattr(first_block, "text"):
+            if not isinstance(first_block, TextBlock):
                 logger.warning("Response does not contain text content")
                 return []
-            content: str = getattr(first_block, "text", "").strip()
+            content: str = first_block.text.strip()
 
             # Extract JSON from response
             if "```json" in content:
