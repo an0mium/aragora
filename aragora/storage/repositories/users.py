@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Callable, ContextManager, Optional
 
 if TYPE_CHECKING:
     from aragora.billing.models import User
+    from aragora.storage.user_store import PostgresUserStore, UserStore
 
 logger = logging.getLogger(__name__)
 
@@ -500,18 +501,20 @@ class UserRepository:
 _user_repository: Optional[UserRepository] = None
 
 
-def get_user_repository() -> Optional[UserRepository]:
+def get_user_repository(
+    store: Optional["UserStore | PostgresUserStore"] = None,
+) -> Optional[UserRepository]:
     """Get or create the user repository from the configured user store."""
     global _user_repository
     if _user_repository is not None:
         return _user_repository
 
-    try:
-        from aragora.storage.user_store import get_user_store
-    except ImportError:
-        return None
-
-    store = get_user_store()
+    if store is None:
+        try:
+            from aragora.storage.user_store import get_user_store
+        except ImportError:
+            return None
+        store = get_user_store()
     if store is None:
         return None
 
@@ -523,3 +526,9 @@ def get_user_repository() -> Optional[UserRepository]:
         )
     _user_repository = repo
     return _user_repository
+
+
+def reset_user_repository() -> None:
+    """Reset the cached user repository (useful for tests)."""
+    global _user_repository
+    _user_repository = None
