@@ -55,6 +55,7 @@ logger = logging.getLogger(__name__)
 
 # tenant_id -> account_id -> sync_service (GmailSyncService or OutlookSyncService)
 _sync_services: Dict[str, Dict[str, Any]] = {}
+_sync_services_lock = asyncio.Lock()  # Thread-safe access to _sync_services
 
 
 def _convert_synced_message_to_unified(
@@ -586,9 +587,10 @@ class UnifiedInboxHandler(BaseHandler):
             else:
                 account.display_name = "Gmail User"
 
-            # Initialize tenant sync registry
-            if tenant_id not in _sync_services:
-                _sync_services[tenant_id] = {}
+            # Initialize tenant sync registry (thread-safe)
+            async with _sync_services_lock:
+                if tenant_id not in _sync_services:
+                    _sync_services[tenant_id] = {}
 
             # Create message callback that stores unified messages
             def on_message_synced(synced_msg: Any) -> None:
