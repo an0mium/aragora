@@ -63,7 +63,7 @@ def _check_permission(
 
     Args:
         auth_context: Optional AuthorizationContext
-        permission_key: Permission like "connectors.read" or "connectors.create"
+        permission_key: Permission like "connectors:read" or "connectors:create"
         resource_id: Optional resource ID for resource-specific permissions
 
     Returns:
@@ -116,7 +116,7 @@ async def handle_list_connectors(
     GET /api/connectors
     """
     # Check RBAC permission
-    perm_error = _check_permission(auth_context, "connectors.read")
+    perm_error = _check_permission(auth_context, "connectors:read")
     if perm_error:
         return perm_error
 
@@ -153,7 +153,7 @@ async def handle_get_connector(
     Requires connectors.read permission.
     """
     # Check RBAC permission
-    perm_error = _check_permission(auth_context, "connectors.read", connector_id)
+    perm_error = _check_permission(auth_context, "connectors:read", connector_id)
     if perm_error:
         return perm_error
 
@@ -194,7 +194,7 @@ async def handle_create_connector(
     }
     """
     # Check RBAC permission - creating connectors involves sensitive credentials
-    perm_error = _check_permission(auth_context, "connectors.create")
+    perm_error = _check_permission(auth_context, "connectors:create")
     if perm_error:
         return perm_error
 
@@ -247,7 +247,7 @@ async def handle_update_connector(
     }
     """
     # Check RBAC permission
-    perm_error = _check_permission(auth_context, "connectors.update", connector_id)
+    perm_error = _check_permission(auth_context, "connectors:update", connector_id)
     if perm_error:
         return perm_error
 
@@ -292,7 +292,7 @@ async def handle_delete_connector(
     DELETE /api/connectors/:connector_id
     """
     # Check RBAC permission
-    perm_error = _check_permission(auth_context, "connectors.delete", connector_id)
+    perm_error = _check_permission(auth_context, "connectors:delete", connector_id)
     if perm_error:
         return perm_error
 
@@ -390,7 +390,7 @@ async def handle_trigger_sync(
     }
     """
     # Check RBAC permission - triggering sync is an execute operation
-    perm_error = _check_permission(auth_context, "connectors.execute", connector_id)
+    perm_error = _check_permission(auth_context, "connectors:execute", connector_id)
     if perm_error:
         return perm_error
 
@@ -437,7 +437,7 @@ async def handle_get_sync_status(
     Requires connectors.read permission.
     """
     # Check RBAC permission
-    perm_error = _check_permission(auth_context, "connectors.read", connector_id)
+    perm_error = _check_permission(auth_context, "connectors:read", connector_id)
     if perm_error:
         return perm_error
 
@@ -474,7 +474,7 @@ async def handle_get_sync_history(
     Requires connectors.read permission.
     """
     # Check RBAC permission
-    perm_error = _check_permission(auth_context, "connectors.read", connector_id)
+    perm_error = _check_permission(auth_context, "connectors:read", connector_id)
     if perm_error:
         return perm_error
 
@@ -541,7 +541,7 @@ async def handle_start_scheduler(
     Requires connectors.execute permission.
     """
     # Check RBAC permission - starting scheduler is an admin operation
-    perm_error = _check_permission(auth_context, "connectors.execute")
+    perm_error = _check_permission(auth_context, "connectors:execute")
     if perm_error:
         return perm_error
 
@@ -572,7 +572,7 @@ async def handle_stop_scheduler(
     Requires connectors.execute permission.
     """
     # Check RBAC permission - stopping scheduler is an admin operation
-    perm_error = _check_permission(auth_context, "connectors.execute")
+    perm_error = _check_permission(auth_context, "connectors:execute")
     if perm_error:
         return perm_error
 
@@ -604,7 +604,7 @@ async def handle_get_scheduler_stats(
     Requires connectors.read permission.
     """
     # Check RBAC permission
-    perm_error = _check_permission(auth_context, "connectors.read")
+    perm_error = _check_permission(auth_context, "connectors:read")
     if perm_error:
         return perm_error
 
@@ -696,7 +696,7 @@ async def handle_mongodb_aggregate(
     - $addFields, $replaceRoot, $merge
     """
     # Check RBAC permission - executing aggregation is a data access operation
-    perm_error = _check_permission(auth_context, "connectors.execute", connector_id)
+    perm_error = _check_permission(auth_context, "connectors:execute", connector_id)
     if perm_error:
         return perm_error
 
@@ -763,7 +763,7 @@ async def handle_mongodb_collections(
     Requires connectors.read permission.
     """
     # Check RBAC permission
-    perm_error = _check_permission(auth_context, "connectors.read", connector_id)
+    perm_error = _check_permission(auth_context, "connectors:read", connector_id)
     if perm_error:
         return perm_error
 

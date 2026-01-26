@@ -17,7 +17,7 @@ Quick Start:
     )
 
     # Use decorators on handlers
-    @require_permission("debates.create")
+    @require_permission("debates:create")
     async def create_debate(context: AuthorizationContext, ...):
         ...
 

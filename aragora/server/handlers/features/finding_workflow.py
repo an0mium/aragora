@@ -241,7 +241,7 @@ class FindingWorkflowHandler(BaseHandler):
         }
         """
         # Check RBAC permission
-        if error := self._check_permission(request, "findings.update", finding_id):
+        if error := self._check_permission(request, "findings:update", finding_id):
             return error
 
         try:
@@ -353,7 +353,7 @@ class FindingWorkflowHandler(BaseHandler):
         }
         """
         # Check RBAC permission
-        if error := self._check_permission(request, "findings.assign", finding_id):
+        if error := self._check_permission(request, "findings:assign", finding_id):
             return error
 
         try:
@@ -430,7 +430,7 @@ class FindingWorkflowHandler(BaseHandler):
     async def _unassign(self, request: Any, finding_id: str) -> dict[str, Any]:
         """Remove assignment from finding."""
         # Check RBAC permission
-        if error := self._check_permission(request, "findings.assign", finding_id):
+        if error := self._check_permission(request, "findings:assign", finding_id):
             return error
 
         comment = ""
@@ -495,7 +495,7 @@ class FindingWorkflowHandler(BaseHandler):
         }
         """
         # Check RBAC permission (read permission is sufficient for comments)
-        if error := self._check_permission(request, "findings.read", finding_id):
+        if error := self._check_permission(request, "findings:read", finding_id):
             return error
 
         try:
@@ -561,7 +561,7 @@ class FindingWorkflowHandler(BaseHandler):
     async def _get_comments(self, request: Any, finding_id: str) -> dict[str, Any]:
         """Get all comments for a finding."""
         # Check RBAC permission
-        if error := self._check_permission(request, "findings.read", finding_id):
+        if error := self._check_permission(request, "findings:read", finding_id):
             return error
 
         workflow_dict = await self._get_or_create_workflow(finding_id)
@@ -579,7 +579,7 @@ class FindingWorkflowHandler(BaseHandler):
     async def _get_history(self, request: Any, finding_id: str) -> dict[str, Any]:
         """Get full workflow history for a finding."""
         # Check RBAC permission
-        if error := self._check_permission(request, "findings.read", finding_id):
+        if error := self._check_permission(request, "findings:read", finding_id):
             return error
 
         workflow_dict = await self._get_or_create_workflow(finding_id)
@@ -607,7 +607,7 @@ class FindingWorkflowHandler(BaseHandler):
         }
         """
         # Check RBAC permission
-        if error := self._check_permission(request, "findings.update", finding_id):
+        if error := self._check_permission(request, "findings:update", finding_id):
             return error
 
         try:
@@ -695,7 +695,7 @@ class FindingWorkflowHandler(BaseHandler):
         }
         """
         # Check RBAC permission
-        if error := self._check_permission(request, "findings.update", finding_id):
+        if error := self._check_permission(request, "findings:update", finding_id):
             return error
 
         try:
@@ -753,7 +753,7 @@ class FindingWorkflowHandler(BaseHandler):
         }
         """
         # Check RBAC permission
-        if error := self._check_permission(request, "findings.update", finding_id):
+        if error := self._check_permission(request, "findings:update", finding_id):
             return error
 
         try:
@@ -808,7 +808,7 @@ class FindingWorkflowHandler(BaseHandler):
         }
         """
         # Check RBAC permission
-        if error := self._check_permission(request, "findings.update", finding_id):
+        if error := self._check_permission(request, "findings:update", finding_id):
             return error
 
         try:
@@ -875,7 +875,7 @@ class FindingWorkflowHandler(BaseHandler):
         }
         """
         # Check RBAC permission for bulk operations
-        if error := self._check_permission(request, "findings.bulk"):
+        if error := self._check_permission(request, "findings:bulk"):
             return error
 
         try:
@@ -956,7 +956,7 @@ class FindingWorkflowHandler(BaseHandler):
     async def _get_my_assignments(self, request: Any) -> dict[str, Any]:
         """Get findings assigned to the current user."""
         # Check RBAC permission
-        if error := self._check_permission(request, "findings.read"):
+        if error := self._check_permission(request, "findings:read"):
             return error
 
         user_id, _ = self._get_user_from_request(request)
@@ -984,7 +984,7 @@ class FindingWorkflowHandler(BaseHandler):
     async def _get_overdue(self, request: Any) -> dict[str, Any]:
         """Get all overdue findings."""
         # Check RBAC permission
-        if error := self._check_permission(request, "findings.read"):
+        if error := self._check_permission(request, "findings:read"):
             return error
 
         store = get_finding_workflow_store()
@@ -1004,7 +1004,7 @@ class FindingWorkflowHandler(BaseHandler):
     async def _get_workflow_states(self, request: Any) -> dict[str, Any]:
         """Get valid workflow states and transitions."""
         # Check RBAC permission
-        if error := self._check_permission(request, "findings.read"):
+        if error := self._check_permission(request, "findings:read"):
             return error
 
         try:
@@ -1072,7 +1072,7 @@ class FindingWorkflowHandler(BaseHandler):
     async def _get_presets(self, request: Any) -> dict[str, Any]:
         """Get available audit presets."""
         # Check RBAC permission
-        if error := self._check_permission(request, "findings.read"):
+        if error := self._check_permission(request, "findings:read"):
             return error
 
         try:
@@ -1104,7 +1104,7 @@ class FindingWorkflowHandler(BaseHandler):
     async def _get_audit_types(self, request: Any) -> dict[str, Any]:
         """Get registered audit types."""
         # Check RBAC permission
-        if error := self._check_permission(request, "findings.read"):
+        if error := self._check_permission(request, "findings:read"):
             return error
 
         try:

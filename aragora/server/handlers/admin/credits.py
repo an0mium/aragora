@@ -40,7 +40,7 @@ class CreditsAdminHandler(SecureHandler):
 
     RESOURCE_TYPE = "credits"
 
-    @require_permission("admin.credits.issue")
+    @require_permission("admin:credits:issue")
     async def issue_credit(
         self,
         org_id: str,
@@ -103,7 +103,7 @@ class CreditsAdminHandler(SecureHandler):
             status=201,
         )
 
-    @require_permission("admin.credits.view")
+    @require_permission("admin:credits:view")
     async def get_credit_account(self, org_id: str) -> HandlerResult:
         """Get credit account details for an organization.
 
@@ -118,7 +118,7 @@ class CreditsAdminHandler(SecureHandler):
 
         return json_response({"account": account.to_dict()})
 
-    @require_permission("admin.credits.view")
+    @require_permission("admin:credits:view")
     async def list_transactions(
         self,
         org_id: str,
@@ -163,7 +163,7 @@ class CreditsAdminHandler(SecureHandler):
             }
         )
 
-    @require_permission("admin.credits.adjust")
+    @require_permission("admin:credits:adjust")
     async def adjust_balance(
         self,
         org_id: str,
@@ -206,7 +206,7 @@ class CreditsAdminHandler(SecureHandler):
 
         return json_response({"transaction": transaction.to_dict()})
 
-    @require_permission("admin.credits.view")
+    @require_permission("admin:credits:view")
     async def get_expiring_credits(
         self,
         org_id: str,

@@ -1101,14 +1101,14 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         if auth_ctx is not None and hasattr(auth_ctx, "permissions"):
             # Execute requires workflow.execute, create requires workflow.create
             required_perm = (
-                "workflow.execute"
+                "workflows:execute"
                 if path.endswith(("/execute", "/simulate"))
-                else "workflow.create"
+                else "workflows:create"
             )
             if path.endswith("/resolve"):
-                required_perm = "workflow.approve"
+                required_perm = "workflows:approve"
             elif path.endswith("/restore"):
-                required_perm = "workflow.update"
+                required_perm = "workflows:update"
             if (
                 required_perm not in auth_ctx.permissions
                 and "workflow.*" not in auth_ctx.permissions
@@ -1168,7 +1168,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         # RBAC permission check for update operations
         if auth_ctx is not None and hasattr(auth_ctx, "permissions"):
             if (
-                "workflow.update" not in auth_ctx.permissions
+                "workflows:update" not in auth_ctx.permissions
                 and "workflow.*" not in auth_ctx.permissions
             ):
                 logger.warning(f"User {auth_ctx.user_id} denied workflow.update permission")
@@ -1206,9 +1206,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         if auth_ctx is not None and hasattr(auth_ctx, "permissions"):
             # Terminating executions requires execute permission, deleting workflows requires delete
             required_perm = (
-                "workflow.execute"
-                if "/workflow-executions/" in path
-                else "workflow.delete"
+                "workflows:execute" if "/workflow-executions/" in path else "workflows:delete"
             )
             if (
                 required_perm not in auth_ctx.permissions
@@ -1253,7 +1251,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     def _handle_list_workflows(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflows."""
         # RBAC check
-        if error := self._check_permission(handler, "workflows.read"):
+        if error := self._check_permission(handler, "workflows:read"):
             return error
 
         try:
@@ -1278,7 +1276,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     ) -> HandlerResult:
         """Handle GET /api/workflows/{id}."""
         # RBAC check
-        if error := self._check_permission(handler, "workflows.read", workflow_id):
+        if error := self._check_permission(handler, "workflows:read", workflow_id):
             return error
 
         try:
@@ -1301,7 +1299,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     ) -> HandlerResult:
         """Handle POST /api/workflows."""
         # RBAC check
-        if error := self._check_permission(handler, "workflows.create"):
+        if error := self._check_permission(handler, "workflows:create"):
             return error
 
         try:
@@ -1336,7 +1334,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     ) -> HandlerResult:
         """Handle PATCH /api/workflows/{id}."""
         # RBAC check
-        if error := self._check_permission(handler, "workflows.update", workflow_id):
+        if error := self._check_permission(handler, "workflows:update", workflow_id):
             return error
 
         try:
@@ -1365,7 +1363,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     ) -> HandlerResult:
         """Handle DELETE /api/workflows/{id}."""
         # RBAC check
-        if error := self._check_permission(handler, "workflows.delete", workflow_id):
+        if error := self._check_permission(handler, "workflows:delete", workflow_id):
             return error
 
         try:
@@ -1391,7 +1389,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     ) -> HandlerResult:
         """Handle POST /api/workflows/{id}/execute."""
         # RBAC check - execute requires specific permission
-        if error := self._check_permission(handler, "workflows.execute", workflow_id):
+        if error := self._check_permission(handler, "workflows:execute", workflow_id):
             return error
 
         try:
@@ -1421,7 +1419,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     ) -> HandlerResult:
         """Handle POST /api/workflows/{id}/simulate (dry-run)."""
         # RBAC check - simulate only needs read permission
-        if error := self._check_permission(handler, "workflows.read", workflow_id):
+        if error := self._check_permission(handler, "workflows:read", workflow_id):
             return error
 
         try:
@@ -1482,7 +1480,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     ) -> HandlerResult:
         """Handle GET /api/workflows/{id}/status."""
         # RBAC check
-        if error := self._check_permission(handler, "workflows.read", workflow_id):
+        if error := self._check_permission(handler, "workflows:read", workflow_id):
             return error
 
         try:
@@ -1508,7 +1506,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     ) -> HandlerResult:
         """Handle GET /api/workflows/{id}/versions."""
         # RBAC check
-        if error := self._check_permission(handler, "workflows.read", workflow_id):
+        if error := self._check_permission(handler, "workflows:read", workflow_id):
             return error
 
         try:
@@ -1537,7 +1535,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         Requires workflows.update permission.
         """
         # RBAC check - restore requires update permission
-        if error := self._check_permission(handler, "workflows.update", workflow_id):
+        if error := self._check_permission(handler, "workflows:update", workflow_id):
             return error
 
         try:
@@ -1563,7 +1561,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         Requires workflows.execute permission.
         """
         # RBAC check - terminate requires execute permission
-        if error := self._check_permission(handler, "workflows.execute", execution_id):
+        if error := self._check_permission(handler, "workflows:execute", execution_id):
             return error
 
         try:
@@ -1582,7 +1580,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     def _handle_list_templates(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-templates."""
         # RBAC check - templates require read permission
-        if error := self._check_permission(handler, "workflows.read"):
+        if error := self._check_permission(handler, "workflows:read"):
             return error
 
         try:
@@ -1602,7 +1600,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     def _handle_list_approvals(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-approvals."""
         # RBAC check - approvals require read permission
-        if error := self._check_permission(handler, "workflows.read"):
+        if error := self._check_permission(handler, "workflows:read"):
             return error
 
         try:
@@ -1628,7 +1626,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         Used by the runtime monitoring dashboard.
         """
         # RBAC check
-        if error := self._check_permission(handler, "workflows.read"):
+        if error := self._check_permission(handler, "workflows:read"):
             return error
 
         try:
@@ -1671,7 +1669,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         Used for polling workflow execution progress.
         """
         # RBAC check
-        if error := self._check_permission(handler, "workflows.read", execution_id):
+        if error := self._check_permission(handler, "workflows:read", execution_id):
             return error
 
         try:
@@ -1692,7 +1690,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     ) -> HandlerResult:
         """Handle POST /api/workflow-approvals/{id}/resolve."""
         # RBAC check - resolving approvals requires approve permission
-        if error := self._check_permission(handler, "workflows.approve", request_id):
+        if error := self._check_permission(handler, "workflows:approve", request_id):
             return error
 
         try:

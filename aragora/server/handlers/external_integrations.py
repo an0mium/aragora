@@ -169,7 +169,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
         Args:
             handler: The HTTP handler
-            permission_key: Permission like "integrations.read" or "integrations.create"
+            permission_key: Permission like "integrations:read" or "integrations:create"
             resource_id: Optional resource ID for resource-specific permissions
 
         Returns:
@@ -383,7 +383,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     def _handle_list_zapier_apps(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/zapier/apps - list Zapier apps."""
         # Check RBAC permission
-        perm_error = self._check_permission(handler, "integrations.read")
+        perm_error = self._check_permission(handler, "integrations:read")
         if perm_error:
             return perm_error
 
@@ -424,7 +424,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     def _handle_create_zapier_app(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/zapier/apps - create Zapier app."""
         # Check RBAC permission - creating integrations exposes API keys
-        perm_error = self._check_permission(handler, "integrations.create")
+        perm_error = self._check_permission(handler, "integrations:create")
         if perm_error:
             return perm_error
 
@@ -462,7 +462,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     def _handle_delete_zapier_app(self, app_id: str, handler: Any) -> HandlerResult:
         """Handle DELETE /api/integrations/zapier/apps/:id - delete Zapier app."""
         # Check RBAC permission
-        perm_error = self._check_permission(handler, "integrations.delete", app_id)
+        perm_error = self._check_permission(handler, "integrations:delete", app_id)
         if perm_error:
             return perm_error
 
@@ -484,7 +484,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     def _handle_subscribe_zapier_trigger(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/zapier/triggers - subscribe to trigger."""
         # Check RBAC permission - subscribing creates webhooks
-        perm_error = self._check_permission(handler, "integrations.create")
+        perm_error = self._check_permission(handler, "integrations:create")
         if perm_error:
             return perm_error
 
@@ -529,7 +529,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     ) -> HandlerResult:
         """Handle DELETE /api/integrations/zapier/triggers/:id - unsubscribe."""
         # Check RBAC permission
-        perm_error = self._check_permission(handler, "integrations.delete", trigger_id)
+        perm_error = self._check_permission(handler, "integrations:delete", trigger_id)
         if perm_error:
             return perm_error
 
@@ -550,7 +550,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     def _handle_list_make_connections(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/make/connections - list connections."""
         # Check RBAC permission
-        perm_error = self._check_permission(handler, "integrations.read")
+        perm_error = self._check_permission(handler, "integrations:read")
         if perm_error:
             return perm_error
 
@@ -589,7 +589,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     def _handle_create_make_connection(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/make/connections - create connection."""
         # Check RBAC permission - creating integrations exposes API keys
-        perm_error = self._check_permission(handler, "integrations.create")
+        perm_error = self._check_permission(handler, "integrations:create")
         if perm_error:
             return perm_error
 
@@ -626,7 +626,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     def _handle_delete_make_connection(self, conn_id: str, handler: Any) -> HandlerResult:
         """Handle DELETE /api/integrations/make/connections/:id - delete."""
         # Check RBAC permission
-        perm_error = self._check_permission(handler, "integrations.delete", conn_id)
+        perm_error = self._check_permission(handler, "integrations:delete", conn_id)
         if perm_error:
             return perm_error
 
@@ -648,7 +648,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     def _handle_register_make_webhook(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/make/webhooks - register webhook."""
         # Check RBAC permission - registering webhooks exposes external URLs
-        perm_error = self._check_permission(handler, "integrations.create")
+        perm_error = self._check_permission(handler, "integrations:create")
         if perm_error:
             return perm_error
 
@@ -692,7 +692,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     ) -> HandlerResult:
         """Handle DELETE /api/integrations/make/webhooks/:id - unregister."""
         # Check RBAC permission
-        perm_error = self._check_permission(handler, "integrations.delete", webhook_id)
+        perm_error = self._check_permission(handler, "integrations:delete", webhook_id)
         if perm_error:
             return perm_error
 
@@ -713,7 +713,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     def _handle_list_n8n_credentials(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/n8n/credentials - list credentials."""
         # Check RBAC permission
-        perm_error = self._check_permission(handler, "integrations.read")
+        perm_error = self._check_permission(handler, "integrations:read")
         if perm_error:
             return perm_error
 
@@ -756,7 +756,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     def _handle_create_n8n_credential(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/n8n/credentials - create credential."""
         # Check RBAC permission - creating credentials exposes API keys
-        perm_error = self._check_permission(handler, "integrations.create")
+        perm_error = self._check_permission(handler, "integrations:create")
         if perm_error:
             return perm_error
 
@@ -797,7 +797,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     def _handle_delete_n8n_credential(self, cred_id: str, handler: Any) -> HandlerResult:
         """Handle DELETE /api/integrations/n8n/credentials/:id - delete."""
         # Check RBAC permission
-        perm_error = self._check_permission(handler, "integrations.delete", cred_id)
+        perm_error = self._check_permission(handler, "integrations:delete", cred_id)
         if perm_error:
             return perm_error
 
@@ -819,7 +819,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     def _handle_register_n8n_webhook(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/n8n/webhooks - register webhook."""
         # Check RBAC permission - registering webhooks creates external endpoints
-        perm_error = self._check_permission(handler, "integrations.create")
+        perm_error = self._check_permission(handler, "integrations:create")
         if perm_error:
             return perm_error
 
@@ -860,7 +860,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     ) -> HandlerResult:
         """Handle DELETE /api/integrations/n8n/webhooks/:id - unregister."""
         # Check RBAC permission
-        perm_error = self._check_permission(handler, "integrations.delete", webhook_id)
+        perm_error = self._check_permission(handler, "integrations:delete", webhook_id)
         if perm_error:
             return perm_error
 
@@ -881,7 +881,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     def _handle_test_integration(self, platform: str, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/:platform/test - test integration."""
         # Check RBAC permission - testing requires read access
-        perm_error = self._check_permission(handler, "integrations.read")
+        perm_error = self._check_permission(handler, "integrations:read")
         if perm_error:
             return perm_error
 

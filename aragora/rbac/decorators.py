@@ -87,18 +87,18 @@ def require_permission(
     Decorator to require a specific permission.
 
     Args:
-        permission_key: Permission required (e.g., "debates.create")
+        permission_key: Permission required (e.g., "debates:create")
         resource_id_param: Optional parameter name containing resource ID
         context_param: Parameter name for AuthorizationContext
         checker: Custom permission checker (uses global if None)
         on_denied: Optional callback when permission is denied
 
     Usage:
-        @require_permission("debates.create")
+        @require_permission("debates:create")
         async def create_debate(context: AuthorizationContext, ...):
             ...
 
-        @require_permission("debates.update", resource_id_param="debate_id")
+        @require_permission("debates:update", resource_id_param="debate_id")
         async def update_debate(context: AuthorizationContext, debate_id: str, ...):
             ...
     """
@@ -439,7 +439,7 @@ def with_permission_context(
             org_id_func=lambda request: request.org_id,
             roles_func=lambda request: request.roles,
         )
-        @require_permission("debates.create")
+        @require_permission("debates:create")
         async def create_debate(context: AuthorizationContext, request: Request):
             ...
     """
