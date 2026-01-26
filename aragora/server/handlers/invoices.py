@@ -529,6 +529,7 @@ async def handle_schedule_payment(
         return error_response(f"Failed to schedule payment: {e}", status=500)
 
 
+@require_permission("finance:read")
 async def handle_get_scheduled_payments(
     query_params: Dict[str, Any],
     user_id: str = "default",
@@ -660,6 +661,7 @@ async def handle_create_purchase_order(
 # =============================================================================
 
 
+@require_permission("finance:read")
 async def handle_get_invoice_stats(
     user_id: str = "default",
 ) -> HandlerResult:
