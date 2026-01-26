@@ -233,15 +233,14 @@ class TestConsensusMemoryLeaderboardChain:
 class TestHandlerCoordination:
     """Test multiple handlers working together."""
 
-    @pytest.mark.asyncio
-    async def test_debates_handler_returns_valid_response(self, handler_context, mock_request):
+    def test_debates_handler_returns_valid_response(self, handler_context, mock_request):
         """DebatesHandler should return proper JSON response."""
         from aragora.server.handlers.debates import DebatesHandler
 
         handler = DebatesHandler(handler_context)
 
-        # Test list debates endpoint
-        result = await handler.handle("/api/v1/debates", {}, mock_request)
+        # Test list debates endpoint (DebatesHandler.handle is synchronous)
+        result = handler.handle("/api/v1/debates", {}, mock_request)
 
         if result:
             # HandlerResult is a dataclass with status_code attribute
@@ -250,12 +249,13 @@ class TestHandlerCoordination:
 
     @pytest.mark.asyncio
     async def test_health_handler_always_responds(self, handler_context, mock_request):
-        """HealthHandler health endpoint should always work."""
+        """HealthHandler health endpoint should always work via public /healthz."""
         from aragora.server.handlers import HealthHandler
 
         handler = HealthHandler(handler_context)
 
-        result = await handler.handle("/api/v1/health", {}, mock_request)
+        # Use public /healthz endpoint which doesn't require auth
+        result = await handler.handle("/healthz", {}, mock_request)
 
         assert result is not None
         # HandlerResult is a dataclass with status_code attribute
@@ -264,11 +264,12 @@ class TestHandlerCoordination:
 
     @pytest.mark.asyncio
     async def test_system_handler_returns_valid_json(self, handler_context, mock_request):
-        """HealthHandler should return valid JSON body."""
+        """HealthHandler should return valid JSON body via public /healthz."""
         from aragora.server.handlers import HealthHandler
 
         handler = HealthHandler(handler_context)
-        result = await handler.handle("/api/v1/health", {}, mock_request)
+        # Use public /healthz endpoint which doesn't require auth
+        result = await handler.handle("/healthz", {}, mock_request)
 
         assert result is not None
         assert result.content_type == "application/json"
