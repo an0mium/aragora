@@ -328,6 +328,94 @@ export class ExplainabilityAPI {
   }
 
   // ===========================================================================
+  // Evidence
+  // ===========================================================================
+
+  /**
+   * Get the evidence chain for a debate decision.
+   *
+   * Returns all evidence and sources cited during the debate,
+   * sorted by relevance.
+   *
+   * @param debateId - The debate ID
+   * @param options.limit - Maximum number of evidence items to return
+   * @param options.min_relevance - Minimum relevance score (0-1)
+   *
+   * @example
+   * ```typescript
+   * const evidence = await client.explainability.getEvidence('debate-123', {
+   *   limit: 10,
+   *   min_relevance: 0.5
+   * });
+   * console.log(`Found ${evidence.evidence_count} evidence items`);
+   * console.log(`Quality score: ${evidence.evidence_quality_score}`);
+   * ```
+   */
+  async getEvidence(debateId: string, options?: {
+    limit?: number;
+    min_relevance?: number;
+  }): Promise<EvidenceResponse> {
+    return this.client.getDebateEvidence(debateId, options);
+  }
+
+  // ===========================================================================
+  // Vote Analysis
+  // ===========================================================================
+
+  /**
+   * Get vote pivots analysis for a debate.
+   *
+   * Identifies which agent votes were pivotal in determining the outcome,
+   * showing influence scores and reasoning.
+   *
+   * @param debateId - The debate ID
+   * @param options.min_influence - Minimum influence score to include
+   *
+   * @example
+   * ```typescript
+   * const pivots = await client.explainability.getVotePivots('debate-123');
+   * console.log(`${pivots.pivotal_votes} of ${pivots.total_votes} votes were pivotal`);
+   * for (const vote of pivots.votes) {
+   *   console.log(`${vote.agent_id}: ${vote.vote} (influence: ${vote.influence_score})`);
+   * }
+   * ```
+   */
+  async getVotePivots(debateId: string, options?: {
+    min_influence?: number;
+  }): Promise<VotePivotsResponse> {
+    return this.client.getDebateVotePivots(debateId, options);
+  }
+
+  // ===========================================================================
+  // Comparison
+  // ===========================================================================
+
+  /**
+   * Compare explanations between multiple debates.
+   *
+   * Useful for understanding patterns across decisions or
+   * identifying why different debates had different outcomes.
+   *
+   * @param body.debate_ids - IDs of debates to compare (2-10)
+   * @param body.compare_fields - Fields to compare (default: confidence, consensus_reached, contributing_factors, evidence_quality)
+   *
+   * @example
+   * ```typescript
+   * const comparison = await client.explainability.compare({
+   *   debate_ids: ['debate-1', 'debate-2', 'debate-3'],
+   *   compare_fields: ['confidence', 'evidence_quality']
+   * });
+   * console.log('Summary:', comparison.comparison.summary);
+   * ```
+   */
+  async compare(body: {
+    debate_ids: string[];
+    compare_fields?: string[];
+  }): Promise<ComparisonResponse> {
+    return this.client.compareExplanations(body);
+  }
+
+  // ===========================================================================
   // Helpers
   // ===========================================================================
 
@@ -353,4 +441,15 @@ export class ExplainabilityAPI {
 }
 
 // Re-export types for convenience
-export type { ExplainabilityResult, ExplanationFactor, CounterfactualScenario, Narrative, Provenance };
+export type {
+  ExplainabilityResult,
+  ExplanationFactor,
+  CounterfactualScenario,
+  Narrative,
+  Provenance,
+  EvidenceItem,
+  EvidenceResponse,
+  VotePivot,
+  VotePivotsResponse,
+  ComparisonResponse,
+};

@@ -2143,6 +2143,152 @@ COMMON_SCHEMAS: dict[str, Any] = {
         },
         "required": ["allowed"],
     },
+    # ==========================================================================
+    # Insights and Flips Response Schemas
+    # ==========================================================================
+    "PositionFlip": {
+        "type": "object",
+        "description": "A position change by an agent during debate",
+        "properties": {
+            "debate_id": {"type": "string"},
+            "agent": {"type": "string"},
+            "round": {"type": "integer"},
+            "old_position": {"type": "string"},
+            "new_position": {"type": "string"},
+            "reason": {"type": "string"},
+            "conviction_delta": {"type": "number"},
+            "timestamp": {"type": "string", "format": "date-time"},
+        },
+    },
+    "FlipsRecent": {
+        "type": "object",
+        "description": "Recent position flips response",
+        "properties": {
+            "flips": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/PositionFlip"},
+            },
+            "total": {"type": "integer"},
+        },
+    },
+    "FlipsSummary": {
+        "type": "object",
+        "description": "Summary statistics on position flips",
+        "properties": {
+            "total_flips": {"type": "integer"},
+            "by_agent": {"type": "object", "additionalProperties": {"type": "integer"}},
+            "by_debate": {"type": "object", "additionalProperties": {"type": "integer"}},
+            "average_conviction_delta": {"type": "number"},
+            "flip_rate": {"type": "number", "description": "Percentage of debates with flips"},
+        },
+    },
+    "Insight": {
+        "type": "object",
+        "description": "An insight extracted from debate",
+        "properties": {
+            "id": {"type": "string"},
+            "debate_id": {"type": "string"},
+            "content": {"type": "string"},
+            "type": {"type": "string", "enum": ["observation", "conclusion", "recommendation"]},
+            "confidence": {"type": "number"},
+            "supporting_evidence": {"type": "array", "items": {"type": "string"}},
+            "extracted_at": {"type": "string", "format": "date-time"},
+        },
+    },
+    "InsightsRecent": {
+        "type": "object",
+        "description": "Recent insights response",
+        "properties": {
+            "insights": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/Insight"},
+            },
+            "total": {"type": "integer"},
+        },
+    },
+    "InsightsDetailed": {
+        "type": "object",
+        "description": "Detailed insight extraction result",
+        "properties": {
+            "insights": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/Insight"},
+            },
+            "themes": {"type": "array", "items": {"type": "string"}},
+            "key_findings": {"type": "array", "items": {"type": "string"}},
+            "processing_time_ms": {"type": "integer"},
+        },
+    },
+    "DebateMoment": {
+        "type": "object",
+        "description": "A significant moment in a debate",
+        "properties": {
+            "id": {"type": "string"},
+            "debate_id": {"type": "string"},
+            "type": {
+                "type": "string",
+                "enum": ["breakthrough", "conflict", "consensus", "insight", "flip"],
+            },
+            "round": {"type": "integer"},
+            "description": {"type": "string"},
+            "participants": {"type": "array", "items": {"type": "string"}},
+            "significance_score": {"type": "number"},
+            "timestamp": {"type": "string", "format": "date-time"},
+        },
+    },
+    "MomentsSummary": {
+        "type": "object",
+        "description": "Summary of key moments across debates",
+        "properties": {
+            "total_moments": {"type": "integer"},
+            "by_type": {"type": "object", "additionalProperties": {"type": "integer"}},
+            "top_debates": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "debate_id": {"type": "string"},
+                        "moment_count": {"type": "integer"},
+                    },
+                },
+            },
+        },
+    },
+    "MomentsTimeline": {
+        "type": "object",
+        "description": "Chronological timeline of moments",
+        "properties": {
+            "moments": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/DebateMoment"},
+            },
+            "start_time": {"type": "string", "format": "date-time"},
+            "end_time": {"type": "string", "format": "date-time"},
+        },
+    },
+    "MomentsTrending": {
+        "type": "object",
+        "description": "Currently trending debate moments",
+        "properties": {
+            "moments": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/DebateMoment"},
+            },
+            "trending_period_hours": {"type": "integer"},
+        },
+    },
+    "MomentsByType": {
+        "type": "object",
+        "description": "Moments filtered by type",
+        "properties": {
+            "type": {"type": "string"},
+            "moments": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/DebateMoment"},
+            },
+            "total": {"type": "integer"},
+        },
+    },
 }
 
 
