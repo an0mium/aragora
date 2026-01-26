@@ -122,9 +122,11 @@ class TestDashboardRouting:
         assert handler.can_handle("/api/v1/unknown") is False
         assert handler.can_handle("/api/v1/dashboard") is False
 
-    def test_handle_routes_to_debates(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_routes_to_debates(self, handler):
         """Handle routes debates path correctly."""
         mock_handler = MagicMock()
+        mock_auth_context = MagicMock()
 
         with patch.object(handler, "_get_debates_dashboard") as mock_method:
             mock_method.return_value = {"data": {}}
@@ -134,15 +136,23 @@ class TestDashboardRouting:
             ) as mock_limiter:
                 mock_limiter.is_allowed.return_value = True
 
-                handler.handle(
-                    "/api/v1/dashboard/debates", {"limit": "20", "hours": "48"}, mock_handler
-                )
+                with patch.object(
+                    handler, "get_auth_context", return_value=mock_auth_context
+                ) as mock_auth:
+                    with patch.object(handler, "check_permission"):
+                        await handler.handle(
+                            "/api/v1/dashboard/debates",
+                            {"limit": "20", "hours": "48"},
+                            mock_handler,
+                        )
 
-                mock_method.assert_called_once_with(None, 20, 48)
+                        mock_method.assert_called_once_with(None, 20, 48)
 
-    def test_handle_routes_to_quality_metrics(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_routes_to_quality_metrics(self, handler):
         """Handle routes quality metrics path correctly."""
         mock_handler = MagicMock()
+        mock_auth_context = MagicMock()
 
         with patch.object(handler, "_get_quality_metrics") as mock_method:
             mock_method.return_value = {"data": {}}
@@ -152,25 +162,30 @@ class TestDashboardRouting:
             ) as mock_limiter:
                 mock_limiter.is_allowed.return_value = True
 
-                handler.handle("/api/v1/dashboard/quality-metrics", {}, mock_handler)
+                with patch.object(handler, "get_auth_context", return_value=mock_auth_context):
+                    with patch.object(handler, "check_permission"):
+                        await handler.handle("/api/v1/dashboard/quality-metrics", {}, mock_handler)
 
-                mock_method.assert_called_once()
+                        mock_method.assert_called_once()
 
-    def test_handle_rate_limited(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_rate_limited(self, handler):
         """Handle returns 429 when rate limited."""
         mock_handler = MagicMock()
 
         with patch("aragora.server.handlers.admin.dashboard._dashboard_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
 
-            result = handler.handle("/api/v1/dashboard/debates", {}, mock_handler)
+            result = await handler.handle("/api/v1/dashboard/debates", {}, mock_handler)
 
             assert result is not None
             # Rate limit response should have 429 status
 
-    def test_handle_limit_capped_at_50(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_limit_capped_at_50(self, handler):
         """Limit parameter is capped at 50."""
         mock_handler = MagicMock()
+        mock_auth_context = MagicMock()
 
         with patch.object(handler, "_get_debates_dashboard") as mock_method:
             mock_method.return_value = {"data": {}}
@@ -180,10 +195,14 @@ class TestDashboardRouting:
             ) as mock_limiter:
                 mock_limiter.is_allowed.return_value = True
 
-                handler.handle("/api/v1/dashboard/debates", {"limit": "100"}, mock_handler)
+                with patch.object(handler, "get_auth_context", return_value=mock_auth_context):
+                    with patch.object(handler, "check_permission"):
+                        await handler.handle(
+                            "/api/v1/dashboard/debates", {"limit": "100"}, mock_handler
+                        )
 
-                # Limit should be capped at 50
-                mock_method.assert_called_once_with(None, 50, 24)
+                        # Limit should be capped at 50
+                        mock_method.assert_called_once_with(None, 50, 24)
 
 
 # =============================================================================
