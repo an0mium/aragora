@@ -48,6 +48,7 @@ from .base import (
     json_response,
     log_request,
 )
+from .utils.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 from .secure import SecureHandler
 
@@ -256,6 +257,7 @@ class OrganizationsHandler(SecureHandler):
         user = user_store.get_user_by_id(auth_ctx.user_id)
         return user, auth_ctx
 
+    @require_permission("org:read")
     def _list_user_organizations(self, handler) -> HandlerResult:
         """List organizations for the current user (single-org fallback)."""
         user_store = self._get_user_store()
@@ -290,6 +292,7 @@ class OrganizationsHandler(SecureHandler):
             }
         )
 
+    @require_permission("org:settings")
     def _switch_user_organization(self, handler) -> HandlerResult:
         """Switch the active organization for the current user."""
         user_store = self._get_user_store()
@@ -317,6 +320,7 @@ class OrganizationsHandler(SecureHandler):
 
         return json_response({"organization": org.to_dict()})
 
+    @require_permission("org:settings")
     def _set_default_organization(self, handler) -> HandlerResult:
         """Set the default organization for the current user."""
         user_store = self._get_user_store()
@@ -340,6 +344,7 @@ class OrganizationsHandler(SecureHandler):
 
         return json_response({"success": True})
 
+    @require_permission("org:members")
     def _leave_organization(self, handler, org_id: str) -> HandlerResult:
         """Leave an organization (single-org fallback)."""
         user_store = self._get_user_store()
@@ -431,6 +436,7 @@ class OrganizationsHandler(SecureHandler):
 
         return None
 
+    @require_permission("org:read")
     @handle_errors("get organization")
     @log_request("get organization")
     def _get_organization(self, handler, org_id: str) -> HandlerResult:
@@ -533,6 +539,7 @@ class OrganizationsHandler(SecureHandler):
             }
         )
 
+    @require_permission("org:members")
     @handle_errors("list members")
     @log_request("list members")
     def _list_members(self, handler, org_id: str) -> HandlerResult:

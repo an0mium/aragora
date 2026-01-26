@@ -74,7 +74,7 @@ async def run_debate_tool(
     )
 
     # Run debate
-    arena = Arena(env, agent_list, protocol)  # type: ignore[arg-type]
+    arena = Arena(env, agent_list, protocol)
     result = await arena.run()
 
     # Generate debate ID

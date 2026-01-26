@@ -359,7 +359,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
         completed_steps: Set[str],
     ) -> Any:
         """Execute workflow starting from a specific step with resource tracking."""
-        current_step_id = start_step
+        current_step_id: str | None = start_step
         final_output = None
         step_count = 0
 
@@ -516,7 +516,10 @@ class EnhancedWorkflowEngine(WorkflowEngine):
             )
 
         async def execute_with_semaphore(sub_step_id: str) -> Dict[str, Any]:
-            async with self._parallel_semaphore:
+            semaphore = self._parallel_semaphore
+            if semaphore is None:
+                semaphore = asyncio.Semaphore(1)
+            async with semaphore:
                 sub_step = definition.get_step(sub_step_id)
                 if not sub_step:
                     return {"step_id": sub_step_id, "error": "Step not found"}

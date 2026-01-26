@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 from aragora.agents.api_agents.common import (
     AgentAPIError,
+    AgentCircuitOpenError,
     AgentConnectionError,
     AgentRateLimitError,
     AgentStreamError,
@@ -168,7 +169,18 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         retryable_exceptions=(AgentRateLimitError, AgentConnectionError, AgentTimeoutError),
     )
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using the OpenAI-compatible API."""
+        """Generate a response using the OpenAI-compatible API.
+
+        Includes circuit breaker protection to prevent cascading failures.
+        """
+        # Check circuit breaker before attempting API call
+        cb = getattr(self, "_circuit_breaker", None)
+        if cb is not None and not cb.can_proceed():
+            raise AgentCircuitOpenError(
+                f"Circuit breaker open for {self.name} - too many recent failures",
+                agent_name=self.name,
+            )
+
         full_prompt = prompt
         if context:
             full_prompt = self._build_context_prompt(context) + prompt
@@ -177,39 +189,55 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         messages = self._build_messages(full_prompt)
         payload = self._build_payload(messages, stream=False)
 
-        # Use shared connection pool for better resource management
-        async with create_client_session(timeout=self.timeout) as session:
-            async with session.post(
-                url,
-                headers=headers,
-                json=payload,
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    sanitized = _sanitize_error_message(error_text)
+        try:
+            # Use shared connection pool for better resource management
+            async with create_client_session(timeout=self.timeout) as session:
+                async with session.post(
+                    url,
+                    headers=headers,
+                    json=payload,
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        sanitized = _sanitize_error_message(error_text)
 
-                    # Check for quota/billing errors and fallback
-                    if self.is_quota_error(response.status, error_text):
-                        result = await self.fallback_generate(prompt, context, response.status)
-                        if result is not None:
-                            return result
+                        # Record failure for circuit breaker (non-quota errors)
+                        if cb is not None and not self.is_quota_error(response.status, error_text):
+                            cb.record_failure()
 
-                    raise AgentAPIError(
-                        f"{self._get_error_prefix()} API error {response.status}: {sanitized}",
-                        agent_name=self.name,
-                        status_code=response.status,
+                        # Check for quota/billing errors and fallback
+                        if self.is_quota_error(response.status, error_text):
+                            result = await self.fallback_generate(prompt, context, response.status)
+                            if result is not None:
+                                return result
+
+                        raise AgentAPIError(
+                            f"{self._get_error_prefix()} API error {response.status}: {sanitized}",
+                            agent_name=self.name,
+                            status_code=response.status,
+                        )
+
+                    data = await response.json()
+
+                    # Record token usage for billing (OpenAI format)
+                    usage = data.get("usage", {})
+                    self._record_token_usage(
+                        tokens_in=usage.get("prompt_tokens", 0),
+                        tokens_out=usage.get("completion_tokens", 0),
                     )
 
-                data = await response.json()
+                    # Record success for circuit breaker
+                    if cb is not None:
+                        cb.record_success()
 
-                # Record token usage for billing (OpenAI format)
-                usage = data.get("usage", {})
-                self._record_token_usage(
-                    tokens_in=usage.get("prompt_tokens", 0),
-                    tokens_out=usage.get("completion_tokens", 0),
-                )
-
-                return self._parse_response(data)
+                    return self._parse_response(data)
+        except (AgentAPIError, AgentCircuitOpenError):
+            raise  # Re-raise without double-recording
+        except Exception:
+            # Record failure for unexpected errors
+            if cb is not None:
+                cb.record_failure()
+            raise
 
     async def generate_stream(
         self, prompt: str, context: list[Message] | None = None

@@ -13,6 +13,7 @@ from aragora.agents.api_agents.base import APIAgent
 from aragora.core_types import AgentRole
 from aragora.agents.api_agents.common import (
     AgentAPIError,
+    AgentCircuitOpenError,
     AgentConnectionError,
     AgentRateLimitError,
     AgentStreamError,
@@ -127,7 +128,16 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
         Falls back to OpenRouter if billing/quota errors are encountered
         and OPENROUTER_API_KEY is set.
+
+        Includes circuit breaker protection to prevent cascading failures.
         """
+        # Check circuit breaker before attempting API call
+        if self._circuit_breaker is not None and not self._circuit_breaker.can_proceed():
+            raise AgentCircuitOpenError(
+                f"Circuit breaker open for {self.name} - too many recent failures",
+                agent_name=self.name,
+            )
+
         full_prompt = prompt
         if context:
             full_prompt = self._build_context_prompt(context) + prompt
@@ -172,66 +182,86 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         if self.system_prompt:
             payload["system"] = self.system_prompt
 
-        async with create_client_session(timeout=self.timeout) as session:
-            async with session.post(
-                url,
-                headers=headers,
-                json=payload,
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    sanitized = _sanitize_error_message(error_text)
+        try:
+            async with create_client_session(timeout=self.timeout) as session:
+                async with session.post(
+                    url,
+                    headers=headers,
+                    json=payload,
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        sanitized = _sanitize_error_message(error_text)
 
-                    # Check if this is a quota/billing error and fallback is enabled
-                    if self.is_quota_error(response.status, error_text):
-                        result = await self.fallback_generate(prompt, context, response.status)
-                        if result is not None:
-                            return result
+                        # Record failure for circuit breaker (non-quota errors)
+                        if self._circuit_breaker is not None and not self.is_quota_error(
+                            response.status, error_text
+                        ):
+                            self._circuit_breaker.record_failure()
 
-                    raise AgentAPIError(
-                        f"Anthropic API error {response.status}: {sanitized}",
-                        agent_name=self.name,
-                        status_code=response.status,
+                        # Check if this is a quota/billing error and fallback is enabled
+                        if self.is_quota_error(response.status, error_text):
+                            result = await self.fallback_generate(prompt, context, response.status)
+                            if result is not None:
+                                return result
+
+                        raise AgentAPIError(
+                            f"Anthropic API error {response.status}: {sanitized}",
+                            agent_name=self.name,
+                            status_code=response.status,
+                        )
+
+                    data = await response.json()
+
+                    # Record token usage for billing
+                    usage = data.get("usage", {})
+                    self._record_token_usage(
+                        tokens_in=usage.get("input_tokens", 0),
+                        tokens_out=usage.get("output_tokens", 0),
                     )
 
-                data = await response.json()
+                    try:
+                        # Extract text from response content blocks
+                        # May include multiple blocks: text, web_search_tool_result, etc.
+                        content_blocks = data.get("content", [])
+                        text_parts = []
+                        for block in content_blocks:
+                            if block.get("type") == "text":
+                                text_parts.append(block.get("text", ""))
+                            elif block.get("type") == "web_search_tool_result":
+                                # Include web search citations in response
+                                search_results = block.get("content", [])
+                                for result in search_results:
+                                    if result.get("type") == "web_search_result":
+                                        # Format as a citation
+                                        title = result.get("title", "")
+                                        url = result.get("url", "")
+                                        if title and url:
+                                            text_parts.append(f"\n[Source: {title}]({url})")
 
-                # Record token usage for billing
-                usage = data.get("usage", {})
-                self._record_token_usage(
-                    tokens_in=usage.get("input_tokens", 0),
-                    tokens_out=usage.get("output_tokens", 0),
-                )
+                        # Record success for circuit breaker
+                        if self._circuit_breaker is not None:
+                            self._circuit_breaker.record_success()
 
-                try:
-                    # Extract text from response content blocks
-                    # May include multiple blocks: text, web_search_tool_result, etc.
-                    content_blocks = data.get("content", [])
-                    text_parts = []
-                    for block in content_blocks:
-                        if block.get("type") == "text":
-                            text_parts.append(block.get("text", ""))
-                        elif block.get("type") == "web_search_tool_result":
-                            # Include web search citations in response
-                            search_results = block.get("content", [])
-                            for result in search_results:
-                                if result.get("type") == "web_search_result":
-                                    # Format as a citation
-                                    title = result.get("title", "")
-                                    url = result.get("url", "")
-                                    if title and url:
-                                        text_parts.append(f"\n[Source: {title}]({url})")
+                        if text_parts:
+                            return "\n".join(text_parts)
 
-                    if text_parts:
-                        return "\n".join(text_parts)
-
-                    # Fallback to old format
-                    return data["content"][0]["text"]
-                except (KeyError, IndexError):
-                    raise AgentAPIError(
-                        f"Unexpected Anthropic response format: {data}",
-                        agent_name=self.name,
-                    )
+                        # Fallback to old format
+                        return data["content"][0]["text"]
+                    except (KeyError, IndexError):
+                        if self._circuit_breaker is not None:
+                            self._circuit_breaker.record_failure()
+                        raise AgentAPIError(
+                            f"Unexpected Anthropic response format: {data}",
+                            agent_name=self.name,
+                        )
+        except (AgentAPIError, AgentCircuitOpenError):
+            raise  # Re-raise without double-recording
+        except Exception:
+            # Record failure for unexpected errors
+            if self._circuit_breaker is not None:
+                self._circuit_breaker.record_failure()
+            raise
 
     async def generate_stream(
         self, prompt: str, context: list[Message] | None = None

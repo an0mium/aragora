@@ -271,6 +271,8 @@ class SharingNotificationsHandler(BaseHandler):
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
+            if body is None:
+                body = {}
 
             prefs = NotificationPreferences(
                 user_id=user_id,

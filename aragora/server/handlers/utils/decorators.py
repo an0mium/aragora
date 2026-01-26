@@ -460,6 +460,8 @@ PERMISSION_MATRIX: dict[str, list[str]] = {
     # Audit trail permissions
     "audit:read": ["admin", "owner"],
     "audit:verify": ["admin", "owner"],
+    "audit:receipts.read": ["admin", "owner"],
+    "audit:receipts.verify": ["admin", "owner"],
 }
 
 

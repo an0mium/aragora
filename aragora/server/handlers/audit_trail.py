@@ -34,6 +34,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -115,6 +116,7 @@ class AuditTrailHandler(BaseHandler):
             logger.exception(f"Error handling audit trail request: {e}")
             return error_response(f"Internal error: {str(e)}", 500)
 
+    @require_permission("audit:read")
     async def _list_audit_trails(self, query_params: Dict[str, str]) -> HandlerResult:
         """List recent audit trails with pagination."""
         limit = int(query_params.get("limit", "20"))
@@ -158,6 +160,7 @@ class AuditTrailHandler(BaseHandler):
             }
         )
 
+    @require_permission("audit:read")
     async def _get_audit_trail(self, trail_id: str) -> HandlerResult:
         """Get a specific audit trail by ID."""
         # Try database-backed store first
@@ -176,6 +179,7 @@ class AuditTrailHandler(BaseHandler):
 
         return json_response(trail)
 
+    @require_permission("audit:export")
     async def _export_audit_trail(
         self, trail_id: str, query_params: Dict[str, str]
     ) -> HandlerResult:
@@ -241,6 +245,7 @@ class AuditTrailHandler(BaseHandler):
                 },
             )
 
+    @require_permission("audit:verify")
     async def _verify_audit_trail(self, trail_id: str) -> HandlerResult:
         """Verify audit trail integrity checksum."""
         trail = self._trails.get(trail_id)
@@ -279,6 +284,7 @@ class AuditTrailHandler(BaseHandler):
                 }
             )
 
+    @require_permission("audit:receipts.read")
     async def _list_receipts(self, query_params: Dict[str, str]) -> HandlerResult:
         """List recent decision receipts with pagination."""
         limit = int(query_params.get("limit", "20"))
@@ -324,6 +330,7 @@ class AuditTrailHandler(BaseHandler):
             }
         )
 
+    @require_permission("audit:receipts.read")
     async def _get_receipt(self, receipt_id: str) -> HandlerResult:
         """Get a specific decision receipt by ID."""
         # Try database-backed store first
@@ -341,6 +348,7 @@ class AuditTrailHandler(BaseHandler):
 
         return json_response(receipt)
 
+    @require_permission("audit:receipts.verify")
     async def _verify_receipt(self, receipt_id: str) -> HandlerResult:
         """Verify decision receipt integrity."""
         # Try database-backed store first
