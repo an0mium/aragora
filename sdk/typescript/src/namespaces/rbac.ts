@@ -55,7 +55,7 @@ interface RBACClientInterface {
   updateRole(roleId: string, updates: UpdateRoleRequest): Promise<Role>;
   deleteRole(roleId: string): Promise<{ deleted: boolean }>;
   listPermissions(params?: PaginationParams): Promise<{ permissions: Permission[] }>;
-  assignRole(userId: string, roleId: string): Promise<void>;
+  assignRole(userId: string, roleId: string): Promise<{ assigned: boolean }>;
   revokeRole(userId: string, roleId: string): Promise<void>;
   getUserRoles(userId: string): Promise<{ roles: Role[] }>;
   checkPermission(userId: string, permission: string): Promise<{ allowed: boolean }>;
@@ -139,8 +139,9 @@ export class RBACAPI {
   /**
    * Assign a role to a user.
    */
-  async assignRole(userId: string, roleId: string): Promise<void> {
-    return this.client.assignRole(userId, roleId);
+  async assignRole(userId: string, roleId: string): Promise<{ assigned: boolean }> {
+    await this.client.assignRole(userId, roleId);
+    return { assigned: true };
   }
 
   /**
