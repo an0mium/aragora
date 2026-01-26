@@ -30,7 +30,6 @@ MAX_INTROSPECTION_AGENTS = 50  # Prevent unbounded introspection calls
 
 from ..base import (
     SAFE_ID_PATTERN,
-    BaseHandler,
     HandlerResult,
     agent_to_dict,
     error_response,
@@ -41,14 +40,21 @@ from ..base import (
     ttl_cache,
     validate_path_segment,
 )
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
+
+# RBAC permission for leaderboard endpoints
+LEADERBOARD_PERMISSION = "agent:read"
 
 # Rate limiter for leaderboard endpoints (60 requests per minute - cached data)
 _leaderboard_limiter = RateLimiter(requests_per_minute=60)
 
 
-class LeaderboardViewHandler(BaseHandler):
-    """Handler for consolidated leaderboard view endpoint."""
+class LeaderboardViewHandler(SecureHandler):
+    """Handler for consolidated leaderboard view endpoint.
+
+    Requires authentication and agent:read permission (RBAC).
+    """
 
     ROUTES = ["/api/leaderboard-view"]
 
@@ -77,14 +83,26 @@ class LeaderboardViewHandler(BaseHandler):
             errors[key] = str(e)
             data[key] = fallback
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
-        """Route leaderboard view requests."""
+    async def handle(  # type: ignore[override]
+        self, path: str, query_params: dict, handler
+    ) -> Optional[HandlerResult]:
+        """Route leaderboard view requests with RBAC."""
         path = strip_version_prefix(path)
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _leaderboard_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for leaderboard endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # RBAC: Require authentication and agent:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, LEADERBOARD_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required to access leaderboard data", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Leaderboard access denied: {e}")
+            return error_response(str(e), 403)
 
         logger.debug(f"Leaderboard request: {path} params={query_params}")
         if path == "/api/leaderboard-view":

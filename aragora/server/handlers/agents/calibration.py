@@ -19,7 +19,6 @@ from aragora.server.versioning.compat import strip_version_prefix
 
 from ..base import (
     SAFE_AGENT_PATTERN,
-    BaseHandler,
     HandlerResult,
     error_response,
     get_clamped_int_param,
@@ -27,9 +26,13 @@ from ..base import (
     handle_errors,
     json_response,
 )
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# RBAC permission for calibration endpoints
+CALIBRATION_PERMISSION = "agent:read"
 
 # Rate limiter for calibration endpoints (30 requests per minute)
 _calibration_limiter = RateLimiter(requests_per_minute=30)
@@ -44,8 +47,11 @@ CalibrationTracker, CALIBRATION_AVAILABLE = try_import_class(
 )
 
 
-class CalibrationHandler(BaseHandler):
-    """Handler for calibration-related endpoints."""
+class CalibrationHandler(SecureHandler):
+    """Handler for calibration-related endpoints.
+
+    Requires authentication and agent:read permission (RBAC).
+    """
 
     ROUTES = [
         "/api/agent/*/calibration-curve",
@@ -65,14 +71,26 @@ class CalibrationHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
-        """Route calibration requests to appropriate methods."""
+    async def handle(  # type: ignore[override]
+        self, path: str, query_params: dict, handler
+    ) -> Optional[HandlerResult]:
+        """Route calibration requests with RBAC."""
         path = strip_version_prefix(path)
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _calibration_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for calibration endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # RBAC: Require authentication and agent:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, CALIBRATION_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required to access calibration data", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Calibration access denied: {e}")
+            return error_response(str(e), 403)
 
         # Handle leaderboard endpoint
         if path == "/api/calibration/leaderboard":
