@@ -113,9 +113,9 @@ class TestQuotaCheckAtomicity:
         # Verify each org's quota was respected
         for org_id, quota in org_quotas.items():
             accepted = [r for r in results[org_id] if r[0] == "accepted"]
-            assert (
-                len(accepted) == quota["limit"]
-            ), f"{org_id}: expected {quota['limit']} accepted, got {len(accepted)}"
+            assert len(accepted) == quota["limit"], (
+                f"{org_id}: expected {quota['limit']} accepted, got {len(accepted)}"
+            )
 
 
 class TestQuotaIncrementResilience:
@@ -292,9 +292,9 @@ class TestQuotaConcurrentReads:
         # All snapshots should be internally consistent
         for snap in snapshots:
             # used + reserved should equal limit
-            assert (
-                snap["used"] + snap["reserved"] == snap["limit"]
-            ), f"Inconsistent snapshot: {snap}"
+            assert snap["used"] + snap["reserved"] == snap["limit"], (
+                f"Inconsistent snapshot: {snap}"
+            )
 
 
 class TestQuotaEdgeCases:

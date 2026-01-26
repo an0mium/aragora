@@ -45,7 +45,9 @@ def mock_knowledge_mound():
             "content": item.content,
             "source": item.source.value if hasattr(item.source, "value") else str(item.source),
             "metadata": item.metadata,
-            "confidence": item.confidence.value if hasattr(item.confidence, "value") else str(item.confidence),
+            "confidence": item.confidence.value
+            if hasattr(item.confidence, "value")
+            else str(item.confidence),
         }
         return item_id
 
@@ -53,12 +55,14 @@ def mock_knowledge_mound():
         results = []
         for item_id, item in mound._items.items():
             if query.lower() in item["content"].lower():
-                results.append({
-                    "id": item_id,
-                    "content": item["content"],
-                    "confidence": 0.9,
-                    "metadata": item["metadata"],
-                })
+                results.append(
+                    {
+                        "id": item_id,
+                        "content": item["content"],
+                        "confidence": 0.9,
+                        "metadata": item["metadata"],
+                    }
+                )
         return results[:limit]
 
     mound.ingest = AsyncMock(side_effect=mock_ingest)
@@ -185,9 +189,7 @@ class TestTaskOutcomeStorage:
     """Tests for task outcome storage in KM."""
 
     @pytest.mark.asyncio
-    async def test_successful_task_stored_in_km(
-        self, coordinator, mock_knowledge_mound
-    ):
+    async def test_successful_task_stored_in_km(self, coordinator, mock_knowledge_mound):
         """Completing a task should store outcome in KM."""
         # Submit and complete a task
         task_id = await coordinator.submit_task(
@@ -397,9 +399,7 @@ class TestFullLearningLoop:
     """Tests for the complete learning loop."""
 
     @pytest.mark.asyncio
-    async def test_learning_loop_complete_flow(
-        self, coordinator, mock_knowledge_mound
-    ):
+    async def test_learning_loop_complete_flow(self, coordinator, mock_knowledge_mound):
         """Test complete flow: task → KM → recommendations."""
         # Step 1: Complete several tasks
         for i in range(5):
@@ -470,9 +470,7 @@ class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
     @pytest.mark.asyncio
-    async def test_km_failure_does_not_block_task(
-        self, coordinator, mock_knowledge_mound
-    ):
+    async def test_km_failure_does_not_block_task(self, coordinator, mock_knowledge_mound):
         """KM storage failure should not block task completion."""
         mock_knowledge_mound.ingest.side_effect = Exception("KM unavailable")
 

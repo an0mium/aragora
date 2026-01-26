@@ -55,7 +55,9 @@ class TestTryImport:
     def test_import_partial_failure(self):
         """When one of multiple imports fails, all should fail."""
         imported, available = try_import(
-            "json", "JSONEncoder", "NonexistentClass"  # exists  # doesn't exist
+            "json",
+            "JSONEncoder",
+            "NonexistentClass",  # exists  # doesn't exist
         )
 
         assert available is False

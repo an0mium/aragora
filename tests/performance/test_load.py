@@ -508,7 +508,7 @@ class TestRateLimitingBehavior:
                 success_count += 1
 
         duration = time.time() - start
-        print(f"\nBurst: {100/duration:.1f} RPS, {success_count}/100 successful")
+        print(f"\nBurst: {100 / duration:.1f} RPS, {success_count}/100 successful")
 
         assert success_count >= 90, f"Too many failures: {100 - success_count}"
 

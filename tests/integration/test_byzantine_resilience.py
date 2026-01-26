@@ -387,7 +387,8 @@ class TestByzantineRecoveryUnderStress:
                 return "PREPARE: YES\nCOMMIT: YES\nREASONING: Recovered"
 
         agents = [
-            CascadeAgent(name=f"cascade_{i}", fail_until=1) for i in range(7)  # Fail first call
+            CascadeAgent(name=f"cascade_{i}", fail_until=1)
+            for i in range(7)  # Fail first call
         ]
 
         config = ByzantineConsensusConfig(
@@ -745,6 +746,6 @@ class TestByzantineIntegrationSmoke:
 
             assert protocol.n == n
             assert protocol.f == expected_f, f"n={n}: expected f={expected_f}, got {protocol.f}"
-            assert (
-                protocol.quorum_size == expected_quorum
-            ), f"n={n}: expected quorum={expected_quorum}, got {protocol.quorum_size}"
+            assert protocol.quorum_size == expected_quorum, (
+                f"n={n}: expected quorum={expected_quorum}, got {protocol.quorum_size}"
+            )

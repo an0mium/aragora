@@ -239,10 +239,12 @@ class TestDebatesAPIIterate:
     def test_iterate_pagination(self, debates_api, mock_client):
         """Test iteration with pagination."""
         mock_client._get.side_effect = [
-            {"debates": [
-                {"debate_id": "1", "task": "Q1", "status": "completed", "rounds": []},
-                {"debate_id": "2", "task": "Q2", "status": "completed", "rounds": []},
-            ]},
+            {
+                "debates": [
+                    {"debate_id": "1", "task": "Q1", "status": "completed", "rounds": []},
+                    {"debate_id": "2", "task": "Q2", "status": "completed", "rounds": []},
+                ]
+            },
             {"debates": []},  # End of pagination
         ]
 
@@ -267,9 +269,11 @@ class TestDebatesAPIIterate:
     async def test_iterate_async(self, debates_api, mock_client):
         """Test async iteration."""
         mock_client._get_async.side_effect = [
-            {"debates": [
-                {"debate_id": "1", "task": "Q1", "status": "completed", "rounds": []},
-            ]},
+            {
+                "debates": [
+                    {"debate_id": "1", "task": "Q1", "status": "completed", "rounds": []},
+                ]
+            },
             {"debates": []},
         ]
 

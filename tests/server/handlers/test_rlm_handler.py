@@ -460,7 +460,7 @@ class TestRLMContextHandlerContextsEndpoint:
                 "context": MagicMock(),
                 "source_type": "text",
                 "original_tokens": 100,
-                "created_at": f"2026-01-15T{10+i}:00:00",
+                "created_at": f"2026-01-15T{10 + i}:00:00",
             }
 
         result = rlm_handler.handle(

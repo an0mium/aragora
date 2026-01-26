@@ -172,7 +172,7 @@ class TestCommandRegistryWithDecisionRouter:
                 # Mock routing
                 route_called = True
                 return CommandResult.ok(
-                    f"Debate started on: **{ctx.raw_args}**\n" f"Debate ID: `test-debate-123`",
+                    f"Debate started on: **{ctx.raw_args}**\nDebate ID: `test-debate-123`",
                     data={"debate_id": "test-debate-123"},
                 )
 

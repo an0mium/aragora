@@ -25,6 +25,7 @@ class TestRunAsync:
 
     def test_runs_simple_coroutine(self):
         """Runs a simple coroutine and returns result."""
+
         async def simple():
             return 42
 
@@ -33,6 +34,7 @@ class TestRunAsync:
 
     def test_runs_coroutine_with_await(self):
         """Runs coroutine that contains await."""
+
         async def with_await():
             await asyncio.sleep(0.01)
             return "completed"
@@ -42,6 +44,7 @@ class TestRunAsync:
 
     def test_propagates_exceptions(self):
         """Propagates exceptions from coroutine."""
+
         async def failing():
             raise ValueError("test error")
 
@@ -68,6 +71,7 @@ class TestRunAsync:
 
     def test_works_from_sync_context(self):
         """Works when called from sync context (no running loop)."""
+
         async def simple():
             return "sync-context"
 
@@ -78,6 +82,7 @@ class TestRunAsync:
     @pytest.mark.asyncio
     async def test_works_from_async_context(self):
         """Works when called from async context (running loop)."""
+
         # Note: run_async uses ThreadPoolExecutor when loop is running
         async def inner():
             return "async-context"
@@ -88,6 +93,7 @@ class TestRunAsync:
 
     def test_handles_coroutine_returning_none(self):
         """Handles coroutines returning None."""
+
         async def return_none():
             return None
 
@@ -96,6 +102,7 @@ class TestRunAsync:
 
     def test_handles_complex_return_types(self):
         """Handles coroutines returning complex types."""
+
         async def return_dict():
             return {"nested": {"data": [1, 2, 3]}}
 
@@ -137,10 +144,7 @@ class TestRunCommand:
     @pytest.mark.asyncio
     async def test_command_with_input(self):
         """Sends input to command."""
-        returncode, stdout, stderr = await run_command(
-            ["cat"],
-            input_data=b"input data"
-        )
+        returncode, stdout, stderr = await run_command(["cat"], input_data=b"input data")
         assert returncode == 0
         assert stdout == b"input data"
 
@@ -243,6 +247,7 @@ class TestIntegration:
 
     def test_run_async_with_run_command(self):
         """run_async works with run_command."""
+
         async def run_echo():
             returncode, stdout, _ = await run_command(["echo", "integration"])
             return stdout.decode().strip()
@@ -274,8 +279,6 @@ class TestIntegration:
     async def test_command_output_encoding(self):
         """Handles various output encodings."""
         # Test with unicode output
-        returncode, stdout, stderr = await run_command(
-            [sys.executable, "-c", "print('café')"]
-        )
+        returncode, stdout, stderr = await run_command([sys.executable, "-c", "print('café')"])
         assert returncode == 0
         assert "caf" in stdout.decode()  # At least partial match

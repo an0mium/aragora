@@ -88,9 +88,7 @@ async def migrate_workflow_store(
     cursor = conn.cursor()
 
     # Check if table exists
-    cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='finding_workflows'"
-    )
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='finding_workflows'")
     if not cursor.fetchone():
         logger.info("No finding_workflows table found, skipping")
         conn.close()
@@ -312,9 +310,7 @@ async def migrate_integration_store(
     cursor.execute("SELECT COUNT(*) FROM integrations")
     total_integrations = cursor.fetchone()[0]
 
-    cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='user_id_mappings'"
-    )
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_id_mappings'")
     total_mappings = 0
     if cursor.fetchone():
         cursor.execute("SELECT COUNT(*) FROM user_id_mappings")

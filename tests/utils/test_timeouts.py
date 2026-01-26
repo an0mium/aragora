@@ -192,6 +192,7 @@ class TestAsyncTimeout:
     @pytest.mark.asyncio
     async def test_completes_within_timeout(self):
         """Returns result when operation completes within timeout."""
+
         async def fast_op():
             await asyncio.sleep(0.01)
             return "success"
@@ -202,6 +203,7 @@ class TestAsyncTimeout:
     @pytest.mark.asyncio
     async def test_timeout_on_slow_operation(self):
         """Raises TimeoutError when operation exceeds timeout."""
+
         async def slow_op():
             await asyncio.sleep(10)
             return "never"
@@ -212,6 +214,7 @@ class TestAsyncTimeout:
     @pytest.mark.asyncio
     async def test_error_includes_operation_name(self):
         """Error message includes operation name when provided."""
+
         async def slow_op():
             await asyncio.sleep(10)
 
@@ -221,6 +224,7 @@ class TestAsyncTimeout:
     @pytest.mark.asyncio
     async def test_error_without_operation_name(self):
         """Error message works without operation name."""
+
         async def slow_op():
             await asyncio.sleep(10)
 
@@ -232,6 +236,7 @@ class TestAsyncTimeout:
     @pytest.mark.asyncio
     async def test_propagates_exceptions(self):
         """Propagates exceptions from the coroutine."""
+
         async def failing_op():
             raise ValueError("operation failed")
 
@@ -241,6 +246,7 @@ class TestAsyncTimeout:
     @pytest.mark.asyncio
     async def test_returns_various_types(self):
         """Works with coroutines returning various types."""
+
         async def return_dict():
             return {"key": "value"}
 
@@ -287,6 +293,7 @@ class TestIntegration:
     @pytest.mark.asyncio
     async def test_async_timeout_with_gather(self):
         """async_timeout works with asyncio.gather."""
+
         async def op1():
             await asyncio.sleep(0.01)
             return 1
@@ -304,6 +311,7 @@ class TestIntegration:
     @pytest.mark.asyncio
     async def test_async_timeout_partial_failure(self):
         """One timeout doesn't affect other operations in gather."""
+
         async def fast_op():
             await asyncio.sleep(0.01)
             return "fast"

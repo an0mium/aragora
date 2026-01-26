@@ -131,7 +131,7 @@ class TestCrossDebateLearningValidation:
 
         # Agent C: Consistent but lower performance
         for i in range(3):
-            adapter.store_agent_expertise("agent-C", "security", 1500 + i * 20, 50, f"d{i+20}")
+            adapter.store_agent_expertise("agent-C", "security", 1500 + i * 20, 50, f"d{i + 20}")
 
         # Get domain experts for team selection
         experts = adapter.get_domain_experts("security", limit=10)
@@ -208,9 +208,9 @@ class TestCrossDebateLearningValidation:
 
         for question, expected_domain in test_cases:
             detected = adapter.detect_domain(question)
-            assert (
-                detected == expected_domain
-            ), f"Expected {expected_domain} for '{question}', got {detected}"
+            assert detected == expected_domain, (
+                f"Expected {expected_domain} for '{question}', got {detected}"
+            )
 
 
 class TestPatternLearningValidation:

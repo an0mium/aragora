@@ -53,7 +53,9 @@ class TestVerifyPhaseExecution:
         with patch("asyncio.create_subprocess_exec") as mock_exec:
             mock_proc = AsyncMock()
             mock_proc.returncode = 1
-            mock_proc.communicate = AsyncMock(return_value=(b"FAILED test_example.py::test_func", b""))
+            mock_proc.communicate = AsyncMock(
+                return_value=(b"FAILED test_example.py::test_func", b"")
+            )
             mock_exec.return_value = mock_proc
 
             result = await phase._run_tests()
@@ -218,12 +220,15 @@ class TestVerifyPhaseRollback:
                 with patch.object(phase, "_run_tests", new_callable=AsyncMock) as mock_tests:
                     mock_syntax.return_value = {"check": "syntax", "passed": True}
                     mock_imports.return_value = {"check": "import", "passed": True}
-                    mock_tests.return_value = {"check": "tests", "passed": False, "error": "Test failed"}
+                    mock_tests.return_value = {
+                        "check": "tests",
+                        "passed": False,
+                        "error": "Test failed",
+                    }
 
                     result = await phase.execute()
 
                     assert result["success"] is False
-
 
 
 class TestVerifyPhaseIntegration:

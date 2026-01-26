@@ -120,7 +120,9 @@ class TestInstrumentedIntegrationStore:
         store.save_async = AsyncMock()
         store.delete_async = AsyncMock(return_value=True)
         store.list_for_user = AsyncMock(return_value=[{"type": "test1"}, {"type": "test2"}])
-        store.list_all = AsyncMock(return_value=[{"type": "test1"}, {"type": "test2"}, {"type": "test3"}])
+        store.list_all = AsyncMock(
+            return_value=[{"type": "test1"}, {"type": "test2"}, {"type": "test3"}]
+        )
         return store
 
     @pytest.mark.asyncio

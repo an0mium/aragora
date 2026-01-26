@@ -46,6 +46,7 @@ class TestRegisterLruCache:
 
     def test_registers_function(self):
         """Registers function in cache registry."""
+
         @register_lru_cache
         @lru_cache(maxsize=10)
         def test_func(x):
@@ -59,6 +60,7 @@ class TestRegisterLruCache:
 
     def test_returns_same_function(self):
         """Returns the decorated function unchanged."""
+
         @lru_cache(maxsize=10)
         def original(x):
             return x * 2
@@ -68,6 +70,7 @@ class TestRegisterLruCache:
 
     def test_no_duplicate_registration(self):
         """Does not register same function twice."""
+
         @register_lru_cache
         @lru_cache(maxsize=10)
         def test_func(x):
@@ -86,10 +89,11 @@ class TestRegisterLruCache:
 
     def test_function_still_works(self):
         """Decorated function still works correctly."""
+
         @register_lru_cache
         @lru_cache(maxsize=10)
         def square(x):
-            return x ** 2
+            return x**2
 
         assert square(5) == 25
         assert square(10) == 100
@@ -103,6 +107,7 @@ class TestUnregisterLruCache:
 
     def test_unregisters_function(self):
         """Removes function from registry."""
+
         @register_lru_cache
         @lru_cache(maxsize=10)
         def test_func(x):
@@ -115,6 +120,7 @@ class TestUnregisterLruCache:
 
     def test_returns_false_for_unregistered(self):
         """Returns False for function not in registry."""
+
         @lru_cache(maxsize=10)
         def not_registered(x):
             return x
@@ -127,6 +133,7 @@ class TestClearAllLruCaches:
 
     def test_clears_caches(self):
         """Clears all registered caches."""
+
         @register_lru_cache
         @lru_cache(maxsize=10)
         def cached_func(x):
@@ -148,6 +155,7 @@ class TestClearAllLruCaches:
 
     def test_returns_cleared_count(self):
         """Returns total number of entries cleared."""
+
         @register_lru_cache
         @lru_cache(maxsize=10)
         def func1(x):
@@ -186,6 +194,7 @@ class TestGetLruCacheStats:
 
     def test_returns_stats(self):
         """Returns statistics for registered caches."""
+
         @register_lru_cache
         @lru_cache(maxsize=10)
         def stat_func(x):
@@ -209,6 +218,7 @@ class TestGetLruCacheStats:
 
     def test_hit_rate_calculation(self):
         """Calculates hit rate correctly."""
+
         @register_lru_cache
         @lru_cache(maxsize=10)
         def hit_rate_func(x):
@@ -230,6 +240,7 @@ class TestGetLruCacheStats:
 
     def test_zero_hit_rate(self):
         """Handles zero calls gracefully."""
+
         @register_lru_cache
         @lru_cache(maxsize=10)
         def unused_func(x):
@@ -249,6 +260,7 @@ class TestGetTotalCacheEntries:
 
     def test_counts_all_entries(self):
         """Counts entries across all caches."""
+
         @register_lru_cache
         @lru_cache(maxsize=10)
         def count_func1(x):
@@ -275,6 +287,7 @@ class TestGetTotalCacheEntries:
 
     def test_empty_caches(self):
         """Returns 0 for empty caches."""
+
         @register_lru_cache
         @lru_cache(maxsize=10)
         def empty_func(x):
@@ -309,6 +322,7 @@ class TestGetRegisteredCacheCount:
 
     def test_decreases_on_unregister(self):
         """Count decreases when cache is unregistered."""
+
         @register_lru_cache
         @lru_cache(maxsize=10)
         def temp_func(x):
@@ -334,6 +348,7 @@ class TestThreadSafety:
         def register_many():
             try:
                 for i in range(10):
+
                     @register_lru_cache
                     @lru_cache(maxsize=10)
                     def f(x, _i=i):
@@ -394,11 +409,12 @@ class TestIntegration:
 
     def test_full_lifecycle(self):
         """Tests full cache lifecycle."""
+
         # Register
         @register_lru_cache
         @lru_cache(maxsize=10)
         def lifecycle_func(x):
-            return x ** 2
+            return x**2
 
         # Verify registration
         assert get_registered_cache_count() > 0
@@ -425,6 +441,7 @@ class TestIntegration:
 
     def test_multiple_functions(self):
         """Tests multiple cached functions together."""
+
         @register_lru_cache
         @lru_cache(maxsize=5)
         def add(x, y):

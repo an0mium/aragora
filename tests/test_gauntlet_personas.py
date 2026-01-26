@@ -426,9 +426,9 @@ class TestPersonaCompleteness:
     def test_persona_has_regulation(self, persona_name):
         """Each persona has a regulation reference."""
         persona = get_persona(persona_name)
-        assert (
-            persona.regulation and persona.regulation != "General"
-        ), f"{persona_name} has no regulation"
+        assert persona.regulation and persona.regulation != "General", (
+            f"{persona_name} has no regulation"
+        )
 
     @pytest.mark.parametrize(
         "persona_name",

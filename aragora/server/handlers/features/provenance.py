@@ -5,11 +5,13 @@ Provides endpoints for:
 - Retrieving debate provenance graphs
 - Exporting provenance for compliance
 - Verifying evidence chain integrity
+
+Uses ProvenanceStore for persistent storage.
 """
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from aragora.reasoning.provenance import (
     MerkleTree,
@@ -19,23 +21,62 @@ from aragora.reasoning.provenance import (
 from aragora.server.handlers.base import HandlerResult, json_response
 from aragora.server.handlers.utils.decorators import require_permission
 
+if TYPE_CHECKING:
+    from aragora.storage.provenance_store import ProvenanceStore
+
 logger = logging.getLogger(__name__)
 
-# Global provenance store keyed by debate_id
-# In production, this would be backed by persistent storage
+# Global provenance store singleton
+_provenance_store: Optional["ProvenanceStore"] = None
+
+# In-memory cache for active managers (avoids repeated DB loads)
 _provenance_managers: Dict[str, ProvenanceManager] = {}
 
 
+def get_provenance_store() -> "ProvenanceStore":
+    """Get or create the global ProvenanceStore instance."""
+    global _provenance_store
+    if _provenance_store is None:
+        from aragora.storage.provenance_store import ProvenanceStore
+
+        _provenance_store = ProvenanceStore()
+        logger.info("ProvenanceStore initialized")
+    return _provenance_store
+
+
 def get_provenance_manager(debate_id: str) -> ProvenanceManager:
-    """Get or create a ProvenanceManager for a debate."""
-    if debate_id not in _provenance_managers:
-        _provenance_managers[debate_id] = ProvenanceManager(debate_id=debate_id)
-    return _provenance_managers[debate_id]
+    """Get or create a ProvenanceManager for a debate.
+
+    Loads from persistent storage if available, otherwise creates new.
+    """
+    # Check in-memory cache first
+    if debate_id in _provenance_managers:
+        return _provenance_managers[debate_id]
+
+    # Try to load from persistent storage
+    store = get_provenance_store()
+    manager = store.load_manager(debate_id)
+
+    if manager is None:
+        # Create new manager
+        manager = ProvenanceManager(debate_id=debate_id)
+        logger.debug(f"Created new ProvenanceManager for debate {debate_id}")
+    else:
+        logger.debug(f"Loaded ProvenanceManager for debate {debate_id} from storage")
+
+    # Cache in memory
+    _provenance_managers[debate_id] = manager
+    return manager
 
 
 def register_provenance_manager(debate_id: str, manager: ProvenanceManager) -> None:
-    """Register an externally created ProvenanceManager."""
+    """Register and persist an externally created ProvenanceManager."""
     _provenance_managers[debate_id] = manager
+
+    # Persist to storage
+    store = get_provenance_store()
+    store.save_manager(manager)
+    logger.debug(f"Registered and persisted ProvenanceManager for debate {debate_id}")
 
 
 def _build_graph_nodes(manager: ProvenanceManager) -> List[Dict[str, Any]]:

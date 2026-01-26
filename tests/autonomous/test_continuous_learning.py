@@ -297,8 +297,8 @@ class TestKnowledgeDecayManager:
         decay_manager.register_knowledge("fact1", initial_confidence=0.9)
 
         # Simulate time passing
-        decay_manager._knowledge_items["fact1"]["last_refreshed"] = (
-            datetime.now() - timedelta(days=60)
+        decay_manager._knowledge_items["fact1"]["last_refreshed"] = datetime.now() - timedelta(
+            days=60
         )
 
         changed = decay_manager.apply_decay()
@@ -311,8 +311,8 @@ class TestKnowledgeDecayManager:
         decay_manager.register_knowledge("fact1", initial_confidence=0.2)
 
         # Simulate very long time
-        decay_manager._knowledge_items["fact1"]["last_refreshed"] = (
-            datetime.now() - timedelta(days=365)
+        decay_manager._knowledge_items["fact1"]["last_refreshed"] = datetime.now() - timedelta(
+            days=365
         )
 
         changed = decay_manager.apply_decay()
@@ -339,8 +339,8 @@ class TestKnowledgeDecayManager:
         decay_manager.register_knowledge("fresh", initial_confidence=0.9)
         decay_manager.register_knowledge("stale", initial_confidence=0.9)
 
-        decay_manager._knowledge_items["stale"]["last_refreshed"] = (
-            datetime.now() - timedelta(days=60)
+        decay_manager._knowledge_items["stale"]["last_refreshed"] = datetime.now() - timedelta(
+            days=60
         )
 
         stale = decay_manager.get_stale_knowledge(max_age_days=30)

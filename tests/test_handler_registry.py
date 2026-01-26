@@ -50,9 +50,9 @@ class TestHandlerRegistry:
 
     def test_handler_registry_count(self):
         """HANDLER_REGISTRY should contain all 33 handlers."""
-        assert (
-            len(HANDLER_REGISTRY) >= 33
-        ), f"Expected at least 33 handlers, got {len(HANDLER_REGISTRY)}"
+        assert len(HANDLER_REGISTRY) >= 33, (
+            f"Expected at least 33 handlers, got {len(HANDLER_REGISTRY)}"
+        )
 
     def test_handler_registry_structure(self):
         """Each registry entry should be a (str, class) tuple."""
@@ -62,9 +62,9 @@ class TestHandlerRegistry:
             attr_name, handler_class = entry
             assert isinstance(attr_name, str), f"Attr name {attr_name} is not a string"
             assert attr_name.startswith("_"), f"Attr name {attr_name} should start with '_'"
-            assert attr_name.endswith(
-                "_handler"
-            ), f"Attr name {attr_name} should end with '_handler'"
+            assert attr_name.endswith("_handler"), (
+                f"Attr name {attr_name} should end with '_handler'"
+            )
             assert handler_class is not None, f"Handler class for {attr_name} is None"
 
     def test_all_handler_classes_importable(self):

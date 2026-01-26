@@ -384,9 +384,7 @@ class TestProbeBeforePromote:
         mock_elo_system.get_rating.assert_called_with("agent")
 
     @pytest.mark.asyncio
-    async def test_check_promotion_rejected_high_vuln_rate(
-        self, mock_elo_system, mock_prober
-    ):
+    async def test_check_promotion_rejected_high_vuln_rate(self, mock_elo_system, mock_prober):
         """Rejects promotion when vulnerability rate too high."""
         bad_report = VulnerabilityReport(
             report_id="r1",
@@ -420,9 +418,7 @@ class TestProbeBeforePromote:
         assert gate.pending_promotions["agent"] == 50.0
 
     @pytest.mark.asyncio
-    async def test_check_promotion_rejected_critical(
-        self, mock_elo_system, mock_prober
-    ):
+    async def test_check_promotion_rejected_critical(self, mock_elo_system, mock_prober):
         """Rejects promotion when critical vulnerabilities found."""
         critical_report = VulnerabilityReport(
             report_id="r1",

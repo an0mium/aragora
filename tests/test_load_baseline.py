@@ -79,7 +79,7 @@ class LoadTestResult:
     def summary(self) -> str:
         return (
             f"Requests: {self.successful_requests}/{self.total_requests} "
-            f"({self.success_rate*100:.1f}% success)\n"
+            f"({self.success_rate * 100:.1f}% success)\n"
             f"Duration: {self.total_duration_seconds:.2f}s "
             f"({self.requests_per_second:.1f} req/s)\n"
             f"Latency: avg={self.avg_latency_ms:.1f}ms, "

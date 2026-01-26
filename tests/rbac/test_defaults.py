@@ -437,9 +437,9 @@ class TestRoleTemplates:
             for perm_key in template["add"]:
                 # Permission should exist OR be a wildcard pattern
                 if not perm_key.endswith(".*"):
-                    assert perm_key in SYSTEM_PERMISSIONS or isinstance(
-                        perm_key, str
-                    ), f"Template {name} has invalid permission: {perm_key}"
+                    assert perm_key in SYSTEM_PERMISSIONS or isinstance(perm_key, str), (
+                        f"Template {name} has invalid permission: {perm_key}"
+                    )
 
 
 class TestRolePermissionIntegration:
@@ -450,9 +450,9 @@ class TestRolePermissionIntegration:
         for role_name, role in SYSTEM_ROLES.items():
             for perm_key in role.permissions:
                 if not perm_key.endswith(".*"):
-                    assert (
-                        perm_key in SYSTEM_PERMISSIONS
-                    ), f"Role {role_name} has invalid permission: {perm_key}"
+                    assert perm_key in SYSTEM_PERMISSIONS, (
+                        f"Role {role_name} has invalid permission: {perm_key}"
+                    )
 
     def test_owner_can_do_everything(self):
         """Owner role should have admin.all permission."""
@@ -465,6 +465,6 @@ class TestRolePermissionIntegration:
         safe_roles = ["viewer", "member", "analyst", "debate_creator"]
         for role_name in safe_roles:
             perms = get_role_permissions(role_name, include_inherited=True)
-            assert (
-                dangerous_perm not in perms
-            ), f"{role_name} should not have impersonate permission"
+            assert dangerous_perm not in perms, (
+                f"{role_name} should not have impersonate permission"
+            )

@@ -65,7 +65,7 @@ class TestMigrationResult:
         s = str(result)
         assert "TestStore" in s
         assert "100" in s  # total
-        assert "50" in s   # migrated
+        assert "50" in s  # migrated
 
     def test_str_shows_dry_run_mode(self):
         """String representation shows dry run indicator."""
@@ -172,23 +172,46 @@ class TestMigrateAll:
     async def test_runs_all_migrations(self):
         """migrate_all runs all individual migrations."""
         with patch("aragora.storage.migrations.encrypt_existing_data.CRYPTO_AVAILABLE", True):
-            with patch("aragora.storage.migrations.encrypt_existing_data.get_encryption_service") as mock_service:
+            with patch(
+                "aragora.storage.migrations.encrypt_existing_data.get_encryption_service"
+            ) as mock_service:
                 mock_service.return_value.get_active_key_id.return_value = "test-key"
 
-                with patch("aragora.storage.migrations.encrypt_existing_data.migrate_sync_store") as mock_sync:
-                    with patch("aragora.storage.migrations.encrypt_existing_data.migrate_integration_store") as mock_int:
-                        with patch("aragora.storage.migrations.encrypt_existing_data.migrate_gmail_tokens") as mock_gmail:
+                with patch(
+                    "aragora.storage.migrations.encrypt_existing_data.migrate_sync_store"
+                ) as mock_sync:
+                    with patch(
+                        "aragora.storage.migrations.encrypt_existing_data.migrate_integration_store"
+                    ) as mock_int:
+                        with patch(
+                            "aragora.storage.migrations.encrypt_existing_data.migrate_gmail_tokens"
+                        ) as mock_gmail:
                             mock_sync.return_value = MigrationResult(
-                                store_name="SyncStore", total_records=0, migrated=0,
-                                already_encrypted=0, failed=0, errors=[], dry_run=True
+                                store_name="SyncStore",
+                                total_records=0,
+                                migrated=0,
+                                already_encrypted=0,
+                                failed=0,
+                                errors=[],
+                                dry_run=True,
                             )
                             mock_int.return_value = MigrationResult(
-                                store_name="IntegrationStore", total_records=0, migrated=0,
-                                already_encrypted=0, failed=0, errors=[], dry_run=True
+                                store_name="IntegrationStore",
+                                total_records=0,
+                                migrated=0,
+                                already_encrypted=0,
+                                failed=0,
+                                errors=[],
+                                dry_run=True,
                             )
                             mock_gmail.return_value = MigrationResult(
-                                store_name="GmailTokenStore", total_records=0, migrated=0,
-                                already_encrypted=0, failed=0, errors=[], dry_run=True
+                                store_name="GmailTokenStore",
+                                total_records=0,
+                                migrated=0,
+                                already_encrypted=0,
+                                failed=0,
+                                errors=[],
+                                dry_run=True,
                             )
 
                             results = await migrate_all(dry_run=True)
@@ -210,7 +233,9 @@ class TestMigrateAll:
     async def test_returns_empty_when_service_fails(self):
         """migrate_all returns empty list when encryption service fails."""
         with patch("aragora.storage.migrations.encrypt_existing_data.CRYPTO_AVAILABLE", True):
-            with patch("aragora.storage.migrations.encrypt_existing_data.get_encryption_service") as mock_service:
+            with patch(
+                "aragora.storage.migrations.encrypt_existing_data.get_encryption_service"
+            ) as mock_service:
                 mock_service.side_effect = Exception("No encryption key configured")
 
                 results = await migrate_all(dry_run=True)

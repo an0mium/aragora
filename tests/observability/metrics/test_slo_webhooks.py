@@ -110,6 +110,7 @@ class TestNotifySLOViolation:
         """Test returns False when webhooks not initialized."""
         # Reset the callback
         import aragora.observability.metrics.slo as slo_module
+
         slo_module._webhook_callback = None
 
         result = notify_slo_violation(
@@ -130,6 +131,7 @@ class TestNotifySLOViolation:
             return True
 
         import aragora.observability.metrics.slo as slo_module
+
         slo_module._webhook_callback = capture_callback
         slo_module._last_notification = {}  # Clear cooldown
 
@@ -153,6 +155,7 @@ class TestNotifySLOViolation:
             return True
 
         import aragora.observability.metrics.slo as slo_module
+
         slo_module._webhook_callback = capture_callback
         slo_module._last_notification = {}
 
@@ -198,27 +201,19 @@ class TestRecordSLOViolationWithWebhook:
         slo_module._webhook_callback = None  # Disable webhook for this test
 
         # Minor: < 20% over
-        severity = record_slo_violation(
-            "test_op", "p99", 110.0, 100.0, notify_webhook=False
-        )
+        severity = record_slo_violation("test_op", "p99", 110.0, 100.0, notify_webhook=False)
         assert severity == "minor"
 
         # Moderate: 20-50% over
-        severity = record_slo_violation(
-            "test_op", "p99", 130.0, 100.0, notify_webhook=False
-        )
+        severity = record_slo_violation("test_op", "p99", 130.0, 100.0, notify_webhook=False)
         assert severity == "moderate"
 
         # Major: 50-100% over
-        severity = record_slo_violation(
-            "test_op", "p99", 175.0, 100.0, notify_webhook=False
-        )
+        severity = record_slo_violation("test_op", "p99", 175.0, 100.0, notify_webhook=False)
         assert severity == "major"
 
         # Critical: > 100% over
-        severity = record_slo_violation(
-            "test_op", "p99", 250.0, 100.0, notify_webhook=False
-        )
+        severity = record_slo_violation("test_op", "p99", 250.0, 100.0, notify_webhook=False)
         assert severity == "critical"
 
     def test_respects_notify_webhook_flag(self):
@@ -226,6 +221,7 @@ class TestRecordSLOViolationWithWebhook:
         import aragora.observability.metrics.slo as slo_module
 
         called = []
+
         def track_callback(data):
             called.append(data)
             return True
@@ -237,15 +233,11 @@ class TestRecordSLOViolationWithWebhook:
         slo_module._last_notification = {}
 
         # With notify_webhook=False, should not call webhook
-        record_slo_violation(
-            "no_notify_op", "p99", 600.0, 500.0, notify_webhook=False
-        )
+        record_slo_violation("no_notify_op", "p99", 600.0, 500.0, notify_webhook=False)
         assert len(called) == 0
 
         # With notify_webhook=True (default), should call webhook
-        record_slo_violation(
-            "yes_notify_op", "p99", 600.0, 500.0, notify_webhook=True
-        )
+        record_slo_violation("yes_notify_op", "p99", 600.0, 500.0, notify_webhook=True)
         assert len(called) == 1
 
 
@@ -264,13 +256,12 @@ class TestCooldownBehavior:
 
         # Set the last notification time to now to simulate a recent notification
         import time
+
         slo_module._webhook_callback = counting_callback
         slo_module._last_notification = {"cooldown_op": time.time()}
 
         # This call should be blocked by cooldown (within 60 seconds)
-        result = notify_slo_violation(
-            "cooldown_op", "p99", 700.0, 500.0, "moderate"
-        )
+        result = notify_slo_violation("cooldown_op", "p99", 700.0, 500.0, "moderate")
         assert result is False
         assert call_count[0] == 0  # Should not have been called
 
@@ -288,9 +279,7 @@ class TestCooldownBehavior:
         slo_module._last_notification = {}  # Empty - no previous notifications
 
         # First call should go through
-        result = notify_slo_violation(
-            "first_op", "p99", 600.0, 500.0, "minor"
-        )
+        result = notify_slo_violation("first_op", "p99", 600.0, 500.0, "minor")
         assert result is True
         assert call_count[0] == 1
 
@@ -339,20 +328,15 @@ class TestSeverityFiltering:
             init_slo_webhooks(webhook_config=config)
 
             import aragora.observability.metrics.slo as slo_module
+
             slo_module._last_notification = {}
 
             # Minor should be filtered
-            result1 = notify_slo_violation(
-                "filter_op1", "p99", 110.0, 100.0, "minor"
-            )
+            result1 = notify_slo_violation("filter_op1", "p99", 110.0, 100.0, "minor")
             # Moderate should be filtered
-            result2 = notify_slo_violation(
-                "filter_op2", "p99", 140.0, 100.0, "moderate"
-            )
+            result2 = notify_slo_violation("filter_op2", "p99", 140.0, 100.0, "moderate")
             # Major should pass
-            result3 = notify_slo_violation(
-                "filter_op3", "p99", 175.0, 100.0, "major"
-            )
+            result3 = notify_slo_violation("filter_op3", "p99", 175.0, 100.0, "major")
 
             # Only major severity should have been enqueued
             major_events = [e for e in enqueue_calls if e.get("severity") == "major"]
@@ -365,6 +349,7 @@ class TestSLORecovery:
     def test_notify_slo_recovery_returns_false_when_not_initialized(self):
         """Test returns False when webhooks not initialized."""
         import aragora.observability.metrics.slo as slo_module
+
         slo_module._webhook_callback = None
 
         result = notify_slo_recovery(
@@ -423,6 +408,7 @@ class TestViolationState:
     def test_get_violation_state_empty(self):
         """Test get_violation_state returns empty when no violations."""
         import aragora.observability.metrics.slo as slo_module
+
         slo_module._violation_state = {}
 
         state = get_violation_state("unknown_op")
@@ -431,6 +417,7 @@ class TestViolationState:
     def test_get_violation_state_all(self):
         """Test get_violation_state returns all states."""
         import aragora.observability.metrics.slo as slo_module
+
         slo_module._violation_state = {
             "op1": {"in_violation": True, "last_severity": "major"},
             "op2": {"in_violation": False},
@@ -444,6 +431,7 @@ class TestViolationState:
     def test_get_slo_webhook_status_includes_violations(self):
         """Test status includes list of operations in violation."""
         import aragora.observability.metrics.slo as slo_module
+
         slo_module._violation_state = {
             "violating_op": {"in_violation": True},
             "healthy_op": {"in_violation": False},
@@ -472,19 +460,20 @@ class TestCheckAndRecordWithRecovery:
         slo_module._violation_state = {}
 
         # Mock the SLO check to fail
-        with patch(
-            "aragora.config.performance_slos.check_latency_slo",
-            return_value=(False, "SLO violated"),
-        ), patch(
-            "aragora.config.performance_slos.get_slo_config",
-        ) as mock_config:
+        with (
+            patch(
+                "aragora.config.performance_slos.check_latency_slo",
+                return_value=(False, "SLO violated"),
+            ),
+            patch(
+                "aragora.config.performance_slos.get_slo_config",
+            ) as mock_config,
+        ):
             mock_slo = MagicMock()
             mock_slo.p99_ms = 500.0
             mock_config.return_value = MagicMock(track_violation_op=mock_slo)
 
-            passed, _ = check_and_record_slo_with_recovery(
-                "track_violation_op", 600.0, "p99"
-            )
+            passed, _ = check_and_record_slo_with_recovery("track_violation_op", 600.0, "p99")
 
             assert passed is False
             # Should be in violation state
@@ -516,16 +505,18 @@ class TestCheckAndRecordWithRecovery:
         recovery_called = []
 
         # Mock notify_slo_recovery to track calls
-        with patch(
-            "aragora.config.performance_slos.check_latency_slo",
-            return_value=(True, "Within SLO"),
-        ), patch.object(
-            slo_module, "notify_slo_recovery",
-            side_effect=lambda **kwargs: recovery_called.append(kwargs) or True,
+        with (
+            patch(
+                "aragora.config.performance_slos.check_latency_slo",
+                return_value=(True, "Within SLO"),
+            ),
+            patch.object(
+                slo_module,
+                "notify_slo_recovery",
+                side_effect=lambda **kwargs: recovery_called.append(kwargs) or True,
+            ),
         ):
-            passed, _ = check_and_record_slo_with_recovery(
-                "recovery_op", 400.0, "p99"
-            )
+            passed, _ = check_and_record_slo_with_recovery("recovery_op", 400.0, "p99")
 
             assert passed is True
             # Recovery should have been called

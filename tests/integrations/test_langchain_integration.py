@@ -151,7 +151,9 @@ class TestAragoraRetriever:
 
         # Mock the async method
         mock_docs = [MagicMock(page_content="Test", metadata={})]
-        with patch.object(retriever, "_aget_relevant_documents", new_callable=AsyncMock) as mock_aget:
+        with patch.object(
+            retriever, "_aget_relevant_documents", new_callable=AsyncMock
+        ) as mock_aget:
             mock_aget.return_value = mock_docs
 
             docs = retriever.get_relevant_documents("test query")

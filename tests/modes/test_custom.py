@@ -124,7 +124,17 @@ class TestCustomModeLoader:
 
     def test_tool_group_map_has_all_groups(self):
         """TOOL_GROUP_MAP has all expected groups."""
-        expected = ["read", "edit", "command", "browser", "mcp", "debate", "readonly", "developer", "full"]
+        expected = [
+            "read",
+            "edit",
+            "command",
+            "browser",
+            "mcp",
+            "debate",
+            "readonly",
+            "developer",
+            "full",
+        ]
 
         for group in expected:
             assert group in CustomModeLoader.TOOL_GROUP_MAP

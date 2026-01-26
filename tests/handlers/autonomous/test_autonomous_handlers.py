@@ -318,9 +318,7 @@ class TestAlertHandler:
             return_value=analyzer,
         ):
             request = MagicMock()
-            request.json = AsyncMock(
-                return_value={"metric_name": "error_rate", "value": 0.03}
-            )
+            request.json = AsyncMock(return_value={"metric_name": "error_rate", "value": 0.03})
 
             response = await AlertHandler.check_metric(request)
 
@@ -550,12 +548,15 @@ class TestMonitoringHandler:
     async def test_record_metric(self, mock_monitors):
         """Test recording a metric."""
         trend_monitor, anomaly_detector, _, _ = mock_monitors
-        with patch(
-            "aragora.server.handlers.autonomous.monitoring.get_trend_monitor",
-            return_value=trend_monitor,
-        ), patch(
-            "aragora.server.handlers.autonomous.monitoring.get_anomaly_detector",
-            return_value=anomaly_detector,
+        with (
+            patch(
+                "aragora.server.handlers.autonomous.monitoring.get_trend_monitor",
+                return_value=trend_monitor,
+            ),
+            patch(
+                "aragora.server.handlers.autonomous.monitoring.get_anomaly_detector",
+                return_value=anomaly_detector,
+            ),
         ):
             request = MagicMock()
             request.json = AsyncMock(

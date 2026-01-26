@@ -371,7 +371,7 @@ Be gracious in victory or defeat. Focus on what's best for developers."""
         self.log("")
         self.log("## Summary")
         self.log("")
-        self.log(f"- **Duration**: {duration:.1f} seconds ({duration/60:.1f} minutes)")
+        self.log(f"- **Duration**: {duration:.1f} seconds ({duration / 60:.1f} minutes)")
         self.log(f"- **Rounds**: {self.rounds}")
         self.log(f"- **Winner**: {winner}")
         self.log(

@@ -347,9 +347,7 @@ class TestGmailUserStateFromRow:
 
     def test_from_row_null_values(self):
         """Should handle null values."""
-        row = (
-            "user123", None, None, None, None, None, None, None, None, None, None, None
-        )
+        row = ("user123", None, None, None, None, None, None, None, None, None, None, None)
         state = GmailUserState.from_row(row)
         assert state.user_id == "user123"
         assert state.email_address == ""

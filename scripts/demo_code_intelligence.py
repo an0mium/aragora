@@ -40,16 +40,16 @@ logger = logging.getLogger(__name__)
 
 def print_header(title: str) -> None:
     """Print a formatted section header."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f" {title}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
 
 def print_subheader(title: str) -> None:
     """Print a formatted subsection header."""
-    print(f"\n{'-'*40}")
+    print(f"\n{'-' * 40}")
     print(f" {title}")
-    print(f"{'-'*40}\n")
+    print(f"{'-' * 40}\n")
 
 
 async def demo_codebase_understanding(path: str) -> None:

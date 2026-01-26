@@ -88,9 +88,7 @@ class TestHackerNewsSearch:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = AsyncMock()
-            mock_instance.get.return_value = MagicMock(
-                status_code=200, json=lambda: mock_response
-            )
+            mock_instance.get.return_value = MagicMock(status_code=200, json=lambda: mock_response)
             mock_instance.__aenter__.return_value = mock_instance
             mock_instance.__aexit__.return_value = None
             mock_client.return_value = mock_instance
@@ -106,9 +104,7 @@ class TestHackerNewsSearch:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = AsyncMock()
-            mock_instance.get.return_value = MagicMock(
-                status_code=200, json=lambda: mock_response
-            )
+            mock_instance.get.return_value = MagicMock(status_code=200, json=lambda: mock_response)
             mock_instance.__aenter__.return_value = mock_instance
             mock_instance.__aexit__.return_value = None
             mock_client.return_value = mock_instance
@@ -175,9 +171,7 @@ class TestHackerNewsRateLimiting:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = AsyncMock()
-            mock_instance.get.return_value = MagicMock(
-                status_code=200, json=lambda: mock_response
-            )
+            mock_instance.get.return_value = MagicMock(status_code=200, json=lambda: mock_response)
             mock_instance.__aenter__.return_value = mock_instance
             mock_instance.__aexit__.return_value = None
             mock_client.return_value = mock_instance

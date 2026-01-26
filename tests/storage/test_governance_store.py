@@ -320,8 +320,8 @@ class TestDecisionRecordDataclass:
             confidence=0.85,
             timestamp=datetime(2024, 1, 15, 10, 30, 0),
             evidence_chain_json='[{"claim": "A", "source": "agent1"}]',
-            vote_pivots_json='[]',
-            belief_changes_json='[]',
+            vote_pivots_json="[]",
+            belief_changes_json="[]",
             agents_involved_json='["claude", "gpt4"]',
         )
 

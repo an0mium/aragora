@@ -38,9 +38,7 @@ class TestStorageBackendProtocol:
             def get(self, slug: str) -> Optional[dict[str, Any]]:
                 return None
 
-            def list_debates(
-                self, limit: int = 20, offset: int = 0
-            ) -> list[dict[str, Any]]:
+            def list_debates(self, limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
                 return []
 
             def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
@@ -56,6 +54,7 @@ class TestStorageBackendProtocol:
         class IncompleteStorage:
             def save(self, debate_id: str, task: str, agents: list, artifact: dict) -> str:
                 return "slug"
+
             # Missing: get, list_debates, search
 
         incomplete = IncompleteStorage()
@@ -134,9 +133,7 @@ class TestEloBackendProtocol:
             ) -> list[dict[str, Any]]:
                 return []
 
-            def get_history(
-                self, agent: str, limit: int = 50
-            ) -> list[dict[str, Any]]:
+            def get_history(self, agent: str, limit: int = 50) -> list[dict[str, Any]]:
                 return []
 
         mock = MockElo()

@@ -279,7 +279,9 @@ class TestDebateAgentCoordination:
         # Record a match to establish agent ratings
         # Signature: record_match(debate_id, participants, scores)
         integrated_elo.record_match(
-            "test-debate-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0}  # claude wins
+            "test-debate-1",
+            ["claude", "gemini"],
+            {"claude": 1.0, "gemini": 0.0},  # claude wins
         )
 
         # Get leaderboard

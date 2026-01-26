@@ -142,22 +142,37 @@ class TestZapierIntegration:
         )
 
         # Matching event
-        assert trigger.matches_event({
-            "workspace_id": "workspace-123",
-            "confidence": 0.9,
-        }) is True
+        assert (
+            trigger.matches_event(
+                {
+                    "workspace_id": "workspace-123",
+                    "confidence": 0.9,
+                }
+            )
+            is True
+        )
 
         # Wrong workspace
-        assert trigger.matches_event({
-            "workspace_id": "other-workspace",
-            "confidence": 0.9,
-        }) is False
+        assert (
+            trigger.matches_event(
+                {
+                    "workspace_id": "other-workspace",
+                    "confidence": 0.9,
+                }
+            )
+            is False
+        )
 
         # Low confidence
-        assert trigger.matches_event({
-            "workspace_id": "workspace-123",
-            "confidence": 0.5,
-        }) is False
+        assert (
+            trigger.matches_event(
+                {
+                    "workspace_id": "workspace-123",
+                    "confidence": 0.5,
+                }
+            )
+            is False
+        )
 
     @pytest.mark.asyncio
     async def test_fire_trigger(self):
@@ -169,9 +184,7 @@ class TestZapierIntegration:
             webhook_url="https://hooks.zapier.com/test",
         )
 
-        with patch.object(
-            self.zapier, "_fire_single_trigger", new_callable=AsyncMock
-        ) as mock_fire:
+        with patch.object(self.zapier, "_fire_single_trigger", new_callable=AsyncMock) as mock_fire:
             mock_fire.return_value = True
 
             count = await self.zapier.fire_trigger(
@@ -301,22 +314,37 @@ class TestMakeIntegration:
         )
 
         # Matching event
-        assert webhook.matches_event({
-            "workspace_id": "workspace-123",
-            "status": "completed",
-        }) is True
+        assert (
+            webhook.matches_event(
+                {
+                    "workspace_id": "workspace-123",
+                    "status": "completed",
+                }
+            )
+            is True
+        )
 
         # Wrong workspace
-        assert webhook.matches_event({
-            "workspace_id": "other-workspace",
-            "status": "completed",
-        }) is False
+        assert (
+            webhook.matches_event(
+                {
+                    "workspace_id": "other-workspace",
+                    "status": "completed",
+                }
+            )
+            is False
+        )
 
         # Wrong filter value
-        assert webhook.matches_event({
-            "workspace_id": "workspace-123",
-            "status": "pending",
-        }) is False
+        assert (
+            webhook.matches_event(
+                {
+                    "workspace_id": "workspace-123",
+                    "status": "pending",
+                }
+            )
+            is False
+        )
 
     @pytest.mark.asyncio
     async def test_trigger_webhooks(self):
@@ -479,19 +507,37 @@ class TestN8nIntegration:
         )
 
         # Matching event
-        assert webhook.matches_event("debate_end", {
-            "workspace_id": "workspace-123",
-        }) is True
+        assert (
+            webhook.matches_event(
+                "debate_end",
+                {
+                    "workspace_id": "workspace-123",
+                },
+            )
+            is True
+        )
 
         # Wrong workspace
-        assert webhook.matches_event("debate_end", {
-            "workspace_id": "other-workspace",
-        }) is False
+        assert (
+            webhook.matches_event(
+                "debate_end",
+                {
+                    "workspace_id": "other-workspace",
+                },
+            )
+            is False
+        )
 
         # Event not in list
-        assert webhook.matches_event("debate_start", {
-            "workspace_id": "workspace-123",
-        }) is False
+        assert (
+            webhook.matches_event(
+                "debate_start",
+                {
+                    "workspace_id": "workspace-123",
+                },
+            )
+            is False
+        )
 
     def test_webhook_wildcard_events(self):
         """Test webhook with wildcard events."""
@@ -585,6 +631,7 @@ class TestSingletons:
         """Test Zapier integration singleton."""
         # Reset global singleton
         import aragora.integrations.zapier as zapier_mod
+
         zapier_mod._zapier_integration = None
 
         zapier1 = get_zapier_integration()
@@ -596,6 +643,7 @@ class TestSingletons:
         """Test Make integration singleton."""
         # Reset global singleton
         import aragora.integrations.make as make_mod
+
         make_mod._make_integration = None
 
         make1 = get_make_integration()
@@ -607,6 +655,7 @@ class TestSingletons:
         """Test n8n integration singleton."""
         # Reset global singleton
         import aragora.integrations.n8n as n8n_mod
+
         n8n_mod._n8n_integration = None
 
         n8n1 = get_n8n_integration()

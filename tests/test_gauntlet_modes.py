@@ -496,7 +496,6 @@ class TestGauntletIntegration:
             patch("aragora.modes.gauntlet.GauntletOrchestrator._run_deep_audit") as mock_audit,
             patch("aragora.modes.gauntlet.GauntletOrchestrator._run_verification") as mock_verify,
         ):
-
             # Mock returns
             mock_redteam.return_value = None
             mock_probe.return_value = None
@@ -528,7 +527,6 @@ class TestGauntletIntegration:
             patch("aragora.modes.gauntlet.GauntletOrchestrator._run_deep_audit") as mock_audit,
             patch("aragora.modes.gauntlet.GauntletOrchestrator._run_verification") as mock_verify,
         ):
-
             # Mock returns
             mock_redteam.return_value = None
             mock_probe.return_value = None

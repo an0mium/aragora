@@ -262,12 +262,26 @@ class TestRoundtrip:
     def test_full_roundtrip_with_results(self, tmp_path):
         """Complete save/load cycle should preserve all data."""
         tasks = [
-            ImplementTask(id="t1", description="First task", files=["a.py", "b.py"], complexity="simple"),
-            ImplementTask(id="t2", description="Second task", files=["c.py"], complexity="complex", dependencies=["t1"]),
+            ImplementTask(
+                id="t1", description="First task", files=["a.py", "b.py"], complexity="simple"
+            ),
+            ImplementTask(
+                id="t2",
+                description="Second task",
+                files=["c.py"],
+                complexity="complex",
+                dependencies=["t1"],
+            ),
         ]
         plan = ImplementPlan(design_hash="full_roundtrip_hash", tasks=tasks)
         results = [
-            TaskResult(task_id="t1", success=True, diff="Added feature", model_used="claude", duration_seconds=45.0),
+            TaskResult(
+                task_id="t1",
+                success=True,
+                diff="Added feature",
+                model_used="claude",
+                duration_seconds=45.0,
+            ),
         ]
         original = ImplementProgress(
             plan=plan,

@@ -48,11 +48,11 @@ class ProfileResult:
         return (
             f"{self.name}:\n"
             f"  Iterations: {self.iterations}\n"
-            f"  Total: {self.total_time*1000:.2f}ms\n"
-            f"  Avg: {self.avg_time*1000:.3f}ms\n"
-            f"  Min: {self.min_time*1000:.3f}ms\n"
-            f"  Max: {self.max_time*1000:.3f}ms\n"
-            f"  StdDev: {self.std_dev*1000:.3f}ms"
+            f"  Total: {self.total_time * 1000:.2f}ms\n"
+            f"  Avg: {self.avg_time * 1000:.3f}ms\n"
+            f"  Min: {self.min_time * 1000:.3f}ms\n"
+            f"  Max: {self.max_time * 1000:.3f}ms\n"
+            f"  StdDev: {self.std_dev * 1000:.3f}ms"
         )
 
 
@@ -199,7 +199,7 @@ def profile_memory_store_operations():
             critiques = [
                 Critique(
                     agent=f"agent-{j % 3}",
-                    target_agent=f"agent-{(j+1) % 3}",
+                    target_agent=f"agent-{(j + 1) % 3}",
                     target_content=f"Target {j}",
                     issues=[f"Issue {k}" for k in range(2)],
                     suggestions=[f"Suggestion {k}" for k in range(2)],
@@ -261,7 +261,7 @@ def profile_meta_critique_analysis():
     critiques = [
         Critique(
             agent=f"agent-{i % 3}",
-            target_agent=f"agent-{(i+1) % 3}",
+            target_agent=f"agent-{(i + 1) % 3}",
             target_content=f"Target content {i}",
             issues=[f"Issue {j}" for j in range(2)],
             suggestions=[f"Suggestion {j}" for j in range(2)],
@@ -343,7 +343,7 @@ def run_all_profiles():
 
     for r in flat_results:
         if r:
-            print(f"{r.name[:38]:<40} {r.avg_time*1000:>10.3f}")
+            print(f"{r.name[:38]:<40} {r.avg_time * 1000:>10.3f}")
 
     print()
     print("Recommendations:")
@@ -353,12 +353,12 @@ def run_all_profiles():
     sorted_results = sorted([r for r in flat_results if r], key=lambda x: x.avg_time, reverse=True)
     if sorted_results:
         slowest = sorted_results[0]
-        print(f"  - Optimize '{slowest.name}' (avg {slowest.avg_time*1000:.2f}ms)")
+        print(f"  - Optimize '{slowest.name}' (avg {slowest.avg_time * 1000:.2f}ms)")
 
         if len(sorted_results) > 1:
             second_slowest = sorted_results[1]
             print(
-                f"  - Consider caching '{second_slowest.name}' (avg {second_slowest.avg_time*1000:.2f}ms)"
+                f"  - Consider caching '{second_slowest.name}' (avg {second_slowest.avg_time * 1000:.2f}ms)"
             )
 
 

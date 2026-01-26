@@ -38,10 +38,12 @@ class MockContinuumAdapter:
         km_validation: Dict[str, Any],
     ) -> bool:
         """Reverse sync: KM → Continuum."""
-        self.reverse_calls.append({
-            "memory_id": memory_id,
-            "km_validation": km_validation,
-        })
+        self.reverse_calls.append(
+            {
+                "memory_id": memory_id,
+                "km_validation": km_validation,
+            }
+        )
         return self.reverse_result
 
 
@@ -65,10 +67,12 @@ class MockELOAdapter:
         km_patterns: List[Dict],
     ) -> float:
         """Reverse sync: KM → ELO."""
-        self.reverse_calls.append({
-            "agent_name": agent_name,
-            "km_patterns": km_patterns,
-        })
+        self.reverse_calls.append(
+            {
+                "agent_name": agent_name,
+                "km_patterns": km_patterns,
+            }
+        )
         return self.reverse_adjustment
 
 
@@ -138,10 +142,12 @@ class MockCritiqueAdapter:
         km_validation: Dict,
     ) -> bool:
         """Reverse sync: KM → Critique."""
-        self.reverse_calls.append({
-            "pattern_id": pattern_id,
-            "km_validation": km_validation,
-        })
+        self.reverse_calls.append(
+            {
+                "pattern_id": pattern_id,
+                "km_validation": km_validation,
+            }
+        )
         return self.boost_result
 
 
@@ -165,10 +171,12 @@ class MockPulseAdapter:
         min_confidence: float = 0.7,
     ) -> Dict:
         """Reverse sync: KM → Pulse."""
-        self.reverse_calls.append({
-            "workspace_id": workspace_id,
-            "min_confidence": min_confidence,
-        })
+        self.reverse_calls.append(
+            {
+                "workspace_id": workspace_id,
+                "min_confidence": min_confidence,
+            }
+        )
         return self.sync_result
 
 
@@ -199,11 +207,13 @@ class MockKnowledgeMound:
         confidence: float,
     ) -> None:
         """Handle consensus reached hook."""
-        self.consensus_calls.append({
-            "ctx": ctx,
-            "consensus_text": consensus_text,
-            "confidence": confidence,
-        })
+        self.consensus_calls.append(
+            {
+                "ctx": ctx,
+                "consensus_text": consensus_text,
+                "confidence": confidence,
+            }
+        )
 
     def on_outcome_tracked(self, ctx: Dict, outcome: Dict) -> None:
         """Handle outcome tracked hook."""
@@ -385,10 +395,12 @@ class TestBidirectionalCoordinatorE2E:
     @pytest.fixture
     def km(self):
         """Create mock Knowledge Mound."""
-        return MockKnowledgeMound(items=[
-            {"id": "km1", "type": "validation", "confidence": 0.8},
-            {"id": "km2", "type": "pattern", "confidence": 0.9},
-        ])
+        return MockKnowledgeMound(
+            items=[
+                {"id": "km1", "type": "validation", "confidence": 0.8},
+                {"id": "km2", "type": "pattern", "confidence": 0.9},
+            ]
+        )
 
     @pytest.mark.asyncio
     async def test_full_bidirectional_flow(self, adapters, km):
@@ -493,6 +505,7 @@ class TestHookSystemKMIntegration:
     @pytest.fixture
     def hook_manager(self):
         """Create mock hook manager."""
+
         class MockHookManager:
             def __init__(self):
                 self.registered_hooks = {}
@@ -509,6 +522,7 @@ class TestHookSystemKMIntegration:
                 def unregister():
                     if key in self.registered_hooks:
                         del self.registered_hooks[key]
+
                 return unregister
 
         return MockHookManager()
@@ -562,9 +576,11 @@ class TestKMBidirectionalE2EFlow:
         )
 
         # Setup
-        km = MockKnowledgeMound(items=[
-            {"id": "km1", "type": "validation", "confidence": 0.85},
-        ])
+        km = MockKnowledgeMound(
+            items=[
+                {"id": "km1", "type": "validation", "confidence": 0.85},
+            ]
+        )
         continuum_adapter = MockContinuumAdapter()
         elo_adapter = MockELOAdapter()
 
@@ -608,9 +624,11 @@ class TestKMBidirectionalE2EFlow:
             BidirectionalCoordinator,
         )
 
-        km = MockKnowledgeMound(items=[
-            {"id": "km1", "memory_id": "m1", "confidence": 0.9},
-        ])
+        km = MockKnowledgeMound(
+            items=[
+                {"id": "km1", "memory_id": "m1", "confidence": 0.9},
+            ]
+        )
         continuum_adapter = MockContinuumAdapter()
 
         coordinator = BidirectionalCoordinator(knowledge_mound=km)

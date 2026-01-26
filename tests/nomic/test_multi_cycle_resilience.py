@@ -47,9 +47,9 @@ class TestMultiCycleConsensusConvergence:
 
         # Verify monotonic improvement trend
         for i in range(1, len(cycle_scores)):
-            assert (
-                cycle_scores[i] >= cycle_scores[i - 1]
-            ), f"Consensus should not regress: {cycle_scores[i - 1]} -> {cycle_scores[i]}"
+            assert cycle_scores[i] >= cycle_scores[i - 1], (
+                f"Consensus should not regress: {cycle_scores[i - 1]} -> {cycle_scores[i]}"
+            )
 
         # Verify final score meets threshold
         assert cycle_scores[-1] >= 0.8, "Should achieve 80%+ consensus after 5 cycles"
@@ -79,9 +79,9 @@ class TestMultiCycleConsensusConvergence:
 
         # Verify minimum agent count maintained
         min_agents = 2
-        assert all(
-            count >= min_agents for count in agent_counts
-        ), "Must maintain minimum agent count"
+        assert all(count >= min_agents for count in agent_counts), (
+            "Must maintain minimum agent count"
+        )
 
     @pytest.mark.asyncio
     async def test_cycle_budget_enforcement(self):

@@ -28,7 +28,7 @@ class TestSafeJsonLoads:
 
     def test_valid_json_array(self):
         """Parses valid JSON array."""
-        result = safe_json_loads('[1, 2, 3]')
+        result = safe_json_loads("[1, 2, 3]")
         assert result == [1, 2, 3]
 
     def test_none_input(self):
@@ -98,7 +98,7 @@ class TestExtractBalancedJson:
 
     def test_array_extraction(self):
         """Extracts JSON array."""
-        text = 'Data: [1, 2, [3, 4]] end'
+        text = "Data: [1, 2, [3, 4]] end"
         result = _extract_balanced_json(text, "[", "]")
         assert result == "[1, 2, [3, 4]]"
 
@@ -146,7 +146,7 @@ class TestExtractJsonFromText:
 
     def test_array_in_code_block(self):
         """Extracts array from code block."""
-        text = '```json\n[1, 2, 3]\n```'
+        text = "```json\n[1, 2, 3]\n```"
         result = extract_json_from_text(text)
         assert result == "[1, 2, 3]"
 
@@ -158,7 +158,7 @@ class TestExtractJsonFromText:
 
     def test_raw_json_array(self):
         """Extracts raw JSON array."""
-        text = 'The list is [1, 2, 3] as expected'
+        text = "The list is [1, 2, 3] as expected"
         result = extract_json_from_text(text)
         assert result == "[1, 2, 3]"
 
@@ -182,12 +182,12 @@ class TestExtractJsonFromText:
 
     def test_multiline_code_block(self):
         """Handles multiline JSON in code block."""
-        text = '''```json
+        text = """```json
 {
   "key1": "value1",
   "key2": "value2"
 }
-```'''
+```"""
         result = extract_json_from_text(text)
         assert '"key1"' in result
         assert '"key2"' in result

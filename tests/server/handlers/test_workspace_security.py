@@ -100,18 +100,18 @@ class TestCreditsAdminSecurity:
             assert method is not None, f"Method {method_name} should exist"
 
             source = inspect.getsource(method)
-            assert (
-                "require_permission" in source
-            ), f"Method {method_name} should have @require_permission decorator"
+            assert "require_permission" in source, (
+                f"Method {method_name} should have @require_permission decorator"
+            )
 
     def test_credits_handler_extends_secure_handler(self):
         """Test that CreditsAdminHandler extends SecureHandler."""
         from aragora.server.handlers.admin.credits import CreditsAdminHandler
         from aragora.server.handlers.secure import SecureHandler
 
-        assert issubclass(
-            CreditsAdminHandler, SecureHandler
-        ), "CreditsAdminHandler should extend SecureHandler"
+        assert issubclass(CreditsAdminHandler, SecureHandler), (
+            "CreditsAdminHandler should extend SecureHandler"
+        )
 
 
 if __name__ == "__main__":

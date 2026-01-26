@@ -58,8 +58,7 @@ def check_env_var(name: str, required: bool = True, secret: bool = False) -> Che
         return CheckResult(name, Status.OK, f"Set: {display}")
     elif required:
         return CheckResult(
-            name, Status.FAIL, "Not set",
-            fix=f"export {name}=<value> or add to .env file"
+            name, Status.FAIL, "Not set", fix=f"export {name}=<value> or add to .env file"
         )
     else:
         return CheckResult(name, Status.WARN, "Not set (optional)")
@@ -72,8 +71,10 @@ def check_environment_mode() -> CheckResult:
         return CheckResult("ARAGORA_ENVIRONMENT", Status.OK, "production")
     else:
         return CheckResult(
-            "ARAGORA_ENVIRONMENT", Status.WARN, f"'{env}' (not production)",
-            fix="export ARAGORA_ENVIRONMENT=production"
+            "ARAGORA_ENVIRONMENT",
+            Status.WARN,
+            f"'{env}' (not production)",
+            fix="export ARAGORA_ENVIRONMENT=production",
         )
 
 
@@ -82,13 +83,17 @@ def check_jwt_secret() -> CheckResult:
     secret = os.environ.get("ARAGORA_JWT_SECRET")
     if not secret:
         return CheckResult(
-            "ARAGORA_JWT_SECRET", Status.FAIL, "Not set",
-            fix='export ARAGORA_JWT_SECRET=$(python -c "import secrets; print(secrets.token_urlsafe(32))")'
+            "ARAGORA_JWT_SECRET",
+            Status.FAIL,
+            "Not set",
+            fix='export ARAGORA_JWT_SECRET=$(python -c "import secrets; print(secrets.token_urlsafe(32))")',
         )
     if len(secret) < 32:
         return CheckResult(
-            "ARAGORA_JWT_SECRET", Status.WARN, f"Too short ({len(secret)} chars, need 32+)",
-            fix="Use a longer secret for production security"
+            "ARAGORA_JWT_SECRET",
+            Status.WARN,
+            f"Too short ({len(secret)} chars, need 32+)",
+            fix="Use a longer secret for production security",
         )
     return CheckResult("ARAGORA_JWT_SECRET", Status.OK, f"Set ({len(secret)} chars)")
 
@@ -109,8 +114,10 @@ def check_supabase_config() -> CheckResult:
 
     if issues:
         return CheckResult(
-            "Supabase", Status.FAIL, "; ".join(issues),
-            fix="Configure Supabase credentials in .env (see docs/PRODUCTION_DEPLOYMENT.md)"
+            "Supabase",
+            Status.FAIL,
+            "; ".join(issues),
+            fix="Configure Supabase credentials in .env (see docs/PRODUCTION_DEPLOYMENT.md)",
         )
 
     return CheckResult("Supabase", Status.OK, "All credentials configured")
@@ -120,12 +127,11 @@ async def check_postgres_connection() -> CheckResult:
     """Test PostgreSQL connection to Supabase."""
     dsn = os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
     if not dsn:
-        return CheckResult(
-            "PostgreSQL Connection", Status.SKIP, "No DSN configured"
-        )
+        return CheckResult("PostgreSQL Connection", Status.SKIP, "No DSN configured")
 
     try:
         import asyncpg
+
         pool = await asyncpg.create_pool(dsn, min_size=1, max_size=2, timeout=10)
         async with pool.acquire() as conn:
             result = await conn.fetchval("SELECT 1")
@@ -135,18 +141,18 @@ async def check_postgres_connection() -> CheckResult:
             # Extract PostgreSQL version
             pg_version = version.split()[1] if version else "unknown"
             return CheckResult(
-                "PostgreSQL Connection", Status.OK,
-                f"Connected (PostgreSQL {pg_version})"
+                "PostgreSQL Connection", Status.OK, f"Connected (PostgreSQL {pg_version})"
             )
     except ImportError:
         return CheckResult(
-            "PostgreSQL Connection", Status.FAIL, "asyncpg not installed",
-            fix="pip install asyncpg"
+            "PostgreSQL Connection", Status.FAIL, "asyncpg not installed", fix="pip install asyncpg"
         )
     except Exception as e:
         return CheckResult(
-            "PostgreSQL Connection", Status.FAIL, str(e)[:100],
-            fix="Check DSN format and network connectivity"
+            "PostgreSQL Connection",
+            Status.FAIL,
+            str(e)[:100],
+            fix="Check DSN format and network connectivity",
         )
 
 
@@ -157,12 +163,17 @@ async def check_tables_exist() -> CheckResult:
         return CheckResult("Database Tables", Status.SKIP, "No DSN configured")
 
     required_tables = [
-        "webhook_configs", "integrations", "users", "job_queue",
-        "token_blacklist", "approval_requests"
+        "webhook_configs",
+        "integrations",
+        "users",
+        "job_queue",
+        "token_blacklist",
+        "approval_requests",
     ]
 
     try:
         import asyncpg
+
         pool = await asyncpg.create_pool(dsn, min_size=1, max_size=2, timeout=10)
         async with pool.acquire() as conn:
             existing = []
@@ -186,14 +197,12 @@ async def check_tables_exist() -> CheckResult:
 
             if missing:
                 return CheckResult(
-                    "Database Tables", Status.FAIL,
+                    "Database Tables",
+                    Status.FAIL,
                     f"Missing: {', '.join(missing)}",
-                    fix="python scripts/init_postgres_db.py"
+                    fix="python scripts/init_postgres_db.py",
                 )
-            return CheckResult(
-                "Database Tables", Status.OK,
-                f"{len(existing)} tables verified"
-            )
+            return CheckResult("Database Tables", Status.OK, f"{len(existing)} tables verified")
     except ImportError:
         return CheckResult("Database Tables", Status.SKIP, "asyncpg not installed")
     except Exception as e:
@@ -215,14 +224,13 @@ def check_ai_providers() -> CheckResult:
 
     if not configured:
         return CheckResult(
-            "AI Providers", Status.FAIL, "No AI provider configured",
-            fix="Set at least one: ANTHROPIC_API_KEY, OPENAI_API_KEY, etc."
+            "AI Providers",
+            Status.FAIL,
+            "No AI provider configured",
+            fix="Set at least one: ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.",
         )
 
-    return CheckResult(
-        "AI Providers", Status.OK,
-        f"Configured: {', '.join(configured)}"
-    )
+    return CheckResult("AI Providers", Status.OK, f"Configured: {', '.join(configured)}")
 
 
 def check_cors_config() -> CheckResult:
@@ -230,13 +238,17 @@ def check_cors_config() -> CheckResult:
     origins = os.environ.get("ARAGORA_ALLOWED_ORIGINS", "")
     if not origins:
         return CheckResult(
-            "CORS", Status.WARN, "No allowed origins set",
-            fix="export ARAGORA_ALLOWED_ORIGINS=https://aragora.ai,https://www.aragora.ai"
+            "CORS",
+            Status.WARN,
+            "No allowed origins set",
+            fix="export ARAGORA_ALLOWED_ORIGINS=https://aragora.ai,https://www.aragora.ai",
         )
 
     if "localhost" in origins.lower() or "127.0.0.1" in origins:
         return CheckResult(
-            "CORS", Status.WARN, "Localhost in allowed origins (OK for staging)",
+            "CORS",
+            Status.WARN,
+            "Localhost in allowed origins (OK for staging)",
         )
 
     return CheckResult("CORS", Status.OK, f"Origins: {origins[:50]}...")
@@ -250,13 +262,17 @@ def check_ssl_config() -> CheckResult:
 
     if not ssl_enabled:
         return CheckResult(
-            "SSL/TLS", Status.WARN, "Not enabled (OK if behind reverse proxy)",
+            "SSL/TLS",
+            Status.WARN,
+            "Not enabled (OK if behind reverse proxy)",
         )
 
     if not cert or not key:
         return CheckResult(
-            "SSL/TLS", Status.FAIL, "Enabled but cert/key not configured",
-            fix="Set ARAGORA_SSL_CERT and ARAGORA_SSL_KEY paths"
+            "SSL/TLS",
+            Status.FAIL,
+            "Enabled but cert/key not configured",
+            fix="Set ARAGORA_SSL_CERT and ARAGORA_SSL_KEY paths",
         )
 
     # Check if cert files exist
@@ -320,21 +336,12 @@ def print_results(results: list[CheckResult], show_fix: bool = False) -> tuple[i
 
 
 async def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Validate aragora.ai production environment"
-    )
+    parser = argparse.ArgumentParser(description="Validate aragora.ai production environment")
     parser.add_argument(
-        "--quick", action="store_true",
-        help="Quick check without database connection tests"
+        "--quick", action="store_true", help="Quick check without database connection tests"
     )
-    parser.add_argument(
-        "--fix", action="store_true",
-        help="Show fix suggestions for issues"
-    )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true",
-        help="Verbose output"
-    )
+    parser.add_argument("--fix", action="store_true", help="Show fix suggestions for issues")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 

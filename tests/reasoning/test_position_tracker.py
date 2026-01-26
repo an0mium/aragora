@@ -289,7 +289,11 @@ class TestPositionEvolution:
 
         # GPT pivots, influenced by claude
         evolution.record_position(
-            "gpt", 2, PositionStance.AGREE, 0.7, "Convinced",
+            "gpt",
+            2,
+            PositionStance.AGREE,
+            0.7,
+            "Convinced",
             influenced_by=["claude"],
         )
 
@@ -298,7 +302,11 @@ class TestPositionEvolution:
 
         # Gemini pivots, influenced by claude
         evolution.record_position(
-            "gemini", 2, PositionStance.AGREE, 0.75, "Also convinced",
+            "gemini",
+            2,
+            PositionStance.AGREE,
+            0.75,
+            "Also convinced",
             influenced_by=["claude"],
         )
 

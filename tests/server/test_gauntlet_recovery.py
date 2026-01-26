@@ -49,9 +49,7 @@ class TestGauntletRecovery:
         from aragora.server.handlers.gauntlet import recover_stale_gauntlet_runs
 
         # Mock the storage getter
-        with patch(
-            "aragora.server.handlers.gauntlet._get_storage", return_value=storage
-        ):
+        with patch("aragora.server.handlers.gauntlet._get_storage", return_value=storage):
             recovered = recover_stale_gauntlet_runs(max_age_seconds=0)
 
         # Should have recovered 1 run
@@ -68,9 +66,7 @@ class TestGauntletRecovery:
 
         from aragora.server.handlers.gauntlet import recover_stale_gauntlet_runs
 
-        with patch(
-            "aragora.server.handlers.gauntlet._get_storage", return_value=storage
-        ):
+        with patch("aragora.server.handlers.gauntlet._get_storage", return_value=storage):
             recovered = recover_stale_gauntlet_runs(max_age_seconds=0)
 
         assert recovered == 0
@@ -101,9 +97,7 @@ class TestGauntletRecovery:
 
         from aragora.server.handlers.gauntlet import recover_stale_gauntlet_runs
 
-        with patch(
-            "aragora.server.handlers.gauntlet._get_storage", return_value=storage
-        ):
+        with patch("aragora.server.handlers.gauntlet._get_storage", return_value=storage):
             recovered = recover_stale_gauntlet_runs(max_age_seconds=0)
 
         # Should not recover completed runs
@@ -135,9 +129,7 @@ class TestGauntletRecovery:
 
         from aragora.server.handlers.gauntlet import recover_stale_gauntlet_runs
 
-        with patch(
-            "aragora.server.handlers.gauntlet._get_storage", return_value=storage
-        ):
+        with patch("aragora.server.handlers.gauntlet._get_storage", return_value=storage):
             recovered = recover_stale_gauntlet_runs(max_age_seconds=0)
 
         assert recovered == 3
@@ -181,9 +173,7 @@ class TestGauntletRecoveryStartup:
         """Should return 0 when there are no stale runs."""
         from aragora.server.startup import init_gauntlet_run_recovery
 
-        with patch(
-            "aragora.server.handlers.gauntlet.recover_stale_gauntlet_runs", return_value=0
-        ):
+        with patch("aragora.server.handlers.gauntlet.recover_stale_gauntlet_runs", return_value=0):
             result = init_gauntlet_run_recovery()
 
         assert result == 0

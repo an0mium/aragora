@@ -95,7 +95,8 @@ class TestMFARateLimiting:
         assert hasattr(AuthHandler, "_handle_mfa_verify")
 
     @pytest.mark.skipif(
-        True, reason="pyotp not installed in test environment"  # Skip if pyotp is not available
+        True,
+        reason="pyotp not installed in test environment",  # Skip if pyotp is not available
     )
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")

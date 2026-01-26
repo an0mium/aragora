@@ -129,18 +129,14 @@ class TestSuggestionFeedbackTracker:
 
     def test_record_injection_with_dict(self, tracker):
         """Should handle dict format clusters."""
-        clusters = [
-            {"representative": "Test", "count": 1, "user_ids": ["u1"]}
-        ]
+        clusters = [{"representative": "Test", "count": 1, "user_ids": ["u1"]}]
         injection_ids = tracker.record_injection("debate-123", clusters)
         assert len(injection_ids) == 1
 
     def test_record_outcome(self, tracker):
         """Should record debate outcomes."""
         # First inject
-        clusters = [
-            SuggestionCluster(representative="Test", count=1, user_ids=["u1"])
-        ]
+        clusters = [SuggestionCluster(representative="Test", count=1, user_ids=["u1"])]
         tracker.record_injection("debate-123", clusters)
 
         # Then record outcome
@@ -154,9 +150,7 @@ class TestSuggestionFeedbackTracker:
 
     def test_get_debate_suggestions(self, tracker):
         """Should retrieve suggestions for a debate."""
-        clusters = [
-            SuggestionCluster(representative="Test", count=1, user_ids=["u1"])
-        ]
+        clusters = [SuggestionCluster(representative="Test", count=1, user_ids=["u1"])]
         tracker.record_injection("debate-123", clusters)
 
         records = tracker.get_debate_suggestions("debate-123")
@@ -172,9 +166,7 @@ class TestSuggestionFeedbackTracker:
         """Should update contributor statistics."""
         # This tests the internal _update_contributor_stats method
         # by recording injection and outcome
-        clusters = [
-            SuggestionCluster(representative="Test", count=1, user_ids=["user-1"])
-        ]
+        clusters = [SuggestionCluster(representative="Test", count=1, user_ids=["user-1"])]
         tracker.record_injection("debate-1", clusters)
         tracker.record_outcome("debate-1", True, 0.9, 100.0)
 
@@ -210,9 +202,7 @@ class TestSuggestionFeedbackTracker:
     def test_calculate_effectiveness_score(self, tracker):
         """Should calculate effectiveness scores."""
         # Record with good outcome
-        clusters = [
-            SuggestionCluster(representative="Good suggestion", count=5, user_ids=["u1"])
-        ]
+        clusters = [SuggestionCluster(representative="Good suggestion", count=5, user_ids=["u1"])]
         tracker.record_injection("debate-good", clusters)
         tracker.record_outcome("debate-good", True, 0.95, 60.0)
 

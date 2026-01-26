@@ -2356,14 +2356,14 @@ class NomicLoop:
             # 50% warning
             if progress_pct >= 50 and not self._warned_50:
                 self._log(
-                    f"  [WARNING] Cycle at 50% time budget ({elapsed/60:.0f}m elapsed, phase: {current_phase})"
+                    f"  [WARNING] Cycle at 50% time budget ({elapsed / 60:.0f}m elapsed, phase: {current_phase})"
                 )
                 self._warned_50 = True
 
             # 75% warning
             if progress_pct >= 75 and not self._warned_75:
                 self._log(
-                    f"  [WARNING] Cycle at 75% time budget ({remaining/60:.0f}m remaining, phase: {current_phase})"
+                    f"  [WARNING] Cycle at 75% time budget ({remaining / 60:.0f}m remaining, phase: {current_phase})"
                 )
                 self._warned_75 = True
 
@@ -3872,7 +3872,7 @@ The most valuable proposals combine deep analysis with actionable implementation
 
 **Category**: {issue.category}
 **Complexity**: {issue.complexity}
-**Files likely involved**: {', '.join(issue.file_hints[:5])}
+**Files likely involved**: {", ".join(issue.file_hints[:5])}
 
 ### Problem Description
 {issue.description}
@@ -4820,7 +4820,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             self._log(f"  [tournament] Champion: {result.champion}")
             for i, standing in enumerate(result.standings[:4]):
                 self._log(
-                    f"  [tournament] #{i+1} {standing.agent_name}: {standing.points}pts, {standing.win_rate:.0%} win rate"
+                    f"  [tournament] #{i + 1} {standing.agent_name}: {standing.points}pts, {standing.win_rate:.0%} win rate"
                 )
 
             # Update persona expertise based on tournament performance
@@ -5133,7 +5133,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             self._log("  [elo] === LEADERBOARD ===")
             for i, rating in enumerate(leaderboard):
                 self._log(
-                    f"  [elo] #{i+1} {rating.agent_name}: {rating.elo:.0f} "
+                    f"  [elo] #{i + 1} {rating.agent_name}: {rating.elo:.0f} "
                     f"({rating.wins}W/{rating.losses}L)"
                 )
         except (AttributeError, TypeError) as e:
@@ -6983,7 +6983,7 @@ Cross-examine each other's reasoning. Be thorough.""",
 These files are essential to aragora's functionality and must be reviewed with maximum scrutiny.
 
 ## Protected Files Being Modified
-{', '.join(touched_files)}
+{", ".join(touched_files)}
 
 ## Changes (git diff)
 ```
@@ -7918,8 +7918,8 @@ Start directly with "## 1. FILE CHANGES" or similar."""
 PARENT IMPROVEMENT CONTEXT:
 {parent_improvement[:1000]}...
 
-FILES IN SCOPE: {', '.join(subtask.file_scope) if subtask.file_scope else 'auto-detect'}
-DEPENDENCIES: {', '.join(subtask.dependencies) if subtask.dependencies else 'none'}
+FILES IN SCOPE: {", ".join(subtask.file_scope) if subtask.file_scope else "auto-detect"}
+DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "none"}
 """
 
         result = await design_phase.execute(
@@ -8131,7 +8131,7 @@ DEPENDENCIES: {', '.join(subtask.dependencies) if subtask.dependencies else 'non
                 context_parts.append("\nPATTERN SUCCESS RATES:")
                 for pattern, stats in list(patterns.items())[:3]:
                     rate = stats.get("success_rate", 0)
-                    context_parts.append(f"  - {pattern}: {rate*100:.0f}%")
+                    context_parts.append(f"  - {pattern}: {rate * 100:.0f}%")
 
             return "\n".join(context_parts) if context_parts else ""
 
@@ -8183,7 +8183,7 @@ DEPENDENCIES: {', '.join(subtask.dependencies) if subtask.dependencies else 'non
             try:
                 pressure = self.continuum.get_memory_pressure()
                 if pressure > 0.8:  # 80% threshold
-                    self._log(f"  [memory] Pressure at {pressure*100:.1f}%, running cleanup")
+                    self._log(f"  [memory] Pressure at {pressure * 100:.1f}%, running cleanup")
                     result = self.continuum.cleanup_expired_memories(archive=True)
                     if result["archived"] > 0 or result["deleted"] > 0:
                         self._log(
@@ -8208,7 +8208,7 @@ DEPENDENCIES: {', '.join(subtask.dependencies) if subtask.dependencies else 'non
         cb_status = self.circuit_breaker.get_status()
         if any(cb_status["cooldowns"].values()):
             self._log(
-                f"  [circuit-breaker] Agents in cooldown: {[k for k,v in cb_status['cooldowns'].items() if v > 0]}"
+                f"  [circuit-breaker] Agents in cooldown: {[k for k, v in cb_status['cooldowns'].items() if v > 0]}"
             )
 
         # Security: Verify protected files haven't been tampered with
@@ -8874,7 +8874,7 @@ Fix the test failures in the codebase. Here's what went wrong and how to fix it:
 ```
 
 ## Codex Analysis
-{review_result.get('review', 'No review available')[:2000]}
+{review_result.get("review", "No review available")[:2000]}
 
 ## Instructions
 1. Read the failing tests FILES LISTED ABOVE to understand what's expected
@@ -8957,8 +8957,8 @@ Previous fix attempt may have issues. Please apply an alternative fix for these 
 ```
 
 ## Previous Attempt Issues
-{iteration_result.get('gemini_review', 'Unknown issues')}
-{iteration_result.get('fix_error', '')}
+{iteration_result.get("gemini_review", "Unknown issues")}
+{iteration_result.get("fix_error", "")}
 
 ## Current Changes (may be partially correct)
 {self._get_git_diff()[:2000]}

@@ -31,20 +31,20 @@ class TestExtractJson:
 
     def test_extracts_json_from_code_block(self):
         """Extracts JSON from markdown code block."""
-        text = '''Here is the plan:
+        text = """Here is the plan:
 ```json
 {"tasks": [{"id": "task-1"}]}
 ```
-'''
+"""
         result = extract_json(text)
         assert '"tasks"' in result
         assert '"id"' in result
 
     def test_extracts_json_from_plain_code_block(self):
         """Extracts JSON from plain code block."""
-        text = '''```
+        text = """```
 {"tasks": []}
-```'''
+```"""
         result = extract_json(text)
         assert '"tasks"' in result
 
@@ -68,10 +68,10 @@ class TestExtractJson:
 
     def test_prefers_code_block_over_raw(self):
         """Prefers JSON in code blocks over raw JSON."""
-        text = '''{"old": "json"}
+        text = """{"old": "json"}
 ```json
 {"new": "json"}
-```'''
+```"""
         result = extract_json(text)
         assert '"new"' in result
 
@@ -362,7 +362,7 @@ class TestPlanValidationEdgeCases:
                     "description": f"Task {i}",
                     "files": [f"file{i}.py"],
                     "complexity": "simple",
-                    "dependencies": [f"task-{i-1}"] if i > 0 else [],
+                    "dependencies": [f"task-{i - 1}"] if i > 0 else [],
                 }
                 for i in range(10)
             ]

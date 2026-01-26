@@ -261,9 +261,9 @@ class TestWorkflowTemplates:
                 # Allow compliance personas too
                 compliance_personas = {"compliance_officer", "sox", "security_engineer"}
                 has_compliance = any(a in compliance_personas for a in agents)
-                assert (
-                    has_healthcare or has_compliance
-                ), f"Healthcare template step {step['id']} should use healthcare/compliance personas"
+                assert has_healthcare or has_compliance, (
+                    f"Healthcare template step {step['id']} should use healthcare/compliance personas"
+                )
 
     def test_code_templates_use_code_personas(self):
         """Test code templates reference code review personas."""
@@ -307,9 +307,9 @@ class TestWorkflowTemplates:
                     "compliance_officer",
                 }
                 has_financial = any(a in financial_personas for a in agents)
-                assert (
-                    has_financial
-                ), f"Accounting template step {step['id']} should use financial personas"
+                assert has_financial, (
+                    f"Accounting template step {step['id']} should use financial personas"
+                )
 
     def test_templates_have_human_checkpoints(self):
         """Test templates include human review steps."""
@@ -563,12 +563,12 @@ class TestEndToEndIntegration:
                 from_step = transition["from"]
                 to_step = transition["to"]
 
-                assert (
-                    from_step in step_ids
-                ), f"Template {template_id}: transition from unknown step {from_step}"
-                assert (
-                    to_step in step_ids
-                ), f"Template {template_id}: transition to unknown step {to_step}"
+                assert from_step in step_ids, (
+                    f"Template {template_id}: transition from unknown step {from_step}"
+                )
+                assert to_step in step_ids, (
+                    f"Template {template_id}: transition to unknown step {to_step}"
+                )
 
     def test_fhir_connector_with_redaction(self):
         """Test FHIR connector with PHI redaction enabled."""

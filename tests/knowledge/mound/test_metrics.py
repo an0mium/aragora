@@ -310,6 +310,7 @@ class TestGlobalMetrics:
         """Test getting global metrics creates instance."""
         # Reset global state
         import aragora.knowledge.mound.metrics as m
+
         m._global_metrics = None
 
         metrics = get_metrics()

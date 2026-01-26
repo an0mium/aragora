@@ -27,12 +27,14 @@ from aragora.rbac.models import AuthorizationContext
 def mock_debate_engine():
     """Create a mock debate engine."""
     engine = AsyncMock()
-    engine.run = AsyncMock(return_value={
-        "consensus_reached": True,
-        "final_answer": "Test answer",
-        "confidence": 0.9,
-        "participants": ["agent1", "agent2"],
-    })
+    engine.run = AsyncMock(
+        return_value={
+            "consensus_reached": True,
+            "final_answer": "Test answer",
+            "confidence": 0.9,
+            "participants": ["agent1", "agent2"],
+        }
+    )
     return engine
 
 
@@ -40,10 +42,12 @@ def mock_debate_engine():
 def mock_workflow_engine():
     """Create a mock workflow engine."""
     engine = AsyncMock()
-    engine.execute = AsyncMock(return_value={
-        "status": "completed",
-        "result": {"answer": "Workflow result"},
-    })
+    engine.execute = AsyncMock(
+        return_value={
+            "status": "completed",
+            "result": {"answer": "Workflow result"},
+        }
+    )
     return engine
 
 

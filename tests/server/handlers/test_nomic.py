@@ -260,9 +260,7 @@ class TestNomicMetrics:
             mock_metrics.return_value = MagicMock(
                 body=json.dumps({"metrics": {"cycles": 10}}).encode(), status_code=200
             )
-            result = await nomic_handler.handle(
-                "/api/v1/nomic/metrics", {}, mock_http_handler
-            )
+            result = await nomic_handler.handle("/api/v1/nomic/metrics", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -319,7 +317,5 @@ class TestHandleReturnsNone:
     async def test_handle_returns_none_for_non_matching(self, nomic_handler, mock_http_handler):
         """Handle should return None for paths that can_handle returns False for."""
         # Force a path that would bypass can_handle check
-        result = await nomic_handler.handle(
-            "/api/v1/nomic/nonexistent", {}, mock_http_handler
-        )
+        result = await nomic_handler.handle("/api/v1/nomic/nonexistent", {}, mock_http_handler)
         assert result is None

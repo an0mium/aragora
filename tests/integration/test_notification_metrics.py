@@ -54,7 +54,7 @@ class TestNotificationMetricsRecording:
         # Mock the _send_webhook method directly
         provider = notification_service.get_provider(NotificationChannel.SLACK)
 
-        with patch.object(provider, '_send_webhook', new_callable=AsyncMock) as mock_send:
+        with patch.object(provider, "_send_webhook", new_callable=AsyncMock) as mock_send:
             mock_send.return_value = None
             result = await provider.send(sample_notification, "#test-channel")
 
@@ -105,11 +105,13 @@ class TestNotificationMetricsRecording:
     async def test_webhook_metrics_on_success(self, sample_notification):
         """Test that metrics are recorded on successful webhook delivery."""
         provider = WebhookProvider()
-        provider.add_endpoint(WebhookEndpoint(
-            id="test-endpoint",
-            url="https://example.com/webhook",
-            enabled=True,
-        ))
+        provider.add_endpoint(
+            WebhookEndpoint(
+                id="test-endpoint",
+                url="https://example.com/webhook",
+                enabled=True,
+            )
+        )
 
         # Skip if aiohttp not available
         try:
@@ -127,7 +129,9 @@ class TestNotificationMetricsRecording:
                 return mock_response
 
             mock_session_instance = MagicMock()
-            mock_session_instance.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response)))
+            mock_session_instance.post = MagicMock(
+                return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response))
+            )
 
             mock_session.return_value = MagicMock(
                 __aenter__=AsyncMock(return_value=mock_session_instance),
@@ -144,11 +148,13 @@ class TestNotificationMetricsRecording:
     async def test_webhook_metrics_on_failure(self, sample_notification):
         """Test that metrics are recorded on webhook delivery failure."""
         provider = WebhookProvider()
-        provider.add_endpoint(WebhookEndpoint(
-            id="test-endpoint",
-            url="https://example.com/webhook",
-            enabled=True,
-        ))
+        provider.add_endpoint(
+            WebhookEndpoint(
+                id="test-endpoint",
+                url="https://example.com/webhook",
+                enabled=True,
+            )
+        )
 
         with patch("aiohttp.ClientSession") as mock_session:
             mock_response = AsyncMock()
@@ -243,14 +249,16 @@ class TestCheckpointNotificationMetrics:
 
         with patch("aragora.notifications.service.get_notification_service") as mock_get_service:
             mock_service = MagicMock()
-            mock_service.notify = AsyncMock(return_value=[
-                NotificationResult(
-                    success=True,
-                    channel=NotificationChannel.SLACK,
-                    recipient="#approvals",
-                    notification_id="test-123",
-                )
-            ])
+            mock_service.notify = AsyncMock(
+                return_value=[
+                    NotificationResult(
+                        success=True,
+                        channel=NotificationChannel.SLACK,
+                        recipient="#approvals",
+                        notification_id="test-123",
+                    )
+                ]
+            )
             mock_service.notify_all_webhooks = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
 
@@ -273,14 +281,16 @@ class TestCheckpointNotificationMetrics:
 
         with patch("aragora.notifications.service.get_notification_service") as mock_get_service:
             mock_service = MagicMock()
-            mock_service.notify = AsyncMock(return_value=[
-                NotificationResult(
-                    success=True,
-                    channel=NotificationChannel.EMAIL,
-                    recipient="manager@example.com",
-                    notification_id="test-456",
-                )
-            ])
+            mock_service.notify = AsyncMock(
+                return_value=[
+                    NotificationResult(
+                        success=True,
+                        channel=NotificationChannel.EMAIL,
+                        recipient="manager@example.com",
+                        notification_id="test-456",
+                    )
+                ]
+            )
             mock_service.notify_all_webhooks = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
 

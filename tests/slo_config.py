@@ -205,7 +205,7 @@ def assert_latency_slo(
     if elapsed_ms is not None:
         target = targets[percentile]
         assert elapsed_ms <= target, (
-            f"SLO violation: {operation} {percentile} = {elapsed_ms:.1f}ms " f"(target: {target}ms)"
+            f"SLO violation: {operation} {percentile} = {elapsed_ms:.1f}ms (target: {target}ms)"
         )
 
     if metrics is not None:
@@ -249,7 +249,7 @@ def assert_throughput_slo(
     target = targets[target_key]
 
     assert ops_per_sec >= target, (
-        f"SLO violation: {category} throughput = {ops_per_sec:.1f}/sec " f"(target: {target}/sec)"
+        f"SLO violation: {category} throughput = {ops_per_sec:.1f}/sec (target: {target}/sec)"
     )
 
 
@@ -267,7 +267,7 @@ def assert_memory_ops_slo(
     min_ops = targets["min_ops_per_sec"]
 
     assert ops_per_sec >= min_ops, (
-        f"SLO violation: {operation} = {ops_per_sec:.0f} ops/sec " f"(target: >{min_ops} ops/sec)"
+        f"SLO violation: {operation} = {ops_per_sec:.0f} ops/sec (target: >{min_ops} ops/sec)"
     )
 
 
@@ -285,7 +285,7 @@ def assert_elo_ops_slo(
     min_ops = targets["min_ops_per_sec"]
 
     assert ops_per_sec >= min_ops, (
-        f"SLO violation: {operation} = {ops_per_sec:.0f} ops/sec " f"(target: >{min_ops} ops/sec)"
+        f"SLO violation: {operation} = {ops_per_sec:.0f} ops/sec (target: >{min_ops} ops/sec)"
     )
 
 
@@ -326,5 +326,5 @@ def assert_error_rate_slo(
     threshold = targets[threshold_key]
 
     assert error_rate <= threshold, (
-        f"SLO violation: {category} = {error_rate:.2f}% " f"(target: <{threshold}%)"
+        f"SLO violation: {category} = {error_rate:.2f}% (target: <{threshold}%)"
     )

@@ -266,7 +266,7 @@ Cross-examine each other's reasoning. Be thorough.""",
 These files are essential to aragora's functionality and must be reviewed with maximum scrutiny.
 
 ## Protected Files Being Modified
-{', '.join(touched_files)}
+{", ".join(touched_files)}
 
 ## Changes (git diff)
 ```

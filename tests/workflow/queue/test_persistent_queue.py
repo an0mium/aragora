@@ -90,9 +90,7 @@ class TestPersistentTaskQueue:
             assert len(task_ids) == 5
 
             # Verify all in database
-            db_tasks, total = persistent_queue.list_tasks_from_db(
-                workflow_id="wf_batch"
-            )
+            db_tasks, total = persistent_queue.list_tasks_from_db(workflow_id="wf_batch")
             assert len(db_tasks) == 5
             assert total == 5
 
@@ -238,14 +236,10 @@ class TestPersistentTaskQueue:
             assert total == 5
 
             # Filter by workflow
-            wf0_tasks, wf0_total = persistent_queue.list_tasks_from_db(
-                workflow_id="wf_0"
-            )
+            wf0_tasks, wf0_total = persistent_queue.list_tasks_from_db(workflow_id="wf_0")
             assert len(wf0_tasks) == 3  # indices 0, 2, 4
 
-            wf1_tasks, wf1_total = persistent_queue.list_tasks_from_db(
-                workflow_id="wf_1"
-            )
+            wf1_tasks, wf1_total = persistent_queue.list_tasks_from_db(workflow_id="wf_1")
             assert len(wf1_tasks) == 2  # indices 1, 3
 
         finally:
@@ -306,12 +300,8 @@ class TestPersistentTaskQueue:
             await persistent_queue.enqueue(task2)
 
             # List by tenant
-            tenant_a_tasks, _ = persistent_queue.list_tasks_from_db(
-                tenant_id="tenant_a"
-            )
-            tenant_b_tasks, _ = persistent_queue.list_tasks_from_db(
-                tenant_id="tenant_b"
-            )
+            tenant_a_tasks, _ = persistent_queue.list_tasks_from_db(tenant_id="tenant_a")
+            tenant_b_tasks, _ = persistent_queue.list_tasks_from_db(tenant_id="tenant_b")
 
             assert len(tenant_a_tasks) == 1
             assert len(tenant_b_tasks) == 1

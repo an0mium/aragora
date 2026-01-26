@@ -219,9 +219,9 @@ class TestRLMLoadPerformance:
         memory_increase = final_memory - initial_memory
 
         # Memory increase should be bounded (< 150MB for test environment variability)
-        assert (
-            memory_increase < 150 * 1024 * 1024
-        ), f"Memory leak detected: {memory_increase / 1024 / 1024:.2f}MB"
+        assert memory_increase < 150 * 1024 * 1024, (
+            f"Memory leak detected: {memory_increase / 1024 / 1024:.2f}MB"
+        )
 
     def _get_memory_usage(self) -> int:
         """Get current memory usage in bytes."""

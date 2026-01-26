@@ -115,9 +115,9 @@ class TestTelemetryConfig:
             (TelemetryLevel.SPECTACLE, True),
         ]:
             config = TelemetryConfig(level=level)
-            assert (
-                config.should_broadcast() == expected
-            ), f"Level {level} should_broadcast={expected}"
+            assert config.should_broadcast() == expected, (
+                f"Level {level} should_broadcast={expected}"
+            )
 
     def test_should_redact(self):
         """should_redact() should return True only for CONTROLLED."""

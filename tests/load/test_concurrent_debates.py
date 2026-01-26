@@ -323,9 +323,9 @@ class TestConcurrentDebatesHeavy:
 
         # Assertions
         assert metrics.success_rate >= 80, f"Success rate too low: {metrics.success_rate}%"
-        assert (
-            metrics.p99_latency_ms < 10000
-        ), f"p99 latency exceeds 10s: {metrics.p99_latency_ms}ms"
+        assert metrics.p99_latency_ms < 10000, (
+            f"p99 latency exceeds 10s: {metrics.p99_latency_ms}ms"
+        )
         assert metrics.peak_memory_mb < 500, f"Memory usage too high: {metrics.peak_memory_mb}MB"
 
     @pytest.mark.asyncio
@@ -433,9 +433,9 @@ class TestDebateQueueLoad:
         print(f"  Processing order: {processing_order}")
 
         # High priority items should be processed first
-        assert processing_order == sorted(
-            processing_order, reverse=True
-        ), f"Items not processed in priority order: {processing_order}"
+        assert processing_order == sorted(processing_order, reverse=True), (
+            f"Items not processed in priority order: {processing_order}"
+        )
 
 
 class TestMemoryUnderLoad:
@@ -480,9 +480,9 @@ class TestMemoryUnderLoad:
             # Memory should stabilize (last batch shouldn't grow more than 50% of total)
             last_growth = memory_samples[-1] - memory_samples[-2]
             if total_growth > 0:
-                assert (
-                    last_growth <= total_growth * 0.5
-                ), f"Memory growth not stabilizing: last={last_growth}KB, total={total_growth}KB"
+                assert last_growth <= total_growth * 0.5, (
+                    f"Memory growth not stabilizing: last={last_growth}KB, total={total_growth}KB"
+                )
 
 
 # Documented limits for reference

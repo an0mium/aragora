@@ -221,9 +221,9 @@ class TestBackupRestorationDrill:
 
         # Phase 5: Verify data integrity
         restored_counts = self._get_table_counts(restore_path)
-        assert (
-            restored_counts == original_counts
-        ), f"Data mismatch: original={original_counts}, restored={restored_counts}"
+        assert restored_counts == original_counts, (
+            f"Data mismatch: original={original_counts}, restored={restored_counts}"
+        )
 
         # Verify specific data
         self._verify_data_integrity(restore_path)
@@ -478,9 +478,9 @@ class TestDataIntegrityVerification:
         # Get restored schema
         restored_schema = self._get_schema(restore_path)
 
-        assert (
-            original_schema == restored_schema
-        ), f"Schema mismatch:\nOriginal: {original_schema}\nRestored: {restored_schema}"
+        assert original_schema == restored_schema, (
+            f"Schema mismatch:\nOriginal: {original_schema}\nRestored: {restored_schema}"
+        )
 
     def test_row_count_tolerance(
         self,
@@ -577,7 +577,7 @@ class TestRTORPOMetrics:
         # RPO = time between last backup and disaster
         rpo_seconds = (simulated_disaster_time - backup_timestamp).total_seconds()
 
-        print(f"Simulated RPO: {rpo_seconds:.1f}s ({rpo_seconds/60:.1f} min)")
+        print(f"Simulated RPO: {rpo_seconds:.1f}s ({rpo_seconds / 60:.1f} min)")
 
         # With 5-minute backup interval, RPO should be max ~5 min
         # Add 1s tolerance for test execution timing variations

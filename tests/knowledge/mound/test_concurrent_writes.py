@@ -256,9 +256,9 @@ class TestMemoryCoordinatorConcurrentWrites:
         # Should have exactly 3 partial failures (debates 2, 5, 8)
         # and 6 successes (debates 0, 1, 3, 4, 6, 7)
         assert success_count == 6, f"Expected 6 successes, got {success_count}"
-        assert (
-            partial_failure_count == 3
-        ), f"Expected 3 partial failures, got {partial_failure_count}"
+        assert partial_failure_count == 3, (
+            f"Expected 3 partial failures, got {partial_failure_count}"
+        )
 
     @pytest.mark.asyncio
     async def test_rollback_consistency(self, mock_memory_systems):

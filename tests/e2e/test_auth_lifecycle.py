@@ -158,7 +158,8 @@ class TestRateLimiting:
         now = time.time()
         with auth_config._rate_limit_lock:
             auth_config._token_request_counts[token] = [
-                now - i for i in range(limit + 5)  # Exceed limit
+                now - i
+                for i in range(limit + 5)  # Exceed limit
             ]
 
         # Check if over limit

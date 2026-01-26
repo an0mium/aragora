@@ -281,7 +281,7 @@ class TestGetReplayEndpoint:
         replay.mkdir()
         (replay / "meta.json").write_text('{"topic": "Test"}')
         (replay / "events.jsonl").write_text(
-            '{"type": "good"}\n' "not valid json\n" '{"type": "also_good"}\n'
+            '{"type": "good"}\nnot valid json\n{"type": "also_good"}\n'
         )
 
         result = replays_handler.handle("/api/replays/bad-events", {}, None)
@@ -396,7 +396,7 @@ class TestLearningEvolutionEndpoint:
                 INSERT INTO meta_patterns (pattern_type, created_at)
                 VALUES (?, ?)
             """,
-                (f"pattern_{i}", f"2024-01-{i+1:02d}T10:00:00Z"),
+                (f"pattern_{i}", f"2024-01-{i + 1:02d}T10:00:00Z"),
             )
         conn.commit()
         conn.close()

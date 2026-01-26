@@ -283,7 +283,7 @@ class TestCostAdapterGetCostPatterns:
                 "tokens_in": 10000,
                 "tokens_out": 5000,
                 "api_calls": 100,
-                "created_at": f"2024-01-{10+i:02d}T00:00:00Z",
+                "created_at": f"2024-01-{10 + i:02d}T00:00:00Z",
             }
 
         patterns = adapter.get_cost_patterns("ws1")
@@ -317,7 +317,7 @@ class TestCostAdapterDetectAnomalies:
                 "tokens_in": 10000,
                 "tokens_out": 5000,
                 "api_calls": 100,
-                "created_at": f"2024-01-{10+i:02d}T00:00:00Z",
+                "created_at": f"2024-01-{10 + i:02d}T00:00:00Z",
             }
 
         # Detect anomalies with 5x spike
@@ -343,7 +343,7 @@ class TestCostAdapterDetectAnomalies:
                 "tokens_in": 10000,
                 "tokens_out": 5000,
                 "api_calls": 100,
-                "created_at": f"2024-01-{10+i:02d}T00:00:00Z",
+                "created_at": f"2024-01-{10 + i:02d}T00:00:00Z",
             }
 
         # Detect anomalies with 3x call spike
@@ -369,7 +369,7 @@ class TestCostAdapterDetectAnomalies:
                 "tokens_in": 10000,
                 "tokens_out": 5000,
                 "api_calls": 100,
-                "created_at": f"2024-01-{10+i:02d}T00:00:00Z",
+                "created_at": f"2024-01-{10 + i:02d}T00:00:00Z",
             }
 
         anomalies = adapter.detect_anomalies(

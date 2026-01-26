@@ -302,9 +302,9 @@ class TestGlobalRegistry:
 
         assert "summary" in metrics
         assert "open" in metrics["summary"]
-        assert (
-            metrics["summary"]["open"] >= 1
-        ), f"Expected at least 1 open, got {metrics['summary']}"
+        assert metrics["summary"]["open"] >= 1, (
+            f"Expected at least 1 open, got {metrics['summary']}"
+        )
         assert "health" in metrics
         assert metrics["health"]["status"] in ["healthy", "degraded", "critical"]
 

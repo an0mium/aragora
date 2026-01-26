@@ -343,11 +343,13 @@ class TestFederationScheduler:
     @pytest.mark.asyncio
     async def test_trigger_sync(self):
         """Test manually triggering a sync."""
-        mock_callback = AsyncMock(return_value={
-            "items_pushed": 10,
-            "items_pulled": 5,
-            "items_conflicted": 0,
-        })
+        mock_callback = AsyncMock(
+            return_value={
+                "items_pushed": 10,
+                "items_pulled": 5,
+                "items_conflicted": 0,
+            }
+        )
 
         scheduler = FederationScheduler(sync_callback=mock_callback)
 
@@ -427,7 +429,9 @@ class TestFederationScheduler:
         scheduler = FederationScheduler()
 
         # Add some schedules with different statuses
-        for i, status in enumerate([ScheduleStatus.ACTIVE, ScheduleStatus.ACTIVE, ScheduleStatus.PAUSED]):
+        for i, status in enumerate(
+            [ScheduleStatus.ACTIVE, ScheduleStatus.ACTIVE, ScheduleStatus.PAUSED]
+        ):
             config = FederationScheduleConfig(
                 name=f"sync_{i}",
                 region_id="us-west-2",
@@ -492,6 +496,7 @@ class TestGlobalScheduler:
         """Test getting global scheduler instance."""
         # Reset global
         import aragora.knowledge.mound.ops.federation_scheduler as fed_module
+
         fed_module._federation_scheduler = None
 
         scheduler1 = get_federation_scheduler()
@@ -505,6 +510,7 @@ class TestGlobalScheduler:
         """Test initializing global scheduler."""
         # Reset global
         import aragora.knowledge.mound.ops.federation_scheduler as fed_module
+
         fed_module._federation_scheduler = None
 
         scheduler = await init_federation_scheduler()

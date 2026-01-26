@@ -361,7 +361,7 @@ class TestGetRecentOutcomes:
                 consensus_confidence=0.5,
                 implementation_attempted=True,
                 implementation_succeeded=True,
-                timestamp=f"2024-01-0{i+1}T00:00:00",
+                timestamp=f"2024-01-0{i + 1}T00:00:00",
             )
             tracker.record_outcome(outcome)
 

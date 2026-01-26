@@ -154,7 +154,8 @@ class TestSecurityMiddleware:
     def test_get_client_ip_trusted_proxy(self, middleware):
         """Returns X-Forwarded-For IP from trusted proxy."""
         ip = middleware.get_client_ip(
-            "127.0.0.1", {"X-Forwarded-For": "5.6.7.8, 9.10.11.12"}  # Trusted proxy
+            "127.0.0.1",
+            {"X-Forwarded-For": "5.6.7.8, 9.10.11.12"},  # Trusted proxy
         )
         assert ip == "5.6.7.8"  # First IP in chain
 

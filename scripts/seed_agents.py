@@ -474,9 +474,7 @@ def main():
         for agent in AGENT_METADATA:
             ctx = agent.get("context_window", "N/A")
             specs = ", ".join(agent.get("specialties", [])[:3])
-            logger.info(
-                f"  Would seed: {agent['name']} ({agent['provider']}) " f"[ctx:{ctx}, {specs}]"
-            )
+            logger.info(f"  Would seed: {agent['name']} ({agent['provider']}) [ctx:{ctx}, {specs}]")
         return
 
     # Ensure .nomic directory exists

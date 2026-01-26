@@ -125,14 +125,17 @@ class TestMockedKMLoad:
         """Create a mock KnowledgeMound."""
         mound = MagicMock()
         mound.ingest = AsyncMock(return_value="km_test")
-        mound.query = AsyncMock(return_value=[
-            {"id": f"km_{i}", "content": f"Result {i}", "confidence": 0.8}
-            for i in range(5)
-        ])
-        mound.semantic_search = AsyncMock(return_value=[
-            {"id": f"km_{i}", "content": f"Result {i}", "similarity": 0.9 - i * 0.05}
-            for i in range(5)
-        ])
+        mound.query = AsyncMock(
+            return_value=[
+                {"id": f"km_{i}", "content": f"Result {i}", "confidence": 0.8} for i in range(5)
+            ]
+        )
+        mound.semantic_search = AsyncMock(
+            return_value=[
+                {"id": f"km_{i}", "content": f"Result {i}", "similarity": 0.9 - i * 0.05}
+                for i in range(5)
+            ]
+        )
         return mound
 
     @pytest.mark.asyncio
@@ -291,6 +294,7 @@ class TestHighConcurrency:
 
         # Simulate 5 bursts of 50 operations each
         for _ in range(5):
+
             async def burst_op(idx: int) -> float:
                 start = time.perf_counter()
                 if idx % 3 == 0:

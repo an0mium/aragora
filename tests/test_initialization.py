@@ -676,7 +676,6 @@ class TestInitializationIntegration:
             patch("aragora.server.initialization.CONTINUUM_AVAILABLE", False),
             patch("aragora.server.initialization.VERIFICATION_AVAILABLE", False),
         ):
-
             registry = SubsystemRegistry()
             await registry.initialize_all_async(nomic_dir=temp_nomic_dir)
 

@@ -125,6 +125,7 @@ class TestRecoveryStrategy:
     @pytest.mark.asyncio
     async def test_execute_success(self, strategy):
         """Execute returns result on success."""
+
         async def operation():
             return "success"
 
@@ -150,6 +151,7 @@ class TestRecoveryStrategy:
     @pytest.mark.asyncio
     async def test_execute_fails_after_max_retries(self, strategy):
         """Execute fails after max retries exhausted."""
+
         async def operation():
             raise ConnectorNetworkError("Always fails", connector_name="test")
 
@@ -264,6 +266,7 @@ class TestWithRecoveryDecorator:
     @pytest.mark.asyncio
     async def test_decorator_wraps_function(self):
         """Decorator wraps async function."""
+
         @with_recovery(max_retries=2, enable_circuit_breaker=False)
         async def my_operation():
             return "result"
@@ -291,6 +294,7 @@ class TestWithRecoveryDecorator:
     @pytest.mark.asyncio
     async def test_decorator_attaches_strategy(self):
         """Decorator attaches strategy to function."""
+
         @with_recovery(max_retries=5)
         async def operation():
             return "x"

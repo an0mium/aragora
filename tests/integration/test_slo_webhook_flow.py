@@ -55,13 +55,12 @@ class TestSLOWebhookIntegrationFlow:
 
         # Create a mock dispatcher that has an enqueue method
         mock_dispatcher = MagicMock()
-        mock_dispatcher.enqueue = lambda event: notifications.append(
-            {"type": event.get("type"), "payload": event}
-        ) or True
+        mock_dispatcher.enqueue = (
+            lambda event: notifications.append({"type": event.get("type"), "payload": event})
+            or True
+        )
 
-        with patch(
-            "aragora.integrations.webhooks.get_dispatcher"
-        ) as mock_get_dispatcher:
+        with patch("aragora.integrations.webhooks.get_dispatcher") as mock_get_dispatcher:
             mock_get_dispatcher.return_value = mock_dispatcher
 
             # Initialize SLO webhooks with minimal cooldown for testing
@@ -126,9 +125,7 @@ class TestSLOWebhookIntegrationFlow:
         assert callable(startup_init)
 
         # Verify calling it returns a boolean (false without dispatcher)
-        with patch(
-            "aragora.integrations.webhooks.get_dispatcher"
-        ) as mock_get_dispatcher:
+        with patch("aragora.integrations.webhooks.get_dispatcher") as mock_get_dispatcher:
             mock_get_dispatcher.return_value = None
             result = startup_init()
             assert isinstance(result, bool)
@@ -145,13 +142,12 @@ class TestSLOWebhookIntegrationFlow:
         notifications: List[Dict[str, Any]] = []
 
         mock_dispatcher = MagicMock()
-        mock_dispatcher.enqueue = lambda event: notifications.append(
-            {"type": event.get("type"), "payload": event}
-        ) or True
+        mock_dispatcher.enqueue = (
+            lambda event: notifications.append({"type": event.get("type"), "payload": event})
+            or True
+        )
 
-        with patch(
-            "aragora.integrations.webhooks.get_dispatcher"
-        ) as mock_get_dispatcher:
+        with patch("aragora.integrations.webhooks.get_dispatcher") as mock_get_dispatcher:
             mock_get_dispatcher.return_value = mock_dispatcher
 
             config = SLOWebhookConfig(enabled=True, cooldown_seconds=0.0)
@@ -190,13 +186,12 @@ class TestSLOWebhookIntegrationFlow:
         notifications: List[Dict[str, Any]] = []
 
         mock_dispatcher = MagicMock()
-        mock_dispatcher.enqueue = lambda event: notifications.append(
-            {"type": event.get("type"), "payload": event}
-        ) or True
+        mock_dispatcher.enqueue = (
+            lambda event: notifications.append({"type": event.get("type"), "payload": event})
+            or True
+        )
 
-        with patch(
-            "aragora.integrations.webhooks.get_dispatcher"
-        ) as mock_get_dispatcher:
+        with patch("aragora.integrations.webhooks.get_dispatcher") as mock_get_dispatcher:
             mock_get_dispatcher.return_value = mock_dispatcher
 
             # Configure to only notify on major or critical
@@ -263,13 +258,12 @@ class TestSLOWebhookIntegrationFlow:
         notifications: List[Dict[str, Any]] = []
 
         mock_dispatcher = MagicMock()
-        mock_dispatcher.enqueue = lambda event: notifications.append(
-            {"type": event.get("type"), "payload": event}
-        ) or True
+        mock_dispatcher.enqueue = (
+            lambda event: notifications.append({"type": event.get("type"), "payload": event})
+            or True
+        )
 
-        with patch(
-            "aragora.integrations.webhooks.get_dispatcher"
-        ) as mock_get_dispatcher:
+        with patch("aragora.integrations.webhooks.get_dispatcher") as mock_get_dispatcher:
             mock_get_dispatcher.return_value = mock_dispatcher
 
             config = SLOWebhookConfig(enabled=True, cooldown_seconds=0.0)
@@ -310,13 +304,12 @@ class TestSLOWebhookIntegrationFlow:
         notifications: List[Dict[str, Any]] = []
 
         mock_dispatcher = MagicMock()
-        mock_dispatcher.enqueue = lambda event: notifications.append(
-            {"type": event.get("type"), "payload": event}
-        ) or True
+        mock_dispatcher.enqueue = (
+            lambda event: notifications.append({"type": event.get("type"), "payload": event})
+            or True
+        )
 
-        with patch(
-            "aragora.integrations.webhooks.get_dispatcher"
-        ) as mock_get_dispatcher:
+        with patch("aragora.integrations.webhooks.get_dispatcher") as mock_get_dispatcher:
             mock_get_dispatcher.return_value = mock_dispatcher
 
             config = SLOWebhookConfig(enabled=True, cooldown_seconds=0.0)
@@ -403,13 +396,12 @@ class TestSLOWebhookCooldownIntegration:
         notifications: List[Dict[str, Any]] = []
 
         mock_dispatcher = MagicMock()
-        mock_dispatcher.enqueue = lambda event: notifications.append(
-            {"type": event.get("type"), "payload": event}
-        ) or True
+        mock_dispatcher.enqueue = (
+            lambda event: notifications.append({"type": event.get("type"), "payload": event})
+            or True
+        )
 
-        with patch(
-            "aragora.integrations.webhooks.get_dispatcher"
-        ) as mock_get_dispatcher:
+        with patch("aragora.integrations.webhooks.get_dispatcher") as mock_get_dispatcher:
             mock_get_dispatcher.return_value = mock_dispatcher
 
             # Configure with longer cooldown
@@ -473,9 +465,7 @@ class TestSLOWebhookErrorHandling:
         mock_dispatcher = MagicMock()
         mock_dispatcher.enqueue = failing_enqueue
 
-        with patch(
-            "aragora.integrations.webhooks.get_dispatcher"
-        ) as mock_get_dispatcher:
+        with patch("aragora.integrations.webhooks.get_dispatcher") as mock_get_dispatcher:
             mock_get_dispatcher.return_value = mock_dispatcher
 
             config = SLOWebhookConfig(enabled=True, cooldown_seconds=0.0)
@@ -498,9 +488,7 @@ class TestSLOWebhookErrorHandling:
             notify_slo_violation,
         )
 
-        with patch(
-            "aragora.integrations.webhooks.get_dispatcher"
-        ) as mock_get_dispatcher:
+        with patch("aragora.integrations.webhooks.get_dispatcher") as mock_get_dispatcher:
             mock_get_dispatcher.return_value = None
 
             # init should return False when dispatcher unavailable

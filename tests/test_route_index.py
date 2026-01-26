@@ -135,9 +135,9 @@ class TestRouteIndexIntegration:
         for attr_name, handler_class in HANDLER_REGISTRY:
             if handler_class is not None:
                 # Handler classes should define ROUTES
-                assert hasattr(handler_class, "ROUTES") or hasattr(
-                    handler_class, "can_handle"
-                ), f"{handler_class.__name__} missing ROUTES or can_handle"
+                assert hasattr(handler_class, "ROUTES") or hasattr(handler_class, "can_handle"), (
+                    f"{handler_class.__name__} missing ROUTES or can_handle"
+                )
 
     def test_exact_routes_from_all_handlers(self):
         """Collect and verify all exact routes are unique."""

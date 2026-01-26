@@ -172,7 +172,7 @@ class TestOpenAPISecurityDeclarations:
                         incorrectly_protected.append(f"{method.upper()} {public_path}")
 
         assert len(incorrectly_protected) == 0, (
-            f"Public endpoints incorrectly require authentication: " f"{incorrectly_protected}"
+            f"Public endpoints incorrectly require authentication: {incorrectly_protected}"
         )
 
 
@@ -238,9 +238,9 @@ class TestPermissionRequirements:
             if req.permission and req.permission not in PERMISSION_MATRIX:
                 missing_permissions.append(req.permission)
 
-        assert (
-            len(missing_permissions) == 0
-        ), f"Permissions not in PERMISSION_MATRIX: {missing_permissions}"
+        assert len(missing_permissions) == 0, (
+            f"Permissions not in PERMISSION_MATRIX: {missing_permissions}"
+        )
 
     def test_permission_format(self) -> None:
         """Permission strings should follow the category:action format."""
@@ -254,7 +254,7 @@ class TestPermissionRequirements:
                     invalid_format.append(req.permission)
 
         assert len(invalid_format) == 0, (
-            f"Permissions with invalid format (should be category:action): " f"{invalid_format}"
+            f"Permissions with invalid format (should be category:action): {invalid_format}"
         )
 
 

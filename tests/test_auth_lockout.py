@@ -128,7 +128,7 @@ class TestLockoutTracker:
         # First 4 attempts should not trigger lockout
         for i in range(4):
             attempts, lockout = lockout_tracker.record_failure(email=email)
-            assert lockout is None, f"Should not lock on attempt {i+1}"
+            assert lockout is None, f"Should not lock on attempt {i + 1}"
 
         # 5th attempt should trigger 1 minute lockout
         attempts, lockout = lockout_tracker.record_failure(email=email)

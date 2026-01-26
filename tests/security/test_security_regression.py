@@ -93,9 +93,9 @@ class TestBrokenAccessControl:
             pytest.skip("RBAC middleware not found")
 
         content = middleware_file.read_text()
-        assert (
-            "RoutePermission" in content or "route" in content.lower()
-        ), "Route permissions not defined"
+        assert "RoutePermission" in content or "route" in content.lower(), (
+            "Route permissions not defined"
+        )
 
 
 # =============================================================================
@@ -156,9 +156,9 @@ class TestInjection:
         content = isolation_file.read_text()
 
         # Should use parameterized queries
-        assert (
-            "params" in content.lower() or "parameter" in content.lower()
-        ), "Tenant isolation should use parameterized queries"
+        assert "params" in content.lower() or "parameter" in content.lower(), (
+            "Tenant isolation should use parameterized queries"
+        )
 
     def test_no_dangerous_eval_with_user_input(self):
         """Verify no eval() with user input patterns."""
@@ -199,9 +199,9 @@ class TestSecurityMisconfiguration:
         content = guards_file.read_text()
 
         # Should detect production environment
-        assert (
-            "production" in content.lower() or "ARAGORA_ENV" in content
-        ), "Production environment detection missing"
+        assert "production" in content.lower() or "ARAGORA_ENV" in content, (
+            "Production environment detection missing"
+        )
 
 
 # =============================================================================
@@ -218,9 +218,9 @@ class TestAuthenticationFailures:
         assert resilience_file.exists(), "Resilience module not found"
 
         content = resilience_file.read_text()
-        assert (
-            "rate" in content.lower() or "limit" in content.lower()
-        ), "Rate limiting not found in resilience module"
+        assert "rate" in content.lower() or "limit" in content.lower(), (
+            "Rate limiting not found in resilience module"
+        )
 
     def test_jwt_or_token_auth_exists(self):
         """Verify token-based authentication exists."""
@@ -385,9 +385,9 @@ class TestWebhookSecurity:
         content = webhook_file.read_text()
 
         # Should enforce verification in production
-        assert (
-            "production" in content.lower()
-        ), "Webhook security should enforce verification in production"
+        assert "production" in content.lower(), (
+            "Webhook security should enforce verification in production"
+        )
 
 
 # =============================================================================

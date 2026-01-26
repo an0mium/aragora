@@ -57,11 +57,15 @@ class TestTwilioVoiceConfig:
     def test_get_webhook_url(self):
         """get_webhook_url builds full URL."""
         config = TwilioVoiceConfig(webhook_base_url="https://example.com")
-        assert config.get_webhook_url("/api/voice/inbound") == "https://example.com/api/voice/inbound"
+        assert (
+            config.get_webhook_url("/api/voice/inbound") == "https://example.com/api/voice/inbound"
+        )
 
         # Handles trailing slash
         config = TwilioVoiceConfig(webhook_base_url="https://example.com/")
-        assert config.get_webhook_url("/api/voice/inbound") == "https://example.com/api/voice/inbound"
+        assert (
+            config.get_webhook_url("/api/voice/inbound") == "https://example.com/api/voice/inbound"
+        )
 
 
 class TestCallSession:
@@ -289,6 +293,7 @@ class TestGetTwilioVoice:
         """get_twilio_voice returns singleton."""
         # Reset singleton
         import aragora.integrations.twilio_voice as module
+
         module._voice_integration = None
 
         voice1 = get_twilio_voice()

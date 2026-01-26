@@ -75,12 +75,15 @@ class TestKeyRotationConfig:
 
     def test_from_env(self):
         """Should create config from environment variables."""
-        with patch.dict(os.environ, {
-            "ARAGORA_KEY_ROTATION_INTERVAL_DAYS": "60",
-            "ARAGORA_KEY_ROTATION_OVERLAP_DAYS": "14",
-            "ARAGORA_KEY_ROTATION_RE_ENCRYPT": "true",
-            "ARAGORA_KEY_ROTATION_ALERT_DAYS": "5",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_KEY_ROTATION_INTERVAL_DAYS": "60",
+                "ARAGORA_KEY_ROTATION_OVERLAP_DAYS": "14",
+                "ARAGORA_KEY_ROTATION_RE_ENCRYPT": "true",
+                "ARAGORA_KEY_ROTATION_ALERT_DAYS": "5",
+            },
+        ):
             config = KeyRotationConfig.from_env()
 
             assert config.rotation_interval_days == 60
@@ -313,9 +316,7 @@ class TestKeyRotationScheduler:
     @pytest.mark.asyncio
     async def test_check_rotation_due_old_key(self):
         """Should return True when key is old."""
-        scheduler = KeyRotationScheduler(
-            config=KeyRotationConfig(rotation_interval_days=30)
-        )
+        scheduler = KeyRotationScheduler(config=KeyRotationConfig(rotation_interval_days=30))
 
         old_key = MagicMock()
         old_key.created_at = datetime.now(timezone.utc) - timedelta(days=60)
@@ -329,9 +330,7 @@ class TestKeyRotationScheduler:
     @pytest.mark.asyncio
     async def test_check_rotation_due_recent_key(self):
         """Should return False when key is recent."""
-        scheduler = KeyRotationScheduler(
-            config=KeyRotationConfig(rotation_interval_days=90)
-        )
+        scheduler = KeyRotationScheduler(config=KeyRotationConfig(rotation_interval_days=90))
 
         recent_key = MagicMock()
         recent_key.created_at = datetime.now(timezone.utc) - timedelta(days=10)
@@ -404,7 +403,9 @@ class TestRotateNow:
             mock_service.return_value.rotate_key.return_value = mock_key
 
             # Mock audit and metrics
-            with patch("aragora.observability.security_audit.audit_key_rotation", new_callable=AsyncMock):
+            with patch(
+                "aragora.observability.security_audit.audit_key_rotation", new_callable=AsyncMock
+            ):
                 with patch("aragora.observability.metrics.security.record_key_rotation"):
                     with patch.object(scheduler, "_send_alert", new_callable=AsyncMock):
                         result = await scheduler.rotate_now()
@@ -423,7 +424,9 @@ class TestRotateNow:
         with patch("aragora.security.encryption.get_encryption_service") as mock_service:
             mock_service.return_value.get_active_key.side_effect = Exception("No key")
 
-            with patch("aragora.observability.security_audit.audit_key_rotation", new_callable=AsyncMock):
+            with patch(
+                "aragora.observability.security_audit.audit_key_rotation", new_callable=AsyncMock
+            ):
                 with patch("aragora.observability.metrics.security.record_key_rotation"):
                     with patch.object(scheduler, "_send_alert", new_callable=AsyncMock):
                         result = await scheduler.rotate_now()
@@ -452,16 +455,26 @@ class TestRotateNow:
             mock_service.return_value.get_active_key.return_value = old_key
             mock_service.return_value.rotate_key.return_value = mock_key
 
-            with patch("aragora.observability.security_audit.audit_key_rotation", new_callable=AsyncMock):
-                with patch("aragora.observability.security_audit.audit_migration_started", new_callable=AsyncMock):
-                    with patch("aragora.observability.security_audit.audit_migration_completed", new_callable=AsyncMock):
+            with patch(
+                "aragora.observability.security_audit.audit_key_rotation", new_callable=AsyncMock
+            ):
+                with patch(
+                    "aragora.observability.security_audit.audit_migration_started",
+                    new_callable=AsyncMock,
+                ):
+                    with patch(
+                        "aragora.observability.security_audit.audit_migration_completed",
+                        new_callable=AsyncMock,
+                    ):
                         with patch("aragora.observability.metrics.security.record_key_rotation"):
                             with patch("aragora.observability.metrics.security.track_migration"):
                                 with patch.object(
                                     scheduler, "_re_encrypt_store", new_callable=AsyncMock
                                 ) as mock_re_encrypt:
                                     mock_re_encrypt.return_value = 10
-                                    with patch.object(scheduler, "_send_alert", new_callable=AsyncMock):
+                                    with patch.object(
+                                        scheduler, "_send_alert", new_callable=AsyncMock
+                                    ):
                                         result = await scheduler.rotate_now()
 
         assert result.success is True
@@ -482,7 +495,9 @@ class TestSchedulerAlerts:
         callback = MagicMock()
         scheduler = KeyRotationScheduler(alert_callback=callback)
 
-        with patch("aragora.observability.security_audit.audit_security_alert", new_callable=AsyncMock):
+        with patch(
+            "aragora.observability.security_audit.audit_security_alert", new_callable=AsyncMock
+        ):
             await scheduler._send_alert(
                 "warning",
                 "Test alert",
@@ -497,7 +512,9 @@ class TestSchedulerAlerts:
         callback = MagicMock(side_effect=Exception("Callback failed"))
         scheduler = KeyRotationScheduler(alert_callback=callback)
 
-        with patch("aragora.observability.security_audit.audit_security_alert", new_callable=AsyncMock):
+        with patch(
+            "aragora.observability.security_audit.audit_security_alert", new_callable=AsyncMock
+        ):
             # Should not raise
             await scheduler._send_alert("warning", "Test", {})
 
@@ -726,7 +743,9 @@ class TestKeyRotationIntegration:
             mock_service.return_value.get_active_key.return_value = old_key
             mock_service.return_value.rotate_key.return_value = mock_key
 
-            with patch("aragora.observability.security_audit.audit_key_rotation", new_callable=AsyncMock):
+            with patch(
+                "aragora.observability.security_audit.audit_key_rotation", new_callable=AsyncMock
+            ):
                 with patch("aragora.observability.metrics.security.record_key_rotation"):
                     with patch.object(scheduler, "_send_alert", new_callable=AsyncMock):
                         # Perform rotation

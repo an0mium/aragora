@@ -363,7 +363,7 @@ class TestAtomicWrites:
         # Record many matches
         for i in range(20):
             agent_a = f"agent_{i % 5}"
-            agent_b = f"agent_{(i+1) % 5}"
+            agent_b = f"agent_{(i + 1) % 5}"
             elo.record_match(
                 debate_id=f"match_{i}",
                 participants=[agent_a, agent_b],
@@ -1640,7 +1640,7 @@ class TestCachingEdgeCases:
         # Record more matches - should invalidate cache
         for i in range(3):
             elo.record_match(
-                f"m{i+2}", ["stale_test", f"opp{i}"], {"stale_test": 1.0, f"opp{i}": 0.0}
+                f"m{i + 2}", ["stale_test", f"opp{i}"], {"stale_test": 1.0, f"opp{i}": 0.0}
             )
 
         # Should reflect new matches

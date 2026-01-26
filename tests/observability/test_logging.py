@@ -41,6 +41,7 @@ from aragora.observability.logging import (
 def reset_correlation_id():
     """Reset correlation ID between tests."""
     from aragora.observability import logging as log_module
+
     log_module._correlation_id.value = None
     yield
     log_module._correlation_id.value = None
@@ -50,6 +51,7 @@ def reset_correlation_id():
 def reset_logging():
     """Reset global logging state."""
     from aragora.observability import logging as log_module
+
     old_config = log_module._log_config
     old_loggers = log_module._loggers.copy()
     yield

@@ -142,8 +142,8 @@ class TestAuthenticationWorkflow:
         # Should allow first requests
         for i in range(5):
             allowed, remaining = config.check_rate_limit("test-token")
-            assert allowed, f"Request {i+1} should be allowed"
-            assert remaining == 4 - i, f"Remaining should be {4-i}"
+            assert allowed, f"Request {i + 1} should be allowed"
+            assert remaining == 4 - i, f"Remaining should be {4 - i}"
 
         # Should block after limit
         allowed, remaining = config.check_rate_limit("test-token")
@@ -158,7 +158,7 @@ class TestAuthenticationWorkflow:
         # Should allow first requests
         for i in range(3):
             allowed, _ = config.check_rate_limit_by_ip("192.168.1.1")
-            assert allowed, f"Request {i+1} should be allowed"
+            assert allowed, f"Request {i + 1} should be allowed"
 
         # Should block after limit
         allowed, _ = config.check_rate_limit_by_ip("192.168.1.1")
@@ -246,7 +246,7 @@ class TestLeaderboardWorkflow:
         elo = handler_context["elo_system"]
         for i in range(10):
             elo.record_match(
-                f"agent-{i}", f"agent-{i+10}", {f"agent-{i}": 0.5, f"agent-{i+10}": 0.5}, "test"
+                f"agent-{i}", f"agent-{i + 10}", {f"agent-{i}": 0.5, f"agent-{i + 10}": 0.5}, "test"
             )
 
         handler = AgentsHandler(handler_context)

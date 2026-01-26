@@ -601,7 +601,7 @@ class TestBeliefAdapterOutcomeRecording:
         """Test that recorded outcomes affect validation."""
         # Record multiple successful outcomes
         for i in range(5):
-            adapter_with_beliefs.record_outcome("bl_node_0", f"debate_{i+10}", True)
+            adapter_with_beliefs.record_outcome("bl_node_0", f"debate_{i + 10}", True)
 
         validation = await adapter_with_beliefs.validate_belief_from_km(
             "bl_node_0",

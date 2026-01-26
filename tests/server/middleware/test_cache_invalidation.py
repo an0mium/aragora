@@ -97,17 +97,12 @@ class TestResponseCacheInvalidation:
     @pytest.mark.asyncio
     async def test_invalidate_by_agent_version(self, cache):
         """Should invalidate entries using specific agent version."""
+        await cache.set("q1", "a1", agent_versions={"claude": "1.0", "gpt": "4.0"})
+        await cache.set("q2", "a2", agent_versions={"claude": "2.0", "gpt": "4.0"})
         await cache.set(
-            "q1", "a1",
-            agent_versions={"claude": "1.0", "gpt": "4.0"}
-        )
-        await cache.set(
-            "q2", "a2",
-            agent_versions={"claude": "2.0", "gpt": "4.0"}
-        )
-        await cache.set(
-            "q3", "a3",
-            agent_versions={"gpt": "4.0"}  # No claude
+            "q3",
+            "a3",
+            agent_versions={"gpt": "4.0"},  # No claude
         )
 
         # Invalidate claude 1.0
@@ -198,20 +193,26 @@ class TestGlobalCacheInvalidation:
         )
 
         # Verify cached
-        assert await middleware._cache.get(
-            "workspace query",
-            context={"workspace_id": "test-ws", "channel": "api"},
-        ) == "workspace answer"
+        assert (
+            await middleware._cache.get(
+                "workspace query",
+                context={"workspace_id": "test-ws", "channel": "api"},
+            )
+            == "workspace answer"
+        )
 
         # Invalidate via global function
         count = await invalidate_cache_for_workspace("test-ws")
         assert count == 1
 
         # Verify invalidated
-        assert await middleware._cache.get(
-            "workspace query",
-            context={"workspace_id": "test-ws", "channel": "api"},
-        ) is None
+        assert (
+            await middleware._cache.get(
+                "workspace query",
+                context={"workspace_id": "test-ws", "channel": "api"},
+            )
+            is None
+        )
 
     @pytest.mark.asyncio
     async def test_invalidate_cache_for_policy_change(self):
@@ -291,10 +292,9 @@ class TestCacheEvictionWithMetadata:
         )
 
         # Access the entry directly to verify metadata
-        entry = cache._cache[cache._compute_hash(
-            "query",
-            {"workspace_id": "ws-test", "channel": "slack"}
-        )]
+        entry = cache._cache[
+            cache._compute_hash("query", {"workspace_id": "ws-test", "channel": "slack"})
+        ]
 
         assert entry.workspace_id == "ws-test"
         assert "debate" in entry.tags
@@ -319,6 +319,7 @@ class TestCacheTTLWithPolicyVersion:
 
         # Wait for TTL
         import asyncio
+
         await asyncio.sleep(0.15)
 
         # Should be expired despite matching policy

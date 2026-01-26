@@ -221,6 +221,6 @@ class TestAuthExemptionIntegration:
                 pass
             elif path.endswith("/") and len(path) > 1:
                 # Some doc endpoints intentionally have trailing slash variants
-                assert (
-                    path.rstrip("/") in UnifiedHandler.AUTH_EXEMPT_PATHS
-                ), f"Trailing slash path {path} should have non-slash variant"
+                assert path.rstrip("/") in UnifiedHandler.AUTH_EXEMPT_PATHS, (
+                    f"Trailing slash path {path} should have non-slash variant"
+                )

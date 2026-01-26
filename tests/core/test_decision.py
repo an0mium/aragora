@@ -709,12 +709,14 @@ class TestDecisionRouter:
     async def test_route_to_debate_engine(self):
         """Routes debate requests to debate engine."""
         debate_engine = MagicMock()
-        debate_engine.run = AsyncMock(return_value=MagicMock(
-            task="test",
-            final_answer="Consensus reached",
-            confidence=0.9,
-            consensus_reached=True,
-        ))
+        debate_engine.run = AsyncMock(
+            return_value=MagicMock(
+                task="test",
+                final_answer="Consensus reached",
+                confidence=0.9,
+                consensus_reached=True,
+            )
+        )
 
         router = DecisionRouter(
             debate_engine=debate_engine,

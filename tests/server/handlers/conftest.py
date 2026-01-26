@@ -87,16 +87,16 @@ def assert_error_response(result, expected_status: int, error_substring: str = N
         error_substring: Optional substring to look for in error message
     """
     assert result is not None, "Result should not be None"
-    assert (
-        result.status_code == expected_status
-    ), f"Expected {expected_status}, got {result.status_code}"
+    assert result.status_code == expected_status, (
+        f"Expected {expected_status}, got {result.status_code}"
+    )
 
     if error_substring:
         body = parse_handler_response(result)
         error_msg = body.get("error", "") or body.get("message", "")
-        assert (
-            error_substring.lower() in error_msg.lower()
-        ), f"Expected '{error_substring}' in error message: {error_msg}"
+        assert error_substring.lower() in error_msg.lower(), (
+            f"Expected '{error_substring}' in error message: {error_msg}"
+        )
 
 
 # ============================================================================

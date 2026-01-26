@@ -710,9 +710,9 @@ class TestPluginSubmissionSecurity:
                 # Should not fail on entry_point validation
                 if result.status_code == 400:
                     data = json.loads(result.body)
-                    assert (
-                        "entry_point" not in data.get("error", "").lower()
-                    ), f"Entry point '{entry_point}' should be valid"
+                    assert "entry_point" not in data.get("error", "").lower(), (
+                        f"Entry point '{entry_point}' should be valid"
+                    )
         finally:
             mod.PLUGINS_AVAILABLE = original_available
 
@@ -765,9 +765,9 @@ class TestPluginSubmissionSecurity:
 
                 if result.status_code == 400:
                     data = json.loads(result.body)
-                    assert (
-                        "version" not in data.get("error", "").lower()
-                    ), f"Version '{version}' should be valid"
+                    assert "version" not in data.get("error", "").lower(), (
+                        f"Version '{version}' should be valid"
+                    )
         finally:
             mod.PLUGINS_AVAILABLE = original_available
 

@@ -14,15 +14,12 @@ class TestTTSWiring:
 
     def test_aiohttp_server_wires_tts_integration(self):
         """Test that AiohttpUnifiedServer wires TTS to voice handler."""
-        with patch(
-            "aragora.server.stream.servers.VoiceStreamHandler"
-        ) as mock_voice_handler_class, patch(
-            "aragora.server.stream.tts_integration.get_tts_integration"
-        ) as mock_get_tts, patch(
-            "aragora.server.stream.tts_integration.set_tts_integration"
-        ) as mock_set_tts, patch(
-            "aragora.server.stream.tts_integration.TTSIntegration"
-        ) as mock_tts_class:
+        with (
+            patch("aragora.server.stream.servers.VoiceStreamHandler") as mock_voice_handler_class,
+            patch("aragora.server.stream.tts_integration.get_tts_integration") as mock_get_tts,
+            patch("aragora.server.stream.tts_integration.set_tts_integration") as mock_set_tts,
+            patch("aragora.server.stream.tts_integration.TTSIntegration") as mock_tts_class,
+        ):
             # Configure mocks
             mock_voice_handler = MagicMock()
             mock_voice_handler_class.return_value = mock_voice_handler
@@ -47,12 +44,10 @@ class TestTTSWiring:
 
     def test_aiohttp_server_wires_to_existing_tts_integration(self):
         """Test that server wires to existing TTS integration if available."""
-        with patch(
-            "aragora.server.stream.servers.VoiceStreamHandler"
-        ) as mock_voice_handler_class, patch(
-            "aragora.server.stream.tts_integration.get_tts_integration"
-        ) as mock_get_tts, patch(
-            "aragora.server.stream.tts_integration.TTSIntegration"
+        with (
+            patch("aragora.server.stream.servers.VoiceStreamHandler") as mock_voice_handler_class,
+            patch("aragora.server.stream.tts_integration.get_tts_integration") as mock_get_tts,
+            patch("aragora.server.stream.tts_integration.TTSIntegration"),
         ):
             # Configure mocks
             mock_voice_handler = MagicMock()
@@ -161,9 +156,7 @@ class TestTTSIntegrationFlow:
         integration = TTSIntegration()
         integration.enable()
 
-        with patch(
-            "aragora.broadcast.tts_backends.get_fallback_backend"
-        ) as mock_get_backend:
+        with patch("aragora.broadcast.tts_backends.get_fallback_backend") as mock_get_backend:
             # Configure mock backend
             mock_backend = MagicMock()
             mock_backend.is_available.return_value = True
@@ -195,9 +188,7 @@ class TestTTSIntegrationFlow:
         integration = TTSIntegration()
         integration.enable()
 
-        with patch(
-            "aragora.broadcast.tts_backends.get_fallback_backend"
-        ) as mock_get_backend:
+        with patch("aragora.broadcast.tts_backends.get_fallback_backend") as mock_get_backend:
             mock_get_backend.return_value = None
 
             result = await integration.synthesize_for_chat(

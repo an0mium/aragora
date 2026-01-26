@@ -276,7 +276,9 @@ class TestWebhookDeliveryLoad:
             if failures_until_open > 100:
                 break
 
-        assert failures_until_open == threshold, f"Expected {threshold} failures, got {failures_until_open}"
+        assert failures_until_open == threshold, (
+            f"Expected {threshold} failures, got {failures_until_open}"
+        )
         assert circuit.state == "open"
 
         benchmark.extra_info["failures_until_open"] = failures_until_open
@@ -337,7 +339,7 @@ class TestMarketplaceLoad:
             "author_id": "user-456",
             "template_data": {
                 "nodes": [{"id": f"node-{i}", "type": "task"} for i in range(20)],
-                "edges": [{"from": f"node-{i}", "to": f"node-{i+1}"} for i in range(19)],
+                "edges": [{"from": f"node-{i}", "to": f"node-{i + 1}"} for i in range(19)],
             },
             "tags": ["benchmark", "test", "workflow"],
         }

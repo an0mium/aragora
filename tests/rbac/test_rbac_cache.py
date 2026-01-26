@@ -122,6 +122,7 @@ class TestRBACCacheConfig:
             with patch.dict("os.environ", {"REDIS_URL": ""}, clear=False):
                 # Need to remove REDIS_URL to test fallback
                 import os
+
                 orig = os.environ.pop("REDIS_URL", None)
                 try:
                     config = RBACCacheConfig.from_env()
@@ -429,18 +430,12 @@ class TestCacheInvalidation:
     def test_invalidate_user(self, cache):
         """Invalidate user clears all user's cache entries."""
         # Set up various cache entries for user
-        cache.set_decision(
-            "user1", "org1", "hash1", "debates.read", "d1", {"allowed": True}
-        )
-        cache.set_decision(
-            "user1", "org1", "hash1", "debates.write", "d2", {"allowed": False}
-        )
+        cache.set_decision("user1", "org1", "hash1", "debates.read", "d1", {"allowed": True})
+        cache.set_decision("user1", "org1", "hash1", "debates.write", "d2", {"allowed": False})
         cache.set_user_roles("user1", "org1", {"admin"})
 
         # Also set entries for another user
-        cache.set_decision(
-            "user2", "org1", "hash2", "debates.read", "d1", {"allowed": True}
-        )
+        cache.set_decision("user2", "org1", "hash2", "debates.read", "d1", {"allowed": True})
 
         # Invalidate user1
         cache.invalidate_user("user1")

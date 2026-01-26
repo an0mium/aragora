@@ -276,10 +276,10 @@ def create_agents(use_real_apis: bool = False) -> list[Agent]:
 def print_banner():
     """Print the Aragora Gauntlet banner."""
     banner = f"""
-{color('=' * 60, Colors.CYAN)}
-{color('  ARAGORA GAUNTLET', Colors.BOLD + Colors.CYAN)}
-{color('  Adversarial Validation Engine', Colors.CYAN)}
-{color('=' * 60, Colors.CYAN)}
+{color("=" * 60, Colors.CYAN)}
+{color("  ARAGORA GAUNTLET", Colors.BOLD + Colors.CYAN)}
+{color("  Adversarial Validation Engine", Colors.CYAN)}
+{color("=" * 60, Colors.CYAN)}
 
 {color('"Stress-test high-stakes decisions before they break your business"', Colors.BLUE)}
 

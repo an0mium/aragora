@@ -332,16 +332,20 @@ class TestQueueAnalytics:
     @pytest.mark.asyncio
     async def test_pending_runs_in_analytics(self, store):
         """Test that pending runs are included in analytics."""
-        await store.save({
-            "run_id": "run-1",
-            "template_id": "template-1",
-            "status": "pending",
-        })
-        await store.save({
-            "run_id": "run-2",
-            "template_id": "template-2",
-            "status": "pending",
-        })
+        await store.save(
+            {
+                "run_id": "run-1",
+                "template_id": "template-1",
+                "status": "pending",
+            }
+        )
+        await store.save(
+            {
+                "run_id": "run-2",
+                "template_id": "template-2",
+                "status": "pending",
+            }
+        )
 
         analytics = await store.get_queue_analytics()
         assert analytics["total_active"] == 2
@@ -352,11 +356,13 @@ class TestQueueAnalytics:
     @pytest.mark.asyncio
     async def test_running_runs_in_analytics(self, store):
         """Test that running runs are included in analytics."""
-        await store.save({
-            "run_id": "run-1",
-            "template_id": "template-1",
-            "status": "running",
-        })
+        await store.save(
+            {
+                "run_id": "run-1",
+                "template_id": "template-1",
+                "status": "running",
+            }
+        )
 
         analytics = await store.get_queue_analytics()
         assert analytics["total_active"] == 1
@@ -367,16 +373,20 @@ class TestQueueAnalytics:
     @pytest.mark.asyncio
     async def test_completed_runs_not_in_analytics(self, store):
         """Test that completed runs are not in queue analytics."""
-        await store.save({
-            "run_id": "run-1",
-            "template_id": "template-1",
-            "status": "completed",
-        })
-        await store.save({
-            "run_id": "run-2",
-            "template_id": "template-2",
-            "status": "failed",
-        })
+        await store.save(
+            {
+                "run_id": "run-1",
+                "template_id": "template-1",
+                "status": "completed",
+            }
+        )
+        await store.save(
+            {
+                "run_id": "run-2",
+                "template_id": "template-2",
+                "status": "failed",
+            }
+        )
 
         analytics = await store.get_queue_analytics()
         assert analytics["total_active"] == 0
@@ -387,11 +397,13 @@ class TestQueueAnalytics:
         """Test that position_in_status is calculated correctly."""
         # Create 3 pending runs
         for i in range(1, 4):
-            await store.save({
-                "run_id": f"run-{i}",
-                "template_id": "template-1",
-                "status": "pending",
-            })
+            await store.save(
+                {
+                    "run_id": f"run-{i}",
+                    "template_id": "template-1",
+                    "status": "pending",
+                }
+            )
 
         analytics = await store.get_queue_analytics()
         positions = [item["position_in_status"] for item in analytics["queue"]]
@@ -400,26 +412,34 @@ class TestQueueAnalytics:
     @pytest.mark.asyncio
     async def test_mixed_status_analytics(self, store):
         """Test analytics with mixed pending and running."""
-        await store.save({
-            "run_id": "run-pending-1",
-            "template_id": "template-1",
-            "status": "pending",
-        })
-        await store.save({
-            "run_id": "run-pending-2",
-            "template_id": "template-2",
-            "status": "pending",
-        })
-        await store.save({
-            "run_id": "run-running-1",
-            "template_id": "template-3",
-            "status": "running",
-        })
-        await store.save({
-            "run_id": "run-completed",
-            "template_id": "template-4",
-            "status": "completed",
-        })
+        await store.save(
+            {
+                "run_id": "run-pending-1",
+                "template_id": "template-1",
+                "status": "pending",
+            }
+        )
+        await store.save(
+            {
+                "run_id": "run-pending-2",
+                "template_id": "template-2",
+                "status": "pending",
+            }
+        )
+        await store.save(
+            {
+                "run_id": "run-running-1",
+                "template_id": "template-3",
+                "status": "running",
+            }
+        )
+        await store.save(
+            {
+                "run_id": "run-completed",
+                "template_id": "template-4",
+                "status": "completed",
+            }
+        )
 
         analytics = await store.get_queue_analytics()
         assert analytics["total_active"] == 3
@@ -430,11 +450,13 @@ class TestQueueAnalytics:
     @pytest.mark.asyncio
     async def test_queue_item_fields(self, store):
         """Test that queue items have required fields."""
-        await store.save({
-            "run_id": "run-1",
-            "template_id": "template-1",
-            "status": "pending",
-        })
+        await store.save(
+            {
+                "run_id": "run-1",
+                "template_id": "template-1",
+                "status": "pending",
+            }
+        )
 
         analytics = await store.get_queue_analytics()
         item = analytics["queue"][0]

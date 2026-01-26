@@ -169,7 +169,9 @@ class TestCapabilityRecordStorage:
         mock_knowledge_mound.ingest.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_invalidates_cache_on_store(self, adapter, capability_record, mock_knowledge_mound):
+    async def test_invalidates_cache_on_store(
+        self, adapter, capability_record, mock_knowledge_mound
+    ):
         """Should invalidate cache when storing new record."""
         # Pre-populate cache
         adapter._capability_cache["debate"] = [capability_record]

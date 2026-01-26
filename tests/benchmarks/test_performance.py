@@ -62,6 +62,11 @@ class TestDebatePerformance:
                 Arena, "_fetch_knowledge_context", new_callable=AsyncMock, return_value=None
             ),
             patch.object(Arena, "_init_km_context", new_callable=AsyncMock, return_value=None),
+            patch(
+                "aragora.debate.context_gatherer.ContextGatherer.gather_all",
+                new_callable=AsyncMock,
+                return_value="",
+            ),
         ):
             arena = Arena(benchmark_environment, benchmark_agents, protocol)
 
@@ -90,6 +95,11 @@ class TestDebatePerformance:
                 Arena, "_fetch_knowledge_context", new_callable=AsyncMock, return_value=None
             ),
             patch.object(Arena, "_init_km_context", new_callable=AsyncMock, return_value=None),
+            patch(
+                "aragora.debate.context_gatherer.ContextGatherer.gather_all",
+                new_callable=AsyncMock,
+                return_value="",
+            ),
         ):
             for num_rounds in [1, 2, 3]:
                 protocol = DebateProtocol(rounds=num_rounds, consensus="any")
@@ -125,6 +135,11 @@ class TestDebatePerformance:
             ),
             patch.object(
                 Arena, "_fetch_knowledge_context", new_callable=AsyncMock, return_value=None
+            ),
+            patch(
+                "aragora.debate.context_gatherer.ContextGatherer.gather_all",
+                new_callable=AsyncMock,
+                return_value="",
             ),
         ):
             # Warmup run to stabilize timing
@@ -384,7 +399,7 @@ class TestPerformanceBaselines:
             elapsed = float(result.stdout.strip())
             # Assert against centralized SLO
             assert elapsed < SLO.STARTUP["import_max_sec"], (
-                f"Import took {elapsed:.2f}s " f"(target: <{SLO.STARTUP['import_max_sec']}s)"
+                f"Import took {elapsed:.2f}s (target: <{SLO.STARTUP['import_max_sec']}s)"
             )
         else:
             # If subprocess fails, skip test rather than fail

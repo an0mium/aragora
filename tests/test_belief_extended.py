@@ -74,7 +74,7 @@ def star_network():
     network = BeliefNetwork(damping=0.5, max_iterations=100)
     network.add_claim("hub", "Central claim", "agent1", 0.9)
     for i in range(5):
-        network.add_claim(f"leaf{i}", f"Leaf claim {i}", f"agent{i+2}", 0.5)
+        network.add_claim(f"leaf{i}", f"Leaf claim {i}", f"agent{i + 2}", 0.5)
         network.add_factor("hub", f"leaf{i}", RelationType.SUPPORTS, 0.8)
     return network
 
@@ -419,7 +419,7 @@ class TestCentralityAlgorithm:
         for i in range(10):
             network.add_claim(f"N{i}", f"Node {i}", f"agent{i}", 0.5)
         for i in range(9):
-            network.add_factor(f"N{i}", f"N{i+1}", RelationType.SUPPORTS, 0.8)
+            network.add_factor(f"N{i}", f"N{i + 1}", RelationType.SUPPORTS, 0.8)
 
         centralities = network._compute_centralities()
 
@@ -737,7 +737,7 @@ class TestConvergenceBehavior:
         for i in range(100):
             network.add_claim(f"N{i}", f"Node {i}", f"agent{i}", 0.5 + 0.003 * i)
         for i in range(99):
-            network.add_factor(f"N{i}", f"N{i+1}", RelationType.SUPPORTS, 0.7)
+            network.add_factor(f"N{i}", f"N{i + 1}", RelationType.SUPPORTS, 0.7)
 
         result = network.propagate()
         assert result.iterations <= 100
@@ -1000,7 +1000,7 @@ class TestSerialization:
         for i in range(50):
             network.add_claim(f"C{i}", f"Claim {i}", f"agent{i}", 0.5)
         for i in range(49):
-            network.add_factor(f"C{i}", f"C{i+1}", RelationType.SUPPORTS, 0.7)
+            network.add_factor(f"C{i}", f"C{i + 1}", RelationType.SUPPORTS, 0.7)
         network.propagate()
 
         d = network.to_dict()

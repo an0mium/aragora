@@ -45,9 +45,9 @@ class TestHeaderTrustPrevention:
             context = handler._get_auth_context(request)
 
             # MUST return unauthenticated sentinel, NOT use spoofed headers
-            assert (
-                context == "unauthenticated"
-            ), "SECURITY REGRESSION: Handler is trusting X-User-ID headers!"
+            assert context == "unauthenticated", (
+                "SECURITY REGRESSION: Handler is trusting X-User-ID headers!"
+            )
 
     def test_finding_workflow_ignores_spoofed_headers(self):
         """FindingWorkflowHandler must not trust X-User-ID headers."""
@@ -91,9 +91,9 @@ class TestHeaderTrustPrevention:
             user_id, user_name = _extract_user_from_headers(handler)
 
             # MUST return anonymous, NOT use spoofed headers
-            assert (
-                user_id == "anonymous"
-            ), "SECURITY REGRESSION: _extract_user_from_headers trusts headers!"
+            assert user_id == "anonymous", (
+                "SECURITY REGRESSION: _extract_user_from_headers trusts headers!"
+            )
             assert "attacker" not in user_id.lower()
 
 
@@ -105,9 +105,9 @@ class TestSecureHandlerInheritance:
         from aragora.server.handlers.admin.billing import BillingHandler
         from aragora.server.handlers.secure import SecureHandler
 
-        assert issubclass(
-            BillingHandler, SecureHandler
-        ), "SECURITY REGRESSION: BillingHandler must extend SecureHandler"
+        assert issubclass(BillingHandler, SecureHandler), (
+            "SECURITY REGRESSION: BillingHandler must extend SecureHandler"
+        )
         assert hasattr(BillingHandler, "RESOURCE_TYPE")
 
     def test_privacy_handler_extends_secure_handler(self):
@@ -115,81 +115,81 @@ class TestSecureHandlerInheritance:
         from aragora.server.handlers.privacy import PrivacyHandler
         from aragora.server.handlers.secure import SecureHandler
 
-        assert issubclass(
-            PrivacyHandler, SecureHandler
-        ), "SECURITY REGRESSION: PrivacyHandler must extend SecureHandler"
+        assert issubclass(PrivacyHandler, SecureHandler), (
+            "SECURITY REGRESSION: PrivacyHandler must extend SecureHandler"
+        )
 
     def test_auth_handler_extends_secure_handler(self):
         """AuthHandler must extend SecureHandler."""
         from aragora.server.handlers.auth.handler import AuthHandler
         from aragora.server.handlers.secure import SecureHandler
 
-        assert issubclass(
-            AuthHandler, SecureHandler
-        ), "SECURITY REGRESSION: AuthHandler must extend SecureHandler"
+        assert issubclass(AuthHandler, SecureHandler), (
+            "SECURITY REGRESSION: AuthHandler must extend SecureHandler"
+        )
 
     def test_organizations_handler_extends_secure_handler(self):
         """OrganizationsHandler must extend SecureHandler."""
         from aragora.server.handlers.organizations import OrganizationsHandler
         from aragora.server.handlers.secure import SecureHandler
 
-        assert issubclass(
-            OrganizationsHandler, SecureHandler
-        ), "SECURITY REGRESSION: OrganizationsHandler must extend SecureHandler"
+        assert issubclass(OrganizationsHandler, SecureHandler), (
+            "SECURITY REGRESSION: OrganizationsHandler must extend SecureHandler"
+        )
 
     def test_webhook_handler_extends_secure_handler(self):
         """WebhookHandler must extend SecureHandler."""
         from aragora.server.handlers.webhooks import WebhookHandler
         from aragora.server.handlers.secure import SecureHandler
 
-        assert issubclass(
-            WebhookHandler, SecureHandler
-        ), "SECURITY REGRESSION: WebhookHandler must extend SecureHandler"
+        assert issubclass(WebhookHandler, SecureHandler), (
+            "SECURITY REGRESSION: WebhookHandler must extend SecureHandler"
+        )
 
     def test_sso_handler_extends_secure_handler(self):
         """SSOHandler must extend SecureHandler."""
         from aragora.server.handlers.sso import SSOHandler
         from aragora.server.handlers.secure import SecureHandler
 
-        assert issubclass(
-            SSOHandler, SecureHandler
-        ), "SECURITY REGRESSION: SSOHandler must extend SecureHandler"
+        assert issubclass(SSOHandler, SecureHandler), (
+            "SECURITY REGRESSION: SSOHandler must extend SecureHandler"
+        )
 
     def test_connectors_handler_extends_secure_handler(self):
         """ConnectorsHandler must extend SecureHandler."""
         from aragora.server.handlers.features.connectors import ConnectorsHandler
         from aragora.server.handlers.secure import SecureHandler
 
-        assert issubclass(
-            ConnectorsHandler, SecureHandler
-        ), "SECURITY REGRESSION: ConnectorsHandler must extend SecureHandler"
+        assert issubclass(ConnectorsHandler, SecureHandler), (
+            "SECURITY REGRESSION: ConnectorsHandler must extend SecureHandler"
+        )
 
     def test_oauth_handler_extends_secure_handler(self):
         """OAuthHandler must extend SecureHandler."""
         from aragora.server.handlers.oauth import OAuthHandler
         from aragora.server.handlers.secure import SecureHandler
 
-        assert issubclass(
-            OAuthHandler, SecureHandler
-        ), "SECURITY REGRESSION: OAuthHandler must extend SecureHandler"
+        assert issubclass(OAuthHandler, SecureHandler), (
+            "SECURITY REGRESSION: OAuthHandler must extend SecureHandler"
+        )
 
     def test_workspace_handler_extends_secure_handler(self):
         """WorkspaceHandler must extend SecureHandler."""
         from aragora.server.handlers.workspace import WorkspaceHandler
         from aragora.server.handlers.secure import SecureHandler
 
-        assert issubclass(
-            WorkspaceHandler, SecureHandler
-        ), "SECURITY REGRESSION: WorkspaceHandler must extend SecureHandler"
+        assert issubclass(WorkspaceHandler, SecureHandler), (
+            "SECURITY REGRESSION: WorkspaceHandler must extend SecureHandler"
+        )
 
     def test_notifications_handler_extends_secure_handler(self):
         """NotificationsHandler must extend SecureHandler."""
         from aragora.server.handlers.social.notifications import NotificationsHandler
         from aragora.server.handlers.secure import SecureHandler
 
-        assert issubclass(
-            NotificationsHandler, SecureHandler
-        ), "SECURITY REGRESSION: NotificationsHandler must extend SecureHandler"
+        assert issubclass(NotificationsHandler, SecureHandler), (
+            "SECURITY REGRESSION: NotificationsHandler must extend SecureHandler"
+        )
 
 
 class TestGmailIngestionAuth:
@@ -200,9 +200,9 @@ class TestGmailIngestionAuth:
         from aragora.server.handlers.features.gmail_ingest import GmailIngestHandler
 
         # Check the class has the method (don't instantiate - requires server context)
-        assert hasattr(
-            GmailIngestHandler, "_get_authenticated_user"
-        ), "SECURITY REGRESSION: GmailIngestHandler must have _get_authenticated_user method"
+        assert hasattr(GmailIngestHandler, "_get_authenticated_user"), (
+            "SECURITY REGRESSION: GmailIngestHandler must have _get_authenticated_user method"
+        )
 
     def test_gmail_handler_does_not_trust_query_params(self):
         """GmailIngestHandler must not trust user_id from query params."""
@@ -211,12 +211,12 @@ class TestGmailIngestionAuth:
 
         # Check the handle method source doesn't use query_params.get("user_id")
         source = inspect.getsource(GmailIngestHandler.handle)
-        assert (
-            'query_params.get("user_id"' not in source
-        ), "SECURITY REGRESSION: Gmail handler must not trust user_id from query params"
-        assert (
-            "_get_authenticated_user" in source
-        ), "SECURITY REGRESSION: Gmail handler must use _get_authenticated_user"
+        assert 'query_params.get("user_id"' not in source, (
+            "SECURITY REGRESSION: Gmail handler must not trust user_id from query params"
+        )
+        assert "_get_authenticated_user" in source, (
+            "SECURITY REGRESSION: Gmail handler must use _get_authenticated_user"
+        )
 
     def test_gmail_handler_does_not_trust_body_user_id(self):
         """GmailIngestHandler must not trust user_id from request body."""
@@ -225,12 +225,12 @@ class TestGmailIngestionAuth:
 
         # Check the handle_post method source doesn't use body.get("user_id")
         source = inspect.getsource(GmailIngestHandler.handle_post)
-        assert (
-            'body.get("user_id"' not in source
-        ), "SECURITY REGRESSION: Gmail handler must not trust user_id from body"
-        assert (
-            "_get_authenticated_user" in source
-        ), "SECURITY REGRESSION: Gmail handler must use _get_authenticated_user"
+        assert 'body.get("user_id"' not in source, (
+            "SECURITY REGRESSION: Gmail handler must not trust user_id from body"
+        )
+        assert "_get_authenticated_user" in source, (
+            "SECURITY REGRESSION: Gmail handler must use _get_authenticated_user"
+        )
 
 
 class TestEncryptionService:
@@ -264,9 +264,9 @@ class TestEncryptionService:
         encrypted = service.encrypt_fields(data.copy(), ["api_key"])
 
         # Verify encryption happened
-        assert (
-            encrypted["api_key"] != data["api_key"]
-        ), "SECURITY REGRESSION: Field was not encrypted"
+        assert encrypted["api_key"] != data["api_key"], (
+            "SECURITY REGRESSION: Field was not encrypted"
+        )
         assert encrypted["api_key"].get("_encrypted") is True
 
         # Verify decryption works
@@ -354,9 +354,9 @@ class TestApprovalPersistence:
         """recover_pending_approvals must exist."""
         from aragora.workflow.nodes.human_checkpoint import recover_pending_approvals
 
-        assert callable(
-            recover_pending_approvals
-        ), "SECURITY REGRESSION: recover_pending_approvals not callable"
+        assert callable(recover_pending_approvals), (
+            "SECURITY REGRESSION: recover_pending_approvals not callable"
+        )
 
 
 # Quick sanity check that can run fast
@@ -386,18 +386,18 @@ class TestQuickSecuritySanity:
         from aragora.server.handlers.features.gmail_ingest import GmailIngestHandler
         from aragora.server.handlers.secure import SecureHandler
 
-        assert issubclass(
-            GmailIngestHandler, SecureHandler
-        ), "SECURITY REGRESSION: GmailIngestHandler must extend SecureHandler"
+        assert issubclass(GmailIngestHandler, SecureHandler), (
+            "SECURITY REGRESSION: GmailIngestHandler must extend SecureHandler"
+        )
 
     def test_notifications_handler_extends_secure_handler(self):
         """NotificationsHandler must extend SecureHandler."""
         from aragora.server.handlers.social.notifications import NotificationsHandler
         from aragora.server.handlers.secure import SecureHandler
 
-        assert issubclass(
-            NotificationsHandler, SecureHandler
-        ), "SECURITY REGRESSION: NotificationsHandler must extend SecureHandler"
+        assert issubclass(NotificationsHandler, SecureHandler), (
+            "SECURITY REGRESSION: NotificationsHandler must extend SecureHandler"
+        )
 
 
 class TestWebhookVerificationFailClosed:
@@ -437,9 +437,9 @@ class TestEncryptionProductionEnforcement:
 
         with patch.dict(os.environ, {"ARAGORA_ENV": "production"}, clear=False):
             # Clear the module cache to re-evaluate
-            assert (
-                is_encryption_required() is True
-            ), "SECURITY REGRESSION: Encryption must be required in production"
+            assert is_encryption_required() is True, (
+                "SECURITY REGRESSION: Encryption must be required in production"
+            )
 
     def test_encryption_not_required_in_development(self):
         """Encryption should not be required in development by default."""

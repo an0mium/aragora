@@ -30,6 +30,6 @@ def test_core_endpoints_methods() -> None:
     paths = schema["paths"]
     for path, expected_methods in CORE_ENDPOINTS.items():
         methods = {m for m in paths[path].keys() if m not in ("parameters", "servers")}
-        assert expected_methods.issubset(
-            methods
-        ), f"{path} missing methods: {expected_methods - methods}"
+        assert expected_methods.issubset(methods), (
+            f"{path} missing methods: {expected_methods - methods}"
+        )

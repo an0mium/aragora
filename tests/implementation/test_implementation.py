@@ -906,7 +906,8 @@ class TestPlanExecution:
         executor._claude = mock_claude
 
         results = await executor.execute_plan(
-            [sample_task], completed={"task-1"}  # Already completed
+            [sample_task],
+            completed={"task-1"},  # Already completed
         )
 
         assert len(results) == 0

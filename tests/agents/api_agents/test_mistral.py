@@ -350,9 +350,9 @@ class TestCodestralGenerate:
 
         # Modify response for code content
         code_response = mock_mistral_response.copy()
-        code_response["choices"][0]["message"][
-            "content"
-        ] = "```python\ndef hello():\n    print('Hello')\n```"
+        code_response["choices"][0]["message"]["content"] = (
+            "```python\ndef hello():\n    print('Hello')\n```"
+        )
 
         with patch("aiohttp.ClientSession") as mock_session_class:
             mock_session = MagicMock()

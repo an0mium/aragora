@@ -218,21 +218,36 @@ class TestDominantPattern:
 
         patterns = [
             StoredCulturePattern(
-                id="p1", workspace_id="ws1", pattern_type="decision_style",
-                pattern_key="majority", pattern_value={}, observation_count=5,
-                confidence=0.7, first_observed="", last_observed="",
-                contributing_debates=[], metadata={},
+                id="p1",
+                workspace_id="ws1",
+                pattern_type="decision_style",
+                pattern_key="majority",
+                pattern_value={},
+                observation_count=5,
+                confidence=0.7,
+                first_observed="",
+                last_observed="",
+                contributing_debates=[],
+                metadata={},
             ),
             StoredCulturePattern(
-                id="p2", workspace_id="ws1", pattern_type="decision_style",
-                pattern_key="unanimous", pattern_value={}, observation_count=8,
-                confidence=0.9, first_observed="", last_observed="",
-                contributing_debates=[], metadata={},
+                id="p2",
+                workspace_id="ws1",
+                pattern_type="decision_style",
+                pattern_key="unanimous",
+                pattern_value={},
+                observation_count=8,
+                confidence=0.9,
+                first_observed="",
+                last_observed="",
+                contributing_debates=[],
+                metadata={},
             ),
         ]
 
         with patch.object(adapter, "load_patterns", return_value=patterns):
             from aragora.knowledge.mound.types import CulturePatternType
+
             dominant = adapter.get_dominant_pattern("ws1", CulturePatternType.DECISION_STYLE)
 
         assert dominant is not None
@@ -246,11 +261,17 @@ class TestOrganizationPromotion:
     def test_rejects_low_confidence(self, mock_mound):
         """Test that low confidence patterns are not promoted."""
         pattern = StoredCulturePattern(
-            id="p1", workspace_id="ws1", pattern_type="decision_style",
-            pattern_key="majority", pattern_value={}, observation_count=10,
+            id="p1",
+            workspace_id="ws1",
+            pattern_type="decision_style",
+            pattern_key="majority",
+            pattern_value={},
+            observation_count=10,
             confidence=0.5,  # Below MIN_CONFIDENCE_FOR_PROMOTION
-            first_observed="", last_observed="",
-            contributing_debates=[], metadata={},
+            first_observed="",
+            last_observed="",
+            contributing_debates=[],
+            metadata={},
         )
 
         adapter = CultureAdapter(mound=mock_mound)
@@ -261,11 +282,17 @@ class TestOrganizationPromotion:
     def test_promotes_high_confidence(self, mock_mound):
         """Test that high confidence patterns are promoted."""
         pattern = StoredCulturePattern(
-            id="p1", workspace_id="ws1", pattern_type="decision_style",
-            pattern_key="majority", pattern_value={}, observation_count=20,
+            id="p1",
+            workspace_id="ws1",
+            pattern_type="decision_style",
+            pattern_key="majority",
+            pattern_value={},
+            observation_count=20,
             confidence=0.9,  # Above threshold
-            first_observed="", last_observed="",
-            contributing_debates=[], metadata={},
+            first_observed="",
+            last_observed="",
+            contributing_debates=[],
+            metadata={},
         )
 
         mock_mound.store = AsyncMock(return_value=MagicMock(node_id="org_node_001"))
@@ -312,10 +339,17 @@ class TestSyncOperations:
 
         patterns = [
             StoredCulturePattern(
-                id="p1", workspace_id="ws1", pattern_type="decision_style",
-                pattern_key="majority", pattern_value={}, observation_count=10,
-                confidence=0.8, first_observed="", last_observed="",
-                contributing_debates=[], metadata={},
+                id="p1",
+                workspace_id="ws1",
+                pattern_type="decision_style",
+                pattern_key="majority",
+                pattern_value={},
+                observation_count=10,
+                confidence=0.8,
+                first_observed="",
+                last_observed="",
+                contributing_debates=[],
+                metadata={},
             ),
         ]
 

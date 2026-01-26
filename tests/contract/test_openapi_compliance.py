@@ -79,9 +79,9 @@ class TestOpenAPIPaths:
                 if method.lower() not in http_methods:
                     continue
                 assert "responses" in operation, f"{method.upper()} {path} missing responses"
-                assert (
-                    len(operation["responses"]) > 0
-                ), f"{method.upper()} {path} has empty responses"
+                assert len(operation["responses"]) > 0, (
+                    f"{method.upper()} {path} has empty responses"
+                )
 
     def test_core_endpoints_defined(self, openapi_spec: dict) -> None:
         """Core API endpoints should be defined in spec."""
@@ -128,12 +128,12 @@ class TestOpenAPIPaths:
             for method in legacy_methods:
                 operation = spec_paths[path][method]
                 assert isinstance(operation, dict), f"Invalid operation for {method} {path}"
-                assert (
-                    operation.get("deprecated") is True
-                ), f"Legacy operation not deprecated: {method.upper()} {path}"
-                assert not operation.get(
-                    "operationId"
-                ), f"Legacy operation should not expose operationId: {method.upper()} {path}"
+                assert operation.get("deprecated") is True, (
+                    f"Legacy operation not deprecated: {method.upper()} {path}"
+                )
+                assert not operation.get("operationId"), (
+                    f"Legacy operation should not expose operationId: {method.upper()} {path}"
+                )
 
 
 class TestHandlerPathCoverage:
@@ -206,9 +206,9 @@ class TestHandlerPathCoverage:
         # Note: 22 paths currently uncovered (12.9%), including workflows, genesis, moments
         # TODO: Reduce this to 10% by adding missing handlers
         max_uncovered = len(openapi_spec["paths"]) * 0.15  # Allow 15% uncovered
-        assert (
-            len(uncovered_paths) <= max_uncovered
-        ), f"Too many uncovered paths ({len(uncovered_paths)}): {uncovered_paths[:10]}"
+        assert len(uncovered_paths) <= max_uncovered, (
+            f"Too many uncovered paths ({len(uncovered_paths)}): {uncovered_paths[:10]}"
+        )
 
 
 # =============================================================================
@@ -349,9 +349,9 @@ class TestOpenAPIResponses:
                             error_codes_found.add(status)
 
             # Should have at least error responses defined somewhere
-            assert (
-                "400" in error_codes_found or "401" in error_codes_found
-            ), "No error responses (400/401) found in any endpoint"
+            assert "400" in error_codes_found or "401" in error_codes_found, (
+                "No error responses (400/401) found in any endpoint"
+            )
 
     def test_success_responses_have_content(self, openapi_spec: dict) -> None:
         """200/201 responses should define response content."""
@@ -398,9 +398,9 @@ class TestOpenAPIConsistency:
                         assert schema_name in schemas, f"Unresolved schema ref: {ref} at {path}"
                     elif ref.startswith("#/components/responses/"):
                         response_name = ref.split("/")[-1]
-                        assert (
-                            response_name in responses
-                        ), f"Unresolved response ref: {ref} at {path}"
+                        assert response_name in responses, (
+                            f"Unresolved response ref: {ref} at {path}"
+                        )
                 else:
                     for key, value in obj.items():
                         check_refs(value, f"{path}.{key}")
@@ -446,7 +446,6 @@ class TestOpenAPIConsistency:
                 if op_id:
                     location = f"{method.upper()} {path}"
                     assert op_id not in operation_ids, (
-                        f"Duplicate operationId '{op_id}': "
-                        f"{operation_ids[op_id]} and {location}"
+                        f"Duplicate operationId '{op_id}': {operation_ids[op_id]} and {location}"
                     )
                     operation_ids[op_id] = location

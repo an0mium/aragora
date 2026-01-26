@@ -357,9 +357,9 @@ class TestNewSMETemplateExports:
 
         for template in templates:
             step_ids = [s.id for s in template.steps]
-            assert (
-                template.entry_step in step_ids
-            ), f"Entry step {template.entry_step} not in {step_ids}"
+            assert template.entry_step in step_ids, (
+                f"Entry step {template.entry_step} not in {step_ids}"
+            )
 
 
 class TestQuickstartTemplates:
@@ -713,9 +713,9 @@ class TestSMEOnboardingIntegration:
 
         for template in sme_templates:
             assert template.example_prompt, f"Template {template.id} has no example_prompt"
-            assert (
-                len(template.example_prompt) > 20
-            ), f"Template {template.id} example_prompt too short"
+            assert len(template.example_prompt) > 20, (
+                f"Template {template.id} example_prompt too short"
+            )
 
     def test_sme_templates_have_reasonable_times(self):
         """SME templates have reasonable estimated times."""
@@ -724,9 +724,9 @@ class TestSMEOnboardingIntegration:
         sme_templates = [t for t in STARTER_TEMPLATES if "sme" in t.tags]
 
         for template in sme_templates:
-            assert (
-                2 <= template.estimated_minutes <= 10
-            ), f"Template {template.id} has unreasonable time: {template.estimated_minutes} min"
+            assert 2 <= template.estimated_minutes <= 10, (
+                f"Template {template.id} has unreasonable time: {template.estimated_minutes} min"
+            )
 
     def test_sme_templates_are_beginner_difficulty(self):
         """All SME templates are beginner difficulty for onboarding."""
@@ -735,6 +735,6 @@ class TestSMEOnboardingIntegration:
         sme_templates = [t for t in STARTER_TEMPLATES if "sme" in t.tags]
 
         for template in sme_templates:
-            assert (
-                template.difficulty == "beginner"
-            ), f"Template {template.id} should be beginner, not {template.difficulty}"
+            assert template.difficulty == "beginner", (
+                f"Template {template.id} should be beginner, not {template.difficulty}"
+            )

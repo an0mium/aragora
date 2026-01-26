@@ -88,9 +88,9 @@ class TestMigrationConfiguration:
         env_py = project_root / "migrations" / "env.py"
         content = env_py.read_text()
 
-        assert (
-            "asyncpg" in content or "async" in content
-        ), "Migration env should support async operations"
+        assert "asyncpg" in content or "async" in content, (
+            "Migration env should support async operations"
+        )
 
     def test_migration_version_exists(self, project_root: Path):
         """Test that at least one migration version exists."""
@@ -100,6 +100,6 @@ class TestMigrationConfiguration:
         assert len(versions) >= 1, "At least one migration version should exist"
         # Check first version is the initial schema
         version_names = [v.name for v in versions]
-        assert any(
-            "001" in name or "initial" in name.lower() for name in version_names
-        ), "Initial migration should exist"
+        assert any("001" in name or "initial" in name.lower() for name in version_names), (
+            "Initial migration should exist"
+        )

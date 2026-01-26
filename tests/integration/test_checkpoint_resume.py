@@ -783,7 +783,7 @@ class TestCheckpointEdgeCases:
         assert len(loaded.messages) == 2
         # Messages may be dicts or Message objects depending on serialization
         first_msg = loaded.messages[0]
-        content = first_msg.content if hasattr(first_msg, 'content') else first_msg.get('content')
+        content = first_msg.content if hasattr(first_msg, "content") else first_msg.get("content")
         assert content == "Test proposal"
 
     @pytest.mark.asyncio
@@ -799,7 +799,14 @@ class TestCheckpointEdgeCases:
                 current_round=round_num,
                 total_rounds=10,
                 phase="proposal",
-                messages=[Message(role="proposal", agent="alice", content=f"Round {round_num}", round=round_num)],
+                messages=[
+                    Message(
+                        role="proposal",
+                        agent="alice",
+                        content=f"Round {round_num}",
+                        round=round_num,
+                    )
+                ],
                 critiques=[],
                 votes=[],
                 agents=mock_agents,
@@ -883,7 +890,7 @@ class TestCheckpointEdgeCases:
         assert loaded is not None
         # Messages may be dicts or Message objects
         for m in loaded.messages:
-            content = m.content if hasattr(m, 'content') else m.get('content')
+            content = m.content if hasattr(m, "content") else m.get("content")
             assert len(content) == 10000
 
     @pytest.mark.asyncio

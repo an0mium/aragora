@@ -28,10 +28,13 @@ class TestRedisClientUtilities:
 
     def test_get_redis_client_returns_none_when_unavailable(self):
         """Test that get_redis_client returns None when Redis is unavailable."""
-        with patch.dict(os.environ, {
-            "ARAGORA_REDIS_CLUSTER_NODES": "",
-            "ARAGORA_REDIS_URL": "redis://nonexistent:6379",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_REDIS_CLUSTER_NODES": "",
+                "ARAGORA_REDIS_URL": "redis://nonexistent:6379",
+            },
+        ):
             reset_redis_client()
             client = get_redis_client()
             # Should return None since Redis is not running
@@ -65,7 +68,7 @@ class TestRedisClientUtilities:
         # With explicit URL, should not use cached client
         client = get_redis_client(redis_url="redis://localhost:6379")
         # Should either connect or return None gracefully
-        assert client is None or hasattr(client, 'get')
+        assert client is None or hasattr(client, "get")
 
 
 class TestRedisClusterDetection:
@@ -77,9 +80,12 @@ class TestRedisClusterDetection:
 
     def test_cluster_detection_with_cluster_nodes_env(self):
         """Test cluster detection when CLUSTER_NODES is set."""
-        with patch.dict(os.environ, {
-            "ARAGORA_REDIS_CLUSTER_NODES": "redis1:6379,redis2:6379",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_REDIS_CLUSTER_NODES": "redis1:6379,redis2:6379",
+            },
+        ):
             reset_redis_client()
             # Should attempt cluster mode (will fail if no actual cluster)
             # but the detection logic should not raise
@@ -90,16 +96,20 @@ class TestRedisClusterDetection:
 
     def test_cluster_detection_prefers_cluster_over_standalone(self):
         """Test that cluster configuration takes precedence over standalone."""
-        with patch.dict(os.environ, {
-            "ARAGORA_REDIS_CLUSTER_NODES": "redis1:6379",
-            "ARAGORA_REDIS_URL": "redis://localhost:6379",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_REDIS_CLUSTER_NODES": "redis1:6379",
+                "ARAGORA_REDIS_URL": "redis://localhost:6379",
+            },
+        ):
             reset_redis_client()
             # Should try cluster first
             # We can't fully test without a running cluster
             # but we verify the precedence logic exists
             from aragora.storage import redis_utils
-            assert hasattr(redis_utils, 'get_redis_client')
+
+            assert hasattr(redis_utils, "get_redis_client")
 
 
 class TestRedisClusterClient:
@@ -122,12 +132,15 @@ class TestRedisClusterClient:
         """Test ClusterConfig creation from environment."""
         from aragora.server.redis_cluster import get_cluster_config
 
-        with patch.dict(os.environ, {
-            "ARAGORA_REDIS_CLUSTER_NODES": "node1:6379,node2:6380",
-            "ARAGORA_REDIS_CLUSTER_MODE": "auto",
-            "ARAGORA_REDIS_CLUSTER_MAX_CONNECTIONS": "64",
-            "ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS": "true",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_REDIS_CLUSTER_NODES": "node1:6379,node2:6380",
+                "ARAGORA_REDIS_CLUSTER_MODE": "auto",
+                "ARAGORA_REDIS_CLUSTER_MAX_CONNECTIONS": "64",
+                "ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS": "true",
+            },
+        ):
             config = get_cluster_config()
 
             assert len(config.nodes) == 2
@@ -141,9 +154,13 @@ class TestRedisClusterClient:
         from aragora.server.redis_cluster import get_cluster_config
 
         # Test with just hostnames (default port)
-        with patch.dict(os.environ, {
-            "ARAGORA_REDIS_CLUSTER_NODES": "redis1,redis2",
-        }, clear=False):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_REDIS_CLUSTER_NODES": "redis1,redis2",
+            },
+            clear=False,
+        ):
             config = get_cluster_config()
             # Should default to port 6379
             assert all(port == 6379 for _, port in config.nodes)
@@ -217,10 +234,10 @@ class TestRedisClusterOperations:
 
         # Just verify methods exist
         client = RedisClusterClient(ClusterConfig(nodes=[]))
-        assert hasattr(client, 'hget')
-        assert hasattr(client, 'hset')
-        assert hasattr(client, 'hgetall')
-        assert hasattr(client, 'hdel')
+        assert hasattr(client, "hget")
+        assert hasattr(client, "hset")
+        assert hasattr(client, "hgetall")
+        assert hasattr(client, "hdel")
 
     def test_cluster_sorted_set_operations(self):
         """Test sorted set operations through cluster client."""
@@ -228,10 +245,10 @@ class TestRedisClusterOperations:
 
         # Just verify methods exist (used for rate limiting)
         client = RedisClusterClient(ClusterConfig(nodes=[]))
-        assert hasattr(client, 'zadd')
-        assert hasattr(client, 'zrem')
-        assert hasattr(client, 'zcard')
-        assert hasattr(client, 'zrangebyscore')
+        assert hasattr(client, "zadd")
+        assert hasattr(client, "zrem")
+        assert hasattr(client, "zcard")
+        assert hasattr(client, "zrangebyscore")
 
 
 class TestRedisFailover:
@@ -244,10 +261,10 @@ class TestRedisFailover:
         client = RedisClusterClient(ClusterConfig(nodes=[("localhost", 6379)]))
 
         # Verify reconnect method exists
-        assert hasattr(client, '_reconnect')
+        assert hasattr(client, "_reconnect")
 
         # Verify execute_with_retry exists
-        assert hasattr(client, '_execute_with_retry')
+        assert hasattr(client, "_execute_with_retry")
 
     def test_health_check_triggers_reconnect(self):
         """Test that health check failures can trigger reconnection."""
@@ -263,5 +280,6 @@ class TestRedisFailover:
 
         # Should be able to check if health check is due
         import time
+
         time.sleep(0.2)
         assert monitor.should_check() is True

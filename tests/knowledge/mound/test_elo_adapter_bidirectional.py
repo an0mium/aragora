@@ -112,7 +112,7 @@ class TestEloAdapterPatternAnalysis:
         """Test detection of success contributor pattern."""
         km_items = [
             {"metadata": {"outcome_success": True, "debate_id": f"d{i}"}} for i in range(5)
-        ] + [{"metadata": {"debate_id": f"d{i+5}"}} for i in range(2)]
+        ] + [{"metadata": {"debate_id": f"d{i + 5}"}} for i in range(2)]
 
         patterns = await adapter.analyze_km_patterns_for_agent(
             "claude",
@@ -130,7 +130,7 @@ class TestEloAdapterPatternAnalysis:
         """Test detection of contradiction source pattern."""
         km_items = [
             {"metadata": {"was_contradicted": True, "debate_id": f"d{i}"}} for i in range(4)
-        ] + [{"metadata": {"debate_id": f"d{i+4}"}} for i in range(6)]
+        ] + [{"metadata": {"debate_id": f"d{i + 4}"}} for i in range(6)]
 
         patterns = await adapter.analyze_km_patterns_for_agent(
             "grok",
@@ -147,7 +147,7 @@ class TestEloAdapterPatternAnalysis:
         """Test detection of domain expert pattern."""
         km_items = [
             {"metadata": {"domain": "security", "debate_id": f"d{i}"}} for i in range(8)
-        ] + [{"metadata": {"domain": "testing", "debate_id": f"d{i+8}"}} for i in range(3)]
+        ] + [{"metadata": {"domain": "testing", "debate_id": f"d{i + 8}"}} for i in range(3)]
 
         patterns = await adapter.analyze_km_patterns_for_agent(
             "gemini",
@@ -167,7 +167,7 @@ class TestEloAdapterPatternAnalysis:
         """Test detection of crux resolver pattern."""
         km_items = [
             {"metadata": {"crux_resolved": True, "debate_id": f"d{i}"}} for i in range(4)
-        ] + [{"metadata": {"key_insight": True, "debate_id": f"d{i+4}"}} for i in range(2)]
+        ] + [{"metadata": {"key_insight": True, "debate_id": f"d{i + 4}"}} for i in range(2)]
 
         patterns = await adapter.analyze_km_patterns_for_agent(
             "claude",
@@ -195,7 +195,7 @@ class TestEloAdapterPatternAnalysis:
         # Only 2 successes out of 10 - too low for pattern
         km_items = [
             {"metadata": {"outcome_success": True, "debate_id": f"d{i}"}} for i in range(2)
-        ] + [{"metadata": {"debate_id": f"d{i+2}"}} for i in range(8)]
+        ] + [{"metadata": {"debate_id": f"d{i + 2}"}} for i in range(8)]
 
         patterns = await adapter.analyze_km_patterns_for_agent(
             "claude",

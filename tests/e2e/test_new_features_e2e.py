@@ -33,6 +33,7 @@ pytestmark = [pytest.mark.e2e, pytest.mark.new_features]
 @dataclass
 class MockTemplate:
     """Mock template for testing."""
+
     id: str
     name: str
     description: str
@@ -52,6 +53,7 @@ class MockTemplate:
 @dataclass
 class MockReview:
     """Mock review for testing."""
+
     id: str
     template_id: str
     user_id: str
@@ -112,8 +114,7 @@ def mock_marketplace_store():
                 result = [
                     t
                     for t in result
-                    if search.lower() in t.name.lower()
-                    or search.lower() in t.description.lower()
+                    if search.lower() in t.name.lower() or search.lower() in t.description.lower()
                 ]
             total = len(result)
             result = result[offset : offset + limit]
@@ -129,9 +130,7 @@ def mock_marketplace_store():
             ratings[key] = rating
 
             # Calculate average
-            template_ratings = [
-                r for k, r in ratings.items() if k.startswith(f"{template_id}:")
-            ]
+            template_ratings = [r for k, r in ratings.items() if k.startswith(f"{template_id}:")]
             avg = sum(template_ratings) / len(template_ratings)
             count = len(template_ratings)
 
@@ -269,9 +268,7 @@ def mock_batch_store():
     results = {}
 
     class MockStore:
-        def create_job(
-            self, debate_ids: List[str], options: Dict[str, Any], user_id: str
-        ):
+        def create_job(self, debate_ids: List[str], options: Dict[str, Any], user_id: str):
             job_id = f"batch-{uuid4().hex[:8]}"
             job = {
                 "id": job_id,
@@ -306,9 +303,7 @@ def mock_batch_store():
 
         def add_error(self, job_id: str, debate_id: str, error: str):
             if job_id in jobs:
-                results[job_id].append(
-                    {"debate_id": debate_id, "error": error, "status": "error"}
-                )
+                results[job_id].append({"debate_id": debate_id, "error": error, "status": "error"})
                 jobs[job_id]["processed"] += 1
                 jobs[job_id]["failed"] += 1
 
@@ -679,9 +674,7 @@ class TestBatchExplainabilityE2E:
             if i % 10 == 0:
                 store.add_error(job.id, debate_id, "Timeout")
             else:
-                store.add_result(
-                    job.id, debate_id, {"explanation": f"Result for {debate_id}"}
-                )
+                store.add_result(job.id, debate_id, {"explanation": f"Result for {debate_id}"})
 
         updated = store.get_job(job.id)
         assert updated.processed == 100
@@ -697,9 +690,7 @@ class TestCrossFeatureIntegration:
     """Tests that verify integration between features."""
 
     @pytest.mark.asyncio
-    async def test_webhook_on_batch_complete(
-        self, mock_webhook_store, mock_batch_store
-    ):
+    async def test_webhook_on_batch_complete(self, mock_webhook_store, mock_batch_store):
         """Test that webhooks can be triggered on batch job completion."""
         webhook_store = mock_webhook_store
         batch_store = mock_batch_store

@@ -144,7 +144,6 @@ class TestRunDebateTool:
             patch("aragora.debate.orchestrator.DebateProtocol") as mock_protocol,
             patch("aragora.core.Environment") as mock_env,
         ):
-
             mock_create.return_value = mock_agent
             mock_arena_instance = MagicMock()
             mock_arena_instance.run = AsyncMock(return_value=mock_result)
@@ -197,7 +196,6 @@ class TestRunDebateTool:
             patch("aragora.debate.orchestrator.DebateProtocol"),
             patch("aragora.core.Environment"),
         ):
-
             mock_create.side_effect = create_side_effect
             mock_arena_instance = MagicMock()
             mock_arena_instance.run = AsyncMock(return_value=mock_result)
@@ -231,7 +229,6 @@ class TestRunDebateTool:
             patch("aragora.debate.orchestrator.DebateProtocol"),
             patch("aragora.core.Environment"),
         ):
-
             mock_create.side_effect = [mock_agent1, mock_agent2]
             mock_arena_instance = MagicMock()
             mock_arena_instance.run = AsyncMock(return_value=mock_result)
@@ -276,7 +273,6 @@ class TestRunDebateTool:
             patch("aragora.debate.orchestrator.DebateProtocol"),
             patch("aragora.core.Environment"),
         ):
-
             mock_create.side_effect = track_create
             mock_arena_instance = MagicMock()
             mock_arena_instance.run = AsyncMock(return_value=mock_result)

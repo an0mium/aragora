@@ -296,9 +296,7 @@ class TestSecureHandlerEncryption:
             "aragora.storage.encrypted_fields.decrypt_sensitive",
             return_value={"api_key": "decrypted-key", "name": "test"},
         ) as mock_decrypt:
-            result = secure_handler.decrypt_request_fields(
-                {"api_key": "ENCRYPTED", "name": "test"}
-            )
+            result = secure_handler.decrypt_request_fields({"api_key": "ENCRYPTED", "name": "test"})
             assert result["api_key"] == "decrypted-key"
             mock_decrypt.assert_called_once()
 
@@ -414,9 +412,7 @@ class TestSecureEndpointDecorator:
                         )
 
     @pytest.mark.asyncio
-    async def test_secure_endpoint_audit_logging(
-        self, server_context, mock_request, auth_context
-    ):
+    async def test_secure_endpoint_audit_logging(self, server_context, mock_request, auth_context):
         """@secure_endpoint logs to audit trail when audit=True."""
 
         class TestHandler(SecureHandler):
@@ -590,7 +586,9 @@ class TestSecureEndpointDecorator:
             handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
         ):
             with patch.object(
-                handler, "check_permission", side_effect=RoleRequiredError("Role required", {"owner"}, {"member"})
+                handler,
+                "check_permission",
+                side_effect=RoleRequiredError("Role required", {"owner"}, {"member"}),
             ):
                 with patch.object(
                     handler,
@@ -626,9 +624,7 @@ class TestAuditSensitiveAccessDecorator:
 
         handler = TestHandler(server_context)
 
-        with patch(
-            "aragora.observability.metrics.security.record_secret_access"
-        ) as mock_metric:
+        with patch("aragora.observability.metrics.security.record_secret_access") as mock_metric:
             with patch(
                 "aragora.observability.security_audit.audit_secret_access", new_callable=AsyncMock
             ):
@@ -728,9 +724,7 @@ class TestSecureHandlerIntegration:
     """Integration tests for SecureHandler patterns."""
 
     @pytest.mark.asyncio
-    async def test_full_secure_endpoint_flow(
-        self, server_context, mock_request, auth_context
-    ):
+    async def test_full_secure_endpoint_flow(self, server_context, mock_request, auth_context):
         """Full flow through secure endpoint with auth, permission, and audit."""
 
         class DebateHandler(SecureHandler):

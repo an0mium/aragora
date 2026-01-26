@@ -66,9 +66,7 @@ class TestAsyncWebhookDispatcher:
             with patch.object(dispatcher._client, "post", new_callable=AsyncMock) as mock_post:
                 mock_post.return_value = mock_response
 
-                success, status, error = await dispatcher.dispatch(
-                    mock_webhook, {"event": "test"}
-                )
+                success, status, error = await dispatcher.dispatch(mock_webhook, {"event": "test"})
 
                 assert success is False
                 assert status == 500
@@ -83,9 +81,7 @@ class TestAsyncWebhookDispatcher:
             with patch.object(dispatcher._client, "post", new_callable=AsyncMock) as mock_post:
                 mock_post.side_effect = Exception("Connection refused")
 
-                success, status, error = await dispatcher.dispatch(
-                    mock_webhook, {"event": "test"}
-                )
+                success, status, error = await dispatcher.dispatch(mock_webhook, {"event": "test"})
 
                 assert success is False
                 assert status == 0

@@ -512,9 +512,9 @@ class TestCrossPlatformConsistency:
                 )
 
                 # Must return SendMessageResponse even on failure
-                assert isinstance(
-                    result, SendMessageResponse
-                ), f"{name} should return SendMessageResponse"
+                assert isinstance(result, SendMessageResponse), (
+                    f"{name} should return SendMessageResponse"
+                )
                 assert result.success is False, f"{name} should return success=False on error"
                 assert result.error is not None, f"{name} should include error message"
 

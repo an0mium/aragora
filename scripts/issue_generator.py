@@ -5,6 +5,7 @@ Issue Generator for Nomic Loop
 Scans the codebase to generate specific, actionable issues for the nomic loop
 to debate. This replaces vague open-ended topics with concrete problems.
 """
+
 from __future__ import annotations
 
 import hashlib

@@ -102,12 +102,14 @@ def mock_continuum_memory():
     stored_memories = []
 
     def mock_store(content, importance=0.5, metadata=None):
-        stored_memories.append({
-            "content": content,
-            "importance": importance,
-            "metadata": metadata or {},
-            "timestamp": datetime.now().isoformat(),
-        })
+        stored_memories.append(
+            {
+                "content": content,
+                "importance": importance,
+                "metadata": metadata or {},
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
     def mock_recall(query, limit=10):
         # Simple matching for testing
@@ -785,9 +787,7 @@ class TestErrorResilience:
     """Tests for error handling and resilience."""
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
-    def test_km_unavailable_handled_gracefully(
-        self, mock_get_mound, fresh_manager
-    ):
+    def test_km_unavailable_handled_gracefully(self, mock_get_mound, fresh_manager):
         """Test graceful handling when KM is unavailable."""
         mock_get_mound.return_value = None
 
@@ -806,9 +806,7 @@ class TestErrorResilience:
             fresh_manager._dispatch_event(event)
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
-    def test_store_error_handled_gracefully(
-        self, mock_get_mound, fresh_manager
-    ):
+    def test_store_error_handled_gracefully(self, mock_get_mound, fresh_manager):
         """Test graceful handling when store fails."""
         mock_mound = MagicMock()
         mock_mound.workspace_id = "test"

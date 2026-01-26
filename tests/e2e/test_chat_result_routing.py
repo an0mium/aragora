@@ -489,9 +489,9 @@ class TestOriginCleanup:
 
                 # Should have cleaned 1 from in-memory
                 assert cleaned >= 1, f"Expected at least 1 cleaned, got {cleaned}"
-                assert (
-                    debate_id not in _origin_store
-                ), "Origin should be removed from in-memory store"
+                assert debate_id not in _origin_store, (
+                    "Origin should be removed from in-memory store"
+                )
 
         finally:
             # Restore the original SQLite store

@@ -401,7 +401,7 @@ Evaluate the Aragora opportunity from a tech product perspective."""
     for topic_key in topics_to_run:
         topic_prompt = DEBATE_TOPICS[topic_key]
 
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"TOPIC: {topic_key.upper().replace('_', ' ')}")
         print("=" * 80)
 

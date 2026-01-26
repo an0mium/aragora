@@ -207,6 +207,6 @@ class TestDebateFactoryCompatibility:
                 "synthesizer",
                 "judge",
             ), f"Role '{spec.role}' should be a valid debate role"
-            assert "/" not in (
-                spec.role or ""
-            ), f"Role '{spec.role}' contains '/', suggesting a model path leaked into role"
+            assert "/" not in (spec.role or ""), (
+                f"Role '{spec.role}' contains '/', suggesting a model path leaked into role"
+            )

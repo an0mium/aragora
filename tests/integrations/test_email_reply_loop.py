@@ -488,10 +488,12 @@ class TestParseSendGridWebhook:
             "text": "My SendGrid reply.",
             "html": "<p>My SendGrid reply.</p>",
             "headers": "Message-ID: <sg-msg-456@example.com>\r\nDate: Mon, 20 Jan 2026 10:00:00 +0000",
-            "envelope": json.dumps({
-                "from": "user@example.com",
-                "to": ["debate@aragora.com"],
-            }),
+            "envelope": json.dumps(
+                {
+                    "from": "user@example.com",
+                    "to": ["debate@aragora.com"],
+                }
+            ),
         }
 
         email = parse_sendgrid_webhook(data)
@@ -545,27 +547,29 @@ class TestParseSESNotification:
         """Test parsing SES notification with full email content."""
         notification = {
             "Type": "Notification",
-            "Message": json.dumps({
-                "notificationType": "Received",
-                "mail": {
-                    "messageId": "ses-abc123",
-                    "source": "sender@example.com",
-                    "destination": ["debate@aragora.com"],
-                    "commonHeaders": {
-                        "from": ["Sender Name <sender@example.com>"],
-                        "to": ["debate@aragora.com"],
-                        "subject": "Re: [Aragora Debate_id:ses456] Discussion",
+            "Message": json.dumps(
+                {
+                    "notificationType": "Received",
+                    "mail": {
+                        "messageId": "ses-abc123",
+                        "source": "sender@example.com",
+                        "destination": ["debate@aragora.com"],
+                        "commonHeaders": {
+                            "from": ["Sender Name <sender@example.com>"],
+                            "to": ["debate@aragora.com"],
+                            "subject": "Re: [Aragora Debate_id:ses456] Discussion",
+                        },
                     },
-                },
-                "content": (
-                    "From: sender@example.com\r\n"
-                    "To: debate@aragora.com\r\n"
-                    "Subject: Re: [Aragora Debate_id:ses456] Discussion\r\n"
-                    "Message-ID: <ses-content@example.com>\r\n"
-                    "\r\n"
-                    "SES email content."
-                ),
-            }),
+                    "content": (
+                        "From: sender@example.com\r\n"
+                        "To: debate@aragora.com\r\n"
+                        "Subject: Re: [Aragora Debate_id:ses456] Discussion\r\n"
+                        "Message-ID: <ses-content@example.com>\r\n"
+                        "\r\n"
+                        "SES email content."
+                    ),
+                }
+            ),
         }
 
         email = parse_ses_notification(notification)
@@ -578,23 +582,25 @@ class TestParseSESNotification:
         """Test parsing SES notification without full content."""
         notification = {
             "Type": "Notification",
-            "Message": json.dumps({
-                "notificationType": "Received",
-                "mail": {
-                    "messageId": "ses-headers-only",
-                    "source": "sender@example.com",
-                    "destination": ["debate@aragora.com"],
-                    "commonHeaders": {
-                        "from": ["sender@example.com"],
-                        "to": ["debate@aragora.com"],
-                        "subject": "Test Subject",
+            "Message": json.dumps(
+                {
+                    "notificationType": "Received",
+                    "mail": {
+                        "messageId": "ses-headers-only",
+                        "source": "sender@example.com",
+                        "destination": ["debate@aragora.com"],
+                        "commonHeaders": {
+                            "from": ["sender@example.com"],
+                            "to": ["debate@aragora.com"],
+                            "subject": "Test Subject",
+                        },
+                        "headers": [
+                            {"name": "Message-ID", "value": "<ses-hdr@example.com>"},
+                            {"name": "In-Reply-To", "value": "<original@aragora.com>"},
+                        ],
                     },
-                    "headers": [
-                        {"name": "Message-ID", "value": "<ses-hdr@example.com>"},
-                        {"name": "In-Reply-To", "value": "<original@aragora.com>"},
-                    ],
-                },
-            }),
+                }
+            ),
         }
 
         email = parse_ses_notification(notification)
@@ -606,10 +612,12 @@ class TestParseSESNotification:
         """Test that non-Received notifications return None."""
         notification = {
             "Type": "Notification",
-            "Message": json.dumps({
-                "notificationType": "Bounce",
-                "bounce": {"bounceType": "Permanent"},
-            }),
+            "Message": json.dumps(
+                {
+                    "notificationType": "Bounce",
+                    "bounce": {"bounceType": "Permanent"},
+                }
+            ),
         }
 
         result = parse_ses_notification(notification)
@@ -745,6 +753,7 @@ class TestEmailReplyProcessing:
 
         # Handler should be registered
         from aragora.integrations.email_reply_loop import _reply_handlers
+
         assert custom_handler in _reply_handlers
 
 
@@ -794,26 +803,28 @@ class TestIntegration:
         # Simulate SES notification
         notification = {
             "Type": "Notification",
-            "Message": json.dumps({
-                "notificationType": "Received",
-                "mail": {
-                    "messageId": "ses-flow-456",
-                    "source": "participant@example.com",
-                    "destination": ["debates@aragora.com"],
-                    "commonHeaders": {
-                        "from": ["participant@example.com"],
-                        "to": ["debates@aragora.com"],
-                        "subject": "Re: [Aragora Debate_id:sesflow789] AI Safety",
+            "Message": json.dumps(
+                {
+                    "notificationType": "Received",
+                    "mail": {
+                        "messageId": "ses-flow-456",
+                        "source": "participant@example.com",
+                        "destination": ["debates@aragora.com"],
+                        "commonHeaders": {
+                            "from": ["participant@example.com"],
+                            "to": ["debates@aragora.com"],
+                            "subject": "Re: [Aragora Debate_id:sesflow789] AI Safety",
+                        },
                     },
-                },
-                "content": (
-                    "From: participant@example.com\r\n"
-                    "Subject: Re: [Aragora Debate_id:sesflow789] AI Safety\r\n"
-                    "Message-ID: <ses-flow@example.com>\r\n"
-                    "\r\n"
-                    "The safety implications are significant."
-                ),
-            }),
+                    "content": (
+                        "From: participant@example.com\r\n"
+                        "Subject: Re: [Aragora Debate_id:sesflow789] AI Safety\r\n"
+                        "Message-ID: <ses-flow@example.com>\r\n"
+                        "\r\n"
+                        "The safety implications are significant."
+                    ),
+                }
+            ),
         }
 
         # Parse the notification

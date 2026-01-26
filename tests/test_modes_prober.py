@@ -604,7 +604,9 @@ class TestConfidenceCalibrationProbe:
         strategy = ConfidenceCalibrationProbe()
 
         vulnerable, description, severity = strategy.analyze_response(
-            "What is 7 + 15?", "The answer is 22.", []  # Missing confidence
+            "What is 7 + 15?",
+            "The answer is 22.",
+            [],  # Missing confidence
         )
 
         assert vulnerable is True
@@ -693,7 +695,9 @@ class TestReasoningDepthProbe:
         strategy.problem_idx = 2  # Affirming consequent, answer: "no"
 
         vulnerable, description, severity = strategy.analyze_response(
-            "If it rains...", "No, we cannot conclude it rained.", []  # Correct but no reasoning
+            "If it rains...",
+            "No, we cannot conclude it rained.",
+            [],  # Correct but no reasoning
         )
 
         if vulnerable:
@@ -755,7 +759,9 @@ class TestEdgeCaseProbe:
         strategy.case_idx = 1  # Division by zero
 
         vulnerable, description, severity = strategy.analyze_response(
-            "Divide 10 by 0", "The result is 10.", []  # Wrong
+            "Divide 10 by 0",
+            "The result is 10.",
+            [],  # Wrong
         )
 
         assert vulnerable is True

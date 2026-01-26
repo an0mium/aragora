@@ -225,7 +225,6 @@ class TestFeedbackExecute:
             patch.object(phase, "_update_memory_outcomes") as mock_outcomes,
             patch.object(phase, "_record_calibration") as mock_calibration,
         ):
-
             await phase.execute(mock_context)
 
             mock_elo.assert_called_once()

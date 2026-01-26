@@ -458,7 +458,7 @@ class TestGetEloHistory:
     def test_respects_limit(self, engine, mock_db):
         """Should respect limit parameter."""
         for i in range(10):
-            mock_db.add_history("alice", 1500 + i, f"2024-01-{i+1:02d}T00:00:00")
+            mock_db.add_history("alice", 1500 + i, f"2024-01-{i + 1:02d}T00:00:00")
 
         result = engine.get_elo_history("alice", limit=5)
 

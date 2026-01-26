@@ -44,41 +44,38 @@ def short_content() -> str:
 @pytest.fixture
 def medium_content() -> str:
     """Medium content (~1000 tokens)."""
-    paragraphs = (
-        [
-            """
+    paragraphs = [
+        """
         Software deployment practices have evolved significantly over the past decade.
         Modern teams employ continuous integration and continuous deployment (CI/CD)
         pipelines to automate the build, test, and deployment processes. This automation
         reduces human error and enables faster iteration cycles.
         """,
-            """
+        """
         Feature flags represent a key advancement in deployment strategies. By wrapping
         new features in conditional logic, teams can deploy code to production without
         immediately exposing it to all users. This decoupling of deployment from release
         provides unprecedented control over the user experience.
         """,
-            """
+        """
         The benefits of feature flags extend beyond simple on/off toggles. Advanced
         implementations support percentage-based rollouts, user segment targeting, and
         A/B testing. This granularity enables data-driven decisions about feature launches
         and quick rollback capabilities when issues arise.
         """,
-            """
+        """
         However, feature flags introduce their own complexity. Without proper management,
         technical debt can accumulate as unused flags linger in the codebase. Teams must
         establish lifecycle policies that mandate regular cleanup and documentation of
         all active flags.
         """,
-            """
+        """
         Best practices for feature flag management include: establishing naming conventions,
         maintaining documentation, setting expiration dates, integrating with monitoring
         systems, and conducting regular audits. These practices ensure that the benefits
         of feature flags outweigh their maintenance costs.
         """,
-        ]
-        * 4
-    )  # Repeat to get ~1000 tokens
+    ] * 4  # Repeat to get ~1000 tokens
 
     return "\n\n".join(paragraphs)
 
@@ -86,43 +83,40 @@ def medium_content() -> str:
 @pytest.fixture
 def long_content() -> str:
     """Long content (~10000 tokens)."""
-    paragraphs = (
-        [
-            """
+    paragraphs = [
+        """
         The evolution of software engineering practices has been marked by continuous
         innovation in how teams build, test, and deploy applications. From waterfall
         methodologies to agile practices, the industry has consistently moved toward
         faster feedback loops and more iterative development processes.
         """,
-            """
+        """
         Continuous integration emerged as a fundamental practice in the early 2000s,
         enabling teams to merge code changes frequently and catch integration issues
         early. This practice laid the groundwork for continuous deployment, where
         code changes automatically flow to production after passing automated tests.
         """,
-            """
+        """
         The microservices architecture pattern has further accelerated deployment
         practices. By decomposing monolithic applications into smaller, independently
         deployable services, teams can release updates to specific components without
         affecting the entire system. This granularity enables faster iteration and
         reduced risk per deployment.
         """,
-            """
+        """
         Container technologies like Docker and orchestration platforms like Kubernetes
         have revolutionized how applications are packaged and deployed. Containers
         provide consistent environments across development, testing, and production,
         while Kubernetes manages the complexity of running applications at scale.
         """,
-            """
+        """
         Infrastructure as Code (IaC) tools such as Terraform and CloudFormation
         enable teams to define and provision infrastructure through code. This
         approach brings the same version control and review processes used for
         application code to infrastructure management, improving reliability and
         reproducibility.
         """,
-        ]
-        * 20
-    )  # Repeat to get ~10000 tokens
+    ] * 20  # Repeat to get ~10000 tokens
 
     return "\n\n".join(paragraphs)
 
@@ -294,7 +288,7 @@ class TestQueryBenchmarks:
         """Benchmark drill-down operations."""
         # Set up parent-child relationships
         for i, node in enumerate(sample_context.levels[AbstractionLevel.SUMMARY]):
-            node.child_ids = [f"detailed_{i*2}", f"detailed_{i*2+1}"]
+            node.child_ids = [f"detailed_{i * 2}", f"detailed_{i * 2 + 1}"]
 
         def drill_down_ops():
             for i in range(10):

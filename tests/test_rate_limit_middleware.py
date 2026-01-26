@@ -629,7 +629,7 @@ class TestRateLimitIntegration:
         # First 5 requests should succeed
         for i in range(5):
             result = limiter.allow(client_ip, endpoint=endpoint)
-            assert result.allowed is True, f"Request {i+1} should be allowed"
+            assert result.allowed is True, f"Request {i + 1} should be allowed"
 
         # 6th request should be blocked
         result = limiter.allow(client_ip, endpoint=endpoint)

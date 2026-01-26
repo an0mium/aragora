@@ -386,10 +386,10 @@ async def run_single_phase(
     """Run a single phase of the debate."""
     from aragora.core import Environment
 
-    logger.info(f"\n{'='*70}")
+    logger.info(f"\n{'=' * 70}")
     logger.info(f"PHASE: {phase.description}")
     logger.info(f"Temperature: {phase.temperature}")
-    logger.info(f"{'='*70}\n")
+    logger.info(f"{'=' * 70}\n")
 
     responses = {}
 
@@ -578,7 +578,9 @@ Thank you for listening to Aragora Debates.
             for i, (speaker, text) in enumerate(audio_segments):
                 voice_id = ELEVENLABS_VOICES.get(speaker, ELEVENLABS_VOICES["narrator"])
 
-                logger.info(f"Generating audio segment {i+1}/{len(audio_segments)} ({speaker})...")
+                logger.info(
+                    f"Generating audio segment {i + 1}/{len(audio_segments)} ({speaker})..."
+                )
 
                 try:
                     response = await client.post(
@@ -681,9 +683,9 @@ def save_results(result: Dict[str, Any], output_dir: Path):
         f.write("=" * 50 + "\n\n")
 
         for phase_name, phase_data in result["phases"].items():
-            f.write(f"\n{'='*50}\n")
+            f.write(f"\n{'=' * 50}\n")
             f.write(f"PHASE: {phase_data['description']}\n")
-            f.write(f"{'='*50}\n\n")
+            f.write(f"{'=' * 50}\n\n")
 
             for agent_name, response in phase_data.get("responses", {}).items():
                 f.write(f"\n[{agent_name}]\n")
@@ -720,7 +722,7 @@ async def main():
         return 1
 
     elapsed = time.time() - start_time
-    logger.info(f"\nDebate completed in {elapsed/60:.1f} minutes")
+    logger.info(f"\nDebate completed in {elapsed / 60:.1f} minutes")
 
     # Save results
     save_results(result, output_dir)
@@ -738,7 +740,7 @@ async def main():
     print("=" * 70)
     print(f"\nAgents participated: {len(result['agents'])}")
     print(f"Phases completed: {len(result['phases'])}")
-    print(f"Duration: {elapsed/60:.1f} minutes")
+    print(f"Duration: {elapsed / 60:.1f} minutes")
     print(f"\nOutputs saved to: {output_dir}/")
     print("  - debate_result.json")
     print("  - debate_summary.md")

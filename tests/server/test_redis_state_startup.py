@@ -21,8 +21,7 @@ class TestRedisStateStartup:
         with patch.dict(os.environ, {}, clear=True):
             # Clear any existing redis env vars
             env_without_redis = {
-                k: v for k, v in os.environ.items()
-                if "REDIS" not in k and "STATE_BACKEND" not in k
+                k: v for k, v in os.environ.items() if "REDIS" not in k and "STATE_BACKEND" not in k
             }
             with patch.dict(os.environ, env_without_redis, clear=True):
                 result = await init_redis_state_backend()
@@ -121,6 +120,7 @@ class TestRedisStateManager:
         """Redis state module should be importable."""
         try:
             from aragora.server import redis_state
+
             assert hasattr(redis_state, "RedisStateManager")
             assert hasattr(redis_state, "get_redis_state_manager")
         except ImportError:

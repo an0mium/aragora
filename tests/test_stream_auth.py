@@ -102,7 +102,9 @@ class TestLoopIdAutoInjection:
         emitter = SyncEventEmitter(loop_id="default_loop")
 
         event = StreamEvent(
-            type=StreamEventType.TASK_START, data={"task": "test"}, loop_id=""  # Empty loop_id
+            type=StreamEventType.TASK_START,
+            data={"task": "test"},
+            loop_id="",  # Empty loop_id
         )
 
         emitter.emit(event)

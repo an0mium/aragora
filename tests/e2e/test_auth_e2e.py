@@ -408,7 +408,7 @@ class TestConcurrentSessions:
         for i in range(3):
             request = create_mock_request(
                 body={"email": "testuser@example.com", "password": "SecureTestPass123!"},
-                client_address=(f"10.0.1.{i+1}", 54321),  # Different IPs
+                client_address=(f"10.0.1.{i + 1}", 54321),  # Different IPs
             )
             result = auth_handler._handle_login(request)
 
@@ -437,7 +437,7 @@ class TestAccountLockout:
         for i in range(3):
             request = create_mock_request(
                 body={"email": "testuser@example.com", "password": "WrongPass123!"},
-                client_address=(f"10.1.0.{i+1}", 54321),
+                client_address=(f"10.1.0.{i + 1}", 54321),
             )
             result = auth_handler._handle_login(request)
             status = get_status(result)
@@ -450,7 +450,7 @@ class TestAccountLockout:
         for i in range(2):
             request = create_mock_request(
                 body={"email": "testuser@example.com", "password": "WrongPass123!"},
-                client_address=(f"10.2.0.{i+1}", 54321),
+                client_address=(f"10.2.0.{i + 1}", 54321),
             )
             auth_handler._handle_login(request)
 

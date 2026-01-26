@@ -1128,9 +1128,9 @@ class TestConcurrencyRegression:
 
         # Should complete quickly - if event loop was blocked, this would take much longer
         # With asyncio.Lock, concurrent acquires yield to each other
-        assert (
-            elapsed < 2.0
-        ), f"Concurrent acquires took too long: {elapsed:.2f}s (event loop may be blocked)"
+        assert elapsed < 2.0, (
+            f"Concurrent acquires took too long: {elapsed:.2f}s (event loop may be blocked)"
+        )
 
         # All tasks should succeed since burst_size (50) > num_tasks (20)
         assert successes == num_tasks, f"Only {successes}/{num_tasks} acquires succeeded"
@@ -1260,6 +1260,6 @@ class TestConcurrencyRegression:
         # At least some starts should happen before the first end
         first_end = min(end_indices)
         starts_before_first_end = sum(1 for s in start_indices if s < first_end)
-        assert (
-            starts_before_first_end >= 2
-        ), f"Expected interleaving but got sequential execution: {execution_order}"
+        assert starts_before_first_end >= 2, (
+            f"Expected interleaving but got sequential execution: {execution_order}"
+        )

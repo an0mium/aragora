@@ -206,9 +206,9 @@ class TestGenesisArenaIntegration:
         sig = inspect.signature(Arena.__init__)
         param_names = list(sig.parameters.keys())
 
-        assert (
-            "population_manager" in param_names
-        ), "Arena.__init__ should accept population_manager parameter"
+        assert "population_manager" in param_names, (
+            "Arena.__init__ should accept population_manager parameter"
+        )
 
 
 class TestFitnessUpdates:
@@ -249,15 +249,15 @@ class TestFitnessUpdates:
         sig = inspect.signature(FeedbackPhase.__init__)
         param_names = list(sig.parameters.keys())
 
-        assert (
-            "population_manager" in param_names
-        ), "FeedbackPhase.__init__ should accept population_manager parameter"
-        assert (
-            "auto_evolve" in param_names
-        ), "FeedbackPhase.__init__ should accept auto_evolve parameter"
-        assert (
-            "breeding_threshold" in param_names
-        ), "FeedbackPhase.__init__ should accept breeding_threshold parameter"
+        assert "population_manager" in param_names, (
+            "FeedbackPhase.__init__ should accept population_manager parameter"
+        )
+        assert "auto_evolve" in param_names, (
+            "FeedbackPhase.__init__ should accept auto_evolve parameter"
+        )
+        assert "breeding_threshold" in param_names, (
+            "FeedbackPhase.__init__ should accept breeding_threshold parameter"
+        )
 
 
 class TestBreedingTrigger:

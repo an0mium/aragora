@@ -45,7 +45,7 @@ class TestDistributedRateLimiter:
         # Should allow burst size requests
         for i in range(10):  # 5 * 2 burst multiplier
             result = limiter.allow(client_ip)
-            assert result.allowed, f"Request {i+1} should be allowed within burst"
+            assert result.allowed, f"Request {i + 1} should be allowed within burst"
 
         # Should be blocked after burst
         result = limiter.allow(client_ip)

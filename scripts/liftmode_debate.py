@@ -424,9 +424,9 @@ What's the probability of success for each option?
 
     results = {}
     for debate in debates:
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"FOCUSED DEBATE: {debate['name']}")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         env = Environment(
             task=debate["task"],

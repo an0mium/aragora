@@ -233,13 +233,12 @@ class DeadlockManager:
             if belief_network is not None:
                 try:
                     self._log(
-                        "  [DEADLOCK] Attempting counterfactual resolution " "via belief network..."
+                        "  [DEADLOCK] Attempting counterfactual resolution via belief network..."
                     )
                     contested = belief_network.get_contested_claims()
                     if contested:
                         self._log(
-                            f"  [DEADLOCK] Found {len(contested)} contested claims "
-                            "for resolution"
+                            f"  [DEADLOCK] Found {len(contested)} contested claims for resolution"
                         )
                         self.state.cached_cruxes = contested
                 except Exception as e:

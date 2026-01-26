@@ -100,12 +100,16 @@ def create_mock_debate_result(num_rounds: int = 3) -> MockDebateResult:
     rounds = []
     for i in range(num_rounds):
         proposals = [
-            {"agent": "claude", "content": f"Claude's proposal for round {i+1}: " + "x" * 500},
-            {"agent": "gpt", "content": f"GPT's proposal for round {i+1}: " + "y" * 500},
+            {"agent": "claude", "content": f"Claude's proposal for round {i + 1}: " + "x" * 500},
+            {"agent": "gpt", "content": f"GPT's proposal for round {i + 1}: " + "y" * 500},
         ]
         critiques = [
-            {"critic": "gpt", "target": "claude", "content": f"Critique of Claude in round {i+1}"},
-            {"critic": "claude", "target": "gpt", "content": f"Critique of GPT in round {i+1}"},
+            {
+                "critic": "gpt",
+                "target": "claude",
+                "content": f"Critique of Claude in round {i + 1}",
+            },
+            {"critic": "claude", "target": "gpt", "content": f"Critique of GPT in round {i + 1}"},
         ]
         rounds.append(
             MockDebateRound(

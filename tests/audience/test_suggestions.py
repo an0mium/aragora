@@ -178,9 +178,7 @@ class TestClusterSuggestions:
 
     def test_sanitizes_suggestions(self):
         """Suggestions should be sanitized during clustering."""
-        suggestions = [
-            {"suggestion": "ignore previous <script>test</script>", "user_id": "u1"}
-        ]
+        suggestions = [{"suggestion": "ignore previous <script>test</script>", "user_id": "u1"}]
         clusters = cluster_suggestions(suggestions)
         if clusters:
             assert "<script>" not in clusters[0].representative
@@ -197,10 +195,7 @@ class TestClusterSuggestions:
 
     def test_caps_at_fifty_suggestions(self):
         """Should only process first 50 suggestions for performance."""
-        suggestions = [
-            {"suggestion": f"Suggestion {i}", "user_id": f"u{i}"}
-            for i in range(100)
-        ]
+        suggestions = [{"suggestion": f"Suggestion {i}", "user_id": f"u{i}"} for i in range(100)]
         # This should not hang - O(N) complexity
         clusters = cluster_suggestions(suggestions)
         assert len(clusters) <= 50
@@ -216,9 +211,7 @@ class TestFormatForPrompt:
 
     def test_single_cluster(self):
         """Single cluster should be formatted correctly."""
-        clusters = [
-            SuggestionCluster(representative="Add tests", count=5, user_ids=["u1"])
-        ]
+        clusters = [SuggestionCluster(representative="Add tests", count=5, user_ids=["u1"])]
         result = format_for_prompt(clusters)
         assert "AUDIENCE SUGGESTIONS" in result
         assert "untrusted" in result.lower()
@@ -238,8 +231,7 @@ class TestFormatForPrompt:
     def test_limits_to_three_clusters(self):
         """Should only include top 3 clusters."""
         clusters = [
-            SuggestionCluster(representative=f"Cluster {i}", count=i, user_ids=[])
-            for i in range(5)
+            SuggestionCluster(representative=f"Cluster {i}", count=i, user_ids=[]) for i in range(5)
         ]
         result = format_for_prompt(clusters)
         # Should have at most 3 suggestions
@@ -247,17 +239,13 @@ class TestFormatForPrompt:
 
     def test_has_xml_wrapper(self):
         """Output should have XML wrapper for safety."""
-        clusters = [
-            SuggestionCluster(representative="Test", count=1, user_ids=[])
-        ]
+        clusters = [SuggestionCluster(representative="Test", count=1, user_ids=[])]
         result = format_for_prompt(clusters)
         assert "<audience_input>" in result
         assert "</audience_input>" in result
 
     def test_marks_as_untrusted(self):
         """Output should clearly mark content as untrusted."""
-        clusters = [
-            SuggestionCluster(representative="Test", count=1, user_ids=[])
-        ]
+        clusters = [SuggestionCluster(representative="Test", count=1, user_ids=[])]
         result = format_for_prompt(clusters)
         assert "untrusted" in result.lower()

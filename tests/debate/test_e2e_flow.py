@@ -136,7 +136,7 @@ class ConvergingAgent(E2ETestAgent):
         else:
             # Gradually shift position
             blend = self._round / self.rounds_to_converge
-            return f"{self.initial_position} (weight: {1-blend:.1f}) -> {self.final_position} (weight: {blend:.1f})"
+            return f"{self.initial_position} (weight: {1 - blend:.1f}) -> {self.final_position} (weight: {blend:.1f})"
 
 
 # ============================================================================

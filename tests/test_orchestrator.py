@@ -377,7 +377,7 @@ class TestConsensusMechanisms:
         for i, agent in enumerate(agents):
             agent.vote_responses = [
                 Vote(
-                    agent=f"agent{i+1}",
+                    agent=f"agent{i + 1}",
                     choice="agent1",
                     reasoning="Best",
                     confidence=0.9,

@@ -14,6 +14,7 @@ import json
 # Check if asyncpg is available
 try:
     import asyncpg
+
     ASYNCPG_AVAILABLE = True
 except ImportError:
     ASYNCPG_AVAILABLE = False
@@ -29,6 +30,7 @@ class TestPostgresContinuumSchema:
             POSTGRES_CONTINUUM_SCHEMA,
             POSTGRES_CONTINUUM_SCHEMA_VERSION,
         )
+
         assert POSTGRES_CONTINUUM_SCHEMA_VERSION >= 1
         assert len(POSTGRES_CONTINUUM_SCHEMA) > 100
 
@@ -137,6 +139,7 @@ class TestPostgresContinuumMemory:
         """get should return entry dict for existing memory."""
         db, mock_conn = mock_db
         from datetime import datetime
+
         now = datetime.now()
         mock_row = [
             "memory-123",  # id
@@ -201,11 +204,25 @@ class TestPostgresContinuumMemory:
         """retrieve should filter by tier."""
         db, mock_conn = mock_db
         from datetime import datetime
+
         now = datetime.now()
         mock_rows = [
             [
-                "memory-1", "fast", "Content 1", 0.9, 0.1, 0.5,
-                10, 7, 3, now, now, {}, False, "", 0.8,
+                "memory-1",
+                "fast",
+                "Content 1",
+                0.9,
+                0.1,
+                0.5,
+                10,
+                7,
+                3,
+                now,
+                now,
+                {},
+                False,
+                "",
+                0.8,
             ],
         ]
         mock_conn.fetch.return_value = mock_rows
@@ -336,6 +353,7 @@ class TestPostgresContinuumMemory:
         mock_conn.fetchrow.return_value = {"count": 15}
 
         from aragora.memory.tier_manager import MemoryTier
+
         result = await db.count(tier=MemoryTier.FAST)
 
         assert result == 15
@@ -365,6 +383,7 @@ class TestPostgresContinuumTierOperations:
     def mock_tier_manager(self):
         """Create a mock tier manager."""
         from aragora.memory.tier_manager import MemoryTier
+
         tm = MagicMock()
         tm.should_promote.return_value = True
         tm.should_demote.return_value = True
@@ -425,6 +444,7 @@ class TestPostgresContinuumTierOperations:
         """demote should update memory tier to slower tier."""
         db, mock_conn, mock_tm = mock_db
         from aragora.memory.tier_manager import MemoryTier
+
         mock_conn.fetchrow.return_value = {
             "tier": "fast",
             "surprise_score": 0.1,
@@ -465,11 +485,13 @@ class TestContinuumMemoryEntryDict:
         """success_rate should calculate correctly."""
         from aragora.memory.postgres_continuum import ContinuumMemoryEntryDict
 
-        entry = ContinuumMemoryEntryDict({
-            "id": "test",
-            "success_count": 7,
-            "failure_count": 3,
-        })
+        entry = ContinuumMemoryEntryDict(
+            {
+                "id": "test",
+                "success_count": 7,
+                "failure_count": 3,
+            }
+        )
 
         assert entry.success_rate == 0.7
 
@@ -477,11 +499,13 @@ class TestContinuumMemoryEntryDict:
         """success_rate should return 0.5 for zero total."""
         from aragora.memory.postgres_continuum import ContinuumMemoryEntryDict
 
-        entry = ContinuumMemoryEntryDict({
-            "id": "test",
-            "success_count": 0,
-            "failure_count": 0,
-        })
+        entry = ContinuumMemoryEntryDict(
+            {
+                "id": "test",
+                "success_count": 0,
+                "failure_count": 0,
+            }
+        )
 
         assert entry.success_rate == 0.5
 
@@ -489,10 +513,12 @@ class TestContinuumMemoryEntryDict:
         """stability_score should be inverse of surprise."""
         from aragora.memory.postgres_continuum import ContinuumMemoryEntryDict
 
-        entry = ContinuumMemoryEntryDict({
-            "id": "test",
-            "surprise_score": 0.3,
-        })
+        entry = ContinuumMemoryEntryDict(
+            {
+                "id": "test",
+                "surprise_score": 0.3,
+            }
+        )
 
         assert entry.stability_score == 0.7
 
@@ -508,10 +534,12 @@ class TestContinuumMemoryEntryDict:
         """cross_references should read from metadata."""
         from aragora.memory.postgres_continuum import ContinuumMemoryEntryDict
 
-        entry = ContinuumMemoryEntryDict({
-            "id": "test",
-            "metadata": {"cross_references": ["ref-1", "ref-2"]},
-        })
+        entry = ContinuumMemoryEntryDict(
+            {
+                "id": "test",
+                "metadata": {"cross_references": ["ref-1", "ref-2"]},
+            }
+        )
 
         assert entry.cross_references == ["ref-1", "ref-2"]
 

@@ -190,9 +190,7 @@ class TestDispatcherMetricsIntegration:
         payload = {"event": "test", "data": {}}
 
         # This will fail but should record metrics
-        result = dispatch_webhook_with_retry(
-            webhook, payload, max_retries=0
-        )
+        result = dispatch_webhook_with_retry(webhook, payload, max_retries=0)
 
         assert result.success is False
 
@@ -211,9 +209,7 @@ class TestDispatcherMetricsIntegration:
         payload = {"event": "test_with_retry", "data": {}}
 
         # Will retry and record metrics
-        result = dispatch_webhook_with_retry(
-            webhook, payload, max_retries=1, initial_delay=0.01
-        )
+        result = dispatch_webhook_with_retry(webhook, payload, max_retries=1, initial_delay=0.01)
 
         assert result.success is False
         assert result.retry_count == 1

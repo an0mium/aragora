@@ -40,17 +40,21 @@ class TestEventBatch:
 
     def test_batch_count(self):
         """Test batch count property."""
-        batch = EventBatch(events=[
-            BatchedEvent(event_type="e1", data={}),
-            BatchedEvent(event_type="e2", data={}),
-        ])
+        batch = EventBatch(
+            events=[
+                BatchedEvent(event_type="e1", data={}),
+                BatchedEvent(event_type="e2", data={}),
+            ]
+        )
         assert batch.count == 2
 
     def test_batch_to_dict(self):
         """Test batch serialization."""
-        batch = EventBatch(events=[
-            BatchedEvent(event_type="knowledge_indexed", data={"id": "1"}),
-        ])
+        batch = EventBatch(
+            events=[
+                BatchedEvent(event_type="knowledge_indexed", data={"id": "1"}),
+            ]
+        )
 
         result = batch.to_dict()
 

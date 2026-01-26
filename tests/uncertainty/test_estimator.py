@@ -511,9 +511,7 @@ class TestUncertaintyAggregator:
         messages = []
         proposals = {"A": "proposal"}
 
-        metrics = await aggregator.compute_uncertainty(
-            [mock_agent], messages, votes, proposals
-        )
+        metrics = await aggregator.compute_uncertainty([mock_agent], messages, votes, proposals)
 
         assert isinstance(metrics, UncertaintyMetrics)
         assert 0 <= metrics.collective_confidence <= 1

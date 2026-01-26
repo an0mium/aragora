@@ -1098,13 +1098,13 @@ class TestRequirePlanDecorator:
                 result = endpoint(handler=mock_handler_with_bearer)
 
                 if should_succeed:
-                    assert (
-                        result.get("success") is True
-                    ), f"{user_plan} should access {required_plan}"
+                    assert result.get("success") is True, (
+                        f"{user_plan} should access {required_plan}"
+                    )
                 else:
-                    assert (
-                        get_status(result) == 403
-                    ), f"{user_plan} should not access {required_plan}"
+                    assert get_status(result) == 403, (
+                        f"{user_plan} should not access {required_plan}"
+                    )
 
 
 # ===========================================================================

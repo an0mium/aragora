@@ -180,7 +180,7 @@ def create_gauntlet_result(debate_data: dict) -> GauntletResult:
 
     for i, (severity, category, title, description) in enumerate(findings):
         vuln = Vulnerability(
-            id=f"finding-{i+1:03d}",
+            id=f"finding-{i + 1:03d}",
             title=title,
             description=description,
             severity=SeverityLevel[severity],

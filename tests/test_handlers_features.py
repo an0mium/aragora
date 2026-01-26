@@ -105,9 +105,9 @@ class TestFeatureRegistry:
         """Test that all features have valid status."""
         valid_statuses = {"optional", "coming_soon", "deprecated"}
         for feature_id, feature in FEATURE_REGISTRY.items():
-            assert (
-                feature.status in valid_statuses
-            ), f"{feature_id} has invalid status: {feature.status}"
+            assert feature.status in valid_statuses, (
+                f"{feature_id} has invalid status: {feature.status}"
+            )
 
     def test_categories_are_consistent(self):
         """Test that category names are consistent."""
@@ -121,9 +121,9 @@ class TestFeatureRegistry:
             "system",
         }
         for feature_id, feature in FEATURE_REGISTRY.items():
-            assert (
-                feature.category in expected_categories
-            ), f"{feature_id} has unexpected category: {feature.category}"
+            assert feature.category in expected_categories, (
+                f"{feature_id} has unexpected category: {feature.category}"
+            )
 
 
 # ============================================================================

@@ -330,6 +330,7 @@ from dataclasses import dataclass
 @dataclass
 class MockAuthorizationContext:
     """Mock RBAC authorization context."""
+
     user_id: str = "user-123"
     roles: list = None
     org_id: str = None
@@ -350,6 +351,7 @@ class MockAuthorizationContext:
 @dataclass
 class MockPermissionDecision:
     """Mock RBAC permission decision."""
+
     allowed: bool = True
     reason: str = "Allowed by test"
 

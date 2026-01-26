@@ -739,7 +739,7 @@ class TestReplayStorage:
             meta = ReplayMeta(
                 debate_id=f"debate-{i}",
                 topic=f"Topic {i}",
-                started_at=f"2024-01-0{i+1}T00:00:00",
+                started_at=f"2024-01-0{i + 1}T00:00:00",
                 status="completed",
                 event_count=i * 10,
             )
@@ -854,7 +854,7 @@ class TestReplayStorage:
             meta = ReplayMeta(
                 debate_id=f"debate-{i}",
                 topic=f"Topic {i}",
-                started_at=f"2024-01-{i+1:02d}T00:00:00",
+                started_at=f"2024-01-{i + 1:02d}T00:00:00",
             )
             (session_dir / "meta.json").write_text(meta.to_json())
 
@@ -890,7 +890,7 @@ class TestReplayStorage:
             meta = ReplayMeta(
                 debate_id=f"debate-{i}",
                 topic=f"Topic {i}",
-                started_at=f"2024-01-{i+1:02d}T00:00:00",
+                started_at=f"2024-01-{i + 1:02d}T00:00:00",
             )
             (session_dir / "meta.json").write_text(meta.to_json())
 

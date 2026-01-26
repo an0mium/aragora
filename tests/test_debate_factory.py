@@ -291,7 +291,6 @@ class TestDebateFactoryCreateArena:
         mock_agent2 = Mock()
 
         with patch.object(factory_module, "create_agent", side_effect=[mock_agent1, mock_agent2]):
-
             factory = DebateFactory()
             config = DebateConfig(
                 question="Test question",
@@ -340,7 +339,6 @@ class TestDebateFactoryCreateArena:
             patch("aragora.debate.protocol.DebateProtocol"),
             patch("aragora.debate.orchestrator.Arena", return_value=mock_arena) as arena_cls,
         ):
-
             factory = DebateFactory(
                 elo_system=elo,
                 persona_manager=persona,

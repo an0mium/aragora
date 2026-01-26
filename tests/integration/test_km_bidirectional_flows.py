@@ -568,6 +568,7 @@ class TestHandlerKMWiring:
         """Pulse scheduler singleton wires KM adapter when created."""
         # Reset singleton for test
         import aragora.server.handlers.features.pulse as pulse_module
+
         original_scheduler = pulse_module._shared_scheduler
         pulse_module._shared_scheduler = None
 
@@ -589,6 +590,7 @@ class TestHandlerKMWiring:
         """Cost tracker singleton wires KM adapter when created."""
         # Reset singleton for test
         import aragora.billing.cost_tracker as cost_module
+
         original_tracker = cost_module._cost_tracker
         cost_module._cost_tracker = None
 

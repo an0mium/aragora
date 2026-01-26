@@ -199,8 +199,7 @@ class ForkingRunner:
             except ImportError:
                 self._log("  [forking] DebateForker not available")
                 raise NotImplementedError(
-                    "DebateForker module not available. "
-                    "Ensure aragora.debate.forking is installed."
+                    "DebateForker module not available. Ensure aragora.debate.forking is installed."
                 )
 
         except NotImplementedError:

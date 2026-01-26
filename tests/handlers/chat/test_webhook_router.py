@@ -192,7 +192,7 @@ class TestBodyBasedDetection:
     def test_returns_none_for_invalid_json(self):
         """Return None for invalid JSON body."""
         router = ChatWebhookRouter()
-        body = b'not valid json'
+        body = b"not valid json"
 
         result = router.detect_platform_from_body({}, body)
         assert result is None
@@ -306,9 +306,12 @@ class TestDecisionRouterIntegration:
 
         # Reset singleton
         import aragora.server.handlers.chat.router as router_module
+
         router_module._router = None
 
-        with patch("aragora.server.handlers.chat.router._create_decision_router_debate_starter") as mock_create:
+        with patch(
+            "aragora.server.handlers.chat.router._create_decision_router_debate_starter"
+        ) as mock_create:
             mock_starter = AsyncMock()
             mock_create.return_value = mock_starter
 
@@ -326,11 +329,14 @@ class TestDecisionRouterIntegration:
 
         # Reset singleton
         import aragora.server.handlers.chat.router as router_module
+
         router_module._router = None
 
         custom_starter = AsyncMock()
 
-        with patch("aragora.server.handlers.chat.router._create_decision_router_debate_starter") as mock_create:
+        with patch(
+            "aragora.server.handlers.chat.router._create_decision_router_debate_starter"
+        ) as mock_create:
             router = get_webhook_router(debate_starter=custom_starter)
 
             # Should not create DecisionRouter starter when custom provided
@@ -346,9 +352,12 @@ class TestDecisionRouterIntegration:
 
         # Reset singleton
         import aragora.server.handlers.chat.router as router_module
+
         router_module._router = None
 
-        with patch("aragora.server.handlers.chat.router._create_decision_router_debate_starter") as mock_create:
+        with patch(
+            "aragora.server.handlers.chat.router._create_decision_router_debate_starter"
+        ) as mock_create:
             router = get_webhook_router(use_decision_router=False)
 
             mock_create.assert_not_called()

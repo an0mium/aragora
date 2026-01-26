@@ -747,7 +747,10 @@ class TestClassifyCLIError:
     def test_classify_empty_response(self):
         """Test CLI empty response error classification."""
         error = classify_cli_error(
-            returncode=0, stderr="", stdout="   ", agent_name="claude"  # Empty/whitespace
+            returncode=0,
+            stderr="",
+            stdout="   ",
+            agent_name="claude",  # Empty/whitespace
         )
 
         assert isinstance(error, CLIParseError)

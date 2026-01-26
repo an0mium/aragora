@@ -301,9 +301,9 @@ class TestContinuumMemoryConcurrency:
                 pass
 
         # Most stores should succeed with WAL mode and unique IDs
-        assert (
-            success_count[0] >= 15
-        ), f"Too many failures: {len(errors)} errors, {success_count[0]} successes"
+        assert success_count[0] >= 15, (
+            f"Too many failures: {len(errors)} errors, {success_count[0]} successes"
+        )
 
 
 class TestWalFileCreation:

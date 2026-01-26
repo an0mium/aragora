@@ -251,7 +251,7 @@ class TestToKnowledgeItem:
         mock_consensus = MagicMock()
         adapter = ConsensusAdapter(mock_consensus)
 
-        with patch.object(adapter, '_record_metric'):
+        with patch.object(adapter, "_record_metric"):
             item = adapter.to_knowledge_item(mock_record)
 
         assert item.id == "cs_debate-123"
@@ -350,9 +350,7 @@ class TestDissentQueries:
         dissents = adapter.get_dissents_for_topic("security", limit=10)
 
         assert len(dissents) == 1
-        mock_consensus.find_relevant_dissent.assert_called_once_with(
-            topic="security", limit=10
-        )
+        mock_consensus.find_relevant_dissent.assert_called_once_with(topic="security", limit=10)
 
     def test_get_risk_warnings(self):
         """Should retrieve risk warnings."""
@@ -367,9 +365,7 @@ class TestDissentQueries:
         warnings = adapter.get_risk_warnings(topic="auth", limit=5)
 
         assert len(warnings) == 1
-        mock_consensus.find_risk_warnings.assert_called_once_with(
-            topic="auth", limit=5
-        )
+        mock_consensus.find_risk_warnings.assert_called_once_with(topic="auth", limit=5)
 
     def test_get_contrarian_views(self):
         """Should retrieve contrarian views."""

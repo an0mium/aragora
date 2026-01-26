@@ -473,7 +473,10 @@ class TestGetRivals:
     def test_get_rivals_respects_min_score(self, tracker):
         """Test that min_score filters out low rivalry."""
         tracker.update_relationship(
-            "alice", "bob", debate_increment=2, agreement_increment=2  # Likely low rivalry
+            "alice",
+            "bob",
+            debate_increment=2,
+            agreement_increment=2,  # Likely low rivalry
         )
 
         rivals = tracker.get_rivals("alice", min_score=0.9)  # Very high threshold

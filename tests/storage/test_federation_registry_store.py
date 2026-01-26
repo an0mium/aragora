@@ -176,9 +176,7 @@ class TestInMemoryFederationRegistryStore:
         assert deleted is False
 
     @pytest.mark.asyncio
-    async def test_list_all(
-        self, memory_store, sample_region, sample_region_disabled
-    ):
+    async def test_list_all(self, memory_store, sample_region, sample_region_disabled):
         """Should list all regions."""
         await memory_store.save(sample_region)
         await memory_store.save(sample_region_disabled)
@@ -203,9 +201,7 @@ class TestInMemoryFederationRegistryStore:
         assert ws2_regions[0].region_id == "ap-southeast-1"
 
     @pytest.mark.asyncio
-    async def test_list_enabled(
-        self, memory_store, sample_region, sample_region_disabled
-    ):
+    async def test_list_enabled(self, memory_store, sample_region, sample_region_disabled):
         """Should list only enabled regions."""
         await memory_store.save(sample_region)
         await memory_store.save(sample_region_disabled)
@@ -314,9 +310,7 @@ class TestSQLiteFederationRegistryStore:
         assert retrieved.enabled is False
 
     @pytest.mark.asyncio
-    async def test_list_enabled(
-        self, sqlite_store, sample_region, sample_region_disabled
-    ):
+    async def test_list_enabled(self, sqlite_store, sample_region, sample_region_disabled):
         """Should list only enabled regions."""
         await sqlite_store.save(sample_region)
         await sqlite_store.save(sample_region_disabled)
@@ -380,9 +374,7 @@ class TestRedisFederationRegistryStore:
         await store2.close()
 
     @pytest.mark.asyncio
-    async def test_list_enabled(
-        self, redis_store, sample_region, sample_region_disabled
-    ):
+    async def test_list_enabled(self, redis_store, sample_region, sample_region_disabled):
         """Should list only enabled regions."""
         await redis_store.save(sample_region)
         await redis_store.save(sample_region_disabled)

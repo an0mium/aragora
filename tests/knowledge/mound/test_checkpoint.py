@@ -273,9 +273,7 @@ class TestKMCheckpointStore:
     @pytest.mark.asyncio
     async def test_get_checkpoint_metadata(self, checkpoint_store):
         """Test getting checkpoint metadata."""
-        checkpoint_id = await checkpoint_store.create_checkpoint(
-            description="Test metadata"
-        )
+        checkpoint_id = await checkpoint_store.create_checkpoint(description="Test metadata")
 
         metadata = await checkpoint_store.get_checkpoint_metadata(checkpoint_id)
 

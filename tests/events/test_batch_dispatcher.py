@@ -71,8 +71,16 @@ class TestEventBatch:
         from aragora.events.batch_dispatcher import BatchedEvent, EventBatch
 
         batch = EventBatch(event_type="slo_violation")
-        batch.add(BatchedEvent(event_type="slo_violation", data={"operation": "km_query", "severity": "major"}))
-        batch.add(BatchedEvent(event_type="slo_violation", data={"operation": "km_query", "severity": "minor"}))
+        batch.add(
+            BatchedEvent(
+                event_type="slo_violation", data={"operation": "km_query", "severity": "major"}
+            )
+        )
+        batch.add(
+            BatchedEvent(
+                event_type="slo_violation", data={"operation": "km_query", "severity": "minor"}
+            )
+        )
 
         payload = batch.to_payload()
 

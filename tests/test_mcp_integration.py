@@ -139,9 +139,9 @@ class TestMCPToolsModuleStructure:
 
         for tool in TOOLS_METADATA:
             assert "name" in tool, "Tool missing 'name' field"
-            assert (
-                "description" in tool
-            ), f"Tool {tool.get('name', 'unknown')} missing 'description'"
+            assert "description" in tool, (
+                f"Tool {tool.get('name', 'unknown')} missing 'description'"
+            )
             assert "function" in tool, f"Tool {tool.get('name', 'unknown')} missing 'function'"
             assert "parameters" in tool, f"Tool {tool.get('name', 'unknown')} missing 'parameters'"
             assert callable(tool["function"]), f"Tool {tool['name']} function not callable"

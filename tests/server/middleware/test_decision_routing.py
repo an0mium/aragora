@@ -60,9 +60,7 @@ class TestRequestDeduplicator:
     @pytest.mark.asyncio
     async def test_first_request_not_duplicate(self, deduplicator):
         """First request should not be marked as duplicate."""
-        is_dup, future = await deduplicator.check_and_mark(
-            "test content", "user-1", "slack"
-        )
+        is_dup, future = await deduplicator.check_and_mark("test content", "user-1", "slack")
         assert is_dup is False
         assert future is None  # No future for first request
 
@@ -71,9 +69,7 @@ class TestRequestDeduplicator:
         """Same request within window should be duplicate."""
         await deduplicator.check_and_mark("test content", "user-1", "slack")
 
-        is_dup, future = await deduplicator.check_and_mark(
-            "test content", "user-1", "slack"
-        )
+        is_dup, future = await deduplicator.check_and_mark("test content", "user-1", "slack")
         assert is_dup is True
         assert future is not None
 
@@ -82,9 +78,7 @@ class TestRequestDeduplicator:
         """Different content should not be duplicate."""
         await deduplicator.check_and_mark("content 1", "user-1", "slack")
 
-        is_dup, _ = await deduplicator.check_and_mark(
-            "content 2", "user-1", "slack"
-        )
+        is_dup, _ = await deduplicator.check_and_mark("content 2", "user-1", "slack")
         assert is_dup is False
 
     @pytest.mark.asyncio
@@ -92,9 +86,7 @@ class TestRequestDeduplicator:
         """Same content from different user should not be duplicate."""
         await deduplicator.check_and_mark("same content", "user-1", "slack")
 
-        is_dup, _ = await deduplicator.check_and_mark(
-            "same content", "user-2", "slack"
-        )
+        is_dup, _ = await deduplicator.check_and_mark("same content", "user-2", "slack")
         assert is_dup is False
 
     @pytest.mark.asyncio
@@ -322,6 +314,7 @@ class TestRouteDecisionDecorator:
     @pytest.mark.asyncio
     async def test_decorator_basic(self):
         """Should wrap handler and route through middleware."""
+
         @route_decision(channel="slack")
         async def test_handler():
             return {
@@ -464,8 +457,9 @@ class TestChannelMappings:
                 await middleware.process(f"Test {channel_name}", context)
 
             assert captured_request is not None, f"No request captured for {channel_name}"
-            assert captured_request.source.value == expected_source.lower(), \
+            assert captured_request.source.value == expected_source.lower(), (
                 f"Channel {channel_name} mapped to {captured_request.source.value}, expected {expected_source.lower()}"
+            )
 
 
 class TestDecisionTypeMappings:
@@ -627,15 +621,17 @@ class TestErrorPropagation:
             assert result1["success"] is False
 
             # Second attempt - should not be marked as duplicate
-            mock_router.route = AsyncMock(return_value=MagicMock(
-                success=True,
-                answer="Success",
-                confidence=0.9,
-                consensus_reached=True,
-                reasoning="",
-                duration_seconds=0.1,
-                error=None,
-            ))
+            mock_router.route = AsyncMock(
+                return_value=MagicMock(
+                    success=True,
+                    answer="Success",
+                    confidence=0.9,
+                    consensus_reached=True,
+                    reasoning="",
+                    duration_seconds=0.1,
+                    error=None,
+                )
+            )
 
             context2 = RoutingContext(
                 channel="api",
@@ -835,9 +831,7 @@ class TestDuplicateHandling:
         )
 
         # Manually mark as seen but don't create a future
-        await middleware._deduplicator.check_and_mark(
-            "duplicate content", "user-1", "api"
-        )
+        await middleware._deduplicator.check_and_mark("duplicate content", "user-1", "api")
         # Clear the future to simulate a scenario where future is gone
         async with middleware._deduplicator._lock:
             request_hash = middleware._deduplicator._compute_hash(

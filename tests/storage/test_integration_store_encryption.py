@@ -41,6 +41,7 @@ class TestEncryptionHelpers:
 
         # Sensitive keys should be dicts with _encrypted marker (if crypto available)
         from aragora.security.encryption import CRYPTO_AVAILABLE
+
         if CRYPTO_AVAILABLE:
             assert isinstance(encrypted["api_key"], dict)
             assert encrypted["api_key"].get("_encrypted") is True
@@ -90,6 +91,7 @@ class TestEncryptionHelpers:
         encrypted = _encrypt_settings(settings)
 
         from aragora.security.encryption import CRYPTO_AVAILABLE
+
         if CRYPTO_AVAILABLE:
             for key in SENSITIVE_KEYS:
                 assert isinstance(encrypted[key], dict), f"{key} should be encrypted"
@@ -144,6 +146,7 @@ class TestIntegrationConfigEncryption:
         """Settings can be encrypted."""
         encrypted = _encrypt_settings(config.settings)
         from aragora.security.encryption import CRYPTO_AVAILABLE
+
         if CRYPTO_AVAILABLE:
             assert isinstance(encrypted["api_key"], dict)
             assert encrypted["api_key"].get("_encrypted") is True
@@ -178,10 +181,11 @@ class TestSQLiteStoreEncryptionIntegration:
 
         # Read raw from database
         import sqlite3
+
         conn = sqlite3.connect(str(store.db_path))
         cursor = conn.execute(
             "SELECT settings_json FROM integrations WHERE integration_type = ? AND user_id = ?",
-            (config.type, config.user_id)
+            (config.type, config.user_id),
         )
         row = cursor.fetchone()
         conn.close()
@@ -189,6 +193,7 @@ class TestSQLiteStoreEncryptionIntegration:
         stored_settings = json.loads(row[0])
 
         from aragora.security.encryption import CRYPTO_AVAILABLE
+
         if CRYPTO_AVAILABLE:
             # Sensitive fields should be encrypted
             assert isinstance(stored_settings.get("access_token"), dict)

@@ -459,9 +459,7 @@ class TestKafkaSync:
                 partition=0,
                 offset=i,
                 key=f"decision-{i}".encode(),
-                value=json.dumps(
-                    {"type": "decision", "content": f"Decision {i}"}
-                ).encode(),
+                value=json.dumps({"type": "decision", "content": f"Decision {i}"}).encode(),
                 headers=[],
                 timestamp=1234567890000,
             )

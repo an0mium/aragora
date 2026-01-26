@@ -326,7 +326,9 @@ class TestQualityScoringStress:
         first_10_avg = sum(latencies[:10]) / 10
         last_10_avg = sum(latencies[-10:]) / 10
 
-        print(f"\nFirst 10 avg: {first_10_avg*1000:.2f}ms, Last 10 avg: {last_10_avg*1000:.2f}ms")
+        print(
+            f"\nFirst 10 avg: {first_10_avg * 1000:.2f}ms, Last 10 avg: {last_10_avg * 1000:.2f}ms"
+        )
 
         # Allow 20% degradation max
         assert last_10_avg < first_10_avg * 1.2, "Performance degraded under sustained load"

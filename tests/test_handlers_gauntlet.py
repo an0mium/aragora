@@ -770,7 +770,9 @@ class TestGauntletCompare:
             mock_store.get.side_effect = lambda gid: (
                 run1
                 if gid == "gauntlet-20260111120000-aaa111"
-                else run2 if gid == "gauntlet-20260111120000-bbb222" else None
+                else run2
+                if gid == "gauntlet-20260111120000-bbb222"
+                else None
             )
             mock_store.compare.return_value = {
                 "run1": run1,

@@ -615,9 +615,9 @@ class TestIndustryPersonas:
 
         for name in healthcare_personas:
             persona = DEFAULT_PERSONAS[name]
-            assert (
-                "hipaa" in persona.expertise or "data_privacy" in persona.expertise
-            ), f"{name} missing HIPAA/privacy expertise"
+            assert "hipaa" in persona.expertise or "data_privacy" in persona.expertise, (
+                f"{name} missing HIPAA/privacy expertise"
+            )
 
     def test_compliance_personas_have_low_temperature(self):
         """Test compliance-focused personas have low temperature."""
@@ -634,9 +634,9 @@ class TestIndustryPersonas:
         for name in compliance_personas:
             if name in DEFAULT_PERSONAS:
                 persona = DEFAULT_PERSONAS[name]
-                assert (
-                    persona.temperature <= 0.5
-                ), f"{name} temperature too high for compliance: {persona.temperature}"
+                assert persona.temperature <= 0.5, (
+                    f"{name} temperature too high for compliance: {persona.temperature}"
+                )
 
 
 # =============================================================================
@@ -724,6 +724,6 @@ class TestConnectorIntegration:
 
         for vertical, expected_personas in vertical_persona_map.items():
             for persona_name in expected_personas:
-                assert (
-                    persona_name in DEFAULT_PERSONAS
-                ), f"Vertical {vertical.value} missing persona {persona_name}"
+                assert persona_name in DEFAULT_PERSONAS, (
+                    f"Vertical {vertical.value} missing persona {persona_name}"
+                )

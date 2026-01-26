@@ -21,6 +21,7 @@ from aragora.server.middleware.decision_routing import (
 @dataclass
 class MockIsolationContext:
     """Mock isolation context for testing."""
+
     workspace_id: str = None
     organization_id: str = None
     user_id: str = None
@@ -30,6 +31,7 @@ class MockIsolationContext:
 
 class MockPermissionDeniedException(Exception):
     """Mock permission denied exception."""
+
     def __init__(self, message: str, actor_id: str, resource, action, context=None):
         super().__init__(message)
         self.actor_id = actor_id
@@ -496,6 +498,7 @@ class TestRBACWithMultipleChannels:
             assert captured_request is not None
             # Verify source is SLACK
             from aragora.core.decision import InputSource
+
             assert captured_request.source == InputSource.SLACK
 
     @pytest.mark.asyncio
@@ -536,6 +539,7 @@ class TestRBACWithMultipleChannels:
             assert captured_request is not None
             # Verify source is EMAIL
             from aragora.core.decision import InputSource
+
             assert captured_request.source == InputSource.EMAIL
 
     @pytest.mark.asyncio
@@ -591,5 +595,6 @@ class TestRBACWithMultipleChannels:
                 await middleware.process(f"question from {channel}", context)
 
                 assert captured_request is not None, f"No request captured for channel {channel}"
-                assert captured_request.source == expected_source, \
+                assert captured_request.source == expected_source, (
                     f"Channel {channel} mapped to {captured_request.source}, expected {expected_source}"
+                )

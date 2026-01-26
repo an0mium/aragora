@@ -142,17 +142,17 @@ def add_param_descriptions(spec: dict) -> tuple[dict, int, int]:
                         added += 1
                     # Generic fallback based on type
                     elif param.get("schema", {}).get("type") == "boolean":
-                        param["description"] = f'Whether to enable {param_name.replace("_", " ")}'
+                        param["description"] = f"Whether to enable {param_name.replace('_', ' ')}"
                         added += 1
                     elif param.get("schema", {}).get("type") == "integer":
-                        param["description"] = f'The {param_name.replace("_", " ")} value'
+                        param["description"] = f"The {param_name.replace('_', ' ')} value"
                         added += 1
                     elif param.get("schema", {}).get("type") == "string":
-                        param["description"] = f'The {param_name.replace("_", " ")}'
+                        param["description"] = f"The {param_name.replace('_', ' ')}"
                         added += 1
                     else:
                         # Keep track of unmatched for manual review
-                        param["description"] = f'{param_name.replace("_", " ").title()} parameter'
+                        param["description"] = f"{param_name.replace('_', ' ').title()} parameter"
                         added += 1
 
     return spec, added, existing

@@ -615,7 +615,9 @@ class TestPostBodyParsing:
             mock_formatter.format_single_tweet.return_value = "Tweet"
 
             result = social_handler.handle_post(
-                "/api/debates/test-debate-123/publish/twitter", {}, None  # No HTTP handler
+                "/api/debates/test-debate-123/publish/twitter",
+                {},
+                None,  # No HTTP handler
             )
 
         # Should still work with empty options

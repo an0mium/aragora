@@ -11,6 +11,7 @@ class TestToolsMetadata:
     def test_tools_metadata_import(self):
         """Test that TOOLS_METADATA can be imported."""
         from aragora.mcp.tools import TOOLS_METADATA
+
         assert isinstance(TOOLS_METADATA, list)
         assert len(TOOLS_METADATA) > 0
 
@@ -28,6 +29,7 @@ class TestToolsMetadata:
     def test_tool_count(self):
         """Test expected number of tools."""
         from aragora.mcp.tools import TOOLS_METADATA
+
         # We have 45 tools now
         assert len(TOOLS_METADATA) >= 45
 
@@ -58,7 +60,7 @@ class TestKnowledgeTools:
             node_types="fact,claim",
             min_confidence=0.5,
             limit=5,
-            include_relationships=True
+            include_relationships=True,
         )
 
         assert "filters" in result
@@ -71,24 +73,15 @@ class TestKnowledgeTools:
         from aragora.mcp.tools_module.knowledge import store_knowledge_tool
 
         # Invalid node type
-        result = await store_knowledge_tool(
-            content="test",
-            node_type="invalid_type"
-        )
+        result = await store_knowledge_tool(content="test", node_type="invalid_type")
         assert "error" in result
 
         # Invalid tier
-        result = await store_knowledge_tool(
-            content="test",
-            tier="invalid_tier"
-        )
+        result = await store_knowledge_tool(content="test", tier="invalid_tier")
         assert "error" in result
 
         # Invalid confidence
-        result = await store_knowledge_tool(
-            content="test",
-            confidence=2.0
-        )
+        result = await store_knowledge_tool(content="test", confidence=2.0)
         assert "error" in result
 
     @pytest.mark.asyncio
@@ -119,10 +112,7 @@ class TestWorkflowTools:
         """Test run_workflow_tool with invalid JSON inputs."""
         from aragora.mcp.tools_module.workflow import run_workflow_tool
 
-        result = await run_workflow_tool(
-            template="test_template",
-            inputs="invalid json {"
-        )
+        result = await run_workflow_tool(template="test_template", inputs="invalid json {")
 
         assert "error" in result
         # Either Invalid JSON error or module not available
@@ -134,10 +124,7 @@ class TestWorkflowTools:
         from aragora.mcp.tools_module.workflow import run_workflow_tool
 
         # Without workflow engine, should return error
-        result = await run_workflow_tool(
-            template="nonexistent_template",
-            inputs="{}"
-        )
+        result = await run_workflow_tool(template="nonexistent_template", inputs="{}")
 
         # Either template not found or engine not available
         assert "error" in result
@@ -169,10 +156,7 @@ class TestWorkflowTools:
         """Test cancel_workflow_tool."""
         from aragora.mcp.tools_module.workflow import cancel_workflow_tool
 
-        result = await cancel_workflow_tool(
-            execution_id="test123",
-            reason="Test cancellation"
-        )
+        result = await cancel_workflow_tool(execution_id="test123", reason="Test cancellation")
 
         # Without engine, should return error
         assert "error" in result
@@ -187,9 +171,7 @@ class TestIntegrationTools:
         from aragora.mcp.tools_module.integrations import trigger_external_webhook_tool
 
         result = await trigger_external_webhook_tool(
-            platform="invalid_platform",
-            event_type="test_event",
-            data="{}"
+            platform="invalid_platform", event_type="test_event", data="{}"
         )
 
         assert "error" in result
@@ -201,9 +183,7 @@ class TestIntegrationTools:
         from aragora.mcp.tools_module.integrations import trigger_external_webhook_tool
 
         result = await trigger_external_webhook_tool(
-            platform="zapier",
-            event_type="test_event",
-            data="invalid json {"
+            platform="zapier", event_type="test_event", data="invalid json {"
         )
 
         assert "error" in result
@@ -216,9 +196,7 @@ class TestIntegrationTools:
 
         for platform in ["zapier", "make", "n8n"]:
             result = await trigger_external_webhook_tool(
-                platform=platform,
-                event_type="test_event",
-                data='{"key": "value"}'
+                platform=platform, event_type="test_event", data='{"key": "value"}'
             )
 
             # Either works or module not available
@@ -250,10 +228,7 @@ class TestIntegrationTools:
         """Test test_integration_tool with invalid platform."""
         from aragora.mcp.tools_module.integrations import test_integration_tool
 
-        result = await test_integration_tool(
-            platform="invalid",
-            integration_id="test123"
-        )
+        result = await test_integration_tool(platform="invalid", integration_id="test123")
 
         assert "error" in result
         assert "Invalid platform" in result["error"]
@@ -263,10 +238,7 @@ class TestIntegrationTools:
         """Test test_integration_tool with valid platform."""
         from aragora.mcp.tools_module.integrations import test_integration_tool
 
-        result = await test_integration_tool(
-            platform="zapier",
-            integration_id="test123"
-        )
+        result = await test_integration_tool(platform="zapier", integration_id="test123")
 
         # Either not found or module not available
         assert "error" in result

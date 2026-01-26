@@ -60,7 +60,9 @@ class TestAgentSelection:
         executor = HybridExecutor(repo_path=tmp_path)
 
         # Mock claude property to avoid real agent creation
-        with patch.object(HybridExecutor, 'claude', new_callable=lambda: property(lambda self: MagicMock())):
+        with patch.object(
+            HybridExecutor, "claude", new_callable=lambda: property(lambda self: MagicMock())
+        ):
             for complexity in ["simple", "moderate", "complex"]:
                 agent, name = executor._select_agent(complexity)
                 assert name == "claude"
@@ -226,6 +228,7 @@ class TestGitDiff:
     def test_handles_timeout(self, executor):
         """Returns empty string on timeout."""
         import subprocess
+
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = subprocess.TimeoutExpired("git", 180)
             diff = executor._get_git_diff()
@@ -303,7 +306,7 @@ class TestExecuteTaskWithRetry:
         )
 
         mock_execute = AsyncMock(return_value=TaskResult(task_id="t1", success=True))
-        with patch.object(executor, 'execute_task', mock_execute):
+        with patch.object(executor, "execute_task", mock_execute):
             result = await executor.execute_task_with_retry(task)
 
         assert result.success is True
@@ -328,7 +331,7 @@ class TestExecuteTaskWithRetry:
                 return TaskResult(task_id="t1", success=False, error="Timeout")
             return TaskResult(task_id="t1", success=True)
 
-        with patch.object(executor, 'execute_task', side_effect=mock_execute):
+        with patch.object(executor, "execute_task", side_effect=mock_execute):
             result = await executor.execute_task_with_retry(task)
 
         assert result.success is True
@@ -344,12 +347,10 @@ class TestExecuteTaskWithRetry:
             complexity="simple",
         )
 
-        mock_execute = AsyncMock(return_value=TaskResult(
-            task_id="t1",
-            success=False,
-            error="Invalid syntax"
-        ))
-        with patch.object(executor, 'execute_task', mock_execute):
+        mock_execute = AsyncMock(
+            return_value=TaskResult(task_id="t1", success=False, error="Invalid syntax")
+        )
+        with patch.object(executor, "execute_task", mock_execute):
             result = await executor.execute_task_with_retry(task)
 
         assert result.success is False
@@ -376,8 +377,8 @@ class TestExecutePlan:
 
         mock_execute_retry = AsyncMock(return_value=TaskResult(task_id="t2", success=True))
         mock_execute = AsyncMock(return_value=TaskResult(task_id="t2", success=True))
-        with patch.object(executor, 'execute_task_with_retry', mock_execute_retry):
-            with patch.object(executor, 'execute_task', mock_execute):
+        with patch.object(executor, "execute_task_with_retry", mock_execute_retry):
+            with patch.object(executor, "execute_task", mock_execute):
                 results = await executor.execute_plan(tasks, completed)
 
         # Only t2 should be executed
@@ -398,8 +399,8 @@ class TestExecutePlan:
 
         mock_execute_retry = AsyncMock(return_value=TaskResult(task_id="t1", success=True))
         mock_execute = AsyncMock(return_value=TaskResult(task_id="t1", success=True))
-        with patch.object(executor, 'execute_task_with_retry', mock_execute_retry):
-            with patch.object(executor, 'execute_task', mock_execute):
+        with patch.object(executor, "execute_task_with_retry", mock_execute_retry):
+            with patch.object(executor, "execute_task", mock_execute):
                 await executor.execute_plan(tasks, set(), on_task_complete=callback)
 
         assert len(callback_calls) == 1
@@ -428,8 +429,8 @@ class TestExecutePlan:
                 return TaskResult(task_id=task.id, success=False, error="Failed")
             return TaskResult(task_id=task.id, success=True)
 
-        with patch.object(executor, 'execute_task_with_retry', side_effect=mock_execute_retry):
-            with patch.object(executor, 'execute_task', side_effect=mock_execute):
+        with patch.object(executor, "execute_task_with_retry", side_effect=mock_execute_retry):
+            with patch.object(executor, "execute_task", side_effect=mock_execute):
                 results = await executor.execute_plan(tasks, set())
 
         # Both tasks should be attempted in execute_task_with_retry
@@ -444,10 +445,14 @@ class TestExecutePlan:
             ImplementTask(id="t2", description="Skip", files=["b.py"], complexity="simple"),
         ]
 
-        mock_execute_retry = AsyncMock(return_value=TaskResult(task_id="t1", success=False, error="Failed"))
-        mock_execute = AsyncMock(return_value=TaskResult(task_id="t1", success=False, error="Failed"))
-        with patch.object(executor, 'execute_task_with_retry', mock_execute_retry):
-            with patch.object(executor, 'execute_task', mock_execute):
+        mock_execute_retry = AsyncMock(
+            return_value=TaskResult(task_id="t1", success=False, error="Failed")
+        )
+        mock_execute = AsyncMock(
+            return_value=TaskResult(task_id="t1", success=False, error="Failed")
+        )
+        with patch.object(executor, "execute_task_with_retry", mock_execute_retry):
+            with patch.object(executor, "execute_task", mock_execute):
                 results = await executor.execute_plan(tasks, set(), stop_on_failure=True)
 
         # Only first task should be attempted

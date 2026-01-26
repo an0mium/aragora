@@ -496,7 +496,8 @@ class TestBearerHeaderParsing:
         config = AuthConfig()
 
         result = config.extract_token_from_request(
-            {}, {"token": ["fallback"]}  # Should be ignored for security
+            {},
+            {"token": ["fallback"]},  # Should be ignored for security
         )
         # Query params are NOT supported for security reasons
         assert result is None
@@ -581,7 +582,6 @@ class TestRateLimitCleanupUnderLoad:
 
 
 class TestCheckAuthIntegration:
-
     def test_check_auth_disabled(self):
         """When auth is disabled, should allow all requests."""
         from aragora.server.auth import auth_config
@@ -1384,7 +1384,7 @@ class TestMemoryExhaustionPrevention:
 
         # Attempt memory exhaustion with many unique IPs
         for i in range(1000):
-            auth.check_rate_limit_by_ip(f"10.{i//256}.{i%256}.1")
+            auth.check_rate_limit_by_ip(f"10.{i // 256}.{i % 256}.1")
 
         # Memory should be bounded
         assert len(auth._ip_request_counts) <= 100

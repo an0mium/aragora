@@ -320,7 +320,7 @@ class TestCsvParsing:
         # Table should have data
         if result.tables:
             table = result.tables[0]
-            if hasattr(table, 'data'):
+            if hasattr(table, "data"):
                 assert len(table.data) >= 2
 
 

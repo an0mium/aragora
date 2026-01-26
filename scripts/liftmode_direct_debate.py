@@ -172,7 +172,7 @@ async def run_direct_debate():
     context = []  # Conversation context
 
     for round_num in range(1, 5):  # 4 rounds
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"ROUND {round_num}")
         print("=" * 60)
 

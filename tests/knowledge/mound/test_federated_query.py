@@ -178,10 +178,12 @@ class TestFederatedQueryAggregator:
 
         # Create mock adapter with async search
         mock_adapter = MagicMock()
-        mock_adapter.search_by_topic = AsyncMock(return_value=[
-            MockSearchResult(id="1", content="climate change evidence"),
-            MockSearchResult(id="2", content="global warming data"),
-        ])
+        mock_adapter.search_by_topic = AsyncMock(
+            return_value=[
+                MockSearchResult(id="1", content="climate change evidence"),
+                MockSearchResult(id="2", content="global warming data"),
+            ]
+        )
 
         agg.register_adapter(QuerySource.EVIDENCE, mock_adapter, "search_by_topic")
 
@@ -198,15 +200,19 @@ class TestFederatedQueryAggregator:
 
         # Evidence adapter
         evidence_adapter = MagicMock()
-        evidence_adapter.search = AsyncMock(return_value=[
-            MockSearchResult(id="e1", content="evidence content"),
-        ])
+        evidence_adapter.search = AsyncMock(
+            return_value=[
+                MockSearchResult(id="e1", content="evidence content"),
+            ]
+        )
 
         # Belief adapter
         belief_adapter = MagicMock()
-        belief_adapter.search = AsyncMock(return_value=[
-            MockSearchResult(id="b1", content="belief content"),
-        ])
+        belief_adapter.search = AsyncMock(
+            return_value=[
+                MockSearchResult(id="b1", content="belief content"),
+            ]
+        )
 
         agg.register_adapter(QuerySource.EVIDENCE, evidence_adapter, "search")
         agg.register_adapter(QuerySource.BELIEF, belief_adapter, "search")
@@ -225,9 +231,11 @@ class TestFederatedQueryAggregator:
         # Register 3 adapters
         for source in [QuerySource.EVIDENCE, QuerySource.BELIEF, QuerySource.INSIGHTS]:
             adapter = MagicMock()
-            adapter.search = AsyncMock(return_value=[
-                MockSearchResult(id=f"{source.value}_1", content=f"{source.value} result"),
-            ])
+            adapter.search = AsyncMock(
+                return_value=[
+                    MockSearchResult(id=f"{source.value}_1", content=f"{source.value} result"),
+                ]
+            )
             agg.register_adapter(source, adapter, "search")
 
         # Disable one
@@ -282,14 +290,18 @@ class TestFederatedQueryAggregator:
 
         # Two adapters returning same content
         adapter1 = MagicMock()
-        adapter1.search = AsyncMock(return_value=[
-            MockSearchResult(id="1", content="duplicate content"),
-        ])
+        adapter1.search = AsyncMock(
+            return_value=[
+                MockSearchResult(id="1", content="duplicate content"),
+            ]
+        )
 
         adapter2 = MagicMock()
-        adapter2.search = AsyncMock(return_value=[
-            MockSearchResult(id="2", content="duplicate content"),  # Same content
-        ])
+        adapter2.search = AsyncMock(
+            return_value=[
+                MockSearchResult(id="2", content="duplicate content"),  # Same content
+            ]
+        )
 
         agg.register_adapter(QuerySource.EVIDENCE, adapter1, "search")
         agg.register_adapter(QuerySource.BELIEF, adapter2, "search")
@@ -305,10 +317,12 @@ class TestFederatedQueryAggregator:
         agg = FederatedQueryAggregator()
 
         adapter = MagicMock()
-        adapter.search = AsyncMock(return_value=[
-            MockSearchResult(id="1", content="climate change global warming"),
-            MockSearchResult(id="2", content="unrelated topic"),
-        ])
+        adapter.search = AsyncMock(
+            return_value=[
+                MockSearchResult(id="1", content="climate change global warming"),
+                MockSearchResult(id="2", content="unrelated topic"),
+            ]
+        )
 
         agg.register_adapter(QuerySource.EVIDENCE, adapter, "search")
 
@@ -323,10 +337,12 @@ class TestFederatedQueryAggregator:
         agg = FederatedQueryAggregator()
 
         adapter = MagicMock()
-        adapter.search = AsyncMock(return_value=[
-            MockSearchResult(id="1", content="climate change evidence"),
-            MockSearchResult(id="2", content="unrelated content xyz"),
-        ])
+        adapter.search = AsyncMock(
+            return_value=[
+                MockSearchResult(id="1", content="climate change evidence"),
+                MockSearchResult(id="2", content="unrelated content xyz"),
+            ]
+        )
 
         agg.register_adapter(QuerySource.EVIDENCE, adapter, "search")
 
@@ -343,15 +359,19 @@ class TestFederatedQueryAggregator:
 
         # High weight adapter
         adapter1 = MagicMock()
-        adapter1.search = AsyncMock(return_value=[
-            MockSearchResult(id="1", content="topic result"),
-        ])
+        adapter1.search = AsyncMock(
+            return_value=[
+                MockSearchResult(id="1", content="topic result"),
+            ]
+        )
 
         # Low weight adapter
         adapter2 = MagicMock()
-        adapter2.search = AsyncMock(return_value=[
-            MockSearchResult(id="2", content="topic result"),  # Same content
-        ])
+        adapter2.search = AsyncMock(
+            return_value=[
+                MockSearchResult(id="2", content="topic result"),  # Same content
+            ]
+        )
 
         agg.register_adapter(QuerySource.EVIDENCE, adapter1, "search", weight=2.0)
         agg.register_adapter(QuerySource.BELIEF, adapter2, "search", weight=0.5)
@@ -406,14 +426,18 @@ class TestSequentialQuery:
         agg = FederatedQueryAggregator(parallel=False)
 
         adapter1 = MagicMock()
-        adapter1.search = AsyncMock(return_value=[
-            MockSearchResult(id="1", content="result 1"),
-        ])
+        adapter1.search = AsyncMock(
+            return_value=[
+                MockSearchResult(id="1", content="result 1"),
+            ]
+        )
 
         adapter2 = MagicMock()
-        adapter2.search = AsyncMock(return_value=[
-            MockSearchResult(id="2", content="result 2"),
-        ])
+        adapter2.search = AsyncMock(
+            return_value=[
+                MockSearchResult(id="2", content="result 2"),
+            ]
+        )
 
         agg.register_adapter(QuerySource.EVIDENCE, adapter1, "search")
         agg.register_adapter(QuerySource.BELIEF, adapter2, "search")

@@ -254,7 +254,7 @@ class TestRateLimitMiddleware:
 
         # Should allow burst of 10 requests
         for i in range(10):
-            assert bucket.consume(1) is True, f"Request {i+1} should be allowed"
+            assert bucket.consume(1) is True, f"Request {i + 1} should be allowed"
 
         # 11th should be denied
         assert bucket.consume(1) is False
@@ -636,9 +636,9 @@ class TestCacheMiddleware:
         cache.set("other:test", "value")
 
         initial_count = len(cache)
-        assert (
-            initial_count >= 4
-        ), f"Expected at least 4 entries, got {initial_count}. Prefixes: {elo_prefixes}"
+        assert initial_count >= 4, (
+            f"Expected at least 4 entries, got {initial_count}. Prefixes: {elo_prefixes}"
+        )
 
         # Invalidate ELO caches using the data source name (not event name)
         cleared = invalidate_cache("elo")

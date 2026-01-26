@@ -375,7 +375,7 @@ class TestRLMContextHandlerContexts:
         for i in range(10):
             rlm_context_handler._contexts[f"ctx_{i}"] = {
                 "context": MagicMock(),
-                "created_at": f"2024-01-{i+1:02d}T00:00:00",
+                "created_at": f"2024-01-{i + 1:02d}T00:00:00",
                 "source_type": "text",
                 "original_tokens": 100 * i,
             }
@@ -500,9 +500,9 @@ class TestRLMContextHandlerIntegration:
     def test_routes_constant_matches_can_handle(self, rlm_context_handler):
         """Test that ROUTES constant matches can_handle logic."""
         for route in RLMContextHandler.ROUTES:
-            assert rlm_context_handler.can_handle(
-                route
-            ), f"can_handle should return True for {route}"
+            assert rlm_context_handler.can_handle(route), (
+                f"can_handle should return True for {route}"
+            )
 
     def test_handler_inherits_base(self, rlm_context_handler):
         """Test that RLMContextHandler inherits from BaseHandler."""

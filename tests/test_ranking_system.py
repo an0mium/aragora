@@ -436,8 +436,8 @@ class TestDomainRatings:
         for i in range(2):
             elo_system.record_match(
                 debate_id=f"ml-match-{i}",
-                participants=["ml-agent-0", f"ml-agent-{i+1}"],
-                scores={"ml-agent-0": 1.0, f"ml-agent-{i+1}": 0.0},
+                participants=["ml-agent-0", f"ml-agent-{i + 1}"],
+                scores={"ml-agent-0": 1.0, f"ml-agent-{i + 1}": 0.0},
                 domain="ml",
             )
 

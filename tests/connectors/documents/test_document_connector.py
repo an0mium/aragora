@@ -304,7 +304,7 @@ class TestDocumentEvidence:
 
     def test_format_table_text_limits_rows(self):
         """Test table formatting limits rows."""
-        data = [[str(i), str(i+1)] for i in range(20)]
+        data = [[str(i), str(i + 1)] for i in range(20)]
 
         text = DocumentEvidence._format_table_text(data)
 

@@ -312,9 +312,9 @@ class TestSchemaValidation:
                 if url_params:
                     params = spec.get("parameters", [])
                     defined_path_params = {p["name"] for p in params if p.get("in") == "path"}
-                    assert (
-                        url_params == defined_path_params
-                    ), f"{path} {method}: URL params {url_params} != defined {defined_path_params}"
+                    assert url_params == defined_path_params, (
+                        f"{path} {method}: URL params {url_params} != defined {defined_path_params}"
+                    )
 
     def test_response_codes_valid(self):
         """Response codes are valid HTTP codes."""

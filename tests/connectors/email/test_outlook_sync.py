@@ -188,9 +188,7 @@ class TestOutlookSyncService:
             OutlookSyncStatus,
         )
 
-        config = OutlookSyncConfig(
-            notification_url="https://api.example.com/webhooks/outlook"
-        )
+        config = OutlookSyncConfig(notification_url="https://api.example.com/webhooks/outlook")
 
         service = OutlookSyncService(
             tenant_id="tenant_123",
@@ -357,19 +355,25 @@ class TestOutlookSyncIntegration:
 
         # Create mock connector
         mock_connector = AsyncMock()
-        mock_connector.get_user_info = AsyncMock(return_value={
-            "mail": "test@outlook.com",
-            "userPrincipalName": "test@outlook.com",
-        })
-        mock_connector.list_folders = AsyncMock(return_value=[
-            MagicMock(id="inbox_123", display_name="Inbox"),
-        ])
+        mock_connector.get_user_info = AsyncMock(
+            return_value={
+                "mail": "test@outlook.com",
+                "userPrincipalName": "test@outlook.com",
+            }
+        )
+        mock_connector.list_folders = AsyncMock(
+            return_value=[
+                MagicMock(id="inbox_123", display_name="Inbox"),
+            ]
+        )
         mock_connector.list_messages = AsyncMock(return_value=([], None))
-        mock_connector.get_delta = AsyncMock(return_value=(
-            [],
-            None,
-            "https://graph.microsoft.com/v1.0/delta?token=new",
-        ))
+        mock_connector.get_delta = AsyncMock(
+            return_value=(
+                [],
+                None,
+                "https://graph.microsoft.com/v1.0/delta?token=new",
+            )
+        )
         mock_connector.authenticate = AsyncMock(return_value=True)
 
         service = OutlookSyncService(

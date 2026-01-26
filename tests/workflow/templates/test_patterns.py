@@ -424,10 +424,7 @@ class TestPatternIntegration:
 
     def test_patterns_are_reusable(self):
         """Test patterns can create multiple workflows."""
-        workflows = [
-            create_hive_mind_workflow(name=f"Workflow {i}")
-            for i in range(3)
-        ]
+        workflows = [create_hive_mind_workflow(name=f"Workflow {i}") for i in range(3)]
 
         # Each workflow should be independent
         ids = [w.id for w in workflows]

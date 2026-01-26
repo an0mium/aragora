@@ -112,9 +112,9 @@ class TestNomicState:
             NomicState.COMMIT,
         ]
         for state in active_states:
-            assert is_valid_transition(
-                state, NomicState.RECOVERY
-            ), f"{state} should be able to transition to RECOVERY"
+            assert is_valid_transition(state, NomicState.RECOVERY), (
+                f"{state} should be able to transition to RECOVERY"
+            )
 
     def test_recovery_can_go_anywhere(self):
         """Test RECOVERY can transition to most states."""

@@ -311,10 +311,12 @@ class TestGmailSyncIntegration:
 
         # Create mock connector
         mock_connector = AsyncMock()
-        mock_connector.get_user_info = AsyncMock(return_value={
-            "emailAddress": "test@example.com",
-            "historyId": "12345",
-        })
+        mock_connector.get_user_info = AsyncMock(
+            return_value={
+                "emailAddress": "test@example.com",
+                "historyId": "12345",
+            }
+        )
         mock_connector.list_messages = AsyncMock(return_value=([], None))
         mock_connector.authenticate = AsyncMock(return_value=True)
 

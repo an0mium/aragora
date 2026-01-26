@@ -109,11 +109,14 @@ class TestDecisionResultStore:
 
     def test_save_and_get(self, store):
         """Should save and retrieve decision results."""
-        store.save("req-123", {
-            "status": "completed",
-            "result": {"answer": "42"},
-            "completed_at": "2024-01-01T00:00:00",
-        })
+        store.save(
+            "req-123",
+            {
+                "status": "completed",
+                "result": {"answer": "42"},
+                "completed_at": "2024-01-01T00:00:00",
+            },
+        )
 
         result = store.get("req-123")
         assert result is not None
@@ -128,10 +131,13 @@ class TestDecisionResultStore:
 
     def test_get_status(self, store):
         """Should return status for polling."""
-        store.save("req-123", {
-            "status": "completed",
-            "completed_at": "2024-01-01T00:00:00",
-        })
+        store.save(
+            "req-123",
+            {
+                "status": "completed",
+                "completed_at": "2024-01-01T00:00:00",
+            },
+        )
 
         status = store.get_status("req-123")
         assert status["request_id"] == "req-123"
@@ -268,6 +274,7 @@ class TestGlobalStore:
     def test_get_decision_result_store_singleton(self, tmp_path):
         """Should return same instance."""
         import os
+
         os.environ["ARAGORA_DECISION_RESULTS_DB"] = str(tmp_path / "singleton.db")
 
         try:
@@ -281,6 +288,7 @@ class TestGlobalStore:
     def test_reset_decision_result_store(self, tmp_path):
         """Should reset global instance."""
         import os
+
         os.environ["ARAGORA_DECISION_RESULTS_DB"] = str(tmp_path / "reset.db")
 
         try:

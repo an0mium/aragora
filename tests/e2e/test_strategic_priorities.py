@@ -39,8 +39,18 @@ class TestGauntletReceiptsFlow:
                     "status": "completed",
                     "config": config,
                     "findings": [
-                        {"id": "f1", "category": "security", "severity": "high", "description": "SQL injection risk"},
-                        {"id": "f2", "category": "logic", "severity": "medium", "description": "Edge case not handled"},
+                        {
+                            "id": "f1",
+                            "category": "security",
+                            "severity": "high",
+                            "description": "SQL injection risk",
+                        },
+                        {
+                            "id": "f2",
+                            "category": "logic",
+                            "severity": "medium",
+                            "description": "Edge case not handled",
+                        },
                     ],
                 }
                 return run_id
@@ -57,7 +67,9 @@ class TestGauntletReceiptsFlow:
                 receipt = {
                     "id": receipt_id,
                     "run_id": run_id,
-                    "verdict": "FAIL" if any(f["severity"] == "high" for f in run["findings"]) else "PASS",
+                    "verdict": "FAIL"
+                    if any(f["severity"] == "high" for f in run["findings"])
+                    else "PASS",
                     "artifact_hash": f"sha256:{uuid.uuid4().hex}",
                     "findings": run["findings"],
                     "findings_count": len(run["findings"]),
@@ -93,10 +105,12 @@ class TestGauntletReceiptsFlow:
     async def test_receipt_creation_flow(self, mock_gauntlet_store):
         """Test creating a gauntlet run and generating a receipt."""
         # Create a run
-        run_id = await mock_gauntlet_store.create_run({
-            "target": "debate-123",
-            "checks": ["security", "logic", "compliance"],
-        })
+        run_id = await mock_gauntlet_store.create_run(
+            {
+                "target": "debate-123",
+                "checks": ["security", "logic", "compliance"],
+            }
+        )
         assert run_id.startswith("run-")
 
         # Get run details
@@ -153,18 +167,31 @@ class TestExplainabilityFlow:
     @pytest.fixture
     def mock_explainability_service(self):
         """Mock explainability service."""
+
         class MockService:
             async def generate_explanation(self, debate_id: str) -> Dict[str, Any]:
                 return {
                     "debate_id": debate_id,
                     "narrative": f"The decision for debate {debate_id} was reached through "
-                                 "multi-agent consensus. The primary factors were evidence quality "
-                                 "and agent agreement levels.",
+                    "multi-agent consensus. The primary factors were evidence quality "
+                    "and agent agreement levels.",
                     "confidence": 0.87,
                     "factors": [
-                        {"name": "Agent Agreement", "contribution": 0.4, "description": "High inter-agent consensus"},
-                        {"name": "Evidence Quality", "contribution": 0.35, "description": "Strong supporting evidence"},
-                        {"name": "Logical Coherence", "contribution": 0.25, "description": "Arguments were well-structured"},
+                        {
+                            "name": "Agent Agreement",
+                            "contribution": 0.4,
+                            "description": "High inter-agent consensus",
+                        },
+                        {
+                            "name": "Evidence Quality",
+                            "contribution": 0.35,
+                            "description": "Strong supporting evidence",
+                        },
+                        {
+                            "name": "Logical Coherence",
+                            "contribution": 0.25,
+                            "description": "Arguments were well-structured",
+                        },
                     ],
                     "counterfactuals": [
                         {
@@ -179,9 +206,23 @@ class TestExplainabilityFlow:
                         },
                     ],
                     "provenance": [
-                        {"step": 1, "action": "Initial proposals generated", "timestamp": "2026-01-20T12:00:00Z"},
-                        {"step": 2, "action": "Critiques exchanged", "timestamp": "2026-01-20T12:01:00Z", "agent": "Claude"},
-                        {"step": 3, "action": "Consensus detected", "timestamp": "2026-01-20T12:02:00Z", "confidence": 0.87},
+                        {
+                            "step": 1,
+                            "action": "Initial proposals generated",
+                            "timestamp": "2026-01-20T12:00:00Z",
+                        },
+                        {
+                            "step": 2,
+                            "action": "Critiques exchanged",
+                            "timestamp": "2026-01-20T12:01:00Z",
+                            "agent": "Claude",
+                        },
+                        {
+                            "step": 3,
+                            "action": "Consensus detected",
+                            "timestamp": "2026-01-20T12:02:00Z",
+                            "confidence": 0.87,
+                        },
                     ],
                     "generated_at": "2026-01-20T12:05:00Z",
                 }
@@ -295,9 +336,24 @@ class TestWorkflowTemplatesFlow:
         ]
 
         patterns = [
-            {"id": "review_cycle", "name": "Review Cycle", "description": "Iterative review pattern", "available": True},
-            {"id": "map_reduce", "name": "Map Reduce", "description": "Parallel processing pattern", "available": True},
-            {"id": "hive_mind", "name": "Hive Mind", "description": "Collective decision pattern", "available": True},
+            {
+                "id": "review_cycle",
+                "name": "Review Cycle",
+                "description": "Iterative review pattern",
+                "available": True,
+            },
+            {
+                "id": "map_reduce",
+                "name": "Map Reduce",
+                "description": "Parallel processing pattern",
+                "available": True,
+            },
+            {
+                "id": "hive_mind",
+                "name": "Hive Mind",
+                "description": "Collective decision pattern",
+                "available": True,
+            },
         ]
 
         class MockRegistry:
@@ -316,7 +372,9 @@ class TestWorkflowTemplatesFlow:
             def list_patterns(self) -> list:
                 return patterns
 
-            async def run_template(self, template_id: str, inputs: Dict[str, Any]) -> Dict[str, Any]:
+            async def run_template(
+                self, template_id: str, inputs: Dict[str, Any]
+            ) -> Dict[str, Any]:
                 template = templates.get(template_id)
                 if not template:
                     raise ValueError(f"Template not found: {template_id}")

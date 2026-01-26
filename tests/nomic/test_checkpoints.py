@@ -187,9 +187,7 @@ class TestCheckpointCleanup:
             )
 
         # Auto cleanup should have run
-        checkpoint_files = [
-            f for f in tmp_path.glob("*.json") if f.name != "latest.json"
-        ]
+        checkpoint_files = [f for f in tmp_path.glob("*.json") if f.name != "latest.json"]
         # May have more due to timing, but cleanup was triggered
         assert len(checkpoint_files) <= 5
 

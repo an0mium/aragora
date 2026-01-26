@@ -16,6 +16,7 @@ def fresh_manager():
     """Create a fresh manager for each test."""
     reset_cross_subscriber_manager()
     from aragora.events.cross_subscribers import get_cross_subscriber_manager
+
     return get_cross_subscriber_manager()
 
 
@@ -212,9 +213,7 @@ class TestOrchestratorCultureIntegration:
         from aragora.core_types import Environment
 
         mock_manager = MagicMock()
-        mock_manager.get_debate_culture_hints.return_value = {
-            "recommended_consensus": "majority"
-        }
+        mock_manager.get_debate_culture_hints.return_value = {"recommended_consensus": "majority"}
         mock_get_manager.return_value = mock_manager
 
         # Create minimal arena

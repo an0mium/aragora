@@ -611,15 +611,15 @@ class TestAuditReportGeneration:
         }
 
         # Check that we have results from multiple categories
-        assert (
-            len(audit_report.categories_tested) >= 3
-        ), f"Report should cover at least 3 categories, got: {audit_report.categories_tested}"
+        assert len(audit_report.categories_tested) >= 3, (
+            f"Report should cover at least 3 categories, got: {audit_report.categories_tested}"
+        )
 
     def test_report_has_passing_tests(self, audit_report):
         """Verify report has high pass rate."""
-        assert (
-            audit_report.pass_rate >= 90.0
-        ), f"Pass rate should be >= 90%, got: {audit_report.pass_rate:.2f}%"
+        assert audit_report.pass_rate >= 90.0, (
+            f"Pass rate should be >= 90%, got: {audit_report.pass_rate:.2f}%"
+        )
 
 
 # =============================================================================

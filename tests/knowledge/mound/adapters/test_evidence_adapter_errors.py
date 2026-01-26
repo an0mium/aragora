@@ -394,6 +394,7 @@ class TestEventCallbackErrorHandling:
 
     def test_event_callback_exception_logged(self, mock_store):
         """Test event callback exceptions are caught and logged."""
+
         def failing_callback(event_type, data):
             raise RuntimeError("Callback failed")
 

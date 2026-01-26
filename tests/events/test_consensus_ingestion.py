@@ -79,6 +79,7 @@ def subscriber_manager():
     """Get a fresh subscriber manager."""
     # Reset singleton to get fresh instance
     from aragora.events.cross_subscribers import reset_cross_subscriber_manager
+
     reset_cross_subscriber_manager()
     return get_cross_subscriber_manager()
 
@@ -122,7 +123,9 @@ class TestConsensusIngestionHandler:
     """Tests for _handle_consensus_to_mound handler."""
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
-    def test_handler_ingests_consensus(self, mock_get_mound, subscriber_manager, consensus_event, mock_mound):
+    def test_handler_ingests_consensus(
+        self, mock_get_mound, subscriber_manager, consensus_event, mock_mound
+    ):
         """Test handler ingests consensus to KM."""
         mock_get_mound.return_value = mock_mound
 
@@ -141,7 +144,9 @@ class TestConsensusIngestionHandler:
             consensus_handler(consensus_event)
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
-    def test_handler_skips_no_consensus(self, mock_get_mound, subscriber_manager, no_consensus_event, mock_mound):
+    def test_handler_skips_no_consensus(
+        self, mock_get_mound, subscriber_manager, no_consensus_event, mock_mound
+    ):
         """Test handler skips events without consensus."""
         mock_get_mound.return_value = mock_mound
 
@@ -263,14 +268,17 @@ class TestEventDataHandling:
 class TestStrengthTierMapping:
     """Tests for consensus strength to KM tier mapping."""
 
-    @pytest.mark.parametrize("strength,expected_tier", [
-        ("unanimous", "glacial"),
-        ("strong", "slow"),
-        ("moderate", "slow"),
-        ("weak", "medium"),
-        ("split", "medium"),
-        ("contested", "fast"),
-    ])
+    @pytest.mark.parametrize(
+        "strength,expected_tier",
+        [
+            ("unanimous", "glacial"),
+            ("strong", "slow"),
+            ("moderate", "slow"),
+            ("weak", "medium"),
+            ("split", "medium"),
+            ("contested", "fast"),
+        ],
+    )
     def test_strength_mapping(self, strength, expected_tier):
         """Test strength is mapped to correct tier."""
         # This tests the mapping logic defined in the handler
@@ -309,7 +317,9 @@ class TestConsensusIngestionIntegration:
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
     @patch("aragora.events.cross_subscribers.record_km_inbound_event")
-    def test_full_ingestion_flow(self, mock_record, mock_get_mound, subscriber_manager, consensus_event):
+    def test_full_ingestion_flow(
+        self, mock_record, mock_get_mound, subscriber_manager, consensus_event
+    ):
         """Test full ingestion flow with mocked KM."""
         # Setup mock mound
         mock_mound = MagicMock()
@@ -645,9 +655,7 @@ class TestEvolutionTracking:
         mock_get_mound.assert_called()
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
-    def test_similar_topic_search_for_evolution(
-        self, mock_get_mound, subscriber_manager
-    ):
+    def test_similar_topic_search_for_evolution(self, mock_get_mound, subscriber_manager):
         """Test handler searches for similar prior consensus."""
         mock_mound = MagicMock()
         mock_mound.workspace_id = "test"

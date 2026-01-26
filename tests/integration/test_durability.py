@@ -458,9 +458,9 @@ class TestProductionRequirements:
             missing = check_production_requirements()
 
             # Should report missing REDIS_URL
-            assert any(
-                "REDIS_URL" in m for m in missing
-            ), f"Expected REDIS_URL warning, got: {missing}"
+            assert any("REDIS_URL" in m for m in missing), (
+                f"Expected REDIS_URL warning, got: {missing}"
+            )
 
         finally:
             if original_env is not None:

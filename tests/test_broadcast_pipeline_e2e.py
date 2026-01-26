@@ -299,7 +299,6 @@ class TestBroadcastPipeline:
                 patch.object(pipeline, "_generate_audio") as mock_audio,
                 patch.object(pipeline, "_generate_video") as mock_video,
             ):
-
                 mock_audio.return_value = temp_output_dir / "audio.mp3"
                 mock_video.return_value = temp_output_dir / "video.mp4"
 

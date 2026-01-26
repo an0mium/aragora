@@ -186,6 +186,7 @@ class TestResilientStoreConcurrency:
     @pytest.mark.asyncio
     async def test_concurrent_writes(self, mock_store, load_config: LoadTestConfig):
         """Test concurrent write operations."""
+
         async def write_item(idx: int):
             item_id = f"item-{idx}"
             try:
@@ -359,11 +360,13 @@ class TestCacheInvalidationLoad:
         events_to_publish = load_config.total_operations * 2
 
         for i in range(events_to_publish):
-            await bus.publish({
-                "type": "node_updated",
-                "node_id": f"node-{i}",
-                "workspace_id": "test",
-            })
+            await bus.publish(
+                {
+                    "type": "node_updated",
+                    "node_id": f"node-{i}",
+                    "workspace_id": "test",
+                }
+            )
 
         elapsed = time.time() - start_time
 
@@ -384,9 +387,11 @@ class TestCacheInvalidationLoad:
 
         # Add multiple subscribers
         for i in range(5):
+
             async def make_subscriber(idx):
                 async def subscriber(event):
                     subscriber_events[idx].append(event)
+
                 return subscriber
 
             bus.subscribe(await make_subscriber(i))
@@ -443,7 +448,9 @@ class TestRetryUnderLoad:
                 except ConnectionError:
                     if i == retry_config.max_retries - 1:
                         raise
-                    await asyncio.sleep(retry_config.base_delay * (retry_config.exponential_base ** i))
+                    await asyncio.sleep(
+                        retry_config.base_delay * (retry_config.exponential_base**i)
+                    )
 
         # Test various failure scenarios
         results = []
@@ -533,10 +540,12 @@ class TestResilienceStress:
                     stats["successes"] += 1
 
                     # Publish invalidation
-                    await bus.publish({
-                        "type": "node_updated",
-                        "node_id": f"node-{idx}",
-                    })
+                    await bus.publish(
+                        {
+                            "type": "node_updated",
+                            "node_id": f"node-{idx}",
+                        }
+                    )
 
                     return True
 

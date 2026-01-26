@@ -14,6 +14,7 @@ import json
 # Check if asyncpg is available
 try:
     import asyncpg
+
     ASYNCPG_AVAILABLE = True
 except ImportError:
     ASYNCPG_AVAILABLE = False
@@ -29,6 +30,7 @@ class TestPostgresEloSchema:
             POSTGRES_ELO_SCHEMA,
             POSTGRES_ELO_SCHEMA_VERSION,
         )
+
         assert POSTGRES_ELO_SCHEMA_VERSION >= 1
         assert len(POSTGRES_ELO_SCHEMA) > 100
 
@@ -78,8 +80,6 @@ class TestPostgresEloSchema:
 
 # Skip remaining tests if asyncpg not available
 @pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
-
-
 class TestPostgresEloDatabase:
     """Tests for PostgresEloDatabase class."""
 
@@ -258,7 +258,7 @@ class TestPostgresEloDatabase:
         call_args = mock_conn.execute.call_args
         # Should be normalized to alphabetical order
         assert call_args[0][1] == "alice"  # agent_a
-        assert call_args[0][2] == "zoe"    # agent_b
+        assert call_args[0][2] == "zoe"  # agent_b
 
     @pytest.mark.asyncio
     async def test_count_ratings(self, mock_db):

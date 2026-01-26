@@ -184,11 +184,13 @@ class TestRedisBroadcastBridge:
         message = {
             "type": "message",
             "channel": "aragora:broadcast:debates",
-            "data": json.dumps({
-                "type": "debate_message",
-                "payload": {"debate_id": "test"},
-                "instance_id": "instance-1",  # Same as bridge
-            }),
+            "data": json.dumps(
+                {
+                    "type": "debate_message",
+                    "payload": {"debate_id": "test"},
+                    "instance_id": "instance-1",  # Same as bridge
+                }
+            ),
         }
 
         await bridge._handle_message(message)
@@ -206,11 +208,13 @@ class TestRedisBroadcastBridge:
         message = {
             "type": "message",
             "channel": "aragora:broadcast:debates",
-            "data": json.dumps({
-                "type": "debate_message",
-                "payload": {"debate_id": "test-debate"},
-                "instance_id": "instance-2",  # Different from bridge
-            }),
+            "data": json.dumps(
+                {
+                    "type": "debate_message",
+                    "payload": {"debate_id": "test-debate"},
+                    "instance_id": "instance-2",  # Different from bridge
+                }
+            ),
         }
 
         await bridge._handle_message(message)

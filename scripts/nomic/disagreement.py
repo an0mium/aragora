@@ -144,8 +144,7 @@ class DisagreementHandler:
         # ACTION 3: Escalate split opinions
         if len(report.split_opinions) >= self.ESCALATE_SPLIT_THRESHOLD:
             self._log(
-                f"    [disagreement] ESCALATE: {len(report.split_opinions)} "
-                "split opinions detected"
+                f"    [disagreement] ESCALATE: {len(report.split_opinions)} split opinions detected"
             )
             actions.escalate_to = "cross_examination"
             for opinion in report.split_opinions[:3]:
