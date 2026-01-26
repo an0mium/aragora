@@ -25,7 +25,6 @@ from aragora.server.versioning.compat import strip_version_prefix
 from aragora.audit.unified import audit_admin, audit_data
 
 from .base import (
-    BaseHandler,
     HandlerResult,
     PaginatedHandlerMixin,
     error_response,
@@ -33,6 +32,7 @@ from .base import (
     json_response,
     safe_error_message,
 )
+from .secure import SecureHandler
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -73,8 +73,16 @@ async def _get_queue() -> Optional[Any]:
             return None
 
 
-class QueueHandler(BaseHandler, PaginatedHandlerMixin):
-    """Handler for job queue management endpoints."""
+class QueueHandler(SecureHandler, PaginatedHandlerMixin):
+    """Handler for job queue management endpoints.
+
+    RBAC Permissions:
+    - queue:read - View jobs, stats, workers
+    - queue:manage - Submit, retry, cancel jobs
+    - queue:admin - DLQ management, cleanup operations
+    """
+
+    RESOURCE_TYPE = "queue"
 
     ROUTES = [
         "/api/queue/jobs",

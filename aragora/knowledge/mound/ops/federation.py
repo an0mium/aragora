@@ -98,7 +98,7 @@ class FederationProtocol(Protocol):
     ) -> Any: ...
 
 
-class KnowledgeFederationMixin:
+class KnowledgeFederationMixin(FederationProtocol):
     """Mixin providing federation operations for KnowledgeMound."""
 
     # Note: Federation registry is now persisted via FederationRegistryStore

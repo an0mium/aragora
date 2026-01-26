@@ -12,6 +12,7 @@ Tests cover:
 from __future__ import annotations
 
 import json
+import os
 import time
 from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -22,7 +23,11 @@ from aragora.server.handlers.social.teams_oauth import (
     TeamsOAuthHandler,
     create_teams_oauth_handler,
 )
-from aragora.server.oauth_state_store import InMemoryOAuthStateStore, OAuthState
+from aragora.server.oauth_state_store import (
+    InMemoryOAuthStateStore,
+    OAuthState,
+    reset_oauth_state_store as reset_global_oauth_state_store,
+)
 
 
 # ===========================================================================
