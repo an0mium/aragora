@@ -81,6 +81,9 @@ class DatabaseType(Enum):
     # Billing databases
     BILLING = "billing"  # Usage sync watermarks and billing state
 
+    # Onboarding databases
+    ONBOARDING = "onboarding"  # User onboarding flows and progress
+
 
 class DatabaseMode(Enum):
     """Database organization modes."""
@@ -121,6 +124,8 @@ LEGACY_DB_NAMES = {
     DatabaseType.EVOLUTION: "evolution.db",
     # Billing
     DatabaseType.BILLING: "billing.db",
+    # Onboarding
+    DatabaseType.ONBOARDING: "onboarding.db",
 }
 
 # Mapping from DatabaseType to consolidated database
@@ -155,6 +160,8 @@ CONSOLIDATED_DB_MAPPING = {
     DatabaseType.EVOLUTION: "core.db",
     # Billing
     DatabaseType.BILLING: "analytics.db",
+    # Onboarding
+    DatabaseType.ONBOARDING: "core.db",
 }
 
 
