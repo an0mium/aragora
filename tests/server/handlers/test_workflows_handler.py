@@ -280,6 +280,7 @@ class TestWorkflowHandlerRBAC:
             context = handler._get_auth_context(mock_http)
             assert context is None
 
+    @pytest.mark.no_auto_auth
     @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
     def test_get_auth_context_rejects_without_jwt(self, handler, mock_http):
         """_get_auth_context returns 'unauthenticated' sentinel when JWT auth fails.

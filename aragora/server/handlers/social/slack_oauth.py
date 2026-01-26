@@ -247,6 +247,253 @@ class SlackOAuthHandler(BaseHandler):
             },
         )
 
+    async def _handle_preview(self, query_params: Dict[str, str]) -> HandlerResult:
+        """
+        Display consent preview page before Slack OAuth.
+
+        Shows users what permissions Aragora needs and why, before
+        redirecting to Slack's authorization page.
+
+        Query params:
+            tenant_id: Optional tenant to link workspace to
+        """
+        if not SLACK_CLIENT_ID:
+            return error_response(
+                "Slack OAuth not configured. Set SLACK_CLIENT_ID environment variable.",
+                503,
+            )
+
+        tenant_id = query_params.get("tenant_id", "")
+
+        # Build scope information for display
+        current_scopes = SLACK_SCOPES.split(",")
+        required_scopes = []
+        optional_scopes = []
+
+        for scope in current_scopes:
+            scope = scope.strip()
+            if scope in SCOPE_DESCRIPTIONS:
+                desc = SCOPE_DESCRIPTIONS[scope]
+                scope_info = {
+                    "scope": scope,
+                    "name": desc["name"],
+                    "description": desc["description"],
+                    "icon": desc.get("icon", ""),
+                }
+                if desc.get("required", True):
+                    required_scopes.append(scope_info)
+                else:
+                    optional_scopes.append(scope_info)
+            else:
+                # Unknown scope - show as required
+                required_scopes.append(
+                    {
+                        "scope": scope,
+                        "name": scope.replace(":", " ").replace("_", " ").title(),
+                        "description": f"Permission: {scope}",
+                        "icon": "",
+                    }
+                )
+
+        # Build install URL with tenant_id
+        install_url = "/api/integrations/slack/install"
+        if tenant_id:
+            install_url += f"?tenant_id={tenant_id}"
+
+        # Generate HTML consent preview page
+        html = self._render_consent_preview(
+            required_scopes=required_scopes,
+            optional_scopes=optional_scopes,
+            install_url=install_url,
+        )
+
+        return HandlerResult(
+            status_code=200,
+            content_type="text/html; charset=utf-8",
+            body=html.encode("utf-8"),
+            headers={"Cache-Control": "no-store"},
+        )
+
+    def _render_consent_preview(
+        self,
+        required_scopes: list,
+        optional_scopes: list,
+        install_url: str,
+    ) -> str:
+        """Render the consent preview HTML page."""
+        required_html = ""
+        for s in required_scopes:
+            icon = s["icon"] if s["icon"] else "&#128274;"
+            required_html += f"""
+            <div class="scope-item">
+                <span class="scope-icon">{icon}</span>
+                <div class="scope-details">
+                    <div class="scope-name">{s["name"]}</div>
+                    <div class="scope-desc">{s["description"]}</div>
+                </div>
+                <span class="scope-badge required">Required</span>
+            </div>
+            """
+
+        optional_html = ""
+        for s in optional_scopes:
+            icon = s["icon"] if s["icon"] else "&#128274;"
+            optional_html += f"""
+            <div class="scope-item">
+                <span class="scope-icon">{icon}</span>
+                <div class="scope-details">
+                    <div class="scope-name">{s["name"]}</div>
+                    <div class="scope-desc">{s["description"]}</div>
+                </div>
+                <span class="scope-badge optional">Optional</span>
+            </div>
+            """
+
+        optional_section = ""
+        if optional_html:
+            optional_section = (
+                "<div class='section-title' style='margin-top: 24px;'>Optional Features</div>"
+                + optional_html
+            )
+
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Install Aragora in Slack</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }}
+        .container {{
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+            overflow: hidden;
+        }}
+        .header {{
+            background: #4A154B;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }}
+        .header h1 {{ font-size: 24px; margin-bottom: 8px; }}
+        .header p {{ opacity: 0.9; font-size: 14px; }}
+        .logo {{
+            width: 60px; height: 60px;
+            background: white;
+            border-radius: 12px;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+        }}
+        .content {{ padding: 30px; }}
+        .section-title {{
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }}
+        .scope-item {{
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }}
+        .scope-icon {{ font-size: 20px; flex-shrink: 0; }}
+        .scope-details {{ flex: 1; }}
+        .scope-name {{ font-weight: 600; color: #1a1a1a; margin-bottom: 4px; }}
+        .scope-desc {{ font-size: 13px; color: #666; line-height: 1.4; }}
+        .scope-badge {{
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }}
+        .scope-badge.required {{ background: #e3f2fd; color: #1565c0; }}
+        .scope-badge.optional {{ background: #f3e5f5; color: #7b1fa2; }}
+        .data-notice {{
+            background: #fff8e1;
+            border: 1px solid #ffcc02;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+        }}
+        .data-notice h4 {{ color: #f57c00; font-size: 14px; margin-bottom: 8px; }}
+        .data-notice ul {{ font-size: 13px; color: #666; margin-left: 20px; }}
+        .data-notice li {{ margin-bottom: 4px; }}
+        .actions {{ padding: 20px 30px 30px; border-top: 1px solid #eee; }}
+        .btn {{
+            display: block;
+            width: 100%;
+            padding: 14px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }}
+        .btn-primary {{ background: #4A154B; color: white; }}
+        .btn-primary:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(74, 21, 75, 0.3);
+        }}
+        .btn-secondary {{ background: transparent; color: #666; margin-top: 12px; }}
+        .btn-secondary:hover {{ color: #333; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">&#129302;</div>
+            <h1>Install Aragora</h1>
+            <p>AI-powered multi-agent debates for your Slack workspace</p>
+        </div>
+        <div class="content">
+            <div class="section-title">Required Permissions</div>
+            {required_html}
+            {optional_section}
+            <div class="data-notice">
+                <h4>&#128274; How We Handle Your Data</h4>
+                <ul>
+                    <li>Messages are analyzed only for the current debate session</li>
+                    <li>User data is used solely for participant identification</li>
+                    <li>No message history is stored after debate completion</li>
+                    <li>All data is encrypted in transit and at rest</li>
+                </ul>
+            </div>
+        </div>
+        <div class="actions">
+            <a href="{install_url}" class="btn btn-primary">
+                &#128241; Continue to Slack Authorization
+            </a>
+            <a href="javascript:history.back()" class="btn btn-secondary">Cancel</a>
+        </div>
+    </div>
+</body>
+</html>"""
+
     async def _handle_callback(self, query_params: Dict[str, str]) -> HandlerResult:
         """
         Handle OAuth callback from Slack.

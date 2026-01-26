@@ -207,6 +207,7 @@ class TestFindingWorkflowRBAC:
             assert ctx.org_id == "org-1"
             assert "admin" in ctx.roles
 
+    @pytest.mark.no_auto_auth
     def test_get_auth_context_returns_none_for_anonymous(
         self, handler, anonymous_request, anonymous_jwt_context
     ):

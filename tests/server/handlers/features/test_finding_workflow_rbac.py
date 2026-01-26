@@ -170,6 +170,7 @@ class TestFindingWorkflowRBAC:
 
         assert result is None  # No error means allowed
 
+    @pytest.mark.no_auto_auth
     def test_check_permission_denies_unauthenticated(self, handler, mock_request):
         """Check permission returns 401 for unauthenticated users."""
         request = mock_request(user_id="viewer", roles="viewer")

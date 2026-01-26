@@ -26,7 +26,25 @@ cd aragora
 pip install -e .
 ```
 
-### 2. Configure API Key
+### 2. Configure (Choose One)
+
+#### Option A: Interactive Setup Wizard (Recommended)
+
+The easiest way to configure Aragora:
+
+```bash
+aragora setup
+```
+
+The wizard guides you through:
+- API key configuration with validation
+- Server port settings
+- Database selection (SQLite/PostgreSQL)
+- Optional integrations (Slack, GitHub, Telegram)
+
+See the [CLI Setup Guide](CLI_SETUP_GUIDE.md) for detailed options.
+
+#### Option B: Manual Configuration
 
 Create a `.env` file with at least one AI provider key:
 
