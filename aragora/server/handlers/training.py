@@ -23,11 +23,10 @@ from .base import (
     error_response,
     handle_errors,
     json_response,
-    require_auth,
     safe_error_message,
 )
-from .utils.decorators import has_permission
 from .utils.rate_limit import rate_limit
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +171,7 @@ class TrainingHandler(BaseHandler):
                 return None
         return self._exporters["gauntlet"]
 
-    @require_auth
+    @require_permission("training:export")
     @rate_limit(rpm=10, limiter_name="training_export")
     @handle_errors("export SFT training data")
     def handle_export_sft(
@@ -184,7 +183,7 @@ class TrainingHandler(BaseHandler):
         """
         Export SFT training data.
 
-        Requires authentication. Rate limited to 10 requests per minute.
+        Requires training:export permission. Rate limited to 10 requests per minute.
 
         Query params:
             min_confidence: Minimum debate confidence (default 0.7)
@@ -200,9 +199,6 @@ class TrainingHandler(BaseHandler):
         user = self.get_current_user(handler)
         if user:
             logger.info("training_export_sft user_id=%s", user.id)
-            # Check permission for training export
-            if not has_permission(user.role if hasattr(user, "role") else None, "training:export"):
-                return error_response("Permission denied: training:export required", 403)
 
         exporter = self._get_sft_exporter()
         if exporter is None:
@@ -280,7 +276,7 @@ class TrainingHandler(BaseHandler):
             logger.exception("training_sft_export_failed error=%s", e)
             return error_response(safe_error_message(e, "SFT export"), 500)
 
-    @require_auth
+    @require_permission("training:export")
     @rate_limit(rpm=10, limiter_name="training_export")
     @handle_errors("export DPO training data")
     def handle_export_dpo(
@@ -292,7 +288,7 @@ class TrainingHandler(BaseHandler):
         """
         Export DPO (preference) training data.
 
-        Requires authentication. Rate limited to 10 requests per minute.
+        Requires training:export permission. Rate limited to 10 requests per minute.
 
         Query params:
             min_confidence_diff: Minimum confidence difference for pairs (default 0.1)
@@ -303,9 +299,6 @@ class TrainingHandler(BaseHandler):
         user = self.get_current_user(handler)
         if user:
             logger.info("training_export_dpo user_id=%s", user.id)
-            # Check permission for training export
-            if not has_permission(user.role if hasattr(user, "role") else None, "training:export"):
-                return error_response("Permission denied: training:export required", 403)
 
         exporter = self._get_dpo_exporter()
         if exporter is None:
@@ -364,7 +357,7 @@ class TrainingHandler(BaseHandler):
             logger.exception("training_dpo_export_failed error=%s", e)
             return error_response(safe_error_message(e, "DPO export"), 500)
 
-    @require_auth
+    @require_permission("training:export")
     @rate_limit(rpm=10, limiter_name="training_export")
     @handle_errors("export Gauntlet training data")
     def handle_export_gauntlet(
@@ -376,7 +369,7 @@ class TrainingHandler(BaseHandler):
         """
         Export Gauntlet adversarial training data.
 
-        Requires authentication. Rate limited to 10 requests per minute.
+        Requires training:export permission. Rate limited to 10 requests per minute.
 
         Query params:
             persona: Filter by persona (gdpr, hipaa, ai_act, all) (default all)
@@ -392,9 +385,6 @@ class TrainingHandler(BaseHandler):
                 user.id,
                 query_params.get("persona", "all"),
             )
-            # Check permission for training export
-            if not has_permission(user.role if hasattr(user, "role") else None, "training:export"):
-                return error_response("Permission denied: training:export required", 403)
 
         exporter = self._get_gauntlet_exporter()
         if exporter is None:
@@ -462,6 +452,7 @@ class TrainingHandler(BaseHandler):
 
     @rate_limit(rpm=30, limiter_name="training_stats")
     @handle_errors("get training stats")
+    @require_permission("training:read")
     def handle_stats(
         self,
         path: str,
@@ -517,6 +508,7 @@ class TrainingHandler(BaseHandler):
         return json_response(stats)
 
     @rate_limit(rpm=60, limiter_name="training_formats")
+    @require_permission("training:read")
     def handle_formats(
         self,
         path: str,
@@ -605,6 +597,7 @@ class TrainingHandler(BaseHandler):
         return self._exporters["pipeline"]
 
     @rate_limit(rpm=60, limiter_name="training_jobs")
+    @require_permission("training:read")
     def handle_list_jobs(
         self,
         path: str,
@@ -678,6 +671,7 @@ class TrainingHandler(BaseHandler):
             logger.exception(f"Failed to list training jobs: {e}")
             return error_response(safe_error_message(e, "list training jobs"), 500)
 
+    @require_permission("training:read")
     def _get_job(
         self,
         job_id: str,
@@ -705,21 +699,14 @@ class TrainingHandler(BaseHandler):
             logger.exception(f"Failed to get job {job_id} (runtime error): {e}")
             return error_response(safe_error_message(e, "get training job"), 500)
 
-    @require_auth
+    @require_permission("training:create")
     def _cancel_job(
         self,
         job_id: str,
         query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult:
-        """Cancel a training job."""
-        # Check permission for training creation (cancel is a destructive action)
-        user = self.get_current_user(handler)
-        if user and not has_permission(
-            user.role if hasattr(user, "role") else None, "training:create"
-        ):
-            return error_response("Permission denied: training:create required", 403)
-
+        """Cancel a training job. Requires training:create permission."""
         pipeline = self._get_training_pipeline()
         if not pipeline:
             return error_response("Training pipeline not available", 503)
@@ -738,7 +725,7 @@ class TrainingHandler(BaseHandler):
             logger.exception(f"Failed to cancel job {job_id} (runtime error): {e}")
             return error_response(safe_error_message(e, "cancel training job"), 500)
 
-    @require_auth
+    @require_permission("training:export")
     @rate_limit(rpm=10, limiter_name="training_job_export")
     def _export_job_data(
         self,
@@ -746,14 +733,7 @@ class TrainingHandler(BaseHandler):
         query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult:
-        """Export training data for a specific job."""
-        # Check permission for training export
-        user = self.get_current_user(handler)
-        if user and not has_permission(
-            user.role if hasattr(user, "role") else None, "training:export"
-        ):
-            return error_response("Permission denied: training:export required", 403)
-
+        """Export training data for a specific job. Requires training:export permission."""
         pipeline = self._get_training_pipeline()
         if not pipeline:
             return error_response("Training pipeline not available", 503)
@@ -780,7 +760,7 @@ class TrainingHandler(BaseHandler):
             logger.exception(f"Failed to export data for job {job_id} (I/O error): {e}")
             return error_response(safe_error_message(e, "export training data"), 500)
 
-    @require_auth
+    @require_permission("training:create")
     @rate_limit(rpm=5, limiter_name="training_job_start")
     def _start_job(
         self,
@@ -788,14 +768,7 @@ class TrainingHandler(BaseHandler):
         query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult:
-        """Start training for a job."""
-        # Check permission for training creation
-        user = self.get_current_user(handler)
-        if user and not has_permission(
-            user.role if hasattr(user, "role") else None, "training:create"
-        ):
-            return error_response("Permission denied: training:create required", 403)
-
+        """Start training for a job. Requires training:create permission."""
         pipeline = self._get_training_pipeline()
         if not pipeline:
             return error_response("Training pipeline not available", 503)
@@ -823,7 +796,7 @@ class TrainingHandler(BaseHandler):
             logger.exception(f"Failed to start training for job {job_id} (runtime error): {e}")
             return error_response(safe_error_message(e, "start training"), 500)
 
-    @require_auth
+    @require_permission("training:create")
     @rate_limit(rpm=10, limiter_name="training_job_complete")
     def _complete_job(
         self,
@@ -831,14 +804,7 @@ class TrainingHandler(BaseHandler):
         query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult:
-        """Mark a training job as complete (webhook endpoint)."""
-        # Check permission for training creation
-        user = self.get_current_user(handler)
-        if user and not has_permission(
-            user.role if hasattr(user, "role") else None, "training:create"
-        ):
-            return error_response("Permission denied: training:create required", 403)
-
+        """Mark a training job as complete (webhook endpoint). Requires training:create permission."""
         pipeline = self._get_training_pipeline()
         if not pipeline:
             return error_response("Training pipeline not available", 503)
@@ -881,6 +847,7 @@ class TrainingHandler(BaseHandler):
             logger.exception(f"Failed to complete job {job_id} (runtime error): {e}")
             return error_response(safe_error_message(e, "complete training job"), 500)
 
+    @require_permission("training:read")
     def _get_job_metrics(
         self,
         job_id: str,
@@ -916,6 +883,7 @@ class TrainingHandler(BaseHandler):
             logger.warning(f"Failed to get metrics for job {job_id} (invalid value): {e}")
             return error_response(safe_error_message(e, "get training metrics"), 400)
 
+    @require_permission("training:read")
     def _get_job_artifacts(
         self,
         job_id: str,

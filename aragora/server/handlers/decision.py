@@ -229,7 +229,8 @@ class DecisionHandler(BaseHandler):
                     ctx,
                 )
             except Exception as e:
-                logger.debug(f"RBAC check skipped: {e}")
+                logger.error(f"RBAC authorization check failed: {e}")
+                return error_response("Authorization service unavailable", 503)
 
         # Route the decision (run synchronously for now)
         import asyncio
