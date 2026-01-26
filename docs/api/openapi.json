@@ -230,7 +230,7 @@
           "System"
         ],
         "summary": "Health check",
-        "description": "Get system health status for load balancers and monitoring. Returns 200 when healthy, 503 when degraded.",
+        "description": "Get system health status for load balancers and monitoring.\n\n**Returns:** 200 when healthy, 503 when degraded.\n\n**Use cases:**\n- Load balancer health probes\n- Kubernetes liveness/readiness checks\n- Uptime monitoring services",
         "responses": {
           "200": {
             "description": "System healthy",
@@ -243,7 +243,7 @@
             }
           },
           "503": {
-            "description": "System degraded"
+            "description": "System degraded or unhealthy"
           }
         },
         "deprecated": true
@@ -255,7 +255,8 @@
           "System"
         ],
         "summary": "Health check",
-        "description": "Get system health status for load balancers and monitoring. Returns 200 when healthy, 503 when degraded.",
+        "description": "Get system health status for load balancers and monitoring.\n\n**Returns:** 200 when healthy, 503 when degraded.\n\n**Use cases:**\n- Load balancer health probes\n- Kubernetes liveness/readiness checks\n- Uptime monitoring services",
+        "operationId": "getHealth",
         "responses": {
           "200": {
             "description": "System healthy",
@@ -268,7 +269,7 @@
             }
           },
           "503": {
-            "description": "System degraded"
+            "description": "System degraded or unhealthy"
           }
         }
       }
@@ -279,12 +280,17 @@
           "System"
         ],
         "summary": "Detailed health check",
-        "description": "Get detailed health status with component checks, observer metrics, memory stats",
+        "description": "Get detailed health status with component checks.\n\n**Response includes:**\n- Database connectivity status\n- Redis/cache availability\n- Memory usage statistics\n- Active connection counts\n- Observer metrics\n- Recent error counts",
         "responses": {
           "200": {
             "description": "Detailed health information"
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "deprecated": true
       }
     },
@@ -294,12 +300,18 @@
           "System"
         ],
         "summary": "Detailed health check",
-        "description": "Get detailed health status with component checks, observer metrics, memory stats",
+        "description": "Get detailed health status with component checks.\n\n**Response includes:**\n- Database connectivity status\n- Redis/cache availability\n- Memory usage statistics\n- Active connection counts\n- Observer metrics\n- Recent error counts",
+        "operationId": "getDetailedHealth",
         "responses": {
           "200": {
             "description": "Detailed health information"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/nomic/state": {
@@ -308,12 +320,17 @@
           "System"
         ],
         "summary": "Get nomic loop state",
-        "description": "Get current state of the nomic self-improvement loop",
+        "description": "Get current state of the nomic self-improvement loop.\n\n**Response includes:**\n- Current phase (debate, design, implement, verify)\n- Active cycle ID\n- Last successful cycle timestamp\n- Pending improvements queue",
         "responses": {
           "200": {
             "description": "Nomic state"
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "deprecated": true
       }
     },
@@ -323,12 +340,18 @@
           "System"
         ],
         "summary": "Get nomic loop state",
-        "description": "Get current state of the nomic self-improvement loop",
+        "description": "Get current state of the nomic self-improvement loop.\n\n**Response includes:**\n- Current phase (debate, design, implement, verify)\n- Active cycle ID\n- Last successful cycle timestamp\n- Pending improvements queue",
+        "operationId": "getNomicState",
         "responses": {
           "200": {
             "description": "Nomic state"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/nomic/health": {
@@ -337,7 +360,7 @@
           "System"
         ],
         "summary": "Nomic loop health",
-        "description": "Get nomic loop health with stall detection",
+        "description": "Get nomic loop health with stall detection.\n\n**Stall detection:** Alerts if the nomic loop hasn't progressed within expected timeframes.\n\n**Response includes:**\n- Health status (healthy, stalled, degraded)\n- Time since last activity\n- Phase duration statistics",
         "responses": {
           "200": {
             "description": "Nomic health status"
@@ -352,7 +375,8 @@
           "System"
         ],
         "summary": "Nomic loop health",
-        "description": "Get nomic loop health with stall detection",
+        "description": "Get nomic loop health with stall detection.\n\n**Stall detection:** Alerts if the nomic loop hasn't progressed within expected timeframes.\n\n**Response includes:**\n- Health status (healthy, stalled, degraded)\n- Time since last activity\n- Phase duration statistics",
+        "operationId": "getNomicHealth",
         "responses": {
           "200": {
             "description": "Nomic health status"
@@ -366,14 +390,16 @@
           "System"
         ],
         "summary": "Get nomic logs",
-        "description": "Get recent nomic loop log lines",
+        "description": "Get recent nomic loop log lines for debugging and monitoring.\n\n**Authentication:** Required. Admin access recommended.\n\n**Log levels:** DEBUG, INFO, WARNING, ERROR included.",
         "parameters": [
           {
             "name": "lines",
             "in": "query",
+            "description": "Number of log lines to return",
             "schema": {
               "type": "integer",
               "default": 100,
+              "minimum": 1,
               "maximum": 1000
             }
           }
@@ -383,6 +409,11 @@
             "description": "Log lines"
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "deprecated": true
       }
     },
@@ -392,14 +423,17 @@
           "System"
         ],
         "summary": "Get nomic logs",
-        "description": "Get recent nomic loop log lines",
+        "description": "Get recent nomic loop log lines for debugging and monitoring.\n\n**Authentication:** Required. Admin access recommended.\n\n**Log levels:** DEBUG, INFO, WARNING, ERROR included.",
+        "operationId": "getNomicLogs",
         "parameters": [
           {
             "name": "lines",
             "in": "query",
+            "description": "Number of log lines to return",
             "schema": {
               "type": "integer",
               "default": 100,
+              "minimum": 1,
               "maximum": 1000
             }
           }
@@ -408,7 +442,12 @@
           "200": {
             "description": "Log lines"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/nomic/risk-register": {
@@ -417,14 +456,16 @@
           "System"
         ],
         "summary": "Risk register",
-        "description": "Get risk register entries from nomic loop execution",
+        "description": "Get risk register entries from nomic loop execution.\n\n**Risk categories:**\n- Code changes that could break existing functionality\n- Security-sensitive modifications\n- Performance-impacting changes\n- External dependency updates",
         "parameters": [
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of risk entries to return",
             "schema": {
               "type": "integer",
               "default": 50,
+              "minimum": 1,
               "maximum": 200
             }
           }
@@ -434,6 +475,11 @@
             "description": "Risk entries"
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "deprecated": true
       }
     },
@@ -443,14 +489,17 @@
           "System"
         ],
         "summary": "Risk register",
-        "description": "Get risk register entries from nomic loop execution",
+        "description": "Get risk register entries from nomic loop execution.\n\n**Risk categories:**\n- Code changes that could break existing functionality\n- Security-sensitive modifications\n- Performance-impacting changes\n- External dependency updates",
+        "operationId": "getRiskRegister",
         "parameters": [
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of risk entries to return",
             "schema": {
               "type": "integer",
               "default": 50,
+              "minimum": 1,
               "maximum": 200
             }
           }
@@ -459,7 +508,12 @@
           "200": {
             "description": "Risk entries"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/modes": {
@@ -468,7 +522,7 @@
           "System"
         ],
         "summary": "List operational modes",
-        "description": "Get available operational modes (builtin + custom)",
+        "description": "Get available operational modes including builtin and custom modes.\n\n**Builtin modes:** debate, gauntlet, research, code-review, etc.\n\n**Custom modes:** User-defined workflow configurations.",
         "responses": {
           "200": {
             "description": "Available modes"
@@ -483,7 +537,8 @@
           "System"
         ],
         "summary": "List operational modes",
-        "description": "Get available operational modes (builtin + custom)",
+        "description": "Get available operational modes including builtin and custom modes.\n\n**Builtin modes:** debate, gauntlet, research, code-review, etc.\n\n**Custom modes:** User-defined workflow configurations.",
+        "operationId": "listModes",
         "responses": {
           "200": {
             "description": "Available modes"
@@ -497,10 +552,12 @@
           "System"
         ],
         "summary": "Cycle history",
+        "description": "Get history of completed nomic cycles.\n\n**Response includes:** cycle ID, duration, outcome, changes made.",
         "parameters": [
           {
             "name": "loop_id",
             "in": "query",
+            "description": "Filter by specific nomic loop ID",
             "schema": {
               "type": "string"
             }
@@ -508,9 +565,12 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of cycles to return",
             "schema": {
               "type": "integer",
-              "default": 50
+              "default": 50,
+              "minimum": 1,
+              "maximum": 200
             }
           }
         ],
@@ -528,10 +588,13 @@
           "System"
         ],
         "summary": "Cycle history",
+        "description": "Get history of completed nomic cycles.\n\n**Response includes:** cycle ID, duration, outcome, changes made.",
+        "operationId": "getCycleHistory",
         "parameters": [
           {
             "name": "loop_id",
             "in": "query",
+            "description": "Filter by specific nomic loop ID",
             "schema": {
               "type": "string"
             }
@@ -539,9 +602,12 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of cycles to return",
             "schema": {
               "type": "integer",
-              "default": 50
+              "default": 50,
+              "minimum": 1,
+              "maximum": 200
             }
           }
         ],
@@ -558,10 +624,12 @@
           "System"
         ],
         "summary": "Event history",
+        "description": "Get history of system events.\n\n**Event types:** debate_started, debate_completed, agent_registered, consensus_reached, etc.",
         "parameters": [
           {
             "name": "loop_id",
             "in": "query",
+            "description": "Filter by specific nomic loop ID",
             "schema": {
               "type": "string"
             }
@@ -569,9 +637,12 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of events to return",
             "schema": {
               "type": "integer",
-              "default": 100
+              "default": 100,
+              "minimum": 1,
+              "maximum": 500
             }
           }
         ],
@@ -589,10 +660,13 @@
           "System"
         ],
         "summary": "Event history",
+        "description": "Get history of system events.\n\n**Event types:** debate_started, debate_completed, agent_registered, consensus_reached, etc.",
+        "operationId": "getEventHistory",
         "parameters": [
           {
             "name": "loop_id",
             "in": "query",
+            "description": "Filter by specific nomic loop ID",
             "schema": {
               "type": "string"
             }
@@ -600,9 +674,12 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of events to return",
             "schema": {
               "type": "integer",
-              "default": 100
+              "default": 100,
+              "minimum": 1,
+              "maximum": 500
             }
           }
         ],
@@ -619,10 +696,12 @@
           "System"
         ],
         "summary": "Debate history",
+        "description": "Get history of completed debates.\n\n**Response includes:** topic, participants, outcome, duration, consensus status.",
         "parameters": [
           {
             "name": "loop_id",
             "in": "query",
+            "description": "Filter by specific nomic loop ID",
             "schema": {
               "type": "string"
             }
@@ -630,9 +709,12 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of debates to return",
             "schema": {
               "type": "integer",
-              "default": 50
+              "default": 50,
+              "minimum": 1,
+              "maximum": 200
             }
           }
         ],
@@ -650,10 +732,13 @@
           "System"
         ],
         "summary": "Debate history",
+        "description": "Get history of completed debates.\n\n**Response includes:** topic, participants, outcome, duration, consensus status.",
+        "operationId": "getDebateHistory",
         "parameters": [
           {
             "name": "loop_id",
             "in": "query",
+            "description": "Filter by specific nomic loop ID",
             "schema": {
               "type": "string"
             }
@@ -661,9 +746,12 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of debates to return",
             "schema": {
               "type": "integer",
-              "default": 50
+              "default": 50,
+              "minimum": 1,
+              "maximum": 200
             }
           }
         ],
@@ -680,10 +768,12 @@
           "System"
         ],
         "summary": "History summary",
+        "description": "Get aggregated summary statistics for system history.\n\n**Includes:** total debates, consensus rate, average duration, top performing agents.",
         "parameters": [
           {
             "name": "loop_id",
             "in": "query",
+            "description": "Filter by specific nomic loop ID",
             "schema": {
               "type": "string"
             }
@@ -703,10 +793,13 @@
           "System"
         ],
         "summary": "History summary",
+        "description": "Get aggregated summary statistics for system history.\n\n**Includes:** total debates, consensus rate, average duration, top performing agents.",
+        "operationId": "getHistorySummary",
         "parameters": [
           {
             "name": "loop_id",
             "in": "query",
+            "description": "Filter by specific nomic loop ID",
             "schema": {
               "type": "string"
             }
@@ -725,10 +818,12 @@
           "System"
         ],
         "summary": "Run database maintenance",
+        "description": "Run database maintenance tasks.\n\n**Tasks:**\n- `status`: Get current database statistics\n- `vacuum`: Reclaim unused space\n- `analyze`: Update query planner statistics\n- `checkpoint`: Force WAL checkpoint (SQLite)\n- `full`: Run all maintenance tasks\n\n**Authentication:** Admin access required.",
         "parameters": [
           {
             "name": "task",
             "in": "query",
+            "description": "Maintenance task to run",
             "schema": {
               "type": "string",
               "enum": [
@@ -747,6 +842,11 @@
             "description": "Maintenance results"
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "deprecated": true
       }
     },
@@ -756,10 +856,13 @@
           "System"
         ],
         "summary": "Run database maintenance",
+        "description": "Run database maintenance tasks.\n\n**Tasks:**\n- `status`: Get current database statistics\n- `vacuum`: Reclaim unused space\n- `analyze`: Update query planner statistics\n- `checkpoint`: Force WAL checkpoint (SQLite)\n- `full`: Run all maintenance tasks\n\n**Authentication:** Admin access required.",
+        "operationId": "runMaintenance",
         "parameters": [
           {
             "name": "task",
             "in": "query",
+            "description": "Maintenance task to run",
             "schema": {
               "type": "string",
               "enum": [
@@ -777,7 +880,12 @@
           "200": {
             "description": "Maintenance results"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/openapi": {
@@ -786,7 +894,7 @@
           "System"
         ],
         "summary": "OpenAPI specification",
-        "description": "Get OpenAPI 3.0 schema for this API",
+        "description": "Get the OpenAPI 3.1 specification for this API.\n\n**Formats:** JSON (default), YAML available at /api/openapi.yaml\n\n**Use cases:**\n- Generate client SDKs\n- Import into API documentation tools\n- Validate API requests",
         "responses": {
           "200": {
             "description": "OpenAPI schema",
@@ -804,7 +912,8 @@
           "System"
         ],
         "summary": "OpenAPI specification",
-        "description": "Get OpenAPI 3.0 schema for this API",
+        "description": "Get the OpenAPI 3.1 specification for this API.\n\n**Formats:** JSON (default), YAML available at /api/openapi.yaml\n\n**Use cases:**\n- Generate client SDKs\n- Import into API documentation tools\n- Validate API requests",
+        "operationId": "getOpenAPISpec",
         "responses": {
           "200": {
             "description": "OpenAPI schema",
@@ -821,11 +930,12 @@
           "Agents"
         ],
         "summary": "List all agents",
-        "description": "Get list of all known agents with optional stats",
+        "description": "Get list of all known AI agents with optional performance statistics.\n\n**Rate Limit:** 60 requests per minute (free), 300/min (pro), 1000/min (enterprise)\n\n**Response:** Returns agent metadata including name, model, provider, and ELO rating.\nOptionally includes detailed statistics when `include_stats=true`.",
         "parameters": [
           {
             "name": "include_stats",
             "in": "query",
+            "description": "Include detailed performance statistics for each agent",
             "schema": {
               "type": "boolean",
               "default": false
@@ -855,6 +965,11 @@
             }
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "deprecated": true
       }
     },
@@ -864,11 +979,13 @@
           "Agents"
         ],
         "summary": "List all agents",
-        "description": "Get list of all known agents with optional stats",
+        "description": "Get list of all known AI agents with optional performance statistics.\n\n**Rate Limit:** 60 requests per minute (free), 300/min (pro), 1000/min (enterprise)\n\n**Response:** Returns agent metadata including name, model, provider, and ELO rating.\nOptionally includes detailed statistics when `include_stats=true`.",
+        "operationId": "listAgents",
         "parameters": [
           {
             "name": "include_stats",
             "in": "query",
+            "description": "Include detailed performance statistics for each agent",
             "schema": {
               "type": "boolean",
               "default": false
@@ -897,7 +1014,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/leaderboard": {
@@ -906,24 +1028,26 @@
           "Agents"
         ],
         "summary": "Agent leaderboard",
-        "description": "Get agents ranked by ELO rating",
+        "description": "Get agents ranked by ELO rating.\n\n**Rate Limit:** 60 requests per minute\n\n**Sorting:** Agents are sorted by ELO rating in descending order.\nUse `domain` parameter to filter by expertise area (e.g., \"coding\", \"science\", \"writing\").",
         "parameters": [
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of agents to return",
             "schema": {
               "type": "integer",
               "default": 20,
-              "maximum": 100
+              "maximum": 100,
+              "minimum": 1
             }
           },
           {
             "name": "domain",
             "in": "query",
+            "description": "Filter by expertise domain (e.g., coding, science, writing)",
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by expertise domain"
+            }
           }
         ],
         "responses": {
@@ -940,24 +1064,27 @@
           "Agents"
         ],
         "summary": "Agent leaderboard",
-        "description": "Get agents ranked by ELO rating",
+        "description": "Get agents ranked by ELO rating.\n\n**Rate Limit:** 60 requests per minute\n\n**Sorting:** Agents are sorted by ELO rating in descending order.\nUse `domain` parameter to filter by expertise area (e.g., \"coding\", \"science\", \"writing\").",
+        "operationId": "getLeaderboard",
         "parameters": [
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of agents to return",
             "schema": {
               "type": "integer",
               "default": 20,
-              "maximum": 100
+              "maximum": 100,
+              "minimum": 1
             }
           },
           {
             "name": "domain",
             "in": "query",
+            "description": "Filter by expertise domain (e.g., coding, science, writing)",
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by expertise domain"
+            }
           }
         ],
         "responses": {
@@ -973,14 +1100,17 @@
           "Agents"
         ],
         "summary": "Agent rankings",
-        "description": "Alternative endpoint for agent rankings",
+        "description": "Alternative endpoint for agent rankings. Returns same data as /api/leaderboard.\n\n**Deprecated:** Consider using /api/leaderboard instead.",
         "parameters": [
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of agents to return",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -998,14 +1128,18 @@
           "Agents"
         ],
         "summary": "Agent rankings",
-        "description": "Alternative endpoint for agent rankings",
+        "description": "Alternative endpoint for agent rankings. Returns same data as /api/leaderboard.\n\n**Deprecated:** Consider using /api/leaderboard instead.",
+        "operationId": "getAgentRankings",
         "parameters": [
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of agents to return",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -1022,19 +1156,23 @@
           "Agents"
         ],
         "summary": "Leaderboard view data",
-        "description": "Pre-formatted leaderboard data for frontend display",
+        "description": "Get pre-formatted leaderboard data optimized for frontend display.\n\nIncludes display-ready fields like rank badges, formatted ratings, and trend indicators.",
         "parameters": [
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of agents to return",
             "schema": {
               "type": "integer",
-              "default": 10
+              "default": 10,
+              "minimum": 1,
+              "maximum": 50
             }
           },
           {
             "name": "domain",
             "in": "query",
+            "description": "Filter by expertise domain",
             "schema": {
               "type": "string"
             }
@@ -1042,6 +1180,7 @@
           {
             "name": "loop_id",
             "in": "query",
+            "description": "Filter by nomic loop ID",
             "schema": {
               "type": "string"
             }
@@ -1061,19 +1200,24 @@
           "Agents"
         ],
         "summary": "Leaderboard view data",
-        "description": "Pre-formatted leaderboard data for frontend display",
+        "description": "Get pre-formatted leaderboard data optimized for frontend display.\n\nIncludes display-ready fields like rank badges, formatted ratings, and trend indicators.",
+        "operationId": "getLeaderboardView",
         "parameters": [
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of agents to return",
             "schema": {
               "type": "integer",
-              "default": 10
+              "default": 10,
+              "minimum": 1,
+              "maximum": 50
             }
           },
           {
             "name": "domain",
             "in": "query",
+            "description": "Filter by expertise domain",
             "schema": {
               "type": "string"
             }
@@ -1081,6 +1225,7 @@
           {
             "name": "loop_id",
             "in": "query",
+            "description": "Filter by nomic loop ID",
             "schema": {
               "type": "string"
             }
@@ -1099,11 +1244,13 @@
           "Agents"
         ],
         "summary": "Get agent profile",
+        "description": "Get detailed profile for a specific agent.\n\n**Response includes:**\n- Basic info (name, model, provider)\n- Current ELO rating and rank\n- Win/loss record\n- Expertise domains\n- Recent performance trends",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name (e.g., 'claude', 'gpt-4', 'gemini')",
             "schema": {
               "type": "string"
             }
@@ -1173,11 +1320,14 @@
           "Agents"
         ],
         "summary": "Get agent profile",
+        "description": "Get detailed profile for a specific agent.\n\n**Response includes:**\n- Basic info (name, model, provider)\n- Current ELO rating and rank\n- Win/loss record\n- Expertise domains\n- Recent performance trends",
+        "operationId": "getAgentProfile",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name (e.g., 'claude', 'gpt-4', 'gemini')",
             "schema": {
               "type": "string"
             }
@@ -1246,11 +1396,13 @@
           "Agents"
         ],
         "summary": "Agent match history",
+        "description": "Get recent debate matches for an agent.\n\n**Response includes:** debate topic, opponents, outcome, ELO change per match.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1258,9 +1410,12 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of matches to return",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -1278,11 +1433,14 @@
           "Agents"
         ],
         "summary": "Agent match history",
+        "description": "Get recent debate matches for an agent.\n\n**Response includes:** debate topic, opponents, outcome, ELO change per match.",
+        "operationId": "getAgentHistory",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1290,9 +1448,12 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of matches to return",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -1309,11 +1470,13 @@
           "Agents"
         ],
         "summary": "Agent calibration data",
+        "description": "Get calibration metrics showing how well an agent's confidence matches actual accuracy.\n\n**Calibration:** A well-calibrated agent's stated confidence (e.g., 80%) should match actual correctness rate.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1340,11 +1503,14 @@
           "Agents"
         ],
         "summary": "Agent calibration data",
+        "description": "Get calibration metrics showing how well an agent's confidence matches actual accuracy.\n\n**Calibration:** A well-calibrated agent's stated confidence (e.g., 80%) should match actual correctness rate.",
+        "operationId": "getAgentCalibration",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1370,11 +1536,13 @@
           "Agents"
         ],
         "summary": "Agent calibration curve",
+        "description": "Get calibration curve data for visualization.\n\nReturns confidence buckets (0-10%, 10-20%, etc.) with actual accuracy for each bucket.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1394,11 +1562,14 @@
           "Agents"
         ],
         "summary": "Agent calibration curve",
+        "description": "Get calibration curve data for visualization.\n\nReturns confidence buckets (0-10%, 10-20%, etc.) with actual accuracy for each bucket.",
+        "operationId": "getAgentCalibrationCurve",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1417,11 +1588,13 @@
           "Agents"
         ],
         "summary": "Agent calibration summary",
+        "description": "Get summarized calibration metrics.\n\nReturns Brier score, calibration error, and overconfidence/underconfidence indicators.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1441,11 +1614,14 @@
           "Agents"
         ],
         "summary": "Agent calibration summary",
+        "description": "Get summarized calibration metrics.\n\nReturns Brier score, calibration error, and overconfidence/underconfidence indicators.",
+        "operationId": "getAgentCalibrationSummary",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1464,11 +1640,13 @@
           "Agents"
         ],
         "summary": "Agent consistency score",
+        "description": "Get consistency metrics measuring how stable an agent's positions are over time.\n\n**High consistency:** Agent maintains coherent positions across similar debates.\n**Low consistency:** Agent frequently contradicts previous positions.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1488,11 +1666,14 @@
           "Agents"
         ],
         "summary": "Agent consistency score",
+        "description": "Get consistency metrics measuring how stable an agent's positions are over time.\n\n**High consistency:** Agent maintains coherent positions across similar debates.\n**Low consistency:** Agent frequently contradicts previous positions.",
+        "operationId": "getAgentConsistency",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1511,12 +1692,13 @@
           "Agents"
         ],
         "summary": "Agent position flips",
-        "description": "Get instances where agent changed positions",
+        "description": "Get instances where the agent changed positions during or between debates.\n\nUseful for understanding agent reasoning and persuadability.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1524,9 +1706,12 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of flips to return",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -1544,12 +1729,14 @@
           "Agents"
         ],
         "summary": "Agent position flips",
-        "description": "Get instances where agent changed positions",
+        "description": "Get instances where the agent changed positions during or between debates.\n\nUseful for understanding agent reasoning and persuadability.",
+        "operationId": "getAgentFlips",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1557,9 +1744,12 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of flips to return",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -1576,11 +1766,13 @@
           "Agents"
         ],
         "summary": "Agent relationship network",
+        "description": "Get the agent's relationship network showing connections to other agents.\n\nIncludes agreement rates, collaboration frequency, and influence scores.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1600,11 +1792,14 @@
           "Agents"
         ],
         "summary": "Agent relationship network",
+        "description": "Get the agent's relationship network showing connections to other agents.\n\nIncludes agreement rates, collaboration frequency, and influence scores.",
+        "operationId": "getAgentNetwork",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1623,11 +1818,13 @@
           "Agents"
         ],
         "summary": "Agent rivals",
+        "description": "Get agents that frequently disagree with this agent.\n\nRivals are determined by low agreement rates and competitive debate history.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1647,11 +1844,14 @@
           "Agents"
         ],
         "summary": "Agent rivals",
+        "description": "Get agents that frequently disagree with this agent.\n\nRivals are determined by low agreement rates and competitive debate history.",
+        "operationId": "getAgentRivals",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1670,11 +1870,13 @@
           "Agents"
         ],
         "summary": "Agent allies",
+        "description": "Get agents that frequently agree with this agent.\n\nAllies are determined by high agreement rates and collaborative debate history.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1694,11 +1896,14 @@
           "Agents"
         ],
         "summary": "Agent allies",
+        "description": "Get agents that frequently agree with this agent.\n\nAllies are determined by high agreement rates and collaborative debate history.",
+        "operationId": "getAgentAllies",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1717,12 +1922,13 @@
           "Agents"
         ],
         "summary": "Agent moments",
-        "description": "Get significant moments for this agent",
+        "description": "Get significant moments from this agent's debate history.\n\n**Moment types:** upset wins, consensus shifts, notable arguments, calibration milestones.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1742,12 +1948,14 @@
           "Agents"
         ],
         "summary": "Agent moments",
-        "description": "Get significant moments for this agent",
+        "description": "Get significant moments from this agent's debate history.\n\n**Moment types:** upset wins, consensus shifts, notable arguments, calibration milestones.",
+        "operationId": "getAgentMoments",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1766,11 +1974,13 @@
           "Agents"
         ],
         "summary": "Agent reputation",
+        "description": "Get reputation metrics derived from debate performance.\n\nIncludes trustworthiness, expertise recognition, and community standing.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1790,11 +2000,14 @@
           "Agents"
         ],
         "summary": "Agent reputation",
+        "description": "Get reputation metrics derived from debate performance.\n\nIncludes trustworthiness, expertise recognition, and community standing.",
+        "operationId": "getAgentReputation",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1813,11 +2026,13 @@
           "Agents"
         ],
         "summary": "Agent persona",
+        "description": "Get the agent's persona profile including communication style and reasoning patterns.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1837,11 +2052,14 @@
           "Agents"
         ],
         "summary": "Agent persona",
+        "description": "Get the agent's persona profile including communication style and reasoning patterns.",
+        "operationId": "getAgentPersona",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1860,12 +2078,13 @@
           "Agents"
         ],
         "summary": "Agent grounded persona",
-        "description": "Get persona derived from debate performance",
+        "description": "Get persona derived from actual debate performance rather than training data.\n\nThe grounded persona reflects observed behavior patterns across debates.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1885,12 +2104,14 @@
           "Agents"
         ],
         "summary": "Agent grounded persona",
-        "description": "Get persona derived from debate performance",
+        "description": "Get persona derived from actual debate performance rather than training data.\n\nThe grounded persona reflects observed behavior patterns across debates.",
+        "operationId": "getAgentGroundedPersona",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1909,11 +2130,13 @@
           "Agents"
         ],
         "summary": "Agent identity prompt",
+        "description": "Get the system prompt used to establish this agent's identity in debates.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1924,6 +2147,11 @@
             "description": "Identity prompt"
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "deprecated": true
       }
     },
@@ -1933,11 +2161,14 @@
           "Agents"
         ],
         "summary": "Agent identity prompt",
+        "description": "Get the system prompt used to establish this agent's identity in debates.",
+        "operationId": "getAgentIdentityPrompt",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1947,7 +2178,12 @@
           "200": {
             "description": "Identity prompt"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/agent/{name}/performance": {
@@ -1956,11 +2192,13 @@
           "Agents"
         ],
         "summary": "Agent performance",
+        "description": "Get detailed performance metrics for the agent.\n\n**Metrics include:** win rate, average ELO delta, debate participation, consensus contribution.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -1980,11 +2218,14 @@
           "Agents"
         ],
         "summary": "Agent performance",
+        "description": "Get detailed performance metrics for the agent.\n\n**Metrics include:** win rate, average ELO delta, debate participation, consensus contribution.",
+        "operationId": "getAgentPerformance",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -2003,11 +2244,13 @@
           "Agents"
         ],
         "summary": "Agent expertise domains",
+        "description": "Get domains where this agent has demonstrated expertise.\n\nExpertise is determined by debate performance in specific topic areas.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -2027,11 +2270,14 @@
           "Agents"
         ],
         "summary": "Agent expertise domains",
+        "description": "Get domains where this agent has demonstrated expertise.\n\nExpertise is determined by debate performance in specific topic areas.",
+        "operationId": "getAgentDomains",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -2050,11 +2296,13 @@
           "Agents"
         ],
         "summary": "Agent accuracy",
+        "description": "Get accuracy metrics measuring how often the agent's positions align with eventual consensus.",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -2074,11 +2322,14 @@
           "Agents"
         ],
         "summary": "Agent accuracy",
+        "description": "Get accuracy metrics measuring how often the agent's positions align with eventual consensus.",
+        "operationId": "getAgentAccuracy",
         "parameters": [
           {
             "name": "name",
             "in": "path",
             "required": true,
+            "description": "Agent name",
             "schema": {
               "type": "string"
             }
@@ -2097,12 +2348,13 @@
           "Agents"
         ],
         "summary": "Compare agents",
-        "description": "Compare two agents side-by-side",
+        "description": "Compare two agents side-by-side.\n\nReturns comparative statistics including head-to-head record, relative strengths, and domain performance.",
         "parameters": [
           {
             "name": "agent_a",
             "in": "query",
             "required": true,
+            "description": "First agent name",
             "schema": {
               "type": "string"
             }
@@ -2111,6 +2363,7 @@
             "name": "agent_b",
             "in": "query",
             "required": true,
+            "description": "Second agent name",
             "schema": {
               "type": "string"
             }
@@ -2130,12 +2383,14 @@
           "Agents"
         ],
         "summary": "Compare agents",
-        "description": "Compare two agents side-by-side",
+        "description": "Compare two agents side-by-side.\n\nReturns comparative statistics including head-to-head record, relative strengths, and domain performance.",
+        "operationId": "compareAgents",
         "parameters": [
           {
             "name": "agent_a",
             "in": "query",
             "required": true,
+            "description": "First agent name",
             "schema": {
               "type": "string"
             }
@@ -2144,6 +2399,7 @@
             "name": "agent_b",
             "in": "query",
             "required": true,
+            "description": "Second agent name",
             "schema": {
               "type": "string"
             }
@@ -2162,13 +2418,17 @@
           "Agents"
         ],
         "summary": "Recent matches",
+        "description": "Get recent debate matches across all agents.\n\nReturns match summaries with participants, outcomes, and ELO changes.",
         "parameters": [
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of matches to return",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -2186,13 +2446,18 @@
           "Agents"
         ],
         "summary": "Recent matches",
+        "description": "Get recent debate matches across all agents.\n\nReturns match summaries with participants, outcomes, and ELO changes.",
+        "operationId": "getRecentMatches",
         "parameters": [
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of matches to return",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -2209,14 +2474,17 @@
           "Agents"
         ],
         "summary": "Calibration leaderboard",
-        "description": "Get agents ranked by calibration score",
+        "description": "Get agents ranked by calibration score (how well confidence matches accuracy).\n\nLower calibration error = better calibrated agent.",
         "parameters": [
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of agents to return",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -2234,14 +2502,18 @@
           "Agents"
         ],
         "summary": "Calibration leaderboard",
-        "description": "Get agents ranked by calibration score",
+        "description": "Get agents ranked by calibration score (how well confidence matches accuracy).\n\nLower calibration error = better calibrated agent.",
+        "operationId": "getCalibrationLeaderboard",
         "parameters": [
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of agents to return",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -2258,6 +2530,7 @@
           "Agents"
         ],
         "summary": "List all personas",
+        "description": "Get all agent personas including their communication styles and reasoning patterns.",
         "responses": {
           "200": {
             "description": "All personas"
@@ -2272,6 +2545,8 @@
           "Agents"
         ],
         "summary": "List all personas",
+        "description": "Get all agent personas including their communication styles and reasoning patterns.",
+        "operationId": "listPersonas",
         "responses": {
           "200": {
             "description": "All personas"
@@ -4789,12 +5064,13 @@
           "Consensus"
         ],
         "summary": "Similar debates",
-        "description": "Find debates similar to a given topic",
+        "description": "Find debates similar to a given topic using semantic similarity.\n\n**Use cases:**\n- Check if a question has been debated before\n- Find related discussions for context\n- Avoid redundant debates on settled topics\n\n**Similarity:** Uses embedding-based semantic search to find related debates.",
         "parameters": [
           {
             "name": "topic",
             "in": "query",
             "required": true,
+            "description": "Topic or question to find similar debates for",
             "schema": {
               "type": "string"
             }
@@ -4802,9 +5078,12 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of similar debates to return",
             "schema": {
               "type": "integer",
-              "default": 10
+              "default": 10,
+              "minimum": 1,
+              "maximum": 50
             }
           }
         ],
@@ -4822,12 +5101,14 @@
           "Consensus"
         ],
         "summary": "Similar debates",
-        "description": "Find debates similar to a given topic",
+        "description": "Find debates similar to a given topic using semantic similarity.\n\n**Use cases:**\n- Check if a question has been debated before\n- Find related discussions for context\n- Avoid redundant debates on settled topics\n\n**Similarity:** Uses embedding-based semantic search to find related debates.",
+        "operationId": "findSimilarDebates",
         "parameters": [
           {
             "name": "topic",
             "in": "query",
             "required": true,
+            "description": "Topic or question to find similar debates for",
             "schema": {
               "type": "string"
             }
@@ -4835,9 +5116,12 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of similar debates to return",
             "schema": {
               "type": "integer",
-              "default": 10
+              "default": 10,
+              "minimum": 1,
+              "maximum": 50
             }
           }
         ],
@@ -4854,21 +5138,28 @@
           "Consensus"
         ],
         "summary": "Settled questions",
+        "description": "Get questions where strong consensus has been reached.\n\n**Settled criteria:** Agreement threshold met (default 80%) across multiple debates.\n\n**Use cases:**\n- Find authoritative answers from past debates\n- Identify topics with high confidence conclusions\n- Build knowledge base from debate outcomes",
         "parameters": [
           {
             "name": "threshold",
             "in": "query",
+            "description": "Minimum consensus threshold (0.0-1.0)",
             "schema": {
               "type": "number",
-              "default": 0.8
+              "default": 0.8,
+              "minimum": 0.5,
+              "maximum": 1.0
             }
           },
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of questions to return",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -4886,21 +5177,29 @@
           "Consensus"
         ],
         "summary": "Settled questions",
+        "description": "Get questions where strong consensus has been reached.\n\n**Settled criteria:** Agreement threshold met (default 80%) across multiple debates.\n\n**Use cases:**\n- Find authoritative answers from past debates\n- Identify topics with high confidence conclusions\n- Build knowledge base from debate outcomes",
+        "operationId": "getSettledQuestions",
         "parameters": [
           {
             "name": "threshold",
             "in": "query",
+            "description": "Minimum consensus threshold (0.0-1.0)",
             "schema": {
               "type": "number",
-              "default": 0.8
+              "default": 0.8,
+              "minimum": 0.5,
+              "maximum": 1.0
             }
           },
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of questions to return",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -4917,6 +5216,7 @@
           "Consensus"
         ],
         "summary": "Consensus statistics",
+        "description": "Get aggregate statistics about consensus across all debates.\n\n**Response includes:**\n- Overall consensus rate\n- Average time to consensus\n- Distribution by domain\n- Trend over time",
         "responses": {
           "200": {
             "description": "Consensus stats"
@@ -4931,6 +5231,8 @@
           "Consensus"
         ],
         "summary": "Consensus statistics",
+        "description": "Get aggregate statistics about consensus across all debates.\n\n**Response includes:**\n- Overall consensus rate\n- Average time to consensus\n- Distribution by domain\n- Trend over time",
+        "operationId": "getConsensusStats",
         "responses": {
           "200": {
             "description": "Consensus stats"
@@ -4944,13 +5246,17 @@
           "Consensus"
         ],
         "summary": "Dissenting views",
+        "description": "Get significant dissenting views from debates.\n\n**Dissents:** Minority positions with strong reasoning that didn't achieve consensus.\n\n**Use cases:**\n- Understand alternative perspectives\n- Identify potential blind spots in consensus\n- Preserve minority viewpoints for future consideration",
         "parameters": [
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of dissents to return",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -4968,13 +5274,18 @@
           "Consensus"
         ],
         "summary": "Dissenting views",
+        "description": "Get significant dissenting views from debates.\n\n**Dissents:** Minority positions with strong reasoning that didn't achieve consensus.\n\n**Use cases:**\n- Understand alternative perspectives\n- Identify potential blind spots in consensus\n- Preserve minority viewpoints for future consideration",
+        "operationId": "getDissentingViews",
         "parameters": [
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of dissents to return",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -4991,6 +5302,7 @@
           "Consensus"
         ],
         "summary": "Contrarian views",
+        "description": "Get contrarian views that challenge established consensus.\n\n**Contrarian:** Positions that directly oppose majority conclusions with substantive arguments.\n\nThese views are preserved to:\n- Prevent groupthink\n- Enable future reconsideration\n- Document minority reasoning",
         "responses": {
           "200": {
             "description": "Contrarian views"
@@ -5005,6 +5317,8 @@
           "Consensus"
         ],
         "summary": "Contrarian views",
+        "description": "Get contrarian views that challenge established consensus.\n\n**Contrarian:** Positions that directly oppose majority conclusions with substantive arguments.\n\nThese views are preserved to:\n- Prevent groupthink\n- Enable future reconsideration\n- Document minority reasoning",
+        "operationId": "getContrarianViews",
         "responses": {
           "200": {
             "description": "Contrarian views"
@@ -5018,6 +5332,7 @@
           "Consensus"
         ],
         "summary": "Risk warnings",
+        "description": "Get risk warnings from consensus analysis.\n\n**Warning types:**\n- Low confidence consensus (threshold barely met)\n- Rapidly shifting consensus\n- Contradictory historical positions\n- Potential bias indicators",
         "responses": {
           "200": {
             "description": "Risk warnings"
@@ -5032,6 +5347,8 @@
           "Consensus"
         ],
         "summary": "Risk warnings",
+        "description": "Get risk warnings from consensus analysis.\n\n**Warning types:**\n- Low confidence consensus (threshold barely met)\n- Rapidly shifting consensus\n- Contradictory historical positions\n- Potential bias indicators",
+        "operationId": "getRiskWarnings",
         "responses": {
           "200": {
             "description": "Risk warnings"
@@ -5045,11 +5362,13 @@
           "Consensus"
         ],
         "summary": "Domain consensus",
+        "description": "Get consensus data for a specific domain (e.g., \"technology\", \"policy\", \"science\").\n\n**Response includes:**\n- Settled questions in domain\n- Active debates\n- Domain-specific consensus rates\n- Top contributing agents",
         "parameters": [
           {
             "name": "domain",
             "in": "path",
             "required": true,
+            "description": "Domain name (e.g., technology, science, policy)",
             "schema": {
               "type": "string"
             }
@@ -5069,11 +5388,14 @@
           "Consensus"
         ],
         "summary": "Domain consensus",
+        "description": "Get consensus data for a specific domain (e.g., \"technology\", \"policy\", \"science\").\n\n**Response includes:**\n- Settled questions in domain\n- Active debates\n- Domain-specific consensus rates\n- Top contributing agents",
+        "operationId": "getDomainConsensus",
         "parameters": [
           {
             "name": "domain",
             "in": "path",
             "required": true,
+            "description": "Domain name (e.g., technology, science, policy)",
             "schema": {
               "type": "string"
             }
@@ -10251,6 +10573,692 @@
                       "error": "You do not have permission to modify this debate",
                       "code": "NOT_OWNER",
                       "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/workspaces/profiles": {
+      "get": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "List RBAC profiles",
+        "description": "Get available RBAC profiles for workspace configuration.\n\n**Profiles:**\n- **lite**: 3 roles (owner, admin, member) - ideal for SME workspaces\n- **standard**: 5 roles (adds analyst, viewer) - for growing teams\n- **enterprise**: 8 roles - full governance with compliance roles\n\n**Recommendation:** Use 'lite' for most workspaces; upgrade as needed.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Available RBAC profiles with role details"
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/workspaces/profiles": {
+      "get": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "List RBAC profiles",
+        "description": "Get available RBAC profiles for workspace configuration.\n\n**Profiles:**\n- **lite**: 3 roles (owner, admin, member) - ideal for SME workspaces\n- **standard**: 5 roles (adds analyst, viewer) - for growing teams\n- **enterprise**: 8 roles - full governance with compliance roles\n\n**Recommendation:** Use 'lite' for most workspaces; upgrade as needed.",
+        "operationId": "listWorkspaceProfiles",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Available RBAC profiles with role details"
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/workspaces/{workspace_id}/roles": {
+      "get": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Get workspace roles",
+        "description": "Get available roles for a workspace based on its RBAC profile.\n\n**Response includes:**\n- Roles available in the workspace's profile\n- Which roles the current user can assign\n- Current user's role in the workspace\n\n**Role assignment rules:**\n- Owners can assign all roles except owner\n- Admins can assign member, analyst, viewer\n- Members cannot assign roles",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "description": "Workspace ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workspace roles with assignment permissions"
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/workspaces/{workspace_id}/roles": {
+      "get": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Get workspace roles",
+        "description": "Get available roles for a workspace based on its RBAC profile.\n\n**Response includes:**\n- Roles available in the workspace's profile\n- Which roles the current user can assign\n- Current user's role in the workspace\n\n**Role assignment rules:**\n- Owners can assign all roles except owner\n- Admins can assign member, analyst, viewer\n- Members cannot assign roles",
+        "operationId": "getWorkspaceRoles",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "description": "Workspace ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workspace roles with assignment permissions"
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/workspaces/{workspace_id}/members/{user_id}/role": {
+      "put": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Update member role",
+        "description": "Update a workspace member's role.\n\n**Role hierarchy:** owner > admin > member\n\n**Restrictions:**\n- Cannot remove the last owner\n- Can only assign roles within your permission level\n- Role changes are audit logged\n\n**Lite profile roles:**\n- `owner`: Full workspace control including billing\n- `admin`: Manage users and debates, no billing\n- `member`: Create and run debates",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "description": "Workspace ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "description": "User ID of the member",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "role"
+                ],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "description": "New role for the member",
+                    "enum": [
+                      "owner",
+                      "admin",
+                      "member",
+                      "analyst",
+                      "viewer"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role updated successfully"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/workspaces/{workspace_id}/members/{user_id}/role": {
+      "put": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Update member role",
+        "description": "Update a workspace member's role.\n\n**Role hierarchy:** owner > admin > member\n\n**Restrictions:**\n- Cannot remove the last owner\n- Can only assign roles within your permission level\n- Role changes are audit logged\n\n**Lite profile roles:**\n- `owner`: Full workspace control including billing\n- `admin`: Manage users and debates, no billing\n- `member`: Create and run debates",
+        "operationId": "updateWorkspaceMemberRole",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "description": "Workspace ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "description": "User ID of the member",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "role"
+                ],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "description": "New role for the member",
+                    "enum": [
+                      "owner",
+                      "admin",
+                      "member",
+                      "analyst",
+                      "viewer"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role updated successfully"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
                       "trace_id": "req_abc123xyz"
                     }
                   }
@@ -28121,6 +29129,712 @@
             "bearerAuth": []
           }
         ]
+      }
+    },
+    "/api/v2/integrations": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "List all integrations",
+        "description": "List all platform integrations (Slack, Teams, Discord, Email) for the current tenant.",
+        "operationId": "listIntegrations",
+        "parameters": [
+          {
+            "name": "X-Tenant-ID",
+            "in": "header",
+            "description": "Tenant ID for multi-tenant deployments",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of results (default: 20, max: 100)",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Pagination offset",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Filter by integration type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "slack",
+                "teams",
+                "discord",
+                "email"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of integrations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "integrations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string"
+                          },
+                          "workspace_id": {
+                            "type": "string"
+                          },
+                          "workspace_name": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "installed_at": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "offset": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "has_more": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/integrations/{type}": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Get integration status",
+        "description": "Get the status and details of a specific integration type.",
+        "operationId": "getIntegration",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "description": "Integration type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "slack",
+                "teams",
+                "discord",
+                "email"
+              ]
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "description": "Specific workspace/tenant ID to query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Integration status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "connected": {
+                      "type": "boolean"
+                    },
+                    "workspaces": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "health": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Disconnect integration",
+        "description": "Disconnect/deactivate a specific integration workspace.",
+        "operationId": "disconnectIntegration",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "description": "Integration type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "slack",
+                "teams",
+                "discord",
+                "email"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "workspace_id"
+                ],
+                "properties": {
+                  "workspace_id": {
+                    "type": "string",
+                    "description": "Workspace/tenant ID to disconnect"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Integration disconnected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "disconnected": {
+                      "type": "boolean"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "workspace_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/integrations/{type}/test": {
+      "post": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Test integration connectivity",
+        "description": "Test the connectivity and health of a specific integration.",
+        "operationId": "testIntegration",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "description": "Integration type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "slack",
+                "teams",
+                "discord",
+                "email"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspace_id": {
+                    "type": "string",
+                    "description": "Workspace/tenant ID to test"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Test result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "workspace_id": {
+                      "type": "string"
+                    },
+                    "test_result": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string"
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "tested_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
   },

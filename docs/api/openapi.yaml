@@ -121,8 +121,19 @@ paths:
       tags:
       - System
       summary: Health check
-      description: Get system health status for load balancers and monitoring. Returns
-        200 when healthy, 503 when degraded.
+      description: 'Get system health status for load balancers and monitoring.
+
+
+        **Returns:** 200 when healthy, 503 when degraded.
+
+
+        **Use cases:**
+
+        - Load balancer health probes
+
+        - Kubernetes liveness/readiness checks
+
+        - Uptime monitoring services'
       responses:
         '200':
           description: System healthy
@@ -131,15 +142,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthCheck'
         '503':
-          description: System degraded
+          description: System degraded or unhealthy
       deprecated: true
   /api/v1/health:
     get:
       tags:
       - System
       summary: Health check
-      description: Get system health status for load balancers and monitoring. Returns
-        200 when healthy, 503 when degraded.
+      description: 'Get system health status for load balancers and monitoring.
+
+
+        **Returns:** 200 when healthy, 503 when degraded.
+
+
+        **Use cases:**
+
+        - Load balancer health probes
+
+        - Kubernetes liveness/readiness checks
+
+        - Uptime monitoring services'
+      operationId: getHealth
       responses:
         '200':
           description: System healthy
@@ -148,53 +171,126 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthCheck'
         '503':
-          description: System degraded
+          description: System degraded or unhealthy
   /api/health/detailed:
     get:
       tags:
       - System
       summary: Detailed health check
-      description: Get detailed health status with component checks, observer metrics,
-        memory stats
+      description: 'Get detailed health status with component checks.
+
+
+        **Response includes:**
+
+        - Database connectivity status
+
+        - Redis/cache availability
+
+        - Memory usage statistics
+
+        - Active connection counts
+
+        - Observer metrics
+
+        - Recent error counts'
       responses:
         '200':
           description: Detailed health information
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/health/detailed:
     get:
       tags:
       - System
       summary: Detailed health check
-      description: Get detailed health status with component checks, observer metrics,
-        memory stats
+      description: 'Get detailed health status with component checks.
+
+
+        **Response includes:**
+
+        - Database connectivity status
+
+        - Redis/cache availability
+
+        - Memory usage statistics
+
+        - Active connection counts
+
+        - Observer metrics
+
+        - Recent error counts'
+      operationId: getDetailedHealth
       responses:
         '200':
           description: Detailed health information
+      security:
+      - bearerAuth: []
   /api/nomic/state:
     get:
       tags:
       - System
       summary: Get nomic loop state
-      description: Get current state of the nomic self-improvement loop
+      description: 'Get current state of the nomic self-improvement loop.
+
+
+        **Response includes:**
+
+        - Current phase (debate, design, implement, verify)
+
+        - Active cycle ID
+
+        - Last successful cycle timestamp
+
+        - Pending improvements queue'
       responses:
         '200':
           description: Nomic state
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/nomic/state:
     get:
       tags:
       - System
       summary: Get nomic loop state
-      description: Get current state of the nomic self-improvement loop
+      description: 'Get current state of the nomic self-improvement loop.
+
+
+        **Response includes:**
+
+        - Current phase (debate, design, implement, verify)
+
+        - Active cycle ID
+
+        - Last successful cycle timestamp
+
+        - Pending improvements queue'
+      operationId: getNomicState
       responses:
         '200':
           description: Nomic state
+      security:
+      - bearerAuth: []
   /api/nomic/health:
     get:
       tags:
       - System
       summary: Nomic loop health
-      description: Get nomic loop health with stall detection
+      description: 'Get nomic loop health with stall detection.
+
+
+        **Stall detection:** Alerts if the nomic loop hasn''t progressed within expected
+        timeframes.
+
+
+        **Response includes:**
+
+        - Health status (healthy, stalled, degraded)
+
+        - Time since last activity
+
+        - Phase duration statistics'
       responses:
         '200':
           description: Nomic health status
@@ -204,7 +300,21 @@ paths:
       tags:
       - System
       summary: Nomic loop health
-      description: Get nomic loop health with stall detection
+      description: 'Get nomic loop health with stall detection.
+
+
+        **Stall detection:** Alerts if the nomic loop hasn''t progressed within expected
+        timeframes.
+
+
+        **Response includes:**
+
+        - Health status (healthy, stalled, degraded)
+
+        - Time since last activity
+
+        - Phase duration statistics'
+      operationId: getNomicHealth
       responses:
         '200':
           description: Nomic health status
@@ -213,73 +323,131 @@ paths:
       tags:
       - System
       summary: Get nomic logs
-      description: Get recent nomic loop log lines
+      description: 'Get recent nomic loop log lines for debugging and monitoring.
+
+
+        **Authentication:** Required. Admin access recommended.
+
+
+        **Log levels:** DEBUG, INFO, WARNING, ERROR included.'
       parameters:
       - name: lines
         in: query
+        description: Number of log lines to return
         schema:
           type: integer
           default: 100
+          minimum: 1
           maximum: 1000
       responses:
         '200':
           description: Log lines
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/nomic/log:
     get:
       tags:
       - System
       summary: Get nomic logs
-      description: Get recent nomic loop log lines
+      description: 'Get recent nomic loop log lines for debugging and monitoring.
+
+
+        **Authentication:** Required. Admin access recommended.
+
+
+        **Log levels:** DEBUG, INFO, WARNING, ERROR included.'
+      operationId: getNomicLogs
       parameters:
       - name: lines
         in: query
+        description: Number of log lines to return
         schema:
           type: integer
           default: 100
+          minimum: 1
           maximum: 1000
       responses:
         '200':
           description: Log lines
+      security:
+      - bearerAuth: []
   /api/nomic/risk-register:
     get:
       tags:
       - System
       summary: Risk register
-      description: Get risk register entries from nomic loop execution
+      description: 'Get risk register entries from nomic loop execution.
+
+
+        **Risk categories:**
+
+        - Code changes that could break existing functionality
+
+        - Security-sensitive modifications
+
+        - Performance-impacting changes
+
+        - External dependency updates'
       parameters:
       - name: limit
         in: query
+        description: Maximum number of risk entries to return
         schema:
           type: integer
           default: 50
+          minimum: 1
           maximum: 200
       responses:
         '200':
           description: Risk entries
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/nomic/risk-register:
     get:
       tags:
       - System
       summary: Risk register
-      description: Get risk register entries from nomic loop execution
+      description: 'Get risk register entries from nomic loop execution.
+
+
+        **Risk categories:**
+
+        - Code changes that could break existing functionality
+
+        - Security-sensitive modifications
+
+        - Performance-impacting changes
+
+        - External dependency updates'
+      operationId: getRiskRegister
       parameters:
       - name: limit
         in: query
+        description: Maximum number of risk entries to return
         schema:
           type: integer
           default: 50
+          minimum: 1
           maximum: 200
       responses:
         '200':
           description: Risk entries
+      security:
+      - bearerAuth: []
   /api/modes:
     get:
       tags:
       - System
       summary: List operational modes
-      description: Get available operational modes (builtin + custom)
+      description: 'Get available operational modes including builtin and custom modes.
+
+
+        **Builtin modes:** debate, gauntlet, research, code-review, etc.
+
+
+        **Custom modes:** User-defined workflow configurations.'
       responses:
         '200':
           description: Available modes
@@ -289,7 +457,14 @@ paths:
       tags:
       - System
       summary: List operational modes
-      description: Get available operational modes (builtin + custom)
+      description: 'Get available operational modes including builtin and custom modes.
+
+
+        **Builtin modes:** debate, gauntlet, research, code-review, etc.
+
+
+        **Custom modes:** User-defined workflow configurations.'
+      operationId: listModes
       responses:
         '200':
           description: Available modes
@@ -298,16 +473,24 @@ paths:
       tags:
       - System
       summary: Cycle history
+      description: 'Get history of completed nomic cycles.
+
+
+        **Response includes:** cycle ID, duration, outcome, changes made.'
       parameters:
       - name: loop_id
         in: query
+        description: Filter by specific nomic loop ID
         schema:
           type: string
       - name: limit
         in: query
+        description: Maximum number of cycles to return
         schema:
           type: integer
           default: 50
+          minimum: 1
+          maximum: 200
       responses:
         '200':
           description: Cycle history
@@ -317,16 +500,25 @@ paths:
       tags:
       - System
       summary: Cycle history
+      description: 'Get history of completed nomic cycles.
+
+
+        **Response includes:** cycle ID, duration, outcome, changes made.'
+      operationId: getCycleHistory
       parameters:
       - name: loop_id
         in: query
+        description: Filter by specific nomic loop ID
         schema:
           type: string
       - name: limit
         in: query
+        description: Maximum number of cycles to return
         schema:
           type: integer
           default: 50
+          minimum: 1
+          maximum: 200
       responses:
         '200':
           description: Cycle history
@@ -335,16 +527,25 @@ paths:
       tags:
       - System
       summary: Event history
+      description: 'Get history of system events.
+
+
+        **Event types:** debate_started, debate_completed, agent_registered, consensus_reached,
+        etc.'
       parameters:
       - name: loop_id
         in: query
+        description: Filter by specific nomic loop ID
         schema:
           type: string
       - name: limit
         in: query
+        description: Maximum number of events to return
         schema:
           type: integer
           default: 100
+          minimum: 1
+          maximum: 500
       responses:
         '200':
           description: Event history
@@ -354,16 +555,26 @@ paths:
       tags:
       - System
       summary: Event history
+      description: 'Get history of system events.
+
+
+        **Event types:** debate_started, debate_completed, agent_registered, consensus_reached,
+        etc.'
+      operationId: getEventHistory
       parameters:
       - name: loop_id
         in: query
+        description: Filter by specific nomic loop ID
         schema:
           type: string
       - name: limit
         in: query
+        description: Maximum number of events to return
         schema:
           type: integer
           default: 100
+          minimum: 1
+          maximum: 500
       responses:
         '200':
           description: Event history
@@ -372,16 +583,24 @@ paths:
       tags:
       - System
       summary: Debate history
+      description: 'Get history of completed debates.
+
+
+        **Response includes:** topic, participants, outcome, duration, consensus status.'
       parameters:
       - name: loop_id
         in: query
+        description: Filter by specific nomic loop ID
         schema:
           type: string
       - name: limit
         in: query
+        description: Maximum number of debates to return
         schema:
           type: integer
           default: 50
+          minimum: 1
+          maximum: 200
       responses:
         '200':
           description: Debate history
@@ -391,16 +610,25 @@ paths:
       tags:
       - System
       summary: Debate history
+      description: 'Get history of completed debates.
+
+
+        **Response includes:** topic, participants, outcome, duration, consensus status.'
+      operationId: getDebateHistory
       parameters:
       - name: loop_id
         in: query
+        description: Filter by specific nomic loop ID
         schema:
           type: string
       - name: limit
         in: query
+        description: Maximum number of debates to return
         schema:
           type: integer
           default: 50
+          minimum: 1
+          maximum: 200
       responses:
         '200':
           description: Debate history
@@ -409,9 +637,15 @@ paths:
       tags:
       - System
       summary: History summary
+      description: 'Get aggregated summary statistics for system history.
+
+
+        **Includes:** total debates, consensus rate, average duration, top performing
+        agents.'
       parameters:
       - name: loop_id
         in: query
+        description: Filter by specific nomic loop ID
         schema:
           type: string
       responses:
@@ -423,9 +657,16 @@ paths:
       tags:
       - System
       summary: History summary
+      description: 'Get aggregated summary statistics for system history.
+
+
+        **Includes:** total debates, consensus rate, average duration, top performing
+        agents.'
+      operationId: getHistorySummary
       parameters:
       - name: loop_id
         in: query
+        description: Filter by specific nomic loop ID
         schema:
           type: string
       responses:
@@ -436,9 +677,27 @@ paths:
       tags:
       - System
       summary: Run database maintenance
+      description: 'Run database maintenance tasks.
+
+
+        **Tasks:**
+
+        - `status`: Get current database statistics
+
+        - `vacuum`: Reclaim unused space
+
+        - `analyze`: Update query planner statistics
+
+        - `checkpoint`: Force WAL checkpoint (SQLite)
+
+        - `full`: Run all maintenance tasks
+
+
+        **Authentication:** Admin access required.'
       parameters:
       - name: task
         in: query
+        description: Maintenance task to run
         schema:
           type: string
           enum:
@@ -451,15 +710,36 @@ paths:
       responses:
         '200':
           description: Maintenance results
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/system/maintenance:
     get:
       tags:
       - System
       summary: Run database maintenance
+      description: 'Run database maintenance tasks.
+
+
+        **Tasks:**
+
+        - `status`: Get current database statistics
+
+        - `vacuum`: Reclaim unused space
+
+        - `analyze`: Update query planner statistics
+
+        - `checkpoint`: Force WAL checkpoint (SQLite)
+
+        - `full`: Run all maintenance tasks
+
+
+        **Authentication:** Admin access required.'
+      operationId: runMaintenance
       parameters:
       - name: task
         in: query
+        description: Maintenance task to run
         schema:
           type: string
           enum:
@@ -472,12 +752,26 @@ paths:
       responses:
         '200':
           description: Maintenance results
+      security:
+      - bearerAuth: []
   /api/openapi:
     get:
       tags:
       - System
       summary: OpenAPI specification
-      description: Get OpenAPI 3.0 schema for this API
+      description: 'Get the OpenAPI 3.1 specification for this API.
+
+
+        **Formats:** JSON (default), YAML available at /api/openapi.yaml
+
+
+        **Use cases:**
+
+        - Generate client SDKs
+
+        - Import into API documentation tools
+
+        - Validate API requests'
       responses:
         '200':
           description: OpenAPI schema
@@ -489,7 +783,20 @@ paths:
       tags:
       - System
       summary: OpenAPI specification
-      description: Get OpenAPI 3.0 schema for this API
+      description: 'Get the OpenAPI 3.1 specification for this API.
+
+
+        **Formats:** JSON (default), YAML available at /api/openapi.yaml
+
+
+        **Use cases:**
+
+        - Generate client SDKs
+
+        - Import into API documentation tools
+
+        - Validate API requests'
+      operationId: getOpenAPISpec
       responses:
         '200':
           description: OpenAPI schema
@@ -500,10 +807,20 @@ paths:
       tags:
       - Agents
       summary: List all agents
-      description: Get list of all known agents with optional stats
+      description: 'Get list of all known AI agents with optional performance statistics.
+
+
+        **Rate Limit:** 60 requests per minute (free), 300/min (pro), 1000/min (enterprise)
+
+
+        **Response:** Returns agent metadata including name, model, provider, and
+        ELO rating.
+
+        Optionally includes detailed statistics when `include_stats=true`.'
       parameters:
       - name: include_stats
         in: query
+        description: Include detailed performance statistics for each agent
         schema:
           type: boolean
           default: false
@@ -521,16 +838,29 @@ paths:
                       $ref: '#/components/schemas/Agent'
                   total:
                     type: integer
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/agents:
     get:
       tags:
       - Agents
       summary: List all agents
-      description: Get list of all known agents with optional stats
+      description: 'Get list of all known AI agents with optional performance statistics.
+
+
+        **Rate Limit:** 60 requests per minute (free), 300/min (pro), 1000/min (enterprise)
+
+
+        **Response:** Returns agent metadata including name, model, provider, and
+        ELO rating.
+
+        Optionally includes detailed statistics when `include_stats=true`.'
+      operationId: listAgents
       parameters:
       - name: include_stats
         in: query
+        description: Include detailed performance statistics for each agent
         schema:
           type: boolean
           default: false
@@ -548,24 +878,37 @@ paths:
                       $ref: '#/components/schemas/Agent'
                   total:
                     type: integer
+      security:
+      - bearerAuth: []
   /api/leaderboard:
     get:
       tags:
       - Agents
       summary: Agent leaderboard
-      description: Get agents ranked by ELO rating
+      description: 'Get agents ranked by ELO rating.
+
+
+        **Rate Limit:** 60 requests per minute
+
+
+        **Sorting:** Agents are sorted by ELO rating in descending order.
+
+        Use `domain` parameter to filter by expertise area (e.g., "coding", "science",
+        "writing").'
       parameters:
       - name: limit
         in: query
+        description: Maximum number of agents to return
         schema:
           type: integer
           default: 20
           maximum: 100
+          minimum: 1
       - name: domain
         in: query
+        description: Filter by expertise domain (e.g., coding, science, writing)
         schema:
           type: string
-        description: Filter by expertise domain
       responses:
         '200':
           description: Agent rankings
@@ -575,19 +918,31 @@ paths:
       tags:
       - Agents
       summary: Agent leaderboard
-      description: Get agents ranked by ELO rating
+      description: 'Get agents ranked by ELO rating.
+
+
+        **Rate Limit:** 60 requests per minute
+
+
+        **Sorting:** Agents are sorted by ELO rating in descending order.
+
+        Use `domain` parameter to filter by expertise area (e.g., "coding", "science",
+        "writing").'
+      operationId: getLeaderboard
       parameters:
       - name: limit
         in: query
+        description: Maximum number of agents to return
         schema:
           type: integer
           default: 20
           maximum: 100
+          minimum: 1
       - name: domain
         in: query
+        description: Filter by expertise domain (e.g., coding, science, writing)
         schema:
           type: string
-        description: Filter by expertise domain
       responses:
         '200':
           description: Agent rankings
@@ -596,13 +951,20 @@ paths:
       tags:
       - Agents
       summary: Agent rankings
-      description: Alternative endpoint for agent rankings
+      description: 'Alternative endpoint for agent rankings. Returns same data as
+        /api/leaderboard.
+
+
+        **Deprecated:** Consider using /api/leaderboard instead.'
       parameters:
       - name: limit
         in: query
+        description: Maximum number of agents to return
         schema:
           type: integer
           default: 20
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Agent rankings
@@ -612,13 +974,21 @@ paths:
       tags:
       - Agents
       summary: Agent rankings
-      description: Alternative endpoint for agent rankings
+      description: 'Alternative endpoint for agent rankings. Returns same data as
+        /api/leaderboard.
+
+
+        **Deprecated:** Consider using /api/leaderboard instead.'
+      operationId: getAgentRankings
       parameters:
       - name: limit
         in: query
+        description: Maximum number of agents to return
         schema:
           type: integer
           default: 20
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Agent rankings
@@ -627,19 +997,28 @@ paths:
       tags:
       - Agents
       summary: Leaderboard view data
-      description: Pre-formatted leaderboard data for frontend display
+      description: 'Get pre-formatted leaderboard data optimized for frontend display.
+
+
+        Includes display-ready fields like rank badges, formatted ratings, and trend
+        indicators.'
       parameters:
       - name: limit
         in: query
+        description: Maximum number of agents to return
         schema:
           type: integer
           default: 10
+          minimum: 1
+          maximum: 50
       - name: domain
         in: query
+        description: Filter by expertise domain
         schema:
           type: string
       - name: loop_id
         in: query
+        description: Filter by nomic loop ID
         schema:
           type: string
       responses:
@@ -651,19 +1030,29 @@ paths:
       tags:
       - Agents
       summary: Leaderboard view data
-      description: Pre-formatted leaderboard data for frontend display
+      description: 'Get pre-formatted leaderboard data optimized for frontend display.
+
+
+        Includes display-ready fields like rank badges, formatted ratings, and trend
+        indicators.'
+      operationId: getLeaderboardView
       parameters:
       - name: limit
         in: query
+        description: Maximum number of agents to return
         schema:
           type: integer
           default: 10
+          minimum: 1
+          maximum: 50
       - name: domain
         in: query
+        description: Filter by expertise domain
         schema:
           type: string
       - name: loop_id
         in: query
+        description: Filter by nomic loop ID
         schema:
           type: string
       responses:
@@ -674,10 +1063,25 @@ paths:
       tags:
       - Agents
       summary: Get agent profile
+      description: 'Get detailed profile for a specific agent.
+
+
+        **Response includes:**
+
+        - Basic info (name, model, provider)
+
+        - Current ELO rating and rank
+
+        - Win/loss record
+
+        - Expertise domains
+
+        - Recent performance trends'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name (e.g., 'claude', 'gpt-4', 'gemini')
         schema:
           type: string
       responses:
@@ -722,10 +1126,26 @@ paths:
       tags:
       - Agents
       summary: Get agent profile
+      description: 'Get detailed profile for a specific agent.
+
+
+        **Response includes:**
+
+        - Basic info (name, model, provider)
+
+        - Current ELO rating and rank
+
+        - Win/loss record
+
+        - Expertise domains
+
+        - Recent performance trends'
+      operationId: getAgentProfile
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name (e.g., 'claude', 'gpt-4', 'gemini')
         schema:
           type: string
       responses:
@@ -769,17 +1189,25 @@ paths:
       tags:
       - Agents
       summary: Agent match history
+      description: 'Get recent debate matches for an agent.
+
+
+        **Response includes:** debate topic, opponents, outcome, ELO change per match.'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       - name: limit
         in: query
+        description: Maximum number of matches to return
         schema:
           type: integer
           default: 20
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Match history
@@ -789,17 +1217,26 @@ paths:
       tags:
       - Agents
       summary: Agent match history
+      description: 'Get recent debate matches for an agent.
+
+
+        **Response includes:** debate topic, opponents, outcome, ELO change per match.'
+      operationId: getAgentHistory
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       - name: limit
         in: query
+        description: Maximum number of matches to return
         schema:
           type: integer
           default: 20
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Match history
@@ -808,10 +1245,17 @@ paths:
       tags:
       - Agents
       summary: Agent calibration data
+      description: 'Get calibration metrics showing how well an agent''s confidence
+        matches actual accuracy.
+
+
+        **Calibration:** A well-calibrated agent''s stated confidence (e.g., 80%)
+        should match actual correctness rate.'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -827,10 +1271,18 @@ paths:
       tags:
       - Agents
       summary: Agent calibration data
+      description: 'Get calibration metrics showing how well an agent''s confidence
+        matches actual accuracy.
+
+
+        **Calibration:** A well-calibrated agent''s stated confidence (e.g., 80%)
+        should match actual correctness rate.'
+      operationId: getAgentCalibration
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -845,10 +1297,16 @@ paths:
       tags:
       - Agents
       summary: Agent calibration curve
+      description: 'Get calibration curve data for visualization.
+
+
+        Returns confidence buckets (0-10%, 10-20%, etc.) with actual accuracy for
+        each bucket.'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -860,10 +1318,17 @@ paths:
       tags:
       - Agents
       summary: Agent calibration curve
+      description: 'Get calibration curve data for visualization.
+
+
+        Returns confidence buckets (0-10%, 10-20%, etc.) with actual accuracy for
+        each bucket.'
+      operationId: getAgentCalibrationCurve
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -874,10 +1339,16 @@ paths:
       tags:
       - Agents
       summary: Agent calibration summary
+      description: 'Get summarized calibration metrics.
+
+
+        Returns Brier score, calibration error, and overconfidence/underconfidence
+        indicators.'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -889,10 +1360,17 @@ paths:
       tags:
       - Agents
       summary: Agent calibration summary
+      description: 'Get summarized calibration metrics.
+
+
+        Returns Brier score, calibration error, and overconfidence/underconfidence
+        indicators.'
+      operationId: getAgentCalibrationSummary
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -903,10 +1381,18 @@ paths:
       tags:
       - Agents
       summary: Agent consistency score
+      description: 'Get consistency metrics measuring how stable an agent''s positions
+        are over time.
+
+
+        **High consistency:** Agent maintains coherent positions across similar debates.
+
+        **Low consistency:** Agent frequently contradicts previous positions.'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -918,10 +1404,19 @@ paths:
       tags:
       - Agents
       summary: Agent consistency score
+      description: 'Get consistency metrics measuring how stable an agent''s positions
+        are over time.
+
+
+        **High consistency:** Agent maintains coherent positions across similar debates.
+
+        **Low consistency:** Agent frequently contradicts previous positions.'
+      operationId: getAgentConsistency
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -932,18 +1427,26 @@ paths:
       tags:
       - Agents
       summary: Agent position flips
-      description: Get instances where agent changed positions
+      description: 'Get instances where the agent changed positions during or between
+        debates.
+
+
+        Useful for understanding agent reasoning and persuadability.'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       - name: limit
         in: query
+        description: Maximum number of flips to return
         schema:
           type: integer
           default: 20
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Position flips
@@ -953,18 +1456,27 @@ paths:
       tags:
       - Agents
       summary: Agent position flips
-      description: Get instances where agent changed positions
+      description: 'Get instances where the agent changed positions during or between
+        debates.
+
+
+        Useful for understanding agent reasoning and persuadability.'
+      operationId: getAgentFlips
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       - name: limit
         in: query
+        description: Maximum number of flips to return
         schema:
           type: integer
           default: 20
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Position flips
@@ -973,10 +1485,16 @@ paths:
       tags:
       - Agents
       summary: Agent relationship network
+      description: 'Get the agent''s relationship network showing connections to other
+        agents.
+
+
+        Includes agreement rates, collaboration frequency, and influence scores.'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -988,10 +1506,17 @@ paths:
       tags:
       - Agents
       summary: Agent relationship network
+      description: 'Get the agent''s relationship network showing connections to other
+        agents.
+
+
+        Includes agreement rates, collaboration frequency, and influence scores.'
+      operationId: getAgentNetwork
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1002,10 +1527,15 @@ paths:
       tags:
       - Agents
       summary: Agent rivals
+      description: 'Get agents that frequently disagree with this agent.
+
+
+        Rivals are determined by low agreement rates and competitive debate history.'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1017,10 +1547,16 @@ paths:
       tags:
       - Agents
       summary: Agent rivals
+      description: 'Get agents that frequently disagree with this agent.
+
+
+        Rivals are determined by low agreement rates and competitive debate history.'
+      operationId: getAgentRivals
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1031,10 +1567,15 @@ paths:
       tags:
       - Agents
       summary: Agent allies
+      description: 'Get agents that frequently agree with this agent.
+
+
+        Allies are determined by high agreement rates and collaborative debate history.'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1046,10 +1587,16 @@ paths:
       tags:
       - Agents
       summary: Agent allies
+      description: 'Get agents that frequently agree with this agent.
+
+
+        Allies are determined by high agreement rates and collaborative debate history.'
+      operationId: getAgentAllies
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1060,11 +1607,16 @@ paths:
       tags:
       - Agents
       summary: Agent moments
-      description: Get significant moments for this agent
+      description: 'Get significant moments from this agent''s debate history.
+
+
+        **Moment types:** upset wins, consensus shifts, notable arguments, calibration
+        milestones.'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1076,11 +1628,17 @@ paths:
       tags:
       - Agents
       summary: Agent moments
-      description: Get significant moments for this agent
+      description: 'Get significant moments from this agent''s debate history.
+
+
+        **Moment types:** upset wins, consensus shifts, notable arguments, calibration
+        milestones.'
+      operationId: getAgentMoments
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1091,10 +1649,15 @@ paths:
       tags:
       - Agents
       summary: Agent reputation
+      description: 'Get reputation metrics derived from debate performance.
+
+
+        Includes trustworthiness, expertise recognition, and community standing.'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1106,10 +1669,16 @@ paths:
       tags:
       - Agents
       summary: Agent reputation
+      description: 'Get reputation metrics derived from debate performance.
+
+
+        Includes trustworthiness, expertise recognition, and community standing.'
+      operationId: getAgentReputation
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1120,10 +1689,13 @@ paths:
       tags:
       - Agents
       summary: Agent persona
+      description: Get the agent's persona profile including communication style and
+        reasoning patterns.
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1135,10 +1707,14 @@ paths:
       tags:
       - Agents
       summary: Agent persona
+      description: Get the agent's persona profile including communication style and
+        reasoning patterns.
+      operationId: getAgentPersona
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1149,11 +1725,16 @@ paths:
       tags:
       - Agents
       summary: Agent grounded persona
-      description: Get persona derived from debate performance
+      description: 'Get persona derived from actual debate performance rather than
+        training data.
+
+
+        The grounded persona reflects observed behavior patterns across debates.'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1165,11 +1746,17 @@ paths:
       tags:
       - Agents
       summary: Agent grounded persona
-      description: Get persona derived from debate performance
+      description: 'Get persona derived from actual debate performance rather than
+        training data.
+
+
+        The grounded persona reflects observed behavior patterns across debates.'
+      operationId: getAgentGroundedPersona
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1180,39 +1767,56 @@ paths:
       tags:
       - Agents
       summary: Agent identity prompt
+      description: Get the system prompt used to establish this agent's identity in
+        debates.
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
         '200':
           description: Identity prompt
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/agent/{name}/identity-prompt:
     get:
       tags:
       - Agents
       summary: Agent identity prompt
+      description: Get the system prompt used to establish this agent's identity in
+        debates.
+      operationId: getAgentIdentityPrompt
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
         '200':
           description: Identity prompt
+      security:
+      - bearerAuth: []
   /api/agent/{name}/performance:
     get:
       tags:
       - Agents
       summary: Agent performance
+      description: 'Get detailed performance metrics for the agent.
+
+
+        **Metrics include:** win rate, average ELO delta, debate participation, consensus
+        contribution.'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1224,10 +1828,17 @@ paths:
       tags:
       - Agents
       summary: Agent performance
+      description: 'Get detailed performance metrics for the agent.
+
+
+        **Metrics include:** win rate, average ELO delta, debate participation, consensus
+        contribution.'
+      operationId: getAgentPerformance
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1238,10 +1849,15 @@ paths:
       tags:
       - Agents
       summary: Agent expertise domains
+      description: 'Get domains where this agent has demonstrated expertise.
+
+
+        Expertise is determined by debate performance in specific topic areas.'
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1253,10 +1869,16 @@ paths:
       tags:
       - Agents
       summary: Agent expertise domains
+      description: 'Get domains where this agent has demonstrated expertise.
+
+
+        Expertise is determined by debate performance in specific topic areas.'
+      operationId: getAgentDomains
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1267,10 +1889,13 @@ paths:
       tags:
       - Agents
       summary: Agent accuracy
+      description: Get accuracy metrics measuring how often the agent's positions
+        align with eventual consensus.
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1282,10 +1907,14 @@ paths:
       tags:
       - Agents
       summary: Agent accuracy
+      description: Get accuracy metrics measuring how often the agent's positions
+        align with eventual consensus.
+      operationId: getAgentAccuracy
       parameters:
       - name: name
         in: path
         required: true
+        description: Agent name
         schema:
           type: string
       responses:
@@ -1296,16 +1925,22 @@ paths:
       tags:
       - Agents
       summary: Compare agents
-      description: Compare two agents side-by-side
+      description: 'Compare two agents side-by-side.
+
+
+        Returns comparative statistics including head-to-head record, relative strengths,
+        and domain performance.'
       parameters:
       - name: agent_a
         in: query
         required: true
+        description: First agent name
         schema:
           type: string
       - name: agent_b
         in: query
         required: true
+        description: Second agent name
         schema:
           type: string
       responses:
@@ -1317,16 +1952,23 @@ paths:
       tags:
       - Agents
       summary: Compare agents
-      description: Compare two agents side-by-side
+      description: 'Compare two agents side-by-side.
+
+
+        Returns comparative statistics including head-to-head record, relative strengths,
+        and domain performance.'
+      operationId: compareAgents
       parameters:
       - name: agent_a
         in: query
         required: true
+        description: First agent name
         schema:
           type: string
       - name: agent_b
         in: query
         required: true
+        description: Second agent name
         schema:
           type: string
       responses:
@@ -1337,12 +1979,19 @@ paths:
       tags:
       - Agents
       summary: Recent matches
+      description: 'Get recent debate matches across all agents.
+
+
+        Returns match summaries with participants, outcomes, and ELO changes.'
       parameters:
       - name: limit
         in: query
+        description: Maximum number of matches to return
         schema:
           type: integer
           default: 20
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Recent matches
@@ -1352,12 +2001,20 @@ paths:
       tags:
       - Agents
       summary: Recent matches
+      description: 'Get recent debate matches across all agents.
+
+
+        Returns match summaries with participants, outcomes, and ELO changes.'
+      operationId: getRecentMatches
       parameters:
       - name: limit
         in: query
+        description: Maximum number of matches to return
         schema:
           type: integer
           default: 20
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Recent matches
@@ -1366,13 +2023,20 @@ paths:
       tags:
       - Agents
       summary: Calibration leaderboard
-      description: Get agents ranked by calibration score
+      description: 'Get agents ranked by calibration score (how well confidence matches
+        accuracy).
+
+
+        Lower calibration error = better calibrated agent.'
       parameters:
       - name: limit
         in: query
+        description: Maximum number of agents to return
         schema:
           type: integer
           default: 20
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Calibration rankings
@@ -1382,13 +2046,21 @@ paths:
       tags:
       - Agents
       summary: Calibration leaderboard
-      description: Get agents ranked by calibration score
+      description: 'Get agents ranked by calibration score (how well confidence matches
+        accuracy).
+
+
+        Lower calibration error = better calibrated agent.'
+      operationId: getCalibrationLeaderboard
       parameters:
       - name: limit
         in: query
+        description: Maximum number of agents to return
         schema:
           type: integer
           default: 20
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Calibration rankings
@@ -1397,6 +2069,8 @@ paths:
       tags:
       - Agents
       summary: List all personas
+      description: Get all agent personas including their communication styles and
+        reasoning patterns.
       responses:
         '200':
           description: All personas
@@ -1406,6 +2080,9 @@ paths:
       tags:
       - Agents
       summary: List all personas
+      description: Get all agent personas including their communication styles and
+        reasoning patterns.
+      operationId: listPersonas
       responses:
         '200':
           description: All personas
@@ -3008,18 +3685,34 @@ paths:
       tags:
       - Consensus
       summary: Similar debates
-      description: Find debates similar to a given topic
+      description: 'Find debates similar to a given topic using semantic similarity.
+
+
+        **Use cases:**
+
+        - Check if a question has been debated before
+
+        - Find related discussions for context
+
+        - Avoid redundant debates on settled topics
+
+
+        **Similarity:** Uses embedding-based semantic search to find related debates.'
       parameters:
       - name: topic
         in: query
         required: true
+        description: Topic or question to find similar debates for
         schema:
           type: string
       - name: limit
         in: query
+        description: Maximum number of similar debates to return
         schema:
           type: integer
           default: 10
+          minimum: 1
+          maximum: 50
       responses:
         '200':
           description: Similar debates
@@ -3029,18 +3722,35 @@ paths:
       tags:
       - Consensus
       summary: Similar debates
-      description: Find debates similar to a given topic
+      description: 'Find debates similar to a given topic using semantic similarity.
+
+
+        **Use cases:**
+
+        - Check if a question has been debated before
+
+        - Find related discussions for context
+
+        - Avoid redundant debates on settled topics
+
+
+        **Similarity:** Uses embedding-based semantic search to find related debates.'
+      operationId: findSimilarDebates
       parameters:
       - name: topic
         in: query
         required: true
+        description: Topic or question to find similar debates for
         schema:
           type: string
       - name: limit
         in: query
+        description: Maximum number of similar debates to return
         schema:
           type: integer
           default: 10
+          minimum: 1
+          maximum: 50
       responses:
         '200':
           description: Similar debates
@@ -3049,17 +3759,37 @@ paths:
       tags:
       - Consensus
       summary: Settled questions
+      description: 'Get questions where strong consensus has been reached.
+
+
+        **Settled criteria:** Agreement threshold met (default 80%) across multiple
+        debates.
+
+
+        **Use cases:**
+
+        - Find authoritative answers from past debates
+
+        - Identify topics with high confidence conclusions
+
+        - Build knowledge base from debate outcomes'
       parameters:
       - name: threshold
         in: query
+        description: Minimum consensus threshold (0.0-1.0)
         schema:
           type: number
           default: 0.8
+          minimum: 0.5
+          maximum: 1.0
       - name: limit
         in: query
+        description: Maximum number of questions to return
         schema:
           type: integer
           default: 20
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Settled questions
@@ -3069,17 +3799,38 @@ paths:
       tags:
       - Consensus
       summary: Settled questions
+      description: 'Get questions where strong consensus has been reached.
+
+
+        **Settled criteria:** Agreement threshold met (default 80%) across multiple
+        debates.
+
+
+        **Use cases:**
+
+        - Find authoritative answers from past debates
+
+        - Identify topics with high confidence conclusions
+
+        - Build knowledge base from debate outcomes'
+      operationId: getSettledQuestions
       parameters:
       - name: threshold
         in: query
+        description: Minimum consensus threshold (0.0-1.0)
         schema:
           type: number
           default: 0.8
+          minimum: 0.5
+          maximum: 1.0
       - name: limit
         in: query
+        description: Maximum number of questions to return
         schema:
           type: integer
           default: 20
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Settled questions
@@ -3088,6 +3839,18 @@ paths:
       tags:
       - Consensus
       summary: Consensus statistics
+      description: 'Get aggregate statistics about consensus across all debates.
+
+
+        **Response includes:**
+
+        - Overall consensus rate
+
+        - Average time to consensus
+
+        - Distribution by domain
+
+        - Trend over time'
       responses:
         '200':
           description: Consensus stats
@@ -3097,6 +3860,19 @@ paths:
       tags:
       - Consensus
       summary: Consensus statistics
+      description: 'Get aggregate statistics about consensus across all debates.
+
+
+        **Response includes:**
+
+        - Overall consensus rate
+
+        - Average time to consensus
+
+        - Distribution by domain
+
+        - Trend over time'
+      operationId: getConsensusStats
       responses:
         '200':
           description: Consensus stats
@@ -3105,12 +3881,29 @@ paths:
       tags:
       - Consensus
       summary: Dissenting views
+      description: 'Get significant dissenting views from debates.
+
+
+        **Dissents:** Minority positions with strong reasoning that didn''t achieve
+        consensus.
+
+
+        **Use cases:**
+
+        - Understand alternative perspectives
+
+        - Identify potential blind spots in consensus
+
+        - Preserve minority viewpoints for future consideration'
       parameters:
       - name: limit
         in: query
+        description: Maximum number of dissents to return
         schema:
           type: integer
           default: 20
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Dissenting views
@@ -3120,12 +3913,30 @@ paths:
       tags:
       - Consensus
       summary: Dissenting views
+      description: 'Get significant dissenting views from debates.
+
+
+        **Dissents:** Minority positions with strong reasoning that didn''t achieve
+        consensus.
+
+
+        **Use cases:**
+
+        - Understand alternative perspectives
+
+        - Identify potential blind spots in consensus
+
+        - Preserve minority viewpoints for future consideration'
+      operationId: getDissentingViews
       parameters:
       - name: limit
         in: query
+        description: Maximum number of dissents to return
         schema:
           type: integer
           default: 20
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Dissenting views
@@ -3134,6 +3945,20 @@ paths:
       tags:
       - Consensus
       summary: Contrarian views
+      description: 'Get contrarian views that challenge established consensus.
+
+
+        **Contrarian:** Positions that directly oppose majority conclusions with substantive
+        arguments.
+
+
+        These views are preserved to:
+
+        - Prevent groupthink
+
+        - Enable future reconsideration
+
+        - Document minority reasoning'
       responses:
         '200':
           description: Contrarian views
@@ -3143,6 +3968,21 @@ paths:
       tags:
       - Consensus
       summary: Contrarian views
+      description: 'Get contrarian views that challenge established consensus.
+
+
+        **Contrarian:** Positions that directly oppose majority conclusions with substantive
+        arguments.
+
+
+        These views are preserved to:
+
+        - Prevent groupthink
+
+        - Enable future reconsideration
+
+        - Document minority reasoning'
+      operationId: getContrarianViews
       responses:
         '200':
           description: Contrarian views
@@ -3151,6 +3991,18 @@ paths:
       tags:
       - Consensus
       summary: Risk warnings
+      description: 'Get risk warnings from consensus analysis.
+
+
+        **Warning types:**
+
+        - Low confidence consensus (threshold barely met)
+
+        - Rapidly shifting consensus
+
+        - Contradictory historical positions
+
+        - Potential bias indicators'
       responses:
         '200':
           description: Risk warnings
@@ -3160,6 +4012,19 @@ paths:
       tags:
       - Consensus
       summary: Risk warnings
+      description: 'Get risk warnings from consensus analysis.
+
+
+        **Warning types:**
+
+        - Low confidence consensus (threshold barely met)
+
+        - Rapidly shifting consensus
+
+        - Contradictory historical positions
+
+        - Potential bias indicators'
+      operationId: getRiskWarnings
       responses:
         '200':
           description: Risk warnings
@@ -3168,10 +4033,24 @@ paths:
       tags:
       - Consensus
       summary: Domain consensus
+      description: 'Get consensus data for a specific domain (e.g., "technology",
+        "policy", "science").
+
+
+        **Response includes:**
+
+        - Settled questions in domain
+
+        - Active debates
+
+        - Domain-specific consensus rates
+
+        - Top contributing agents'
       parameters:
       - name: domain
         in: path
         required: true
+        description: Domain name (e.g., technology, science, policy)
         schema:
           type: string
       responses:
@@ -3183,10 +4062,25 @@ paths:
       tags:
       - Consensus
       summary: Domain consensus
+      description: 'Get consensus data for a specific domain (e.g., "technology",
+        "policy", "science").
+
+
+        **Response includes:**
+
+        - Settled questions in domain
+
+        - Active debates
+
+        - Domain-specific consensus rates
+
+        - Top contributing agents'
+      operationId: getDomainConsensus
       parameters:
       - name: domain
         in: path
         required: true
+        description: Domain name (e.g., technology, science, policy)
         schema:
           type: string
       responses:
@@ -6374,6 +7268,568 @@ paths:
                     error: You do not have permission to modify this debate
                     code: NOT_OWNER
                     resource_type: debate
+                    trace_id: req_abc123xyz
+  /api/workspaces/profiles:
+    get:
+      tags:
+      - Workspace
+      summary: List RBAC profiles
+      description: 'Get available RBAC profiles for workspace configuration.
+
+
+        **Profiles:**
+
+        - **lite**: 3 roles (owner, admin, member) - ideal for SME workspaces
+
+        - **standard**: 5 roles (adds analyst, viewer) - for growing teams
+
+        - **enterprise**: 8 roles - full governance with compliance roles
+
+
+        **Recommendation:** Use ''lite'' for most workspaces; upgrade as needed.'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Available RBAC profiles with role details
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+      deprecated: true
+  /api/v1/workspaces/profiles:
+    get:
+      tags:
+      - Workspace
+      summary: List RBAC profiles
+      description: 'Get available RBAC profiles for workspace configuration.
+
+
+        **Profiles:**
+
+        - **lite**: 3 roles (owner, admin, member) - ideal for SME workspaces
+
+        - **standard**: 5 roles (adds analyst, viewer) - for growing teams
+
+        - **enterprise**: 8 roles - full governance with compliance roles
+
+
+        **Recommendation:** Use ''lite'' for most workspaces; upgrade as needed.'
+      operationId: listWorkspaceProfiles
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Available RBAC profiles with role details
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+  /api/workspaces/{workspace_id}/roles:
+    get:
+      tags:
+      - Workspace
+      summary: Get workspace roles
+      description: 'Get available roles for a workspace based on its RBAC profile.
+
+
+        **Response includes:**
+
+        - Roles available in the workspace''s profile
+
+        - Which roles the current user can assign
+
+        - Current user''s role in the workspace
+
+
+        **Role assignment rules:**
+
+        - Owners can assign all roles except owner
+
+        - Admins can assign member, analyst, viewer
+
+        - Members cannot assign roles'
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        description: Workspace ID
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Workspace roles with assignment permissions
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+        '403':
+          description: Forbidden - Insufficient permissions for this operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                insufficient_permissions:
+                  summary: Insufficient permissions
+                  value:
+                    error: You do not have permission to access this resource
+                    code: FORBIDDEN
+                    required_role: admin
+                    trace_id: req_abc123xyz
+                resource_owner:
+                  summary: Not resource owner
+                  value:
+                    error: You do not have permission to modify this debate
+                    code: NOT_OWNER
+                    resource_type: debate
+                    trace_id: req_abc123xyz
+        '404':
+          description: Not found - The requested resource does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                not_found:
+                  summary: Resource not found
+                  value:
+                    error: Debate not found
+                    code: NOT_FOUND
+                    resource_type: debate
+                    resource_id: deb_abc123
+                    trace_id: req_abc123xyz
+      deprecated: true
+  /api/v1/workspaces/{workspace_id}/roles:
+    get:
+      tags:
+      - Workspace
+      summary: Get workspace roles
+      description: 'Get available roles for a workspace based on its RBAC profile.
+
+
+        **Response includes:**
+
+        - Roles available in the workspace''s profile
+
+        - Which roles the current user can assign
+
+        - Current user''s role in the workspace
+
+
+        **Role assignment rules:**
+
+        - Owners can assign all roles except owner
+
+        - Admins can assign member, analyst, viewer
+
+        - Members cannot assign roles'
+      operationId: getWorkspaceRoles
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        description: Workspace ID
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Workspace roles with assignment permissions
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+        '403':
+          description: Forbidden - Insufficient permissions for this operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                insufficient_permissions:
+                  summary: Insufficient permissions
+                  value:
+                    error: You do not have permission to access this resource
+                    code: FORBIDDEN
+                    required_role: admin
+                    trace_id: req_abc123xyz
+                resource_owner:
+                  summary: Not resource owner
+                  value:
+                    error: You do not have permission to modify this debate
+                    code: NOT_OWNER
+                    resource_type: debate
+                    trace_id: req_abc123xyz
+        '404':
+          description: Not found - The requested resource does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                not_found:
+                  summary: Resource not found
+                  value:
+                    error: Debate not found
+                    code: NOT_FOUND
+                    resource_type: debate
+                    resource_id: deb_abc123
+                    trace_id: req_abc123xyz
+  /api/workspaces/{workspace_id}/members/{user_id}/role:
+    put:
+      tags:
+      - Workspace
+      summary: Update member role
+      description: 'Update a workspace member''s role.
+
+
+        **Role hierarchy:** owner > admin > member
+
+
+        **Restrictions:**
+
+        - Cannot remove the last owner
+
+        - Can only assign roles within your permission level
+
+        - Role changes are audit logged
+
+
+        **Lite profile roles:**
+
+        - `owner`: Full workspace control including billing
+
+        - `admin`: Manage users and debates, no billing
+
+        - `member`: Create and run debates'
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        description: Workspace ID
+        schema:
+          type: string
+      - name: user_id
+        in: path
+        required: true
+        description: User ID of the member
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - role
+              properties:
+                role:
+                  type: string
+                  description: New role for the member
+                  enum:
+                  - owner
+                  - admin
+                  - member
+                  - analyst
+                  - viewer
+      responses:
+        '200':
+          description: Role updated successfully
+        '400':
+          description: Bad request - Invalid input or malformed JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_json:
+                  summary: Invalid JSON body
+                  value:
+                    error: Invalid JSON in request body
+                    code: INVALID_JSON
+                    trace_id: req_abc123xyz
+                missing_field:
+                  summary: Missing required field
+                  value:
+                    error: 'Missing required field: task'
+                    code: MISSING_FIELD
+                    field: task
+                    trace_id: req_abc123xyz
+                invalid_value:
+                  summary: Invalid field value
+                  value:
+                    error: 'Invalid value for ''rounds'': must be between 1 and 10'
+                    code: INVALID_VALUE
+                    field: rounds
+                    trace_id: req_abc123xyz
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+        '403':
+          description: Forbidden - Insufficient permissions for this operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                insufficient_permissions:
+                  summary: Insufficient permissions
+                  value:
+                    error: You do not have permission to access this resource
+                    code: FORBIDDEN
+                    required_role: admin
+                    trace_id: req_abc123xyz
+                resource_owner:
+                  summary: Not resource owner
+                  value:
+                    error: You do not have permission to modify this debate
+                    code: NOT_OWNER
+                    resource_type: debate
+                    trace_id: req_abc123xyz
+        '404':
+          description: Not found - The requested resource does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                not_found:
+                  summary: Resource not found
+                  value:
+                    error: Debate not found
+                    code: NOT_FOUND
+                    resource_type: debate
+                    resource_id: deb_abc123
+                    trace_id: req_abc123xyz
+      deprecated: true
+  /api/v1/workspaces/{workspace_id}/members/{user_id}/role:
+    put:
+      tags:
+      - Workspace
+      summary: Update member role
+      description: 'Update a workspace member''s role.
+
+
+        **Role hierarchy:** owner > admin > member
+
+
+        **Restrictions:**
+
+        - Cannot remove the last owner
+
+        - Can only assign roles within your permission level
+
+        - Role changes are audit logged
+
+
+        **Lite profile roles:**
+
+        - `owner`: Full workspace control including billing
+
+        - `admin`: Manage users and debates, no billing
+
+        - `member`: Create and run debates'
+      operationId: updateWorkspaceMemberRole
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        description: Workspace ID
+        schema:
+          type: string
+      - name: user_id
+        in: path
+        required: true
+        description: User ID of the member
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - role
+              properties:
+                role:
+                  type: string
+                  description: New role for the member
+                  enum:
+                  - owner
+                  - admin
+                  - member
+                  - analyst
+                  - viewer
+      responses:
+        '200':
+          description: Role updated successfully
+        '400':
+          description: Bad request - Invalid input or malformed JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_json:
+                  summary: Invalid JSON body
+                  value:
+                    error: Invalid JSON in request body
+                    code: INVALID_JSON
+                    trace_id: req_abc123xyz
+                missing_field:
+                  summary: Missing required field
+                  value:
+                    error: 'Missing required field: task'
+                    code: MISSING_FIELD
+                    field: task
+                    trace_id: req_abc123xyz
+                invalid_value:
+                  summary: Invalid field value
+                  value:
+                    error: 'Invalid value for ''rounds'': must be between 1 and 10'
+                    code: INVALID_VALUE
+                    field: rounds
+                    trace_id: req_abc123xyz
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+        '403':
+          description: Forbidden - Insufficient permissions for this operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                insufficient_permissions:
+                  summary: Insufficient permissions
+                  value:
+                    error: You do not have permission to access this resource
+                    code: FORBIDDEN
+                    required_role: admin
+                    trace_id: req_abc123xyz
+                resource_owner:
+                  summary: Not resource owner
+                  value:
+                    error: You do not have permission to modify this debate
+                    code: NOT_OWNER
+                    resource_type: debate
+                    trace_id: req_abc123xyz
+        '404':
+          description: Not found - The requested resource does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                not_found:
+                  summary: Resource not found
+                  value:
+                    error: Debate not found
+                    code: NOT_FOUND
+                    resource_type: debate
+                    resource_id: deb_abc123
                     trace_id: req_abc123xyz
   /api/retention/policies:
     get:
@@ -17826,6 +19282,410 @@ paths:
                     type: string
       security:
       - bearerAuth: []
+  /api/v2/integrations:
+    get:
+      tags:
+      - Integrations
+      summary: List all integrations
+      description: List all platform integrations (Slack, Teams, Discord, Email) for
+        the current tenant.
+      operationId: listIntegrations
+      parameters:
+      - name: X-Tenant-ID
+        in: header
+        description: Tenant ID for multi-tenant deployments
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: 'Maximum number of results (default: 20, max: 100)'
+        schema:
+          type: integer
+          default: 20
+          maximum: 100
+      - name: offset
+        in: query
+        description: Pagination offset
+        schema:
+          type: integer
+          default: 0
+      - name: type
+        in: query
+        description: Filter by integration type
+        schema:
+          type: string
+          enum:
+          - slack
+          - teams
+          - discord
+          - email
+      - name: status
+        in: query
+        description: Filter by status
+        schema:
+          type: string
+          enum:
+          - active
+          - inactive
+      responses:
+        '200':
+          description: List of integrations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  integrations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                        workspace_id:
+                          type: string
+                        workspace_name:
+                          type: string
+                        status:
+                          type: string
+                        installed_at:
+                          type: number
+                  pagination:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      total:
+                        type: integer
+                      has_more:
+                        type: boolean
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+        '500':
+          description: Internal server error - Unexpected error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                internal_error:
+                  summary: Internal server error
+                  value:
+                    error: An unexpected error occurred
+                    code: INTERNAL_ERROR
+                    trace_id: req_abc123xyz
+                    support_url: https://github.com/an0mium/aragora/issues
+  /api/v2/integrations/{type}:
+    get:
+      tags:
+      - Integrations
+      summary: Get integration status
+      description: Get the status and details of a specific integration type.
+      operationId: getIntegration
+      parameters:
+      - name: type
+        in: path
+        required: true
+        description: Integration type
+        schema:
+          type: string
+          enum:
+          - slack
+          - teams
+          - discord
+          - email
+      - name: workspace_id
+        in: query
+        description: Specific workspace/tenant ID to query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Integration status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  connected:
+                    type: boolean
+                  workspaces:
+                    type: array
+                    items:
+                      type: object
+                  health:
+                    type: object
+        '400': &id043
+          description: Bad request - Invalid input or malformed JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_json:
+                  summary: Invalid JSON body
+                  value:
+                    error: Invalid JSON in request body
+                    code: INVALID_JSON
+                    trace_id: req_abc123xyz
+                missing_field:
+                  summary: Missing required field
+                  value:
+                    error: 'Missing required field: task'
+                    code: MISSING_FIELD
+                    field: task
+                    trace_id: req_abc123xyz
+                invalid_value:
+                  summary: Invalid field value
+                  value:
+                    error: 'Invalid value for ''rounds'': must be between 1 and 10'
+                    code: INVALID_VALUE
+                    field: rounds
+                    trace_id: req_abc123xyz
+        '401': &id044
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+        '404': &id045
+          description: Not found - The requested resource does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                not_found:
+                  summary: Resource not found
+                  value:
+                    error: Debate not found
+                    code: NOT_FOUND
+                    resource_type: debate
+                    resource_id: deb_abc123
+                    trace_id: req_abc123xyz
+        '500': &id046
+          description: Internal server error - Unexpected error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                internal_error:
+                  summary: Internal server error
+                  value:
+                    error: An unexpected error occurred
+                    code: INTERNAL_ERROR
+                    trace_id: req_abc123xyz
+                    support_url: https://github.com/an0mium/aragora/issues
+    delete:
+      tags:
+      - Integrations
+      summary: Disconnect integration
+      description: Disconnect/deactivate a specific integration workspace.
+      operationId: disconnectIntegration
+      parameters:
+      - name: type
+        in: path
+        required: true
+        description: Integration type
+        schema:
+          type: string
+          enum:
+          - slack
+          - teams
+          - discord
+          - email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - workspace_id
+              properties:
+                workspace_id:
+                  type: string
+                  description: Workspace/tenant ID to disconnect
+      responses:
+        '200':
+          description: Integration disconnected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  disconnected:
+                    type: boolean
+                  type:
+                    type: string
+                  workspace_id:
+                    type: string
+        '400': *id043
+        '401': *id044
+        '404': *id045
+        '500': *id046
+  /api/v2/integrations/{type}/test:
+    post:
+      tags:
+      - Integrations
+      summary: Test integration connectivity
+      description: Test the connectivity and health of a specific integration.
+      operationId: testIntegration
+      parameters:
+      - name: type
+        in: path
+        required: true
+        description: Integration type
+        schema:
+          type: string
+          enum:
+          - slack
+          - teams
+          - discord
+          - email
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id:
+                  type: string
+                  description: Workspace/tenant ID to test
+      responses:
+        '200':
+          description: Test result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  workspace_id:
+                    type: string
+                  test_result:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                      error:
+                        type:
+                        - string
+                        - 'null'
+                  tested_at:
+                    type: string
+                    format: date-time
+        '400':
+          description: Bad request - Invalid input or malformed JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_json:
+                  summary: Invalid JSON body
+                  value:
+                    error: Invalid JSON in request body
+                    code: INVALID_JSON
+                    trace_id: req_abc123xyz
+                missing_field:
+                  summary: Missing required field
+                  value:
+                    error: 'Missing required field: task'
+                    code: MISSING_FIELD
+                    field: task
+                    trace_id: req_abc123xyz
+                invalid_value:
+                  summary: Invalid field value
+                  value:
+                    error: 'Invalid value for ''rounds'': must be between 1 and 10'
+                    code: INVALID_VALUE
+                    field: rounds
+                    trace_id: req_abc123xyz
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+        '404':
+          description: Not found - The requested resource does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                not_found:
+                  summary: Resource not found
+                  value:
+                    error: Debate not found
+                    code: NOT_FOUND
+                    resource_type: debate
+                    resource_id: deb_abc123
+                    trace_id: req_abc123xyz
+        '500':
+          description: Internal server error - Unexpected error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                internal_error:
+                  summary: Internal server error
+                  value:
+                    error: An unexpected error occurred
+                    code: INTERNAL_ERROR
+                    trace_id: req_abc123xyz
+                    support_url: https://github.com/an0mium/aragora/issues
 components:
   schemas:
     Error:
