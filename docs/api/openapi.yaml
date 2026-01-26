@@ -19559,6 +19559,150 @@ paths:
         '401': *id044
         '404': *id045
         '500': *id046
+  /api/v2/integrations/{type}/health:
+    get:
+      tags:
+      - Integrations
+      summary: Get integration health
+      description: Get detailed health status for an integration including connection
+        status, token validity, and last successful operation.
+      operationId: getIntegrationHealth
+      parameters:
+      - name: type
+        in: path
+        required: true
+        description: Integration type
+        schema:
+          type: string
+          enum:
+          - slack
+          - teams
+          - discord
+          - email
+      - name: workspace_id
+        in: query
+        description: Specific workspace/tenant ID to check (optional, returns aggregate
+          if omitted)
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Integration health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  healthy:
+                    type: boolean
+                  status:
+                    type: string
+                    enum:
+                    - healthy
+                    - degraded
+                    - unhealthy
+                    - not_configured
+                    - token_expired
+                    - error
+                  workspace_id:
+                    type: string
+                  workspace_name:
+                    type: string
+                  workspaces:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        workspace_id:
+                          type: string
+                        workspace_name:
+                          type: string
+                        status:
+                          type: string
+                        error:
+                          type: string
+                  error:
+                    type: string
+                required:
+                - type
+                - healthy
+        '400':
+          description: Bad request - Invalid input or malformed JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_json:
+                  summary: Invalid JSON body
+                  value:
+                    error: Invalid JSON in request body
+                    code: INVALID_JSON
+                    trace_id: req_abc123xyz
+                missing_field:
+                  summary: Missing required field
+                  value:
+                    error: 'Missing required field: task'
+                    code: MISSING_FIELD
+                    field: task
+                    trace_id: req_abc123xyz
+                invalid_value:
+                  summary: Invalid field value
+                  value:
+                    error: 'Invalid value for ''rounds'': must be between 1 and 10'
+                    code: INVALID_VALUE
+                    field: rounds
+                    trace_id: req_abc123xyz
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+        '404':
+          description: Not found - The requested resource does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                not_found:
+                  summary: Resource not found
+                  value:
+                    error: Debate not found
+                    code: NOT_FOUND
+                    resource_type: debate
+                    resource_id: deb_abc123
+                    trace_id: req_abc123xyz
+        '500':
+          description: Internal server error - Unexpected error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                internal_error:
+                  summary: Internal server error
+                  value:
+                    error: An unexpected error occurred
+                    code: INTERNAL_ERROR
+                    trace_id: req_abc123xyz
+                    support_url: https://github.com/an0mium/aragora/issues
   /api/v2/integrations/{type}/test:
     post:
       tags:
