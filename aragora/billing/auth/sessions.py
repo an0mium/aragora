@@ -105,6 +105,36 @@ class JWTSession:
         """Check if session is inactive beyond timeout."""
         return time.time() - self.last_activity > timeout
 
+    def is_mfa_fresh(self, max_age_seconds: int = 900) -> bool:
+        """
+        Check if MFA verification is fresh (within max_age_seconds).
+
+        Args:
+            max_age_seconds: Maximum age of MFA verification (default: 15 minutes)
+
+        Returns:
+            True if MFA was verified within max_age_seconds, False otherwise
+        """
+        if self.mfa_verified_at is None:
+            return False
+        return (time.time() - self.mfa_verified_at) <= max_age_seconds
+
+    def mfa_age_seconds(self) -> Optional[int]:
+        """Get seconds since last MFA verification, or None if never verified."""
+        if self.mfa_verified_at is None:
+            return None
+        return int(time.time() - self.mfa_verified_at)
+
+    def record_mfa_verification(self, methods: Optional[List[str]] = None) -> None:
+        """
+        Record that MFA was successfully verified for this session.
+
+        Args:
+            methods: List of MFA methods used (e.g., ['totp'], ['backup_code'])
+        """
+        self.mfa_verified_at = time.time()
+        self.mfa_methods_used = methods or ["totp"]
+
 
 def _parse_device_name(user_agent: Optional[str]) -> str:
     """Parse a human-readable device name from user agent string."""
