@@ -328,11 +328,11 @@ class ComplianceHandler(BaseHandler):
                 check = {
                     "type": "receipt",
                     "id": result.receipt_id,
-                    "valid": result.valid,
+                    "valid": result.is_valid,
                     "error": result.error,
                 }
                 verification_results["checks"].append(check)
-                if not result.valid:
+                if not result.is_valid:
                     verification_results["verified"] = False
                     verification_results["errors"].append(
                         f"Receipt {result.receipt_id}: {result.error}"

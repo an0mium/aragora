@@ -256,7 +256,7 @@ class BackupHandler(BaseHandler):
                     "backup": backup.to_dict(),
                     "message": f"Backup created: {backup.id}",
                 },
-                status_code=201,
+                status=201,
             )
 
         except FileNotFoundError as e:
