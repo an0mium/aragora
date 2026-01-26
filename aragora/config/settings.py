@@ -185,10 +185,12 @@ class AgentSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="ARAGORA_")
 
     default_agents: str = Field(
-        default="grok,anthropic-api,openai-api,deepseek,gemini", alias="ARAGORA_DEFAULT_AGENTS"
+        default="grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi",
+        alias="ARAGORA_DEFAULT_AGENTS",
     )
     streaming_agents: str = Field(
-        default="grok,anthropic-api,openai-api", alias="ARAGORA_STREAMING_AGENTS"
+        default="grok,anthropic-api,openai-api,mistral",
+        alias="ARAGORA_STREAMING_AGENTS",
     )
 
     # Streaming configuration

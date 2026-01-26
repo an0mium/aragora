@@ -162,12 +162,16 @@ class CanvasNode:
             locked=data.get("locked", False),
             selected=data.get("selected", False),
             parent_id=data.get("parent_id"),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if "created_at" in data
-            else datetime.now(timezone.utc),
-            updated_at=datetime.fromisoformat(data["updated_at"])
-            if "updated_at" in data
-            else datetime.now(timezone.utc),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if "created_at" in data
+                else datetime.now(timezone.utc)
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"])
+                if "updated_at" in data
+                else datetime.now(timezone.utc)
+            ),
         )
 
     def move(self, x: float, y: float) -> None:
@@ -240,9 +244,11 @@ class CanvasEdge:
             data=data.get("data", {}),
             style=data.get("style", {}),
             animated=data.get("animated", False),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if "created_at" in data
-            else datetime.now(timezone.utc),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if "created_at" in data
+                else datetime.now(timezone.utc)
+            ),
         )
 
 
@@ -278,9 +284,11 @@ class CanvasEvent:
         return cls(
             event_type=CanvasEventType(data.get("type", "canvas:error")),
             canvas_id=data.get("canvas_id", ""),
-            timestamp=datetime.fromisoformat(data["timestamp"])
-            if "timestamp" in data
-            else datetime.now(timezone.utc),
+            timestamp=(
+                datetime.fromisoformat(data["timestamp"])
+                if "timestamp" in data
+                else datetime.now(timezone.utc)
+            ),
             data=data.get("data", {}),
             user_id=data.get("user_id"),
             node_id=data.get("node_id"),
@@ -325,12 +333,16 @@ class Canvas:
             id=data.get("id", str(uuid.uuid4())),
             name=data.get("name", "Untitled Canvas"),
             metadata=data.get("metadata", {}),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if "created_at" in data
-            else datetime.now(timezone.utc),
-            updated_at=datetime.fromisoformat(data["updated_at"])
-            if "updated_at" in data
-            else datetime.now(timezone.utc),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if "created_at" in data
+                else datetime.now(timezone.utc)
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"])
+                if "updated_at" in data
+                else datetime.now(timezone.utc)
+            ),
             owner_id=data.get("owner_id"),
             workspace_id=data.get("workspace_id"),
         )

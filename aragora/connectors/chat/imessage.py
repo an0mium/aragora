@@ -508,9 +508,11 @@ class IMessageConnector(ChatPlatformConnector):
         return WebhookEvent(
             event_type=event_type,
             platform="imessage",
-            timestamp=datetime.fromtimestamp(data.get("dateCreated", 0) / 1000)
-            if data.get("dateCreated")
-            else datetime.now(),
+            timestamp=(
+                datetime.fromtimestamp(data.get("dateCreated", 0) / 1000)
+                if data.get("dateCreated")
+                else datetime.now()
+            ),
             raw_payload=payload,
             metadata={
                 "chat_guid": chat_guid,
@@ -571,9 +573,11 @@ class IMessageConnector(ChatPlatformConnector):
             author=author,
             content=data.get("text", ""),
             message_type=msg_type,
-            timestamp=datetime.fromtimestamp(data.get("dateCreated", 0) / 1000)
-            if data.get("dateCreated")
-            else datetime.now(),
+            timestamp=(
+                datetime.fromtimestamp(data.get("dateCreated", 0) / 1000)
+                if data.get("dateCreated")
+                else datetime.now()
+            ),
             metadata={
                 "attachments": attachments,
                 "subject": data.get("subject"),

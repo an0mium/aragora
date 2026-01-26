@@ -314,9 +314,9 @@ class PlaywrightConnector:
             url=self._page.url,
             title=await self._page.title(),
             status_code=response.status if response else 0,
-            content_type=response.headers.get("content-type", "text/html")
-            if response
-            else "text/html",
+            content_type=(
+                response.headers.get("content-type", "text/html") if response else "text/html"
+            ),
             load_time_ms=load_time,
         )
 
