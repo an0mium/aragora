@@ -24,6 +24,50 @@ from aragora.server.middleware.user_auth import User, get_current_user
 logger = logging.getLogger(__name__)
 
 
+def _has_valid_mfa_bypass(full_user: Any) -> bool:
+    """
+    Check if user has a valid MFA bypass (service account with approved bypass).
+
+    Service accounts can be configured to bypass MFA requirements when:
+    1. User is a service account (is_service_account=True)
+    2. MFA bypass has been approved (mfa_bypass_approved_at is set)
+    3. Bypass has not expired (mfa_bypass_expires_at is None or in the future)
+
+    Args:
+        full_user: User object from user_store with all fields
+
+    Returns:
+        True if user has valid MFA bypass, False otherwise
+    """
+    if full_user is None:
+        return False
+
+    # Must be a service account
+    if not getattr(full_user, "is_service_account", False):
+        return False
+
+    # Check if bypass is valid using the model method if available
+    if hasattr(full_user, "is_mfa_bypass_valid"):
+        return full_user.is_mfa_bypass_valid()
+
+    # Fallback: manual check
+    mfa_bypass_approved_at = getattr(full_user, "mfa_bypass_approved_at", None)
+    if not mfa_bypass_approved_at:
+        return False
+
+    mfa_bypass_expires_at = getattr(full_user, "mfa_bypass_expires_at", None)
+    if mfa_bypass_expires_at:
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        if isinstance(mfa_bypass_expires_at, str):
+            mfa_bypass_expires_at = datetime.fromisoformat(mfa_bypass_expires_at)
+        if now >= mfa_bypass_expires_at:
+            return False  # Bypass expired
+
+    return True
+
+
 def require_mfa(func: Callable) -> Callable:
     """
     Decorator that requires MFA to be enabled for the current user.
@@ -62,6 +106,11 @@ def require_mfa(func: Callable) -> Callable:
         if user_store:
             full_user = user_store.get_user_by_id(user.id)
             if full_user:
+                # Check for service account with valid MFA bypass
+                if _has_valid_mfa_bypass(full_user):
+                    logger.debug(f"Service account {user.id} bypassing MFA requirement")
+                    kwargs["user"] = user
+                    return func(*args, **kwargs)
                 if not getattr(full_user, "mfa_enabled", False):
                     logger.warning(f"MFA required but not enabled for user: {user.id}")
                     return error_response(
@@ -125,19 +174,25 @@ def require_admin_mfa(func: Callable) -> Callable:
         # Check if user is admin/owner
         admin_roles = {"admin", "owner", "superadmin"}
         if user.role in admin_roles:
-            # Admin users MUST have MFA enabled
+            # Admin users MUST have MFA enabled (unless service account with bypass)
             user_store = _get_user_store_from_handler(handler)
             mfa_enabled = False
+            has_bypass = False
 
             if user_store:
                 full_user = user_store.get_user_by_id(user.id)
                 if full_user:
-                    mfa_enabled = getattr(full_user, "mfa_enabled", False)
+                    # Check for service account bypass first
+                    if _has_valid_mfa_bypass(full_user):
+                        has_bypass = True
+                        logger.debug(f"Admin service account {user.id} bypassing MFA requirement")
+                    else:
+                        mfa_enabled = getattr(full_user, "mfa_enabled", False)
             else:
                 # Fallback to metadata
                 mfa_enabled = user.metadata.get("mfa_enabled", False)
 
-            if not mfa_enabled:
+            if not mfa_enabled and not has_bypass:
                 logger.warning(
                     f"Admin MFA enforcement: user {user.id} ({user.role}) "
                     f"attempted admin access without MFA"
@@ -191,18 +246,25 @@ def require_admin_with_mfa(func: Callable) -> Callable:
         if not user.is_admin:
             return error_response("Admin access required", 403)
 
-        # Require MFA
+        # Require MFA (unless service account with approved bypass)
         user_store = _get_user_store_from_handler(handler)
         mfa_enabled = False
+        has_bypass = False
 
         if user_store:
             full_user = user_store.get_user_by_id(user.id)
             if full_user:
-                mfa_enabled = getattr(full_user, "mfa_enabled", False)
+                if _has_valid_mfa_bypass(full_user):
+                    has_bypass = True
+                    logger.debug(
+                        f"Admin service account {user.id} bypassing MFA for sensitive operation"
+                    )
+                else:
+                    mfa_enabled = getattr(full_user, "mfa_enabled", False)
         else:
             mfa_enabled = user.metadata.get("mfa_enabled", False)
 
-        if not mfa_enabled:
+        if not mfa_enabled and not has_bypass:
             logger.warning(
                 f"Admin+MFA enforcement: admin {user.id} attempted sensitive operation without MFA"
             )
@@ -423,16 +485,28 @@ def require_mfa_fresh(max_age_minutes: int = 15) -> Callable:
             if not user:
                 return error_response("Authentication required", 401)
 
-            # Check MFA is enabled
+            # Check MFA is enabled (service accounts with bypass can skip)
             user_store = _get_user_store_from_handler(handler)
             mfa_enabled = False
+            has_bypass = False
 
             if user_store:
                 full_user = user_store.get_user_by_id(user.id)
                 if full_user:
-                    mfa_enabled = getattr(full_user, "mfa_enabled", False)
+                    if _has_valid_mfa_bypass(full_user):
+                        has_bypass = True
+                        logger.debug(
+                            f"Service account {user.id} bypassing MFA freshness requirement"
+                        )
+                    else:
+                        mfa_enabled = getattr(full_user, "mfa_enabled", False)
             else:
                 mfa_enabled = user.metadata.get("mfa_enabled", False)
+
+            # Service accounts with valid bypass skip MFA freshness checks
+            if has_bypass:
+                kwargs["user"] = user
+                return func(*args, **kwargs)
 
             if not mfa_enabled:
                 return error_response(

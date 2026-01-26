@@ -536,14 +536,30 @@ class User:
                 if self.mfa_grace_period_started_at
                 else None
             ),
+            # Service account fields
+            "is_service_account": self.is_service_account,
+            "service_account_scopes": self.get_service_account_scopes(),
         }
         if include_sensitive:
             data["api_key_prefix"] = self.api_key_prefix
+            # Include MFA bypass info for service accounts
+            if self.is_service_account:
+                data["mfa_bypass_reason"] = self.mfa_bypass_reason
+                data["mfa_bypass_approved_by"] = self.mfa_bypass_approved_by
+                data["mfa_bypass_approved_at"] = (
+                    self.mfa_bypass_approved_at.isoformat() if self.mfa_bypass_approved_at else None
+                )
+                data["mfa_bypass_expires_at"] = (
+                    self.mfa_bypass_expires_at.isoformat() if self.mfa_bypass_expires_at else None
+                )
+                data["service_account_created_by"] = self.service_account_created_by
         return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "User":
         """Create from dictionary."""
+        import json
+
         user = cls(
             id=data.get("id", str(uuid4())),
             email=data.get("email", ""),
@@ -555,7 +571,18 @@ class User:
             is_active=data.get("is_active", True),
             email_verified=data.get("email_verified", False),
             token_version=data.get("token_version", 1),
+            is_service_account=data.get("is_service_account", False),
+            service_account_created_by=data.get("service_account_created_by"),
+            mfa_bypass_reason=data.get("mfa_bypass_reason"),
+            mfa_bypass_approved_by=data.get("mfa_bypass_approved_by"),
         )
+        # Handle service_account_scopes (can be list or JSON string)
+        scopes = data.get("service_account_scopes")
+        if isinstance(scopes, list):
+            user.service_account_scopes = json.dumps(scopes)
+        elif isinstance(scopes, str):
+            user.service_account_scopes = scopes
+        # Datetime fields
         if "created_at" in data and data["created_at"]:
             if isinstance(data["created_at"], str):
                 user.created_at = datetime.fromisoformat(data["created_at"])
@@ -583,6 +610,16 @@ class User:
                 )
             else:
                 user.mfa_grace_period_started_at = data["mfa_grace_period_started_at"]
+        if "mfa_bypass_approved_at" in data and data["mfa_bypass_approved_at"]:
+            if isinstance(data["mfa_bypass_approved_at"], str):
+                user.mfa_bypass_approved_at = datetime.fromisoformat(data["mfa_bypass_approved_at"])
+            else:
+                user.mfa_bypass_approved_at = data["mfa_bypass_approved_at"]
+        if "mfa_bypass_expires_at" in data and data["mfa_bypass_expires_at"]:
+            if isinstance(data["mfa_bypass_expires_at"], str):
+                user.mfa_bypass_expires_at = datetime.fromisoformat(data["mfa_bypass_expires_at"])
+            else:
+                user.mfa_bypass_expires_at = data["mfa_bypass_expires_at"]
         # Load MFA enabled flag
         if "mfa_enabled" in data:
             user.mfa_enabled = data.get("mfa_enabled", False)
