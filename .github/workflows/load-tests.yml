@@ -136,8 +136,8 @@ jobs:
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
 
-          # Give server a moment to start
-          sleep 3
+          # Give server time to fully initialize
+          sleep 10
 
           # Wait for server to be healthy (increased timeout for CI)
           for i in {1..60}; do
@@ -168,20 +168,20 @@ jobs:
           for i in {1..30}; do
             READY=true
 
-            # Check leaderboard-view - accept 2xx or 4xx (endpoint exists but may need auth)
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/api/v1/leaderboard-view?limit=10)
-            if [ "$CODE" -ge 500 ] || [ "$CODE" -eq 000 ]; then
+            # Check leaderboard-view - verify endpoint returns valid JSON
+            LEADERBOARD_RESP=$(curl -s http://127.0.0.1:8080/api/v1/leaderboard-view?limit=10)
+            if ! echo "$LEADERBOARD_RESP" | jq -e 'type' >/dev/null 2>&1; then
               READY=false
             fi
 
-            # Check agents list - accept 2xx or 4xx
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/api/v1/agents)
-            if [ "$CODE" -ge 500 ] || [ "$CODE" -eq 000 ]; then
+            # Check agents list - verify endpoint returns valid JSON
+            AGENTS_RESP=$(curl -s http://127.0.0.1:8080/api/v1/agents)
+            if ! echo "$AGENTS_RESP" | jq -e 'type' >/dev/null 2>&1; then
               READY=false
             fi
 
             if [ "$READY" = "true" ]; then
-              echo "All critical endpoints ready (responding with non-5xx)"
+              echo "All critical endpoints ready (returning valid JSON)"
               break
             fi
 
@@ -191,9 +191,19 @@ jobs:
 
           # Log endpoint status for debugging
           echo "=== Endpoint status ==="
+          echo "Health: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/health)"
           echo "Leaderboard: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/leaderboard-view?limit=10)"
           echo "Agents: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/agents)"
           echo "Debates: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/debates?limit=10)"
+
+          # Warm-up requests to prime caches before k6 tests
+          echo "=== Warm-up requests ==="
+          for i in {1..5}; do
+            curl -s http://127.0.0.1:8080/api/v1/agents >/dev/null
+            curl -s http://127.0.0.1:8080/api/v1/leaderboard-view?limit=10 >/dev/null
+            curl -s http://127.0.0.1:8080/api/v1/debates?limit=10 >/dev/null
+          done
+          echo "Warm-up complete"
           echo "=== End status ==="
         env:
           ARAGORA_REDIS_URL: redis://localhost:6379/0

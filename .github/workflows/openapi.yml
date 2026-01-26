@@ -21,6 +21,10 @@ on:
       - 'scripts/generate_openapi.py'
   workflow_dispatch:
 
+concurrency:
+  group: openapi-sync-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   generate:
     name: Generate & Validate
