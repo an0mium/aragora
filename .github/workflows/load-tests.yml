@@ -140,8 +140,9 @@ jobs:
           sleep 10
 
           # Wait for server to be healthy (increased timeout for CI)
+          # Use /healthz (liveness probe) instead of /api/health (requires auth)
           for i in {1..60}; do
-            if curl -fsS http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
+            if curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
               echo "Server is healthy"
               break
             fi
@@ -156,7 +157,8 @@ jobs:
           done
 
           # Final health check with better error output
-          if ! curl -fsS http://127.0.0.1:8080/api/health; then
+          # Use /healthz (liveness probe) instead of /api/health (requires auth)
+          if ! curl -fsS http://127.0.0.1:8080/healthz; then
             echo "Health check failed. Server logs:"
             cat /tmp/aragora-server.log
             exit 1
@@ -191,7 +193,7 @@ jobs:
 
           # Log endpoint status for debugging
           echo "=== Endpoint status ==="
-          echo "Health: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/health)"
+          echo "Healthz: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/healthz)"
           echo "Leaderboard: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/leaderboard-view?limit=10)"
           echo "Agents: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/agents)"
           echo "Debates: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/debates?limit=10)"
