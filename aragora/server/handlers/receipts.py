@@ -36,6 +36,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +138,7 @@ class ReceiptsHandler(BaseHandler):
             logger.exception(f"Error handling receipt request: {e}")
             return error_response(f"Internal error: {str(e)}", 500)
 
+    @require_permission("receipts:read")
     async def _list_receipts(self, query_params: Dict[str, str]) -> HandlerResult:
         """
         List receipts with filtering and pagination.
@@ -211,6 +213,7 @@ class ReceiptsHandler(BaseHandler):
             }
         )
 
+    @require_permission("receipts:read")
     async def _get_receipt(self, receipt_id: str) -> HandlerResult:
         """Get a specific receipt by ID."""
         store = self._get_store()
@@ -225,6 +228,7 @@ class ReceiptsHandler(BaseHandler):
 
         return json_response(receipt.to_full_dict())
 
+    @require_permission("receipts:read")
     async def _export_receipt(self, receipt_id: str, query_params: Dict[str, str]) -> HandlerResult:
         """
         Export receipt in specified format.
@@ -327,6 +331,7 @@ class ReceiptsHandler(BaseHandler):
             logger.exception(f"Export failed: {e}")
             return error_response(f"Export failed: {str(e)}", 500)
 
+    @require_permission("receipts:verify")
     async def _verify_integrity(self, receipt_id: str) -> HandlerResult:
         """Verify receipt integrity checksum."""
         store = self._get_store()
@@ -338,6 +343,7 @@ class ReceiptsHandler(BaseHandler):
 
         return json_response(result)
 
+    @require_permission("receipts:verify")
     async def _verify_signature(self, receipt_id: str) -> HandlerResult:
         """Verify receipt cryptographic signature."""
         store = self._get_store()
@@ -348,6 +354,7 @@ class ReceiptsHandler(BaseHandler):
 
         return json_response(result.to_dict())
 
+    @require_permission("receipts:verify")
     async def _verify_batch(self, body: Dict[str, Any]) -> HandlerResult:
         """
         Batch verify multiple receipt signatures.
@@ -373,6 +380,7 @@ class ReceiptsHandler(BaseHandler):
             }
         )
 
+    @require_permission("receipts:read")
     async def _get_stats(self) -> HandlerResult:
         """Get receipt statistics."""
         store = self._get_store()
@@ -385,6 +393,7 @@ class ReceiptsHandler(BaseHandler):
             }
         )
 
+    @require_permission("receipts:send")
     async def _send_to_channel(self, receipt_id: str, body: Dict[str, Any]) -> HandlerResult:
         """
         Send a decision receipt to a specified channel.
