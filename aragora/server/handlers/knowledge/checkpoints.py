@@ -224,7 +224,7 @@ class KMCheckpointHandler(BaseHandler):
         success = False
 
         try:
-            body = self.get_request_body(handler)
+            body = self.read_json_body(handler)
             if body is None:
                 body = {}
             name = body.get("name")
@@ -366,7 +366,7 @@ class KMCheckpointHandler(BaseHandler):
         success = False
 
         try:
-            body = self.get_request_body(handler) or {}  # type: ignore[attr-defined]
+            body = self.read_json_body(handler) or {}  # type: ignore[attr-defined]
             strategy = body.get("strategy", "merge")
             skip_duplicates = body.get("skip_duplicates", True)
 
@@ -460,7 +460,7 @@ class KMCheckpointHandler(BaseHandler):
             return err
 
         try:
-            body = self.get_request_body(handler)  # type: ignore[attr-defined]
+            body = self.read_json_body(handler)  # type: ignore[attr-defined]
             checkpoint_a = body.get("checkpoint_a")
             checkpoint_b = body.get("checkpoint_b")
 

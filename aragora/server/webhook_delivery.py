@@ -52,10 +52,10 @@ try:
 except ImportError:
     _TRACING_AVAILABLE = False
 
-    def get_trace_id():  # type: ignore[misc,no-redef]
+    def get_trace_id():
         return None
 
-    def get_span_id():  # type: ignore[misc,no-redef]
+    def get_span_id():
         return None
 
     CUSTOM_TRACE_ID_HEADER = "X-Trace-ID"

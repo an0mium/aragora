@@ -108,7 +108,10 @@ interface AuthClientInterface {
   linkOAuthProvider(provider: string, code: string): Promise<{ linked: boolean }>;
   unlinkOAuthProvider(provider: string): Promise<{ unlinked: boolean }>;
   initiateSSOLogin(provider?: string, redirectUrl?: string): Promise<{ authorization_url: string; state: string; provider: string; expires_in: number }>;
-  listSSOProviders(): Promise<{ providers: Array<{ id: string; name: string; type: string }> }>;
+  listSSOProviders(): Promise<{
+    providers: Array<{ type: string; name: string; enabled: boolean }>;
+    sso_enabled: boolean;
+  }>;
 }
 
 /**
@@ -348,7 +351,10 @@ export class AuthAPI {
   /**
    * List available SSO providers.
    */
-  async listSSOProviders(): Promise<{ providers: Array<{ id: string; name: string; type: string }> }> {
+  async listSSOProviders(): Promise<{
+    providers: Array<{ type: string; name: string; enabled: boolean }>;
+    sso_enabled: boolean;
+  }> {
     return this.client.listSSOProviders();
   }
 }

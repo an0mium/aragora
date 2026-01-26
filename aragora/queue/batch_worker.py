@@ -177,7 +177,7 @@ class BatchExplainabilityWorker:
 
     async def _process_loop(self) -> None:
         """Main processing loop."""
-        poll_interval = self._config.poll_interval_seconds  # type: ignore[attr-defined]
+        poll_interval = self._config.poll_interval_seconds
 
         while self._running:
             try:
@@ -187,7 +187,7 @@ class BatchExplainabilityWorker:
                     continue
 
                 # Try to get a job from the queue
-                job = await self._queue.dequeue(  # type: ignore[call-arg]
+                job = await self._queue.dequeue(
                     queue_name=self.QUEUE_NAME,
                     worker_id=self._worker_id,
                 )
@@ -256,7 +256,7 @@ class BatchExplainabilityWorker:
                 else JobStatus.COMPLETED
             )
 
-            await self._queue.complete(  # type: ignore[attr-defined]
+            await self._queue.complete(
                 job_id=job_id,
                 result={
                     "total": progress.total,
@@ -276,7 +276,7 @@ class BatchExplainabilityWorker:
 
         except Exception as e:
             logger.error(f"Batch job {job_id} failed: {e}", exc_info=True)
-            await self._queue.fail(job_id=job_id, error=str(e))  # type: ignore[attr-defined]
+            await self._queue.fail(job_id=job_id, error=str(e))
         finally:
             del self._active_batches[job_id]
 
@@ -354,7 +354,7 @@ async def create_batch_job(
         },
     )
 
-    await queue.enqueue(  # type: ignore[call-arg]
+    await queue.enqueue(
         job=job,
         queue_name=BatchExplainabilityWorker.QUEUE_NAME,
     )

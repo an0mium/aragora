@@ -54,10 +54,22 @@ interface KnowledgeClientInterface {
   updateKnowledge(entryId: string, updates: Partial<KnowledgeEntry>): Promise<KnowledgeEntry>;
   deleteKnowledge(entryId: string): Promise<{ deleted: boolean }>;
   getKnowledgeStats(): Promise<KnowledgeStats>;
-  bulkImportKnowledge(entries: KnowledgeEntry[]): Promise<{ imported: number; errors: string[] }>;
+  bulkImportKnowledge(entries: KnowledgeEntry[]): Promise<{
+    imported: number;
+    failed: number;
+    errors?: Array<{ index: number; error: string }>;
+  }>;
   queryKnowledgeMound(query: string, options?: KnowledgeMoundQueryOptions): Promise<KnowledgeMoundQueryResult>;
   listKnowledgeMoundNodes(options?: PaginationParams & { type?: string }): Promise<{ nodes: KnowledgeMoundNode[] }>;
-  createKnowledgeMoundNode(node: Partial<KnowledgeMoundNode>): Promise<KnowledgeMoundNode>;
+  createKnowledgeMoundNode(node: {
+    content: string;
+    node_type: 'fact' | 'concept' | 'claim' | 'evidence' | 'insight';
+    confidence?: number;
+    source?: string;
+    tags?: string[];
+    visibility?: 'private' | 'team' | 'global';
+    metadata?: Record<string, unknown>;
+  }): Promise<{ id: string; created_at: string }>;
   listKnowledgeMoundRelationships(options?: PaginationParams): Promise<{ relationships: KnowledgeMoundRelationship[] }>;
   createKnowledgeMoundRelationship(relationship: Partial<KnowledgeMoundRelationship>): Promise<KnowledgeMoundRelationship>;
   getKnowledgeMoundStats(): Promise<KnowledgeMoundStats>;
@@ -145,7 +157,11 @@ export class KnowledgeAPI {
   /**
    * Bulk import knowledge entries.
    */
-  async bulkImport(entries: KnowledgeEntry[]): Promise<{ imported: number; errors: string[] }> {
+  async bulkImport(entries: KnowledgeEntry[]): Promise<{
+    imported: number;
+    failed: number;
+    errors?: Array<{ index: number; error: string }>;
+  }> {
     return this.client.bulkImportKnowledge(entries);
   }
 
@@ -166,7 +182,15 @@ export class KnowledgeAPI {
   /**
    * Create a new Knowledge Mound node.
    */
-  async createNode(node: Partial<KnowledgeMoundNode>): Promise<KnowledgeMoundNode> {
+  async createNode(node: {
+    content: string;
+    node_type: 'fact' | 'concept' | 'claim' | 'evidence' | 'insight';
+    confidence?: number;
+    source?: string;
+    tags?: string[];
+    visibility?: 'private' | 'team' | 'global';
+    metadata?: Record<string, unknown>;
+  }): Promise<{ id: string; created_at: string }> {
     return this.client.createKnowledgeMoundNode(node);
   }
 

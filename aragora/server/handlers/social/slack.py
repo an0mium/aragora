@@ -1632,10 +1632,15 @@ class SlackHandler(BaseHandler):
             self._update_debate_status(debate_id, "failed", error=str(e)[:200])
 
     def _build_starting_blocks(
-        self, topic: str, user_id: str, debate_id: str
+        self,
+        topic: str,
+        user_id: str,
+        debate_id: str,
+        agents: Optional[List[str]] = None,
+        expected_rounds: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """Build Slack blocks for debate start message."""
-        return [
+        blocks = [
             {
                 "type": "header",
                 "text": {
@@ -1651,16 +1656,28 @@ class SlackHandler(BaseHandler):
                     "text": f"*Topic:* {topic}",
                 },
             },
+        ]
+
+        # Add agents and rounds info if provided
+        context_parts = [f"Requested by <@{user_id}> | ID: `{debate_id}`"]
+        if agents:
+            context_parts.append(f"Agents: {', '.join(agents)}")
+        if expected_rounds:
+            context_parts.append(f"Rounds: {expected_rounds}")
+
+        blocks.append(
             {
                 "type": "context",
                 "elements": [
                     {
                         "type": "mrkdwn",
-                        "text": f"Requested by <@{user_id}> | ID: `{debate_id}`",
+                        "text": " | ".join(context_parts),
                     },
                 ],
-            },
-        ]
+            }
+        )
+
+        return blocks
 
     async def _post_round_update(
         self,

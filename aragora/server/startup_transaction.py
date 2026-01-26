@@ -231,7 +231,10 @@ class StartupTransaction:
                 if asyncio.iscoroutinefunction(cleanup):
                     await cleanup()
                 else:
-                    cleanup()
+                    result = cleanup()
+                    # Handle case where sync callable returns a coroutine
+                    if asyncio.iscoroutine(result):
+                        await result
             except Exception as e:
                 logger.exception(f"Cleanup failed for {component}: {e}")
 

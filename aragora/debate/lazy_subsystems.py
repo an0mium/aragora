@@ -9,7 +9,6 @@ and memory usage when subsystems aren't actually used.
 from __future__ import annotations
 
 import logging
-from functools import cached_property
 from typing import TYPE_CHECKING, Any, Callable, Generic, Optional, TypeVar
 
 if TYPE_CHECKING:
@@ -104,7 +103,7 @@ def lazy_property(
         on_create: Optional callback after creation
     """
 
-    def decorator(func: Callable[["Arena"], T]) -> cached_property:
+    def decorator(func: Callable[["Arena"], T]) -> property:
         private_attr = f"_lazy_{func.__name__}"
 
         def wrapper(self: "Arena") -> Optional[T]:

@@ -9,6 +9,9 @@ import type {
   Role,
   Permission,
   RoleAssignment,
+  AssignmentList,
+  BulkAssignRequest,
+  BulkAssignResponse,
   PaginationParams,
 } from '../types';
 
@@ -48,12 +51,12 @@ interface RBACClientInterface {
   updateRole(roleId: string, updates: UpdateRoleRequest): Promise<Role>;
   deleteRole(roleId: string): Promise<{ deleted: boolean }>;
   listPermissions(params?: PaginationParams): Promise<{ permissions: Permission[] }>;
-  assignRole(userId: string, roleId: string): Promise<RoleAssignment>;
-  revokeRole(userId: string, roleId: string): Promise<{ revoked: boolean }>;
+  assignRole(userId: string, roleId: string): Promise<void>;
+  revokeRole(userId: string, roleId: string): Promise<void>;
   getUserRoles(userId: string): Promise<{ roles: Role[] }>;
   checkPermission(userId: string, permission: string): Promise<{ allowed: boolean }>;
-  listRoleAssignments(params?: PaginationParams & { user_id?: string; role_id?: string }): Promise<{ assignments: RoleAssignment[] }>;
-  bulkAssignRoles(assignments: Array<{ user_id: string; role_id: string }>): Promise<{ assigned: number }>;
+  listRoleAssignments(roleId: string, params?: PaginationParams): Promise<AssignmentList>;
+  bulkAssignRoles(body: BulkAssignRequest): Promise<BulkAssignResponse>;
 }
 
 /**
@@ -132,14 +135,14 @@ export class RBACAPI {
   /**
    * Assign a role to a user.
    */
-  async assignRole(userId: string, roleId: string): Promise<RoleAssignment> {
+  async assignRole(userId: string, roleId: string): Promise<void> {
     return this.client.assignRole(userId, roleId);
   }
 
   /**
    * Revoke a role from a user.
    */
-  async revokeRole(userId: string, roleId: string): Promise<{ revoked: boolean }> {
+  async revokeRole(userId: string, roleId: string): Promise<void> {
     return this.client.revokeRole(userId, roleId);
   }
 
@@ -158,20 +161,19 @@ export class RBACAPI {
   }
 
   /**
-   * List role assignments with optional filtering.
+   * List users assigned to a role.
    */
   async listAssignments(
-    params?: PaginationParams & { user_id?: string; role_id?: string }
-  ): Promise<{ assignments: RoleAssignment[] }> {
-    return this.client.listRoleAssignments(params);
+    roleId: string,
+    params?: PaginationParams
+  ): Promise<AssignmentList> {
+    return this.client.listRoleAssignments(roleId, params);
   }
 
   /**
    * Bulk assign roles to multiple users.
    */
-  async bulkAssign(
-    assignments: Array<{ user_id: string; role_id: string }>
-  ): Promise<{ assigned: number }> {
-    return this.client.bulkAssignRoles(assignments);
+  async bulkAssign(body: BulkAssignRequest): Promise<BulkAssignResponse> {
+    return this.client.bulkAssignRoles(body);
   }
 }

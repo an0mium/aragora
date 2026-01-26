@@ -53,7 +53,11 @@ interface AuditClientInterface {
   listAuditEvents(params?: AuditEventFilterOptions & PaginationParams): Promise<{ events: AuditEvent[]; total: number }>;
   getAuditStats(params?: { period?: string }): Promise<AuditStats>;
   exportAuditLogs(request: AuditExportOptions): Promise<{ url: string; expires_at: string }>;
-  verifyAuditIntegrity(params?: { start_date?: string; end_date?: string }): Promise<{ valid: boolean; errors?: string[]; checked_count: number }>;
+  verifyAuditIntegrity(params?: { start_date?: string; end_date?: string }): Promise<{
+    verified: boolean;
+    entries_checked: number;
+    tampered_entries: number;
+  }>;
   listAuditSessions(params?: { status?: string } & PaginationParams): Promise<{ sessions: AuditSession[]; total: number }>;
   getAuditSession(sessionId: string): Promise<AuditSession>;
   createAuditSession(request: CreateAuditSessionRequest): Promise<AuditSession>;
@@ -132,7 +136,11 @@ export class AuditAPI {
    */
   async verifyIntegrity(
     params?: { start_date?: string; end_date?: string }
-  ): Promise<{ valid: boolean; errors?: string[]; checked_count: number }> {
+  ): Promise<{
+    verified: boolean;
+    entries_checked: number;
+    tampered_entries: number;
+  }> {
     return this.client.verifyAuditIntegrity(params);
   }
 

@@ -209,12 +209,18 @@ class TestPRReviewHandlers:
     @pytest.mark.asyncio
     async def test_submit_review_invalid_event(self):
         """Test submitting review with invalid event."""
-        result = await handle_submit_review(
-            repository="owner/repo",
-            pr_number=123,
-            event="INVALID_EVENT",
-            body="Test",
-        )
+        # Mock the permission check to allow direct function testing
+        with patch(
+            "aragora.server.handlers.github.pr_review.handle_submit_review.__wrapped__",
+            wraps=handle_submit_review.__wrapped__,
+        ):
+            # Call the unwrapped function directly to bypass permission decorator
+            result = await handle_submit_review.__wrapped__(
+                repository="owner/repo",
+                pr_number=123,
+                event="INVALID_EVENT",
+                body="Test",
+            )
 
         assert result["success"] is False
         assert "Invalid event" in result["error"]
@@ -222,7 +228,8 @@ class TestPRReviewHandlers:
     @pytest.mark.asyncio
     async def test_submit_review_valid(self):
         """Test submitting a valid review."""
-        result = await handle_submit_review(
+        # Call the unwrapped function directly to bypass permission decorator
+        result = await handle_submit_review.__wrapped__(
             repository="owner/repo",
             pr_number=123,
             event="APPROVE",

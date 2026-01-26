@@ -8,8 +8,8 @@
 import type {
   MemoryEntry,
   MemoryStats,
-  MemoryTier,
-  MemorySearchResult,
+  MemoryTierStats,
+  MemorySearchParams,
   CritiqueEntry,
   ContinuumStoreOptions,
   ContinuumStoreResult,
@@ -49,12 +49,19 @@ export interface MemoryRetrieveOptions {
  * Interface for the internal client methods used by MemoryAPI.
  */
 interface MemoryClientInterface {
-  storeMemory(key: string, value: unknown, options?: { ttl?: number }): Promise<{ success: boolean }>;
-  retrieveMemory(key: string): Promise<MemoryEntry | null>;
-  deleteMemory(key: string): Promise<{ deleted: boolean }>;
+  storeMemory(key: string, value: unknown, options?: {
+    tier?: 'fast' | 'medium' | 'slow' | 'glacial';
+    importance?: number;
+    tags?: string[];
+    ttl_seconds?: number;
+  }): Promise<{ stored: boolean; tier: string }>;
+  retrieveMemory(key: string, options?: {
+    tier?: 'fast' | 'medium' | 'slow' | 'glacial';
+  }): Promise<{ value: unknown; tier: string; metadata?: Record<string, unknown> } | null>;
+  deleteMemory(key: string, tier?: 'fast' | 'medium' | 'slow' | 'glacial'): Promise<{ deleted: boolean }>;
   getMemoryStats(): Promise<MemoryStats>;
-  searchMemory(query: string, options?: MemoryRetrieveOptions): Promise<MemorySearchResult>;
-  getMemoryTiers(): Promise<{ tiers: Array<{ name: MemoryTier; count: number; size: number }> }>;
+  searchMemory(params: MemorySearchParams): Promise<{ entries: MemoryEntry[] }>;
+  getMemoryTiers(): Promise<{ tiers: MemoryTierStats[] }>;
   getMemoryCritiques(options?: PaginationParams): Promise<{ critiques: CritiqueEntry[] }>;
   storeToContinuum(content: string, options?: ContinuumStoreOptions): Promise<ContinuumStoreResult>;
   retrieveFromContinuum(query: string, options?: ContinuumRetrieveOptions): Promise<MemoryEntry[]>;
@@ -110,15 +117,21 @@ export class MemoryAPI {
   /**
    * Retrieve a value from memory by key.
    */
-  async retrieve(key: string): Promise<MemoryEntry | null> {
-    return this.client.retrieveMemory(key);
+  async retrieve(
+    key: string,
+    options?: { tier?: 'fast' | 'medium' | 'slow' | 'glacial' }
+  ): Promise<{ value: unknown; tier: string; metadata?: Record<string, unknown> } | null> {
+    return this.client.retrieveMemory(key, options);
   }
 
   /**
    * Delete a memory entry by key.
    */
-  async delete(key: string): Promise<{ deleted: boolean }> {
-    return this.client.deleteMemory(key);
+  async delete(
+    key: string,
+    tier?: 'fast' | 'medium' | 'slow' | 'glacial'
+  ): Promise<{ deleted: boolean }> {
+    return this.client.deleteMemory(key, tier);
   }
 
   /**
@@ -131,14 +144,14 @@ export class MemoryAPI {
   /**
    * Search memory entries by query.
    */
-  async search(query: string, options?: MemoryRetrieveOptions): Promise<MemorySearchResult> {
-    return this.client.searchMemory(query, options);
+  async search(params: MemorySearchParams): Promise<{ entries: MemoryEntry[] }> {
+    return this.client.searchMemory(params);
   }
 
   /**
    * Get information about memory tiers.
    */
-  async tiers(): Promise<{ tiers: Array<{ name: MemoryTier; count: number; size: number }> }> {
+  async tiers(): Promise<{ tiers: MemoryTierStats[] }> {
     return this.client.getMemoryTiers();
   }
 

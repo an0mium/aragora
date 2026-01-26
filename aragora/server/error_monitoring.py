@@ -135,7 +135,7 @@ def init_monitoring() -> bool:
             # Attach stack trace to log messages
             attach_stacktrace=True,
             # Sanitize events before sending
-            before_send=_before_send,  # type: ignore[arg-type]
+            before_send=_before_send,
             # Filter out health check transactions
             before_send_transaction=_filter_health_checks,
             # Enable source context

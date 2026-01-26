@@ -172,6 +172,8 @@ import {
   PluginsAPI,
   WorkspacesAPI,
   IntegrationsAPI,
+  MarketplaceAPI,
+  CodebaseAPI,
 } from './namespaces';
 
 interface RequestOptions {
@@ -361,6 +363,12 @@ export class AragoraClient {
    */
   readonly marketplace: MarketplaceAPI;
 
+  /**
+   * Codebase Analysis API namespace.
+   * Provides methods for security scanning, dependency analysis, metrics, and code intelligence.
+   */
+  readonly codebase: CodebaseAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -398,6 +406,7 @@ export class AragoraClient {
     this.workspaces = new WorkspacesAPI(this);
     this.integrations = new IntegrationsAPI(this);
     this.marketplace = new MarketplaceAPI(this);
+    this.codebase = new CodebaseAPI(this);
   }
 
   // ===========================================================================
