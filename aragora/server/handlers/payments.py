@@ -203,6 +203,7 @@ def _get_provider_from_request(request: web.Request, body: Dict[str, Any]) -> Pa
 # =============================================================================
 
 
+@require_permission("payments:charge")
 async def handle_charge(request: web.Request) -> web.Response:
     """
     POST /api/payments/charge
@@ -408,6 +409,7 @@ async def _charge_authnet(
         )
 
 
+@require_permission("payments:authorize")
 async def handle_authorize(request: web.Request) -> web.Response:
     """
     POST /api/payments/authorize
@@ -484,6 +486,7 @@ async def handle_authorize(request: web.Request) -> web.Response:
         return web.json_response({"error": str(e)}, status=500)
 
 
+@require_permission("payments:capture")
 async def handle_capture(request: web.Request) -> web.Response:
     """
     POST /api/payments/capture
@@ -551,6 +554,7 @@ async def handle_capture(request: web.Request) -> web.Response:
         return web.json_response({"error": str(e)}, status=500)
 
 
+@require_permission("payments:refund")
 async def handle_refund(request: web.Request) -> web.Response:
     """
     POST /api/payments/refund

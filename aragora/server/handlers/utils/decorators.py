@@ -445,6 +445,21 @@ PERMISSION_MATRIX: dict[str, list[str]] = {
     # Payroll permissions
     "payroll:read": ["admin", "owner"],
     "payroll:manage": ["owner"],
+    # Payment permissions
+    "payments:charge": ["admin", "owner"],
+    "payments:authorize": ["admin", "owner"],
+    "payments:capture": ["admin", "owner"],
+    "payments:refund": ["admin", "owner"],
+    "payments:void": ["admin", "owner"],
+    "payments:read": ["member", "admin", "owner"],
+    "payments:customer:create": ["admin", "owner"],
+    "payments:customer:read": ["admin", "owner"],
+    "payments:customer:delete": ["owner"],
+    "payments:subscription:create": ["admin", "owner"],
+    "payments:subscription:cancel": ["admin", "owner"],
+    # Audit trail permissions
+    "audit:read": ["admin", "owner"],
+    "audit:verify": ["admin", "owner"],
 }
 
 
