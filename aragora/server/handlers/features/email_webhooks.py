@@ -16,6 +16,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -138,6 +139,7 @@ _subscriptions: Dict[str, WebhookSubscription] = {}  # subscription_id -> subscr
 _tenant_subscriptions: Dict[str, List[str]] = {}  # tenant_id -> [subscription_ids]
 _notification_history: Dict[str, List[WebhookNotification]] = {}  # tenant_id -> notifications
 _pending_validations: Dict[str, str] = {}  # state -> subscription_id
+_webhooks_lock = asyncio.Lock()  # Thread-safe access to webhook state
 
 
 # =============================================================================
@@ -304,21 +306,23 @@ async def _queue_notification(notification: WebhookNotification) -> None:
     """Queue notification for async processing."""
     tenant_id = notification.tenant_id
 
-    if tenant_id not in _notification_history:
-        _notification_history[tenant_id] = []
+    # Thread-safe access to shared state
+    async with _webhooks_lock:
+        if tenant_id not in _notification_history:
+            _notification_history[tenant_id] = []
 
-    # Keep last 100 notifications per tenant
-    history = _notification_history[tenant_id]
-    history.append(notification)
-    if len(history) > 100:
-        _notification_history[tenant_id] = history[-100:]
+        # Keep last 100 notifications per tenant
+        history = _notification_history[tenant_id]
+        history.append(notification)
+        if len(history) > 100:
+            _notification_history[tenant_id] = history[-100:]
 
-    # Update subscription stats
-    for sub in _subscriptions.values():
-        if sub.account_id == notification.account_id:
-            sub.last_notification = notification.timestamp
-            sub.notification_count += 1
-            break
+        # Update subscription stats
+        for sub in _subscriptions.values():
+            if sub.account_id == notification.account_id:
+                sub.last_notification = notification.timestamp
+                sub.notification_count += 1
+                break
 
     # Trigger sync service (would integrate with GmailSyncService/OutlookSyncService)
     try:
@@ -529,10 +533,12 @@ class EmailWebhooksHandler(BaseHandler):
 
     async def _handle_status(self, request: Any, tenant_id: str) -> HandlerResult:
         """Get webhook subscription status."""
-        subscription_ids = _tenant_subscriptions.get(tenant_id, [])
-        subscriptions = [
-            _subscriptions[sid].to_dict() for sid in subscription_ids if sid in _subscriptions
-        ]
+        # Thread-safe access to shared state
+        async with _webhooks_lock:
+            subscription_ids = _tenant_subscriptions.get(tenant_id, [])
+            subscriptions = [
+                _subscriptions[sid].to_dict() for sid in subscription_ids if sid in _subscriptions
+            ]
 
         # Calculate summary
         active_count = sum(1 for s in subscriptions if s["status"] == "active")
