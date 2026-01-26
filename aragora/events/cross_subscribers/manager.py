@@ -54,7 +54,7 @@ except ImportError:
     def record_handler_call(handler: str, status: str, duration: float) -> None:  # type: ignore[misc]
         pass
 
-    def set_circuit_breaker_state(handler: str, state: str) -> None:  # type: ignore[misc]
+    def set_circuit_breaker_state(handler: str, is_open: bool) -> None:  # type: ignore[misc]
         pass
 
 
@@ -522,7 +522,9 @@ class CrossSubscriberManager(
                         )
                         self._circuit_breaker.record_failure(name)
                         if METRICS_AVAILABLE:
-                            set_circuit_breaker_state(name, self._circuit_breaker.get_status(name))
+                            set_circuit_breaker_state(
+                                name, not self._circuit_breaker.is_available(name)
+                            )
 
             elapsed_ms = (time.time() - start_time) * 1000
 
@@ -752,7 +754,7 @@ class CrossSubscriberManager(
         try:
             self._circuit_breaker.reset(name)
             if METRICS_AVAILABLE:
-                set_circuit_breaker_state(name, "closed")
+                set_circuit_breaker_state(name, False)  # Closed = not open
             return True
         except Exception:
             return False
