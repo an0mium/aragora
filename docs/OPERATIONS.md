@@ -166,8 +166,11 @@ Key metrics:
 |--------|------|-------------|
 | `aragora_debates_total` | Counter | Total debates started |
 | `aragora_debates_completed` | Counter | Completed debates |
-| `aragora_agent_response_seconds` | Histogram | Agent response latency |
-| `aragora_tokens_used_total` | Counter | Total tokens consumed |
+| `aragora_agent_latency_seconds` | Histogram | Agent response latency |
+| `aragora_agent_tokens_total` | Counter | Total tokens consumed |
+| `aragora_fallback_activations_total` | Counter | Fallback activations |
+| `aragora_fallback_success_total` | Counter | Fallback outcomes |
+| `aragora_fallback_latency_seconds` | Histogram | Fallback latency |
 | `aragora_ws_connections_active` | Gauge | Active WebSocket connections |
 | `aragora_circuit_breaker_state` | Gauge | Circuit breaker status per agent |
 

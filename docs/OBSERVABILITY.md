@@ -149,6 +149,9 @@ Automatically captured attributes:
 |--------|------|--------|-------------|
 | `aragora_agent_calls_total` | Counter | agent, status | Total agent API calls |
 | `aragora_agent_latency_seconds` | Histogram | agent | Agent response latency |
+| `aragora_fallback_activations_total` | Counter | primary_agent, fallback_provider, error_type | Fallback activations |
+| `aragora_fallback_success_total` | Counter | fallback_provider, status | Fallback outcomes |
+| `aragora_fallback_latency_seconds` | Histogram | fallback_provider | Fallback latency |
 
 #### Debate Metrics
 
