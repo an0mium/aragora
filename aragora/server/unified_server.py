@@ -1122,6 +1122,8 @@ class UnifiedServer:
         logger.info(f"  WebSocket:  ws://localhost:{self.ws_port}")
         logger.info(f"  Control Plane WS: ws://localhost:{self.control_plane_port}")
         logger.info(f"  Nomic Loop WS: ws://localhost:{self.nomic_loop_port}")
+        if self.canvas_stream:
+            logger.info(f"  Canvas WS: ws://localhost:{self.canvas_port}")
         if self.ssl_enabled:
             logger.info(f"  SSL:        enabled (cert: {self.ssl_cert})")
         if self.static_dir:
@@ -1137,11 +1139,14 @@ class UnifiedServer:
         self._http_thread.start()
 
         # Start all WebSocket servers concurrently
-        await asyncio.gather(
+        stream_tasks = [
             self.stream_server.start(),
             self.control_plane_stream.start(),
             self.nomic_loop_stream.start(),
-        )
+        ]
+        if self.canvas_stream:
+            stream_tasks.append(self.canvas_stream.start())
+        await asyncio.gather(*stream_tasks)
 
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""

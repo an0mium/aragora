@@ -214,105 +214,87 @@ class TestAgentsHandlerHandle:
     """Tests for main handle method routing (async with RBAC)."""
 
     @pytest.fixture
-    def mock_auth_context(self):
-        """Create a mock auth context with agent:read permission."""
-        from aragora.server.handlers.secure import AuthContext
+    def handler_with_auth(self):
+        """Create an AgentsHandler with mocked auth."""
+        from unittest.mock import AsyncMock
 
-        return AuthContext(
-            user_id="test-user",
-            permissions=["agent:read"],
-            roles=["viewer"],
-        )
+        handler = AgentsHandler({})
+        # Mock RBAC - return auth context and don't raise on permission check
+        handler.get_auth_context = AsyncMock(return_value=MagicMock(authenticated=True))
+        handler.check_permission = MagicMock()  # Does not raise = permission granted
+        return handler
 
     @pytest.mark.asyncio
-    async def test_handle_agents_list(self, mock_auth_context):
+    async def test_handle_agents_list(self, handler_with_auth):
         """Should route /api/agents to _list_agents."""
-        handler = AgentsHandler({})
-        handler._list_agents = MagicMock(return_value={"status": 200})
-        handler.get_auth_context = MagicMock(return_value=mock_auth_context)
+        handler_with_auth._list_agents = MagicMock(return_value={"status": 200})
 
-        await handler.handle("/api/v1/agents", {}, None)
-        handler._list_agents.assert_called_once()
+        await handler_with_auth.handle("/api/v1/agents", {}, None)
+        handler_with_auth._list_agents.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_local_agents(self, mock_auth_context):
+    async def test_handle_local_agents(self, handler_with_auth):
         """Should route /api/agents/local to _list_local_agents."""
-        handler = AgentsHandler({})
-        handler._list_local_agents = MagicMock(return_value={"status": 200})
-        handler.get_auth_context = MagicMock(return_value=mock_auth_context)
+        handler_with_auth._list_local_agents = MagicMock(return_value={"status": 200})
 
-        await handler.handle("/api/v1/agents/local", {}, None)
-        handler._list_local_agents.assert_called_once()
+        await handler_with_auth.handle("/api/v1/agents/local", {}, None)
+        handler_with_auth._list_local_agents.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_local_status(self, mock_auth_context):
+    async def test_handle_local_status(self, handler_with_auth):
         """Should route /api/agents/local/status to _get_local_status."""
-        handler = AgentsHandler({})
-        handler._get_local_status = MagicMock(return_value={"status": 200})
-        handler.get_auth_context = MagicMock(return_value=mock_auth_context)
+        handler_with_auth._get_local_status = MagicMock(return_value={"status": 200})
 
-        await handler.handle("/api/v1/agents/local/status", {}, None)
-        handler._get_local_status.assert_called_once()
+        await handler_with_auth.handle("/api/v1/agents/local/status", {}, None)
+        handler_with_auth._get_local_status.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_leaderboard(self, mock_auth_context):
+    async def test_handle_leaderboard(self, handler_with_auth):
         """Should route /api/leaderboard to _get_leaderboard."""
-        handler = AgentsHandler({})
-        handler._get_leaderboard = MagicMock(return_value={"status": 200})
-        handler.get_auth_context = MagicMock(return_value=mock_auth_context)
+        handler_with_auth._get_leaderboard = MagicMock(return_value={"status": 200})
 
-        await handler.handle("/api/v1/leaderboard", {}, None)
-        handler._get_leaderboard.assert_called()
+        await handler_with_auth.handle("/api/v1/leaderboard", {}, None)
+        handler_with_auth._get_leaderboard.assert_called()
 
     @pytest.mark.asyncio
-    async def test_handle_rankings(self, mock_auth_context):
+    async def test_handle_rankings(self, handler_with_auth):
         """Should route /api/rankings to _get_leaderboard."""
-        handler = AgentsHandler({})
-        handler._get_leaderboard = MagicMock(return_value={"status": 200})
-        handler.get_auth_context = MagicMock(return_value=mock_auth_context)
+        handler_with_auth._get_leaderboard = MagicMock(return_value={"status": 200})
 
-        await handler.handle("/api/v1/rankings", {}, None)
-        handler._get_leaderboard.assert_called()
+        await handler_with_auth.handle("/api/v1/rankings", {}, None)
+        handler_with_auth._get_leaderboard.assert_called()
 
     @pytest.mark.asyncio
-    async def test_handle_recent_matches(self, mock_auth_context):
+    async def test_handle_recent_matches(self, handler_with_auth):
         """Should route /api/matches/recent to _get_recent_matches."""
-        handler = AgentsHandler({})
-        handler._get_recent_matches = MagicMock(return_value={"status": 200})
-        handler.get_auth_context = MagicMock(return_value=mock_auth_context)
+        handler_with_auth._get_recent_matches = MagicMock(return_value={"status": 200})
 
-        await handler.handle("/api/v1/matches/recent", {}, None)
-        handler._get_recent_matches.assert_called()
+        await handler_with_auth.handle("/api/v1/matches/recent", {}, None)
+        handler_with_auth._get_recent_matches.assert_called()
 
     @pytest.mark.asyncio
-    async def test_handle_agent_compare(self, mock_auth_context):
+    async def test_handle_agent_compare(self, handler_with_auth):
         """Should route /api/agent/compare to _compare_agents."""
-        handler = AgentsHandler({})
-        handler._compare_agents = MagicMock(return_value={"status": 200})
-        handler.get_auth_context = MagicMock(return_value=mock_auth_context)
+        handler_with_auth._compare_agents = MagicMock(return_value={"status": 200})
 
-        await handler.handle("/api/v1/agent/compare", {"agents": ["claude", "gpt"]}, None)
-        handler._compare_agents.assert_called()
+        await handler_with_auth.handle("/api/v1/agent/compare", {"agents": ["claude", "gpt"]}, None)
+        handler_with_auth._compare_agents.assert_called()
 
     @pytest.mark.asyncio
-    async def test_handle_flips_recent(self, mock_auth_context):
+    async def test_handle_flips_recent(self, handler_with_auth):
         """Should route /api/flips/recent to _get_recent_flips."""
-        handler = AgentsHandler({})
-        handler._get_recent_flips = MagicMock(return_value={"status": 200})
-        handler.get_auth_context = MagicMock(return_value=mock_auth_context)
+        handler_with_auth._get_recent_flips = MagicMock(return_value={"status": 200})
 
-        await handler.handle("/api/v1/flips/recent", {}, None)
-        handler._get_recent_flips.assert_called()
+        await handler_with_auth.handle("/api/v1/flips/recent", {}, None)
+        handler_with_auth._get_recent_flips.assert_called()
 
     @pytest.mark.asyncio
-    async def test_handle_flips_summary(self, mock_auth_context):
+    async def test_handle_flips_summary(self, handler_with_auth):
         """Should route /api/flips/summary to _get_flip_summary."""
-        handler = AgentsHandler({})
-        handler._get_flip_summary = MagicMock(return_value={"status": 200})
-        handler.get_auth_context = MagicMock(return_value=mock_auth_context)
+        handler_with_auth._get_flip_summary = MagicMock(return_value={"status": 200})
 
-        await handler.handle("/api/v1/flips/summary", {}, None)
-        handler._get_flip_summary.assert_called_once()
+        await handler_with_auth.handle("/api/v1/flips/summary", {}, None)
+        handler_with_auth._get_flip_summary.assert_called_once()
 
 
 class TestAgentsHandlerAgentEndpoint:
@@ -387,42 +369,36 @@ class TestListAgentsIncludeStats:
     """Tests for include_stats parameter in list agents (async with RBAC)."""
 
     @pytest.fixture
-    def mock_auth_context(self):
-        """Create a mock auth context with agent:read permission."""
-        from aragora.server.handlers.secure import AuthContext
+    def handler_with_auth(self):
+        """Create an AgentsHandler with mocked auth."""
+        from unittest.mock import AsyncMock
 
-        return AuthContext(
-            user_id="test-user",
-            permissions=["agent:read"],
-            roles=["viewer"],
-        )
+        handler = AgentsHandler({})
+        # Mock RBAC - return auth context and don't raise on permission check
+        handler.get_auth_context = AsyncMock(return_value=MagicMock(authenticated=True))
+        handler.check_permission = MagicMock()  # Does not raise = permission granted
+        return handler
 
     @pytest.mark.asyncio
-    async def test_include_stats_default_false(self, mock_auth_context):
+    async def test_include_stats_default_false(self, handler_with_auth):
         """include_stats should default to false."""
-        handler = AgentsHandler({})
-        handler._list_agents = MagicMock(return_value={"status": 200})
-        handler.get_auth_context = MagicMock(return_value=mock_auth_context)
+        handler_with_auth._list_agents = MagicMock(return_value={"status": 200})
 
-        await handler.handle("/api/v1/agents", {}, None)
-        handler._list_agents.assert_called_with(False)
+        await handler_with_auth.handle("/api/v1/agents", {}, None)
+        handler_with_auth._list_agents.assert_called_with(False)
 
     @pytest.mark.asyncio
-    async def test_include_stats_true(self, mock_auth_context):
+    async def test_include_stats_true(self, handler_with_auth):
         """include_stats=true should pass True."""
-        handler = AgentsHandler({})
-        handler._list_agents = MagicMock(return_value={"status": 200})
-        handler.get_auth_context = MagicMock(return_value=mock_auth_context)
+        handler_with_auth._list_agents = MagicMock(return_value={"status": 200})
 
-        await handler.handle("/api/v1/agents", {"include_stats": ["true"]}, None)
-        handler._list_agents.assert_called_with(True)
+        await handler_with_auth.handle("/api/v1/agents", {"include_stats": ["true"]}, None)
+        handler_with_auth._list_agents.assert_called_with(True)
 
     @pytest.mark.asyncio
-    async def test_include_stats_false(self, mock_auth_context):
+    async def test_include_stats_false(self, handler_with_auth):
         """include_stats=false should pass False."""
-        handler = AgentsHandler({})
-        handler._list_agents = MagicMock(return_value={"status": 200})
-        handler.get_auth_context = MagicMock(return_value=mock_auth_context)
+        handler_with_auth._list_agents = MagicMock(return_value={"status": 200})
 
-        await handler.handle("/api/v1/agents", {"include_stats": ["false"]}, None)
-        handler._list_agents.assert_called_with(False)
+        await handler_with_auth.handle("/api/v1/agents", {"include_stats": ["false"]}, None)
+        handler_with_auth._list_agents.assert_called_with(False)
