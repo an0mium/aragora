@@ -322,6 +322,21 @@ class ConfidenceDecayScheduler:
                 force=force,
             )
 
+            # Validate decay_report has expected attributes
+            required_attrs = [
+                "items_processed",
+                "items_decayed",
+                "items_boosted",
+                "average_confidence_change",
+                "duration_ms",
+            ]
+            for attr in required_attrs:
+                if not hasattr(decay_report, attr):
+                    logger.warning(
+                        f"Decay report missing attribute '{attr}' for workspace {workspace_id}"
+                    )
+                    return None
+
             # Record run time
             self._last_run[workspace_id] = datetime.now()
 

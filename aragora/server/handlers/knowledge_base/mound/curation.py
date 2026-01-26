@@ -33,7 +33,7 @@ class CurationOperationsMixin:
 
     def _get_mound(self) -> Optional["KnowledgeMound"]:
         """Abstract method - implemented by main handler."""
-        raise NotImplementedError
+        raise NotImplementedError("Subclass must implement _get_mound")
 
     def _handle_curation_routes(
         self, path: str, query_params: dict, handler: Any
