@@ -78,6 +78,10 @@ class ResourceType(str, Enum):
     API_KEY = "api_key"  # API key management
     TEMPLATE = "template"  # Workflow template management
 
+    # Workspace management (SME RBAC-lite)
+    WORKSPACE = "workspace"  # Workspace-level access control
+    WORKSPACE_MEMBER = "workspace_member"  # Workspace member management
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""
