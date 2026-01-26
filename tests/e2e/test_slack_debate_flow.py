@@ -326,6 +326,10 @@ class TestSlackOAuthFlow:
         """Test OAuth install generates proper redirect URL."""
         from aragora.server.handlers.social import slack_oauth
         from aragora.server.handlers.social.slack_oauth import SlackOAuthHandler
+        from aragora.server.oauth_state_store import reset_oauth_state_store
+
+        # Reset OAuth state store to ensure clean state for test
+        reset_oauth_state_store()
 
         # Patch module-level variables (loaded at import time)
         with (
@@ -336,6 +340,8 @@ class TestSlackOAuthFlow:
                 "SLACK_REDIRECT_URI",
                 "https://aragora.ai/api/integrations/slack/callback",
             ),
+            # Ensure ARAGORA_ENV is set to development for fallback behavior
+            patch.object(slack_oauth, "ARAGORA_ENV", "development"),
         ):
             handler = SlackOAuthHandler({})
             # The handler should generate a redirect to Slack OAuth
@@ -343,36 +349,42 @@ class TestSlackOAuthFlow:
 
         assert result is not None
         # Should be a redirect (302) or JSON with redirect URL
-        assert result.status_code in (302, 200)
+        assert result.status_code in (302, 200), f"Got status {result.status_code}: {result.body}"
 
-    @pytest.mark.asyncio
-    async def test_state_token_storage_and_validation(self):
+        # Reset for other tests
+        reset_oauth_state_store()
+
+    def test_state_token_storage_and_validation(self):
         """Test OAuth state token is stored and validated correctly."""
-        from aragora.server.handlers.social.slack_oauth import (
-            _store_oauth_state,
-            _validate_oauth_state,
-            _oauth_states_fallback,
+        from aragora.server.oauth_state_store import (
+            generate_oauth_state,
+            validate_oauth_state,
+            reset_oauth_state_store,
         )
 
-        # Clear fallback store
-        _oauth_states_fallback.clear()
+        # Reset store to ensure clean state
+        reset_oauth_state_store()
 
-        state = f"test_state_{uuid.uuid4().hex}"
-        data = {"user_id": "U12345", "redirect_uri": "https://example.com"}
+        user_id = "U12345"
+        redirect_uri = "https://example.com"
 
-        # Store state (will use in-memory fallback in test)
-        with patch.dict("os.environ", {"ARAGORA_ENV": "development"}):
-            stored = await _store_oauth_state(state, data)
-            assert stored is True
+        # Store state using the global OAuth state store
+        state = generate_oauth_state(user_id=user_id, redirect_url=redirect_uri)
+        assert state is not None
+        assert len(state) > 10  # Should be a non-trivial token
 
-            # Validate and consume state
-            retrieved = await _validate_oauth_state(state)
-            assert retrieved is not None
-            assert retrieved["user_id"] == "U12345"
+        # Validate and consume state
+        retrieved = validate_oauth_state(state)
+        assert retrieved is not None
+        assert retrieved["user_id"] == user_id
+        assert retrieved["redirect_url"] == redirect_uri
 
-            # State should be consumed (one-time use)
-            retrieved_again = await _validate_oauth_state(state)
-            assert retrieved_again is None
+        # State should be consumed (one-time use)
+        retrieved_again = validate_oauth_state(state)
+        assert retrieved_again is None
+
+        # Reset for other tests
+        reset_oauth_state_store()
 
 
 # ============================================================================

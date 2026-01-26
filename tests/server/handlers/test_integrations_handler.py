@@ -16,6 +16,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+def parse_result(result) -> Dict[str, Any]:
+    """Parse HandlerResult body to dict for assertions."""
+    body = json.loads(result.body)
+    return {"success": result.status_code < 400, "data": body, "status_code": result.status_code}
+
+
 class MockWorkspace:
     """Mock workspace object for testing."""
 
@@ -87,11 +93,11 @@ def mock_teams_store():
 
 
 @pytest.fixture
-def handler_with_mocks(mock_slack_store, mock_teams_store):
+def handler_with_mocks(mock_slack_store, mock_teams_store, mock_server_context):
     """Create handler with mocked stores."""
     from aragora.server.handlers.integrations import IntegrationsHandler
 
-    handler = IntegrationsHandler()
+    handler = IntegrationsHandler(mock_server_context)
     handler._slack_store = mock_slack_store
     handler._teams_store = mock_teams_store
     return handler
@@ -105,10 +111,11 @@ class TestListIntegrations:
         self, handler_with_mocks, mock_slack_store, mock_teams_store
     ):
         """Test listing all integrations returns combined results."""
-        result = await handler_with_mocks._list_integrations(
+        raw_result = await handler_with_mocks._list_integrations(
             tenant_id="tenant-1",
             query_params={},
         )
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert "integrations" in result["data"]
@@ -117,30 +124,33 @@ class TestListIntegrations:
     @pytest.mark.asyncio
     async def test_list_integrations_with_type_filter(self, handler_with_mocks):
         """Test listing integrations filtered by type."""
-        result = await handler_with_mocks._list_integrations(
+        raw_result = await handler_with_mocks._list_integrations(
             tenant_id="tenant-1",
             query_params={"type": "slack"},
         )
+        result = parse_result(raw_result)
 
         assert result["success"] is True
 
     @pytest.mark.asyncio
     async def test_list_integrations_with_status_filter(self, handler_with_mocks):
         """Test listing integrations filtered by status."""
-        result = await handler_with_mocks._list_integrations(
+        raw_result = await handler_with_mocks._list_integrations(
             tenant_id="tenant-1",
             query_params={"status": "active"},
         )
+        result = parse_result(raw_result)
 
         assert result["success"] is True
 
     @pytest.mark.asyncio
     async def test_list_integrations_pagination(self, handler_with_mocks):
         """Test listing integrations with pagination."""
-        result = await handler_with_mocks._list_integrations(
+        raw_result = await handler_with_mocks._list_integrations(
             tenant_id="tenant-1",
             query_params={"limit": "10", "offset": "0"},
         )
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         pagination = result["data"]["pagination"]
@@ -149,20 +159,21 @@ class TestListIntegrations:
         assert "total" in pagination
 
     @pytest.mark.asyncio
-    async def test_list_integrations_empty(self):
+    async def test_list_integrations_empty(self, mock_server_context):
         """Test listing integrations when none configured."""
         from aragora.server.handlers.integrations import IntegrationsHandler
 
-        handler = IntegrationsHandler()
+        handler = IntegrationsHandler(mock_server_context)
         handler._slack_store = MagicMock()
         handler._slack_store.get_by_tenant.return_value = []
         handler._teams_store = MagicMock()
         handler._teams_store.get_by_aragora_tenant.return_value = []
 
-        result = await handler._list_integrations(
+        raw_result = await handler._list_integrations(
             tenant_id="tenant-1",
             query_params={},
         )
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert result["data"]["integrations"] == []
@@ -361,22 +372,22 @@ class TestIntegrationStats:
 class TestHandlerRouting:
     """Tests for handler routing."""
 
-    def test_can_handle_integration_paths(self):
+    def test_can_handle_integration_paths(self, mock_server_context):
         """Test handler recognizes integration paths."""
         from aragora.server.handlers.integrations import IntegrationsHandler
 
-        handler = IntegrationsHandler()
+        handler = IntegrationsHandler(mock_server_context)
 
         assert handler.can_handle("/api/v2/integrations")
         assert handler.can_handle("/api/v2/integrations/slack")
         assert handler.can_handle("/api/v2/integrations/teams/test")
         assert handler.can_handle("/api/v2/integrations/stats")
 
-    def test_cannot_handle_other_paths(self):
+    def test_cannot_handle_other_paths(self, mock_server_context):
         """Test handler rejects non-integration paths."""
         from aragora.server.handlers.integrations import IntegrationsHandler
 
-        handler = IntegrationsHandler()
+        handler = IntegrationsHandler(mock_server_context)
 
         assert not handler.can_handle("/api/debates")
         assert not handler.can_handle("/api/v1/integrations")  # Wrong version
