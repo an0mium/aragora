@@ -150,7 +150,7 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
         "post": {
             "tags": ["Codebase"],
             "summary": "Analyze codebase (alias)",
-            "operationId": "createCodebaseAnalyze",
+            "operationId": "createCodebaseAnalyzeLegacy",
             "description": "Alias for codebase analysis.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": _codebase_params(),
