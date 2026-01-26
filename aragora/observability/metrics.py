@@ -1352,6 +1352,17 @@ def _init_noop_metrics() -> None:
     MIGRATION_ERRORS_TOTAL = NoOpMetric()
 
 
+def init_core_metrics() -> bool:
+    """Initialize core metrics.
+
+    Public alias for _init_metrics() for use by the metrics package.
+
+    Returns:
+        True if metrics were initialized successfully
+    """
+    return _init_metrics()
+
+
 def start_metrics_server() -> Optional[Any]:
     """Start the Prometheus metrics HTTP server.
 

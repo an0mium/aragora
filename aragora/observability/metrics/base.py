@@ -70,7 +70,8 @@ def ensure_metrics_initialized() -> bool:
         return get_metrics_enabled()
 
     # Import and init all submodules
-    from aragora.observability.metrics.core import init_core_metrics
+    # Use _aragora_metrics_impl which is registered by __init__.py
+    from _aragora_metrics_impl import init_core_metrics
     from aragora.observability.metrics.bridge import init_bridge_metrics
     from aragora.observability.metrics.km import init_km_metrics
     from aragora.observability.metrics.notification import init_notification_metrics

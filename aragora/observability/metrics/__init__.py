@@ -109,6 +109,7 @@ from aragora.observability.metrics.agent import (  # noqa: F401, E402
 from _aragora_metrics_impl import (  # noqa: F401, E402
     # Server/startup
     start_metrics_server,
+    init_core_metrics,
     # Core recording functions
     measure_async_latency,
     measure_latency,

@@ -727,7 +727,7 @@ def record_platform_request(
     Integrates with the existing observability/metrics infrastructure.
     """
     try:
-        from aragora.observability.metrics.core import (  # type: ignore[attr-defined]
+        from aragora.observability.metrics.platform import (
             counter_inc,
             histogram_observe,
         )
