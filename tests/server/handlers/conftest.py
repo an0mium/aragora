@@ -40,8 +40,8 @@ def mock_auth_for_handler_tests(request, monkeypatch):
     """Bypass RBAC authentication for handler unit tests.
 
     This autouse fixture patches get_auth_context to return an authenticated
-    admin context by default, allowing handler tests to focus on functionality
-    rather than auth setup.
+    admin context by default, and patches _get_context_from_args to inject
+    context into already-decorated functions.
 
     To test authentication/authorization behavior specifically, use the
     @pytest.mark.no_auto_auth marker to opt-out of auto-mocking:
@@ -62,7 +62,7 @@ def mock_auth_for_handler_tests(request, monkeypatch):
         user_id="test-user-001",
         user_email="test@example.com",
         org_id="test-org-001",
-        roles={"admin"},
+        roles={"admin", "owner"},
         permissions={"*"},  # Wildcard grants all permissions
     )
 
@@ -70,20 +70,38 @@ def mock_auth_for_handler_tests(request, monkeypatch):
         """Mock get_auth_context that returns admin context."""
         return mock_auth_ctx
 
-    # Import modules first to ensure they're loaded before patching
+    # Patch _get_context_from_args to return mock context when no context found
+    # This is critical for functions that are already decorated at import time
+    try:
+        from aragora.rbac import decorators
+
+        original_get_context = decorators._get_context_from_args
+
+        def patched_get_context_from_args(args, kwargs, context_param):
+            """Return mock context if no real context found."""
+            result = original_get_context(args, kwargs, context_param)
+            if result is None:
+                return mock_auth_ctx
+            return result
+
+        monkeypatch.setattr(decorators, "_get_context_from_args", patched_get_context_from_args)
+    except (ImportError, AttributeError):
+        pass
+
+    # Patch get_auth_context at various locations
     try:
         from aragora.server.handlers.utils import auth as utils_auth
 
         monkeypatch.setattr(utils_auth, "get_auth_context", mock_get_auth_context)
     except (ImportError, AttributeError):
-        pass  # Module may not be available in all test contexts
+        pass
 
     try:
         from aragora.server.handlers import secure
 
         monkeypatch.setattr(secure, "get_auth_context", mock_get_auth_context)
     except (ImportError, AttributeError):
-        pass  # Module may not be available in all test contexts
+        pass
 
     yield mock_auth_ctx
 
