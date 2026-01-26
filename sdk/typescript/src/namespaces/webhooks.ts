@@ -82,18 +82,13 @@ export interface UpdateWebhookRequest {
 }
 
 /**
- * Interface for the internal client methods used by WebhooksAPI.
+ * Interface for the internal client used by WebhooksAPI.
  */
 interface WebhooksClientInterface {
-  listWebhooks(): Promise<{ webhooks: Webhook[]; total: number }>;
-  getWebhook(id: string): Promise<Webhook>;
-  createWebhook(body: CreateWebhookRequest): Promise<Webhook>;
-  updateWebhook(id: string, body: UpdateWebhookRequest): Promise<Webhook>;
-  deleteWebhook(id: string): Promise<{ deleted: boolean }>;
-  testWebhook(id: string): Promise<{ success: boolean; response_code?: number; error?: string }>;
-  listWebhookEvents(): Promise<{ events: WebhookEvent[] }>;
-  getWebhookSLOStatus(): Promise<WebhookSLOStatus>;
-  testWebhookSLO(): Promise<{ success: boolean; latency_ms: number }>;
+  get<T>(path: string): Promise<T>;
+  post<T>(path: string, body?: unknown): Promise<T>;
+  put<T>(path: string, body?: unknown): Promise<T>;
+  delete<T>(path: string): Promise<T>;
 }
 
 /**
@@ -137,42 +132,42 @@ export class WebhooksAPI {
    * List all webhooks.
    */
   async list(): Promise<{ webhooks: Webhook[]; total: number }> {
-    return this.client.listWebhooks();
+    return this.client.get('/api/webhooks');
   }
 
   /**
    * Get a specific webhook by ID.
    */
   async get(id: string): Promise<Webhook> {
-    return this.client.getWebhook(id);
+    return this.client.get(`/api/webhooks/${id}`);
   }
 
   /**
    * Create a new webhook.
    */
   async create(body: CreateWebhookRequest): Promise<Webhook> {
-    return this.client.createWebhook(body);
+    return this.client.post('/api/webhooks', body);
   }
 
   /**
    * Update an existing webhook.
    */
   async update(id: string, body: UpdateWebhookRequest): Promise<Webhook> {
-    return this.client.updateWebhook(id, body);
+    return this.client.put(`/api/webhooks/${id}`, body);
   }
 
   /**
    * Delete a webhook.
    */
   async delete(id: string): Promise<{ deleted: boolean }> {
-    return this.client.deleteWebhook(id);
+    return this.client.delete(`/api/webhooks/${id}`);
   }
 
   /**
    * Test a webhook by sending a test event.
    */
   async test(id: string): Promise<{ success: boolean; response_code?: number; error?: string }> {
-    return this.client.testWebhook(id);
+    return this.client.post(`/api/webhooks/${id}/test`);
   }
 
   // ===========================================================================
@@ -183,7 +178,7 @@ export class WebhooksAPI {
    * List all available webhook events.
    */
   async listEvents(): Promise<{ events: WebhookEvent[] }> {
-    return this.client.listWebhookEvents();
+    return this.client.get('/api/webhooks/events');
   }
 
   // ===========================================================================
@@ -194,13 +189,13 @@ export class WebhooksAPI {
    * Get webhook SLO status.
    */
   async getSLOStatus(): Promise<WebhookSLOStatus> {
-    return this.client.getWebhookSLOStatus();
+    return this.client.get('/api/webhooks/slo');
   }
 
   /**
    * Test webhook SLO by measuring delivery latency.
    */
   async testSLO(): Promise<{ success: boolean; latency_ms: number }> {
-    return this.client.testWebhookSLO();
+    return this.client.post('/api/webhooks/slo/test');
   }
 }

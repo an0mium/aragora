@@ -443,6 +443,7 @@ async def handle_get_flow(
         return error_response(f"Failed to get flow: {str(e)}", status=500)
 
 
+@require_permission("onboarding:create")
 async def handle_init_flow(
     data: Dict[str, Any],
     user_id: str = "default",

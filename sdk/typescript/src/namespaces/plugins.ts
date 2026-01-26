@@ -96,20 +96,13 @@ export interface PluginValidateRequest {
 }
 
 /**
- * Interface for the internal client methods used by PluginsAPI.
+ * Interface for the internal client used by PluginsAPI.
  */
 interface PluginsClientInterface {
-  listPlugins(): Promise<{ plugins: Plugin[]; total: number }>;
-  getPlugin(name: string): Promise<Plugin>;
-  runPlugin(name: string, body: Record<string, unknown>): Promise<Record<string, unknown>>;
-  installPlugin(name: string, body?: InstallPluginRequest): Promise<Plugin>;
-  uninstallPlugin(name: string): Promise<{ uninstalled: boolean }>;
-  listInstalledPlugins(): Promise<{ plugins: Plugin[]; total: number }>;
-  getPluginMarketplace(): Promise<{ plugins: PluginListing[]; categories: string[]; featured: PluginListing[] }>;
-  submitPlugin(body: Record<string, unknown>): Promise<PluginSubmission>;
-  listPluginSubmissions(): Promise<{ submissions: PluginSubmission[] }>;
-  queryPlugins(body: PluginQueryRequest): Promise<{ plugins: PluginListing[]; total: number }>;
-  validatePlugin(body: PluginValidateRequest): Promise<{ valid: boolean; errors?: string[] }>;
+  get<T>(path: string): Promise<T>;
+  post<T>(path: string, body?: unknown): Promise<T>;
+  put<T>(path: string, body?: unknown): Promise<T>;
+  delete<T>(path: string): Promise<T>;
 }
 
 /**
@@ -149,28 +142,28 @@ export class PluginsAPI {
    * List all available plugins.
    */
   async list(): Promise<{ plugins: Plugin[]; total: number }> {
-    return this.client.listPlugins();
+    return this.client.get('/api/plugins');
   }
 
   /**
    * Get a specific plugin by name.
    */
   async get(name: string): Promise<Plugin> {
-    return this.client.getPlugin(name);
+    return this.client.get(`/api/plugins/${name}`);
   }
 
   /**
    * Get marketplace listings with categories and featured plugins.
    */
   async getMarketplace(): Promise<{ plugins: PluginListing[]; categories: string[]; featured: PluginListing[] }> {
-    return this.client.getPluginMarketplace();
+    return this.client.get('/api/plugins/marketplace');
   }
 
   /**
    * Query plugins with search and filters.
    */
   async query(body: PluginQueryRequest): Promise<{ plugins: PluginListing[]; total: number }> {
-    return this.client.queryPlugins(body);
+    return this.client.post('/api/plugins/query', body);
   }
 
   // ===========================================================================
@@ -181,28 +174,28 @@ export class PluginsAPI {
    * List installed plugins.
    */
   async listInstalled(): Promise<{ plugins: Plugin[]; total: number }> {
-    return this.client.listInstalledPlugins();
+    return this.client.get('/api/plugins/installed');
   }
 
   /**
    * Install a plugin.
    */
   async install(name: string, body?: InstallPluginRequest): Promise<Plugin> {
-    return this.client.installPlugin(name, body);
+    return this.client.post(`/api/plugins/${name}/install`, body);
   }
 
   /**
    * Uninstall a plugin.
    */
   async uninstall(name: string): Promise<{ uninstalled: boolean }> {
-    return this.client.uninstallPlugin(name);
+    return this.client.delete(`/api/plugins/${name}`);
   }
 
   /**
    * Run a plugin with the given parameters.
    */
   async run(name: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.runPlugin(name, body);
+    return this.client.post(`/api/plugins/${name}/run`, body);
   }
 
   // ===========================================================================
@@ -213,20 +206,20 @@ export class PluginsAPI {
    * Submit a plugin for marketplace review.
    */
   async submit(body: Record<string, unknown>): Promise<PluginSubmission> {
-    return this.client.submitPlugin(body);
+    return this.client.post('/api/plugins/submit', body);
   }
 
   /**
    * List your plugin submissions.
    */
   async listSubmissions(): Promise<{ submissions: PluginSubmission[] }> {
-    return this.client.listPluginSubmissions();
+    return this.client.get('/api/plugins/submissions');
   }
 
   /**
    * Validate a plugin manifest before submission.
    */
   async validate(body: PluginValidateRequest): Promise<{ valid: boolean; errors?: string[] }> {
-    return this.client.validatePlugin(body);
+    return this.client.post('/api/plugins/validate', body);
   }
 }

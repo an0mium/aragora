@@ -101,19 +101,13 @@ export interface UpdateMemberRequest {
 }
 
 /**
- * Interface for the internal client methods used by WorkspacesAPI.
+ * Interface for the internal client used by WorkspacesAPI.
  */
 interface WorkspacesClientInterface {
-  listWorkspaces(): Promise<{ workspaces: Workspace[]; total: number }>;
-  getWorkspace(id: string): Promise<Workspace>;
-  createWorkspace(body: CreateWorkspaceRequest): Promise<Workspace>;
-  updateWorkspace(id: string, body: UpdateWorkspaceRequest): Promise<Workspace>;
-  deleteWorkspace(id: string): Promise<{ deleted: boolean }>;
-  listWorkspaceMembers(workspaceId: string): Promise<{ members: WorkspaceMember[]; total: number }>;
-  addWorkspaceMember(workspaceId: string, body: AddMemberRequest): Promise<WorkspaceMember>;
-  updateWorkspaceMember(workspaceId: string, userId: string, body: UpdateMemberRequest): Promise<WorkspaceMember>;
-  removeWorkspaceMember(workspaceId: string, userId: string): Promise<{ removed: boolean }>;
-  listWorkspaceProfiles(workspaceId: string): Promise<{ profiles: WorkspaceProfile[] }>;
+  get<T>(path: string): Promise<T>;
+  post<T>(path: string, body?: unknown): Promise<T>;
+  put<T>(path: string, body?: unknown): Promise<T>;
+  delete<T>(path: string): Promise<T>;
 }
 
 /**
