@@ -83,7 +83,7 @@ interface KnowledgeClientInterface {
   getStaleKnowledge(options?: { max_age_days?: number; limit?: number }): Promise<{ items: unknown[]; total: number }>;
   revalidateKnowledge(nodeId: string, validation: { valid: boolean; new_confidence?: number; notes?: string }): Promise<{ updated: boolean }>;
   getKnowledgeLineage(nodeId: string, options?: { direction?: 'ancestors' | 'descendants' | 'both'; max_depth?: number }): Promise<{ nodes: unknown[]; relationships: unknown[] }>;
-  getRelatedKnowledge(nodeId: string, options?: { types?: string[]; limit?: number }): Promise<{ related: KnowledgeMoundNode[] }>;
+  getRelatedKnowledge(nodeId: string, options?: { relationship_types?: string[]; limit?: number }): Promise<{ nodes: unknown[]; relationships: unknown[] }>;
 }
 
 /**

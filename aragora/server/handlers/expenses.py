@@ -712,6 +712,11 @@ async def handle_export_expenses(
 class ExpenseHandler(BaseHandler):
     """Handler for expense-related routes."""
 
+    # RBAC permission keys
+    EXPENSE_READ_PERMISSION = "expense.read"
+    EXPENSE_WRITE_PERMISSION = "expense.write"
+    EXPENSE_APPROVE_PERMISSION = "expense.approve"
+
     ROUTES = {
         "/api/v1/accounting/expenses/upload": ["POST"],
         "/api/v1/accounting/expenses": ["GET", "POST"],
@@ -764,12 +769,57 @@ class ExpenseHandler(BaseHandler):
             return parts[5]
         return None
 
+    def _check_auth(self, handler: Any) -> Optional[HandlerResult]:
+        """Check authentication and return error response if not authenticated."""
+        try:
+            from aragora.billing.jwt_auth import extract_user_from_request
+
+            user_ctx = extract_user_from_request(handler, None)
+            if not user_ctx or not user_ctx.is_authenticated:
+                return error_response("Authentication required", status=401)
+            return None
+        except Exception:
+            return error_response("Authentication required", status=401)
+
+    def _check_permission(self, handler: Any, permission: str) -> Optional[HandlerResult]:
+        """Check RBAC permission and return error response if denied."""
+        try:
+            from aragora.billing.jwt_auth import extract_user_from_request
+            from aragora.rbac.checker import get_permission_checker
+            from aragora.rbac.models import AuthorizationContext
+
+            user_ctx = extract_user_from_request(handler, None)
+            if not user_ctx or not user_ctx.is_authenticated:
+                return error_response("Authentication required", status=401)
+
+            auth_ctx = AuthorizationContext(
+                user_id=user_ctx.user_id,
+                user_email=user_ctx.email,
+                org_id=user_ctx.org_id,
+                workspace_id=None,
+                roles=set(user_ctx.roles) if user_ctx.roles else {"member"},
+            )
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, permission)
+            if not decision.allowed:
+                return error_response(f"Permission denied: {decision.reason}", status=403)
+            return None
+        except Exception:
+            return error_response("Authentication required", status=401)
+
     async def handle_get(
         self,
         path: str,
         query_params: Optional[Dict[str, Any]] = None,
+        handler: Optional[Any] = None,
     ) -> HandlerResult:
         """Handle GET requests."""
+        # Check authentication for all GET requests
+        if handler:
+            auth_error = self._check_auth(handler)
+            if auth_error:
+                return auth_error
+
         query_params = query_params or {}
 
         if path == "/api/v1/accounting/expenses":
@@ -795,8 +845,19 @@ class ExpenseHandler(BaseHandler):
         self,
         path: str,
         data: Optional[Dict[str, Any]] = None,
+        handler: Optional[Any] = None,
     ) -> HandlerResult:
         """Handle POST requests."""
+        # Check write permission for all POST requests
+        if handler:
+            # Approve/reject need special permission
+            if "/approve" in path or "/reject" in path:
+                perm_error = self._check_permission(handler, self.EXPENSE_APPROVE_PERMISSION)
+            else:
+                perm_error = self._check_permission(handler, self.EXPENSE_WRITE_PERMISSION)
+            if perm_error:
+                return perm_error
+
         data = data or {}
 
         if path == "/api/v1/accounting/expenses/upload":
@@ -825,8 +886,15 @@ class ExpenseHandler(BaseHandler):
         self,
         path: str,
         data: Optional[Dict[str, Any]] = None,
+        handler: Optional[Any] = None,
     ) -> HandlerResult:
         """Handle PUT requests."""
+        # Check write permission for all PUT requests
+        if handler:
+            perm_error = self._check_permission(handler, self.EXPENSE_WRITE_PERMISSION)
+            if perm_error:
+                return perm_error
+
         data = data or {}
 
         expense_id = self._extract_expense_id(path)
@@ -838,8 +906,16 @@ class ExpenseHandler(BaseHandler):
     async def handle_delete(  # type: ignore[override]
         self,
         path: str,
+        handler: Optional[Any] = None,
     ) -> HandlerResult:
         """Handle DELETE requests."""
+        # Note: handle_delete_expense already has @require_permission("admin:audit")
+        # But we also check at handler level for consistency
+        if handler:
+            perm_error = self._check_permission(handler, "admin:audit")
+            if perm_error:
+                return perm_error
+
         expense_id = self._extract_expense_id(path)
         if expense_id:
             return await handle_delete_expense(expense_id)

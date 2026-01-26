@@ -177,6 +177,7 @@ def _parse_iso_date(value: Optional[str], field_name: str) -> Optional[date]:
         raise ValueError(f"Invalid {field_name}: {value}") from exc
 
 
+@require_permission("finance:read")
 async def handle_accounting_status(request: web.Request) -> web.Response:
     """
     GET /api/accounting/status
@@ -270,6 +271,7 @@ async def handle_accounting_status(request: web.Request) -> web.Response:
         )
 
 
+@require_permission("admin:system")
 async def handle_accounting_connect(request: web.Request) -> web.Response:
     """
     GET /api/accounting/connect
@@ -398,6 +400,7 @@ async def handle_accounting_disconnect(request: web.Request) -> web.Response:
         )
 
 
+@require_permission("finance:read")
 async def handle_accounting_customers(request: web.Request) -> web.Response:
     """
     GET /api/accounting/customers
@@ -452,6 +455,7 @@ async def handle_accounting_customers(request: web.Request) -> web.Response:
         )
 
 
+@require_permission("finance:read")
 async def handle_accounting_transactions(request: web.Request) -> web.Response:
     """
     GET /api/accounting/transactions
@@ -536,6 +540,7 @@ async def handle_accounting_transactions(request: web.Request) -> web.Response:
         )
 
 
+@require_permission("finance:read")
 async def handle_accounting_report(request: web.Request) -> web.Response:
     """
     POST /api/accounting/report
@@ -706,6 +711,7 @@ def _generate_mock_report(
         return {"error": f"Unknown report type: {report_type}"}
 
 
+@require_permission("hr:read")
 async def handle_gusto_status(request: web.Request) -> web.Response:
     """
     GET /api/accounting/gusto/status
