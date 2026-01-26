@@ -236,31 +236,30 @@ class TestPublishTemplate:
     def test_publish_template_success(self, mock_marketplace_state, marketplace_handler):
         """Test publishing a new template."""
         mock_handler = MagicMock()
-        mock_handler.get_json_body.return_value = {
-            "name": "New Template",
-            "description": "A brand new template",
-            "category": "analytics",
-            "pattern": "parallel",
-            "workflow_definition": {"steps": []},
-        }
+        mock_handler.headers = {"Content-Length": "200"}
+        mock_handler.rfile.read.return_value = b'{"name": "New Template", "description": "A brand new template", "category": "analytics", "pattern": "parallel", "workflow_definition": {"steps": []}}'
 
-        with patch.object(marketplace_handler, "_check_rate_limit", return_value=True):
+        with patch(
+            "aragora.server.handlers.template_marketplace._publish_limiter.is_allowed",
+            return_value=True,
+        ):
             result = marketplace_handler._publish_template(mock_handler, "127.0.0.1")
 
         assert result["success"] is True
-        assert "id" in result["data"]
+        assert "template_id" in result["data"]
 
     def test_publish_template_missing_required_fields(
         self, mock_marketplace_state, marketplace_handler
     ):
         """Test publishing template with missing fields returns 400."""
         mock_handler = MagicMock()
-        mock_handler.get_json_body.return_value = {
-            "name": "Incomplete Template",
-            # Missing required fields
-        }
+        mock_handler.headers = {"Content-Length": "50"}
+        mock_handler.rfile.read.return_value = b'{"name": "Incomplete Template"}'
 
-        with patch.object(marketplace_handler, "_check_rate_limit", return_value=True):
+        with patch(
+            "aragora.server.handlers.template_marketplace._publish_limiter.is_allowed",
+            return_value=True,
+        ):
             result = marketplace_handler._publish_template(mock_handler, "127.0.0.1")
 
         assert result["success"] is False
@@ -269,15 +268,13 @@ class TestPublishTemplate:
     def test_publish_template_rate_limited(self, mock_marketplace_state, marketplace_handler):
         """Test publishing template when rate limited."""
         mock_handler = MagicMock()
-        mock_handler.get_json_body.return_value = {
-            "name": "Rate Limited Template",
-            "description": "Should be rate limited",
-            "category": "test",
-            "pattern": "sequential",
-            "workflow_definition": {},
-        }
+        mock_handler.headers = {"Content-Length": "100"}
+        mock_handler.rfile.read.return_value = b'{"name": "Rate Limited Template", "description": "Should be rate limited", "category": "test", "pattern": "sequential", "workflow_definition": {}}'
 
-        with patch.object(marketplace_handler, "_check_rate_limit", return_value=False):
+        with patch(
+            "aragora.server.handlers.template_marketplace._publish_limiter.is_allowed",
+            return_value=False,
+        ):
             result = marketplace_handler._publish_template(mock_handler, "127.0.0.1")
 
         assert result["success"] is False

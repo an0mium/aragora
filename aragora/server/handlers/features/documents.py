@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 
+from aragora.rbac.decorators import require_permission
+
 from ..base import (
     BaseHandler,
     HandlerResult,
@@ -106,6 +108,7 @@ class DocumentHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("documents:read")
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET document requests to appropriate methods."""
         if path == "/api/v1/documents":
@@ -123,6 +126,7 @@ class DocumentHandler(BaseHandler):
 
         return None
 
+    @require_permission("documents:create")
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST document requests to appropriate methods."""
         if path == "/api/v1/documents/upload":
@@ -142,6 +146,7 @@ class DocumentHandler(BaseHandler):
             )
         return None
 
+    @require_permission("documents:delete")
     def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route DELETE document requests to appropriate methods."""
         if path.startswith("/api/v1/documents/") and not path.endswith("/upload"):

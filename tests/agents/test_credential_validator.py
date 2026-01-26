@@ -107,21 +107,40 @@ class TestFilterAvailableAgents:
         assert len(available) == 2
         assert len(filtered) == 0
 
-    @patch.dict(os.environ, {}, clear=True)
     def test_filter_raises_if_below_minimum(self):
         """Should raise ValueError if fewer than min_agents remain."""
         from aragora.agents.spec import AgentSpec
         from aragora.config.secrets import reset_secret_manager
 
+        # Save current env and clear secrets
         reset_secret_manager()
-        os.environ["ARAGORA_USE_SECRETS_MANAGER"] = "false"
+        old_use_sm = os.environ.get("ARAGORA_USE_SECRETS_MANAGER")
+        old_anthropic = os.environ.get("ANTHROPIC_API_KEY")
+        old_openai = os.environ.get("OPENAI_API_KEY")
 
-        specs = [
-            AgentSpec(provider="anthropic-api", name="claude-1"),
-            AgentSpec(provider="openai-api", name="gpt-1"),
-        ]
-        with pytest.raises(ValueError, match="Not enough agents"):
-            filter_available_agents(specs, log_filtered=False, min_agents=2)
+        try:
+            os.environ["ARAGORA_USE_SECRETS_MANAGER"] = "false"
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+            os.environ.pop("OPENAI_API_KEY", None)
+            reset_secret_manager()
+
+            specs = [
+                AgentSpec(provider="anthropic-api", name="claude-1"),
+                AgentSpec(provider="openai-api", name="gpt-1"),
+            ]
+            with pytest.raises(ValueError, match="Not enough agents"):
+                filter_available_agents(specs, log_filtered=False, min_agents=2)
+        finally:
+            # Restore environment
+            if old_use_sm:
+                os.environ["ARAGORA_USE_SECRETS_MANAGER"] = old_use_sm
+            else:
+                os.environ.pop("ARAGORA_USE_SECRETS_MANAGER", None)
+            if old_anthropic:
+                os.environ["ANTHROPIC_API_KEY"] = old_anthropic
+            if old_openai:
+                os.environ["OPENAI_API_KEY"] = old_openai
+            reset_secret_manager()
 
     @patch.dict(os.environ, {"ANTHROPIC_API_KEY": "key1", "OPENAI_API_KEY": "key2"}, clear=False)
     def test_filter_with_available_agents(self):
