@@ -684,6 +684,52 @@ class SlackWorkspaceStore:
 
         return time.time() + buffer_seconds >= workspace.token_expires_at
 
+    def get_expiring_tokens(self, hours: int = 2) -> List[SlackWorkspace]:
+        """Get workspaces with tokens expiring within the specified time window.
+
+        Args:
+            hours: Number of hours ahead to check for expiring tokens
+
+        Returns:
+            List of workspaces with tokens expiring soon
+        """
+        conn = self._get_connection()
+        try:
+            # Calculate the expiration threshold
+            expiration_threshold = time.time() + (hours * 3600)
+
+            cursor = conn.execute(
+                """
+                SELECT * FROM slack_workspaces
+                WHERE is_active = 1
+                AND refresh_token IS NOT NULL
+                AND token_expires_at IS NOT NULL
+                AND token_expires_at <= ?
+                ORDER BY token_expires_at ASC
+                """,
+                (expiration_threshold,),
+            )
+
+            workspaces = []
+            for row in cursor.fetchall():
+                try:
+                    workspace = SlackWorkspace.from_row(row)
+                    workspace.access_token = self._decrypt_token(workspace.access_token)
+                    if workspace.refresh_token:
+                        workspace.refresh_token = self._decrypt_token(workspace.refresh_token)
+                    if workspace.signing_secret:
+                        workspace.signing_secret = self._decrypt_token(workspace.signing_secret)
+                    workspaces.append(workspace)
+                except Exception as e:
+                    logger.error(f"Error loading workspace {row['workspace_id']}: {e}")
+
+            logger.debug(f"Found {len(workspaces)} workspaces with tokens expiring in {hours}h")
+            return workspaces
+
+        except sqlite3.Error as e:
+            logger.error(f"Failed to get expiring tokens: {e}")
+            return []
+
 
 # Supabase-backed implementation for production
 class SupabaseSlackWorkspaceStore:

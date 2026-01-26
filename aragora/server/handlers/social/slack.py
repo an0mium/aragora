@@ -1640,7 +1640,7 @@ class SlackHandler(BaseHandler):
         expected_rounds: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """Build Slack blocks for debate start message."""
-        blocks = [
+        blocks: List[Dict[str, Any]] = [
             {
                 "type": "header",
                 "text": {

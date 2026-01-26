@@ -125,6 +125,118 @@ async def _wait_for_rate_limit(
     await _exponential_backoff(attempt, base, max_delay)
 
 
+from dataclasses import dataclass, field
+import time as _time
+
+
+@dataclass
+class WorkspaceRateLimit:
+    """
+    Per-workspace rate limit tracking for Slack API.
+
+    Tracks the rate limit status for a specific workspace to enable
+    intelligent request scheduling and quota pooling.
+    """
+
+    workspace_id: str
+    limit: int = 50  # Default Slack rate limit
+    remaining: int = 50
+    reset_at: float = 0.0  # Unix timestamp
+    last_updated: float = field(default_factory=_time.time)
+
+    def update_from_headers(self, headers: dict) -> None:
+        """Update rate limit state from Slack API response headers."""
+        if "X-Rate-Limit-Limit" in headers:
+            self.limit = int(headers["X-Rate-Limit-Limit"])
+        if "X-Rate-Limit-Remaining" in headers:
+            self.remaining = int(headers["X-Rate-Limit-Remaining"])
+        if "X-Rate-Limit-Reset" in headers:
+            self.reset_at = float(headers["X-Rate-Limit-Reset"])
+        self.last_updated = _time.time()
+
+    @property
+    def is_rate_limited(self) -> bool:
+        """Check if we're currently rate limited."""
+        if self.remaining <= 0 and _time.time() < self.reset_at:
+            return True
+        return False
+
+    @property
+    def seconds_until_reset(self) -> float:
+        """Get seconds until rate limit resets."""
+        if self.reset_at <= 0:
+            return 0.0
+        return max(0.0, self.reset_at - _time.time())
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for monitoring/logging."""
+        return {
+            "workspace_id": self.workspace_id,
+            "limit": self.limit,
+            "remaining": self.remaining,
+            "reset_at": self.reset_at,
+            "is_rate_limited": self.is_rate_limited,
+            "seconds_until_reset": self.seconds_until_reset,
+        }
+
+
+class WorkspaceRateLimitRegistry:
+    """
+    Registry for tracking rate limits across multiple workspaces.
+
+    Enables intelligent request distribution and quota pooling
+    in multi-workspace deployments.
+    """
+
+    def __init__(self):
+        self._limits: dict[str, WorkspaceRateLimit] = {}
+
+    def get(self, workspace_id: str) -> WorkspaceRateLimit:
+        """Get or create rate limit tracker for a workspace."""
+        if workspace_id not in self._limits:
+            self._limits[workspace_id] = WorkspaceRateLimit(workspace_id=workspace_id)
+        return self._limits[workspace_id]
+
+    def update(self, workspace_id: str, headers: dict) -> WorkspaceRateLimit:
+        """Update rate limit from API response headers."""
+        limit = self.get(workspace_id)
+        limit.update_from_headers(headers)
+        return limit
+
+    def get_best_workspace(self, workspace_ids: list[str]) -> str | None:
+        """
+        Select the workspace with most remaining quota.
+
+        Useful for load balancing across multiple workspaces.
+        """
+        if not workspace_ids:
+            return None
+
+        best_id = None
+        best_remaining = -1
+
+        for wid in workspace_ids:
+            limit = self.get(wid)
+            if not limit.is_rate_limited and limit.remaining > best_remaining:
+                best_id = wid
+                best_remaining = limit.remaining
+
+        return best_id
+
+    def get_all_stats(self) -> dict[str, dict]:
+        """Get rate limit stats for all tracked workspaces."""
+        return {wid: limit.to_dict() for wid, limit in self._limits.items()}
+
+
+# Global registry for rate limit tracking
+_rate_limit_registry = WorkspaceRateLimitRegistry()
+
+
+def get_rate_limit_registry() -> WorkspaceRateLimitRegistry:
+    """Get the global rate limit registry."""
+    return _rate_limit_registry
+
+
 class SlackConnector(ChatPlatformConnector):
     """
     Slack connector using Slack Web API.
