@@ -279,6 +279,8 @@ def rate_limit(
             def _login(self, handler) -> HandlerResult:
                 ...
     """
+    import asyncio
+
     # Support both rpm and requests_per_minute for compatibility
     effective_rpm = requests_per_minute if requests_per_minute is not None else rpm
 
@@ -286,13 +288,37 @@ def rate_limit(
         name = limiter_name or f"{func.__module__}.{func.__qualname__}"
         limiter = _get_limiter(name, effective_rpm)
 
-        @wraps(func)
-        def wrapper(self, handler, *args, **kwargs):
-            if key_func:
-                key = key_func(handler)
-            else:
-                key = get_client_ip(handler)
+        def _get_key_from_args(args, kwargs) -> str:
+            """Extract rate limit key from function arguments.
 
+            Supports both old pattern (handler object) and new pattern (headers dict).
+            """
+            if key_func:
+                # Try old pattern first (handler object as first arg)
+                if args and hasattr(args[0], "headers"):
+                    return key_func(args[0])
+                # For new pattern, key_func needs to handle kwargs
+                return key_func(kwargs)
+
+            # Old pattern: handler object with headers attribute
+            if args and hasattr(args[0], "headers"):
+                return get_client_ip(args[0])
+
+            # New pattern: headers passed as kwarg
+            headers = kwargs.get("headers") or {}
+            if isinstance(headers, dict):
+                # Extract client IP from X-Forwarded-For or X-Real-IP
+                forwarded = headers.get("X-Forwarded-For") or headers.get("x-forwarded-for") or ""
+                if forwarded:
+                    return forwarded.split(",")[0].strip()
+                real_ip = headers.get("X-Real-IP") or headers.get("x-real-ip") or ""
+                if real_ip:
+                    return real_ip.strip()
+
+            return "unknown"
+
+        def _check_rate_limit(key: str):
+            """Check rate limit and return error response if exceeded."""
             if not limiter.is_allowed(key):
                 from aragora.server.handlers.base import error_response
 
@@ -307,10 +333,30 @@ def rate_limit(
                     "Rate limit exceeded. Please try again later.",
                     status=429,
                 )
+            return None
 
-            return func(self, handler, *args, **kwargs)
+        if asyncio.iscoroutinefunction(func):
 
-        return cast(F, wrapper)
+            @wraps(func)
+            async def async_wrapper(self, *args, **kwargs):
+                key = _get_key_from_args(args, kwargs)
+                error = _check_rate_limit(key)
+                if error:
+                    return error
+                return await func(self, *args, **kwargs)
+
+            return cast(F, async_wrapper)
+        else:
+
+            @wraps(func)
+            def sync_wrapper(self, *args, **kwargs):
+                key = _get_key_from_args(args, kwargs)
+                error = _check_rate_limit(key)
+                if error:
+                    return error
+                return func(self, *args, **kwargs)
+
+            return cast(F, sync_wrapper)
 
     return decorator
 
