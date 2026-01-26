@@ -235,9 +235,9 @@ class TestQuickStartConfigs:
         config = QUICK_START_CONFIGS[QuickStartProfile.DEVELOPER.value]
         assert "default_agents" in config
 
-    def test_business_config_exists(self):
-        """Test that business config exists."""
-        assert QuickStartProfile.BUSINESS.value in QUICK_START_CONFIGS
+    def test_executive_config_exists(self):
+        """Test that executive config exists."""
+        assert QuickStartProfile.EXECUTIVE.value in QUICK_START_CONFIGS
 
 
 class TestHandlerFunctions:
