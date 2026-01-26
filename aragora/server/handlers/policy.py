@@ -37,6 +37,7 @@ from .base import (
     get_string_param,
     json_response,
 )
+from .utils.decorators import require_permission
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -192,6 +193,7 @@ class PolicyHandler(BaseHandler):
     # Policy Handlers
     # =========================================================================
 
+    @require_permission("policies:read")
     def _list_policies(self, query_params: Dict[str, Any]) -> HandlerResult:
         """List policies with optional filters."""
         store = self._get_policy_store()
@@ -228,6 +230,7 @@ class PolicyHandler(BaseHandler):
             logger.error(f"Failed to list policies: {e}")
             return error_response(f"Failed to list policies: {e}", 500)
 
+    @require_permission("policies:read")
     def _get_policy(self, policy_id: str) -> HandlerResult:
         """Get a specific policy."""
         store = self._get_policy_store()
@@ -245,6 +248,7 @@ class PolicyHandler(BaseHandler):
             logger.error(f"Failed to get policy {policy_id}: {e}")
             return error_response(f"Failed to get policy: {e}", 500)
 
+    @require_permission("policies:create")
     async def _create_policy(self, handler: Any) -> HandlerResult:
         """Create a new policy."""
         store = self._get_policy_store()
@@ -312,6 +316,7 @@ class PolicyHandler(BaseHandler):
             logger.error(f"Failed to create policy: {e}")
             return error_response(f"Failed to create policy: {e}", 500)
 
+    @require_permission("policies:update")
     async def _update_policy(self, policy_id: str, handler: Any) -> HandlerResult:
         """Update a policy."""
         store = self._get_policy_store()
@@ -357,6 +362,7 @@ class PolicyHandler(BaseHandler):
             logger.error(f"Failed to update policy {policy_id}: {e}")
             return error_response(f"Failed to update policy: {e}", 500)
 
+    @require_permission("policies:delete")
     def _delete_policy(self, policy_id: str) -> HandlerResult:
         """Delete a policy."""
         store = self._get_policy_store()
@@ -386,6 +392,7 @@ class PolicyHandler(BaseHandler):
             logger.error(f"Failed to delete policy {policy_id}: {e}")
             return error_response(f"Failed to delete policy: {e}", 500)
 
+    @require_permission("policies:update")
     async def _toggle_policy(self, policy_id: str, handler: Any) -> HandlerResult:
         """Toggle a policy's enabled status."""
         store = self._get_policy_store()
@@ -436,6 +443,7 @@ class PolicyHandler(BaseHandler):
             logger.error(f"Failed to toggle policy {policy_id}: {e}")
             return error_response(f"Failed to toggle policy: {e}", 500)
 
+    @require_permission("policies:read")
     def _get_policy_violations(self, policy_id: str, query_params: Dict[str, Any]) -> HandlerResult:
         """Get violations for a specific policy."""
         store = self._get_policy_store()
@@ -477,6 +485,7 @@ class PolicyHandler(BaseHandler):
     # Violation Handlers
     # =========================================================================
 
+    @require_permission("policies:read")
     def _list_violations(self, query_params: Dict[str, Any]) -> HandlerResult:
         """List all violations with optional filters."""
         store = self._get_policy_store()
@@ -515,6 +524,7 @@ class PolicyHandler(BaseHandler):
             logger.error(f"Failed to list violations: {e}")
             return error_response(f"Failed to list violations: {e}", 500)
 
+    @require_permission("policies:read")
     def _get_violation(self, violation_id: str) -> HandlerResult:
         """Get a specific violation."""
         store = self._get_policy_store()
@@ -532,6 +542,7 @@ class PolicyHandler(BaseHandler):
             logger.error(f"Failed to get violation {violation_id}: {e}")
             return error_response(f"Failed to get violation: {e}", 500)
 
+    @require_permission("policies:update")
     async def _update_violation(self, violation_id: str, handler: Any) -> HandlerResult:
         """Update a violation's status."""
         store = self._get_policy_store()
@@ -593,6 +604,7 @@ class PolicyHandler(BaseHandler):
     # Compliance Check
     # =========================================================================
 
+    @require_permission("policies:create")
     async def _check_compliance(self, handler: Any) -> HandlerResult:
         """Run compliance check on content."""
         manager = self._get_compliance_manager()
@@ -668,6 +680,7 @@ class PolicyHandler(BaseHandler):
             logger.error(f"Failed to check compliance: {e}")
             return error_response(f"Failed to check compliance: {e}", 500)
 
+    @require_permission("policies:read")
     def _get_stats(self, query_params: Dict[str, Any]) -> HandlerResult:
         """Get compliance statistics."""
         store = self._get_policy_store()

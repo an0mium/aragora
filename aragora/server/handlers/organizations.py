@@ -861,6 +861,7 @@ class OrganizationsHandler(SecureHandler):
     # =========================================================================
 
     @handle_errors("list invitations")
+    @require_permission("org:invite")
     @log_request("list invitations")
     def _list_invitations(self, handler, org_id: str) -> HandlerResult:
         """List all invitations for an organization."""
@@ -935,6 +936,7 @@ class OrganizationsHandler(SecureHandler):
         )
 
     @handle_errors("get pending invitations")
+    @require_permission("org:read")
     @log_request("get pending invitations")
     def _get_pending_invitations(self, handler) -> HandlerResult:
         """Get pending invitations for the authenticated user."""
@@ -964,6 +966,7 @@ class OrganizationsHandler(SecureHandler):
         )
 
     @handle_errors("accept invitation")
+    @require_permission("org:read")
     @log_request("accept invitation")
     def _accept_invitation(self, handler, token: str) -> HandlerResult:
         """Accept an organization invitation."""
