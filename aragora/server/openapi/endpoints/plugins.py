@@ -42,6 +42,9 @@ def _plugin_details_endpoint(deprecated: bool = False, versioned: bool = True) -
             "tags": ["Plugins"],
             "summary": "Get plugin details",
             "operationId": op_id,
+            "description": "Get detailed information about a specific plugin by name."
+            if not deprecated
+            else None,
             "parameters": [_PLUGIN_NAME_PARAM],
             "responses": {"200": _ok_response("Plugin details")},
         },
@@ -62,6 +65,9 @@ def _plugin_run_endpoint(deprecated: bool = False, versioned: bool = True) -> di
             "tags": ["Plugins"],
             "summary": "Run plugin",
             "operationId": op_id,
+            "description": "Execute a plugin with the provided parameters and return the result."
+            if not deprecated
+            else None,
             "parameters": [_PLUGIN_NAME_PARAM],
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
             "responses": {"200": _ok_response("Plugin result")},
@@ -85,6 +91,9 @@ def _plugin_install_endpoint(deprecated: bool = False, versioned: bool = True) -
             "tags": ["Plugins"],
             "summary": "Install plugin",
             "operationId": install_id,
+            "description": "Install a plugin for the current user with optional configuration."
+            if not deprecated
+            else None,
             "parameters": [_PLUGIN_NAME_PARAM],
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
             "responses": {"200": _ok_response("Installation result")},
@@ -94,6 +103,9 @@ def _plugin_install_endpoint(deprecated: bool = False, versioned: bool = True) -
             "tags": ["Plugins"],
             "summary": "Uninstall plugin",
             "operationId": uninstall_id,
+            "description": "Uninstall a plugin and remove its configuration for the current user."
+            if not deprecated
+            else None,
             "parameters": [_PLUGIN_NAME_PARAM],
             "responses": {"200": _ok_response("Uninstallation result")},
             "security": [{"bearerAuth": []}],
@@ -235,13 +247,20 @@ PLUGIN_ENDPOINTS = {
             "tags": ["Laboratory"],
             "summary": "Emergent traits",
             "operationId": "listLaboratoryEmergentTraits",
+            "description": "List emergent traits discovered from agent interactions with optional confidence filtering.",
             "parameters": [
                 {
                     "name": "min_confidence",
                     "in": "query",
                     "schema": {"type": "number", "default": 0.5},
+                    "description": "Minimum confidence threshold for traits (0.0-1.0)",
                 },
-                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}},
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "default": 20},
+                    "description": "Maximum number of traits to return",
+                },
             ],
             "responses": {"200": _ok_response("Emergent traits")},
         },
@@ -251,6 +270,7 @@ PLUGIN_ENDPOINTS = {
             "tags": ["Laboratory"],
             "summary": "Cross-pollination suggestions",
             "operationId": "listLaboratoryCrossPollinationsSuggest",
+            "description": "Get suggested cross-pollinations between agents based on complementary capabilities.",
             "responses": {"200": _ok_response("Suggestions")},
         },
     },
