@@ -80,6 +80,14 @@ from aragora.mcp.tools_module import (
     get_control_plane_status_tool,
     trigger_health_check_tool,
     get_resource_utilization_tool,
+    # Canvas tools
+    canvas_create_tool,
+    canvas_get_tool,
+    canvas_add_node_tool,
+    canvas_add_edge_tool,
+    canvas_execute_action_tool,
+    canvas_list_tool,
+    canvas_delete_node_tool,
 )
 
 logger = logging.getLogger(__name__)
@@ -638,6 +646,80 @@ TOOLS_METADATA = [
         "description": "Get resource utilization metrics for the control plane",
         "function": get_resource_utilization_tool,
         "parameters": {},
+    },
+    # Canvas tools
+    {
+        "name": "canvas_create",
+        "description": "Create a new interactive canvas for visual collaboration",
+        "function": canvas_create_tool,
+        "parameters": {
+            "name": {"type": "string", "default": "Untitled Canvas"},
+            "description": {"type": "string", "default": ""},
+            "owner_id": {"type": "string", "default": ""},
+            "workspace_id": {"type": "string", "default": ""},
+        },
+    },
+    {
+        "name": "canvas_get",
+        "description": "Get the state of a canvas including nodes and edges",
+        "function": canvas_get_tool,
+        "parameters": {
+            "canvas_id": {"type": "string", "required": True},
+        },
+    },
+    {
+        "name": "canvas_add_node",
+        "description": "Add a node to a canvas (text, agent, debate, knowledge, workflow, browser)",
+        "function": canvas_add_node_tool,
+        "parameters": {
+            "canvas_id": {"type": "string", "required": True},
+            "node_type": {"type": "string", "default": "text"},
+            "label": {"type": "string", "default": ""},
+            "x": {"type": "integer", "default": 100},
+            "y": {"type": "integer", "default": 100},
+            "data": {"type": "string", "default": "{}"},
+        },
+    },
+    {
+        "name": "canvas_add_edge",
+        "description": "Add an edge between two nodes on a canvas",
+        "function": canvas_add_edge_tool,
+        "parameters": {
+            "canvas_id": {"type": "string", "required": True},
+            "source_id": {"type": "string", "required": True},
+            "target_id": {"type": "string", "required": True},
+            "edge_type": {"type": "string", "default": "default"},
+            "label": {"type": "string", "default": ""},
+        },
+    },
+    {
+        "name": "canvas_execute_action",
+        "description": "Execute an action on a canvas (start_debate, run_workflow, query_knowledge, clear_canvas)",
+        "function": canvas_execute_action_tool,
+        "parameters": {
+            "canvas_id": {"type": "string", "required": True},
+            "action": {"type": "string", "required": True},
+            "params": {"type": "string", "default": "{}"},
+        },
+    },
+    {
+        "name": "canvas_list",
+        "description": "List available canvases",
+        "function": canvas_list_tool,
+        "parameters": {
+            "owner_id": {"type": "string", "default": ""},
+            "workspace_id": {"type": "string", "default": ""},
+            "limit": {"type": "integer", "default": 20},
+        },
+    },
+    {
+        "name": "canvas_delete_node",
+        "description": "Delete a node from a canvas",
+        "function": canvas_delete_node_tool,
+        "parameters": {
+            "canvas_id": {"type": "string", "required": True},
+            "node_id": {"type": "string", "required": True},
+        },
     },
 ]
 

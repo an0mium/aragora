@@ -105,6 +105,15 @@ from aragora.mcp.tools_module.browser import (
     browser_get_cookies_tool,
     browser_clear_cookies_tool,
 )
+from aragora.mcp.tools_module.canvas import (
+    canvas_create_tool,
+    canvas_get_tool,
+    canvas_add_node_tool,
+    canvas_add_edge_tool,
+    canvas_execute_action_tool,
+    canvas_list_tool,
+    canvas_delete_node_tool,
+)
 
 __all__ = [
     # Debate tools
@@ -189,4 +198,12 @@ __all__ = [
     "browser_close_tool",
     "browser_get_cookies_tool",
     "browser_clear_cookies_tool",
+    # Canvas tools
+    "canvas_create_tool",
+    "canvas_get_tool",
+    "canvas_add_node_tool",
+    "canvas_add_edge_tool",
+    "canvas_execute_action_tool",
+    "canvas_list_tool",
+    "canvas_delete_node_tool",
 ]
