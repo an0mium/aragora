@@ -517,7 +517,7 @@ class KnowledgeDecayManager:
         item["refresh_count"] += 1
         item["confidence"] = min(1.0, item["confidence"] + boost)
 
-        return item["confidence"]
+        return float(item["confidence"])
 
     def apply_decay(self) -> Dict[str, float]:
         """

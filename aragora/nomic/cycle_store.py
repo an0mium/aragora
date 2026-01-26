@@ -377,7 +377,8 @@ class CycleLearningStore:
         conn = sqlite3.connect(self.db_path)
         try:
             cursor = conn.execute("SELECT COUNT(*) FROM cycles")
-            return cursor.fetchone()[0]
+            result = cursor.fetchone()
+            return int(result[0]) if result else 0
         finally:
             conn.close()
 
