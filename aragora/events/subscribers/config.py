@@ -72,7 +72,7 @@ class SubscriberStats:
         sorted_samples = sorted(self.latency_samples)
         idx = int(len(sorted_samples) * p / 100)
         idx = min(idx, len(sorted_samples) - 1)
-        return sorted_samples[idx]
+        return float(sorted_samples[idx])
 
     @property
     def p50_latency_ms(self) -> Optional[float]:
