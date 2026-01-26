@@ -524,6 +524,7 @@ async def handle_get_pending_approvals(
 # =============================================================================
 
 
+@require_permission("expenses:write")
 async def handle_categorize_expenses(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -568,6 +569,7 @@ async def handle_categorize_expenses(
 # =============================================================================
 
 
+@require_permission("finance:write")
 async def handle_sync_to_qbo(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -611,6 +613,7 @@ async def handle_sync_to_qbo(
 # =============================================================================
 
 
+@require_permission("expenses:read")
 async def handle_get_expense_stats(
     query_params: Dict[str, Any],
     user_id: str = "default",
