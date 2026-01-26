@@ -36,7 +36,7 @@ interface ExplainabilityClientInterface {
   }): Promise<CounterfactualGeneration>;
   getProvenance(debateId: string): Promise<Provenance>;
   getNarrative(debateId: string, options?: {
-    audience?: 'technical' | 'business' | 'executive';
+    format?: 'brief' | 'detailed' | 'executive_summary';
   }): Promise<Narrative>;
   createBatchExplanation(body: {
     debate_ids: string[];
@@ -53,7 +53,7 @@ interface ExplainabilityClientInterface {
   getBatchExplanationResults(batchId: string, params?: {
     limit?: number;
     offset?: number;
-  }): Promise<{ results: Array<{ debate_id: string; status: string; explanation?: ExplainabilityResult }> }>;
+  }): Promise<{ results: Array<{ debate_id: string; status: string; explanation?: unknown }> }>;
 }
 
 /**
@@ -193,13 +193,13 @@ export class ExplainabilityAPI {
    * Get a human-readable narrative explanation.
    *
    * @param debateId - The debate ID
-   * @param options.audience - Target audience for the narrative:
-   *   - technical: Detailed technical explanation
-   *   - business: Business-focused explanation
-   *   - executive: High-level summary
+   * @param options.format - Format of the narrative:
+   *   - brief: Short summary
+   *   - detailed: Full explanation
+   *   - executive_summary: High-level executive summary
    */
   async getNarrative(debateId: string, options?: {
-    audience?: 'technical' | 'business' | 'executive';
+    format?: 'brief' | 'detailed' | 'executive_summary';
   }): Promise<Narrative> {
     return this.client.getNarrative(debateId, options);
   }
@@ -259,7 +259,7 @@ export class ExplainabilityAPI {
   async getBatchResults(batchId: string, params?: {
     limit?: number;
     offset?: number;
-  }): Promise<{ results: Array<{ debate_id: string; status: string; explanation?: ExplainabilityResult }> }> {
+  }): Promise<{ results: Array<{ debate_id: string; status: string; explanation?: unknown }> }> {
     return this.client.getBatchExplanationResults(batchId, params);
   }
 
