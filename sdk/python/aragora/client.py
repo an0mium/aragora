@@ -3356,6 +3356,233 @@ class AragoraClient:
         """Get adapter status and health."""
         return await self._request("GET", "/api/v1/knowledge/mound/dashboard/adapters")
 
+    # =========================================================================
+    # Integrations
+    # =========================================================================
+
+    async def list_integrations(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """List all configured integrations."""
+        return await self._request(
+            "GET",
+            "/api/integrations",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def get_integration(self, integration_id: str) -> Dict[str, Any]:
+        """Get a specific integration."""
+        return await self._request("GET", f"/api/integrations/{integration_id}")
+
+    async def create_integration(
+        self,
+        integration_type: str,
+        name: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Create a new integration."""
+        body: Dict[str, Any] = {"type": integration_type}
+        if name:
+            body["name"] = name
+        if config:
+            body["config"] = config
+        return await self._request("POST", "/api/integrations", json=body)
+
+    async def update_integration(
+        self,
+        integration_id: str,
+        name: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+        enabled: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Update an integration."""
+        body: Dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if config is not None:
+            body["config"] = config
+        if enabled is not None:
+            body["enabled"] = enabled
+        return await self._request("PUT", f"/api/integrations/{integration_id}", json=body)
+
+    async def delete_integration(self, integration_id: str) -> Dict[str, Any]:
+        """Delete an integration."""
+        return await self._request("DELETE", f"/api/integrations/{integration_id}")
+
+    async def test_integration(self, integration_id: str) -> Dict[str, Any]:
+        """Test an integration connection."""
+        return await self._request("POST", f"/api/integrations/{integration_id}/test")
+
+    async def sync_integration(self, integration_id: str) -> Dict[str, Any]:
+        """Trigger a sync for an integration."""
+        return await self._request("POST", f"/api/integrations/{integration_id}/sync")
+
+    async def get_bot_status(self, platform: str) -> Dict[str, Any]:
+        """Get bot status for a platform (slack, telegram, whatsapp, discord)."""
+        return await self._request("GET", f"/api/v1/bots/{platform}/status")
+
+    async def get_teams_status(self) -> Dict[str, Any]:
+        """Get Microsoft Teams integration status."""
+        return await self._request("GET", "/api/v1/integrations/teams/status")
+
+    async def list_zapier_apps(self) -> Dict[str, Any]:
+        """List Zapier apps."""
+        return await self._request("GET", "/api/v1/integrations/zapier/apps")
+
+    async def create_zapier_app(
+        self,
+        name: str,
+        triggers: Optional[List[str]] = None,
+        actions: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Create a Zapier app."""
+        return await self._request(
+            "POST",
+            "/api/v1/integrations/zapier/apps",
+            json={"name": name, "triggers": triggers, "actions": actions},
+        )
+
+    async def list_make_connections(self) -> Dict[str, Any]:
+        """List Make (Integromat) connections."""
+        return await self._request("GET", "/api/v1/integrations/make/connections")
+
+    async def create_make_connection(
+        self,
+        name: str,
+        credentials: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Create a Make connection."""
+        return await self._request(
+            "POST",
+            "/api/v1/integrations/make/connections",
+            json={"name": name, "credentials": credentials},
+        )
+
+    async def list_n8n_credentials(self) -> Dict[str, Any]:
+        """List n8n credentials."""
+        return await self._request("GET", "/api/v1/integrations/n8n/credentials")
+
+    async def start_integration_wizard(
+        self,
+        integration_type: str,
+    ) -> Dict[str, Any]:
+        """Start the integration wizard."""
+        return await self._request(
+            "POST",
+            "/api/v2/integrations/wizard",
+            json={"type": integration_type},
+        )
+
+    async def get_integration_stats(self) -> Dict[str, Any]:
+        """Get integration statistics."""
+        return await self._request("GET", "/api/v2/integrations/stats")
+
+    # =========================================================================
+    # Webhooks
+    # =========================================================================
+
+    async def list_webhooks(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """List all webhooks."""
+        return await self._request(
+            "GET",
+            "/api/webhooks",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def get_webhook(self, webhook_id: str) -> Dict[str, Any]:
+        """Get a specific webhook."""
+        return await self._request("GET", f"/api/webhooks/{webhook_id}")
+
+    async def create_webhook(
+        self,
+        url: str,
+        events: List[str],
+        secret: Optional[str] = None,
+        active: bool = True,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Create a new webhook."""
+        body: Dict[str, Any] = {"url": url, "events": events, "active": active}
+        if secret:
+            body["secret"] = secret
+        if metadata:
+            body["metadata"] = metadata
+        return await self._request("POST", "/api/webhooks", json=body)
+
+    async def update_webhook(
+        self,
+        webhook_id: str,
+        url: Optional[str] = None,
+        events: Optional[List[str]] = None,
+        secret: Optional[str] = None,
+        active: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Update a webhook."""
+        body: Dict[str, Any] = {}
+        if url is not None:
+            body["url"] = url
+        if events is not None:
+            body["events"] = events
+        if secret is not None:
+            body["secret"] = secret
+        if active is not None:
+            body["active"] = active
+        return await self._request("PUT", f"/api/webhooks/{webhook_id}", json=body)
+
+    async def delete_webhook(self, webhook_id: str) -> Dict[str, Any]:
+        """Delete a webhook."""
+        return await self._request("DELETE", f"/api/webhooks/{webhook_id}")
+
+    async def test_webhook(self, webhook_id: str) -> Dict[str, Any]:
+        """Test a webhook by sending a test event."""
+        return await self._request("POST", f"/api/webhooks/{webhook_id}/test")
+
+    async def list_webhook_events(self) -> Dict[str, Any]:
+        """List available webhook events."""
+        return await self._request("GET", "/api/webhooks/events")
+
+    async def get_webhook_slo_status(self) -> Dict[str, Any]:
+        """Get webhook SLO status."""
+        return await self._request("GET", "/api/webhooks/slo")
+
+    async def list_webhook_deliveries(
+        self,
+        webhook_id: str,
+        status: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """List webhook deliveries."""
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        if status:
+            params["status"] = status
+        return await self._request(
+            "GET",
+            f"/api/v1/webhooks/{webhook_id}/deliveries",
+            params=params,
+        )
+
+    async def retry_webhook_delivery(
+        self,
+        webhook_id: str,
+        delivery_id: str,
+    ) -> Dict[str, Any]:
+        """Retry a failed webhook delivery."""
+        return await self._request(
+            "POST",
+            f"/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}/retry",
+        )
+
+    async def rotate_webhook_secret(self, webhook_id: str) -> Dict[str, Any]:
+        """Rotate a webhook's secret."""
+        return await self._request("POST", f"/api/v1/webhooks/{webhook_id}/rotate-secret")
+
 
 # Sync wrapper for convenience
 class AragoraClientSync:
@@ -4051,3 +4278,92 @@ class AragoraClientSync:
 
     def get_ranking_stats(self) -> Dict[str, Any]:
         return self._run(self._async_client.get_ranking_stats())
+
+    # =========================================================================
+    # Integrations
+    # =========================================================================
+
+    def list_integrations(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+        return self._run(self._async_client.list_integrations(limit, offset))
+
+    def get_integration(self, integration_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_integration(integration_id))
+
+    def create_integration(self, integration_type: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.create_integration(integration_type, **kwargs))
+
+    def update_integration(self, integration_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.update_integration(integration_id, **kwargs))
+
+    def delete_integration(self, integration_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.delete_integration(integration_id))
+
+    def test_integration(self, integration_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.test_integration(integration_id))
+
+    def sync_integration(self, integration_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.sync_integration(integration_id))
+
+    def get_bot_status(self, platform: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_bot_status(platform))
+
+    def get_teams_status(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_teams_status())
+
+    def list_zapier_apps(self) -> Dict[str, Any]:
+        return self._run(self._async_client.list_zapier_apps())
+
+    def create_zapier_app(self, name: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.create_zapier_app(name, **kwargs))
+
+    def list_make_connections(self) -> Dict[str, Any]:
+        return self._run(self._async_client.list_make_connections())
+
+    def create_make_connection(self, name: str, credentials: Dict[str, Any]) -> Dict[str, Any]:
+        return self._run(self._async_client.create_make_connection(name, credentials))
+
+    def list_n8n_credentials(self) -> Dict[str, Any]:
+        return self._run(self._async_client.list_n8n_credentials())
+
+    def start_integration_wizard(self, integration_type: str) -> Dict[str, Any]:
+        return self._run(self._async_client.start_integration_wizard(integration_type))
+
+    def get_integration_stats(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_integration_stats())
+
+    # =========================================================================
+    # Webhooks
+    # =========================================================================
+
+    def list_webhooks(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+        return self._run(self._async_client.list_webhooks(limit, offset))
+
+    def get_webhook(self, webhook_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_webhook(webhook_id))
+
+    def create_webhook(self, url: str, events: List[str], **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.create_webhook(url, events, **kwargs))
+
+    def update_webhook(self, webhook_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.update_webhook(webhook_id, **kwargs))
+
+    def delete_webhook(self, webhook_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.delete_webhook(webhook_id))
+
+    def test_webhook(self, webhook_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.test_webhook(webhook_id))
+
+    def list_webhook_events(self) -> Dict[str, Any]:
+        return self._run(self._async_client.list_webhook_events())
+
+    def get_webhook_slo_status(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_webhook_slo_status())
+
+    def list_webhook_deliveries(self, webhook_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.list_webhook_deliveries(webhook_id, **kwargs))
+
+    def retry_webhook_delivery(self, webhook_id: str, delivery_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.retry_webhook_delivery(webhook_id, delivery_id))
+
+    def rotate_webhook_secret(self, webhook_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.rotate_webhook_secret(webhook_id))
