@@ -6,7 +6,10 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import BinaryIO, Optional
+from typing import TYPE_CHECKING, BinaryIO, Optional
+
+if TYPE_CHECKING:
+    from openai import OpenAI
 
 from aragora.speech.providers.base import (
     STTProvider,
@@ -26,7 +29,7 @@ class OpenAIWhisperProvider(STTProvider):
     ):
         super().__init__(config)
         self._api_key = api_key or os.getenv("OPENAI_API_KEY")
-        self._client = None
+        self._client: Optional["OpenAI"] = None
 
     @property
     def name(self) -> str:

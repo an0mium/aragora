@@ -206,7 +206,7 @@ jobs:
             --cov-report=term-missing \
             --cov-report=xml \
             --cov-report=html \
-            --cov-fail-under=50 \
+            --cov-fail-under=55 \
             -n auto \
             --dist loadscope \
             -v \
@@ -236,6 +236,15 @@ jobs:
           name: aragora-coverage
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Coverage Summary Comment
+        if: github.event_name == 'pull_request' && matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
+        uses: py-cov-action/python-coverage-comment-action@v3
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MINIMUM_GREEN: 70
+          MINIMUM_ORANGE: 55
+        continue-on-error: true
 
   smoke:
     name: CLI Smoke

@@ -41,7 +41,7 @@ class VoiceBridge:
         self.max_file_size = max_file_size
         self.default_language = default_language
         self.config = config
-        self._whisper = None
+        self._whisper: Optional[Any] = None
 
     def _get_whisper(self):
         """Lazy-load WhisperConnector."""

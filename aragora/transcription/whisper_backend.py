@@ -230,7 +230,7 @@ class OpenAIWhisperBackend(TranscriptionBackend):
 
     def __init__(self, config: Optional[TranscriptionConfig] = None, model: Optional[str] = None):
         super().__init__(config)
-        self._client = None
+        self._client: Optional[Any] = None
         # Allow model override via constructor
         if model:
             self.config.openai_model = model
