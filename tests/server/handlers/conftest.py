@@ -107,6 +107,45 @@ def mock_auth_for_handler_tests(request, monkeypatch):
 
 
 # ============================================================================
+# Cache Clearing Fixture
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def clear_handler_cache():
+    """Clear handler TTL cache and class-level attributes before each test.
+
+    This prevents cached results from previous tests from interfering.
+    Also clears class-level attributes like elo_system that unified_server sets.
+    """
+    try:
+        from aragora.server.handlers.admin.cache import clear_cache
+
+        clear_cache()  # Clear all cache entries
+    except ImportError:
+        pass
+
+    # Clear class-level elo_system that might be set by unified_server
+    try:
+        from aragora.server.handlers.base import BaseHandler
+
+        if hasattr(BaseHandler, "elo_system"):
+            BaseHandler.elo_system = None
+    except ImportError:
+        pass
+
+    yield
+
+    # Also clear after test
+    try:
+        from aragora.server.handlers.admin.cache import clear_cache
+
+        clear_cache()
+    except ImportError:
+        pass
+
+
+# ============================================================================
 # Response Helpers
 # ============================================================================
 
