@@ -917,9 +917,23 @@ class GauntletHandler(BaseHandler):
                 data=receipt.to_dict(),
             )
 
-            # Save to receipt store
+            # Save to receipt store with signature data
             store = get_receipt_store()
-            store.save(receipt.to_dict())
+            receipt_dict = receipt.to_dict()
+
+            # Pass signature separately for the store
+            signed_receipt = None
+            if receipt.signature:
+                signed_receipt = {
+                    "signature": receipt.signature,
+                    "signature_metadata": {
+                        "algorithm": receipt.signature_algorithm,
+                        "key_id": receipt.signature_key_id,
+                        "timestamp": receipt.signed_at,
+                    },
+                }
+
+            store.save(receipt_dict, signed_receipt=signed_receipt)
             logger.info(f"Decision receipt auto-persisted: {receipt.receipt_id}")
 
             # Emit receipt generated webhook

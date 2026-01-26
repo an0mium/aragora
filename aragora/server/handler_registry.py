@@ -153,6 +153,7 @@ ConnectorsHandler: HandlerType = None
 MarketplaceHandler: HandlerType = None
 OnboardingHandler: HandlerType = None
 SMEUsageDashboardHandler: HandlerType = None
+CanvasHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
 # Import handlers with graceful fallback
