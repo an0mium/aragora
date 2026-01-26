@@ -30,6 +30,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,7 @@ class DRHandler(BaseHandler):
             logger.exception(f"Error handling DR request: {e}")
             return error_response(f"Internal error: {str(e)}", 500)
 
+    @require_permission("dr:read")
     async def _get_status(self) -> HandlerResult:
         """
         Get DR readiness status.
@@ -199,6 +201,7 @@ class DRHandler(BaseHandler):
             }
         )
 
+    @require_permission("dr:drill")
     async def _run_drill(self, body: Dict[str, Any]) -> HandlerResult:
         """
         Run a DR drill (simulated recovery).
@@ -327,6 +330,7 @@ class DRHandler(BaseHandler):
 
         return json_response(drill_results)
 
+    @require_permission("dr:read")
     async def _get_objectives(self) -> HandlerResult:
         """
         Get RPO/RTO objectives and current compliance status.
@@ -399,6 +403,7 @@ class DRHandler(BaseHandler):
             }
         )
 
+    @require_permission("dr:read")
     async def _validate_configuration(self, body: Dict[str, Any]) -> HandlerResult:
         """
         Validate DR configuration.

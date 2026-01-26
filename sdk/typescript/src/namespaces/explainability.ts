@@ -13,31 +13,13 @@ import type {
   CounterfactualGeneration,
   Narrative,
   Provenance,
+  DebateEvidence,
 } from '../types';
 
 /**
  * Interface for the internal client methods used by ExplainabilityAPI.
  */
-/**
- * Evidence item from a debate.
- */
-export interface EvidenceItem {
-  id: string;
-  source: string;
-  content: string;
-  relevance_score: number;
-  cited_by: string[];
-}
-
-/**
- * Evidence response from getEvidence.
- */
-export interface EvidenceResponse {
-  debate_id: string;
-  evidence_count: number;
-  evidence_quality_score: number;
-  evidence: EvidenceItem[];
-}
+export type EvidenceResponse = DebateEvidence;
 
 /**
  * Vote pivot item from a debate.

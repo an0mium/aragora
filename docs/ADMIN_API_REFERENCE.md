@@ -433,6 +433,16 @@ GET /api/v1/health/ready
 
 These endpoints do not require authentication.
 
+### Confidence Decay Health
+
+Status endpoint for the Knowledge Mound confidence decay scheduler.
+
+```
+GET /api/v1/health/decay
+```
+
+**Required Permission:** `system.health.read`
+
 ---
 
 ## System Metrics

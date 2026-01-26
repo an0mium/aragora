@@ -287,6 +287,7 @@ class BackupHandler(BaseHandler):
             }
         )
 
+    @require_permission("backups:verify")
     async def _verify_comprehensive(self, backup_id: str) -> HandlerResult:
         """
         Perform comprehensive verification of a backup.
@@ -303,6 +304,7 @@ class BackupHandler(BaseHandler):
 
         return json_response(result.to_dict())
 
+    @require_permission("backups:restore")
     async def _restore_test(self, backup_id: str, body: Dict[str, Any]) -> HandlerResult:
         """
         Test restore a backup (dry-run).
@@ -337,6 +339,7 @@ class BackupHandler(BaseHandler):
         except FileNotFoundError as e:
             return error_response(str(e), 404)
 
+    @require_permission("backups:delete")
     async def _delete_backup(self, backup_id: str) -> HandlerResult:
         """Delete a backup by ID."""
         manager = self._get_manager()
@@ -373,6 +376,7 @@ class BackupHandler(BaseHandler):
             logger.exception(f"Failed to delete backup: {e}")
             return error_response(f"Delete failed: {str(e)}", 500)
 
+    @require_permission("backups:delete")
     async def _cleanup_expired(self, body: Dict[str, Any]) -> HandlerResult:
         """
         Run retention policy cleanup.
@@ -399,6 +403,7 @@ class BackupHandler(BaseHandler):
             }
         )
 
+    @require_permission("backups:read")
     async def _get_stats(self) -> HandlerResult:
         """Get backup statistics."""
         manager = self._get_manager()

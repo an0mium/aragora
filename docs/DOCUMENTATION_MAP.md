@@ -74,6 +74,7 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 ### API & SDK
 
 - [API_REFERENCE.md](API_REFERENCE.md)
+- [ADMIN_API_REFERENCE.md](ADMIN_API_REFERENCE.md)
 - [API_ENDPOINTS.md](API_ENDPOINTS.md) (auto-generated)
 - [API_EXAMPLES.md](API_EXAMPLES.md)
 - [API_VERSIONING.md](API_VERSIONING.md)
@@ -95,6 +96,7 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 
 - [SECURITY.md](SECURITY.md)
 - [AUTH_GUIDE.md](AUTH_GUIDE.md)
+- [security/rbac-abac-strategy.md](security/rbac-abac-strategy.md)
 - [COMPLIANCE.md](COMPLIANCE.md)
 - [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md)
 - [PRIVACY_POLICY.md](PRIVACY_POLICY.md)

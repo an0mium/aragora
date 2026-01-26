@@ -41,7 +41,6 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from aragora.workflow.step import BaseStep, WorkflowContext
-from aragora.workflow.types import StepResult
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +137,7 @@ class BrowserStep(BaseStep):
             config: Step configuration with action and parameters
         """
         super().__init__(name, config)
-        self._config = BrowserStepConfig(
+        self._step_config = BrowserStepConfig(
             action=config.get("action", "navigate"),
             url=config.get("url"),
             selector=config.get("selector"),
@@ -189,7 +188,7 @@ class BrowserStep(BaseStep):
 
         return re.sub(r"\{([^}]+)\}", replace_var, value)
 
-    async def execute(self, context: WorkflowContext) -> StepResult:
+    async def execute(self, context: WorkflowContext) -> Dict[str, Any]:
         """
         Execute the browser action.
 
@@ -197,236 +196,171 @@ class BrowserStep(BaseStep):
             context: Workflow context with inputs and state
 
         Returns:
-            StepResult with action outcome
+            Dict with action result
+
+        Raises:
+            ValueError: For invalid configuration
+            RuntimeError: For browser action failures
         """
-        config = self._config
+        config = self._step_config
         action = config.action.lower()
 
-        try:
-            # Get or create browser connector
-            connector = await _get_browser_connector(self.config)
+        # Get or create browser connector
+        connector = await _get_browser_connector(self._config)
 
-            # Resolve template variables
-            url = self._resolve_template(config.url, context)
-            selector = self._resolve_template(config.selector, context)
-            value = self._resolve_template(config.value, context)
-            script = self._resolve_template(config.script, context)
+        # Resolve template variables
+        url = self._resolve_template(config.url, context)
+        selector = self._resolve_template(config.selector, context)
+        value = self._resolve_template(config.value, context)
+        script = self._resolve_template(config.script, context)
 
-            result_data: Dict[str, Any] = {"action": action}
+        result_data: Dict[str, Any] = {"action": action}
 
-            # Execute action
-            if action == "navigate":
-                if not url:
-                    return StepResult(
-                        success=False,
-                        output={"error": "URL is required for navigate action"},
-                        error="URL is required for navigate action",
-                    )
-                state = await connector.navigate(
-                    url,
-                    wait_until=config.wait_until,
-                    timeout_ms=config.timeout_ms,
-                )
-                result_data.update(state.to_dict())
-
-            elif action == "click":
-                if not selector:
-                    return StepResult(
-                        success=False,
-                        output={"error": "Selector is required for click action"},
-                        error="Selector is required for click action",
-                    )
-                result = await connector.click(
-                    selector,
-                    timeout_ms=config.timeout_ms,
-                    force=config.force,
-                )
-                result_data.update(result.to_dict())
-                if not result.success:
-                    return StepResult(
-                        success=False,
-                        output=result_data,
-                        error=result.error,
-                    )
-
-            elif action == "fill":
-                if not selector or value is None:
-                    return StepResult(
-                        success=False,
-                        output={"error": "Selector and value are required for fill action"},
-                        error="Selector and value are required for fill action",
-                    )
-                result = await connector.fill(
-                    selector,
-                    value,
-                    timeout_ms=config.timeout_ms,
-                )
-                result_data.update(result.to_dict())
-                if not result.success:
-                    return StepResult(
-                        success=False,
-                        output=result_data,
-                        error=result.error,
-                    )
-
-            elif action == "select":
-                if not selector or value is None:
-                    return StepResult(
-                        success=False,
-                        output={"error": "Selector and value are required for select action"},
-                        error="Selector and value are required for select action",
-                    )
-                result = await connector.select(
-                    selector,
-                    value,
-                    timeout_ms=config.timeout_ms,
-                )
-                result_data.update(result.to_dict())
-                if not result.success:
-                    return StepResult(
-                        success=False,
-                        output=result_data,
-                        error=result.error,
-                    )
-
-            elif action == "screenshot":
-                screenshot_bytes = await connector.screenshot(
-                    full_page=config.full_page,
-                    selector=selector,
-                )
-                result_data["screenshot_base64"] = base64.b64encode(screenshot_bytes).decode()
-                result_data["size_bytes"] = len(screenshot_bytes)
-
-            elif action == "get_text":
-                if not selector:
-                    return StepResult(
-                        success=False,
-                        output={"error": "Selector is required for get_text action"},
-                        error="Selector is required for get_text action",
-                    )
-                text = await connector.get_text(selector, timeout_ms=config.timeout_ms)
-                result_data["text"] = text
-
-            elif action == "get_attribute":
-                if not selector or not config.attribute:
-                    return StepResult(
-                        success=False,
-                        output={
-                            "error": "Selector and attribute are required for get_attribute action"
-                        },
-                        error="Selector and attribute are required",
-                    )
-                attr_value = await connector.get_attribute(
-                    selector,
-                    config.attribute,
-                    timeout_ms=config.timeout_ms,
-                )
-                result_data["attribute"] = config.attribute
-                result_data["value"] = attr_value
-
-            elif action == "get_html":
-                html = await connector.get_html(selector)
-                result_data["html"] = html
-
-            elif action == "wait_for":
-                if not selector:
-                    return StepResult(
-                        success=False,
-                        output={"error": "Selector is required for wait_for action"},
-                        error="Selector is required for wait_for action",
-                    )
-                found = await connector.wait_for(
-                    selector,
-                    state=config.state,
-                    timeout_ms=config.timeout_ms,
-                )
-                result_data["found"] = found
-                if not found:
-                    return StepResult(
-                        success=False,
-                        output=result_data,
-                        error=f"Element not found: {selector}",
-                    )
-
-            elif action == "execute_script":
-                if not script:
-                    return StepResult(
-                        success=False,
-                        output={"error": "Script is required for execute_script action"},
-                        error="Script is required for execute_script action",
-                    )
-                script_result = await connector.execute_script(script)
-                result_data["result"] = script_result
-
-            elif action == "extract_data":
-                if not config.selectors:
-                    return StepResult(
-                        success=False,
-                        output={"error": "Selectors dict is required for extract_data action"},
-                        error="Selectors dict is required",
-                    )
-                # Resolve templates in selectors
-                resolved_selectors = {
-                    k: self._resolve_template(v, context) or v for k, v in config.selectors.items()
-                }
-                data = await connector.extract_data(
-                    resolved_selectors,
-                    timeout_ms=config.timeout_ms,
-                )
-                result_data["data"] = data
-
-            elif action == "get_cookies":
-                cookies = await connector.get_cookies()
-                result_data["cookies"] = cookies
-
-            elif action == "clear_cookies":
-                await connector.clear_cookies()
-                result_data["cleared"] = True
-
-            elif action == "reload":
-                state = await connector.reload()
-                result_data.update(state.to_dict())
-
-            elif action == "go_back":
-                state = await connector.go_back()
-                result_data.update(state.to_dict())
-
-            elif action == "go_forward":
-                state = await connector.go_forward()
-                result_data.update(state.to_dict())
-
-            elif action == "close":
-                await _close_browser_connector()
-                result_data["closed"] = True
-
-            else:
-                return StepResult(
-                    success=False,
-                    output={"error": f"Unknown action: {action}"},
-                    error=f"Unknown action: {action}",
-                )
-
-            # Add current URL to result
-            if connector.is_initialized:
-                result_data["current_url"] = connector.current_url
-
-            # Close session if requested
-            if config.close_session:
-                await _close_browser_connector()
-                result_data["session_closed"] = True
-
-            return StepResult(
-                success=True,
-                output=result_data,
+        # Execute action
+        if action == "navigate":
+            if not url:
+                raise ValueError("URL is required for navigate action")
+            state = await connector.navigate(
+                url,
+                wait_until=config.wait_until,
+                timeout_ms=config.timeout_ms,
             )
+            result_data.update(state.to_dict())
 
-        except Exception as e:
-            logger.error(f"Browser step '{self.name}' failed: {e}")
-            return StepResult(
-                success=False,
-                output={"error": str(e), "action": action},
-                error=str(e),
+        elif action == "click":
+            if not selector:
+                raise ValueError("Selector is required for click action")
+            result = await connector.click(
+                selector,
+                timeout_ms=config.timeout_ms,
+                force=config.force,
             )
+            result_data.update(result.to_dict())
+            if not result.success:
+                raise RuntimeError(f"Click failed: {result.error}")
+
+        elif action == "fill":
+            if not selector or value is None:
+                raise ValueError("Selector and value are required for fill action")
+            result = await connector.fill(
+                selector,
+                value,
+                timeout_ms=config.timeout_ms,
+            )
+            result_data.update(result.to_dict())
+            if not result.success:
+                raise RuntimeError(f"Fill failed: {result.error}")
+
+        elif action == "select":
+            if not selector or value is None:
+                raise ValueError("Selector and value are required for select action")
+            result = await connector.select(
+                selector,
+                value,
+                timeout_ms=config.timeout_ms,
+            )
+            result_data.update(result.to_dict())
+            if not result.success:
+                raise RuntimeError(f"Select failed: {result.error}")
+
+        elif action == "screenshot":
+            screenshot_bytes = await connector.screenshot(
+                full_page=config.full_page,
+                selector=selector,
+            )
+            result_data["screenshot_base64"] = base64.b64encode(screenshot_bytes).decode()
+            result_data["size_bytes"] = len(screenshot_bytes)
+
+        elif action == "get_text":
+            if not selector:
+                raise ValueError("Selector is required for get_text action")
+            text = await connector.get_text(selector, timeout_ms=config.timeout_ms)
+            result_data["text"] = text
+
+        elif action == "get_attribute":
+            if not selector or not config.attribute:
+                raise ValueError("Selector and attribute are required for get_attribute action")
+            attr_value = await connector.get_attribute(
+                selector,
+                config.attribute,
+                timeout_ms=config.timeout_ms,
+            )
+            result_data["attribute"] = config.attribute
+            result_data["value"] = attr_value
+
+        elif action == "get_html":
+            html = await connector.get_html(selector)
+            result_data["html"] = html
+
+        elif action == "wait_for":
+            if not selector:
+                raise ValueError("Selector is required for wait_for action")
+            found = await connector.wait_for(
+                selector,
+                state=config.state,
+                timeout_ms=config.timeout_ms,
+            )
+            result_data["found"] = found
+            if not found:
+                raise RuntimeError(f"Element not found: {selector}")
+
+        elif action == "execute_script":
+            if not script:
+                raise ValueError("Script is required for execute_script action")
+            script_result = await connector.execute_script(script)
+            result_data["result"] = script_result
+
+        elif action == "extract_data":
+            if not config.selectors:
+                raise ValueError("Selectors dict is required for extract_data action")
+            # Resolve templates in selectors
+            resolved_selectors = {
+                k: self._resolve_template(v, context) or v for k, v in config.selectors.items()
+            }
+            data = await connector.extract_data(
+                resolved_selectors,
+                timeout_ms=config.timeout_ms,
+            )
+            result_data["data"] = data
+
+        elif action == "get_cookies":
+            cookies = await connector.get_cookies()
+            result_data["cookies"] = cookies
+
+        elif action == "clear_cookies":
+            await connector.clear_cookies()
+            result_data["cleared"] = True
+
+        elif action == "reload":
+            state = await connector.reload()
+            result_data.update(state.to_dict())
+
+        elif action == "go_back":
+            state = await connector.go_back()
+            result_data.update(state.to_dict())
+
+        elif action == "go_forward":
+            state = await connector.go_forward()
+            result_data.update(state.to_dict())
+
+        elif action == "close":
+            await _close_browser_connector()
+            result_data["closed"] = True
+
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+        # Add current URL to result
+        if connector.is_initialized:
+            result_data["current_url"] = connector.current_url
+
+        # Close session if requested
+        if config.close_session:
+            await _close_browser_connector()
+            result_data["session_closed"] = True
+
+        logger.info(f"[BrowserStep] {self._name}: {action} completed")
+        return result_data
 
 
 # Register step type

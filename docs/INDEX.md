@@ -17,6 +17,7 @@ Use this index for fast navigation. For a fuller map, see
 | Control plane overview | [CONTROL_PLANE.md](CONTROL_PLANE.md) |
 | Control plane operations | [CONTROL_PLANE_GUIDE.md](CONTROL_PLANE_GUIDE.md) |
 | API reference | [API_REFERENCE.md](API_REFERENCE.md) |
+| Admin API reference | [ADMIN_API_REFERENCE.md](ADMIN_API_REFERENCE.md) |
 | API examples | [API_EXAMPLES.md](API_EXAMPLES.md) |
 | Production deployment | [DEPLOYMENT.md](DEPLOYMENT.md) |
 | Troubleshooting | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
@@ -68,6 +69,7 @@ Use this index for fast navigation. For a fuller map, see
 ## API & SDK
 
 - API reference: [API_REFERENCE.md](API_REFERENCE.md)
+- Admin API reference: [ADMIN_API_REFERENCE.md](ADMIN_API_REFERENCE.md)
 - Endpoint catalog (auto-generated): [API_ENDPOINTS.md](API_ENDPOINTS.md)
 - API usage guide: [API_USAGE.md](API_USAGE.md)
 - WebSocket events: [WEBSOCKET_EVENTS.md](WEBSOCKET_EVENTS.md)
@@ -82,6 +84,7 @@ Use this index for fast navigation. For a fuller map, see
 - Security overview: [SECURITY.md](SECURITY.md)
 - Authentication guide: [AUTH_GUIDE.md](AUTH_GUIDE.md)
 - SSO setup: [SSO_SETUP.md](SSO_SETUP.md)
+- RBAC/ABAC strategy: [security/rbac-abac-strategy.md](security/rbac-abac-strategy.md)
 
 ## Costs & Billing
 
