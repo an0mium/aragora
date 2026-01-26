@@ -36,6 +36,17 @@ export function DebateInitializationProgress({ task, agents, streamEvents }: Pro
     return event?.data as ContextPreviewData | undefined;
   }, [streamEvents]);
 
+  const initErrors = useMemo(() => {
+    return streamEvents
+      .filter(e => e.type === 'error')
+      .map(e => e.data as Record<string, unknown>)
+      .filter(data => data?.phase === 'initialization')
+      .map(data => ({
+        agent: (data?.agent as string) || 'unknown',
+        message: (data?.error as string) || (data?.message as string) || 'Initialization failed',
+      }));
+  }, [streamEvents]);
+
   // Get latest phase_progress event for status message
   const latestProgress = streamEvents
     .filter(e => e.type === 'phase_progress')
@@ -130,6 +141,23 @@ export function DebateInitializationProgress({ task, agents, streamEvents }: Pro
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Initialization errors */}
+      {initErrors.length > 0 && (
+        <div className="p-3 border border-red-500/30 bg-red-500/5">
+          <div className="text-xs font-mono text-red-400 mb-2 uppercase tracking-wider">
+            {'>'} Agents Failed to Initialize
+          </div>
+          <div className="space-y-1 text-xs text-text-muted">
+            {initErrors.map((err, i) => (
+              <div key={`${err.agent}-${i}`}>
+                <span className="font-mono text-red-300">{err.agent}</span>
+                <span className="text-text-muted"> — {err.message}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
