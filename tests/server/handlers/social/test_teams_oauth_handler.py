@@ -50,9 +50,14 @@ def oauth_handler(mock_server_context):
 @pytest.fixture
 def oauth_state_store():
     """Create an in-memory OAuth state store for tests."""
+    # Reset global state store to avoid Redis connection attempts
+    reset_global_oauth_state_store()
     store = InMemoryOAuthStateStore()
     with patch("aragora.server.handlers.social.teams_oauth._get_state_store", return_value=store):
-        yield store
+        with patch.dict(os.environ, {"REDIS_URL": ""}, clear=False):
+            yield store
+    # Clean up after test
+    reset_global_oauth_state_store()
 
 
 @pytest.fixture(autouse=True)
