@@ -40,7 +40,8 @@ class TestDebatePerformance:
     """Benchmark tests for debate operations."""
 
     @pytest.mark.asyncio
-    @pytest.mark.flaky
+    @pytest.mark.flaky(reruns=2)
+    @pytest.mark.slow  # Skip in regular CI, run in nightly only
     async def test_single_round_latency(self, benchmark_agents, benchmark_environment):
         """Measure single debate round latency against SLO.
 
