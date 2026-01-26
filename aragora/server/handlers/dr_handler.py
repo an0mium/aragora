@@ -414,9 +414,8 @@ class DRHandler(BaseHandler):
             check_encryption: Verify encryption configuration (default: true)
         """
         check_storage = body.get("check_storage", True)
-        # TODO: implement permission and encryption checks
-        # check_permissions = body.get("check_permissions", True)
-        # check_encryption = body.get("check_encryption", True)
+        check_permissions = body.get("check_permissions", True)
+        check_encryption = body.get("check_encryption", True)
 
         manager = self._get_backup_manager()
         checks: list[Dict[str, Any]] = []
@@ -424,6 +423,65 @@ class DRHandler(BaseHandler):
             "valid": True,
             "checks": checks,
         }
+
+        # Check RBAC permissions for backup operations
+        if check_permissions:
+            check: Dict[str, Any] = {"name": "rbac_permissions", "status": "checking"}
+            try:
+                required_perms = ["dr:read", "dr:write", "dr:admin"]
+                # Verify RBAC module is available and permissions are defined
+                try:
+                    from aragora.rbac.defaults import DEFAULT_PERMISSIONS  # type: ignore[attr-defined]
+
+                    missing_perms = [
+                        p
+                        for p in required_perms
+                        if not any(p in str(perm) for perm in DEFAULT_PERMISSIONS)
+                    ]
+                    if not missing_perms:
+                        check["status"] = "passed"
+                        check["details"] = f"Required permissions defined: {required_perms}"
+                    else:
+                        check["status"] = "warning"
+                        check["details"] = f"Missing permission definitions: {missing_perms}"
+                        check["recommendation"] = "Add missing permissions to RBAC defaults"
+                except ImportError:
+                    check["status"] = "warning"
+                    check["details"] = "RBAC module not available"
+                    check["recommendation"] = "Enable RBAC for production deployments"
+            except Exception as e:
+                check["status"] = "failed"
+                check["details"] = f"Permission check error: {e}"
+                validation_results["valid"] = False
+            checks.append(check)
+
+        # Check encryption configuration
+        if check_encryption:
+            check = {"name": "encryption_config", "status": "checking"}
+            try:
+                # Check if encryption is enabled for backups
+                encryption_enabled = getattr(manager, "encryption_enabled", False)
+                encryption_key_set = bool(getattr(manager, "encryption_key", None))
+
+                if encryption_enabled and encryption_key_set:
+                    check["status"] = "passed"
+                    check["details"] = "Backup encryption enabled with key configured"
+                elif encryption_enabled and not encryption_key_set:
+                    check["status"] = "failed"
+                    check["details"] = "Encryption enabled but no key configured"
+                    check["recommendation"] = (
+                        "Set ARAGORA_BACKUP_ENCRYPTION_KEY environment variable"
+                    )
+                    validation_results["valid"] = False
+                else:
+                    check["status"] = "warning"
+                    check["details"] = "Backup encryption not enabled"
+                    check["recommendation"] = "Enable encryption for production backups"
+            except Exception as e:
+                check["status"] = "failed"
+                check["details"] = f"Encryption check error: {e}"
+                validation_results["valid"] = False
+            checks.append(check)
 
         # Check storage access
         if check_storage:
