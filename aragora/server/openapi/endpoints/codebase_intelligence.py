@@ -169,7 +169,7 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "List symbols (alias)",
-            "operationId": "getCodebaseSymbol",
+            "operationId": "getCodebaseSymbolLegacy",
             "description": "Alias for codebase symbols.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": _codebase_params(),
@@ -183,7 +183,7 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Call graph (alias)",
-            "operationId": "getCodebaseCallgraph",
+            "operationId": "getCodebaseCallgraphLegacy",
             "description": "Alias for call graph.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": _codebase_params(),
@@ -197,7 +197,7 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Dead code (alias)",
-            "operationId": "getCodebaseDeadcode",
+            "operationId": "getCodebaseDeadcodeLegacy",
             "description": "Alias for dead code.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": _codebase_params(),
@@ -211,7 +211,7 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
         "post": {
             "tags": ["Codebase"],
             "summary": "Impact analysis (alias)",
-            "operationId": "createCodebaseImpact",
+            "operationId": "createCodebaseImpactLegacy",
             "description": "Alias for impact analysis.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": _codebase_params(),
@@ -230,7 +230,7 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
         "post": {
             "tags": ["Codebase"],
             "summary": "Understand code (alias)",
-            "operationId": "createCodebaseUnderstand",
+            "operationId": "createCodebaseUnderstandLegacy",
             "description": "Alias for code understanding.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": _codebase_params(),
@@ -249,7 +249,7 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
         "post": {
             "tags": ["Codebase"],
             "summary": "Run audit (alias)",
-            "operationId": "createCodebaseAudit",
+            "operationId": "createCodebaseAuditLegacy",
             "description": "Alias for code audit.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": _codebase_params(),
@@ -268,7 +268,7 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Audit status (alias)",
-            "operationId": "getCodebaseAudit",
+            "operationId": "getCodebaseAuditLegacy",
             "description": "Alias for audit status.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
