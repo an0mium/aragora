@@ -124,7 +124,7 @@ class StaticFileHandler:
         """
         # Validate path
         is_valid, filepath, error = self.validate_path(filename)
-        if not is_valid:
+        if not is_valid or filepath is None:
             return None
 
         # Handle missing files with SPA routing

@@ -78,7 +78,7 @@ def _safe_regex(pattern: str, text: str, flags: int = 0) -> list[str]:
     result: list[str] = []
     error: Optional[Exception] = None
 
-    def run_regex():
+    def run_regex() -> None:
         nonlocal result, error
         try:
             result = compiled.findall(text)
@@ -145,7 +145,7 @@ class SafeReModule:
     - Enforcing timeout on operations
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.IGNORECASE = re.IGNORECASE
         self.MULTILINE = re.MULTILINE
         self.DOTALL = re.DOTALL
@@ -155,7 +155,7 @@ class SafeReModule:
         """Safe findall with ReDoS protection."""
         return _safe_regex(pattern, string, flags)
 
-    def search(self, pattern: str, string: str, flags: int = 0):
+    def search(self, pattern: str, string: str, flags: int = 0) -> re.Match[str] | None:
         """Safe search with ReDoS protection."""
         if len(pattern) > MAX_REGEX_PATTERN_LENGTH:
             raise SecurityError(f"Pattern too long: {len(pattern)}")
@@ -164,7 +164,7 @@ class SafeReModule:
         except re.error:
             return None
 
-    def match(self, pattern: str, string: str, flags: int = 0):
+    def match(self, pattern: str, string: str, flags: int = 0) -> re.Match[str] | None:
         """Safe match with ReDoS protection."""
         if len(pattern) > MAX_REGEX_PATTERN_LENGTH:
             raise SecurityError(f"Pattern too long: {len(pattern)}")
@@ -191,7 +191,7 @@ class SafeReModule:
         except re.error:
             return [string]
 
-    def compile(self, pattern: str, flags: int = 0):
+    def compile(self, pattern: str, flags: int = 0) -> None:
         """Blocked - could bypass our safety checks."""
         raise SecurityError("re.compile() is not allowed - use findall/search directly")
 

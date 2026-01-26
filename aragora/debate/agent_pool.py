@@ -151,7 +151,8 @@ class AgentPool:
             return False
 
         try:
-            return self._config.circuit_breaker.is_open(agent_name)
+            result: bool = self._config.circuit_breaker.is_open(agent_name)
+            return result
         except (KeyError, AttributeError, TypeError) as e:
             logger.debug(f"Circuit breaker check failed for {agent_name}: {e}")
             return False
@@ -295,7 +296,8 @@ class AgentPool:
                 calibration = self._config.calibration_tracker.get_calibration(agent_name)
                 if calibration is not None:
                     # Map calibration (0-1) to weight (0.5-1.5)
-                    return 0.5 + calibration
+                    cal_float: float = float(calibration)
+                    return 0.5 + cal_float
             except (KeyError, AttributeError, TypeError, ValueError) as e:
                 logger.debug(f"Calibration tracker lookup failed for {agent_name}: {e}")
 
@@ -304,7 +306,7 @@ class AgentPool:
             try:
                 rating = self._config.elo_system.get_rating(agent_name)
                 if rating is not None and hasattr(rating, "calibration_score"):
-                    cal_score = rating.calibration_score
+                    cal_score: float = float(rating.calibration_score)
                     # Map calibration_score (0-1) to weight (0.5-1.5)
                     return 0.5 + cal_score
             except (KeyError, AttributeError, TypeError, ValueError) as e:
