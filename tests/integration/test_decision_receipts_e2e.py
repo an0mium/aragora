@@ -123,21 +123,27 @@ class TestReceiptsHandler:
         """Create a mock receipt store."""
         from aragora.gauntlet.receipt import DecisionReceipt
 
-        # Create a mock receipt object
+        # Create a mock receipt object with all required methods
         mock_receipt = MagicMock(spec=DecisionReceipt)
         mock_receipt.receipt_id = "rcpt_001"
         mock_receipt.verdict = "APPROVED"
-        mock_receipt.to_dict.return_value = {
+        receipt_dict = {
             "receipt_id": "rcpt_001",
             "verdict": "APPROVED",
             "timestamp": "2024-01-01T00:00:00Z",
+            "gauntlet_id": "gnt_001",
+            "confidence": 0.85,
+            "risk_level": "LOW",
         }
+        mock_receipt.to_dict.return_value = receipt_dict
+        mock_receipt.to_full_dict.return_value = receipt_dict
 
         store = MagicMock()
         # Mock the methods the handler actually calls
         store.list = MagicMock(return_value=[mock_receipt])
         store.count = MagicMock(return_value=1)
         store.get = MagicMock(return_value=mock_receipt)
+        store.get_by_gauntlet = MagicMock(return_value=None)
         store.verify = MagicMock(return_value={"valid": True, "checksum_match": True})
         # Also keep the async versions in case some code uses them
         store.list_receipts = AsyncMock(

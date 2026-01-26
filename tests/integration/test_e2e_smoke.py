@@ -122,11 +122,11 @@ class TestHandlerSmoke:
         assert handler is not None
         assert handler.can_handle("/api/v1/rlm/stats")
 
-    @pytest.mark.asyncio
-    async def test_rlm_strategies_endpoint(self, handler_context, mock_http_handler):
+    def test_rlm_strategies_endpoint(self, handler_context, mock_http_handler):
         """Verify RLM strategies endpoint works."""
         handler = RLMContextHandler(handler_context)
-        result = await handler.handle("/api/v1/rlm/strategies", {}, mock_http_handler)
+        # RLMContextHandler.handle is synchronous
+        result = handler.handle("/api/v1/rlm/strategies", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
