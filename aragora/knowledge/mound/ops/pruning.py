@@ -363,11 +363,12 @@ class PruningOperationsMixin:
         Returns:
             List of pruning history entries
         """
-        return await self._get_prune_history(  # type: ignore[attr-defined]
+        result = await self._get_prune_history(  # type: ignore[attr-defined]
             workspace_id=workspace_id,
             limit=limit,
             since=since,
         )
+        return list(result) if result else []
 
     async def restore_pruned_item(
         self,
@@ -383,10 +384,11 @@ class PruningOperationsMixin:
         Returns:
             True if restored, False if not found or already active
         """
-        return await self._restore_archived_node(  # type: ignore[attr-defined]
+        result = await self._restore_archived_node(  # type: ignore[attr-defined]
             node_id=node_id,
             workspace_id=workspace_id,
         )
+        return bool(result)
 
     async def apply_confidence_decay(
         self,
