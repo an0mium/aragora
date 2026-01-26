@@ -45,3 +45,79 @@ export {
 
 // Codebase Analysis
 export { CodebaseAPI } from './codebase';
+
+// Consensus & Detection
+export {
+  ConsensusAPI,
+  type SimilarDebate,
+  type SimilarDebatesResponse,
+  type SettledTopic,
+  type SettledTopicsResponse,
+  type ConsensusStats,
+  type DissentView,
+  type DissentsResponse,
+  type ContrarianView,
+  type ContrariansResponse,
+  type RiskWarning,
+  type WarningsResponse,
+  type DomainHistoryEntry,
+  type DomainHistoryResponse,
+  type FindSimilarOptions,
+  type SettledOptions,
+  type FilterOptions,
+} from './consensus';
+
+// OAuth Authentication
+export {
+  OAuthAPI,
+  type OAuthProvider,
+  type OAuthProviderConfig,
+  type OAuthCallbackResponse,
+  type LinkedOAuthAccount,
+  type ProvidersResponse,
+  type LinkedProvidersResponse,
+  type LinkAccountRequest,
+  type LinkAccountResponse,
+  type UnlinkAccountRequest,
+  type UnlinkAccountResponse,
+  type AuthorizationUrlResponse,
+} from './oauth';
+
+// Monitoring & Anomaly Detection
+export {
+  MonitoringAPI,
+  type TrendDirection,
+  type AnomalySeverity,
+  type MetricTrend,
+  type TrendSummary,
+  type Anomaly,
+  type BaselineStats,
+  type RecordMetricResponse,
+  type GetTrendResponse,
+  type GetAllTrendsResponse,
+  type GetAnomaliesResponse,
+  type GetBaselineResponse,
+  type RecordMetricOptions,
+  type GetAnomaliesOptions,
+} from './monitoring';
+
+// System Administration
+export {
+  SystemAPI,
+  type MaintenanceTask,
+  type CircuitBreakerStatus,
+  type CycleEntry,
+  type EventEntry,
+  type DebateHistoryEntry,
+  type HistorySummary,
+  type CircuitBreakerMetrics,
+  type AuthStats,
+  type MaintenanceResult,
+  type DebugTestResponse,
+  type CyclesResponse,
+  type EventsResponse,
+  type DebateHistoryResponse,
+  type CircuitBreakersResponse,
+  type RevokeTokenResponse,
+  type HistoryOptions,
+} from './system';

@@ -175,6 +175,10 @@ import {
   IntegrationsAPI,
   MarketplaceAPI,
   CodebaseAPI,
+  ConsensusAPI,
+  OAuthAPI,
+  MonitoringAPI,
+  SystemAPI,
 } from './namespaces';
 
 interface RequestOptions {
@@ -370,6 +374,30 @@ export class AragoraClient {
    */
   readonly codebase: CodebaseAPI;
 
+  /**
+   * Consensus API namespace.
+   * Provides methods for querying settled topics, similar debates, and dissenting views.
+   */
+  readonly consensus: ConsensusAPI;
+
+  /**
+   * OAuth API namespace.
+   * Provides methods for OAuth authentication flows with multiple providers.
+   */
+  readonly oauth: OAuthAPI;
+
+  /**
+   * Monitoring API namespace.
+   * Provides methods for metric recording, trend analysis, and anomaly detection.
+   */
+  readonly monitoring: MonitoringAPI;
+
+  /**
+   * System API namespace.
+   * Provides methods for database maintenance, history, and circuit breaker management.
+   */
+  readonly system: SystemAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -408,6 +436,10 @@ export class AragoraClient {
     this.integrations = new IntegrationsAPI(this);
     this.marketplace = new MarketplaceAPI(this);
     this.codebase = new CodebaseAPI(this);
+    this.consensus = new ConsensusAPI(this);
+    this.oauth = new OAuthAPI(this);
+    this.monitoring = new MonitoringAPI(this);
+    this.system = new SystemAPI(this);
   }
 
   // ===========================================================================
