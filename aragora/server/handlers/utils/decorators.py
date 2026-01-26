@@ -489,8 +489,8 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
     """
 
     def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
+        def _check_permission(*args, **kwargs):
+            """Common permission checking logic, returns (user_ctx, error_response) tuple."""
             from aragora.billing.jwt_auth import extract_user_from_request
 
             handler = kwargs.get("handler")
@@ -502,7 +502,7 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
 
             if handler is None:
                 logger.warning(f"require_permission({permission}): No handler provided")
-                return error_response("Authentication required", 401)
+                return None, error_response("Authentication required", 401)
 
             user_store = None
             if hasattr(handler, "user_store"):
@@ -514,19 +514,48 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
 
             if not user_ctx.is_authenticated:
                 error_msg = user_ctx.error_reason or "Authentication required"
-                return error_response(error_msg, 401)
+                return None, error_response(error_msg, 401)
 
             if not has_permission(user_ctx.role, permission):
                 logger.warning(
                     f"Permission denied: user={user_ctx.user_id} role={user_ctx.role} "
                     f"permission={permission}"
                 )
-                return error_response(f"Permission denied: requires '{permission}'", 403)
+                return None, error_response(f"Permission denied: requires '{permission}'", 403)
 
-            kwargs["user"] = user_ctx
+            return user_ctx, None
+
+        # Check if the handler accepts a 'user' parameter
+        import inspect
+
+        sig = inspect.signature(func)
+        accepts_user = "user" in sig.parameters or any(
+            p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+        )
+
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            user_ctx, err = _check_permission(*args, **kwargs)
+            if err is not None:
+                return err
+            if accepts_user:
+                kwargs["user"] = user_ctx
             return func(*args, **kwargs)
 
-        return wrapper
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            user_ctx, err = _check_permission(*args, **kwargs)
+            if err is not None:
+                return err
+            if accepts_user:
+                kwargs["user"] = user_ctx
+            return await func(*args, **kwargs)
+
+        import asyncio
+
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        return sync_wrapper
 
     return decorator
 

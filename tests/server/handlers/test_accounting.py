@@ -46,6 +46,16 @@ from aragora.server.handlers.accounting import (
 )
 
 
+@dataclass
+class MockUserContext:
+    """Mock user context for testing authenticated handlers."""
+
+    is_authenticated: bool = True
+    user_id: str = "test-user-123"
+    role: str = "admin"
+    error_reason: str | None = None
+
+
 # ===========================================================================
 # Test Fixtures
 # ===========================================================================
@@ -225,12 +235,14 @@ def create_mock_request(
     query: dict[str, str] | None = None,
     match_info: dict[str, str] | None = None,
     app_state: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> MagicMock:
     """Create a mock aiohttp request."""
     request = MagicMock(spec=web.Request)
     request.query = query or {}
     request.match_info = match_info or {}
     request.app = app_state or {}
+    request.headers = headers or {}
 
     if body is not None:
 
@@ -484,9 +496,19 @@ class TestAccountingDisconnectHandler:
             "qbo_connector": mock_qbo_connector,
             "qbo_credentials": {"token": "test"},
         }
-        request = create_mock_request(app_state=app_state)
+        request = create_mock_request(app_state=app_state, headers={})
 
-        response = await handle_accounting_disconnect(request)
+        with (
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MockUserContext(role="admin"),
+            ),
+            patch(
+                "aragora.server.handlers.utils.decorators.has_permission",
+                return_value=True,
+            ),
+        ):
+            response = await handle_accounting_disconnect(request)
 
         assert response.status == 200
         data = json.loads(response.text)
@@ -781,9 +803,19 @@ class TestGustoDisconnectHandler:
     async def test_gusto_disconnect_success(self):
         """Successful disconnect clears credentials."""
         app_state = {"gusto_credentials": {"token": "test"}}
-        request = create_mock_request(app_state=app_state)
+        request = create_mock_request(app_state=app_state, headers={})
 
-        response = await handle_gusto_disconnect(request)
+        with (
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MockUserContext(role="admin"),
+            ),
+            patch(
+                "aragora.server.handlers.utils.decorators.has_permission",
+                return_value=True,
+            ),
+        ):
+            response = await handle_gusto_disconnect(request)
 
         assert response.status == 200
         data = json.loads(response.text)
@@ -953,11 +985,22 @@ class TestGustoJournalEntryHandler:
             body={"account_mappings": {}},
             match_info={"payroll_id": "payroll_123"},
             app_state={"gusto_connector": mock_gusto_connector},
+            headers={},
         )
 
-        with patch(
-            "aragora.server.handlers.accounting.get_gusto_connector",
-            return_value=mock_gusto_connector,
+        with (
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MockUserContext(role="admin"),
+            ),
+            patch(
+                "aragora.server.handlers.utils.decorators.has_permission",
+                return_value=True,
+            ),
+            patch(
+                "aragora.server.handlers.accounting.get_gusto_connector",
+                return_value=mock_gusto_connector,
+            ),
         ):
             response = await handle_gusto_journal_entry(request)
 
@@ -974,11 +1017,22 @@ class TestGustoJournalEntryHandler:
             body={},
             match_info={"payroll_id": "nonexistent"},
             app_state={"gusto_connector": mock_gusto_connector},
+            headers={},
         )
 
-        with patch(
-            "aragora.server.handlers.accounting.get_gusto_connector",
-            return_value=mock_gusto_connector,
+        with (
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MockUserContext(role="admin"),
+            ),
+            patch(
+                "aragora.server.handlers.utils.decorators.has_permission",
+                return_value=True,
+            ),
+            patch(
+                "aragora.server.handlers.accounting.get_gusto_connector",
+                return_value=mock_gusto_connector,
+            ),
         ):
             response = await handle_gusto_journal_entry(request)
 
@@ -995,11 +1049,22 @@ class TestGustoJournalEntryHandler:
             },
             match_info={"payroll_id": "payroll_123"},
             app_state={"gusto_connector": mock_gusto_connector},
+            headers={},
         )
 
-        with patch(
-            "aragora.server.handlers.accounting.get_gusto_connector",
-            return_value=mock_gusto_connector,
+        with (
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MockUserContext(role="admin"),
+            ),
+            patch(
+                "aragora.server.handlers.utils.decorators.has_permission",
+                return_value=True,
+            ),
+            patch(
+                "aragora.server.handlers.accounting.get_gusto_connector",
+                return_value=mock_gusto_connector,
+            ),
         ):
             response = await handle_gusto_journal_entry(request)
 
