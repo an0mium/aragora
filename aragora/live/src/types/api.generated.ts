@@ -11476,7 +11476,7 @@ export interface paths {
          * List workflow templates
          * @description Get gallery of workflow templates for quick start.
          */
-        get: operations["listWorkflowTemplates"];
+        get: operations["listWorkflowTemplatesLegacy"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11547,7 +11547,7 @@ export interface paths {
          * Get workflow template
          * @description Get a specific workflow template for use as starting point.
          */
-        get: operations["getWorkflowTemplate"];
+        get: operations["getWorkflowTemplateLegacy"];
         put?: never;
         post?: never;
         delete?: never;
@@ -13986,7 +13986,7 @@ export interface paths {
          * List scans
          * @description List scan history for a repository.
          */
-        get: operations["getCodebaseScan"];
+        get: operations["listCodebaseScans"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14326,7 +14326,7 @@ export interface paths {
          * Get latest metrics
          * @description Fetch the latest metrics report.
          */
-        get: operations["getCodebaseMetric"];
+        get: operations["getCodebaseMetricsLatest"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14346,7 +14346,7 @@ export interface paths {
          * Get metrics by ID
          * @description Fetch a metrics report by analysis ID.
          */
-        get: operations["getCodebaseMetric"];
+        get: operations["getCodebaseMetricById"];
         put?: never;
         post?: never;
         delete?: never;
@@ -21842,7 +21842,7 @@ export interface operations {
             };
         };
     };
-    listWorkflowTemplates: {
+    listWorkflowTemplatesLegacy: {
         parameters: {
             query?: {
                 /** @description Filter templates by category */
@@ -21865,7 +21865,7 @@ export interface operations {
             };
         };
     };
-    getWorkflowTemplate: {
+    getWorkflowTemplateLegacy: {
         parameters: {
             query?: never;
             header?: never;
@@ -23343,7 +23343,7 @@ export interface operations {
             };
         };
     };
-    getCodebaseScan: {
+    listCodebaseScans: {
         parameters: {
             query?: {
                 status?: string;
@@ -24312,7 +24312,7 @@ export interface operations {
             };
         };
     };
-    getCodebaseMetric: {
+    getCodebaseMetricsLatest: {
         parameters: {
             query?: never;
             header?: never;
@@ -24370,7 +24370,7 @@ export interface operations {
             };
         };
     };
-    getCodebaseMetric: {
+    getCodebaseMetricById: {
         parameters: {
             query?: never;
             header?: never;
