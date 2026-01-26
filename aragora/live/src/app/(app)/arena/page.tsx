@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DebateInput } from '@/components/DebateInput';
 import { useRightSidebar } from '@/context/RightSidebarContext';
@@ -60,7 +60,34 @@ const TEMPLATE_CONFIGS: Record<string, { name: string; description: string; form
   },
 };
 
+// Loading fallback for Suspense boundary
+function ArenaLoading() {
+  return (
+    <main className="min-h-[calc(100vh-120px)] bg-[var(--bg)] text-[var(--text)] relative z-10">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl sm:text-3xl font-mono text-[var(--acid-green)] mb-3">
+            {'>'} DEBATE ARENA
+          </h1>
+          <p className="text-sm text-[var(--text-muted)] font-mono animate-pulse">
+            Loading...
+          </p>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+// Wrap the page content in a Suspense boundary for useSearchParams
 export default function ArenaPage() {
+  return (
+    <Suspense fallback={<ArenaLoading />}>
+      <ArenaContent />
+    </Suspense>
+  );
+}
+
+function ArenaContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const templateId = searchParams.get('template');
