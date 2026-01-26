@@ -25,21 +25,31 @@ from typing import Any, Dict, Optional
 
 from aragora.audit.unified import audit_data, audit_security
 from aragora.server.handlers.base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
 )
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+# RBAC permission for bot configuration endpoints
+BOTS_READ_PERMISSION = "bots:read"
 
 # Configuration
 EMAIL_INBOUND_ENABLED = os.environ.get("EMAIL_INBOUND_ENABLED", "true").lower() == "true"
 
 
-class EmailWebhookHandler(BaseHandler):
-    """Handler for email inbound webhook endpoints."""
+class EmailWebhookHandler(SecureHandler):
+    """Handler for email inbound webhook endpoints.
+
+    RBAC Protected:
+    - bots:read - required for status endpoint
+
+    Note: Webhook endpoints are authenticated via platform-specific signatures,
+    not RBAC, since they are called by SendGrid/AWS SES directly.
+    """
 
     ROUTES = [
         "/api/v1/bots/email/webhook/sendgrid",
@@ -52,11 +62,20 @@ class EmailWebhookHandler(BaseHandler):
         return path in self.ROUTES
 
     @rate_limit(rpm=30)
-    def handle(
+    async def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
-        """Route email GET requests."""
+        """Route email GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/email/status":
+            # RBAC: Require authentication and bots:read permission
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=True)
+                self.check_permission(auth_context, BOTS_READ_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                logger.warning(f"Email status access denied: {e}")
+                return error_response(str(e), 403)
             return self._get_status()
         return None
 

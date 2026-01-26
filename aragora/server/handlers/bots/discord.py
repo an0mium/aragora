@@ -21,14 +21,17 @@ from typing import Any, Dict, Optional
 
 from aragora.audit.unified import audit_security
 from aragora.server.handlers.base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
 )
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+# RBAC permission for bot configuration endpoints
+BOTS_READ_PERMISSION = "bots:read"
 
 # Environment variables
 DISCORD_APPLICATION_ID = os.environ.get("DISCORD_APPLICATION_ID", "")
@@ -69,8 +72,15 @@ def _verify_discord_signature(
         return False
 
 
-class DiscordHandler(BaseHandler):
-    """Handler for Discord Interactions API endpoints."""
+class DiscordHandler(SecureHandler):
+    """Handler for Discord Interactions API endpoints.
+
+    RBAC Protected:
+    - bots:read - required for status endpoint
+
+    Note: Webhook endpoints are authenticated via Discord's Ed25519 signature,
+    not RBAC, since they are called by Discord servers directly.
+    """
 
     ROUTES = [
         "/api/v1/bots/discord/interactions",
@@ -82,11 +92,20 @@ class DiscordHandler(BaseHandler):
         return path in self.ROUTES
 
     @rate_limit(rpm=30)
-    def handle(
+    async def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
-        """Route Discord requests."""
+        """Route Discord requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/discord/status":
+            # RBAC: Require authentication and bots:read permission
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=True)
+                self.check_permission(auth_context, BOTS_READ_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                logger.warning(f"Discord status access denied: {e}")
+                return error_response(str(e), 403)
             return self._get_status()
 
         return None

@@ -25,14 +25,17 @@ from typing import Any, Dict, Optional
 
 from aragora.audit.unified import audit_security
 from aragora.server.handlers.base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
 )
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+# RBAC permission for bot configuration endpoints
+BOTS_READ_PERMISSION = "bots:read"
 
 # Environment variables
 WHATSAPP_VERIFY_TOKEN = os.environ.get("WHATSAPP_VERIFY_TOKEN", "")
@@ -64,8 +67,15 @@ def _verify_whatsapp_signature(signature: str, body: bytes) -> bool:
     return hmac.compare_digest(expected_sig, computed_sig)
 
 
-class WhatsAppHandler(BaseHandler):
-    """Handler for WhatsApp Cloud API webhook endpoints."""
+class WhatsAppHandler(SecureHandler):
+    """Handler for WhatsApp Cloud API webhook endpoints.
+
+    RBAC Protected:
+    - bots:read - required for status endpoint
+
+    Note: Webhook endpoints are authenticated via WhatsApp's signature,
+    not RBAC, since they are called by Meta servers directly.
+    """
 
     ROUTES = [
         "/api/v1/bots/whatsapp/webhook",
@@ -77,15 +87,24 @@ class WhatsAppHandler(BaseHandler):
         return path in self.ROUTES
 
     @rate_limit(rpm=60)
-    def handle(
+    async def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
-        """Route WhatsApp GET requests."""
+        """Route WhatsApp GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/whatsapp/status":
+            # RBAC: Require authentication and bots:read permission
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=True)
+                self.check_permission(auth_context, BOTS_READ_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                logger.warning(f"WhatsApp status access denied: {e}")
+                return error_response(str(e), 403)
             return self._get_status()
 
         if path == "/api/v1/bots/whatsapp/webhook":
-            # Webhook verification challenge
+            # Webhook verification challenge - no RBAC (called by Meta)
             return self._handle_verification(query_params)
 
         return None

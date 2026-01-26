@@ -24,14 +24,17 @@ from typing import Any, Dict, Optional
 
 from aragora.audit.unified import audit_data, audit_security
 from aragora.server.handlers.base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
 )
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+# RBAC permission for bot configuration endpoints
+BOTS_READ_PERMISSION = "bots:read"
 
 # Environment variables
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -67,8 +70,15 @@ def _verify_webhook_token(token: str) -> bool:
     return hmac.compare_digest(token, TELEGRAM_WEBHOOK_TOKEN)
 
 
-class TelegramHandler(BaseHandler):
-    """Handler for Telegram Bot API webhook endpoints."""
+class TelegramHandler(SecureHandler):
+    """Handler for Telegram Bot API webhook endpoints.
+
+    RBAC Protected:
+    - bots:read - required for status endpoint
+
+    Note: Webhook endpoints are authenticated via Telegram's secret token,
+    not RBAC, since they are called by Telegram servers directly.
+    """
 
     ROUTES = [
         "/api/v1/bots/telegram/webhook",
@@ -85,11 +95,20 @@ class TelegramHandler(BaseHandler):
         return False
 
     @rate_limit(rpm=60)
-    def handle(
+    async def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
-        """Route Telegram GET requests."""
+        """Route Telegram GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/telegram/status":
+            # RBAC: Require authentication and bots:read permission
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=True)
+                self.check_permission(auth_context, BOTS_READ_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                logger.warning(f"Telegram status access denied: {e}")
+                return error_response(str(e), 403)
             return self._get_status()
 
         return None

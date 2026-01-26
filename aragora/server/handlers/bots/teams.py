@@ -23,15 +23,18 @@ from typing import Any, Dict, Optional
 
 from aragora.audit.unified import audit_security
 from aragora.server.handlers.base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
     safe_error_message,
 )
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+# RBAC permission for bot configuration endpoints
+BOTS_READ_PERMISSION = "bots:read"
 
 # Environment variables
 TEAMS_APP_ID = os.environ.get("TEAMS_APP_ID", "")
@@ -48,15 +51,23 @@ def _check_botframework_available() -> tuple[bool, Optional[str]]:
         return False, "botbuilder-core not installed"
 
 
-class TeamsHandler(BaseHandler):
-    """Handler for Microsoft Teams Bot endpoints."""
+class TeamsHandler(SecureHandler):
+    """Handler for Microsoft Teams Bot endpoints.
+
+    RBAC Protected:
+    - bots:read - required for status endpoint
+
+    Note: Message webhook endpoints are authenticated via Bot Framework,
+    not RBAC, since they are called by Microsoft servers directly.
+    """
 
     ROUTES = [
         "/api/v1/bots/teams/messages",
         "/api/v1/bots/teams/status",
     ]
 
-    def __init__(self):
+    def __init__(self, ctx: dict = None):
+        super().__init__(ctx or {})
         self._bot: Optional[Any] = None
         self._bot_initialized = False
 
@@ -107,11 +118,20 @@ class TeamsHandler(BaseHandler):
         return path in self.ROUTES
 
     @rate_limit(rpm=30, limiter_name="teams_status")
-    def handle(
+    async def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
-        """Route Teams requests."""
+        """Route Teams requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/teams/status":
+            # RBAC: Require authentication and bots:read permission
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=True)
+                self.check_permission(auth_context, BOTS_READ_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                logger.warning(f"Teams status access denied: {e}")
+                return error_response(str(e), 403)
             return self._get_status()
 
         return None

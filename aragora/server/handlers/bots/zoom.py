@@ -25,15 +25,18 @@ from typing import Any, Dict, Optional
 
 from aragora.audit.unified import audit_security
 from aragora.server.handlers.base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
     safe_error_message,
 )
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+# RBAC permission for bot configuration endpoints
+BOTS_READ_PERMISSION = "bots:read"
 
 # Environment variables
 ZOOM_CLIENT_ID = os.environ.get("ZOOM_CLIENT_ID", "")
@@ -42,15 +45,23 @@ ZOOM_BOT_JID = os.environ.get("ZOOM_BOT_JID", "")
 ZOOM_SECRET_TOKEN = os.environ.get("ZOOM_SECRET_TOKEN", "")
 
 
-class ZoomHandler(BaseHandler):
-    """Handler for Zoom Bot endpoints."""
+class ZoomHandler(SecureHandler):
+    """Handler for Zoom Bot endpoints.
+
+    RBAC Protected:
+    - bots:read - required for status endpoint
+
+    Note: Event webhook endpoints are authenticated via Zoom's signature,
+    not RBAC, since they are called by Zoom servers directly.
+    """
 
     ROUTES = [
         "/api/v1/bots/zoom/events",
         "/api/v1/bots/zoom/status",
     ]
 
-    def __init__(self):
+    def __init__(self, ctx: dict = None):
+        super().__init__(ctx or {})
         self._bot: Optional[Any] = None
         self._bot_initialized = False
 
@@ -87,11 +98,20 @@ class ZoomHandler(BaseHandler):
         return path in self.ROUTES
 
     @rate_limit(rpm=30)
-    def handle(
+    async def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
-        """Route Zoom requests."""
+        """Route Zoom requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/zoom/status":
+            # RBAC: Require authentication and bots:read permission
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=True)
+                self.check_permission(auth_context, BOTS_READ_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                logger.warning(f"Zoom status access denied: {e}")
+                return error_response(str(e), 403)
             return self._get_status()
 
         return None
