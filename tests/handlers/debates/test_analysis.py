@@ -257,14 +257,13 @@ class TestMetaCritique:
         )
         mock_critique = MockMetaCritique()
 
-        with patch("aragora.server.handlers.debates.analysis.DebateTrace") as MockTrace:
+        # Patch at the actual import location (imported inside the method)
+        with patch("aragora.debate.traces.DebateTrace") as MockTrace:
             mock_trace = MagicMock()
             mock_trace.to_debate_result.return_value = mock_result
             MockTrace.load.return_value = mock_trace
 
-            with patch(
-                "aragora.server.handlers.debates.analysis.MetaCritiqueAnalyzer"
-            ) as MockAnalyzer:
+            with patch("aragora.debate.meta.MetaCritiqueAnalyzer") as MockAnalyzer:
                 mock_analyzer = MagicMock()
                 mock_analyzer.analyze.return_value = mock_critique
                 MockAnalyzer.return_value = mock_analyzer
@@ -281,7 +280,7 @@ class TestMetaCritique:
         """Test meta critique returns 500 on database error."""
         from aragora.exceptions import StorageError
 
-        with patch("aragora.server.handlers.debates.analysis.DebateTrace") as MockTrace:
+        with patch("aragora.debate.traces.DebateTrace") as MockTrace:
             MockTrace.load.side_effect = StorageError("Database connection failed")
 
             result = analysis_mixin._get_meta_critique("test-debate-123")
@@ -335,14 +334,12 @@ class TestGraphStats:
             "complexity_score": 0.7,
         }
 
-        with patch("aragora.server.handlers.debates.analysis.DebateTrace") as MockTrace:
+        with patch("aragora.debate.traces.DebateTrace") as MockTrace:
             mock_trace = MagicMock()
             mock_trace.to_debate_result.return_value = mock_result
             MockTrace.load.return_value = mock_trace
 
-            with patch(
-                "aragora.server.handlers.debates.analysis.ArgumentCartographer"
-            ) as MockCartographer:
+            with patch("aragora.visualization.mapper.ArgumentCartographer") as MockCartographer:
                 mock_cartographer = MagicMock()
                 mock_cartographer.get_statistics.return_value = mock_stats
                 MockCartographer.return_value = mock_cartographer
@@ -362,9 +359,7 @@ class TestGraphStats:
             "max_depth": 2,
         }
 
-        with patch(
-            "aragora.server.handlers.debates.analysis.ArgumentCartographer"
-        ) as MockCartographer:
+        with patch("aragora.visualization.mapper.ArgumentCartographer") as MockCartographer:
             mock_cartographer = MagicMock()
             mock_cartographer.get_statistics.return_value = mock_stats
             MockCartographer.return_value = mock_cartographer
@@ -417,13 +412,13 @@ class TestRhetoricalObservations:
             ]
         )
 
-        with patch("aragora.server.handlers.debates.analysis.DebateTrace") as MockTrace:
+        with patch("aragora.debate.traces.DebateTrace") as MockTrace:
             mock_trace = MagicMock()
             mock_trace.to_debate_result.return_value = mock_result
             MockTrace.load.return_value = mock_trace
 
             with patch(
-                "aragora.server.handlers.debates.analysis.RhetoricalAnalysisObserver"
+                "aragora.debate.rhetorical_observer.RhetoricalAnalysisObserver"
             ) as MockObserver:
                 mock_observer = MagicMock()
                 mock_observer.observe.return_value = [
@@ -477,14 +472,12 @@ class TestTricksterStatus:
             ],
         )
 
-        with patch("aragora.server.handlers.debates.analysis.DebateTrace") as MockTrace:
+        with patch("aragora.debate.traces.DebateTrace") as MockTrace:
             mock_trace = MagicMock()
             mock_trace.to_debate_result.return_value = mock_result
             MockTrace.load.return_value = mock_trace
 
-            with patch(
-                "aragora.server.handlers.debates.analysis.EvidencePoweredTrickster"
-            ) as MockTrickster:
+            with patch("aragora.debate.trickster.EvidencePoweredTrickster") as MockTrickster:
                 mock_trickster = MagicMock()
                 mock_trickster.check_hollow_consensus.return_value = MockAlert()
                 mock_trickster.get_intervention.return_value = None
@@ -507,14 +500,12 @@ class TestTricksterStatus:
             messages=[MockMessage("claude", "Test", "proposer", 1)],
         )
 
-        with patch("aragora.server.handlers.debates.analysis.DebateTrace") as MockTrace:
+        with patch("aragora.debate.traces.DebateTrace") as MockTrace:
             mock_trace = MagicMock()
             mock_trace.to_debate_result.return_value = mock_result
             MockTrace.load.return_value = mock_trace
 
-            with patch(
-                "aragora.server.handlers.debates.analysis.EvidencePoweredTrickster"
-            ) as MockTrickster:
+            with patch("aragora.debate.trickster.EvidencePoweredTrickster") as MockTrickster:
                 mock_trickster = MagicMock()
                 mock_trickster.check_hollow_consensus.return_value = None
                 mock_trickster.get_intervention.return_value = MockIntervention()
@@ -533,22 +524,18 @@ class TestTricksterStatus:
 
         mock_result = MockDebateResult(rounds=[{}], messages=[])
 
-        with patch("aragora.server.handlers.debates.analysis.DebateTrace") as MockTrace:
+        with patch("aragora.debate.traces.DebateTrace") as MockTrace:
             mock_trace = MagicMock()
             mock_trace.to_debate_result.return_value = mock_result
             MockTrace.load.return_value = mock_trace
 
-            with patch(
-                "aragora.server.handlers.debates.analysis.EvidencePoweredTrickster"
-            ) as MockTrickster:
+            with patch("aragora.debate.trickster.EvidencePoweredTrickster") as MockTrickster:
                 mock_trickster = MagicMock()
                 mock_trickster.check_hollow_consensus.return_value = None
                 mock_trickster.get_intervention.return_value = None
                 MockTrickster.return_value = mock_trickster
 
-                with patch(
-                    "aragora.server.handlers.debates.analysis.TricksterConfig"
-                ) as MockConfig:
+                with patch("aragora.debate.trickster.TricksterConfig") as MockConfig:
                     mock_config = MagicMock()
                     mock_config.sensitivity = 0.7
                     mock_config.min_quality_threshold = 0.5
