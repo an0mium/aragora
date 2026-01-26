@@ -274,6 +274,7 @@ async def handle_verify_email(
             with _pending_invites_lock:
                 _pending_invites.pop(signup_data["invite_token"], None)
 
+        invite_data = signup_data.get("invite_data") or {}
         return success_response(
             {
                 "message": "Email verified successfully",
@@ -282,8 +283,8 @@ async def handle_verify_email(
                 "name": name,
                 "access_token": access_token,
                 "token_type": "bearer",
-                "needs_org_setup": not signup_data.get("invite_data"),
-                "organization_id": signup_data.get("invite_data", {}).get("organization_id"),
+                "needs_org_setup": not invite_data,
+                "organization_id": invite_data.get("organization_id"),
             }
         )
 

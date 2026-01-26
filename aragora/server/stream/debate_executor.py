@@ -72,8 +72,14 @@ def _missing_required_env_vars(env_vars: str) -> list[str]:
     candidates = _ENV_VAR_RE.findall(env_vars)
     if not candidates:
         return []
-    if any(os.getenv(var) for var in candidates):
-        return []
+    try:
+        from aragora.config import get_api_key
+
+        if get_api_key(*candidates, required=False):
+            return []
+    except Exception:
+        if any(os.getenv(var) for var in candidates):
+            return []
     return candidates
 
 

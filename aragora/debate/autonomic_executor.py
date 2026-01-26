@@ -401,9 +401,10 @@ class AutonomicExecutor:
                 self.immune_system.agent_completed(agent.name, response_ms, success=True)
 
             sanitized = OutputSanitizer.sanitize_agent_output(raw_output, agent.name)
+            empty_output = sanitized == "(Agent produced empty output)"
 
             # Retry once on empty output (qwen and other agents sometimes produce empty responses)
-            if sanitized == "(Agent produced empty output)":
+            if empty_output:
                 logger.warning(
                     f"[Autonomic] Agent {agent.name} produced empty output, retrying once..."
                 )
@@ -412,10 +413,40 @@ class AutonomicExecutor:
                 if retry_sanitized != "(Agent produced empty output)":
                     logger.info(f"[Autonomic] Agent {agent.name} retry succeeded")
                     sanitized = retry_sanitized
+                    empty_output = False
                 else:
                     logger.warning(
                         f"[Autonomic] Agent {agent.name} retry also produced empty output"
                     )
+
+            if empty_output:
+                if tracking_id and self.performance_monitor:
+                    self.performance_monitor.record_completion(
+                        tracking_id, success=False, error="empty output"
+                    )
+
+                if self.circuit_breaker:
+                    self.circuit_breaker.record_failure(agent.name)
+
+                if self.immune_system:
+                    self.immune_system.agent_failed(agent.name, "empty output", recoverable=True)
+
+                self._emit_agent_telemetry(
+                    agent.name,
+                    "generate",
+                    start_time,
+                    success=False,
+                    error="empty output",
+                    input_text=prompt,
+                )
+                self._emit_agent_error(
+                    agent.name,
+                    error_type="empty",
+                    message="Agent produced empty output",
+                    recoverable=True,
+                    phase=phase,
+                )
+                return sanitized
 
             # Validate response schema for type safety and size limits
             validation_result = validate_agent_response(
