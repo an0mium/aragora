@@ -59,6 +59,14 @@ from .scheduler import (
     start_backup_scheduler,
     stop_backup_scheduler,
 )
+from .encryption import (
+    BackupEncryption,
+    EncryptionKey,
+    EncryptionMetadata,
+    KeyManager,
+    encrypt_backup,
+    decrypt_backup,
+)
 
 __all__ = [
     # Manager
@@ -81,4 +89,11 @@ __all__ = [
     "set_backup_scheduler",
     "start_backup_scheduler",
     "stop_backup_scheduler",
+    # Encryption
+    "BackupEncryption",
+    "EncryptionKey",
+    "EncryptionMetadata",
+    "KeyManager",
+    "encrypt_backup",
+    "decrypt_backup",
 ]
