@@ -19,16 +19,15 @@ from typing import Optional
 # Permission mapping based on handler patterns
 PERMISSION_MAP = {
     # Read operations
-    r"handle_(get|list|search|find|read)_": "read",
-    r"handle_(status|info|details|view)": "read",
+    r"handle_(get|list|search|find|read|status|info|details|view|stats|report|check|verify|pending)": "read",
     # Write operations
-    r"handle_(create|add|new|upload|post)_": "write",
-    r"handle_(update|edit|modify|put)_": "write",
+    r"handle_(create|add|new|upload|post|send|submit|invite|register|record|categorize|complete|accept|reply|move|mark)": "write",
+    r"handle_(update|edit|modify|put|set|configure)": "write",
     # Delete operations
-    r"handle_(delete|remove|destroy|clear)_": "delete",
+    r"handle_(delete|remove|destroy|clear|cancel|void|disconnect)": "delete",
     # Admin operations
     r"handle_(admin|system|config|settings)": "admin:system",
-    r"handle_(sync|schedule|trigger)_": "admin",
+    r"handle_(sync|schedule|trigger|start|stop|bulk)": "admin",
     # Approval workflows
     r"handle_(approve|reject)_": "approve",
     # Export operations
