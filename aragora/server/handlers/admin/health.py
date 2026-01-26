@@ -83,6 +83,7 @@ class HealthHandler(SecureHandler):
         "/api/v1/health/cross-pollination",
         "/api/v1/health/knowledge-mound",
         "/api/v1/health/encryption",
+        "/api/v1/health/database",
         "/api/v1/health/platform",
         "/api/v1/platform/health",
         "/api/v1/diagnostics",
@@ -138,6 +139,7 @@ class HealthHandler(SecureHandler):
             "/api/health/slow-debates": self._slow_debates_status,
             "/api/health/cross-pollination": self._cross_pollination_health,
             "/api/health/knowledge-mound": self._knowledge_mound_health,
+            "/api/health/database": self._database_schema_health,
             "/api/health/platform": self._platform_health,
             "/api/platform/health": self._platform_health,
             "/api/diagnostics": self._deployment_diagnostics,
@@ -778,6 +780,44 @@ class HealthHandler(SecureHandler):
             }
 
         return json_response(health)
+
+    def _database_schema_health(self) -> HandlerResult:
+        """Check health of consolidated database schema.
+
+        Validates that all required tables exist in consolidated databases:
+        - core.db: debates, traces, tournaments, embeddings, positions
+        - memory.db: continuum_memory, consensus, critiques, patterns
+        - analytics.db: ratings, matches, insights, predictions
+        - agents.db: personas, genomes, populations, genesis_events
+
+        This endpoint helps diagnose schema issues after migration.
+
+        Returns:
+            JSON with database health status, missing tables, and validation errors.
+        """
+        try:
+            from aragora.persistence.validator import get_database_health
+
+            health = get_database_health()
+            status_code = 200 if health["status"] == "healthy" else 503
+            return json_response(health, status=status_code)
+        except ImportError:
+            return json_response(
+                {
+                    "status": "unavailable",
+                    "error": "Database validator not available",
+                },
+                status=503,
+            )
+        except Exception as e:
+            logger.exception(f"Database schema health check failed: {e}")
+            return json_response(
+                {
+                    "status": "error",
+                    "error": str(e),
+                },
+                status=500,
+            )
 
     def _database_stores_health(self) -> HandlerResult:
         """Check health of all database stores.
