@@ -14,7 +14,7 @@ Endpoints tested:
 
 import json
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, patch
 
 from aragora.server.handlers import (
     DebatesHandler,
@@ -23,6 +23,47 @@ from aragora.server.handlers import (
     error_response,
 )
 from aragora.server.handlers.base import clear_cache
+from aragora.rbac.models import AuthorizationContext, AuthorizationDecision
+
+
+# ============================================================================
+# RBAC Bypass Fixtures
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def mock_rbac_checker():
+    """Automatically mock RBAC permission checker to allow all operations.
+
+    This fixture runs for all tests in this module to bypass RBAC checks
+    when testing handler logic.
+    """
+    mock_checker = MagicMock()
+    mock_checker.check_permission.return_value = AuthorizationDecision(
+        allowed=True,
+        reason="Test bypass",
+        permission_key="debates:read",
+    )
+
+    with patch("aragora.rbac.decorators.get_permission_checker", return_value=mock_checker):
+        yield mock_checker
+
+
+@pytest.fixture(autouse=True)
+def mock_auth_context():
+    """Provide a mock AuthorizationContext for all tests."""
+    ctx = AuthorizationContext(
+        user_id="test-user",
+        org_id="test-org",
+        roles=["admin"],
+        permissions=["debates:read", "debates:create", "debates:update", "debates:delete"],
+    )
+
+    with patch(
+        "aragora.rbac.decorators._get_context_from_args",
+        return_value=ctx,
+    ):
+        yield ctx
 
 
 # ============================================================================
