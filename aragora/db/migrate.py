@@ -504,7 +504,7 @@ def main():
             print(f"  {table}: {count} rows [{status}]")
 
     elif args.command == "verify":
-        results = verify_migration(
+        verification_results = verify_migration(
             sqlite_path=args.sqlite_path,
             pg_host=args.pg_host,
             pg_port=args.pg_port,
@@ -514,7 +514,7 @@ def main():
         )
         print("\nVerification results:")
         all_match = True
-        for table, comparison in results.items():
+        for table, comparison in verification_results.items():
             status = "OK" if comparison["match"] else "MISMATCH"
             if not comparison["match"]:
                 all_match = False

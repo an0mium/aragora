@@ -21,8 +21,8 @@ try:
     WEAVIATE_AVAILABLE = True
 except ImportError:
     WEAVIATE_AVAILABLE = False
-    weaviate = None
-    WeaviateConnectionError = Exception
+    weaviate = None  # type: ignore[assignment]
+    WeaviateConnectionError = Exception  # type: ignore[misc,assignment]
 
 
 @dataclass

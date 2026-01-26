@@ -297,7 +297,7 @@ class HackerNewsIngestor(PulseIngestor):
             async with httpx.AsyncClient(timeout=10.0) as client:
                 # Get front page stories sorted by popularity
                 url = f"{self.base_url}/search"
-                params = {
+                params: dict[str, str | int] = {
                     "tags": "front_page",
                     "hitsPerPage": limit,
                 }
@@ -498,7 +498,7 @@ class GitHubTrendingIngestor(PulseIngestor):
                 week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
 
                 url = f"{self.base_url}/search/repositories"
-                params = {
+                params: dict[str, str | int] = {
                     "q": f"created:>{week_ago}",
                     "sort": "stars",
                     "order": "desc",
@@ -664,7 +664,7 @@ class GoogleTrendsIngestor(PulseIngestor):
 
         async def _fetch():
             async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-                last_error = None
+                last_error: Exception | None = None
                 for url in self.urls_to_try:
                     try:
                         params = {"geo": self.geo} if "?" not in url else {}
@@ -783,7 +783,7 @@ class ArxivIngestor(PulseIngestor):
             async with httpx.AsyncClient(timeout=15.0) as client:
                 # Build category query (OR across categories)
                 cat_query = " OR ".join(f"cat:{cat}" for cat in self.categories)
-                params = {
+                params: dict[str, str | int] = {
                     "search_query": cat_query,
                     "sortBy": "submittedDate",
                     "sortOrder": "descending",

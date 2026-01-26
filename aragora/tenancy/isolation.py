@@ -571,7 +571,7 @@ def ensure_tenant_scope(func: Callable[..., T]) -> Callable[..., T]:
         tenant_id = get_current_tenant_id()
         if tenant_id is None:
             raise TenantNotSetError(f"Function {func.__name__} requires tenant scope")
-        return await func(*args, **kwargs)
+        return await func(*args, **kwargs)  # type: ignore[misc]
 
     import asyncio
 

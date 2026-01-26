@@ -239,13 +239,13 @@ def validate_query_params(
 
             # Validate string params
             if string_params:
-                for param, (default, max_len) in string_params.items():
-                    raw = query.get(param, default)
+                for str_param, (str_default, max_len) in string_params.items():
+                    raw = query.get(str_param, str_default)
                     if isinstance(raw, list):
-                        raw = raw[0] if raw else default
+                        raw = raw[0] if raw else str_default
                     if raw and len(str(raw)) > max_len:
                         return {
-                            "error": f"Parameter '{param}' exceeds maximum length of {max_len}",
+                            "error": f"Parameter '{str_param}' exceeds maximum length of {max_len}",
                             "status": 400,
                         }
 

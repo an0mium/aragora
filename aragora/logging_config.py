@@ -427,7 +427,7 @@ def log_function(
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            fields = {"function": func.__name__}
+            fields: dict[str, Any] = {"function": func.__name__}
             if log_args:
                 fields["args_count"] = len(args)
                 fields["kwargs_keys"] = list(kwargs.keys())
@@ -449,7 +449,7 @@ def log_function(
 
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
-            fields = {"function": func.__name__}
+            fields: dict[str, Any] = {"function": func.__name__}
             if log_args:
                 fields["args_count"] = len(args)
                 fields["kwargs_keys"] = list(kwargs.keys())
