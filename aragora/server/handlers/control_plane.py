@@ -54,7 +54,7 @@ from aragora.server.handlers.base import (
     json_response,
     safe_error_message,
 )
-from aragora.server.handlers.utils.decorators import has_permission
+from aragora.server.handlers.utils.decorators import has_permission, require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit, user_rate_limit
 
 logger = logging.getLogger(__name__)
@@ -250,6 +250,7 @@ class ControlPlaneHandler(BaseHandler):
 
         return None
 
+    @require_permission("controlplane:agents.read")
     def _handle_list_agents(self, query_params: Dict[str, Any]) -> HandlerResult:
         """List registered agents."""
         coordinator = self._get_coordinator()
@@ -283,6 +284,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error listing agents: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @require_permission("controlplane:agents.read")
     def _handle_get_agent(self, agent_id: str) -> HandlerResult:
         """Get agent by ID."""
         coordinator = self._get_coordinator()
@@ -303,6 +305,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error getting agent {agent_id}: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @require_permission("controlplane:tasks.read")
     def _handle_get_task(self, task_id: str) -> HandlerResult:
         """Get task by ID."""
         coordinator = self._get_coordinator()
@@ -352,6 +355,7 @@ class ControlPlaneHandler(BaseHandler):
 
         return json_response(get_decision_status(request_id))
 
+    @require_permission("controlplane:health.read")
     def _handle_system_health(self) -> HandlerResult:
         """Get system health status."""
         coordinator = self._get_coordinator()
@@ -372,6 +376,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error getting system health: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @require_permission("controlplane:health.read")
     def _handle_agent_health(self, agent_id: str) -> HandlerResult:
         """Get health status for specific agent."""
         coordinator = self._get_coordinator()
@@ -389,6 +394,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error getting agent health {agent_id}: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @require_permission("controlplane:health.read")
     def _handle_detailed_health(self) -> HandlerResult:
         """Get detailed system health with component status."""
         coordinator = self._get_coordinator()
@@ -479,6 +485,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error getting detailed health: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @require_permission("controlplane:health.read")
     def _handle_circuit_breakers(self) -> HandlerResult:
         """Get circuit breaker states."""
         try:
@@ -510,6 +517,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error getting circuit breakers: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @require_permission("controlplane:queue.read")
     def _handle_queue_metrics(self) -> HandlerResult:
         """Get task queue performance metrics."""
         coordinator = self._get_coordinator()
@@ -544,6 +552,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error getting queue metrics: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @require_permission("controlplane:read")
     def _handle_stats(self) -> HandlerResult:
         """Get control plane statistics."""
         coordinator = self._get_coordinator()
@@ -558,6 +567,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error getting stats: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @require_permission("controlplane:queue.read")
     def _handle_get_queue(self, query_params: Dict[str, Any]) -> HandlerResult:
         """Get current job queue (pending and running tasks)."""
         coordinator = self._get_coordinator()
@@ -625,6 +635,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error getting queue: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @require_permission("controlplane:metrics.read")
     def _handle_get_metrics(self) -> HandlerResult:
         """Get control plane metrics for dashboard."""
         coordinator = self._get_coordinator()
@@ -1005,6 +1016,7 @@ class ControlPlaneHandler(BaseHandler):
             record_deliberation_error(request.request_id, str(e))
             return error_response(f"Deliberation failed: {e}", 500)
 
+    @require_permission("controlplane:tasks.claim")
     def _handle_claim_task(self, body: Dict[str, Any], handler: Any) -> HandlerResult:
         """Claim a task for an agent."""
         # Require authentication for claiming tasks
@@ -1051,6 +1063,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error claiming task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @require_permission("controlplane:tasks.complete")
     def _handle_complete_task(
         self, task_id: str, body: Dict[str, Any], handler: Any
     ) -> HandlerResult:
@@ -1098,6 +1111,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error completing task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @require_permission("controlplane:tasks.complete")
     def _handle_fail_task(self, task_id: str, body: Dict[str, Any], handler: Any) -> HandlerResult:
         """Mark task as failed."""
         # Require authentication for failing tasks
@@ -1146,6 +1160,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error failing task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @require_permission("controlplane:tasks.complete")
     def _handle_cancel_task(self, task_id: str, handler: Any) -> HandlerResult:
         """Cancel a task."""
         # Require authentication for canceling tasks
@@ -1226,6 +1241,7 @@ class ControlPlaneHandler(BaseHandler):
     # Notification Handlers
     # =========================================================================
 
+    @require_permission("controlplane:notifications.read")
     def _handle_get_notifications(self, query_params: Dict[str, Any]) -> HandlerResult:
         """Get recent notification history."""
         try:
@@ -1262,6 +1278,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error getting notifications: {e}")
             return error_response(safe_error_message(e, "notifications"), 500)
 
+    @require_permission("controlplane:notifications.read")
     def _handle_get_notification_stats(self) -> HandlerResult:
         """Get notification statistics."""
         try:
@@ -1287,6 +1304,7 @@ class ControlPlaneHandler(BaseHandler):
     # Audit Log Handlers
     # =========================================================================
 
+    @require_permission("controlplane:audit.read")
     def _handle_get_audit_logs(self, query_params: Dict[str, Any], handler: Any) -> HandlerResult:
         """Query audit logs with filtering."""
         # Require authentication for audit access
@@ -1372,6 +1390,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error querying audit logs: {e}")
             return error_response(safe_error_message(e, "audit"), 500)
 
+    @require_permission("controlplane:audit.read")
     def _handle_get_audit_stats(self) -> HandlerResult:
         """Get audit log statistics."""
         try:
@@ -1390,6 +1409,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error getting audit stats: {e}")
             return error_response(safe_error_message(e, "audit"), 500)
 
+    @require_permission("controlplane:audit.verify")
     def _handle_verify_audit_integrity(
         self, query_params: Dict[str, Any], handler: Any
     ) -> HandlerResult:
@@ -1461,6 +1481,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.warning("Control plane policy store module not available")
             return None
 
+    @require_permission("controlplane:violations.read")
     def _handle_list_policy_violations(
         self, query_params: Dict[str, Any], handler: Any
     ) -> HandlerResult:
@@ -1534,6 +1555,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error listing policy violations: {e}")
             return error_response(safe_error_message(e, "policy"), 500)
 
+    @require_permission("controlplane:violations.read")
     def _handle_get_policy_violation(self, violation_id: str, handler: Any) -> HandlerResult:
         """Get a specific policy violation."""
         # Require authentication for violation access
@@ -1564,6 +1586,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error getting policy violation {violation_id}: {e}")
             return error_response(safe_error_message(e, "policy"), 500)
 
+    @require_permission("controlplane:violations.read")
     def _handle_get_policy_violation_stats(self, handler: Any) -> HandlerResult:
         """Get policy violation statistics."""
         # Require authentication for stats access
@@ -1603,6 +1626,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error getting policy violation stats: {e}")
             return error_response(safe_error_message(e, "policy"), 500)
 
+    @require_permission("controlplane:violations.update")
     def _handle_update_policy_violation(
         self, violation_id: str, body: Dict[str, Any], handler: Any
     ) -> HandlerResult:
