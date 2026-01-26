@@ -28,11 +28,11 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from aragora.server.handlers.base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
 )
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.http_utils import run_async
 
@@ -333,22 +333,43 @@ _orchestration_results: Dict[str, OrchestrationResult] = {}
 # =============================================================================
 
 
-class OrchestrationHandler(BaseHandler):
+class OrchestrationHandler(SecureHandler):
     """
     Unified orchestration handler for the Aragora control plane.
 
     This handler provides the primary API for the "Control plane for
     multi-agent vetted decisionmaking across org knowledge and channels" positioning.
+
+    RBAC Permissions:
+    - orchestration:read - View templates and deliberation status
+    - orchestration:execute - Run deliberations
     """
+
+    RESOURCE_TYPE = "orchestration"
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/orchestration/")
 
-    def handle(
+    async def handle(  # type: ignore[override]
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route GET requests."""
+        # Require authentication for all orchestration operations
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
+        # Check read permission
+        try:
+            self.check_permission(auth_context, "orchestration:read")
+        except ForbiddenError:
+            logger.warning(f"Orchestration read denied for user {auth_context.user_id}")
+            return error_response("Permission denied: orchestration:read", 403)
+
         if path == "/api/v1/orchestration/templates":
             return self._get_templates(query_params)
 
@@ -358,7 +379,7 @@ class OrchestrationHandler(BaseHandler):
 
         return None
 
-    def handle_post(  # type: ignore[override]
+    async def handle_post(  # type: ignore[override]
         self,
         path: str,
         data: Dict[str, Any],
@@ -366,6 +387,21 @@ class OrchestrationHandler(BaseHandler):
         handler: Any,
     ) -> Optional[HandlerResult]:
         """Route POST requests."""
+        # Require authentication for all orchestration operations
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
+        # Execute operations require execute permission
+        try:
+            self.check_permission(auth_context, "orchestration:execute")
+        except ForbiddenError:
+            logger.warning(f"Orchestration execute denied for user {auth_context.user_id}")
+            return error_response("Permission denied: orchestration:execute", 403)
+
         if path == "/api/v1/orchestration/deliberate":
             return self._handle_deliberate(data, handler, sync=False)
 
