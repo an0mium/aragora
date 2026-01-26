@@ -287,12 +287,13 @@ class TestRateTemplate:
     def test_rate_template_success(self, mock_marketplace_state, marketplace_handler):
         """Test rating a template."""
         mock_handler = MagicMock()
-        mock_handler.get_json_body.return_value = {
-            "rating": 5,
-            "user_id": "user-3",
-        }
+        mock_handler.headers = {"Content-Length": "50"}
+        mock_handler.rfile.read.return_value = b'{"rating": 5, "user_id": "user-3"}'
 
-        with patch.object(marketplace_handler, "_check_rate_limit", return_value=True):
+        with patch(
+            "aragora.server.handlers.template_marketplace._rate_limiter.is_allowed",
+            return_value=True,
+        ):
             result = marketplace_handler._rate_template("tpl-123", mock_handler, "127.0.0.1")
 
         assert result["success"] is True
@@ -300,11 +301,13 @@ class TestRateTemplate:
     def test_rate_template_invalid_rating(self, mock_marketplace_state, marketplace_handler):
         """Test rating with invalid value returns 400."""
         mock_handler = MagicMock()
-        mock_handler.get_json_body.return_value = {
-            "rating": 10,  # Invalid: should be 1-5
-        }
+        mock_handler.headers = {"Content-Length": "20"}
+        mock_handler.rfile.read.return_value = b'{"rating": 10}'
 
-        with patch.object(marketplace_handler, "_check_rate_limit", return_value=True):
+        with patch(
+            "aragora.server.handlers.template_marketplace._rate_limiter.is_allowed",
+            return_value=True,
+        ):
             result = marketplace_handler._rate_template("tpl-123", mock_handler, "127.0.0.1")
 
         assert result["success"] is False
@@ -313,9 +316,13 @@ class TestRateTemplate:
     def test_rate_template_not_found(self, mock_marketplace_state, marketplace_handler):
         """Test rating non-existent template returns 404."""
         mock_handler = MagicMock()
-        mock_handler.get_json_body.return_value = {"rating": 4}
+        mock_handler.headers = {"Content-Length": "20"}
+        mock_handler.rfile.read.return_value = b'{"rating": 4}'
 
-        with patch.object(marketplace_handler, "_check_rate_limit", return_value=True):
+        with patch(
+            "aragora.server.handlers.template_marketplace._rate_limiter.is_allowed",
+            return_value=True,
+        ):
             result = marketplace_handler._rate_template("nonexistent", mock_handler, "127.0.0.1")
 
         assert result["success"] is False
@@ -331,12 +338,13 @@ class TestRateTemplate:
         _user_ratings["user-3"] = {"tpl-123": 3}
 
         mock_handler = MagicMock()
-        mock_handler.get_json_body.return_value = {
-            "rating": 5,
-            "user_id": "user-3",
-        }
+        mock_handler.headers = {"Content-Length": "50"}
+        mock_handler.rfile.read.return_value = b'{"rating": 5, "user_id": "user-3"}'
 
-        with patch.object(marketplace_handler, "_check_rate_limit", return_value=True):
+        with patch(
+            "aragora.server.handlers.template_marketplace._rate_limiter.is_allowed",
+            return_value=True,
+        ):
             result = marketplace_handler._rate_template("tpl-123", mock_handler, "127.0.0.1")
 
         assert result["success"] is True
