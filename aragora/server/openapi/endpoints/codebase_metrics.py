@@ -57,7 +57,7 @@ CODEBASE_METRICS_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Get latest metrics",
-            "operationId": "getCodebaseMetric",
+            "operationId": "getCodebaseMetricsLatest",
             "description": "Fetch the latest metrics report.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -81,7 +81,7 @@ CODEBASE_METRICS_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "Get metrics by ID",
-            "operationId": "getCodebaseMetric",
+            "operationId": "getCodebaseMetricById",
             "description": "Fetch a metrics report by analysis ID.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [

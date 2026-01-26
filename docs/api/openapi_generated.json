@@ -6426,7 +6426,7 @@
           "Monitoring"
         ],
         "summary": "Prometheus metrics",
-        "operationId": "listMetricsSystem2",
+        "operationId": "getPrometheusMetrics",
         "description": "Metrics in Prometheus format",
         "responses": {
           "200": {
@@ -14961,7 +14961,7 @@
           "Workflows"
         ],
         "summary": "List workflow templates",
-        "operationId": "listWorkflowTemplates1",
+        "operationId": "listWorkflowTemplatesLegacy",
         "description": "Get gallery of workflow templates for quick start.",
         "parameters": [
           {
@@ -15049,7 +15049,7 @@
           "Workflows"
         ],
         "summary": "Get workflow template",
-        "operationId": "getWorkflowTemplate",
+        "operationId": "getWorkflowTemplateLegacy",
         "description": "Get a specific workflow template for use as starting point.",
         "parameters": [
           {
@@ -18571,7 +18571,7 @@
           }
         },
         "deprecated": true,
-        "operationId": "listWorkflowTemplates2"
+        "operationId": "listWorkflowTemplates1"
       }
     },
     "/api/v1/workflow/templates": {
@@ -18580,7 +18580,7 @@
           "Workflow Templates"
         ],
         "summary": "List workflow templates",
-        "operationId": "listWorkflowTemplates3",
+        "operationId": "listWorkflowTemplates2",
         "description": "Get list of available workflow templates with optional filtering.",
         "parameters": [
           {
@@ -18735,7 +18735,7 @@
           "Workflow Templates"
         ],
         "summary": "Get template details",
-        "operationId": "getWorkflowTemplate1",
+        "operationId": "getWorkflowTemplate",
         "description": "Get detailed information about a specific workflow template.",
         "parameters": [
           {
@@ -20588,7 +20588,7 @@
           "Codebase"
         ],
         "summary": "List scans",
-        "operationId": "getCodebaseScan1",
+        "operationId": "listCodebaseScans",
         "description": "List scan history for a repository.",
         "security": [
           {}
@@ -23056,7 +23056,7 @@
           "Codebase"
         ],
         "summary": "Get latest metrics",
-        "operationId": "getCodebaseMetric",
+        "operationId": "getCodebaseMetricsLatest",
         "description": "Fetch the latest metrics report.",
         "security": [
           {}
@@ -23193,7 +23193,7 @@
           "Codebase"
         ],
         "summary": "Get metrics by ID",
-        "operationId": "getCodebaseMetric1",
+        "operationId": "getCodebaseMetricById",
         "description": "Fetch a metrics report by analysis ID.",
         "security": [
           {}

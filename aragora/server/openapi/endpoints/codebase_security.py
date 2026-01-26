@@ -103,7 +103,7 @@ CODEBASE_SECURITY_ENDPOINTS = {
         "get": {
             "tags": ["Codebase"],
             "summary": "List scans",
-            "operationId": "getCodebaseScan",
+            "operationId": "listCodebaseScans",
             "description": "List scan history for a repository.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [

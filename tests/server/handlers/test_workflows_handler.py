@@ -71,6 +71,56 @@ class TestWorkflowHandlerRouting:
         assert not handler.can_handle("/api/v1/debates")
 
 
+class TestWorkflowHandlerRoutes:
+    """Tests for ROUTES class attribute."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkflowHandler(mock_server_context)
+
+    def test_routes_is_list(self, handler):
+        """ROUTES is a list."""
+        assert isinstance(handler.ROUTES, list)
+
+    def test_routes_not_empty(self, handler):
+        """ROUTES is not empty."""
+        assert len(handler.ROUTES) > 0
+
+    def test_routes_contains_workflows(self, handler):
+        """ROUTES contains workflows endpoint."""
+        assert "/api/v1/workflows" in handler.ROUTES
+
+    def test_routes_contains_workflows_wildcard(self, handler):
+        """ROUTES contains workflows wildcard for ID paths."""
+        assert "/api/v1/workflows/*" in handler.ROUTES
+
+    def test_routes_contains_templates(self, handler):
+        """ROUTES contains workflow-templates endpoint."""
+        assert "/api/v1/workflow-templates" in handler.ROUTES
+
+    def test_routes_contains_approvals(self, handler):
+        """ROUTES contains workflow-approvals endpoint."""
+        assert "/api/v1/workflow-approvals" in handler.ROUTES
+
+    def test_routes_contains_approvals_wildcard(self, handler):
+        """ROUTES contains workflow-approvals wildcard."""
+        assert "/api/v1/workflow-approvals/*" in handler.ROUTES
+
+    def test_routes_contains_executions(self, handler):
+        """ROUTES contains workflow-executions endpoint."""
+        assert "/api/v1/workflow-executions" in handler.ROUTES
+
+    def test_routes_contains_executions_wildcard(self, handler):
+        """ROUTES contains workflow-executions wildcard."""
+        assert "/api/v1/workflow-executions/*" in handler.ROUTES
+
+    def test_routes_count(self, handler):
+        """ROUTES contains expected number of routes."""
+        # 7 routes: workflows, workflows/*, templates, approvals, approvals/*,
+        # executions, executions/*
+        assert len(handler.ROUTES) == 7
+
+
 class TestWorkflowHandlerIdExtraction:
     """Tests for ID extraction from paths."""
 
@@ -106,38 +156,64 @@ class TestWorkflowHandlerRouteDispatch:
     def handler(self, mock_server_context):
         return WorkflowHandler(mock_server_context)
 
-    def test_handle_dispatches_list_workflows(self, handler):
+    @pytest.fixture
+    def mock_http_with_headers(self):
+        """Create mock HTTP handler with proper headers for auth extraction."""
+        mock = MagicMock()
+        # Use MagicMock for headers to allow proper mocking
+        mock.headers = MagicMock()
+        mock.headers.get.return_value = ""
+        mock.headers.__getitem__ = MagicMock(return_value="")
+        return mock
+
+    def test_handle_dispatches_list_workflows(self, handler, mock_http_with_headers):
         """Handle dispatches /api/v1/workflows to list handler."""
-        mock_http = MagicMock()
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
 
-        result = handler.handle("/api/v1/workflows", {}, mock_http)
+            result = handler.handle("/api/v1/workflows", {}, mock_http_with_headers)
 
-        # Result should be returned
-        assert result is not None
+            # Result should be returned (auth error since no JWT)
+            assert result is not None
 
-    def test_handle_dispatches_templates(self, handler):
+    def test_handle_dispatches_templates(self, handler, mock_http_with_headers):
         """Handle dispatches /api/v1/workflow-templates to template handler."""
-        mock_http = MagicMock()
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
 
-        result = handler.handle("/api/v1/workflow-templates", {}, mock_http)
+            result = handler.handle("/api/v1/workflow-templates", {}, mock_http_with_headers)
 
-        assert result is not None
+            assert result is not None
 
-    def test_handle_dispatches_approvals(self, handler):
+    def test_handle_dispatches_approvals(self, handler, mock_http_with_headers):
         """Handle dispatches /api/v1/workflow-approvals to approval handler."""
-        mock_http = MagicMock()
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
 
-        result = handler.handle("/api/v1/workflow-approvals", {}, mock_http)
+            result = handler.handle("/api/v1/workflow-approvals", {}, mock_http_with_headers)
 
-        assert result is not None
+            assert result is not None
 
-    def test_handle_dispatches_executions(self, handler):
+    def test_handle_dispatches_executions(self, handler, mock_http_with_headers):
         """Handle dispatches /api/v1/workflow-executions to execution handler."""
-        mock_http = MagicMock()
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
 
-        result = handler.handle("/api/v1/workflow-executions", {}, mock_http)
+            result = handler.handle("/api/v1/workflow-executions", {}, mock_http_with_headers)
 
-        assert result is not None
+            assert result is not None
 
 
 class TestWorkflowHandlerUnknownPath:
@@ -625,3 +701,197 @@ class TestWorkflowHandlerRBACPermissionKeys:
             call_args = mock_check.call_args[0]
             assert call_args[1] == "workflows.approve"
             assert call_args[2] == "approval_req_456"
+
+
+class TestWorkflowHandlerResponseFormat:
+    """Tests for response format validation."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkflowHandler(mock_server_context)
+
+    @pytest.fixture
+    def mock_http(self):
+        """Create mock HTTP handler with proper headers."""
+        mock = MagicMock()
+        mock.headers = MagicMock()
+        mock.headers.get.return_value = ""
+        return mock
+
+    def test_error_response_has_status_code(self, handler, mock_http):
+        """Error responses have proper status codes."""
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
+
+            result = handler.handle("/api/v1/workflows", {}, mock_http)
+
+            # Should return 401 for unauthenticated
+            assert result is not None
+            assert result.status_code == 401
+
+    def test_error_response_has_json_content_type(self, handler, mock_http):
+        """Error responses have JSON content type."""
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
+
+            result = handler.handle("/api/v1/workflows", {}, mock_http)
+
+            assert result is not None
+            assert result.content_type == "application/json"
+
+    def test_error_response_has_body(self, handler, mock_http):
+        """Error responses have a body."""
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
+
+            result = handler.handle("/api/v1/workflows", {}, mock_http)
+
+            assert result is not None
+            assert result.body is not None
+            assert len(result.body) > 0
+
+    def test_error_response_body_is_valid_json(self, handler, mock_http):
+        """Error response body is valid JSON."""
+        import json
+
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
+
+            result = handler.handle("/api/v1/workflows", {}, mock_http)
+
+            assert result is not None
+            body = json.loads(result.body)
+            assert isinstance(body, dict)
+
+    def test_error_response_contains_error_field(self, handler, mock_http):
+        """Error response body contains error field."""
+        import json
+
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
+
+            result = handler.handle("/api/v1/workflows", {}, mock_http)
+
+            assert result is not None
+            body = json.loads(result.body)
+            assert "error" in body
+
+    def test_permission_denied_returns_403(self, handler, mock_http):
+        """Permission denied returns 403 status code."""
+        from aragora.server.handlers.base import error_response
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = error_response("Permission denied", 403)
+
+            result = handler._handle_list_workflows({}, mock_http)
+
+            assert result is not None
+            assert result.status_code == 403
+
+    def test_not_found_returns_404(self, handler, mock_http):
+        """Not found returns 404 status code."""
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = None  # Allow
+
+            with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                mock_async.return_value = None  # Workflow not found
+
+                result = handler._handle_get_workflow("nonexistent_id", {}, mock_http)
+
+                assert result is not None
+                assert result.status_code == 404
+
+
+class TestWorkflowHandlerMethodDispatch:
+    """Tests for HTTP method dispatch."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkflowHandler(mock_server_context)
+
+    @pytest.fixture
+    def mock_http(self):
+        """Create mock HTTP handler."""
+        mock = MagicMock()
+        mock.headers = MagicMock()
+        mock.headers.get.return_value = ""
+        mock.rfile = MagicMock()
+        mock.rfile.read.return_value = b"{}"
+        return mock
+
+    def test_handle_get_dispatches_correctly(self, handler, mock_http):
+        """handle() dispatches GET requests."""
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
+
+            result = handler.handle("/api/v1/workflows", {}, mock_http)
+
+            # Returns a result (auth error in this case)
+            assert result is not None
+
+    def test_handle_post_dispatches_correctly(self, handler, mock_http):
+        """handle_post() dispatches POST requests."""
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
+
+            result = handler.handle_post("/api/v1/workflows", {}, mock_http)
+
+            # Returns a result (auth error in this case)
+            assert result is not None
+
+    def test_handle_patch_dispatches_correctly(self, handler, mock_http):
+        """handle_patch() dispatches PATCH requests."""
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
+
+            result = handler.handle_patch("/api/v1/workflows/wf_123", {}, mock_http)
+
+            assert result is not None
+
+    def test_handle_put_delegates_to_patch(self, handler, mock_http):
+        """handle_put() delegates to handle_patch()."""
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
+
+            result = handler.handle_put("/api/v1/workflows/wf_123", {}, mock_http)
+
+            assert result is not None
+
+    def test_handle_delete_dispatches_correctly(self, handler, mock_http):
+        """handle_delete() dispatches DELETE requests."""
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
+
+            result = handler.handle_delete("/api/v1/workflows/wf_123", {}, mock_http)
+
+            assert result is not None

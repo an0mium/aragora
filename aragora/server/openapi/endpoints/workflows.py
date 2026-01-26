@@ -224,7 +224,7 @@ WORKFLOW_ENDPOINTS = {
         "get": {
             "tags": ["Workflows"],
             "summary": "List workflow templates",
-            "operationId": "listWorkflowTemplates",
+            "operationId": "listWorkflowTemplatesLegacy",
             "description": "Get gallery of workflow templates for quick start.",
             "parameters": [
                 {
@@ -243,7 +243,7 @@ WORKFLOW_ENDPOINTS = {
         "get": {
             "tags": ["Workflows"],
             "summary": "Get workflow template",
-            "operationId": "getWorkflowTemplate",
+            "operationId": "getWorkflowTemplateLegacy",
             "description": "Get a specific workflow template for use as starting point.",
             "parameters": [
                 {

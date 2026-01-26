@@ -14619,7 +14619,7 @@
           "Workflows"
         ],
         "summary": "List workflow templates",
-        "operationId": "listWorkflowTemplates",
+        "operationId": "listWorkflowTemplatesLegacy",
         "description": "Get gallery of workflow templates for quick start.",
         "parameters": [
           {
@@ -14705,7 +14705,7 @@
           "Workflows"
         ],
         "summary": "Get workflow template",
-        "operationId": "getWorkflowTemplate",
+        "operationId": "getWorkflowTemplateLegacy",
         "description": "Get a specific workflow template for use as starting point.",
         "parameters": [
           {
@@ -20161,7 +20161,7 @@
           "Codebase"
         ],
         "summary": "List scans",
-        "operationId": "getCodebaseScan",
+        "operationId": "listCodebaseScans",
         "description": "List scan history for a repository.",
         "security": [
           {}
@@ -22603,7 +22603,7 @@
           "Codebase"
         ],
         "summary": "Get latest metrics",
-        "operationId": "getCodebaseMetric",
+        "operationId": "getCodebaseMetricsLatest",
         "description": "Fetch the latest metrics report.",
         "security": [
           {}
@@ -22739,7 +22739,7 @@
           "Codebase"
         ],
         "summary": "Get metrics by ID",
-        "operationId": "getCodebaseMetric",
+        "operationId": "getCodebaseMetricById",
         "description": "Fetch a metrics report by analysis ID.",
         "security": [
           {}
