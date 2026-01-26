@@ -1026,6 +1026,8 @@ export interface GauntletHeatmapExtended {
   generated_at: string;
 }
 
+export type GauntletHeatmap = GauntletHeatmapExtended;
+
 export interface GauntletComparison {
   gauntlet_a: string;
   gauntlet_b: string;
@@ -1404,6 +1406,48 @@ export interface MemoryStats {
   health_status: 'healthy' | 'degraded' | 'critical';
 }
 
+export interface CrossPollinationMetrics {
+  period?: string;
+  total_bridges?: number;
+  total_transfers?: number;
+  cross_pollination_rate?: number;
+  top_topics?: Array<{
+    topic: string;
+    count: number;
+  }>;
+  source_breakdown?: Record<string, number>;
+  target_breakdown?: Record<string, number>;
+}
+
+export interface LearningEfficiencyMetrics {
+  period?: string;
+  total_debates?: number;
+  avg_rounds_to_consensus?: number;
+  avg_time_to_consensus_seconds?: number;
+  improvement_rate?: number;
+  bottlenecks?: string[];
+}
+
+export interface VotingAccuracyMetrics {
+  period?: string;
+  total_votes?: number;
+  accuracy_rate?: number;
+  by_agent?: Record<string, number>;
+  by_domain?: Record<string, number>;
+}
+
+export interface CalibrationMetrics {
+  period?: string;
+  avg_calibration_error?: number;
+  calibration_score?: number;
+  by_agent?: Record<string, number>;
+  bins?: Array<{
+    confidence: number;
+    accuracy: number;
+    count: number;
+  }>;
+}
+
 export interface ContinuumStoreOptions {
   /** Target memory tier for storage (default: 'medium') */
   tier?: MemoryTier;
@@ -1470,6 +1514,8 @@ export interface SearchResult {
   metadata?: Record<string, unknown>;
   created_at?: string;
 }
+
+export type MemorySearchResult = SearchResult;
 
 export interface SearchResponse {
   query: string;
@@ -3097,6 +3143,18 @@ export interface WorkflowTemplateRunResult {
 // =============================================================================
 // Gauntlet Receipt Types
 // =============================================================================
+
+export interface GauntletReceipt {
+  receipt_id: string;
+  gauntlet_id: string;
+  status?: string;
+  verdict?: string;
+  confidence?: number;
+  risk_level?: 'low' | 'medium' | 'high' | 'critical';
+  results?: GauntletResult[];
+  generated_at?: string;
+  metadata?: Record<string, unknown>;
+}
 
 export interface GauntletReceiptExport {
   receipt_id: string;
