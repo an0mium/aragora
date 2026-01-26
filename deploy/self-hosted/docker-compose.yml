@@ -1,0 +1,218 @@
+# Aragora Self-Hosted Deployment
+# Production-ready configuration with observability
+#
+# Quick Start:
+#   1. Copy .env.example to .env and configure
+#   2. Run: docker compose up -d
+#   3. Access: http://localhost:8080 (API) / http://localhost:3000 (Dashboard)
+#
+# Profiles:
+#   - Default: Core services (Aragora + Redis + Postgres)
+#   - --profile monitoring: Add Prometheus + Grafana
+#   - --profile workers: Add debate queue workers
+
+services:
+  # =============================================================================
+  # Core Services
+  # =============================================================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: aragora-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aragora}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_DB: ${POSTGRES_DB:-aragora}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../../aragora/db/schema/postgres_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aragora}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - aragora-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: aragora-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-aragora_redis_pass}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-aragora_redis_pass}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - aragora-net
+
+  aragora:
+    image: ${ARAGORA_IMAGE:-ghcr.io/an0mium/aragora:latest}
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: aragora-api
+    ports:
+      - "${ARAGORA_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-aragora}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aragora}
+      - ARAGORA_DB_BACKEND=postgres
+      # Redis
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aragora_redis_pass}@redis:6379
+      # AI Providers (at least one required)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      # Security
+      - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN:-}
+      - ARAGORA_JWT_SECRET=${ARAGORA_JWT_SECRET:?JWT_SECRET required for production}
+      - ARAGORA_ALLOWED_ORIGINS=${ARAGORA_ALLOWED_ORIGINS:-*}
+      - ARAGORA_TRUSTED_PROXIES=${ARAGORA_TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      # Environment
+      - ARAGORA_ENV=production
+      - ARAGORA_LOG_LEVEL=${ARAGORA_LOG_LEVEL:-INFO}
+      # Performance
+      - ARAGORA_MAX_CONCURRENT_DEBATES=${ARAGORA_MAX_CONCURRENT_DEBATES:-10}
+      # Metrics
+      - ARAGORA_METRICS_ENABLED=true
+      - ARAGORA_METRICS_PORT=9090
+    volumes:
+      - aragora-data:/app/data
+      - aragora-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - aragora-net
+    labels:
+      - "prometheus.scrape=true"
+      - "prometheus.port=9090"
+
+  # =============================================================================
+  # Queue Workers (--profile workers)
+  # =============================================================================
+
+  debate-worker:
+    image: ${ARAGORA_IMAGE:-ghcr.io/an0mium/aragora:latest}
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    command: python -m scripts.queue_worker --concurrency 3
+    depends_on:
+      aragora:
+        condition: service_healthy
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aragora_redis_pass}@redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-aragora}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aragora}
+    volumes:
+      - aragora-data:/app/data
+    restart: unless-stopped
+    deploy:
+      replicas: ${WORKER_REPLICAS:-2}
+    profiles:
+      - workers
+    networks:
+      - aragora-net
+
+  # =============================================================================
+  # Monitoring Stack (--profile monitoring)
+  # =============================================================================
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: aragora-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9091}:9090"
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    networks:
+      - aragora-net
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: aragora-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:3001}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    networks:
+      - aragora-net
+
+  # =============================================================================
+  # Backup Service (optional)
+  # =============================================================================
+
+  backup:
+    image: postgres:16-alpine
+    container_name: aragora-backup
+    entrypoint: /bin/sh
+    command: >
+      -c "while true; do
+        pg_dump -h postgres -U ${POSTGRES_USER:-aragora} ${POSTGRES_DB:-aragora} | gzip > /backups/aragora-$$(date +%Y%m%d_%H%M%S).sql.gz;
+        find /backups -name '*.sql.gz' -mtime +7 -delete;
+        sleep 86400;
+      done"
+    environment:
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - backup
+    networks:
+      - aragora-net
+
+volumes:
+  postgres-data:
+  redis-data:
+  aragora-data:
+  aragora-logs:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  aragora-net:
+    driver: bridge

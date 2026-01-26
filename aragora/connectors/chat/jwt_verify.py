@@ -74,7 +74,7 @@ class JWTVerifier:
 
     def _get_microsoft_jwks_client(self) -> Optional[Any]:
         """Get or create Microsoft JWKS client."""
-        if not HAS_JWT:
+        if not HAS_JWT or PyJWKClient is None:
             return None
 
         now = time.time()
@@ -90,7 +90,7 @@ class JWTVerifier:
 
     def _get_google_jwks_client(self) -> Optional[Any]:
         """Get or create Google JWKS client."""
-        if not HAS_JWT:
+        if not HAS_JWT or PyJWKClient is None:
             return None
 
         now = time.time()

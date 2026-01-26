@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'Aragora'
+    orgId: 1
+    folder: 'Aragora'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

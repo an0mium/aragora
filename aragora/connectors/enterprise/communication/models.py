@@ -7,7 +7,7 @@ Provides dataclasses for emails, threads, attachments, and sync state.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 
@@ -95,9 +95,13 @@ class EmailMessage:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "EmailMessage":
         """Deserialize from dictionary."""
-        date = data.get("date")
-        if isinstance(date, str):
-            date = datetime.fromisoformat(date)
+        date_val = data.get("date")
+        if isinstance(date_val, str):
+            date = datetime.fromisoformat(date_val)
+        elif isinstance(date_val, datetime):
+            date = date_val
+        else:
+            date = datetime.now(timezone.utc)
 
         attachments = [
             EmailAttachment(

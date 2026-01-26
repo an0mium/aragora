@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -234,7 +234,7 @@ class PrivacyAuditLog:
         details: dict[str, Any] | None = None,
         duration_ms: int = 0,
         error_message: str = "",
-    ) -> AuditEntry:
+    ) -> Optional[AuditEntry]:
         """
         Log an audit entry.
 
