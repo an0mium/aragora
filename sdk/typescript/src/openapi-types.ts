@@ -11874,6 +11874,223 @@ export interface components {
             user_id: string;
             duration_hours?: number | null;
         };
+        /** @description Statistics about debate disagreements */
+        DisagreementStats: {
+            /** @description Total debates analyzed */
+            total_debates?: number;
+            /** @description Debates with disagreements */
+            with_disagreements?: number;
+            /** @description Unanimous debates */
+            unanimous?: number;
+            /** @description Count by disagreement type */
+            disagreement_types?: {
+                [key: string]: number;
+            };
+        };
+        /** @description Statistics about agent role rotation */
+        RoleRotationStats: {
+            total_rotations?: number;
+            by_agent?: {
+                [key: string]: {
+                    proposer?: number;
+                    critic?: number;
+                    judge?: number;
+                };
+            };
+        };
+        /** @description Statistics about early debate stops */
+        EarlyStopStats: {
+            total_early_stops?: number;
+            by_reason?: {
+                [key: string]: number;
+            };
+            average_rounds_saved?: number;
+        };
+        /** @description Aggregate ELO ranking statistics */
+        RankingStats: {
+            total_agents?: number;
+            average_elo?: number;
+            highest_elo?: number;
+            lowest_elo?: number;
+            total_matches?: number;
+        };
+        /** @description Memory system statistics */
+        MemoryStats: {
+            total_entries?: number;
+            by_tier?: {
+                fast?: number;
+                medium?: number;
+                slow?: number;
+                glacial?: number;
+            };
+            cache_hit_rate?: number;
+        };
+        /** @description A knowledge node in the mound */
+        KnowledgeNode: {
+            /** @description Unique node ID */
+            id: string;
+            /** @description Node content */
+            content: string;
+            /** @description Knowledge source type */
+            source?: string;
+            /** @description Confidence score 0-1 */
+            confidence?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+            topics?: string[];
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Result of a knowledge query */
+        KnowledgeQueryResult: {
+            items?: components["schemas"]["KnowledgeNode"][];
+            total?: number;
+            query?: string;
+            relevance_scores?: number[];
+        };
+        /** @description Result of storing knowledge */
+        KnowledgeStoreResult: {
+            node_id: string;
+            success: boolean;
+            duplicate?: boolean;
+            topics_extracted?: string[];
+        };
+        /** @description Registered agent information */
+        AgentRegistration: {
+            agent_id: string;
+            name: string;
+            capabilities?: string[];
+            /** @enum {string} */
+            status: "healthy" | "degraded" | "unhealthy";
+            /** Format: date-time */
+            last_heartbeat?: string;
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Task execution status */
+        TaskStatus: {
+            task_id: string;
+            /** @enum {string} */
+            status: "pending" | "running" | "completed" | "failed" | "cancelled";
+            progress?: number;
+            result?: {
+                [key: string]: unknown;
+            };
+            error?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        /** @description Policy evaluation result */
+        PolicyEvaluation: {
+            allowed: boolean;
+            policy_id?: string;
+            reason?: string;
+            conditions_met?: string[];
+            conditions_failed?: string[];
+        };
+        /** @description A position change by an agent during debate */
+        PositionFlip: {
+            debate_id?: string;
+            agent?: string;
+            round?: number;
+            old_position?: string;
+            new_position?: string;
+            reason?: string;
+            conviction_delta?: number;
+            /** Format: date-time */
+            timestamp?: string;
+        };
+        /** @description Recent position flips response */
+        FlipsRecent: {
+            flips?: components["schemas"]["PositionFlip"][];
+            total?: number;
+        };
+        /** @description Summary statistics on position flips */
+        FlipsSummary: {
+            total_flips?: number;
+            by_agent?: {
+                [key: string]: number;
+            };
+            by_debate?: {
+                [key: string]: number;
+            };
+            average_conviction_delta?: number;
+            /** @description Percentage of debates with flips */
+            flip_rate?: number;
+        };
+        /** @description An insight extracted from debate */
+        Insight: {
+            id?: string;
+            debate_id?: string;
+            content?: string;
+            /** @enum {string} */
+            type?: "observation" | "conclusion" | "recommendation";
+            confidence?: number;
+            supporting_evidence?: string[];
+            /** Format: date-time */
+            extracted_at?: string;
+        };
+        /** @description Recent insights response */
+        InsightsRecent: {
+            insights?: components["schemas"]["Insight"][];
+            total?: number;
+        };
+        /** @description Detailed insight extraction result */
+        InsightsDetailed: {
+            insights?: components["schemas"]["Insight"][];
+            themes?: string[];
+            key_findings?: string[];
+            processing_time_ms?: number;
+        };
+        /** @description A significant moment in a debate */
+        DebateMoment: {
+            id?: string;
+            debate_id?: string;
+            /** @enum {string} */
+            type?: "breakthrough" | "conflict" | "consensus" | "insight" | "flip";
+            round?: number;
+            description?: string;
+            participants?: string[];
+            significance_score?: number;
+            /** Format: date-time */
+            timestamp?: string;
+        };
+        /** @description Summary of key moments across debates */
+        MomentsSummary: {
+            total_moments?: number;
+            by_type?: {
+                [key: string]: number;
+            };
+            top_debates?: {
+                debate_id?: string;
+                moment_count?: number;
+            }[];
+        };
+        /** @description Chronological timeline of moments */
+        MomentsTimeline: {
+            moments?: components["schemas"]["DebateMoment"][];
+            /** Format: date-time */
+            start_time?: string;
+            /** Format: date-time */
+            end_time?: string;
+        };
+        /** @description Currently trending debate moments */
+        MomentsTrending: {
+            moments?: components["schemas"]["DebateMoment"][];
+            trending_period_hours?: number;
+        };
+        /** @description Moments filtered by type */
+        MomentsByType: {
+            type?: string;
+            moments?: components["schemas"]["DebateMoment"][];
+            total?: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -14761,7 +14978,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["DisagreementStats"];
+                };
             };
         };
     };
@@ -14779,7 +14998,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["DisagreementStats"];
+                };
             };
         };
     };
@@ -14797,7 +15018,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["RoleRotationStats"];
+                };
             };
         };
     };
@@ -14815,7 +15038,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["RoleRotationStats"];
+                };
             };
         };
     };
@@ -14833,7 +15058,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["EarlyStopStats"];
+                };
             };
         };
     };
@@ -14851,7 +15078,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["EarlyStopStats"];
+                };
             };
         };
     };
@@ -14869,7 +15098,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["RankingStats"];
+                };
             };
         };
     };
@@ -14887,7 +15118,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["RankingStats"];
+                };
             };
         };
     };
@@ -14905,7 +15138,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MemoryStats"];
+                };
             };
         };
     };
@@ -14923,7 +15158,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MemoryStats"];
+                };
             };
         };
     };
@@ -14944,7 +15181,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["FlipsRecent"];
+                };
             };
         };
     };
@@ -14965,7 +15204,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["FlipsRecent"];
+                };
             };
         };
     };
@@ -14983,7 +15224,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["FlipsSummary"];
+                };
             };
         };
     };
@@ -15001,7 +15244,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["FlipsSummary"];
+                };
             };
         };
     };
@@ -15022,7 +15267,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["InsightsRecent"];
+                };
             };
         };
     };
@@ -15043,7 +15290,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["InsightsRecent"];
+                };
             };
         };
     };
@@ -15065,7 +15314,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["InsightsDetailed"];
+                };
             };
         };
     };
@@ -15087,7 +15338,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["InsightsDetailed"];
+                };
             };
         };
     };
@@ -15105,7 +15358,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MomentsSummary"];
+                };
             };
         };
     };
@@ -15123,7 +15378,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MomentsSummary"];
+                };
             };
         };
     };
@@ -15141,7 +15398,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MomentsTimeline"];
+                };
             };
         };
     };
@@ -15159,7 +15418,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MomentsTimeline"];
+                };
             };
         };
     };
@@ -15177,7 +15438,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MomentsTrending"];
+                };
             };
         };
     };
@@ -15195,7 +15458,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MomentsTrending"];
+                };
             };
         };
     };
@@ -15216,7 +15481,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MomentsByType"];
+                };
             };
         };
     };
@@ -15237,7 +15504,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MomentsByType"];
+                };
             };
         };
     };

@@ -1348,6 +1348,192 @@ class BudgetOverrideResponse(BaseModel):
     user_id: str
     duration_hours: float | None = None
 
+class DisagreementStats(BaseModel):
+    total_debates: Annotated[
+        int | None, Field(description="Total debates analyzed")
+    ] = None
+    with_disagreements: Annotated[
+        int | None, Field(description="Debates with disagreements")
+    ] = None
+    unanimous: Annotated[int | None, Field(description="Unanimous debates")] = None
+    disagreement_types: Annotated[
+        dict[str, int] | None, Field(description="Count by disagreement type")
+    ] = None
+
+class ByAgent(BaseModel):
+    proposer: int | None = None
+    critic: int | None = None
+    judge: int | None = None
+
+class RoleRotationStats(BaseModel):
+    total_rotations: int | None = None
+    by_agent: dict[str, ByAgent] | None = None
+
+class EarlyStopStats(BaseModel):
+    total_early_stops: int | None = None
+    by_reason: dict[str, int] | None = None
+    average_rounds_saved: float | None = None
+
+class RankingStats(BaseModel):
+    total_agents: int | None = None
+    average_elo: float | None = None
+    highest_elo: float | None = None
+    lowest_elo: float | None = None
+    total_matches: int | None = None
+
+class ByTier(BaseModel):
+    fast: int | None = None
+    medium: int | None = None
+    slow: int | None = None
+    glacial: int | None = None
+
+class MemoryStats(BaseModel):
+    total_entries: int | None = None
+    by_tier: ByTier | None = None
+    cache_hit_rate: float | None = None
+
+class KnowledgeNode(BaseModel):
+    id: Annotated[str, Field(description="Unique node ID")]
+    content: Annotated[str, Field(description="Node content")]
+    source: Annotated[str | None, Field(description="Knowledge source type")] = None
+    confidence: Annotated[float | None, Field(description="Confidence score 0-1")] = (
+        None
+    )
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    topics: list[str] | None = None
+    metadata: dict[str, Any] | None = None
+
+class KnowledgeQueryResult(BaseModel):
+    items: list[KnowledgeNode] | None = None
+    total: int | None = None
+    query: str | None = None
+    relevance_scores: list[float] | None = None
+
+class KnowledgeStoreResult(BaseModel):
+    node_id: str
+    success: bool
+    duplicate: bool | None = None
+    topics_extracted: list[str] | None = None
+
+class AgentRegistration(BaseModel):
+    agent_id: str
+    name: str
+    capabilities: list[str] | None = None
+    status: Status
+    last_heartbeat: datetime | None = None
+    metadata: dict[str, Any] | None = None
+
+class Status2(StrEnum):
+    pending = "pending"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+    cancelled = "cancelled"
+
+class TaskStatus(BaseModel):
+    task_id: str
+    status: Status2
+    progress: Annotated[float | None, Field(ge=0.0, le=100.0)] = None
+    result: dict[str, Any] | None = None
+    error: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+class PolicyEvaluation(BaseModel):
+    allowed: bool
+    policy_id: str | None = None
+    reason: str | None = None
+    conditions_met: list[str] | None = None
+    conditions_failed: list[str] | None = None
+
+class PositionFlip(BaseModel):
+    debate_id: str | None = None
+    agent: str | None = None
+    round: int | None = None
+    old_position: str | None = None
+    new_position: str | None = None
+    reason: str | None = None
+    conviction_delta: float | None = None
+    timestamp: datetime | None = None
+
+class FlipsRecent(BaseModel):
+    flips: list[PositionFlip] | None = None
+    total: int | None = None
+
+class FlipsSummary(BaseModel):
+    total_flips: int | None = None
+    by_agent: dict[str, int] | None = None
+    by_debate: dict[str, int] | None = None
+    average_conviction_delta: float | None = None
+    flip_rate: Annotated[
+        float | None, Field(description="Percentage of debates with flips")
+    ] = None
+
+class Type(StrEnum):
+    observation = "observation"
+    conclusion = "conclusion"
+    recommendation = "recommendation"
+
+class Insight(BaseModel):
+    id: str | None = None
+    debate_id: str | None = None
+    content: str | None = None
+    type: Type | None = None
+    confidence: float | None = None
+    supporting_evidence: list[str] | None = None
+    extracted_at: datetime | None = None
+
+class InsightsRecent(BaseModel):
+    insights: list[Insight] | None = None
+    total: int | None = None
+
+class InsightsDetailed(BaseModel):
+    insights: list[Insight] | None = None
+    themes: list[str] | None = None
+    key_findings: list[str] | None = None
+    processing_time_ms: int | None = None
+
+class Type1(StrEnum):
+    breakthrough = "breakthrough"
+    conflict = "conflict"
+    consensus = "consensus"
+    insight = "insight"
+    flip = "flip"
+
+class DebateMoment(BaseModel):
+    id: str | None = None
+    debate_id: str | None = None
+    type: Type1 | None = None
+    round: int | None = None
+    description: str | None = None
+    participants: list[str] | None = None
+    significance_score: float | None = None
+    timestamp: datetime | None = None
+
+class TopDebate(BaseModel):
+    debate_id: str | None = None
+    moment_count: int | None = None
+
+class MomentsSummary(BaseModel):
+    total_moments: int | None = None
+    by_type: dict[str, int] | None = None
+    top_debates: list[TopDebate] | None = None
+
+class MomentsTimeline(BaseModel):
+    moments: list[DebateMoment] | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+
+class MomentsTrending(BaseModel):
+    moments: list[DebateMoment] | None = None
+    trending_period_hours: int | None = None
+
+class MomentsByType(BaseModel):
+    type: str | None = None
+    moments: list[DebateMoment] | None = None
+    total: int | None = None
+
 class Debate(BaseModel):
     debate_id: str | None = None
     id: str | None = None
