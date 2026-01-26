@@ -6,9 +6,11 @@ Provides CRUD operations and execution control for workflows:
 - /api/workflows/:id - Get, update, delete workflow
 - /api/workflows/:id/execute - Execute workflow
 - /api/workflows/:id/versions - Version history
+- /api/workflows/:id/versions/:version/restore - Restore workflow to version
 - /api/workflow-templates - Workflow template gallery
 - /api/workflow-approvals - Human approval management
 - /api/workflow-executions - List all workflow executions (for runtime dashboard)
+- /api/workflow-executions/:id - Get/delete (terminate) execution
 """
 
 from __future__ import annotations
@@ -1202,12 +1204,18 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         # RBAC permission check for delete operations
         if auth_ctx is not None and hasattr(auth_ctx, "permissions"):
+            # Terminating executions requires execute permission, deleting workflows requires delete
+            required_perm = (
+                "workflow.execute"
+                if "/workflow-executions/" in path
+                else "workflow.delete"
+            )
             if (
-                "workflow.delete" not in auth_ctx.permissions
+                required_perm not in auth_ctx.permissions
                 and "workflow.*" not in auth_ctx.permissions
             ):
-                logger.warning(f"User {auth_ctx.user_id} denied workflow.delete permission")
-                return error_response("Permission denied: requires workflow.delete", 403)
+                logger.warning(f"User {auth_ctx.user_id} denied {required_perm} permission")
+                return error_response(f"Permission denied: requires {required_perm}", 403)
 
         workflow_id = self._extract_id(path)
         if workflow_id:
