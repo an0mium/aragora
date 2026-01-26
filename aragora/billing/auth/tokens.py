@@ -198,7 +198,15 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
                     logger.debug("jwt_decode: validated with previous secret (rotation)")
 
         if not signature_valid:
-            logger.debug("jwt_decode_failed: signature mismatch")
+            # Log signature mismatch at warning level to help diagnose auth issues
+            # Include secret fingerprint to verify same secret is used for sign/verify
+            import hashlib as _hashlib
+
+            secret_fingerprint = _hashlib.sha256(secret).hexdigest()[:8]
+            logger.warning(
+                f"[JWT_DEBUG] jwt_decode_failed: signature mismatch "
+                f"(secret_fingerprint={secret_fingerprint})"
+            )
             return None
 
         # Decode payload

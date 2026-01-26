@@ -157,6 +157,11 @@ class DebatesHandler(
     def _check_auth(self, handler) -> Optional[HandlerResult]:
         """Check authentication for sensitive endpoints.
 
+        Supports both:
+        - JWT tokens (from Google OAuth, etc.)
+        - API tokens (ara_* prefix)
+        - Legacy HMAC tokens (for backwards compatibility)
+
         Returns:
             None if auth passes, HandlerResult with 401 if auth fails.
         """
@@ -179,16 +184,36 @@ class DebatesHandler(
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header[7:]
 
-        # Check if API token is configured
-        if not auth_config.api_token:
-            logger.debug("No API token configured, skipping auth")
+        if not token:
+            return error_response("Missing authentication token", 401)
+
+        # Check for JWT tokens (3 base64url parts separated by dots)
+        if token.count(".") == 2:
+            try:
+                from aragora.billing.auth import validate_access_token
+
+                jwt_result = validate_access_token(token)
+                if jwt_result:
+                    return None  # JWT valid
+                logger.debug("JWT token validation failed")
+            except Exception as e:
+                logger.debug(f"JWT validation error: {e}")
+
+        # Check for API tokens (ara_* prefix)
+        if token.startswith("ara_"):
+            # API tokens are validated by rate limiter, just check format
             return None
 
-        # Validate the provided token
-        if not token or not auth_config.validate_token(token):
-            return error_response("Invalid or missing authentication token", 401)
+        # Check if API token is configured for legacy HMAC tokens
+        if not auth_config.api_token:
+            logger.debug("No API token configured, skipping legacy auth check")
+            return None
 
-        return None
+        # Validate legacy HMAC token
+        if auth_config.validate_token(token):
+            return None
+
+        return error_response("Invalid or expired authentication token", 401)
 
     def _requires_auth(self, path: str) -> bool:
         """Check if the given path requires authentication."""
@@ -1024,20 +1049,14 @@ class DebatesHandler(
         if spam_result:
             return spam_result
 
-        # Extract headers for correlation ID
-        headers = {}
-        if hasattr(handler, "headers"):
-            headers = dict(handler.headers)
-
-        # Try to route through DecisionRouter for unified handling
-        try:
-            return self._route_through_decision_router(handler, body, headers)
-        except ImportError:
-            logger.debug("DecisionRouter not available, falling back to direct controller")
-        except Exception as e:
-            logger.warning(f"DecisionRouter failed: {e}, falling back to direct controller")
-
-        # Fallback: use direct controller approach
+        # Use direct controller approach for ad-hoc debates.
+        # The DecisionRouter is designed for synchronous decisions and blocks
+        # until the debate completes (minutes). For HTTP requests, we need to
+        # return immediately with the debate_id and let the client poll/stream.
+        #
+        # DecisionRouter can still be used for:
+        # - Chat connector decisions (Slack/Telegram) that need sync responses
+        # - Internal orchestration where blocking is acceptable
         return self._create_debate_direct(handler, body)
 
     def _route_through_decision_router(self, handler, body: dict, headers: dict) -> HandlerResult:

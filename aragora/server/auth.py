@@ -686,20 +686,36 @@ def check_auth(
             return True, remaining
 
         if token.count(".") == 2:
+            # Token looks like a JWT - only validate as JWT, don't fall through to HMAC
             try:
                 from aragora.billing.auth import validate_access_token
 
-                if validate_access_token(token):
+                jwt_result = validate_access_token(token)
+                if jwt_result:
                     allowed, remaining = auth_config.check_rate_limit(token)
                     if not allowed:
                         return False, 0
                     if ip_address:
                         return True, min(remaining, ip_remaining)
                     return True, remaining
-            except Exception:
-                # Fall through to API-token validation on errors.
-                pass
+                else:
+                    # JWT validation failed - log for debugging and reject
+                    import hashlib
 
+                    token_fingerprint = hashlib.sha256(token.encode()).hexdigest()[:8]
+                    _logger.warning(
+                        f"[JWT_AUTH] Token validation failed for fingerprint={token_fingerprint}. "
+                        "Check JWT_DEBUG logs for details."
+                    )
+                    return False, -1
+            except Exception as e:
+                # Log the exception and reject - JWT tokens shouldn't fall through to HMAC
+                _logger.warning(
+                    f"[JWT_AUTH] Token validation raised exception: {type(e).__name__}: {e}"
+                )
+                return False, -1
+
+    # Only legacy HMAC tokens reach this point
     if not auth_config.validate_token(token or "", loop_id):
         return False, -1
 

@@ -513,25 +513,18 @@ class TestDebatesHandlerEdgeCases:
 class TestDecisionRouterIntegration:
     """Tests for DecisionRouter integration in debate creation."""
 
-    def test_route_through_decision_router_called(self, handler, mock_http_handler):
-        """Test that _create_debate tries to route through DecisionRouter first."""
-        # Mock the DecisionRouter routing method
-        mock_result = MagicMock()
-        mock_result.success = True
-        mock_result.decision_type = MagicMock(value="debate")
-        mock_result.answer = "Test answer"
-        mock_result.confidence = 0.9
-        mock_result.consensus_reached = True
-        mock_result.reasoning = "Test reasoning"
-        mock_result.evidence_used = []
-        mock_result.duration_seconds = 5.0
-        mock_result.error = None
-        mock_result.debate_id = "test-debate-id"
+    def test_create_debate_uses_direct_controller(self, handler, mock_http_handler):
+        """Test that _create_debate uses direct controller for immediate response.
 
-        with patch.object(handler, "_route_through_decision_router") as mock_route:
-            mock_route.return_value = MagicMock(
+        The direct controller path is preferred over DecisionRouter because:
+        - DecisionRouter blocks until the full debate completes (minutes)
+        - HTTP clients expect immediate response with debate_id
+        - Streaming/polling is used for progress updates
+        """
+        with patch.object(handler, "_create_debate_direct") as mock_direct:
+            mock_direct.return_value = MagicMock(
                 status_code=200,
-                body=b'{"status":"completed"}',
+                body=b'{"status":"created", "debate_id":"test-123"}',
             )
 
             # Mock other dependencies
@@ -549,33 +542,19 @@ class TestDecisionRouterIntegration:
                     # Call _create_debate
                     result = handler._create_debate(mock_http_handler)
 
-            # Verify DecisionRouter was attempted
-            mock_route.assert_called_once()
+            # Verify direct controller was used
+            mock_direct.assert_called_once()
 
-    def test_fallback_to_direct_controller_on_import_error(self, handler, mock_http_handler):
-        """Test fallback to direct controller when DecisionRouter import fails."""
-        # Mock _route_through_decision_router to raise ImportError
-        with patch.object(
-            handler, "_route_through_decision_router", side_effect=ImportError("Module not found")
-        ):
-            with patch.object(handler, "_create_debate_direct") as mock_direct:
-                mock_direct.return_value = MagicMock(status_code=200, body=b'{"status":"ok"}')
+    def test_decision_router_method_still_exists(self, handler, mock_http_handler):
+        """Test that _route_through_decision_router still exists for sync use cases.
 
-                with patch.object(handler, "read_json_body", return_value={"question": "Test?"}):
-                    with patch(
-                        "aragora.server.handlers.debates.handler.validate_against_schema"
-                    ) as mock_validate:
-                        mock_validate.return_value = MagicMock(is_valid=True)
-
-                        mock_http_handler._check_rate_limit = MagicMock(return_value=True)
-                        mock_http_handler._check_tier_rate_limit = MagicMock(return_value=True)
-                        mock_http_handler.stream_emitter = MagicMock()
-                        mock_http_handler.headers = {}
-
-                        result = handler._create_debate(mock_http_handler)
-
-                # Should have fallen back to direct controller
-                mock_direct.assert_called_once()
+        While not used for HTTP ad-hoc debates, it's still available for:
+        - Chat connector decisions (Slack/Telegram) needing sync responses
+        - Internal orchestration where blocking is acceptable
+        """
+        # Verify the method exists
+        assert hasattr(handler, "_route_through_decision_router")
+        assert callable(handler._route_through_decision_router)
 
     def test_create_debate_direct_uses_controller(self, handler, mock_http_handler):
         """Test _create_debate_direct uses the debate controller."""
