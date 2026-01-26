@@ -858,6 +858,7 @@ async def handle_create_customer(request: web.Request) -> web.Response:
         return web.json_response({"error": str(e)}, status=500)
 
 
+@require_permission("payments:customer:read")
 async def handle_get_customer(request: web.Request) -> web.Response:
     """
     GET /api/payments/customer/{customer_id}
@@ -975,6 +976,7 @@ async def handle_delete_customer(request: web.Request) -> web.Response:
 # =============================================================================
 
 
+@require_permission("payments:subscription:create")
 async def handle_create_subscription(request: web.Request) -> web.Response:
     """
     POST /api/payments/subscription
