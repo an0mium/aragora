@@ -414,8 +414,9 @@ class DRHandler(BaseHandler):
             check_encryption: Verify encryption configuration (default: true)
         """
         check_storage = body.get("check_storage", True)
-        _check_permissions = body.get("check_permissions", True)  # TODO: implement
-        _check_encryption = body.get("check_encryption", True)  # TODO: implement
+        # TODO: implement permission and encryption checks
+        # check_permissions = body.get("check_permissions", True)
+        # check_encryption = body.get("check_encryption", True)
 
         manager = self._get_backup_manager()
         validation_results = {
