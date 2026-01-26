@@ -31,6 +31,7 @@ Endpoints:
 from __future__ import annotations
 
 import base64
+import binascii
 import logging
 import threading
 from datetime import datetime
@@ -95,7 +96,7 @@ async def handle_upload_invoice(
         # Decode base64
         try:
             document_bytes = base64.b64decode(doc_b64)
-        except Exception:
+        except (binascii.Error, ValueError, TypeError):
             return error_response("Invalid base64 document_data", status=400)
 
         vendor_hint = data.get("vendor_hint")
