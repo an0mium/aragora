@@ -425,6 +425,17 @@ If you ran Aragora in the repo root, stray `.db` files may land there. Move them
 scripts/cleanup_runtime_artifacts.sh
 ```
 
+## Receipt Retention
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_RECEIPT_RETENTION_DAYS` | Optional | How long to keep decision receipts | `2555` (~7 years) |
+| `ARAGORA_RECEIPT_CLEANUP_INTERVAL_HOURS` | Optional | How often to run receipt cleanup | `24` |
+
+Decision receipts are cryptographic audit trails for debates. They're automatically cleaned up by a background scheduler.
+
+**Compliance note:** The default 7-year retention aligns with financial audit requirements. Adjust based on your regulatory requirements.
+
 ## CORS Configuration
 
 | Variable | Required | Description | Default |
