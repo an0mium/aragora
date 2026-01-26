@@ -11,6 +11,8 @@ interface DebateInputProps {
   apiBase: string;
   onDebateStarted?: (debateId: string, question: string) => void;
   onError?: (error: string) => void;
+  defaultFormat?: 'light' | 'full';
+  templateId?: string;
 }
 
 type DebateMode = 'standard' | 'graph' | 'matrix';
@@ -78,7 +80,7 @@ function detectDomain(text: string): string {
   return 'general';
 }
 
-export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputProps) {
+export function DebateInput({ apiBase, onDebateStarted, onError, defaultFormat, templateId: _templateId }: DebateInputProps) {
   const router = useRouter();
   const { tokens, isLoading: authLoading, isAuthenticated } = useAuth();
   const [question, setQuestion] = useState('');
@@ -87,7 +89,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
   const [agents, setAgents] = useState(DEFAULT_AGENTS);
   const [rounds, setRounds] = useState(DEFAULT_ROUNDS);
   const [debateMode, setDebateMode] = useState<DebateMode>('standard');
-  const [debateFormat, setDebateFormat] = useState<DebateFormat>('full');
+  const [debateFormat, setDebateFormat] = useState<DebateFormat>(defaultFormat || 'full');
   const [apiStatus, setApiStatus] = useState<ApiStatus>('checking');
   const [recommendations, setRecommendations] = useState<AgentRecommendation[]>([]);
   const [detectedDomain, setDetectedDomain] = useState<string>('general');

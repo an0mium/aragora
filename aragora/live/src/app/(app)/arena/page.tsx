@@ -1,15 +1,70 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DebateInput } from '@/components/DebateInput';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { API_BASE_URL } from '@/config';
 import Link from 'next/link';
 
+// Template configurations for SME/Quickstart templates
+const TEMPLATE_CONFIGS: Record<string, { name: string; description: string; format: 'light' | 'full'; mode: string }> = {
+  'quickstart/yes-no': {
+    name: 'Quick Yes/No Decision',
+    description: 'Fast binary decision with AI consensus',
+    format: 'light',
+    mode: 'decision',
+  },
+  'quickstart/pros-cons': {
+    name: 'Pros & Cons Analysis',
+    description: 'Structured advantages and disadvantages analysis',
+    format: 'light',
+    mode: 'analysis',
+  },
+  'quickstart/risk-assessment': {
+    name: 'Risk Assessment',
+    description: 'Quick risk identification and scoring',
+    format: 'light',
+    mode: 'risk',
+  },
+  'quickstart/brainstorm': {
+    name: 'Brainstorm Session',
+    description: 'Multi-perspective idea generation',
+    format: 'light',
+    mode: 'creative',
+  },
+  'sme/vendor-evaluation': {
+    name: 'Vendor Evaluation',
+    description: 'Compare vendors across key criteria',
+    format: 'full',
+    mode: 'evaluation',
+  },
+  'sme/hiring-decision': {
+    name: 'Hiring Decision',
+    description: 'Candidate evaluation with multi-agent analysis',
+    format: 'full',
+    mode: 'hiring',
+  },
+  'sme/budget-allocation': {
+    name: 'Budget Allocation',
+    description: 'Optimize budget distribution',
+    format: 'full',
+    mode: 'finance',
+  },
+  'sme/business-decision': {
+    name: 'Business Decision',
+    description: 'Strategic decision analysis',
+    format: 'full',
+    mode: 'strategy',
+  },
+};
+
 export default function ArenaPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const templateId = searchParams.get('template');
+  const templateConfig = templateId ? TEMPLATE_CONFIGS[templateId] : null;
   const [error, setError] = useState<string | null>(null);
   const [recentDebates, setRecentDebates] = useState<{ id: string; question: string; created_at: string }[]>([]);
   const { setContext, clearContext } = useRightSidebar();
@@ -92,12 +147,26 @@ export default function ArenaPage() {
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-2xl sm:text-3xl font-mono text-[var(--acid-green)] mb-3">
-              {'>'} DEBATE ARENA
+              {'>'} {templateConfig ? templateConfig.name.toUpperCase() : 'DEBATE ARENA'}
             </h1>
             <p className="text-sm text-[var(--text-muted)] font-mono max-w-xl mx-auto">
-              Harness the collective intelligence of multiple AI models for better decisions.
-              Choose your question and let Claude, GPT, Gemini, Grok & DeepSeek collaborate through debate.
+              {templateConfig
+                ? templateConfig.description
+                : 'Harness the collective intelligence of multiple AI models for better decisions. Choose your question and let Claude, GPT, Gemini, Grok & DeepSeek collaborate through debate.'}
             </p>
+            {templateConfig && (
+              <div className="mt-3 flex items-center justify-center gap-4">
+                <span className="px-2 py-1 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30">
+                  {templateConfig.format === 'light' ? 'Quick (~5 min)' : 'Thorough (~15 min)'}
+                </span>
+                <Link
+                  href="/arena"
+                  className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] underline"
+                >
+                  Switch to standard arena
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Error Banner */}
@@ -120,6 +189,8 @@ export default function ArenaPage() {
               apiBase={API_BASE_URL}
               onDebateStarted={handleDebateStarted}
               onError={handleError}
+              defaultFormat={templateConfig?.format}
+              templateId={templateId || undefined}
             />
           </div>
 
