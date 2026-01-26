@@ -608,11 +608,13 @@ class EmailWebhooksHandler(BaseHandler):
 
             if result.get("success"):
                 subscription.status = WebhookStatus.ACTIVE
-                _subscriptions[subscription_id] = subscription
+                # Thread-safe access to shared state
+                async with _webhooks_lock:
+                    _subscriptions[subscription_id] = subscription
 
-                if tenant_id not in _tenant_subscriptions:
-                    _tenant_subscriptions[tenant_id] = []
-                _tenant_subscriptions[tenant_id].append(subscription_id)
+                    if tenant_id not in _tenant_subscriptions:
+                        _tenant_subscriptions[tenant_id] = []
+                    _tenant_subscriptions[tenant_id].append(subscription_id)
 
                 logger.info(f"Created {provider.value} webhook subscription: {subscription_id}")
 
@@ -673,10 +675,11 @@ class EmailWebhooksHandler(BaseHandler):
             if not subscription_id:
                 return error_response("Missing subscription_id", 400)
 
-            if subscription_id not in _subscriptions:
-                return error_response("Subscription not found", 404)
-
-            subscription = _subscriptions[subscription_id]
+            # Thread-safe lookup
+            async with _webhooks_lock:
+                if subscription_id not in _subscriptions:
+                    return error_response("Subscription not found", 404)
+                subscription = _subscriptions[subscription_id]
 
             # Verify tenant access
             if subscription.tenant_id != tenant_id:
@@ -688,12 +691,14 @@ class EmailWebhooksHandler(BaseHandler):
             else:
                 await self._delete_outlook_subscription(subscription)
 
-            # Remove from storage
-            del _subscriptions[subscription_id]
-            if tenant_id in _tenant_subscriptions:
-                _tenant_subscriptions[tenant_id] = [
-                    sid for sid in _tenant_subscriptions[tenant_id] if sid != subscription_id
-                ]
+            # Thread-safe removal from storage
+            async with _webhooks_lock:
+                if subscription_id in _subscriptions:
+                    del _subscriptions[subscription_id]
+                if tenant_id in _tenant_subscriptions:
+                    _tenant_subscriptions[tenant_id] = [
+                        sid for sid in _tenant_subscriptions[tenant_id] if sid != subscription_id
+                    ]
 
             logger.info(f"Deleted webhook subscription: {subscription_id}")
 
