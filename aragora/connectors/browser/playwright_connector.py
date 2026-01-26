@@ -175,10 +175,11 @@ class PlaywrightConnector:
                 self.blocked_domains = set(d.strip() for d in env_blocked.split(","))
 
         # Playwright objects (lazy initialized)
-        self._playwright = None
-        self._browser = None
-        self._context = None
-        self._page = None
+        # Using Any type to avoid mypy errors when accessing these after initialization
+        self._playwright: Any = None
+        self._browser: Any = None
+        self._context: Any = None
+        self._page: Any = None
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -204,7 +205,7 @@ class PlaywrightConnector:
             browser_launcher = self._playwright.chromium
 
         # Launch browser with proxy if configured
-        launch_options = {
+        launch_options: Dict[str, Any] = {
             "headless": self.headless,
         }
         if self.proxy:
@@ -486,7 +487,7 @@ class PlaywrightConnector:
             with open(path, "wb") as f:
                 f.write(screenshot)
 
-        return screenshot
+        return bytes(screenshot)
 
     async def get_text(
         self,
@@ -534,7 +535,8 @@ class PlaywrightConnector:
             selector,
             timeout=timeout_ms or self.timeout_ms,
         )
-        return await self._page.get_attribute(selector, attribute)
+        result = await self._page.get_attribute(selector, attribute)
+        return str(result) if result is not None else None
 
     async def wait_for(
         self,
@@ -620,7 +622,8 @@ class PlaywrightConnector:
     async def get_cookies(self) -> List[Dict[str, Any]]:
         """Get all cookies for the current context."""
         await self._ensure_initialized()
-        return await self._context.cookies()
+        cookies = await self._context.cookies()
+        return list(cookies) if cookies else []
 
     async def set_cookie(
         self,
@@ -709,15 +712,17 @@ class PlaywrightConnector:
         if selector:
             element = await self._page.query_selector(selector)
             if element:
-                return await element.inner_html()
+                html = await element.inner_html()
+                return str(html) if html else ""
             return ""
-        return await self._page.content()
+        content = await self._page.content()
+        return str(content) if content else ""
 
     @property
     def current_url(self) -> str:
         """Get current page URL."""
         if self._page:
-            return self._page.url
+            return str(self._page.url) if self._page.url else ""
         return ""
 
     @property
