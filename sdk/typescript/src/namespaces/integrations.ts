@@ -89,19 +89,13 @@ export interface UpdateIntegrationRequest {
 }
 
 /**
- * Interface for the internal client methods used by IntegrationsAPI.
+ * Interface for the internal client used by IntegrationsAPI.
  */
 interface IntegrationsClientInterface {
-  listIntegrations(): Promise<{ integrations: Integration[]; total: number }>;
-  getIntegration(id: string): Promise<Integration>;
-  createIntegration(body: CreateIntegrationRequest): Promise<Integration>;
-  updateIntegration(id: string, body: UpdateIntegrationRequest): Promise<Integration>;
-  deleteIntegration(id: string): Promise<{ deleted: boolean }>;
-  listAvailableIntegrations(): Promise<{ integrations: AvailableIntegration[] }>;
-  getIntegrationConfig(type: string): Promise<IntegrationConfigSchema>;
-  testIntegration(id: string): Promise<{ success: boolean; message?: string; error?: string }>;
-  syncIntegration(id: string): Promise<IntegrationSyncStatus>;
-  getIntegrationSyncStatus(id: string): Promise<IntegrationSyncStatus>;
+  get<T>(path: string): Promise<T>;
+  post<T>(path: string, body?: unknown): Promise<T>;
+  put<T>(path: string, body?: unknown): Promise<T>;
+  delete<T>(path: string): Promise<T>;
 }
 
 /**

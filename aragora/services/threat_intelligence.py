@@ -524,7 +524,7 @@ class ThreatIntelligenceService:
         self._memory_cache_lock = threading.Lock()
 
         # HTTP session (lazy initialized)
-        self._http_session = None
+        self._http_session: Optional[Any] = None  # aiohttp.ClientSession
 
         logger.info(
             f"ThreatIntelligenceService initialized "

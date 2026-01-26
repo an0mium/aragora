@@ -151,35 +151,35 @@ export class WorkspacesAPI {
    * List all workspaces.
    */
   async list(): Promise<{ workspaces: Workspace[]; total: number }> {
-    return this.client.listWorkspaces();
+    return this.client.get('/api/workspaces');
   }
 
   /**
    * Get a specific workspace by ID.
    */
   async get(id: string): Promise<Workspace> {
-    return this.client.getWorkspace(id);
+    return this.client.get(`/api/workspaces/${id}`);
   }
 
   /**
    * Create a new workspace.
    */
   async create(body: CreateWorkspaceRequest): Promise<Workspace> {
-    return this.client.createWorkspace(body);
+    return this.client.post('/api/workspaces', body);
   }
 
   /**
    * Update an existing workspace.
    */
   async update(id: string, body: UpdateWorkspaceRequest): Promise<Workspace> {
-    return this.client.updateWorkspace(id, body);
+    return this.client.put(`/api/workspaces/${id}`, body);
   }
 
   /**
    * Delete a workspace.
    */
   async delete(id: string): Promise<{ deleted: boolean }> {
-    return this.client.deleteWorkspace(id);
+    return this.client.delete(`/api/workspaces/${id}`);
   }
 
   // ===========================================================================
@@ -190,28 +190,28 @@ export class WorkspacesAPI {
    * List workspace members.
    */
   async listMembers(workspaceId: string): Promise<{ members: WorkspaceMember[]; total: number }> {
-    return this.client.listWorkspaceMembers(workspaceId);
+    return this.client.get(`/api/workspaces/${workspaceId}/members`);
   }
 
   /**
    * Add a member to the workspace.
    */
   async addMember(workspaceId: string, body: AddMemberRequest): Promise<WorkspaceMember> {
-    return this.client.addWorkspaceMember(workspaceId, body);
+    return this.client.post(`/api/workspaces/${workspaceId}/members`, body);
   }
 
   /**
    * Update a member's role.
    */
   async updateMember(workspaceId: string, userId: string, body: UpdateMemberRequest): Promise<WorkspaceMember> {
-    return this.client.updateWorkspaceMember(workspaceId, userId, body);
+    return this.client.put(`/api/workspaces/${workspaceId}/members/${userId}`, body);
   }
 
   /**
    * Remove a member from the workspace.
    */
   async removeMember(workspaceId: string, userId: string): Promise<{ removed: boolean }> {
-    return this.client.removeWorkspaceMember(workspaceId, userId);
+    return this.client.delete(`/api/workspaces/${workspaceId}/members/${userId}`);
   }
 
   // ===========================================================================
@@ -222,6 +222,6 @@ export class WorkspacesAPI {
    * List workspace profiles (permission sets).
    */
   async listProfiles(workspaceId: string): Promise<{ profiles: WorkspaceProfile[] }> {
-    return this.client.listWorkspaceProfiles(workspaceId);
+    return this.client.get(`/api/workspaces/${workspaceId}/profiles`);
   }
 }

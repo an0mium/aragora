@@ -548,6 +548,7 @@ async def handle_init_flow(
         return error_response(f"Failed to initialize: {str(e)}", status=500)
 
 
+@require_permission("onboarding:update")
 async def handle_update_step(
     data: Dict[str, Any],
     user_id: str = "default",
