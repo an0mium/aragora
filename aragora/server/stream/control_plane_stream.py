@@ -24,7 +24,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Set
+from typing import Any, Dict, Optional, Set
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ class ControlPlaneStreamServer:
         self._clients: Set[Any] = set()  # websockets.WebSocketServerProtocol
         self._lock = asyncio.Lock()
         self._running = False
-        self._server = None
+        self._server: Optional[Any] = None  # websockets.WebSocketServer
 
     async def start(self):
         """Start the WebSocket server."""
