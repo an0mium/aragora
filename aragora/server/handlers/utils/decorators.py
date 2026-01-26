@@ -754,8 +754,8 @@ def require_feature(
 
 
 def safe_fetch(
-    data_dict: dict,
-    errors_dict: dict,
+    data_dict: dict[str, Any],
+    errors_dict: dict[str, Any],
     key: str,
     fallback: Any,
     log_errors: bool = True,

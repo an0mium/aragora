@@ -1,12 +1,14 @@
 """Integration management endpoint definitions."""
 
+from typing import Any
+
 from aragora.server.openapi.helpers import STANDARD_ERRORS
 
 
 # Helper to build inline response
-def _response(description: str, schema: dict | None = None) -> dict:
+def _response(description: str, schema: dict[str, Any] | None = None) -> dict[str, Any]:
     """Build a response with optional inline schema."""
-    resp: dict = {"description": description}
+    resp: dict[str, Any] = {"description": description}
     if schema:
         resp["content"] = {"application/json": {"schema": schema}}
     return resp

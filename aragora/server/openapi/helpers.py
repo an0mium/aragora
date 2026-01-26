@@ -168,9 +168,9 @@ ERROR_EXAMPLES: dict[str, dict[str, Any]] = {
 # =============================================================================
 
 
-def _ok_response(description: str, schema_ref: str | None = None) -> dict:
+def _ok_response(description: str, schema_ref: str | None = None) -> dict[str, Any]:
     """Build a successful response definition."""
-    resp: dict = {"description": description}
+    resp: dict[str, Any] = {"description": description}
     if schema_ref:
         resp["content"] = {
             "application/json": {"schema": {"$ref": f"#/components/schemas/{schema_ref}"}}
@@ -178,7 +178,7 @@ def _ok_response(description: str, schema_ref: str | None = None) -> dict:
     return resp
 
 
-def _array_response(description: str, schema_ref: str) -> dict:
+def _array_response(description: str, schema_ref: str) -> dict[str, Any]:
     """Build an array response definition."""
     return {
         "description": description,
@@ -199,7 +199,7 @@ def _array_response(description: str, schema_ref: str) -> dict:
     }
 
 
-def _error_response(status: str, description: str) -> dict:
+def _error_response(status: str, description: str) -> dict[str, Any]:
     """Build an error response definition with examples."""
     examples = ERROR_EXAMPLES.get(status, {})
     response: dict[str, Any] = {
@@ -216,11 +216,11 @@ def _error_response(status: str, description: str) -> dict:
 
 
 def _rate_limited_endpoint(
-    operation: dict,
+    operation: dict[str, Any],
     tier: str = "free",
     custom_limit: int | None = None,
     window: str = "minute",
-) -> dict:
+) -> dict[str, Any]:
     """Add rate limit documentation to an endpoint operation.
 
     Args:

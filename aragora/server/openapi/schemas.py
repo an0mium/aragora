@@ -1986,9 +1986,9 @@ COMMON_SCHEMAS: dict[str, Any] = {
 # =============================================================================
 
 
-def ok_response(description: str, schema_ref: str | None = None) -> dict:
+def ok_response(description: str, schema_ref: str | None = None) -> dict[str, Any]:
     """Create a successful response definition."""
-    resp: dict = {"description": description}
+    resp: dict[str, Any] = {"description": description}
     if schema_ref:
         resp["content"] = {
             "application/json": {"schema": {"$ref": f"#/components/schemas/{schema_ref}"}}
@@ -1996,7 +1996,7 @@ def ok_response(description: str, schema_ref: str | None = None) -> dict:
     return resp
 
 
-def array_response(description: str, schema_ref: str) -> dict:
+def array_response(description: str, schema_ref: str) -> dict[str, Any]:
     """Create an array response definition."""
     return {
         "description": description,
@@ -2017,7 +2017,7 @@ def array_response(description: str, schema_ref: str) -> dict:
     }
 
 
-def error_response(status: str, description: str) -> dict:
+def error_response(status: str, description: str) -> dict[str, Any]:
     """Create an error response definition."""
     return {
         "description": description,

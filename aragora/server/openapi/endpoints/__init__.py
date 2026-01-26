@@ -54,8 +54,11 @@ from aragora.server.openapi.endpoints.webhooks import WEBHOOK_ENDPOINTS
 from aragora.server.openapi.endpoints.integrations import INTEGRATION_ENDPOINTS
 
 
+from typing import Any
+
+
 # Import decorator-based endpoints registry
-def _get_decorator_endpoints() -> dict:
+def _get_decorator_endpoints() -> dict[str, Any]:
     """Get endpoints registered via @api_endpoint decorator.
 
     Returns empty dict if decorator module not available or no endpoints registered.

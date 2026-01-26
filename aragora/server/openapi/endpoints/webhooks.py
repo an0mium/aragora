@@ -1,5 +1,7 @@
 """Webhook endpoint definitions for OpenAPI documentation."""
 
+from typing import Any
+
 from aragora.server.openapi.helpers import _ok_response
 
 # Common parameter definitions
@@ -12,7 +14,7 @@ _WEBHOOK_ID_PARAM = {
 }
 
 
-def _webhook_schema() -> dict:
+def _webhook_schema() -> dict[str, Any]:
     """Webhook object schema."""
     return {
         "type": "object",
@@ -37,7 +39,7 @@ def _webhook_schema() -> dict:
     }
 
 
-def _webhook_create_schema() -> dict:
+def _webhook_create_schema() -> dict[str, Any]:
     """Webhook creation request schema."""
     return {
         "type": "object",
@@ -55,7 +57,7 @@ def _webhook_create_schema() -> dict:
     }
 
 
-def _webhook_update_schema() -> dict:
+def _webhook_update_schema() -> dict[str, Any]:
     """Webhook update request schema."""
     return {
         "type": "object",
@@ -68,7 +70,7 @@ def _webhook_update_schema() -> dict:
     }
 
 
-def _event_type_schema() -> dict:
+def _event_type_schema() -> dict[str, Any]:
     """Event type schema."""
     return {
         "type": "object",
