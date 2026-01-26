@@ -86,7 +86,7 @@ GITHUB_ENDPOINTS = {
         "get": {
             "tags": ["GitHub"],
             "summary": "List PR reviews",
-            "operationId": "getGithubPrReview",
+            "operationId": "listGithubPrReviews",
             "description": "List review runs for a PR.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
@@ -116,7 +116,7 @@ GITHUB_ENDPOINTS = {
         "post": {
             "tags": ["GitHub"],
             "summary": "Submit PR review",
-            "operationId": "createGithubPrReview",
+            "operationId": "submitGithubPrReview",
             "description": "Submit a review verdict back to GitHub.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [
