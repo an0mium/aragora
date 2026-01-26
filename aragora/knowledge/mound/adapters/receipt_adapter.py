@@ -28,7 +28,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 if TYPE_CHECKING:
     from aragora.export.decision_receipt import (
         DecisionReceipt,
-        ReceiptFinding,
         ReceiptVerification,
     )
 
@@ -195,17 +194,19 @@ class ReceiptAdapter:
             )
 
         base_tags = tags or []
+        risk_level = self._get_receipt_field(receipt, "risk_level", "unknown")
         base_tags.extend(
             [
                 f"receipt:{receipt.receipt_id}",
                 f"verdict:{receipt.verdict}",
-                f"risk:{receipt.risk_level}",
+                f"risk:{risk_level}",
             ]
         )
 
-        # 1. Ingest verified claims
-        for verification in receipt.verified_claims:
-            if not verification.verified:
+        # 1. Ingest verified claims (if available - gauntlet receipts don't have these)
+        verified_claims = self._get_receipt_field(receipt, "verified_claims", [])
+        for verification in verified_claims:
+            if not getattr(verification, "verified", False):
                 continue  # Skip unverified claims
 
             try:
@@ -224,8 +225,14 @@ class ReceiptAdapter:
                 logger.warning(f"Claim ingestion failed: {e}")
 
         # 2. Ingest critical and high severity findings
-        for finding in receipt.findings:
-            if finding.severity not in ("CRITICAL", "HIGH"):
+        findings = self._get_receipt_field(receipt, "findings", [])
+        for finding in findings:
+            # Handle both object findings and dict findings (from gauntlet receipts)
+            if isinstance(finding, dict):
+                severity = finding.get("severity", finding.get("severity_level", "")).upper()
+            else:
+                severity = getattr(finding, "severity", "")
+            if severity not in ("CRITICAL", "HIGH"):
                 continue  # Only persist high-severity findings
 
             try:
@@ -337,14 +344,39 @@ class ReceiptAdapter:
 
     def _finding_to_knowledge_item(
         self,
-        finding: "ReceiptFinding",
+        finding: Any,  # Can be ReceiptFinding or dict from gauntlet receipt
         receipt: "DecisionReceipt",
         workspace_id: Optional[str],
         tags: List[str],
     ) -> KnowledgeItem:
-        """Convert a finding to a knowledge item."""
+        """Convert a finding to a knowledge item.
+
+        Handles both ReceiptFinding objects and dict findings from gauntlet receipts.
+        """
+        # Extract fields, supporting both object and dict formats
+        if isinstance(finding, dict):
+            finding_id = finding.get("id", finding.get("finding_id", ""))
+            title = finding.get("title", "")
+            description = finding.get("description", "")
+            severity = finding.get("severity", finding.get("severity_level", "MEDIUM")).upper()
+            category = finding.get("category", "unknown")
+            source = finding.get("source", "")
+            verified = finding.get("verified", False)
+            mitigation = finding.get("mitigation", finding.get("recommendations", ""))
+            if isinstance(mitigation, list):
+                mitigation = "; ".join(str(m) for m in mitigation)
+        else:
+            finding_id = getattr(finding, "id", "")
+            title = getattr(finding, "title", "")
+            description = getattr(finding, "description", "")
+            severity = getattr(finding, "severity", "MEDIUM")
+            category = getattr(finding, "category", "unknown")
+            source = getattr(finding, "source", "")
+            verified = getattr(finding, "verified", False)
+            mitigation = getattr(finding, "mitigation", "")
+
         # Generate deterministic ID from finding
-        finding_hash = hashlib.sha256(f"{finding.id}:{finding.title}".encode()).hexdigest()[:12]
+        finding_hash = hashlib.sha256(f"{finding_id}:{title}".encode()).hexdigest()[:12]
         item_id = f"{self.FINDING_PREFIX}{finding_hash}"
 
         # Map severity to confidence (inverse - high severity = important but uncertain)
@@ -354,11 +386,11 @@ class ReceiptAdapter:
             "MEDIUM": ConfidenceLevel.MEDIUM,
             "LOW": ConfidenceLevel.LOW,
         }
-        confidence = confidence_map.get(finding.severity, ConfidenceLevel.MEDIUM)
+        confidence = confidence_map.get(severity, ConfidenceLevel.MEDIUM)
 
-        content = f"[{finding.severity}] {finding.title}: {finding.description}"
-        if finding.mitigation:
-            content += f"\n\nMitigation: {finding.mitigation}"
+        content = f"[{severity}] {title}: {description}"
+        if mitigation:
+            content += f"\n\nMitigation: {mitigation}"
 
         now = datetime.now(timezone.utc)
 
@@ -372,22 +404,78 @@ class ReceiptAdapter:
             updated_at=now,
             metadata={
                 "receipt_id": receipt.receipt_id,
-                "finding_id": finding.id,
-                "severity": finding.severity,
-                "category": finding.category,
-                "finding_source": finding.source,
-                "verified": finding.verified,
-                "mitigation": finding.mitigation,
+                "finding_id": finding_id,
+                "severity": severity,
+                "category": category,
+                "finding_source": source,
+                "verified": verified,
+                "mitigation": mitigation,
                 "workspace_id": workspace_id or "",
                 "tags": tags
                 + [
                     "finding",
-                    f"severity:{finding.severity.lower()}",
-                    f"category:{finding.category}",
+                    f"severity:{severity.lower()}",
+                    f"category:{category}",
                 ],
                 "item_type": "finding",
             },
         )
+
+    def _get_receipt_field(
+        self,
+        receipt: "DecisionReceipt",
+        field: str,
+        default: Any = None,
+    ) -> Any:
+        """Safely get a field from receipt, handling different receipt types.
+
+        Supports both export/decision_receipt.py and gauntlet/receipt.py formats.
+        """
+        # Direct attribute
+        if hasattr(receipt, field) and getattr(receipt, field) is not None:
+            return getattr(receipt, field)
+
+        # Field mappings for gauntlet receipts
+        field_mappings = {
+            "risk_level": lambda r: (
+                r.risk_summary.get("level", "unknown")
+                if hasattr(r, "risk_summary") and r.risk_summary
+                else "unknown"
+            ),
+            "critical_count": lambda r: (
+                r.risk_summary.get("critical", 0)
+                if hasattr(r, "risk_summary") and r.risk_summary
+                else 0
+            ),
+            "high_count": lambda r: (
+                r.risk_summary.get("high", 0)
+                if hasattr(r, "risk_summary") and r.risk_summary
+                else 0
+            ),
+            "risk_score": lambda r: 1.0 - r.robustness_score
+            if hasattr(r, "robustness_score")
+            else 0.5,
+            "checksum": lambda r: getattr(r, "artifact_hash", None),
+            "findings": lambda r: getattr(r, "vulnerability_details", []),
+            "verified_claims": lambda r: [],  # Gauntlet receipts don't have verified_claims
+            "agents_involved": lambda r: (
+                r.consensus_proof.supporting_agents
+                if hasattr(r, "consensus_proof") and r.consensus_proof
+                else []
+            ),
+            "duration_seconds": lambda r: r.config_used.get("duration_seconds", 0)
+            if hasattr(r, "config_used")
+            else 0,
+            "audit_trail_id": lambda r: None,
+        }
+
+        if field in field_mappings:
+            try:
+                return field_mappings[field](receipt)
+            except (AttributeError, KeyError, TypeError):
+                pass
+
+        return default
 
     def _receipt_to_summary_item(
         self,
@@ -395,7 +483,10 @@ class ReceiptAdapter:
         workspace_id: Optional[str],
         tags: List[str],
     ) -> KnowledgeItem:
-        """Create a summary knowledge item for the receipt."""
+        """Create a summary knowledge item for the receipt.
+
+        Handles both export/decision_receipt.py and gauntlet/receipt.py formats.
+        """
         item_id = f"{self.ID_PREFIX}{receipt.receipt_id}"
 
         # Map verdict to confidence
@@ -404,17 +495,32 @@ class ReceiptAdapter:
             "APPROVED_WITH_CONDITIONS": ConfidenceLevel.MEDIUM,
             "NEEDS_REVIEW": ConfidenceLevel.LOW,
             "REJECTED": ConfidenceLevel.LOW,
+            "PASS": ConfidenceLevel.HIGH,
+            "CONDITIONAL": ConfidenceLevel.MEDIUM,
+            "FAIL": ConfidenceLevel.LOW,
         }
         confidence = confidence_map.get(receipt.verdict, ConfidenceLevel.MEDIUM)
+
+        # Get fields with fallback handling
+        risk_level = self._get_receipt_field(receipt, "risk_level", "unknown")
+        critical_count = self._get_receipt_field(receipt, "critical_count", 0)
+        high_count = self._get_receipt_field(receipt, "high_count", 0)
+        findings = self._get_receipt_field(receipt, "findings", [])
+        verified_claims = self._get_receipt_field(receipt, "verified_claims", [])
+        risk_score = self._get_receipt_field(receipt, "risk_score", 0.5)
+        checksum = self._get_receipt_field(receipt, "checksum", "")
+        audit_trail_id = self._get_receipt_field(receipt, "audit_trail_id", None)
+        agents_involved = self._get_receipt_field(receipt, "agents_involved", [])
+        duration_seconds = self._get_receipt_field(receipt, "duration_seconds", 0)
 
         summary = (
             f"Decision Receipt: {receipt.verdict}\n\n"
             f"Input: {receipt.input_summary[:500]}\n\n"
             f"Confidence: {receipt.confidence:.0%}\n"
-            f"Risk Level: {receipt.risk_level}\n"
-            f"Findings: {len(receipt.findings)} "
-            f"(Critical: {receipt.critical_count}, High: {receipt.high_count})\n"
-            f"Verified Claims: {len(receipt.verified_claims)}"
+            f"Risk Level: {risk_level}\n"
+            f"Findings: {len(findings)} "
+            f"(Critical: {critical_count}, High: {high_count})\n"
+            f"Verified Claims: {len(verified_claims)}"
         )
 
         now = datetime.now(timezone.utc)
@@ -432,14 +538,18 @@ class ReceiptAdapter:
                 "gauntlet_id": receipt.gauntlet_id,
                 "verdict": receipt.verdict,
                 "confidence": receipt.confidence,
-                "risk_level": receipt.risk_level,
-                "risk_score": receipt.risk_score,
-                "critical_count": receipt.critical_count,
-                "high_count": receipt.high_count,
-                "agents_involved": receipt.agents_involved,
-                "duration_seconds": receipt.duration_seconds,
-                "checksum": receipt.checksum,
-                "audit_trail_id": receipt.audit_trail_id,
+                "risk_level": risk_level,
+                "risk_score": risk_score,
+                "critical_count": critical_count,
+                "high_count": high_count,
+                "agents_involved": agents_involved,
+                "duration_seconds": duration_seconds,
+                "checksum": checksum,
+                "audit_trail_id": audit_trail_id,
+                # Include signature info if present
+                "signature": getattr(receipt, "signature", None),
+                "signature_algorithm": getattr(receipt, "signature_algorithm", None),
+                "signed_at": getattr(receipt, "signed_at", None),
                 "workspace_id": workspace_id or "",
                 "tags": tags + ["decision_receipt", "summary"],
                 "item_type": "decision_summary",
