@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useCallback } from 'react';
 import { useBackend } from '@/components/BackendSelector';
 import { logger } from '@/utils/logger';
+import { DEFAULT_AGENTS } from '@/config';
 
 interface UseCaseCard {
   id: string;
@@ -129,7 +130,7 @@ export default function HubPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: quickDebateTopic.trim(),
-          agents: 'grok,anthropic-api,openai-api,deepseek',
+          agents: DEFAULT_AGENTS,
           rounds: 3,
         }),
       });

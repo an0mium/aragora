@@ -8,6 +8,7 @@ import { TranscriptionViewer, TranscriptionResult } from '@/components/Transcrip
 import { useBackend } from '@/components/BackendSelector';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { logger } from '@/utils/logger';
+import { DEFAULT_AGENTS } from '@/config';
 
 type TranscriptionState = 'idle' | 'uploading' | 'transcribing' | 'complete' | 'error';
 
@@ -230,7 +231,7 @@ export default function SpeechPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: text,
-          agents: 'anthropic-api,openai-api,grok,deepseek',
+          agents: DEFAULT_AGENTS,
           rounds: 3,
           metadata: { source: 'voice_transcription' },
         }),

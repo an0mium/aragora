@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { VoiceInput } from '@/components/ui/VoiceInput';
-import { API_BASE_URL } from '@/config';
+import { API_BASE_URL, DEFAULT_AGENTS } from '@/config';
 import { usePWA } from '@/hooks/usePWA';
 
 type VoiceState = 'idle' | 'listening' | 'processing' | 'confirming' | 'starting';
@@ -54,7 +54,7 @@ export default function VoicePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: topic,
-          agents: 'grok,anthropic-api,openai-api,deepseek',
+          agents: DEFAULT_AGENTS,
           rounds: 3,
           metadata: { source: 'voice', platform: 'mobile' },
         }),

@@ -25,6 +25,7 @@ import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useBackend } from '@/components/BackendSelector';
 import { useDebateWebSocketStore } from '@/hooks/useDebateWebSocketStore';
+import { DEFAULT_AGENTS } from '@/config';
 
 export function DebateViewerWrapper() {
   const router = useRouter();
@@ -42,7 +43,7 @@ export function DebateViewerWrapper() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: topic,
-          agents: 'grok,anthropic-api,openai-api,deepseek',
+          agents: DEFAULT_AGENTS,
           rounds: 3,
           metadata: { source, from_trending: true },
         }),

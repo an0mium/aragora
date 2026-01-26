@@ -145,12 +145,21 @@ export function handleCritiqueEvent(data: ParsedEventData, ctx: EventHandlerCont
   const target = (eventData?.target as string) || 'unknown';
   const critic = (data.agent as string) || (eventData?.agent as string) || 'unknown';
 
-  // Build critique content: prefer full content, fallback to issues, then placeholder
+  const rawContent =
+    (eventData?.content as string | undefined) ||
+    (eventData?.full_content as string | undefined) ||
+    (eventData?.fullContent as string | undefined) ||
+    (eventData?.reasoning as string | undefined);
+  const errorDetail = eventData?.error as string | undefined;
+
+  // Build critique content: prefer full content, fallback to issues, then error/placeholder
   let critiqueBody = '';
-  if (eventData?.content && typeof eventData.content === 'string' && (eventData.content as string).trim()) {
-    critiqueBody = eventData.content as string;
+  if (rawContent && rawContent.trim()) {
+    critiqueBody = rawContent;
   } else if (issues && issues.length > 0) {
     critiqueBody = issues.join('; ');
+  } else if (errorDetail) {
+    critiqueBody = `[Critique error: ${errorDetail}]`;
   } else {
     critiqueBody = '[Critique content not available]';
   }

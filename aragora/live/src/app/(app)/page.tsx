@@ -31,6 +31,7 @@ import { HeroSection } from '@/components/landing/HeroSection';
 import type { NomicState } from '@/types/events';
 import { DashboardFooter } from './components';
 import { useAuth } from '@/context/AuthContext';
+import { DEFAULT_AGENTS } from '@/config';
 
 // Dynamic imports - code-split for bundle size optimization
 import {
@@ -169,7 +170,7 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: topic,
-          agents: 'grok,anthropic-api,openai-api,deepseek',
+          agents: DEFAULT_AGENTS,
           rounds: 3,
           metadata: { source, from_trending: true },
         }),
