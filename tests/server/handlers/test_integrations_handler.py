@@ -185,11 +185,12 @@ class TestGetIntegration:
     @pytest.mark.asyncio
     async def test_get_slack_integration(self, handler_with_mocks):
         """Test getting Slack integration details."""
-        result = await handler_with_mocks._get_integration(
+        raw_result = await handler_with_mocks._get_integration(
             integration_type="slack",
             workspace_id="ws-123",
             tenant_id="tenant-1",
         )
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert result["data"]["type"] == "slack"
@@ -198,11 +199,12 @@ class TestGetIntegration:
     @pytest.mark.asyncio
     async def test_get_teams_integration(self, handler_with_mocks):
         """Test getting Teams integration details."""
-        result = await handler_with_mocks._get_integration(
+        raw_result = await handler_with_mocks._get_integration(
             integration_type="teams",
             workspace_id="ws-123",
             tenant_id="tenant-1",
         )
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert result["data"]["type"] == "teams"
@@ -212,11 +214,12 @@ class TestGetIntegration:
         """Test getting non-existent integration returns 404."""
         mock_slack_store.get.return_value = None
 
-        result = await handler_with_mocks._get_integration(
+        raw_result = await handler_with_mocks._get_integration(
             integration_type="slack",
             workspace_id="nonexistent",
             tenant_id="tenant-1",
         )
+        result = parse_result(raw_result)
 
         assert result["success"] is False
         assert result["status_code"] == 404
@@ -224,11 +227,12 @@ class TestGetIntegration:
     @pytest.mark.asyncio
     async def test_get_integration_missing_workspace_id(self, handler_with_mocks):
         """Test getting integration without workspace_id returns 400."""
-        result = await handler_with_mocks._get_integration(
+        raw_result = await handler_with_mocks._get_integration(
             integration_type="slack",
             workspace_id=None,
             tenant_id="tenant-1",
         )
+        result = parse_result(raw_result)
 
         assert result["success"] is False
         assert result["status_code"] == 400
@@ -236,11 +240,12 @@ class TestGetIntegration:
     @pytest.mark.asyncio
     async def test_get_unsupported_integration_type(self, handler_with_mocks):
         """Test getting unsupported integration type returns error."""
-        result = await handler_with_mocks._get_integration(
+        raw_result = await handler_with_mocks._get_integration(
             integration_type="unsupported",
             workspace_id="ws-123",
             tenant_id="tenant-1",
         )
+        result = parse_result(raw_result)
 
         assert result["success"] is False
         assert result["status_code"] in [400, 404]
@@ -252,11 +257,12 @@ class TestDisconnectIntegration:
     @pytest.mark.asyncio
     async def test_disconnect_slack_integration(self, handler_with_mocks, mock_slack_store):
         """Test disconnecting Slack integration."""
-        result = await handler_with_mocks._disconnect_integration(
+        raw_result = await handler_with_mocks._disconnect_integration(
             integration_type="slack",
             workspace_id="ws-123",
             tenant_id="tenant-1",
         )
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         mock_slack_store.deactivate.assert_called_once()
@@ -264,11 +270,12 @@ class TestDisconnectIntegration:
     @pytest.mark.asyncio
     async def test_disconnect_teams_integration(self, handler_with_mocks, mock_teams_store):
         """Test disconnecting Teams integration."""
-        result = await handler_with_mocks._disconnect_integration(
+        raw_result = await handler_with_mocks._disconnect_integration(
             integration_type="teams",
             workspace_id="ws-123",
             tenant_id="tenant-1",
         )
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         mock_teams_store.deactivate.assert_called_once()
@@ -276,11 +283,12 @@ class TestDisconnectIntegration:
     @pytest.mark.asyncio
     async def test_disconnect_missing_workspace_id(self, handler_with_mocks):
         """Test disconnecting without workspace_id returns 400."""
-        result = await handler_with_mocks._disconnect_integration(
+        raw_result = await handler_with_mocks._disconnect_integration(
             integration_type="slack",
             workspace_id=None,
             tenant_id="tenant-1",
         )
+        result = parse_result(raw_result)
 
         assert result["success"] is False
         assert result["status_code"] == 400
@@ -304,11 +312,12 @@ class TestIntegrationHealth:
         mock_response.__exit__ = MagicMock(return_value=False)
 
         with patch("urllib.request.urlopen", return_value=mock_response):
-            result = await handler_with_mocks._get_health(
+            raw_result = await handler_with_mocks._get_health(
                 integration_type="slack",
                 workspace_id="ws-123",
                 tenant_id="tenant-1",
             )
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert result["data"]["type"] == "slack"
@@ -319,11 +328,12 @@ class TestIntegrationHealth:
         import urllib.error
 
         with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("timeout")):
-            result = await handler_with_mocks._get_health(
+            raw_result = await handler_with_mocks._get_health(
                 integration_type="slack",
                 workspace_id="ws-123",
                 tenant_id="tenant-1",
             )
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert result["data"]["healthy"] is False
@@ -337,11 +347,12 @@ class TestIntegrationHealth:
         mock_response.__exit__ = MagicMock(return_value=False)
 
         with patch("urllib.request.urlopen", return_value=mock_response):
-            result = await handler_with_mocks._test_integration(
+            raw_result = await handler_with_mocks._test_integration(
                 integration_type="slack",
                 workspace_id="ws-123",
                 tenant_id="tenant-1",
             )
+        result = parse_result(raw_result)
 
         assert result["success"] is True
 
@@ -352,7 +363,8 @@ class TestIntegrationStats:
     @pytest.mark.asyncio
     async def test_get_stats_returns_all_types(self, handler_with_mocks):
         """Test stats endpoint returns all integration types."""
-        result = await handler_with_mocks._get_stats(tenant_id="tenant-1")
+        raw_result = await handler_with_mocks._get_stats(tenant_id="tenant-1")
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert "stats" in result["data"]
@@ -363,7 +375,8 @@ class TestIntegrationStats:
     @pytest.mark.asyncio
     async def test_stats_includes_generated_at(self, handler_with_mocks):
         """Test stats includes generation timestamp."""
-        result = await handler_with_mocks._get_stats(tenant_id="tenant-1")
+        raw_result = await handler_with_mocks._get_stats(tenant_id="tenant-1")
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert "generated_at" in result["data"]
@@ -397,25 +410,27 @@ class TestHandlerRouting:
     async def test_handle_routes_to_correct_method(self, handler_with_mocks):
         """Test handle method routes to correct handler."""
         # Test GET list
-        result = await handler_with_mocks.handle(
+        raw_result = await handler_with_mocks.handle(
             method="GET",
             path="/api/v2/integrations",
             body=None,
             query_params={},
             headers={"x-tenant-id": "tenant-1"},
         )
+        result = parse_result(raw_result)
         assert result["success"] is True
 
     @pytest.mark.asyncio
     async def test_handle_unsupported_method(self, handler_with_mocks):
         """Test handle returns error for unsupported method."""
-        result = await handler_with_mocks.handle(
+        raw_result = await handler_with_mocks.handle(
             method="PATCH",
             path="/api/v2/integrations",
             body=None,
             query_params={},
             headers={},
         )
+        result = parse_result(raw_result)
 
         assert result["success"] is False
         assert result["status_code"] == 405
@@ -430,12 +445,13 @@ class TestSupportedIntegrationTypes:
     @pytest.mark.parametrize("integration_type", SUPPORTED_TYPES)
     async def test_supported_integration_types(self, handler_with_mocks, integration_type):
         """Test all supported integration types are handled."""
-        result = await handler_with_mocks._get_integration(
+        raw_result = await handler_with_mocks._get_integration(
             integration_type=integration_type,
             workspace_id="ws-123",
             tenant_id="tenant-1",
         )
 
+        result = parse_result(raw_result)
         # Should not return "unsupported type" error
         if result["success"] is False:
             assert "unsupported" not in result.get("error", "").lower()
@@ -459,12 +475,13 @@ class TestDiscordIntegration:
 
         with patch("urllib.request.urlopen", return_value=mock_response):
             with patch.dict("os.environ", {"DISCORD_BOT_TOKEN": "test-token"}):
-                result = await handler_with_mocks._get_health(
+                raw_result = await handler_with_mocks._get_health(
                     integration_type="discord",
                     workspace_id=None,
                     tenant_id="tenant-1",
                 )
 
+        result = parse_result(raw_result)
         assert result["success"] is True
 
 
@@ -479,23 +496,25 @@ class TestEmailIntegration:
 
         with patch("socket.create_connection", return_value=mock_socket):
             with patch.dict("os.environ", {"SMTP_HOST": "smtp.test.com", "SMTP_PORT": "587"}):
-                result = await handler_with_mocks._get_health(
+                raw_result = await handler_with_mocks._get_health(
                     integration_type="email",
                     workspace_id=None,
                     tenant_id="tenant-1",
                 )
 
+        result = parse_result(raw_result)
         assert result["success"] is True
 
     @pytest.mark.asyncio
     async def test_email_not_configured(self, handler_with_mocks):
         """Test Email returns not_configured when env vars missing."""
         with patch.dict("os.environ", {}, clear=True):
-            result = await handler_with_mocks._get_integration(
+            raw_result = await handler_with_mocks._get_integration(
                 integration_type="email",
                 workspace_id=None,
                 tenant_id="tenant-1",
             )
 
+        result = parse_result(raw_result)
         assert result["success"] is True
         # Should indicate not configured or handle gracefully
