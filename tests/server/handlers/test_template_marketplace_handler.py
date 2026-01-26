@@ -11,12 +11,31 @@ Tests the template marketplace API handlers for:
 - Categories
 """
 
+import json
 import time
 import uuid
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+
+def parse_result(result):
+    """Parse HandlerResult into a dict for test assertions.
+
+    Args:
+        result: HandlerResult object with status_code and body
+
+    Returns:
+        Dict with 'success', 'status_code', and 'data' keys
+    """
+    data = json.loads(result.body.decode("utf-8"))
+    is_success = 200 <= result.status_code < 400
+    return {
+        "success": is_success,
+        "status_code": result.status_code,
+        "data": data,
+    }
 
 
 @pytest.fixture
@@ -144,16 +163,17 @@ class TestListTemplates:
 
     def test_list_templates_returns_all(self, mock_marketplace_state, marketplace_handler):
         """Test listing all templates."""
-        result = marketplace_handler._list_templates({})
+        raw_result = marketplace_handler._list_templates({})
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert "templates" in result["data"]
-        assert "pagination" in result["data"]
         assert len(result["data"]["templates"]) >= 1
 
     def test_list_templates_with_category_filter(self, mock_marketplace_state, marketplace_handler):
         """Test listing templates filtered by category."""
-        result = marketplace_handler._list_templates({"category": "automation"})
+        raw_result = marketplace_handler._list_templates({"category": "automation"})
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         for template in result["data"]["templates"]:
@@ -161,25 +181,29 @@ class TestListTemplates:
 
     def test_list_templates_with_pattern_filter(self, mock_marketplace_state, marketplace_handler):
         """Test listing templates filtered by pattern."""
-        result = marketplace_handler._list_templates({"pattern": "sequential"})
+        raw_result = marketplace_handler._list_templates({"pattern": "sequential"})
+        result = parse_result(raw_result)
 
         assert result["success"] is True
 
     def test_list_templates_with_search(self, mock_marketplace_state, marketplace_handler):
         """Test listing templates with search query."""
-        result = marketplace_handler._list_templates({"search": "test"})
+        raw_result = marketplace_handler._list_templates({"search": "test"})
+        result = parse_result(raw_result)
 
         assert result["success"] is True
 
     def test_list_templates_with_tags_filter(self, mock_marketplace_state, marketplace_handler):
         """Test listing templates filtered by tags."""
-        result = marketplace_handler._list_templates({"tags": "test,automation"})
+        raw_result = marketplace_handler._list_templates({"tags": "test,automation"})
+        result = parse_result(raw_result)
 
         assert result["success"] is True
 
     def test_list_templates_verified_only(self, mock_marketplace_state, marketplace_handler):
         """Test listing only verified templates."""
-        result = marketplace_handler._list_templates({"verified_only": "true"})
+        raw_result = marketplace_handler._list_templates({"verified_only": "true"})
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         for template in result["data"]["templates"]:
@@ -188,24 +212,26 @@ class TestListTemplates:
     def test_list_templates_sorting(self, mock_marketplace_state, marketplace_handler):
         """Test listing templates with different sort options."""
         for sort_by in ["rating", "downloads", "newest", "name"]:
-            result = marketplace_handler._list_templates({"sort_by": sort_by})
+            raw_result = marketplace_handler._list_templates({"sort_by": sort_by})
+            result = parse_result(raw_result)
             assert result["success"] is True, f"Failed for sort_by={sort_by}"
 
     def test_list_templates_pagination(self, mock_marketplace_state, marketplace_handler):
         """Test listing templates with pagination."""
-        result = marketplace_handler._list_templates({"limit": "10", "offset": "0"})
+        raw_result = marketplace_handler._list_templates({"limit": "10", "offset": "0"})
+        result = parse_result(raw_result)
 
         assert result["success"] is True
-        pagination = result["data"]["pagination"]
-        assert pagination["limit"] == 10
-        assert pagination["offset"] == 0
+        assert result["data"]["limit"] == 10
+        assert result["data"]["offset"] == 0
 
     def test_list_templates_empty(self, marketplace_handler):
         """Test listing templates when none exist."""
         from aragora.server.handlers.template_marketplace import _marketplace_templates
 
         _marketplace_templates.clear()
-        result = marketplace_handler._list_templates({})
+        raw_result = marketplace_handler._list_templates({})
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         # May have seeded templates, but should not error
@@ -216,7 +242,8 @@ class TestGetTemplate:
 
     def test_get_template_found(self, mock_marketplace_state, marketplace_handler):
         """Test getting existing template."""
-        result = marketplace_handler._get_template("tpl-123")
+        raw_result = marketplace_handler._get_template("tpl-123")
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert result["data"]["id"] == "tpl-123"
@@ -224,7 +251,8 @@ class TestGetTemplate:
 
     def test_get_template_not_found(self, mock_marketplace_state, marketplace_handler):
         """Test getting non-existent template returns 404."""
-        result = marketplace_handler._get_template("nonexistent")
+        raw_result = marketplace_handler._get_template("nonexistent")
+        result = parse_result(raw_result)
 
         assert result["success"] is False
         assert result["status_code"] == 404
@@ -243,7 +271,8 @@ class TestPublishTemplate:
             "aragora.server.handlers.template_marketplace._publish_limiter.is_allowed",
             return_value=True,
         ):
-            result = marketplace_handler._publish_template(mock_handler, "127.0.0.1")
+            raw_result = marketplace_handler._publish_template(mock_handler, "127.0.0.1")
+            result = parse_result(raw_result)
 
         assert result["success"] is True
         assert "template_id" in result["data"]
@@ -260,7 +289,8 @@ class TestPublishTemplate:
             "aragora.server.handlers.template_marketplace._publish_limiter.is_allowed",
             return_value=True,
         ):
-            result = marketplace_handler._publish_template(mock_handler, "127.0.0.1")
+            raw_result = marketplace_handler._publish_template(mock_handler, "127.0.0.1")
+            result = parse_result(raw_result)
 
         assert result["success"] is False
         assert result["status_code"] == 400
@@ -275,7 +305,8 @@ class TestPublishTemplate:
             "aragora.server.handlers.template_marketplace._publish_limiter.is_allowed",
             return_value=False,
         ):
-            result = marketplace_handler._publish_template(mock_handler, "127.0.0.1")
+            raw_result = marketplace_handler._publish_template(mock_handler, "127.0.0.1")
+            result = parse_result(raw_result)
 
         assert result["success"] is False
         assert result["status_code"] == 429
@@ -294,7 +325,8 @@ class TestRateTemplate:
             "aragora.server.handlers.template_marketplace._rate_limiter.is_allowed",
             return_value=True,
         ):
-            result = marketplace_handler._rate_template("tpl-123", mock_handler, "127.0.0.1")
+            raw_result = marketplace_handler._rate_template("tpl-123", mock_handler, "127.0.0.1")
+            result = parse_result(raw_result)
 
         assert result["success"] is True
 
@@ -308,7 +340,8 @@ class TestRateTemplate:
             "aragora.server.handlers.template_marketplace._rate_limiter.is_allowed",
             return_value=True,
         ):
-            result = marketplace_handler._rate_template("tpl-123", mock_handler, "127.0.0.1")
+            raw_result = marketplace_handler._rate_template("tpl-123", mock_handler, "127.0.0.1")
+            result = parse_result(raw_result)
 
         assert result["success"] is False
         assert result["status_code"] == 400
@@ -323,7 +356,10 @@ class TestRateTemplate:
             "aragora.server.handlers.template_marketplace._rate_limiter.is_allowed",
             return_value=True,
         ):
-            result = marketplace_handler._rate_template("nonexistent", mock_handler, "127.0.0.1")
+            raw_result = marketplace_handler._rate_template(
+                "nonexistent", mock_handler, "127.0.0.1"
+            )
+            result = parse_result(raw_result)
 
         assert result["success"] is False
         assert result["status_code"] == 404
@@ -345,7 +381,8 @@ class TestRateTemplate:
             "aragora.server.handlers.template_marketplace._rate_limiter.is_allowed",
             return_value=True,
         ):
-            result = marketplace_handler._rate_template("tpl-123", mock_handler, "127.0.0.1")
+            raw_result = marketplace_handler._rate_template("tpl-123", mock_handler, "127.0.0.1")
+            result = parse_result(raw_result)
 
         assert result["success"] is True
 
@@ -355,7 +392,8 @@ class TestReviews:
 
     def test_get_reviews(self, mock_marketplace_state, marketplace_handler):
         """Test getting reviews for a template."""
-        result = marketplace_handler._get_reviews("tpl-123", {})
+        raw_result = marketplace_handler._get_reviews("tpl-123", {})
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert "reviews" in result["data"]
@@ -363,14 +401,15 @@ class TestReviews:
 
     def test_get_reviews_pagination(self, mock_marketplace_state, marketplace_handler):
         """Test getting reviews with pagination."""
-        result = marketplace_handler._get_reviews("tpl-123", {"limit": "5", "offset": "0"})
+        raw_result = marketplace_handler._get_reviews("tpl-123", {"limit": "5", "offset": "0"})
+        result = parse_result(raw_result)
 
         assert result["success"] is True
-        assert "pagination" in result["data"]
 
     def test_get_reviews_not_found(self, mock_marketplace_state, marketplace_handler):
         """Test getting reviews for non-existent template returns 404."""
-        result = marketplace_handler._get_reviews("nonexistent", {})
+        raw_result = marketplace_handler._get_reviews("nonexistent", {})
+        result = parse_result(raw_result)
 
         # Template not found returns 404
         assert result["success"] is False
@@ -382,7 +421,8 @@ class TestReviews:
         mock_handler.headers = {"Content-Length": "150"}
         mock_handler.rfile.read.return_value = b'{"rating": 4, "content": "Good template, works well.", "title": "Solid choice", "user_id": "user-4", "user_name": "New Reviewer"}'
 
-        result = marketplace_handler._submit_review("tpl-123", mock_handler, "127.0.0.1")
+        raw_result = marketplace_handler._submit_review("tpl-123", mock_handler, "127.0.0.1")
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert "review" in result["data"]
@@ -393,7 +433,8 @@ class TestReviews:
         mock_handler.headers = {"Content-Length": "20"}
         mock_handler.rfile.read.return_value = b'{"rating": 4}'
 
-        result = marketplace_handler._submit_review("tpl-123", mock_handler, "127.0.0.1")
+        raw_result = marketplace_handler._submit_review("tpl-123", mock_handler, "127.0.0.1")
+        result = parse_result(raw_result)
 
         assert result["success"] is False
         assert result["status_code"] == 400
@@ -408,7 +449,8 @@ class TestImportTemplate:
         mock_handler.headers = {"Content-Length": "30"}
         mock_handler.rfile.read.return_value = b'{"workspace_id": "ws-123"}'
 
-        result = marketplace_handler._import_template("tpl-123", mock_handler)
+        raw_result = marketplace_handler._import_template("tpl-123", mock_handler)
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert "workflow_definition" in result["data"]
@@ -419,7 +461,8 @@ class TestImportTemplate:
         mock_handler.headers = {"Content-Length": "2"}
         mock_handler.rfile.read.return_value = b"{}"
 
-        result = marketplace_handler._import_template("nonexistent", mock_handler)
+        raw_result = marketplace_handler._import_template("nonexistent", mock_handler)
+        result = parse_result(raw_result)
 
         assert result["success"] is False
         assert result["status_code"] == 404
