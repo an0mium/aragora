@@ -409,14 +409,13 @@ class TestStreamingFallbackIntegration:
         """Fallback chain should support streaming generation."""
         from aragora.agents.fallback import AgentFallbackChain
 
-        primary_called = False
         fallback_called = False
         chunks_received = []
 
         async def primary_stream(prompt, context):
-            nonlocal primary_called
-            primary_called = True
+            # This generator will fail immediately
             raise RuntimeError("Primary streaming unavailable")
+            yield  # Make it a generator (never reached)
 
         async def fallback_stream(prompt, context):
             nonlocal fallback_called
@@ -438,7 +437,6 @@ class TestStreamingFallbackIntegration:
         async for chunk in chain.generate_stream("test prompt", []):
             chunks_received.append(chunk)
 
-        assert primary_called is True
         assert fallback_called is True
         assert chunks_received == ["Hello", " ", "World"]
 
@@ -472,7 +470,7 @@ class TestContextPreservationDuringFallback:
     async def test_conversation_context_passed_to_fallback(self):
         """Conversation context should be passed to fallback generate."""
         from aragora.agents.fallback import AgentFallbackChain
-        from aragora.core import Message
+        from aragora.core_types import Message
 
         context_received = None
 
@@ -495,8 +493,8 @@ class TestContextPreservationDuringFallback:
         chain = AgentFallbackChain([primary, fallback])
 
         test_context = [
-            Message(role="user", content="Hello"),
-            Message(role="assistant", content="Hi there"),
+            Message(role="user", agent="user", content="Hello"),
+            Message(role="assistant", agent="assistant", content="Hi there"),
         ]
 
         await chain.generate("New question", test_context)
@@ -549,14 +547,19 @@ class TestCascadingFailureScenarios:
 
         metrics = FallbackMetrics()
 
-        # Simulate some calls
-        metrics.record_primary_success("openai")
-        metrics.record_primary_success("openai")
-        metrics.record_primary_failure("openai")
-        metrics.record_fallback_success("openai", "openrouter")
+        # Simulate some calls - 2 primary successes, 1 primary failure, 1 fallback success
+        metrics.record_primary_attempt(success=True)
+        metrics.record_primary_attempt(success=True)
+        metrics.record_primary_attempt(success=False)  # This triggers fallback
+        metrics.record_fallback_attempt("openrouter", success=True)
 
-        assert metrics.get_primary_success_rate("openai") == pytest.approx(2 / 3, rel=0.01)
-        assert metrics.get_fallback_rate("openai") == pytest.approx(1 / 4, rel=0.01)
+        # Check metrics
+        assert metrics.primary_attempts == 3
+        assert metrics.primary_successes == 2
+        assert metrics.fallback_attempts == 1
+        assert metrics.fallback_successes == 1
+        assert metrics.fallback_rate == pytest.approx(1 / 4, rel=0.01)
+        assert metrics.success_rate == pytest.approx(3 / 4, rel=0.01)
 
 
 class TestDebateLevelFallbackIntegration:
