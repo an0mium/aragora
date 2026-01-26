@@ -7,6 +7,7 @@ WORKSPACE_ENDPOINTS = {
         "get": {
             "tags": ["Workspace"],
             "summary": "List workspaces",
+            "operationId": "listWorkspaces",
             "description": "Get list of workspaces the authenticated user has access to.",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -29,6 +30,7 @@ WORKSPACE_ENDPOINTS = {
         "post": {
             "tags": ["Workspace"],
             "summary": "Create workspace",
+            "operationId": "createWorkspace",
             "description": "Create a new isolated workspace for data segregation.",
             "security": [{"bearerAuth": []}],
             "requestBody": {
@@ -64,6 +66,7 @@ WORKSPACE_ENDPOINTS = {
         "get": {
             "tags": ["Workspace"],
             "summary": "Get workspace details",
+            "operationId": "getWorkspace",
             "description": "Get detailed information about a specific workspace.",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -84,6 +87,7 @@ WORKSPACE_ENDPOINTS = {
         "delete": {
             "tags": ["Workspace"],
             "summary": "Delete workspace",
+            "operationId": "deleteWorkspace",
             "description": "Delete a workspace and all associated data. Requires admin permissions.",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -106,6 +110,7 @@ WORKSPACE_ENDPOINTS = {
         "post": {
             "tags": ["Workspace"],
             "summary": "Add workspace member",
+            "operationId": "addWorkspaceMember",
             "description": "Add a user to the workspace with specified permissions.",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -262,6 +267,7 @@ WORKSPACE_ENDPOINTS = {
         "get": {
             "tags": ["Retention"],
             "summary": "List retention policies",
+            "operationId": "listRetentionPolicies",
             "description": "Get all configured data retention policies.",
             "security": [{"bearerAuth": []}],
             "responses": {
@@ -272,6 +278,7 @@ WORKSPACE_ENDPOINTS = {
         "post": {
             "tags": ["Retention"],
             "summary": "Create retention policy",
+            "operationId": "createRetentionPolicy",
             "description": "Create a new data retention policy for automated data lifecycle management.",
             "security": [{"bearerAuth": []}],
             "requestBody": {
@@ -310,6 +317,7 @@ WORKSPACE_ENDPOINTS = {
         "post": {
             "tags": ["Retention"],
             "summary": "Execute retention policy",
+            "operationId": "executeRetentionPolicy",
             "description": "Manually execute a retention policy to process affected data.",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -332,6 +340,7 @@ WORKSPACE_ENDPOINTS = {
         "get": {
             "tags": ["Retention"],
             "summary": "Get expiring items",
+            "operationId": "getExpiringItems",
             "description": "Get list of items approaching their retention expiration date.",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -352,6 +361,7 @@ WORKSPACE_ENDPOINTS = {
         "post": {
             "tags": ["Classification"],
             "summary": "Classify content sensitivity",
+            "operationId": "classifyContent",
             "description": "Analyze content and determine its sensitivity classification level.",
             "security": [{"bearerAuth": []}],
             "requestBody": {
@@ -380,6 +390,7 @@ WORKSPACE_ENDPOINTS = {
         "get": {
             "tags": ["Classification"],
             "summary": "Get classification policy",
+            "operationId": "getClassificationPolicy",
             "description": "Get handling policy for a specific sensitivity level.",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -404,6 +415,7 @@ WORKSPACE_ENDPOINTS = {
         "get": {
             "tags": ["Audit"],
             "summary": "Query audit entries",
+            "operationId": "queryAuditEntries",
             "description": "Search and filter privacy audit log entries. SOC 2 Control: CC6.1",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -438,6 +450,7 @@ WORKSPACE_ENDPOINTS = {
         "get": {
             "tags": ["Audit"],
             "summary": "Generate compliance report",
+            "operationId": "generateAuditReport",
             "description": "Generate a compliance report for a specified time period. SOC 2 Control: CC6.3",
             "security": [{"bearerAuth": []}],
             "parameters": [
@@ -471,6 +484,7 @@ WORKSPACE_ENDPOINTS = {
         "get": {
             "tags": ["Audit"],
             "summary": "Verify audit log integrity",
+            "operationId": "verifyAuditLogIntegrity",
             "description": "Verify the cryptographic integrity of audit log entries to detect tampering.",
             "security": [{"bearerAuth": []}],
             "parameters": [

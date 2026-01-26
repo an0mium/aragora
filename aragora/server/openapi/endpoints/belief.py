@@ -7,6 +7,7 @@ BELIEF_ENDPOINTS = {
         "get": {
             "tags": ["Belief"],
             "summary": "Get debate cruxes",
+            "description": "Get the crux points where agents most strongly disagree in a debate.",
             "operationId": "getBeliefNetworkCruxe",
             "parameters": [
                 {"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}
@@ -18,6 +19,7 @@ BELIEF_ENDPOINTS = {
         "get": {
             "tags": ["Belief"],
             "summary": "Get load-bearing claims",
+            "description": "Get claims that are foundational to the debate's argument structure.",
             "operationId": "getBeliefNetworkLoadBearingClaim",
             "parameters": [
                 {"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}
@@ -29,6 +31,7 @@ BELIEF_ENDPOINTS = {
         "get": {
             "tags": ["Belief"],
             "summary": "Get debate graph stats",
+            "description": "Get graph-based statistics for the belief network of a debate.",
             "operationId": "getDebateGraphStat",
             "parameters": [
                 {"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}

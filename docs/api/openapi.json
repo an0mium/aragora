@@ -3296,6 +3296,7 @@
         ],
         "summary": "Create a new debate (deprecated)",
         "description": "Deprecated. Use POST /api/debates instead.",
+        "operationId": "createDebateDeprecated",
         "deprecated": true,
         "security": [
           {
@@ -3398,6 +3399,7 @@
           "Debates"
         ],
         "summary": "Get debate by ID",
+        "description": "Retrieve full details for a specific debate by its unique identifier.",
         "parameters": [
           {
             "name": "id",
@@ -3451,6 +3453,8 @@
           "Debates"
         ],
         "summary": "Get debate by ID",
+        "operationId": "getDebateById",
+        "description": "Retrieve full details for a specific debate by its unique identifier.",
         "parameters": [
           {
             "name": "id",
@@ -3503,6 +3507,7 @@
           "Debates"
         ],
         "summary": "Get debate by slug",
+        "description": "Retrieve full details for a specific debate by its URL-friendly slug.",
         "parameters": [
           {
             "name": "slug",
@@ -3556,6 +3561,8 @@
           "Debates"
         ],
         "summary": "Get debate by slug",
+        "operationId": "getDebateBySlug",
+        "description": "Retrieve full details for a specific debate by its URL-friendly slug.",
         "parameters": [
           {
             "name": "slug",
@@ -3650,6 +3657,7 @@
           "Debates"
         ],
         "summary": "Get debate messages",
+        "operationId": "getDebateMessages",
         "description": "Get paginated message history for a debate",
         "parameters": [
           {
@@ -3716,6 +3724,7 @@
           "Debates"
         ],
         "summary": "Get convergence status",
+        "operationId": "getDebateConvergence",
         "description": "Check if debate has reached semantic convergence",
         "parameters": [
           {
@@ -3765,6 +3774,7 @@
           "Debates"
         ],
         "summary": "Get evidence citations",
+        "operationId": "getDebateCitations",
         "description": "Get grounded verdict with evidence citations",
         "parameters": [
           {
@@ -3789,6 +3799,7 @@
           "Debates"
         ],
         "summary": "Get debate evidence",
+        "description": "Get all evidence and sources cited during the debate.",
         "parameters": [
           {
             "name": "id",
@@ -3813,6 +3824,8 @@
           "Debates"
         ],
         "summary": "Get debate evidence",
+        "operationId": "getDebateEvidence",
+        "description": "Get all evidence and sources cited during the debate.",
         "parameters": [
           {
             "name": "id",
@@ -3861,6 +3874,7 @@
           "Debates"
         ],
         "summary": "Get impasse status",
+        "operationId": "getDebateImpasse",
         "description": "Check if debate reached an impasse",
         "parameters": [
           {
@@ -3885,6 +3899,7 @@
           "Debates"
         ],
         "summary": "Get meta-critique",
+        "description": "Get meta-level critique analyzing the debate's reasoning quality.",
         "parameters": [
           {
             "name": "id",
@@ -3909,6 +3924,8 @@
           "Debates"
         ],
         "summary": "Get meta-critique",
+        "operationId": "getDebateMetaCritique",
+        "description": "Get meta-level critique analyzing the debate's reasoning quality.",
         "parameters": [
           {
             "name": "id",
@@ -3932,6 +3949,7 @@
           "Debates"
         ],
         "summary": "Get debate graph stats",
+        "description": "Get graph statistics showing argument structure and relationships.",
         "parameters": [
           {
             "name": "id",
@@ -3956,6 +3974,8 @@
           "Debates"
         ],
         "summary": "Get debate graph stats",
+        "operationId": "getDebateGraphStats",
+        "description": "Get graph statistics showing argument structure and relationships.",
         "parameters": [
           {
             "name": "id",
@@ -4061,6 +4081,7 @@
           "Debates"
         ],
         "summary": "Fork debate",
+        "operationId": "forkDebate",
         "description": "Create a counterfactual branch from a specific round",
         "parameters": [
           {
@@ -4142,6 +4163,7 @@
           "Debates"
         ],
         "summary": "Export debate",
+        "description": "Export debate content in the specified format for sharing or archiving.",
         "parameters": [
           {
             "name": "id",
@@ -4180,6 +4202,8 @@
           "Debates"
         ],
         "summary": "Export debate",
+        "operationId": "exportDebate",
+        "description": "Export debate content in the specified format for sharing or archiving.",
         "parameters": [
           {
             "name": "id",
@@ -4268,6 +4292,7 @@
           "Debates"
         ],
         "summary": "Generate debate broadcast",
+        "operationId": "createDebateBroadcast",
         "description": "Generate audio/video broadcast of debate",
         "parameters": [
           {
@@ -4318,6 +4343,7 @@
           "Social"
         ],
         "summary": "Publish to Twitter",
+        "description": "Publish debate summary and key points to Twitter/X.",
         "parameters": [
           {
             "name": "id",
@@ -4347,6 +4373,8 @@
           "Social"
         ],
         "summary": "Publish to Twitter",
+        "operationId": "publishDebateToTwitter",
+        "description": "Publish debate summary and key points to Twitter/X.",
         "parameters": [
           {
             "name": "id",
@@ -4375,6 +4403,7 @@
           "Social"
         ],
         "summary": "Publish to YouTube",
+        "description": "Publish debate video/audio to YouTube.",
         "parameters": [
           {
             "name": "id",
@@ -4404,6 +4433,8 @@
           "Social"
         ],
         "summary": "Publish to YouTube",
+        "operationId": "publishDebateToYouTube",
+        "description": "Publish debate video/audio to YouTube.",
         "parameters": [
           {
             "name": "id",
@@ -4432,6 +4463,7 @@
           "Auditing"
         ],
         "summary": "Get red team results",
+        "description": "Get adversarial analysis results from red team review.",
         "parameters": [
           {
             "name": "id",
@@ -4456,6 +4488,8 @@
           "Auditing"
         ],
         "summary": "Get red team results",
+        "operationId": "getDebateRedTeamResults",
+        "description": "Get adversarial analysis results from red team review.",
         "parameters": [
           {
             "name": "id",
@@ -4479,6 +4513,7 @@
           "Debates"
         ],
         "summary": "Cross-debate search",
+        "description": "Search across all debates for matching content and arguments.",
         "parameters": [
           {
             "name": "q",
@@ -4511,6 +4546,8 @@
           "Debates"
         ],
         "summary": "Cross-debate search",
+        "operationId": "searchDebates",
+        "description": "Search across all debates for matching content and arguments.",
         "parameters": [
           {
             "name": "q",
@@ -4582,6 +4619,7 @@
           "Debates"
         ],
         "summary": "Dashboard debates",
+        "operationId": "getDashboardDebates",
         "description": "Get debates formatted for dashboard display",
         "parameters": [
           {
@@ -4621,7 +4659,7 @@
           "Analytics"
         ],
         "summary": "Disagreement analysis",
-        "description": "Get metrics on agent disagreement patterns",
+        "description": "Get metrics on agent disagreement patterns across debates.",
         "responses": {
           "200": {
             "description": "Disagreement statistics"
@@ -4637,7 +4675,7 @@
         ],
         "summary": "Disagreement analysis",
         "operationId": "listAnalyticsDisagreements",
-        "description": "Get metrics on agent disagreement patterns",
+        "description": "Get metrics on agent disagreement patterns across debates.",
         "responses": {
           "200": {
             "description": "Disagreement statistics"
@@ -4651,6 +4689,7 @@
           "Analytics"
         ],
         "summary": "Role rotation stats",
+        "description": "Get statistics on how agents rotate between proposer, critic, and judge roles.",
         "responses": {
           "200": {
             "description": "Role rotation data"
@@ -4666,6 +4705,7 @@
         ],
         "summary": "Role rotation stats",
         "operationId": "listAnalyticsRoleRotation",
+        "description": "Get statistics on how agents rotate between proposer, critic, and judge roles.",
         "responses": {
           "200": {
             "description": "Role rotation data"
@@ -4679,6 +4719,7 @@
           "Analytics"
         ],
         "summary": "Early stop statistics",
+        "description": "Get data on debates that ended early due to early consensus or other conditions.",
         "responses": {
           "200": {
             "description": "Early stop data"
@@ -4694,6 +4735,7 @@
         ],
         "summary": "Early stop statistics",
         "operationId": "listAnalyticsEarlyStops",
+        "description": "Get data on debates that ended early due to early consensus or other conditions.",
         "responses": {
           "200": {
             "description": "Early stop data"
@@ -4707,6 +4749,7 @@
           "Analytics"
         ],
         "summary": "Ranking statistics",
+        "description": "Get aggregate ELO ranking statistics across all agents.",
         "responses": {
           "200": {
             "description": "Ranking stats"
@@ -4722,6 +4765,7 @@
         ],
         "summary": "Ranking statistics",
         "operationId": "listRankingStats",
+        "description": "Get aggregate ELO ranking statistics across all agents.",
         "responses": {
           "200": {
             "description": "Ranking stats"
@@ -4735,6 +4779,7 @@
           "Analytics"
         ],
         "summary": "Memory statistics",
+        "description": "Get statistics on memory system usage and performance.",
         "responses": {
           "200": {
             "description": "Memory stats"
@@ -4750,6 +4795,7 @@
         ],
         "summary": "Memory statistics",
         "operationId": "listMemoryStats",
+        "description": "Get statistics on memory system usage and performance.",
         "responses": {
           "200": {
             "description": "Memory stats"
@@ -4763,6 +4809,7 @@
           "Insights"
         ],
         "summary": "Recent position flips",
+        "description": "Get recent instances where agents changed their positions during debate.",
         "parameters": [
           {
             "name": "limit",
@@ -4788,6 +4835,7 @@
         ],
         "summary": "Recent position flips",
         "operationId": "listFlipsRecent",
+        "description": "Get recent instances where agents changed their positions during debate.",
         "parameters": [
           {
             "name": "limit",
@@ -4811,6 +4859,7 @@
           "Insights"
         ],
         "summary": "Flip summary",
+        "description": "Get summary statistics on position flips and conviction changes.",
         "responses": {
           "200": {
             "description": "Flip summary statistics"
@@ -4826,6 +4875,7 @@
         ],
         "summary": "Flip summary",
         "operationId": "listFlipsSummary",
+        "description": "Get summary statistics on position flips and conviction changes.",
         "responses": {
           "200": {
             "description": "Flip summary statistics"
@@ -4839,6 +4889,7 @@
           "Insights"
         ],
         "summary": "Recent insights",
+        "description": "Get recent insights extracted from debates.",
         "parameters": [
           {
             "name": "limit",
@@ -4864,6 +4915,7 @@
         ],
         "summary": "Recent insights",
         "operationId": "listInsightsRecent",
+        "description": "Get recent insights extracted from debates.",
         "parameters": [
           {
             "name": "limit",
@@ -4887,7 +4939,7 @@
           "Insights"
         ],
         "summary": "Extract detailed insights",
-        "description": "Computationally expensive insight extraction (requires auth)",
+        "description": "Computationally expensive insight extraction (requires auth).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4917,7 +4969,7 @@
         ],
         "summary": "Extract detailed insights",
         "operationId": "createInsightsExtractDetailed",
-        "description": "Computationally expensive insight extraction (requires auth)",
+        "description": "Computationally expensive insight extraction (requires auth).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4945,6 +4997,7 @@
           "Insights"
         ],
         "summary": "Moments summary",
+        "description": "Get summary of key moments across debates.",
         "responses": {
           "200": {
             "description": "Moments summary"
@@ -4960,6 +5013,7 @@
         ],
         "summary": "Moments summary",
         "operationId": "listMomentsSummary",
+        "description": "Get summary of key moments across debates.",
         "responses": {
           "200": {
             "description": "Moments summary"
@@ -4973,6 +5027,7 @@
           "Insights"
         ],
         "summary": "Moments timeline",
+        "description": "Get chronological timeline of significant debate moments.",
         "responses": {
           "200": {
             "description": "Timeline data"
@@ -4988,6 +5043,7 @@
         ],
         "summary": "Moments timeline",
         "operationId": "listMomentsTimeline",
+        "description": "Get chronological timeline of significant debate moments.",
         "responses": {
           "200": {
             "description": "Timeline data"
@@ -5001,6 +5057,7 @@
           "Insights"
         ],
         "summary": "Trending moments",
+        "description": "Get currently trending debate moments based on engagement.",
         "responses": {
           "200": {
             "description": "Trending moments"
@@ -5016,6 +5073,7 @@
         ],
         "summary": "Trending moments",
         "operationId": "listMomentsTrending",
+        "description": "Get currently trending debate moments based on engagement.",
         "responses": {
           "200": {
             "description": "Trending moments"
@@ -5029,6 +5087,7 @@
           "Insights"
         ],
         "summary": "Moments by type",
+        "description": "Get debate moments filtered by type (e.g., breakthrough, conflict, consensus).",
         "parameters": [
           {
             "name": "type",
@@ -5054,6 +5113,7 @@
         ],
         "summary": "Moments by type",
         "operationId": "getMomentsByType",
+        "description": "Get debate moments filtered by type (e.g., breakthrough, conflict, consensus).",
         "parameters": [
           {
             "name": "type",
@@ -5761,6 +5821,7 @@
           "Memory"
         ],
         "summary": "Memory tier statistics",
+        "description": "Get statistics for each memory tier (fast, medium, slow, glacial).",
         "responses": {
           "200": {
             "description": "Tier stats"
@@ -5775,6 +5836,7 @@
           "Memory"
         ],
         "summary": "Memory tier statistics",
+        "description": "Get statistics for each memory tier (fast, medium, slow, glacial).",
         "operationId": "listMemoryTierStats",
         "responses": {
           "200": {
@@ -5789,6 +5851,7 @@
           "Memory"
         ],
         "summary": "Archive statistics",
+        "description": "Get statistics on archived memories and storage usage.",
         "responses": {
           "200": {
             "description": "Archive stats"
@@ -5803,6 +5866,7 @@
           "Memory"
         ],
         "summary": "Archive statistics",
+        "description": "Get statistics on archived memories and storage usage.",
         "operationId": "listMemoryArchiveStats",
         "responses": {
           "200": {
@@ -5817,6 +5881,7 @@
           "Belief"
         ],
         "summary": "Get debate cruxes",
+        "description": "Get the crux points where agents most strongly disagree in a debate.",
         "parameters": [
           {
             "name": "debate_id",
@@ -5841,6 +5906,7 @@
           "Belief"
         ],
         "summary": "Get debate cruxes",
+        "description": "Get the crux points where agents most strongly disagree in a debate.",
         "operationId": "getBeliefNetworkCruxe",
         "parameters": [
           {
@@ -5865,6 +5931,7 @@
           "Belief"
         ],
         "summary": "Get load-bearing claims",
+        "description": "Get claims that are foundational to the debate's argument structure.",
         "parameters": [
           {
             "name": "debate_id",
@@ -5889,6 +5956,7 @@
           "Belief"
         ],
         "summary": "Get load-bearing claims",
+        "description": "Get claims that are foundational to the debate's argument structure.",
         "operationId": "getBeliefNetworkLoadBearingClaim",
         "parameters": [
           {
@@ -5913,6 +5981,7 @@
           "Belief"
         ],
         "summary": "Get debate graph stats",
+        "description": "Get graph-based statistics for the belief network of a debate.",
         "parameters": [
           {
             "name": "debate_id",
@@ -5937,6 +6006,7 @@
           "Belief"
         ],
         "summary": "Get debate graph stats",
+        "description": "Get graph-based statistics for the belief network of a debate.",
         "operationId": "getDebateGraphStat",
         "parameters": [
           {
@@ -6061,6 +6131,7 @@
           "Monitoring"
         ],
         "summary": "System metrics",
+        "description": "Get comprehensive system metrics for monitoring.",
         "responses": {
           "200": {
             "description": "Metrics data"
@@ -6075,6 +6146,7 @@
           "Monitoring"
         ],
         "summary": "System metrics",
+        "description": "Get comprehensive system metrics for monitoring.",
         "operationId": "listMetrics",
         "responses": {
           "200": {
@@ -6089,6 +6161,7 @@
           "Monitoring"
         ],
         "summary": "Metrics health",
+        "description": "Get health status of the metrics collection system.",
         "responses": {
           "200": {
             "description": "Metrics health"
@@ -6103,6 +6176,7 @@
           "Monitoring"
         ],
         "summary": "Metrics health",
+        "description": "Get health status of the metrics collection system.",
         "operationId": "listMetricsHealth",
         "responses": {
           "200": {
@@ -6117,6 +6191,7 @@
           "Monitoring"
         ],
         "summary": "Cache metrics",
+        "description": "Get cache hit rates and performance metrics.",
         "responses": {
           "200": {
             "description": "Cache metrics"
@@ -6131,6 +6206,7 @@
           "Monitoring"
         ],
         "summary": "Cache metrics",
+        "description": "Get cache hit rates and performance metrics.",
         "operationId": "listMetricsCache",
         "responses": {
           "200": {
@@ -6145,6 +6221,7 @@
           "Monitoring"
         ],
         "summary": "System metrics",
+        "description": "Get system-level metrics including CPU, memory, and disk usage.",
         "responses": {
           "200": {
             "description": "System metrics"
@@ -6159,7 +6236,8 @@
           "Monitoring"
         ],
         "summary": "System metrics",
-        "operationId": "getSystemMetrics",
+        "description": "Get system-level metrics including CPU, memory, and disk usage.",
+        "operationId": "listMetricsSystem",
         "responses": {
           "200": {
             "description": "System metrics"
@@ -6173,7 +6251,7 @@
           "Monitoring"
         ],
         "summary": "Prometheus metrics",
-        "operationId": "getPrometheusMetrics",
+        "operationId": "listMetricsSystem",
         "description": "Metrics in Prometheus format",
         "responses": {
           "200": {
@@ -6445,6 +6523,7 @@
           "Documents"
         ],
         "summary": "List documents",
+        "description": "Get list of uploaded documents available for debate context.",
         "responses": {
           "200": {
             "description": "Document list"
@@ -6459,6 +6538,7 @@
           "Documents"
         ],
         "summary": "List documents",
+        "description": "Get list of uploaded documents available for debate context.",
         "operationId": "listDocuments",
         "responses": {
           "200": {
@@ -6473,6 +6553,7 @@
           "Documents"
         ],
         "summary": "Supported formats",
+        "description": "Get list of supported document formats for upload.",
         "responses": {
           "200": {
             "description": "Supported formats"
@@ -6487,6 +6568,7 @@
           "Documents"
         ],
         "summary": "Supported formats",
+        "description": "Get list of supported document formats for upload.",
         "operationId": "listDocumentsFormats",
         "responses": {
           "200": {
@@ -6501,6 +6583,7 @@
           "Documents"
         ],
         "summary": "Upload document",
+        "description": "Upload a document to be used as context in debates.",
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -6529,6 +6612,7 @@
           "Documents"
         ],
         "summary": "Upload document",
+        "description": "Upload a document to be used as context in debates.",
         "operationId": "createDocumentsUpload",
         "requestBody": {
           "content": {
@@ -6557,6 +6641,7 @@
           "Media"
         ],
         "summary": "Podcast RSS feed",
+        "description": "Get RSS feed for debate podcast episodes.",
         "responses": {
           "200": {
             "description": "RSS feed",
@@ -6574,6 +6659,7 @@
           "Media"
         ],
         "summary": "Podcast RSS feed",
+        "description": "Get RSS feed for debate podcast episodes.",
         "operationId": "listPodcastFeed.Xml",
         "responses": {
           "200": {
@@ -6591,6 +6677,7 @@
           "Media"
         ],
         "summary": "Podcast episodes",
+        "description": "Get list of available podcast episodes from debates.",
         "responses": {
           "200": {
             "description": "Episode list"
@@ -6605,6 +6692,7 @@
           "Media"
         ],
         "summary": "Podcast episodes",
+        "description": "Get list of available podcast episodes from debates.",
         "operationId": "listPodcastEpisodes",
         "responses": {
           "200": {
@@ -6619,6 +6707,7 @@
           "Social"
         ],
         "summary": "YouTube auth URL",
+        "description": "Get OAuth authorization URL for YouTube integration.",
         "responses": {
           "200": {
             "description": "Auth URL"
@@ -6633,6 +6722,7 @@
           "Social"
         ],
         "summary": "YouTube auth URL",
+        "description": "Get OAuth authorization URL for YouTube integration.",
         "operationId": "listYoutubeAuth",
         "responses": {
           "200": {
@@ -6647,6 +6737,7 @@
           "Social"
         ],
         "summary": "YouTube OAuth callback",
+        "description": "Handle OAuth callback from YouTube authorization.",
         "responses": {
           "200": {
             "description": "Auth complete"
@@ -6661,6 +6752,7 @@
           "Social"
         ],
         "summary": "YouTube OAuth callback",
+        "description": "Handle OAuth callback from YouTube authorization.",
         "operationId": "listYoutubeCallback",
         "responses": {
           "200": {
@@ -6675,6 +6767,7 @@
           "Social"
         ],
         "summary": "YouTube auth status",
+        "description": "Check current YouTube authorization status.",
         "responses": {
           "200": {
             "description": "Auth status"
@@ -6689,6 +6782,7 @@
           "Social"
         ],
         "summary": "YouTube auth status",
+        "description": "Check current YouTube authorization status.",
         "operationId": "listYoutubeStatus",
         "responses": {
           "200": {
@@ -6704,6 +6798,7 @@
         ],
         "summary": "List plugins",
         "operationId": "listPlugins",
+        "description": "Get list of all available plugins.",
         "responses": {
           "200": {
             "description": "Plugin list"
@@ -6718,6 +6813,7 @@
         ],
         "summary": "List installed plugins",
         "operationId": "listInstalledPlugins",
+        "description": "Get list of plugins installed for the current user.",
         "responses": {
           "200": {
             "description": "Installed plugins list"
@@ -6737,6 +6833,7 @@
         ],
         "summary": "Get marketplace listings",
         "operationId": "getPluginMarketplace",
+        "description": "Get plugin marketplace with categories and featured plugins.",
         "responses": {
           "200": {
             "description": "Marketplace data with categories"
@@ -6751,6 +6848,7 @@
         ],
         "summary": "Submit plugin for review",
         "operationId": "submitPlugin",
+        "description": "Submit a new plugin for marketplace review.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6779,6 +6877,7 @@
         ],
         "summary": "List user's plugin submissions",
         "operationId": "listPluginSubmissions",
+        "description": "Get list of plugins submitted by the current user for review.",
         "responses": {
           "200": {
             "description": "Submissions list"
@@ -6928,13 +7027,13 @@
           "Plugins"
         ],
         "summary": "List plugins",
+        "description": "Deprecated: Use /api/v1/plugins instead. Sunset: 2026-12-31.",
         "responses": {
           "200": {
             "description": "Plugin list"
           }
         },
-        "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins instead. Sunset: 2026-12-31."
+        "deprecated": true
       }
     },
     "/api/plugins/installed": {
@@ -6943,6 +7042,7 @@
           "Plugins"
         ],
         "summary": "List installed plugins",
+        "description": "Deprecated: Use /api/v1/plugins/installed instead. Sunset: 2026-12-31.",
         "responses": {
           "200": {
             "description": "Installed plugins list"
@@ -6953,8 +7053,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/installed instead. Sunset: 2026-12-31."
+        "deprecated": true
       }
     },
     "/api/plugins/marketplace": {
@@ -6963,13 +7062,13 @@
           "Plugins"
         ],
         "summary": "Get marketplace listings",
+        "description": "Deprecated: Use /api/v1/plugins/marketplace instead. Sunset: 2026-12-31.",
         "responses": {
           "200": {
             "description": "Marketplace data with categories"
           }
         },
-        "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/marketplace instead. Sunset: 2026-12-31."
+        "deprecated": true
       }
     },
     "/api/plugins/submit": {
@@ -6978,6 +7077,7 @@
           "Plugins"
         ],
         "summary": "Submit plugin for review",
+        "description": "Deprecated: Use /api/v1/plugins/submit instead. Sunset: 2026-12-31.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6997,8 +7097,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/submit instead. Sunset: 2026-12-31."
+        "deprecated": true
       }
     },
     "/api/plugins/submissions": {
@@ -7007,6 +7106,7 @@
           "Plugins"
         ],
         "summary": "List user's plugin submissions",
+        "description": "Deprecated: Use /api/v1/plugins/submissions instead. Sunset: 2026-12-31.",
         "responses": {
           "200": {
             "description": "Submissions list"
@@ -7017,8 +7117,7 @@
             "bearerAuth": []
           }
         ],
-        "deprecated": true,
-        "description": "Deprecated: Use /api/v1/plugins/submissions instead. Sunset: 2026-12-31."
+        "deprecated": true
       }
     },
     "/api/plugins/{name}": {
@@ -7254,6 +7353,7 @@
           "Tournaments"
         ],
         "summary": "List tournaments",
+        "description": "Get list of all agent tournaments and their status.",
         "responses": {
           "200": {
             "description": "Tournament list"
@@ -7268,6 +7368,7 @@
           "Tournaments"
         ],
         "summary": "List tournaments",
+        "description": "Get list of all agent tournaments and their status.",
         "operationId": "listTournaments",
         "responses": {
           "200": {
@@ -7282,6 +7383,7 @@
           "Tournaments"
         ],
         "summary": "Tournament standings",
+        "description": "Get current standings and rankings for a tournament.",
         "parameters": [
           {
             "name": "id",
@@ -7306,6 +7408,7 @@
           "Tournaments"
         ],
         "summary": "Tournament standings",
+        "description": "Get current standings and rankings for a tournament.",
         "operationId": "getTournamentsStanding",
         "parameters": [
           {
@@ -7330,6 +7433,7 @@
           "Genesis"
         ],
         "summary": "Genesis statistics",
+        "description": "Get statistics about agent genesis events and population.",
         "responses": {
           "200": {
             "description": "Genesis stats"
@@ -7344,6 +7448,7 @@
           "Genesis"
         ],
         "summary": "Genesis statistics",
+        "description": "Get statistics about agent genesis events and population.",
         "operationId": "listGenesisStats",
         "responses": {
           "200": {
@@ -7358,6 +7463,7 @@
           "Genesis"
         ],
         "summary": "Genesis events",
+        "description": "Get timeline of agent creation and evolution events.",
         "responses": {
           "200": {
             "description": "Genesis events"
@@ -7372,6 +7478,7 @@
           "Genesis"
         ],
         "summary": "Genesis events",
+        "description": "Get timeline of agent creation and evolution events.",
         "operationId": "listGenesisEvents",
         "responses": {
           "200": {
@@ -7386,6 +7493,7 @@
           "Genesis"
         ],
         "summary": "Agent lineage",
+        "description": "Get lineage tree showing agent ancestry and descendants.",
         "parameters": [
           {
             "name": "agent",
@@ -7410,6 +7518,7 @@
           "Genesis"
         ],
         "summary": "Agent lineage",
+        "description": "Get lineage tree showing agent ancestry and descendants.",
         "operationId": "getGenesisLineage",
         "parameters": [
           {
@@ -7434,6 +7543,7 @@
           "Genesis"
         ],
         "summary": "Agent tree",
+        "description": "Get hierarchical tree view of agent relationships.",
         "parameters": [
           {
             "name": "agent",
@@ -7458,6 +7568,7 @@
           "Genesis"
         ],
         "summary": "Agent tree",
+        "description": "Get hierarchical tree view of agent relationships.",
         "operationId": "getGenesisTree",
         "parameters": [
           {
@@ -7482,6 +7593,7 @@
           "Evolution"
         ],
         "summary": "Agent evolution history",
+        "description": "Get history of agent evolution including version changes and improvements.",
         "parameters": [
           {
             "name": "agent",
@@ -7506,6 +7618,7 @@
           "Evolution"
         ],
         "summary": "Agent evolution history",
+        "description": "Get history of agent evolution including version changes and improvements.",
         "operationId": "getEvolutionHistory",
         "parameters": [
           {
@@ -7530,6 +7643,7 @@
           "Replays"
         ],
         "summary": "List replays",
+        "description": "Get list of available debate replays.",
         "responses": {
           "200": {
             "description": "Replay list"
@@ -7544,6 +7658,7 @@
           "Replays"
         ],
         "summary": "List replays",
+        "description": "Get list of available debate replays.",
         "operationId": "listReplays",
         "responses": {
           "200": {
@@ -7558,6 +7673,7 @@
           "Replays"
         ],
         "summary": "Get replay",
+        "description": "Get detailed replay data for a specific debate.",
         "parameters": [
           {
             "name": "id",
@@ -7582,6 +7698,7 @@
           "Replays"
         ],
         "summary": "Get replay",
+        "description": "Get detailed replay data for a specific debate.",
         "operationId": "getReplay",
         "parameters": [
           {
@@ -7606,6 +7723,7 @@
           "Learning"
         ],
         "summary": "Learning evolution",
+        "description": "Get learning evolution data showing system improvements over time.",
         "responses": {
           "200": {
             "description": "Evolution data"
@@ -7620,6 +7738,7 @@
           "Learning"
         ],
         "summary": "Learning evolution",
+        "description": "Get learning evolution data showing system improvements over time.",
         "operationId": "listLearningEvolution",
         "responses": {
           "200": {
@@ -7634,6 +7753,7 @@
           "Learning"
         ],
         "summary": "Meta-learning statistics",
+        "description": "Get statistics from meta-learning processes.",
         "responses": {
           "200": {
             "description": "Meta-learning stats"
@@ -7648,6 +7768,7 @@
           "Learning"
         ],
         "summary": "Meta-learning statistics",
+        "description": "Get statistics from meta-learning processes.",
         "operationId": "listMetaLearningStats",
         "responses": {
           "200": {
@@ -7662,6 +7783,7 @@
           "Critiques"
         ],
         "summary": "Critique patterns",
+        "description": "Get common critique patterns across debates.",
         "responses": {
           "200": {
             "description": "Patterns"
@@ -7676,6 +7798,7 @@
           "Critiques"
         ],
         "summary": "Critique patterns",
+        "description": "Get common critique patterns across debates.",
         "operationId": "listCritiquesPatterns",
         "responses": {
           "200": {
@@ -7690,6 +7813,7 @@
           "Critiques"
         ],
         "summary": "Critique archive",
+        "description": "Get archived critiques for historical analysis.",
         "responses": {
           "200": {
             "description": "Archive"
@@ -7704,6 +7828,7 @@
           "Critiques"
         ],
         "summary": "Critique archive",
+        "description": "Get archived critiques for historical analysis.",
         "operationId": "listCritiquesArchive",
         "responses": {
           "200": {
@@ -7718,6 +7843,7 @@
           "Critiques"
         ],
         "summary": "All reputations",
+        "description": "Get reputation data for all agents.",
         "responses": {
           "200": {
             "description": "Reputations"
@@ -7732,6 +7858,7 @@
           "Critiques"
         ],
         "summary": "All reputations",
+        "description": "Get reputation data for all agents.",
         "operationId": "listReputationAll",
         "responses": {
           "200": {
@@ -7746,6 +7873,7 @@
           "Routing"
         ],
         "summary": "Best team combinations",
+        "description": "Get recommended team combinations based on historical performance.",
         "parameters": [
           {
             "name": "min_debates",
@@ -7778,6 +7906,7 @@
           "Routing"
         ],
         "summary": "Best team combinations",
+        "description": "Get recommended team combinations based on historical performance.",
         "operationId": "listRoutingBestTeams",
         "parameters": [
           {
@@ -7810,6 +7939,7 @@
           "Routing"
         ],
         "summary": "Agent recommendations",
+        "description": "Get agent recommendations based on domain requirements and traits.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7850,6 +7980,7 @@
           "Routing"
         ],
         "summary": "Agent recommendations",
+        "description": "Get agent recommendations based on domain requirements and traits.",
         "operationId": "createRoutingRecommendations",
         "requestBody": {
           "content": {
@@ -7890,6 +8021,7 @@
           "Introspection"
         ],
         "summary": "All introspection data",
+        "description": "Get comprehensive introspection data across all agents.",
         "responses": {
           "200": {
             "description": "Introspection data"
@@ -7904,6 +8036,7 @@
           "Introspection"
         ],
         "summary": "All introspection data",
+        "description": "Get comprehensive introspection data across all agents.",
         "operationId": "listIntrospectionAll",
         "responses": {
           "200": {
@@ -7918,6 +8051,7 @@
           "Introspection"
         ],
         "summary": "Introspection leaderboard",
+        "description": "Get leaderboard rankings based on introspection metrics.",
         "responses": {
           "200": {
             "description": "Leaderboard"
@@ -7932,6 +8066,7 @@
           "Introspection"
         ],
         "summary": "Introspection leaderboard",
+        "description": "Get leaderboard rankings based on introspection metrics.",
         "operationId": "listIntrospectionLeaderboard",
         "responses": {
           "200": {
@@ -7946,6 +8081,7 @@
           "Introspection"
         ],
         "summary": "Agent introspection list",
+        "description": "Get list of agents with introspection data available.",
         "responses": {
           "200": {
             "description": "Agent list"
@@ -7960,6 +8096,7 @@
           "Introspection"
         ],
         "summary": "Agent introspection list",
+        "description": "Get list of agents with introspection data available.",
         "operationId": "listIntrospectionAgents",
         "responses": {
           "200": {
@@ -7974,6 +8111,7 @@
           "Introspection"
         ],
         "summary": "Agent introspection",
+        "description": "Get detailed introspection data for a specific agent.",
         "parameters": [
           {
             "name": "name",
@@ -7998,6 +8136,7 @@
           "Introspection"
         ],
         "summary": "Agent introspection",
+        "description": "Get detailed introspection data for a specific agent.",
         "operationId": "getIntrospectionAgent",
         "parameters": [
           {
@@ -9691,6 +9830,7 @@
           "Workspace"
         ],
         "summary": "List workspaces",
+        "operationId": "listWorkspaces",
         "description": "Get list of workspaces the authenticated user has access to.",
         "security": [
           {
@@ -9762,6 +9902,7 @@
           "Workspace"
         ],
         "summary": "Create workspace",
+        "operationId": "createWorkspace",
         "description": "Create a new isolated workspace for data segregation.",
         "security": [
           {
@@ -10145,6 +10286,7 @@
           "Workspace"
         ],
         "summary": "Get workspace details",
+        "operationId": "getWorkspace",
         "description": "Get detailed information about a specific workspace.",
         "security": [
           {
@@ -10259,6 +10401,7 @@
           "Workspace"
         ],
         "summary": "Delete workspace",
+        "operationId": "deleteWorkspace",
         "description": "Delete a workspace and all associated data. Requires admin permissions.",
         "security": [
           {
@@ -10521,6 +10664,7 @@
           "Workspace"
         ],
         "summary": "Add workspace member",
+        "operationId": "addWorkspaceMember",
         "description": "Add a user to the workspace with specified permissions.",
         "security": [
           {
@@ -11576,6 +11720,7 @@
           "Retention"
         ],
         "summary": "List retention policies",
+        "operationId": "listRetentionPolicies",
         "description": "Get all configured data retention policies.",
         "security": [
           {
@@ -11628,6 +11773,7 @@
           "Retention"
         ],
         "summary": "Create retention policy",
+        "operationId": "createRetentionPolicy",
         "description": "Create a new data retention policy for automated data lifecycle management.",
         "security": [
           {
@@ -11901,6 +12047,7 @@
           "Retention"
         ],
         "summary": "Execute retention policy",
+        "operationId": "executeRetentionPolicy",
         "description": "Manually execute a retention policy to process affected data.",
         "security": [
           {
@@ -12069,6 +12216,7 @@
           "Retention"
         ],
         "summary": "Get expiring items",
+        "operationId": "getExpiringItems",
         "description": "Get list of items approaching their retention expiration date.",
         "security": [
           {
@@ -12236,6 +12384,7 @@
           "Classification"
         ],
         "summary": "Classify content sensitivity",
+        "operationId": "classifyContent",
         "description": "Analyze content and determine its sensitivity classification level.",
         "security": [
           {
@@ -12446,6 +12595,7 @@
           "Classification"
         ],
         "summary": "Get classification policy",
+        "operationId": "getClassificationPolicy",
         "description": "Get handling policy for a specific sensitivity level.",
         "security": [
           {
@@ -12684,6 +12834,7 @@
           "Audit"
         ],
         "summary": "Query audit entries",
+        "operationId": "queryAuditEntries",
         "description": "Search and filter privacy audit log entries. SOC 2 Control: CC6.1",
         "security": [
           {
@@ -12969,6 +13120,7 @@
           "Audit"
         ],
         "summary": "Generate compliance report",
+        "operationId": "generateAuditReport",
         "description": "Generate a compliance report for a specified time period. SOC 2 Control: CC6.3",
         "security": [
           {
@@ -13211,6 +13363,7 @@
           "Audit"
         ],
         "summary": "Verify audit log integrity",
+        "operationId": "verifyAuditLogIntegrity",
         "description": "Verify the cryptographic integrity of audit log entries to detect tampering.",
         "security": [
           {
@@ -14466,7 +14619,7 @@
           "Workflows"
         ],
         "summary": "List workflow templates",
-        "operationId": "listWorkflowTemplatesGallery",
+        "operationId": "listWorkflowTemplates",
         "description": "Get gallery of workflow templates for quick start.",
         "parameters": [
           {
@@ -14552,7 +14705,7 @@
           "Workflows"
         ],
         "summary": "Get workflow template",
-        "operationId": "getWorkflowTemplateGallery",
+        "operationId": "getWorkflowTemplate",
         "description": "Get a specific workflow template for use as starting point.",
         "parameters": [
           {
@@ -19864,7 +20017,7 @@
           "Codebase"
         ],
         "summary": "Get scan by ID",
-        "operationId": "getCodebaseScanById",
+        "operationId": "getCodebaseScan",
         "description": "Fetch a specific scan result by scan ID.",
         "security": [
           {}
@@ -20008,7 +20161,7 @@
           "Codebase"
         ],
         "summary": "List scans",
-        "operationId": "listCodebaseScans",
+        "operationId": "getCodebaseScan",
         "description": "List scan history for a repository.",
         "security": [
           {}
@@ -22450,7 +22603,7 @@
           "Codebase"
         ],
         "summary": "Get latest metrics",
-        "operationId": "getCodebaseLatestMetrics",
+        "operationId": "getCodebaseMetric",
         "description": "Fetch the latest metrics report.",
         "security": [
           {}
@@ -22586,7 +22739,7 @@
           "Codebase"
         ],
         "summary": "Get metrics by ID",
-        "operationId": "getCodebaseMetricById",
+        "operationId": "getCodebaseMetric",
         "description": "Fetch a metrics report by analysis ID.",
         "security": [
           {}

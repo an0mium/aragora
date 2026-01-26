@@ -45,6 +45,7 @@ MEMORY_ENDPOINTS = {
         "get": {
             "tags": ["Memory"],
             "summary": "Memory tier statistics",
+            "description": "Get statistics for each memory tier (fast, medium, slow, glacial).",
             "operationId": "listMemoryTierStats",
             "responses": {"200": _ok_response("Tier stats")},
         },
@@ -53,6 +54,7 @@ MEMORY_ENDPOINTS = {
         "get": {
             "tags": ["Memory"],
             "summary": "Archive statistics",
+            "description": "Get statistics on archived memories and storage usage.",
             "operationId": "listMemoryArchiveStats",
             "responses": {"200": _ok_response("Archive stats")},
         },
