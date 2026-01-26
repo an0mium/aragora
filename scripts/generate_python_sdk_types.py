@@ -60,6 +60,9 @@ def generate_types(openapi_path: Path, output_path: Path) -> int:
         "--collapse-root-models",
         "--enum-field-as-literal",
         "one",
+        # Use ruff formatting for consistent output regardless of working directory
+        "--formatters",
+        "ruff-format",
     ]
 
     result = subprocess.run(cmd, capture_output=True, text=True)

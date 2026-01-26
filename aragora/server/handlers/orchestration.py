@@ -781,8 +781,10 @@ class OrchestrationHandler(BaseHandler):
             recommended = await recommend_agents(request.question)
             if recommended:
                 return recommended[:4]
-        except Exception:
-            pass
+        except (ImportError, AttributeError) as e:
+            logger.debug(f"Routing handler not available: {e}")
+        except Exception as e:
+            logger.warning(f"Agent routing failed: {e}")
 
         return default_agents[:3]
 
