@@ -2069,26 +2069,26 @@ All stabilization items addressed:
 ### Summary
 | Channel | Readiness | Key Gaps |
 |---------|-----------|----------|
-| **Slack** | 85% ✅ | Missing retry logic |
+| **Slack** | 95% ✅ | ~~Missing retry logic~~ **FIXED** - exponential backoff with 429 handling |
 | **Discord** | 75% ⚠️ | Missing retry logic, timeouts |
-| **Teams** | 70% ⚠️ | ~~Missing rate limiting~~ **FIXED**, missing timeouts |
+| **Teams** | 90% ✅ | ~~Missing rate limiting~~ **FIXED**, ~~missing timeouts~~ **FIXED** (10s), ~~missing retry~~ **FIXED** |
 | **Email** | 50% ❌ | Global state, missing rate limiting, OAuth refresh |
 
 ### Production-Ready Features
-- **Slack**: Signature verification (HMAC-SHA256), rate limiting (30/60/100 RPM), comprehensive error handling
+- **Slack**: Signature verification (HMAC-SHA256), rate limiting (30/60/100 RPM), comprehensive error handling, **retry logic with exponential backoff**
 - **Discord**: Ed25519 signature verification, rate limiting (30 RPM), good error handling
-- **Teams**: Bot Framework SDK auth, rate limiting (30/60 RPM) **ADDED**
+- **Teams**: Bot Framework SDK auth, rate limiting (30/60 RPM), **retry logic with exponential backoff**, **10s timeout**
 - **Email**: Gmail OAuth integration (experimental)
 
 ### Remaining Gaps (P0/P1)
-1. **No retry logic** - Failed API calls go directly to user-facing errors (all channels)
+1. ~~**No retry logic**~~ - **FIXED for Slack/Teams** (exponential backoff with 429 rate limit handling)
 2. **No circuit breaker** - Cascading failures possible (module exists at `/aragora/resilience.py` but unused)
-3. **Missing timeouts** - Teams/Email/Discord requests can hang indefinitely
+3. ~~**Missing timeouts**~~ - **FIXED for Slack/Teams** (10s timeout), Email/Discord still need work
 4. **Email global state** - Not thread-safe for multi-worker deployment
 
 ### Recommendation
-- **Slack/Discord**: Safe for production with monitoring
-- **Teams**: Safe with monitoring after timeout addition
+- **Slack/Teams**: Safe for production with monitoring
+- **Discord**: Safe for production with monitoring (retry logic recommended)
 - **Email**: Experimental only - requires persistence layer for OAuth tokens
 
 ## Recommendations

@@ -166,8 +166,16 @@ class TeamsIntegration:
         self._message_count += 1
         return True
 
-    async def _send_card(self, card: AdaptiveCard) -> bool:
-        """Send an adaptive card to Teams."""
+    async def _send_card(self, card: AdaptiveCard, max_retries: int = 3) -> bool:
+        """Send an adaptive card to Teams with retry logic.
+
+        Args:
+            card: The adaptive card to send
+            max_retries: Maximum number of retry attempts (default: 3)
+
+        Returns:
+            True if message was sent successfully
+        """
         if not self.is_configured:
             logger.warning("Teams webhook not configured, skipping message")
             return False
@@ -175,32 +183,60 @@ class TeamsIntegration:
         if not self._check_rate_limit():
             return False
 
-        try:
-            session = await self._get_session()
-            payload = card.to_payload()
-            # Include trace headers for distributed tracing
-            headers = build_trace_headers()
+        session = await self._get_session()
+        payload = card.to_payload()
+        headers = build_trace_headers()
 
-            async with session.post(
-                self.config.webhook_url,
-                json=payload,
-                headers=headers if headers else None,
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as response:
-                if response.status == 200:
-                    logger.debug("Teams message sent successfully")
-                    return True
-                else:
-                    text = await response.text()
-                    logger.error(f"Teams API error: {response.status} - {text}")
-                    return False
+        last_error: Optional[Exception] = None
 
-        except aiohttp.ClientError as e:
-            logger.error(f"Teams connection error: {e}")
-            return False
-        except asyncio.TimeoutError:
-            logger.error("Teams request timed out")
-            return False
+        for attempt in range(max_retries):
+            try:
+                async with session.post(
+                    self.config.webhook_url,
+                    json=payload,
+                    headers=headers if headers else None,
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as response:
+                    if response.status == 200:
+                        logger.debug("Teams message sent successfully")
+                        return True
+                    elif response.status == 429:
+                        # Rate limited by Teams - respect Retry-After header
+                        retry_after = int(response.headers.get("Retry-After", "5"))
+                        logger.warning(f"Teams rate limited, retrying after {retry_after}s")
+                        await asyncio.sleep(retry_after)
+                        continue
+                    elif response.status >= 500:
+                        # Server error - retry with backoff
+                        text = await response.text()
+                        logger.warning(
+                            f"Teams server error (attempt {attempt + 1}): {response.status} - {text}"
+                        )
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(2**attempt)
+                            continue
+                        return False
+                    else:
+                        # Client error - don't retry
+                        text = await response.text()
+                        logger.error(f"Teams API error: {response.status} - {text}")
+                        return False
+
+            except aiohttp.ClientError as e:
+                last_error = e
+                logger.warning(f"Teams connection error (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2**attempt)
+                    continue
+            except asyncio.TimeoutError:
+                last_error = asyncio.TimeoutError()
+                logger.warning(f"Teams request timed out (attempt {attempt + 1})")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2**attempt)
+                    continue
+
+        logger.error(f"Teams message failed after {max_retries} attempts: {last_error}")
+        return False
 
     async def verify_webhook(self) -> bool:
         """Verify Teams webhook connectivity by sending a test card."""

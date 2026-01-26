@@ -123,37 +123,81 @@ class SlackIntegration:
         self._message_count += 1
         return True
 
-    async def _send_message(self, message: SlackMessage) -> bool:
-        """Send a message to Slack."""
+    async def _send_message(self, message: SlackMessage, max_retries: int = 3) -> bool:
+        """Send a message to Slack with retry logic.
+
+        Args:
+            message: The message to send
+            max_retries: Maximum number of retry attempts (default: 3)
+
+        Returns:
+            True if message was sent successfully
+        """
         if not self._check_rate_limit():
             return False
 
-        try:
-            session = await self._get_session()
-            payload = message.to_payload(self.config)
-            # Include trace headers for distributed tracing
-            headers = build_trace_headers()
+        import asyncio
 
-            async with session.post(
-                self.config.webhook_url,
-                json=payload,
-                headers=headers if headers else None,
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as response:
-                if response.status == 200:
-                    logger.debug("Slack message sent successfully")
-                    return True
-                else:
-                    text = await response.text()
-                    logger.error(f"Slack API error: {response.status} - {text}")
-                    return False
+        session = await self._get_session()
+        payload = message.to_payload(self.config)
+        headers = build_trace_headers()
 
-        except aiohttp.ClientError as e:
-            logger.error(f"Slack connection error: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"Slack send failed: {e}")
-            return False
+        last_error: Optional[Exception] = None
+
+        for attempt in range(max_retries):
+            try:
+                async with session.post(
+                    self.config.webhook_url,
+                    json=payload,
+                    headers=headers if headers else None,
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as response:
+                    if response.status == 200:
+                        logger.debug("Slack message sent successfully")
+                        return True
+                    elif response.status == 429:
+                        # Rate limited by Slack - respect Retry-After header
+                        retry_after = int(response.headers.get("Retry-After", "5"))
+                        logger.warning(f"Slack rate limited, retrying after {retry_after}s")
+                        await asyncio.sleep(retry_after)
+                        continue
+                    elif response.status >= 500:
+                        # Server error - retry with backoff
+                        text = await response.text()
+                        logger.warning(
+                            f"Slack server error (attempt {attempt + 1}): {response.status} - {text}"
+                        )
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(2**attempt)
+                            continue
+                        return False
+                    else:
+                        # Client error - don't retry
+                        text = await response.text()
+                        logger.error(f"Slack API error: {response.status} - {text}")
+                        return False
+
+            except aiohttp.ClientError as e:
+                last_error = e
+                logger.warning(f"Slack connection error (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2**attempt)
+                    continue
+            except asyncio.TimeoutError:
+                last_error = asyncio.TimeoutError()
+                logger.warning(f"Slack request timed out (attempt {attempt + 1})")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2**attempt)
+                    continue
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Slack send error (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2**attempt)
+                    continue
+
+        logger.error(f"Slack message failed after {max_retries} attempts: {last_error}")
+        return False
 
     async def verify_webhook(self) -> bool:
         """Verify Slack webhook connectivity by sending a test message."""
