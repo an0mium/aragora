@@ -26,6 +26,8 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+import os
+import re
 from typing import Any, List, Optional
 
 from aragora.config import (
@@ -62,6 +64,41 @@ from ..base import (
 )
 from ..utils.rate_limit import rate_limit
 
+_ENV_VAR_RE = re.compile(r"[A-Z][A-Z0-9_]+")
+_OPENROUTER_FALLBACK_MODELS = {
+    "anthropic-api": "anthropic/claude-3.5-sonnet",
+    "openai-api": "openai/gpt-4o-mini",
+    "gemini": "google/gemini-2.0-flash-exp:free",
+    "grok": "x-ai/grok-2-1212",
+    "mistral-api": "mistralai/mistral-large-2411",
+}
+
+
+def _secret_configured(name: str) -> bool:
+    try:
+        from aragora.config.secrets import get_secret
+
+        value = get_secret(name)
+        if value and value.strip():
+            return True
+    except Exception:
+        pass
+    env_value = os.getenv(name)
+    return bool(env_value and env_value.strip())
+
+
+def _missing_required_env_vars(env_vars: str | None) -> list[str]:
+    if not env_vars:
+        return []
+    if "optional" in env_vars.lower():
+        return []
+    candidates = _ENV_VAR_RE.findall(env_vars)
+    if not candidates:
+        return []
+    if any(_secret_configured(var) for var in candidates):
+        return []
+    return candidates
+
 
 class AgentsHandler(BaseHandler):
     """Handler for agent-related endpoints."""
@@ -69,6 +106,7 @@ class AgentsHandler(BaseHandler):
     ROUTES = [
         "/api/agents",
         "/api/agents/health",
+        "/api/agents/availability",
         "/api/agents/local",
         "/api/agents/local/status",
         "/api/leaderboard",
@@ -103,6 +141,8 @@ class AgentsHandler(BaseHandler):
             return True
         if path == "/api/agents/health":
             return True
+        if path == "/api/agents/availability":
+            return True
         if path in ("/api/agents/local", "/api/agents/local/status"):
             return True
         if path in ("/api/leaderboard", "/api/rankings"):
@@ -123,6 +163,9 @@ class AgentsHandler(BaseHandler):
         # Agent health endpoint (must come before /api/agents check)
         if path == "/api/agents/health":
             return self._get_agent_health()
+
+        if path == "/api/agents/availability":
+            return self._get_agent_availability()
 
         # Local LLM endpoints (must come before /api/agents check)
         if path == "/api/agents/local":
@@ -515,6 +558,37 @@ class AgentsHandler(BaseHandler):
             health["cross_pollination"] = {"_error": str(e)}
 
         return json_response(health)
+
+    @rate_limit(rpm=60, limiter_name="agent_availability")
+    @handle_errors("get agent availability")
+    def _get_agent_availability(self) -> HandlerResult:
+        """Report agent availability based on configured secrets."""
+        from aragora.agents.registry import AgentRegistry, register_all_agents
+
+        register_all_agents()
+        openrouter_available = _secret_configured("OPENROUTER_API_KEY")
+
+        availability: dict[str, Any] = {
+            "openrouter_available": openrouter_available,
+            "agents": {},
+        }
+
+        for agent_type, spec in AgentRegistry.list_all().items():
+            env_vars = spec.get("env_vars")
+            missing = _missing_required_env_vars(env_vars)
+            fallback_model = _OPENROUTER_FALLBACK_MODELS.get(agent_type)
+            uses_openrouter = bool(openrouter_available and missing and fallback_model)
+
+            availability["agents"][agent_type] = {
+                "type": spec.get("type"),
+                "env_vars": env_vars or "",
+                "missing_env_vars": missing,
+                "available": not missing or uses_openrouter,
+                "uses_openrouter_fallback": uses_openrouter,
+                "fallback_model": fallback_model if uses_openrouter else None,
+            }
+
+        return json_response(availability)
 
     @rate_limit(rpm=30, limiter_name="leaderboard")
     def _get_leaderboard(self, limit: int, domain: Optional[str]) -> HandlerResult:

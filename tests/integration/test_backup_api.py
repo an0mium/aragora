@@ -50,47 +50,83 @@ class TestBackupAPIEndpoints:
 
     @pytest.fixture
     def mock_backup_manager(self):
-        """Create mock backup manager."""
-        manager = MagicMock()
-        manager.list_backups = AsyncMock(
+        """Create mock backup manager with proper return types."""
+        from aragora.backup.manager import BackupMetadata, BackupStatus, BackupType
+
+        # Create a mock backup metadata object
+        mock_backup = MagicMock(spec=BackupMetadata)
+        mock_backup.id = "bkp_001"
+        mock_backup.source_path = "/test/db.sqlite"
+        mock_backup.backup_path = "/backups/bkp_001.db"
+        mock_backup.backup_type = BackupType.FULL
+        mock_backup.status = BackupStatus.COMPLETED
+        mock_backup.created_at = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        mock_backup.size_bytes = 1024000
+        mock_backup.compressed_size_bytes = 512000
+        mock_backup.checksum = "sha256:abc123"
+        mock_backup.verified = True
+        mock_backup.metadata = {}
+        mock_backup.to_dict = MagicMock(
             return_value={
-                "backups": [
-                    {
-                        "backup_id": "bkp_001",
-                        "created_at": "2024-01-01T00:00:00Z",
-                        "type": "full",
-                        "status": "completed",
-                        "size_bytes": 1024000,
-                    }
-                ],
-                "total": 1,
-            }
-        )
-        manager.create_backup = AsyncMock(
-            return_value={
-                "backup_id": "bkp_002",
-                "status": "in_progress",
-                "started_at": datetime.now(timezone.utc).isoformat(),
-            }
-        )
-        manager.get_backup = AsyncMock(
-            return_value={
-                "backup_id": "bkp_001",
-                "type": "full",
+                "id": "bkp_001",
+                "source_path": "/test/db.sqlite",
+                "backup_path": "/backups/bkp_001.db",
+                "backup_type": "full",
                 "status": "completed",
+                "created_at": "2024-01-01T00:00:00+00:00",
                 "size_bytes": 1024000,
+                "compressed_size_bytes": 512000,
                 "checksum": "sha256:abc123",
+                "verified": True,
             }
         )
-        manager.verify_integrity = AsyncMock(return_value={"valid": True, "checksum_match": True})
-        manager.restore_test = AsyncMock(
+
+        manager = MagicMock()
+        # list_backups is synchronous, returns list[BackupMetadata]
+        manager.list_backups = MagicMock(return_value=[mock_backup])
+
+        # create_backup is synchronous, returns BackupMetadata
+        new_backup = MagicMock(spec=BackupMetadata)
+        new_backup.id = "bkp_002"
+        new_backup.status = BackupStatus.IN_PROGRESS
+        new_backup.to_dict = MagicMock(
             return_value={
-                "success": True,
-                "tables_verified": 10,
-                "rows_sampled": 1000,
-                "errors": [],
+                "id": "bkp_002",
+                "status": "in_progress",
+                "created_at": datetime.now(timezone.utc).isoformat(),
             }
         )
+        manager.create_backup = MagicMock(return_value=new_backup)
+
+        # verify_backup is synchronous
+        verify_result = MagicMock()
+        verify_result.verified = True
+        verify_result.checksum_valid = True
+        verify_result.tables_valid = True
+        verify_result.row_counts_valid = True
+        verify_result.errors = []
+        verify_result.warnings = []
+        verify_result.verified_at = datetime.now(timezone.utc)
+        verify_result.duration_seconds = 1.5
+        manager.verify_backup = MagicMock(return_value=verify_result)
+
+        # verify_restore_comprehensive is synchronous
+        comprehensive_result = MagicMock()
+        comprehensive_result.to_dict = MagicMock(
+            return_value={
+                "verified": True,
+                "schema_validation": {"valid": True},
+                "integrity_check": {"valid": True},
+            }
+        )
+        manager.verify_restore_comprehensive = MagicMock(return_value=comprehensive_result)
+
+        # restore_backup is synchronous
+        manager.restore_backup = MagicMock(return_value=True)
+
+        # apply_retention_policy is synchronous
+        manager.apply_retention_policy = MagicMock(return_value=["bkp_old1", "bkp_old2"])
+
         return manager
 
     @pytest.mark.asyncio
