@@ -22,6 +22,11 @@ AGENT_LATENCY: Any = None
 AGENT_ERRORS: Any = None
 AGENT_TOKEN_USAGE: Any = None
 
+# Fallback metrics
+FALLBACK_ACTIVATIONS: Any = None
+FALLBACK_SUCCESS: Any = None
+FALLBACK_LATENCY: Any = None
+
 _initialized = False
 
 
@@ -66,6 +71,28 @@ def init_agent_metrics() -> None:
             ["agent", "direction"],  # direction: input, output
         )
 
+        # Fallback metrics
+        global FALLBACK_ACTIVATIONS, FALLBACK_SUCCESS, FALLBACK_LATENCY
+
+        FALLBACK_ACTIVATIONS = Counter(
+            "aragora_fallback_activations_total",
+            "Fallback activations (e.g., to OpenRouter)",
+            ["primary_agent", "fallback_provider", "error_type"],
+        )
+
+        FALLBACK_SUCCESS = Counter(
+            "aragora_fallback_success_total",
+            "Fallback call outcomes",
+            ["fallback_provider", "status"],  # status: success, error
+        )
+
+        FALLBACK_LATENCY = Histogram(
+            "aragora_fallback_latency_seconds",
+            "Fallback call latency",
+            ["fallback_provider"],
+            buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0],
+        )
+
         _initialized = True
         logger.debug("Agent metrics initialized")
 
@@ -77,11 +104,17 @@ def init_agent_metrics() -> None:
 def _init_noop_metrics() -> None:
     """Initialize no-op metrics when Prometheus is disabled."""
     global AGENT_CALLS, AGENT_LATENCY, AGENT_ERRORS, AGENT_TOKEN_USAGE
+    global FALLBACK_ACTIVATIONS, FALLBACK_SUCCESS, FALLBACK_LATENCY
 
     AGENT_CALLS = NoOpMetric()
     AGENT_LATENCY = NoOpMetric()
     AGENT_ERRORS = NoOpMetric()
     AGENT_TOKEN_USAGE = NoOpMetric()
+
+    # Fallback metrics
+    FALLBACK_ACTIVATIONS = NoOpMetric()
+    FALLBACK_SUCCESS = NoOpMetric()
+    FALLBACK_LATENCY = NoOpMetric()
 
 
 def _ensure_init() -> None:
@@ -160,6 +193,50 @@ def record_token_usage(
 # =============================================================================
 
 
+def record_fallback_activation(
+    primary_agent: str,
+    fallback_provider: str,
+    error_type: str,
+) -> None:
+    """Record when a fallback provider is activated.
+
+    Args:
+        primary_agent: The agent that failed (e.g., "claude", "gpt-4")
+        fallback_provider: The fallback used (e.g., "openrouter")
+        error_type: Type of error that triggered fallback (e.g., "rate_limit", "quota")
+    """
+    _ensure_init()
+    FALLBACK_ACTIVATIONS.labels(
+        primary_agent=primary_agent,
+        fallback_provider=fallback_provider,
+        error_type=error_type,
+    ).inc()
+
+
+def record_fallback_success(
+    fallback_provider: str,
+    success: bool,
+    latency_seconds: float | None = None,
+) -> None:
+    """Record fallback call outcome.
+
+    Args:
+        fallback_provider: The fallback provider (e.g., "openrouter")
+        success: Whether the fallback call succeeded
+        latency_seconds: Optional call latency
+    """
+    _ensure_init()
+    status = "success" if success else "error"
+    FALLBACK_SUCCESS.labels(fallback_provider=fallback_provider, status=status).inc()
+    if latency_seconds is not None:
+        FALLBACK_LATENCY.labels(fallback_provider=fallback_provider).observe(latency_seconds)
+
+
+# =============================================================================
+# Context Managers
+# =============================================================================
+
+
 @contextmanager
 def track_agent_call(agent: str) -> Generator[None, None, None]:
     """Context manager to track agent call.
@@ -192,6 +269,10 @@ __all__ = [
     "AGENT_LATENCY",
     "AGENT_ERRORS",
     "AGENT_TOKEN_USAGE",
+    # Fallback metrics
+    "FALLBACK_ACTIVATIONS",
+    "FALLBACK_SUCCESS",
+    "FALLBACK_LATENCY",
     # Functions
     "init_agent_metrics",
     "record_agent_call",
@@ -199,4 +280,7 @@ __all__ = [
     "record_agent_error",
     "record_token_usage",
     "track_agent_call",
+    # Fallback functions
+    "record_fallback_activation",
+    "record_fallback_success",
 ]

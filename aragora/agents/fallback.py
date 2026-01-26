@@ -28,6 +28,10 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 from aragora.core_types import AgentRole
+from aragora.observability.metrics.agent import (
+    record_fallback_activation,
+    record_fallback_success,
+)
 
 _AgentRegistry: Any = None
 try:
@@ -248,10 +252,28 @@ class QuotaFallbackMixin:
 
         name = getattr(self, "name", "unknown")
         status_info = f" (status {status_code})" if status_code else ""
+        error_type = "rate_limit" if status_code == 429 else "quota"
         logger.warning(
             f"API quota/rate limit error{status_info} for {name}, falling back to OpenRouter"
         )
-        return await fallback.generate(prompt, context)
+
+        # Record fallback activation telemetry
+        record_fallback_activation(
+            primary_agent=name,
+            fallback_provider="openrouter",
+            error_type=error_type,
+        )
+
+        start_time = time.time()
+        try:
+            result = await fallback.generate(prompt, context)
+            latency = time.time() - start_time
+            record_fallback_success("openrouter", success=True, latency_seconds=latency)
+            return result
+        except Exception:
+            latency = time.time() - start_time
+            record_fallback_success("openrouter", success=False, latency_seconds=latency)
+            raise
 
     async def fallback_generate_stream(
         self,
@@ -282,11 +304,31 @@ class QuotaFallbackMixin:
 
         name = getattr(self, "name", "unknown")
         status_info = f" (status {status_code})" if status_code else ""
+        error_type = "rate_limit" if status_code == 429 else "quota"
         logger.warning(
             f"API quota/rate limit error{status_info} for {name}, falling back to OpenRouter streaming"
         )
-        async for token in fallback.generate_stream(prompt, context):
-            yield token
+
+        # Record fallback activation telemetry
+        record_fallback_activation(
+            primary_agent=name,
+            fallback_provider="openrouter",
+            error_type=error_type,
+        )
+
+        start_time = time.time()
+        success = False
+        try:
+            async for token in fallback.generate_stream(prompt, context):
+                if not success:
+                    success = True  # First token received = success
+                yield token
+            latency = time.time() - start_time
+            record_fallback_success("openrouter", success=True, latency_seconds=latency)
+        except Exception:
+            latency = time.time() - start_time
+            record_fallback_success("openrouter", success=False, latency_seconds=latency)
+            raise
 
 
 @dataclass
@@ -537,8 +579,10 @@ class AgentFallbackChain:
             retry_count += 1
             is_primary = i == 0
 
+            call_start = time.time()
             try:
                 result = await agent.generate(prompt, context)
+                call_latency = time.time() - call_start
 
                 # Record success
                 self._record_success(provider_key)
@@ -546,6 +590,10 @@ class AgentFallbackChain:
                     self.metrics.record_primary_attempt(success=True)
                 else:
                     self.metrics.record_fallback_attempt(provider_key, success=True)
+                    # Record Prometheus telemetry for fallback success
+                    record_fallback_success(
+                        provider_key, success=True, latency_seconds=call_latency
+                    )
                     logger.info(
                         f"fallback_success provider={provider_key} "
                         f"fallback_rate={self.metrics.fallback_rate:.1%}"
@@ -554,20 +602,36 @@ class AgentFallbackChain:
                 return result
 
             except Exception as e:
+                call_latency = time.time() - call_start
                 last_error = e
                 self._record_failure(provider_key)
+
+                # Determine error type for telemetry
+                error_type = "rate_limit" if self._is_rate_limit_error(e) else "error"
 
                 if is_primary:
                     self.metrics.record_primary_attempt(success=False)
                     logger.warning(
                         f"Primary provider '{provider_key}' failed: {e}, trying fallback"
                     )
+                    # Record activation of fallback chain (next provider will be fallback)
+                    if len(self.providers) > 1:
+                        next_provider = self._provider_key(self.providers[1])
+                        record_fallback_activation(
+                            primary_agent=provider_key,
+                            fallback_provider=next_provider,
+                            error_type=error_type,
+                        )
                 else:
                     self.metrics.record_fallback_attempt(provider_key, success=False)
+                    # Record Prometheus telemetry for fallback failure
+                    record_fallback_success(
+                        provider_key, success=False, latency_seconds=call_latency
+                    )
                     logger.warning(f"Fallback provider '{provider_key}' failed: {e}")
 
                 # Check if this looks like a rate limit error
-                if self._is_rate_limit_error(e):
+                if error_type == "rate_limit":
                     logger.info(f"Rate limit detected for {provider_key}, moving to next")
 
                 continue
@@ -628,6 +692,7 @@ class AgentFallbackChain:
             tried_providers.append(provider_key)
             retry_count += 1
             is_primary = i == 0
+            call_start = time.time()
 
             try:
                 # Try to get first token to verify stream works
@@ -635,12 +700,17 @@ class AgentFallbackChain:
                 async for token in agent.generate_stream(prompt, context):
                     if first_token is None:
                         first_token = token
+                        call_latency = time.time() - call_start
                         # Stream started successfully
                         self._record_success(provider_key)
                         if is_primary:
                             self.metrics.record_primary_attempt(success=True)
                         else:
                             self.metrics.record_fallback_attempt(provider_key, success=True)
+                            # Record Prometheus telemetry for fallback success
+                            record_fallback_success(
+                                provider_key, success=True, latency_seconds=call_latency
+                            )
                             logger.info(f"fallback_stream_success provider={provider_key}")
                     yield token
 
@@ -648,14 +718,30 @@ class AgentFallbackChain:
                 return
 
             except Exception as e:
+                call_latency = time.time() - call_start
                 last_error = e
                 self._record_failure(provider_key)
+
+                # Determine error type for telemetry
+                error_type = "rate_limit" if self._is_rate_limit_error(e) else "error"
 
                 if is_primary:
                     self.metrics.record_primary_attempt(success=False)
                     logger.warning(f"Primary provider '{provider_key}' stream failed: {e}")
+                    # Record activation of fallback chain
+                    if len(self.providers) > 1:
+                        next_provider = self._provider_key(self.providers[1])
+                        record_fallback_activation(
+                            primary_agent=provider_key,
+                            fallback_provider=next_provider,
+                            error_type=error_type,
+                        )
                 else:
                     self.metrics.record_fallback_attempt(provider_key, success=False)
+                    # Record Prometheus telemetry for fallback failure
+                    record_fallback_success(
+                        provider_key, success=False, latency_seconds=call_latency
+                    )
                     logger.warning(f"Fallback provider '{provider_key}' stream failed: {e}")
 
                 continue

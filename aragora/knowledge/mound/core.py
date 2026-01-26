@@ -54,6 +54,21 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _to_iso_string(value: Any) -> Optional[str]:
+    """Safely convert datetime or string to ISO format string.
+
+    Handles both datetime objects and ISO format strings to ensure
+    consistent serialization regardless of how the value was stored.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value  # Already an ISO string
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
 class KnowledgeMoundCore:
     """
     Core foundation for the Knowledge Mound facade.
@@ -460,8 +475,8 @@ class KnowledgeMoundCore:
             ),
             "importance": node.importance,
             "metadata": node.metadata,
-            "created_at": node.created_at.isoformat() if node.created_at else None,
-            "updated_at": node.updated_at.isoformat() if node.updated_at else None,
+            "created_at": _to_iso_string(node.created_at),
+            "updated_at": _to_iso_string(node.updated_at),
             "archived_at": datetime.now().isoformat(),
             "workspace_id": self.workspace_id,
         }
@@ -650,8 +665,8 @@ class KnowledgeMoundCore:
             ),
             "importance": node.importance,
             "metadata": node.metadata,
-            "created_at": node.created_at.isoformat() if node.created_at else None,
-            "updated_at": node.updated_at.isoformat() if node.updated_at else None,
+            "created_at": _to_iso_string(node.created_at),
+            "updated_at": _to_iso_string(node.updated_at),
             "archived_at": datetime.now().isoformat(),
             "archived_by": reason,
             "workspace_id": workspace_id,

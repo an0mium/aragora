@@ -259,7 +259,7 @@ class CRUDOperationsMixin:
         if "metadata" in updates:
             updates["metadata"] = validate_metadata(updates["metadata"])
 
-        updates["updated_at"] = datetime.now()
+        updates["updated_at"] = datetime.now().isoformat()
         await self._update_node(node_id, updates)
 
         # Invalidate cache
