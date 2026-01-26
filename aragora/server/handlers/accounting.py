@@ -33,6 +33,7 @@ from typing import Any, Dict, Optional
 from aiohttp import web
 
 from aragora.connectors.accounting.gusto import GustoConnector
+from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -363,6 +364,7 @@ async def handle_accounting_callback(request: web.Request) -> web.Response:
         )
 
 
+@require_permission("admin:system")
 async def handle_accounting_disconnect(request: web.Request) -> web.Response:
     """
     POST /api/accounting/disconnect
@@ -826,6 +828,7 @@ async def handle_gusto_callback(request: web.Request) -> web.Response:
         )
 
 
+@require_permission("admin:system")
 async def handle_gusto_disconnect(request: web.Request) -> web.Response:
     """
     POST /api/accounting/gusto/disconnect
@@ -992,6 +995,7 @@ async def handle_gusto_payroll_detail(request: web.Request) -> web.Response:
         )
 
 
+@require_permission("finance:write")
 async def handle_gusto_journal_entry(request: web.Request) -> web.Response:
     """
     POST /api/accounting/gusto/payrolls/{payroll_id}/journal-entry

@@ -437,6 +437,14 @@ PERMISSION_MATRIX: dict[str, list[str]] = {
     # Checkpoints
     "checkpoints:read": ["member", "admin", "owner"],
     "checkpoints:delete": ["admin", "owner"],
+    # Finance/Accounting permissions
+    "finance:read": ["member", "admin", "owner"],
+    "finance:write": ["admin", "owner"],
+    "finance:approve": ["admin", "owner"],
+    "finance:export": ["admin", "owner"],
+    # Payroll permissions
+    "payroll:read": ["admin", "owner"],
+    "payroll:manage": ["owner"],
 }
 
 

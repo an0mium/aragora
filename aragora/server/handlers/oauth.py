@@ -24,6 +24,8 @@ from dataclasses import dataclass
 from typing import Any, Optional, Union
 from urllib.parse import urlencode
 
+from aragora.audit.unified import audit_action, audit_security
+
 from .base import (
     HandlerResult,
     error_response,
@@ -609,6 +611,15 @@ class OAuthHandler(SecureHandler):
         if error:
             error_desc = _get_param(query_params, "error_description", error)
             logger.warning(f"Google OAuth error: {error} - {error_desc}")
+            # Audit failed OAuth attempt
+            audit_security(
+                event_type="oauth_failed",
+                actor_id="unknown",
+                resource_type="auth",
+                provider="google",
+                error=error,
+                reason=error_desc,
+            )
             return self._redirect_with_error(f"OAuth error: {error_desc}")
 
         # Validate state
@@ -734,6 +745,17 @@ class OAuthHandler(SecureHandler):
             raise
 
         logger.info(f"OAuth login successful: {user.email} via Google")
+
+        # Audit successful OAuth login
+        audit_action(
+            user_id=user.id,
+            action="oauth_login",
+            resource_type="auth",
+            resource_id=user.id,
+            provider="google",
+            email=user.email,
+            success=True,
+        )
 
         # Redirect to frontend with tokens
         redirect_url = state_data.get("redirect_url", _get_oauth_success_url())
@@ -1894,6 +1916,15 @@ class OAuthHandler(SecureHandler):
             logger.warning("UserStore doesn't support OAuth unlinking")
 
         logger.info(f"Unlinked {provider} from user {auth_ctx.user_id}")
+
+        # Audit OAuth unlink
+        audit_action(
+            user_id=auth_ctx.user_id,
+            action="oauth_unlink",
+            resource_type="auth",
+            resource_id=auth_ctx.user_id,
+            provider=provider,
+        )
 
         return json_response({"message": f"Unlinked {provider} successfully"})
 

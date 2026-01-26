@@ -42,6 +42,7 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -297,6 +298,7 @@ async def handle_get_invoice(
 # =============================================================================
 
 
+@require_permission("finance:approve")
 async def handle_approve_invoice(
     invoice_id: str,
     data: Dict[str, Any],
@@ -331,6 +333,7 @@ async def handle_approve_invoice(
         return error_response(f"Failed to approve invoice: {e}", status=500)
 
 
+@require_permission("finance:approve")
 async def handle_reject_invoice(
     invoice_id: str,
     data: Dict[str, Any],
@@ -465,6 +468,7 @@ async def handle_get_anomalies(
 # =============================================================================
 
 
+@require_permission("finance:approve")
 async def handle_schedule_payment(
     invoice_id: str,
     data: Dict[str, Any],
@@ -573,6 +577,7 @@ async def handle_get_scheduled_payments(
 # =============================================================================
 
 
+@require_permission("finance:write")
 async def handle_create_purchase_order(
     data: Dict[str, Any],
     user_id: str = "default",

@@ -35,6 +35,7 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,7 @@ def get_ar_automation():
 # =============================================================================
 
 
+@require_permission("finance:write")
 async def handle_create_invoice(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -203,6 +205,7 @@ async def handle_get_invoice(
         return error_response(f"Failed to get invoice: {e}", status=500)
 
 
+@require_permission("finance:write")
 async def handle_send_invoice(
     data: Dict[str, Any],
     invoice_id: str,
@@ -281,6 +284,7 @@ async def handle_send_reminder(
         return error_response(f"Failed to send reminder: {e}", status=500)
 
 
+@require_permission("finance:write")
 async def handle_record_payment(
     data: Dict[str, Any],
     invoice_id: str,
@@ -394,6 +398,7 @@ async def handle_get_collections(
 # =============================================================================
 
 
+@require_permission("finance:write")
 async def handle_add_customer(
     data: Dict[str, Any],
     user_id: str = "default",

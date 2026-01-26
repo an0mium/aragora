@@ -37,6 +37,7 @@ from uuid import uuid4
 
 from aiohttp import web
 
+from aragora.audit.unified import audit_data, audit_security
 from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
@@ -595,6 +596,17 @@ async def handle_refund(request: web.Request) -> web.Response:
                     card_last_four=card_last_four,
                 )
 
+            # Audit the refund
+            audit_data(
+                user_id=request.get("user_id", "unknown"),
+                action="payment_refund",
+                resource_type="payment",
+                resource_id=result.transaction_id,
+                provider="authorize_net",
+                amount=str(amount),
+                success=result.approved,
+            )
+
             return web.json_response(
                 {
                     "success": result.approved,
@@ -612,6 +624,19 @@ async def handle_refund(request: web.Request) -> web.Response:
                 amount=int(amount * 100),
             )
 
+            # Audit the refund
+            audit_data(
+                user_id=request.get("user_id", "unknown"),
+                action="payment_refund",
+                resource_type="payment",
+                resource_id=refund.id,
+                original_transaction_id=transaction_id,
+                provider="stripe",
+                amount=str(amount),
+                status=refund.status,
+                success=refund.status == "succeeded",
+            )
+
             return web.json_response(
                 {
                     "success": refund.status == "succeeded",
@@ -624,6 +649,13 @@ async def handle_refund(request: web.Request) -> web.Response:
         return web.json_response({"error": "Invalid JSON body"}, status=400)
     except Exception as e:
         logger.exception(f"Error processing refund: {e}")
+        audit_security(
+            event_type="refund_error",
+            actor_id=request.get("user_id", "unknown"),
+            resource_type="payment",
+            resource_id=body.get("transaction_id", "unknown"),
+            reason=str(e),
+        )
         return web.json_response({"error": str(e)}, status=500)
 
 
