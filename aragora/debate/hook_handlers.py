@@ -83,6 +83,7 @@ class HookHandlerRegistry:
         count += self._register_km_handlers()
         count += self._register_webhook_handlers()
         count += self._register_receipt_handlers()
+        count += self._register_provenance_handlers()
 
         self._registered = True
         logger.info(f"HookHandlerRegistry registered {count} handlers")
@@ -951,6 +952,95 @@ class HookHandlerRegistry:
 
         return count
 
+    # =========================================================================
+    # Evidence Provenance Handlers
+    # =========================================================================
+
+    def _register_provenance_handlers(self) -> int:
+        """Wire hooks for evidence provenance tracking.
+
+        Handles:
+        - Recording evidence during proposal/critique phases
+        - Creating citations for claims
+        - Persisting provenance chain after debate completion
+        """
+        # Check if provenance is enabled in config
+        arena_config = self.subsystems.get("arena_config")
+        if not arena_config:
+            return 0
+
+        enable_provenance = getattr(arena_config, "enable_provenance", False)
+        if not enable_provenance:
+            return 0
+
+        auto_persist = getattr(arena_config, "provenance_auto_persist", True)
+        provenance_store = getattr(arena_config, "provenance_store", None) or self.subsystems.get(
+            "provenance_store"
+        )
+
+        count = 0
+        from aragora.debate.hooks import HookType, HookPriority
+
+        def handle_provenance_persist(
+            ctx: Any = None,
+            result: Any = None,
+            **kwargs: Any,
+        ) -> None:
+            """Persist provenance chain after debate completion."""
+            try:
+                if not result:
+                    return
+
+                # Get or create provenance manager
+                provenance_manager = getattr(arena_config, "provenance_manager", None)
+                if provenance_manager is None:
+                    # Try to get from ctx or subsystems
+                    provenance_manager = self.subsystems.get("provenance_manager")
+
+                if provenance_manager is None:
+                    return
+
+                # Verify chain integrity before persisting
+                chain_valid, errors = provenance_manager.verify_chain_integrity()
+                if not chain_valid:
+                    logger.warning(f"Provenance chain has integrity issues: {len(errors)} errors")
+
+                # Persist to store if available
+                if provenance_store and auto_persist:
+                    try:
+                        provenance_store.save_manager(provenance_manager)
+                        logger.info(
+                            f"Persisted provenance chain {provenance_manager.chain.chain_id} "
+                            f"({len(provenance_manager.chain.records)} records, "
+                            f"{len(provenance_manager.graph.citations)} citations)"
+                        )
+                    except Exception as store_err:
+                        logger.warning(f"Failed to persist provenance: {store_err}")
+
+                # Register with provenance handler for API access
+                try:
+                    from aragora.server.handlers.features.provenance import (
+                        register_provenance_manager,
+                    )
+
+                    register_provenance_manager(provenance_manager.debate_id, provenance_manager)
+                except ImportError:
+                    pass  # Server not available
+
+            except Exception as e:
+                logger.warning(f"Provenance persistence failed: {e}")
+
+        if self._register(
+            HookType.POST_DEBATE.value,
+            handle_provenance_persist,
+            "provenance_persist",
+            HookPriority.LOW,  # Run after other post-debate handlers
+        ):
+            count += 1
+            logger.debug("Registered provenance persistence handler")
+
+        return count
+
     @property
     def registered_count(self) -> int:
         """Number of handlers currently registered."""
@@ -979,6 +1069,7 @@ def create_hook_handler_registry(
     webhook_delivery: Any = None,
     arena_config: Any = None,
     receipt_store: Any = None,
+    provenance_store: Any = None,
     auto_register: bool = True,
 ) -> HookHandlerRegistry:
     """Create and optionally register a HookHandlerRegistry.
@@ -999,6 +1090,7 @@ def create_hook_handler_registry(
         webhook_delivery: WebhookDeliveryManager for webhook dispatch
         arena_config: ArenaConfig for receipt generation settings
         receipt_store: Receipt store for persisting decision receipts
+        provenance_store: ProvenanceStore for persisting evidence provenance
         auto_register: If True, automatically call register_all()
 
     Returns:
@@ -1034,6 +1126,8 @@ def create_hook_handler_registry(
         subsystems["arena_config"] = arena_config
     if receipt_store is not None:
         subsystems["receipt_store"] = receipt_store
+    if provenance_store is not None:
+        subsystems["provenance_store"] = provenance_store
 
     registry = HookHandlerRegistry(hook_manager=hook_manager, subsystems=subsystems)
 

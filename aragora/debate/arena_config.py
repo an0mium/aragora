@@ -237,6 +237,12 @@ class ArenaConfig:
     receipt_auto_sign: bool = False  # Auto-sign receipts with HMAC-SHA256
     receipt_store: Optional[Any] = None  # Pre-configured receipt store for persistence
 
+    # Evidence Provenance Tracking (cryptographic audit trail)
+    enable_provenance: bool = False  # Enable evidence provenance tracking during debates
+    provenance_manager: Optional[Any] = None  # Pre-configured ProvenanceManager instance
+    provenance_store: Optional[Any] = None  # Pre-configured ProvenanceStore for persistence
+    provenance_auto_persist: bool = True  # Auto-persist provenance chain after debate completion
+
     # ML Integration (local ML models for routing, quality, consensus)
     enable_ml_delegation: bool = False  # Use ML-based agent selection (MLDelegationStrategy)
     ml_delegation_strategy: Optional[Any] = None  # Custom MLDelegationStrategy instance

@@ -43,7 +43,7 @@ from .base import (
     json_response,
     ttl_cache,
 )
-from .secure import SecureHandler
+from .secure import ForbiddenError, SecureHandler, UnauthorizedError
 from aragora.server.versioning.compat import strip_version_prefix
 from .utils.rate_limit import RateLimiter, get_client_ip
 
@@ -79,8 +79,10 @@ class AnalyticsHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return strip_version_prefix(path) in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
-        """Route analytics requests to appropriate methods."""
+    async def handle(  # type: ignore[override]
+        self, path: str, query_params: dict, handler: Any
+    ) -> Optional[HandlerResult]:
+        """Route analytics requests to appropriate methods with RBAC."""
         path = strip_version_prefix(path)
         logger.debug(f"Analytics request: {path}")
 
@@ -89,6 +91,16 @@ class AnalyticsHandler(SecureHandler):
         if not _analytics_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for analytics endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # RBAC: Require authentication and analytics:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, ANALYTICS_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Analytics access denied: {e}")
+            return error_response(str(e), 403)
 
         if path == "/api/analytics/disagreements":
             return self._get_disagreement_stats()
