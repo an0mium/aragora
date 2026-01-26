@@ -903,8 +903,12 @@ class CanvasStateManager:
                     }
                     for i, r in enumerate(results)
                 ]
-            except ImportError:
+            except Exception:
+                # If fallback also fails, return empty results
                 return []
+        except Exception:
+            # If primary knowledge mound fails, return empty results
+            return []
 
     # =========================================================================
     # Subscription Management

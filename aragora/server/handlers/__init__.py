@@ -36,6 +36,7 @@ from .analytics_metrics import AnalyticsMetricsHandler
 from .auditing import AuditingHandler
 from .auth import AuthHandler
 from .base import BaseHandler, HandlerResult, error_response, json_response
+from . import utils as utils  # Expose utils submodule for tests (redundant alias for ruff)
 
 # Handler interfaces for type checking and contract definition
 from .interface import (
