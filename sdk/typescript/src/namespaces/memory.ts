@@ -97,8 +97,13 @@ export class MemoryAPI {
   async store(
     key: string,
     value: unknown,
-    options?: { ttl?: number }
-  ): Promise<{ success: boolean }> {
+    options?: {
+      tier?: 'fast' | 'medium' | 'slow' | 'glacial';
+      importance?: number;
+      tags?: string[];
+      ttl_seconds?: number;
+    }
+  ): Promise<{ stored: boolean; tier: string }> {
     return this.client.storeMemory(key, value, options);
   }
 
