@@ -21,7 +21,6 @@ import time
 from typing import Optional
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     get_bounded_float_param,
@@ -31,6 +30,7 @@ from ..base import (
     json_response,
     safe_error_message,
 )
+from ..secure import SecureHandler
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 # Rate limiters for memory endpoints
@@ -39,6 +39,10 @@ _stats_limiter = RateLimiter(requests_per_minute=30)  # Stats operations
 _mutation_limiter = RateLimiter(requests_per_minute=10)  # State-changing operations
 
 logger = logging.getLogger(__name__)
+
+# Permissions for memory endpoints
+MEMORY_READ_PERMISSION = "memory:read"
+MEMORY_WRITE_PERMISSION = "memory:write"
 
 # Optional import for memory functionality
 try:
@@ -60,8 +64,11 @@ except ImportError:
     CritiqueStore = None  # type: ignore[misc,assignment]
 
 
-class MemoryHandler(BaseHandler):
-    """Handler for memory-related endpoints."""
+class MemoryHandler(SecureHandler):
+    """Handler for memory-related endpoints.
+
+    Requires authentication and memory:read/write permissions (RBAC).
+    """
 
     ROUTES = [
         "/api/v1/memory/continuum/retrieve",

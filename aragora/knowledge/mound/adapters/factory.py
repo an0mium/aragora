@@ -257,6 +257,7 @@ class AdapterFactory:
         pulse_manager: Optional[Any] = None,
         cost_tracker: Optional[Any] = None,
         flip_detector: Optional[Any] = None,
+        provenance_store: Optional[Any] = None,
         **kwargs,
     ) -> Dict[str, CreatedAdapter]:
         """
@@ -272,6 +273,7 @@ class AdapterFactory:
             pulse_manager: PulseManager instance
             cost_tracker: CostTracker instance
             flip_detector: FlipDetector instance (for insights)
+            provenance_store: ProvenanceStore instance
             **kwargs: Additional dependencies
 
         Returns:
@@ -288,6 +290,7 @@ class AdapterFactory:
             "pulse_manager": pulse_manager,
             "cost_tracker": cost_tracker,
             "flip_detector": flip_detector,
+            "provenance_store": provenance_store,
         }
         deps.update(kwargs)
 

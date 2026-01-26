@@ -68,6 +68,7 @@ def get_expense_tracker():
 # =============================================================================
 
 
+@require_permission("expenses:write")
 async def handle_upload_receipt(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -131,6 +132,7 @@ async def handle_upload_receipt(
 # =============================================================================
 
 
+@require_permission("expenses:write")
 async def handle_create_expense(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -222,6 +224,7 @@ async def handle_create_expense(
         return error_response(f"Failed to create expense: {e}", status=500)
 
 
+@require_permission("expenses:read")
 async def handle_list_expenses(
     query_params: Dict[str, Any],
     user_id: str = "default",
@@ -306,6 +309,7 @@ async def handle_list_expenses(
         return error_response(f"Failed to list expenses: {e}", status=500)
 
 
+@require_permission("expenses:read")
 async def handle_get_expense(
     expense_id: str,
     user_id: str = "default",
@@ -329,6 +333,7 @@ async def handle_get_expense(
         return error_response(f"Failed to get expense: {e}", status=500)
 
 
+@require_permission("expenses:write")
 async def handle_update_expense(
     expense_id: str,
     data: Dict[str, Any],
@@ -425,6 +430,7 @@ async def handle_delete_expense(
 # =============================================================================
 
 
+@require_permission("expenses:approve")
 async def handle_approve_expense(
     expense_id: str,
     user_id: str = "default",
@@ -453,6 +459,7 @@ async def handle_approve_expense(
         return error_response(f"Failed to approve expense: {e}", status=500)
 
 
+@require_permission("expenses:approve")
 async def handle_reject_expense(
     expense_id: str,
     data: Dict[str, Any],
@@ -486,6 +493,7 @@ async def handle_reject_expense(
         return error_response(f"Failed to reject expense: {e}", status=500)
 
 
+@require_permission("expenses:read")
 async def handle_get_pending_approvals(
     user_id: str = "default",
 ) -> HandlerResult:
