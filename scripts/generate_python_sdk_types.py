@@ -200,8 +200,8 @@ def main() -> None:
 
     if code == 0:
         add_header(args.output)
-        # Skip ruff formatting to ensure reproducibility across environments
-        # The datamodel-codegen output is already valid, well-formatted Python
+        # Run ruff format to match pre-commit hook output
+        format_output(args.output)
         print(f"Generated: {args.output}")
 
     sys.exit(code)
