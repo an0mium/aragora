@@ -38,6 +38,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Check if Prometheus metrics are available
+try:
+    from prometheus_client import Counter  # noqa: F401
+
+    DECAY_METRICS_AVAILABLE = True
+except ImportError:
+    DECAY_METRICS_AVAILABLE = False
+
 # Prometheus metrics for monitoring decay operations
 _DECAY_CYCLES: Any = None
 _DECAY_ITEMS_PROCESSED: Any = None
