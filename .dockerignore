@@ -1,30 +1,71 @@
+# Git
 .git
 .gitignore
-.nomic/
-node_modules/
-__pycache__/
-*.pyc
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv
+venv
+ENV
+env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
 .pytest_cache/
 .coverage
-.venv/
-dist/
-build/
-*.egg-info/
-.env
-.env.*
-tests/
-docs/
-.comparison/
-.claude/
-aragora-js/
-tutorials/
-# Note: aragora/live/ is needed for frontend Docker build
-# aragora/live/
 htmlcov/
-.mypy_cache/
-.ruff_cache/
-CLAUDE.md
-CONTRIBUTING.md
-CHANGELOG.md
-# Keep README.md for pyproject.toml
+.tox/
+.nox/
+
+# Documentation
+docs/_build/
+site/
+
+# Local development
+.env
+*.local
+*.log
+
+# Docker
+Dockerfile*
+docker-compose*
+
+# Node (for frontend)
+node_modules/
+aragora/live/node_modules/
+aragora/live/.next/
+
+# Tests (not needed in production image)
+tests/
+.comparison/
+
+# Misc
+*.md
 !README.md
+.pre-commit-config.yaml
