@@ -131,9 +131,6 @@ class TestEmailCircuitBreaker:
         assert circuit_breaker.state == CircuitState.OPEN
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(
-        reason="half_open_calls counter not incremented in can_execute - needs implementation fix"
-    )
     async def test_half_open_limits_concurrent_calls(self, circuit_breaker):
         """HALF_OPEN should limit number of concurrent calls."""
         error = ConnectionError("API failure")

@@ -146,14 +146,17 @@ class EmailCircuitBreaker:
                     elapsed = time.time() - self._last_failure_time
                     if elapsed >= self.config.recovery_timeout_seconds:
                         self._state = CircuitState.HALF_OPEN
-                        self._half_open_calls = 0
+                        self._half_open_calls = 1  # Count this call
                         logger.info(f"[CircuitBreaker:{self.name}] Transitioning to HALF_OPEN")
                         return True
                 return False
 
             if self._state == CircuitState.HALF_OPEN:
                 # Allow limited calls in half-open state
-                return self._half_open_calls < self.config.half_open_max_calls
+                if self._half_open_calls < self.config.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
 
             return False
 
