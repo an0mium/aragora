@@ -501,9 +501,12 @@ class ConsensusPhase:
         result = ctx.result
         proposals = ctx.proposals
 
-        result.final_answer = "\n\n---\n\n".join(
-            f"[{agent}]:\n{prop}" for agent, prop in proposals.items()
-        )
+        if proposals:
+            result.final_answer = "\n\n---\n\n".join(
+                f"[{agent}]:\n{prop}" for agent, prop in proposals.items()
+            )
+        else:
+            result.final_answer = "[No proposals available - consensus mode 'none']"
         result.consensus_reached = False
         result.confidence = 0.5
 

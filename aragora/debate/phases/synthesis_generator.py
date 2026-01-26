@@ -69,10 +69,18 @@ class SynthesisGenerator:
         Returns:
             bool: True if synthesis was successfully generated and emitted
         """
-        # Skip if no proposals to synthesize
+        # If no proposals, emit a minimal synthesis to avoid silent endings
         if not ctx.proposals:
-            logger.warning("synthesis_skipped reason=no_proposals")
-            return False
+            logger.warning("synthesis_fallback reason=no_proposals")
+            synthesis = (
+                "## Debate Summary\n\n"
+                "No proposals were generated. One or more agents may have failed to respond."
+            )
+            ctx.result.synthesis = synthesis
+            ctx.result.final_answer = synthesis
+            self._emit_synthesis_events(ctx, synthesis, "fallback")
+            self._generate_export_links(ctx)
+            return True
 
         logger.info("synthesis_generation_start")
 

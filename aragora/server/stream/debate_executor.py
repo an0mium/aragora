@@ -11,6 +11,8 @@ Key components:
 """
 
 import logging
+import os
+import re
 import time
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
@@ -50,6 +52,23 @@ logger = logging.getLogger(__name__)
 # Backward compatibility aliases
 _active_debates = get_active_debates()
 _active_debates_lock = get_active_debates_lock()
+
+_ENV_VAR_RE = re.compile(r"[A-Z][A-Z0-9_]+")
+
+
+def _missing_required_env_vars(env_vars: str) -> list[str]:
+    """Return missing required env vars for a provider spec."""
+    if not env_vars:
+        return []
+    if "optional" in env_vars.lower():
+        return []
+    candidates = _ENV_VAR_RE.findall(env_vars)
+    if not candidates:
+        return []
+    if any(os.getenv(var) for var in candidates):
+        return []
+    return candidates
+
 
 # Check if debate orchestrator is available
 # Type aliases for optional debate components
@@ -224,9 +243,51 @@ def execute_debate_thread(
             return
 
         # Parse agent specs using unified AgentSpec (validates provider against allowlist)
+        from aragora.agents.registry import AgentRegistry
         from aragora.agents.spec import AgentSpec
 
         agent_specs = AgentSpec.parse_list(agents_str)
+        filtered_specs = []
+        for spec in agent_specs:
+            registry_spec = AgentRegistry.get_spec(spec.provider)
+            missing_env = []
+            if registry_spec and registry_spec.env_vars:
+                missing_env = _missing_required_env_vars(registry_spec.env_vars)
+            if missing_env:
+                message = (
+                    f"Missing required API key(s) for {spec.provider}: " f"{', '.join(missing_env)}"
+                )
+                emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.AGENT_ERROR,
+                        data={
+                            "error_type": "missing_env",
+                            "message": message,
+                            "recoverable": False,
+                            "phase": "setup",
+                        },
+                        agent=spec.name or spec.provider,
+                        loop_id=debate_id,
+                    )
+                )
+                logger.warning(f"[debate] {debate_id}: {message}")
+                continue
+            filtered_specs.append(spec)
+        agent_specs = filtered_specs
+        if len(agent_specs) < 2:
+            error_msg = "Not enough configured agents available to start the debate"
+            with _active_debates_lock:
+                _active_debates[debate_id]["status"] = "error"
+                _active_debates[debate_id]["error"] = error_msg
+                _active_debates[debate_id]["completed_at"] = time.time()
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.ERROR,
+                    data={"error": error_msg, "debate_id": debate_id},
+                    loop_id=debate_id,
+                )
+            )
+            return
 
         # Create agents with streaming support
         # Assign roles based on position for diverse debate dynamics
@@ -241,12 +302,30 @@ def execute_debate_thread(
                     role = "synthesizer"
                 else:
                     role = "critic"
-            agent = create_agent(
-                model_type=cast("AgentType", spec.provider),
-                name=spec.name,
-                role=role,
-                model=spec.model,  # Pass model from spec
-            )
+            try:
+                agent = create_agent(
+                    model_type=cast("AgentType", spec.provider),
+                    name=spec.name,
+                    role=role,
+                    model=spec.model,  # Pass model from spec
+                )
+            except Exception as e:
+                msg = _safe_error_message(e, "agent_init")
+                emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.AGENT_ERROR,
+                        data={
+                            "error_type": "init",
+                            "message": f"{spec.provider} init failed: {msg}",
+                            "recoverable": False,
+                            "phase": "setup",
+                        },
+                        agent=spec.name or spec.provider,
+                        loop_id=debate_id,
+                    )
+                )
+                logger.warning(f"[debate] {debate_id}: {spec.provider} init failed: {e}")
+                continue
 
             # Apply persona as system prompt modifier if specified
             if spec.persona:
@@ -260,6 +339,21 @@ def execute_debate_thread(
             # Wrap agent for token streaming if supported
             agent = wrap_agent_for_streaming(agent, emitter, debate_id)
             agents.append(agent)
+
+        if len(agents) < 2:
+            error_msg = "Not enough agents could be initialized to start the debate"
+            with _active_debates_lock:
+                _active_debates[debate_id]["status"] = "error"
+                _active_debates[debate_id]["error"] = error_msg
+                _active_debates[debate_id]["completed_at"] = time.time()
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.ERROR,
+                    data={"error": error_msg, "debate_id": debate_id},
+                    loop_id=debate_id,
+                )
+            )
+            return
 
         # Debug: Log agent creation complete
         agent_names = [a.name for a in agents]
