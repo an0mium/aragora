@@ -35,6 +35,10 @@ logger = logging.getLogger(__name__)
 GOOGLE_CHAT_CREDENTIALS = os.environ.get("GOOGLE_CHAT_CREDENTIALS", "")
 GOOGLE_CHAT_PROJECT_ID = os.environ.get("GOOGLE_CHAT_PROJECT_ID", "")
 
+# Input validation limits
+MAX_TOPIC_LENGTH = 500
+MAX_STATEMENT_LENGTH = 1000
+
 
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
@@ -441,8 +445,10 @@ class GoogleChatHandler(BaseHandler):
         if len(topic) < 10:
             return self._card_response(body="Topic is too short. Please provide more detail.")
 
-        if len(topic) > 500:
-            return self._card_response(body="Topic is too long. Please limit to 500 characters.")
+        if len(topic) > MAX_TOPIC_LENGTH:
+            return self._card_response(
+                body=f"Topic is too long. Please limit to {MAX_TOPIC_LENGTH} characters."
+            )
 
         user_name = user.get("displayName", "Unknown")
         user_id = user.get("name", "").split("/")[-1]
@@ -478,9 +484,9 @@ class GoogleChatHandler(BaseHandler):
         if len(statement) < 10:
             return self._card_response(body="Statement is too short. Please provide more detail.")
 
-        if len(statement) > 1000:
+        if len(statement) > MAX_STATEMENT_LENGTH:
             return self._card_response(
-                body="Statement is too long. Please limit to 1000 characters."
+                body="Statement is too long. Please limit to {MAX_STATEMENT_LENGTH} characters."
             )
 
         user_name = user.get("displayName", "Unknown")
