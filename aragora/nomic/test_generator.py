@@ -39,6 +39,8 @@ class TestType(Enum):
 class TestCase:
     """Represents a test case to be generated."""
 
+    __test__ = False  # Not a pytest test class
+
     name: str
     description: str
     test_type: TestType

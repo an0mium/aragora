@@ -23,6 +23,8 @@ from typing import Any, Dict, List, Optional, Tuple
 class TestFramework(str, Enum):
     """Supported test frameworks."""
 
+    __test__ = False  # Not a pytest test class
+
     PYTEST = "pytest"
     UNITTEST = "unittest"
     JEST = "jest"
@@ -36,6 +38,8 @@ class TestFramework(str, Enum):
 class TestType(str, Enum):
     """Types of tests."""
 
+    __test__ = False  # Not a pytest test class
+
     UNIT = "unit"
     INTEGRATION = "integration"
     E2E = "e2e"
@@ -48,6 +52,8 @@ class TestType(str, Enum):
 @dataclass
 class TestCase:
     """A single test case."""
+
+    __test__ = False  # Not a pytest test class
 
     name: str
     description: str
@@ -82,6 +88,8 @@ class TestCase:
 @dataclass
 class TestSuite:
     """A collection of test cases."""
+
+    __test__ = False  # Not a pytest test class
 
     name: str
     file_path: str
@@ -297,6 +305,8 @@ class TestGenerator:
 
     Uses analysis and optionally debate to generate comprehensive tests.
     """
+
+    __test__ = False  # Not a pytest test class
 
     def __init__(
         self,

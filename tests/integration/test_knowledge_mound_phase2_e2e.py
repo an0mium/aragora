@@ -219,6 +219,8 @@ class TestableHandler(
 ):
     """Testable handler combining all mixins."""
 
+    __test__ = False  # Not a pytest test class
+
     def __init__(self, mound: MockKnowledgeMound, user: MockUser = None):
         self._mound = mound
         self._user = user

@@ -726,6 +726,34 @@ class DecisionReceipt:
             **data,
         )
 
+    def sign(self, backend: Optional[Any] = None) -> "SignedDecisionReceipt":
+        """
+        Sign this receipt cryptographically for tamper-evidence.
+
+        Args:
+            backend: Signing backend to use. Defaults to HMAC-SHA256 from env.
+
+        Returns:
+            SignedDecisionReceipt with signature and metadata
+
+        Example:
+            signed = receipt.sign()
+            is_valid = signed.verify()
+            signed_json = signed.to_json()
+        """
+        from aragora.gauntlet.signing import HMACSigner, ReceiptSigner
+
+        signer = ReceiptSigner(backend or HMACSigner.from_env())
+        signed = signer.sign(self.to_dict())
+
+        return SignedDecisionReceipt(
+            receipt=self,
+            signature=signed.signature,
+            signature_algorithm=signed.signature_metadata.algorithm,
+            signature_key_id=signed.signature_metadata.key_id,
+            signed_at=signed.signature_metadata.timestamp,
+        )
+
     @classmethod
     def load(cls, path: Path) -> "DecisionReceipt":
         """Load receipt from file."""
@@ -1037,3 +1065,97 @@ def link_receipt_to_trail(
     # Note: trail.checksum is a property, automatically recomputed
 
     return receipt, trail
+
+
+@dataclass
+class SignedDecisionReceipt:
+    """
+    A cryptographically signed decision receipt.
+
+    Provides tamper-evidence and non-repudiation for compliance:
+    - Signature proves the receipt hasn't been modified
+    - Key ID identifies the signing authority
+    - Timestamp records when the signature was created
+
+    Example:
+        receipt = generate_decision_receipt(result)
+        signed = receipt.sign()
+
+        # Later verification
+        if signed.verify():
+            print("Receipt is authentic")
+    """
+
+    receipt: DecisionReceipt
+    signature: str  # Base64-encoded signature
+    signature_algorithm: str
+    signature_key_id: str
+    signed_at: str  # ISO timestamp
+
+    def verify(self, backend: Optional[Any] = None) -> bool:
+        """
+        Verify the signature is valid.
+
+        Args:
+            backend: Signing backend to use for verification.
+                     Must have same key as signing backend.
+
+        Returns:
+            True if signature is valid, False otherwise
+        """
+        from aragora.gauntlet.signing import (
+            HMACSigner,
+            ReceiptSigner,
+            SignatureMetadata,
+            SignedReceipt,
+        )
+
+        signer = ReceiptSigner(backend or HMACSigner.from_env())
+
+        # Reconstruct the SignedReceipt for verification
+        signed = SignedReceipt(
+            receipt_data=self.receipt.to_dict(),
+            signature=self.signature,
+            signature_metadata=SignatureMetadata(
+                algorithm=self.signature_algorithm,
+                timestamp=self.signed_at,
+                key_id=self.signature_key_id,
+            ),
+        )
+
+        return signer.verify(signed)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "receipt": self.receipt.to_dict(),
+            "signature": self.signature,
+            "signature_metadata": {
+                "algorithm": self.signature_algorithm,
+                "key_id": self.signature_key_id,
+                "signed_at": self.signed_at,
+            },
+        }
+
+    def to_json(self, indent: int = 2) -> str:
+        """Export as JSON string."""
+        return json.dumps(self.to_dict(), indent=indent, default=str)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "SignedDecisionReceipt":
+        """Load from dictionary."""
+        receipt = DecisionReceipt.from_dict(data["receipt"])
+        meta = data["signature_metadata"]
+
+        return cls(
+            receipt=receipt,
+            signature=data["signature"],
+            signature_algorithm=meta["algorithm"],
+            signature_key_id=meta["key_id"],
+            signed_at=meta["signed_at"],
+        )
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "SignedDecisionReceipt":
+        """Load from JSON string."""
+        return cls.from_dict(json.loads(json_str))

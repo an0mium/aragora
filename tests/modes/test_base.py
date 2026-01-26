@@ -11,6 +11,7 @@ from aragora.modes.tool_groups import ToolGroup
 class TestMode(Mode):
     """Concrete Mode implementation for testing."""
 
+    __test__ = False  # Not a pytest test class
     _auto_register: bool = False  # Disable auto-register for tests
 
     def get_system_prompt(self) -> str:

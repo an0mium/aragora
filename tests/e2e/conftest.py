@@ -181,6 +181,8 @@ async def test_client(e2e_config: E2EConfig) -> AsyncGenerator[TestClient, None]
 class TestTenant:
     """Test tenant for isolation testing."""
 
+    __test__ = False  # Not a pytest test class
+
     id: str
     name: str
     api_key: str

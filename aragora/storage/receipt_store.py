@@ -776,12 +776,22 @@ class ReceiptStore:
     # Retention & Cleanup
     # =========================================================================
 
-    def cleanup_expired(self, retention_days: Optional[int] = None) -> int:
+    def cleanup_expired(
+        self,
+        retention_days: Optional[int] = None,
+        operator: str = "system:retention_cleanup",
+        log_deletions: bool = True,
+    ) -> int:
         """
-        Remove receipts older than retention period.
+        Remove receipts older than retention period with audit trail.
+
+        Logs all deletions to the receipt deletion log before removing
+        for GDPR/SOC2 compliance.
 
         Args:
             retention_days: Override default retention (default: use store's setting)
+            operator: Identifier for who/what initiated the cleanup
+            log_deletions: Whether to log deletions to audit trail (default True)
 
         Returns:
             Number of receipts removed
@@ -792,19 +802,53 @@ class ReceiptStore:
         days = retention_days if retention_days is not None else self.retention_days
         cutoff = time.time() - (days * 86400)
 
-        # Count before delete
-        result = self._backend.fetch_one(
-            "SELECT COUNT(*) FROM receipts WHERE created_at < ?",
+        # Get receipts to be deleted (for audit logging)
+        rows = self._backend.fetch_all(
+            """
+            SELECT receipt_id, checksum, gauntlet_id, verdict
+            FROM receipts WHERE created_at < ?
+            """,
             (cutoff,),
         )
-        count = result[0] if result else 0
 
-        if count > 0:
-            self._backend.execute_write(
-                "DELETE FROM receipts WHERE created_at < ?",
-                (cutoff,),
-            )
-            logger.info(f"Removed {count} expired receipts (older than {days} days)")
+        if not rows:
+            return 0
+
+        count = len(rows)
+
+        # Log deletions before removing
+        if log_deletions:
+            try:
+                from aragora.storage.receipt_deletion_log import get_receipt_deletion_log
+
+                deletion_log = get_receipt_deletion_log()
+                receipts_to_log = [
+                    {
+                        "receipt_id": row[0],
+                        "checksum": row[1],
+                        "gauntlet_id": row[2],
+                        "verdict": row[3],
+                        "metadata": {"retention_days": days},
+                    }
+                    for row in rows
+                ]
+                deletion_log.log_batch_deletion(
+                    receipts=receipts_to_log,
+                    reason="retention_expired",
+                    operator=operator,
+                )
+                logger.info(f"Logged {count} receipt deletions to audit trail")
+            except Exception as e:
+                logger.warning(f"Failed to log deletions to audit trail: {e}")
+                # Continue with deletion even if logging fails
+                # (configurable behavior could be added)
+
+        # Now delete the receipts
+        self._backend.execute_write(
+            "DELETE FROM receipts WHERE created_at < ?",
+            (cutoff,),
+        )
+        logger.info(f"Removed {count} expired receipts (older than {days} days)")
 
         return count
 
