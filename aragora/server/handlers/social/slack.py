@@ -1429,8 +1429,18 @@ class SlackHandler(BaseHandler):
             from aragora import Arena, DebateProtocol, Environment
             from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
 
-            # Post initial "starting" message to create thread
-            starting_blocks = self._build_starting_blocks(topic, user_id, debate_id)
+            # Determine agents and protocol early for thread header
+            agent_names = ["anthropic-api", "openai-api"]
+            expected_rounds = 3
+
+            # Post initial "starting" message to create thread with rich metadata
+            starting_blocks = self._build_starting_blocks(
+                topic=topic,
+                user_id=user_id,
+                debate_id=debate_id,
+                agents=agent_names,
+                expected_rounds=expected_rounds,
+            )
             starting_text = f"Starting debate: {topic}"
 
             # Use Web API if bot token available (to capture thread_ts for tracking)
@@ -1488,11 +1498,11 @@ class SlackHandler(BaseHandler):
                 except ImportError:
                     logger.debug("Slack debate store not available")
 
-            # Create debate
+            # Create debate using pre-defined agent names and rounds
             env = Environment(task=f"Debate: {topic}")
-            agents = get_agents_by_names(["anthropic-api", "openai-api"])
+            agents = get_agents_by_names(agent_names)
             protocol = DebateProtocol(
-                rounds=3,
+                rounds=expected_rounds,
                 consensus="majority",
                 convergence_detection=False,
                 early_stopping=False,
@@ -1661,8 +1671,9 @@ class SlackHandler(BaseHandler):
         agent: str,
         channel_id: Optional[str] = None,
         thread_ts: Optional[str] = None,
+        phase: str = "analyzing",
     ) -> None:
-        """Post a round progress update to the thread.
+        """Post a round progress update to the thread with visual progress bar.
 
         Args:
             response_url: Slack response URL (webhook)
@@ -1672,17 +1683,33 @@ class SlackHandler(BaseHandler):
             agent: Name of agent that responded
             channel_id: Optional channel ID for Web API posting
             thread_ts: Optional thread timestamp for threaded replies
+            phase: Current debate phase (analyzing, critique, voting, complete)
         """
-        progress = round_num / total_rounds
-        progress_bar = "" * int(progress * 10) + "" * (10 - int(progress * 10))
+        # Visual progress bar using block characters
+        progress_bar = ":black_large_square:" * round_num + ":white_large_square:" * (
+            total_rounds - round_num
+        )
 
-        text = f"Round {round_num} complete"
+        # Phase emoji
+        phase_emojis = {
+            "analyzing": ":mag:",
+            "critique": ":speech_balloon:",
+            "voting": ":ballot_box:",
+            "complete": ":white_check_mark:",
+        }
+        phase_emoji = phase_emojis.get(phase, ":hourglass_flowing_sand:")
+
+        text = f"Round {round_num}/{total_rounds} complete"
         blocks = [
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*Round {round_num}/{total_rounds}* {progress_bar}\n_{agent} responded_",
+                    "text": (
+                        f"{phase_emoji} *Round {round_num}/{total_rounds}*\n"
+                        f"`{progress_bar}`\n"
+                        f"_{agent} responded_"
+                    ),
                 },
             },
         ]
@@ -1788,16 +1815,30 @@ class SlackHandler(BaseHandler):
         user_id: str,
         receipt_url: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Build Slack blocks for debate result message."""
-        consensus_emoji = "" if result.consensus_reached else ""
-        confidence_bar = "" * int(result.confidence * 5)
+        """Build Slack blocks for debate result message with rich formatting."""
+        # Status indicators
+        status_emoji = ":white_check_mark:" if result.consensus_reached else ":warning:"
+        status_text = "Consensus Reached" if result.consensus_reached else "No Consensus"
+
+        # Confidence visualization (filled/empty circles)
+        confidence_filled = int(result.confidence * 5)
+        confidence_bar = ":large_blue_circle:" * confidence_filled + ":white_circle:" * (
+            5 - confidence_filled
+        )
+
+        # Participant names (show up to 4)
+        participant_names = result.participants[:4] if result.participants else []
+        participants_text = ", ".join(participant_names)
+        if len(result.participants) > 4:
+            participants_text += f" +{len(result.participants) - 4}"
 
         blocks: List[Dict[str, Any]] = [
+            {"type": "divider"},
             {
                 "type": "header",
                 "text": {
                     "type": "plain_text",
-                    "text": f"Debate Complete: {topic[:50]}",
+                    "text": f"{status_emoji} Debate Complete",
                     "emoji": True,
                 },
             },
@@ -1806,30 +1847,47 @@ class SlackHandler(BaseHandler):
                 "fields": [
                     {
                         "type": "mrkdwn",
-                        "text": f"*Consensus:* {consensus_emoji} {'Yes' if result.consensus_reached else 'No'}",
+                        "text": f"*Status:*\n{status_text}",
                     },
                     {
                         "type": "mrkdwn",
-                        "text": f"*Confidence:* {confidence_bar} {result.confidence:.1%}",
+                        "text": f"*Confidence:*\n{confidence_bar} {result.confidence:.0%}",
                     },
                     {
                         "type": "mrkdwn",
-                        "text": f"*Rounds:* {result.rounds_used}",
+                        "text": f"*Rounds:*\n{result.rounds_used}",
                     },
                     {
                         "type": "mrkdwn",
-                        "text": f"*Participants:* {len(result.participants)}",
+                        "text": f"*Participants:*\n{participants_text}",
                     },
                 ],
             },
+        ]
+
+        # Add winner if present
+        winner = getattr(result, "winner", None)
+        if winner:
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f":trophy: *Winner:* {winner}",
+                    },
+                }
+            )
+
+        # Add conclusion/answer
+        blocks.append(
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*Conclusion:*\n{result.final_answer[:500] if result.final_answer else 'No conclusion reached'}",
+                    "text": f"*Answer:*\n{result.final_answer[:500] if result.final_answer else 'No conclusion reached'}",
                 },
-            },
-        ]
+            }
+        )
 
         # Add action buttons
         action_elements: List[Dict[str, Any]] = [
