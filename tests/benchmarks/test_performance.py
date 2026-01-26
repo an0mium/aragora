@@ -46,7 +46,8 @@ class TestDebatePerformance:
 
         SLO threshold is set to 15 seconds to account for CI/parallel test
         resource contention and external network timeouts (DuckDuckGo).
-        Local runs typically complete in 2-4 seconds.
+        Local runs typically complete in 2-4 seconds. Timeout is 60 seconds
+        to accommodate heavy CI load.
 
         This test is marked flaky due to timing sensitivity in CI environments.
         """
@@ -68,7 +69,7 @@ class TestDebatePerformance:
                 arena.prompt_builder.classify_question_async = AsyncMock(return_value=None)
 
             start = time.perf_counter()
-            result = await asyncio.wait_for(arena.run(), timeout=30.0)
+            result = await asyncio.wait_for(arena.run(), timeout=60.0)
             elapsed = time.perf_counter() - start
 
         # Assert against centralized SLO
