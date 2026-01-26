@@ -5803,6 +5803,7 @@
     },
     "/api/v1/metrics/system": {
       "get": {
+        "operationId": "getSystemMetrics",
         "tags": [
           "Monitoring"
         ],
@@ -5816,6 +5817,7 @@
     },
     "/metrics": {
       "get": {
+        "operationId": "getPrometheusMetrics",
         "tags": [
           "Monitoring"
         ],

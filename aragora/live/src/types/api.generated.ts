@@ -6633,7 +6633,7 @@ export interface paths {
             cookie?: never;
         };
         /** System metrics */
-        get: operations["listMetricsSystem"];
+        get: operations["getSystemMetrics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6653,7 +6653,7 @@ export interface paths {
          * Prometheus metrics
          * @description Metrics in Prometheus format
          */
-        get: operations["listMetricsSystem"];
+        get: operations["getPrometheusMetrics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -12258,7 +12258,7 @@ export interface paths {
          * List workflow templates
          * @description Get gallery of workflow templates for quick start.
          */
-        get: operations["listWorkflowTemplates"];
+        get: operations["listWorkflowTemplatesGallery"];
         put?: never;
         post?: never;
         delete?: never;
@@ -12329,7 +12329,7 @@ export interface paths {
          * Get workflow template
          * @description Get a specific workflow template for use as starting point.
          */
-        get: operations["getWorkflowTemplate"];
+        get: operations["getWorkflowTemplateGallery"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14748,7 +14748,7 @@ export interface paths {
          * Get scan by ID
          * @description Fetch a specific scan result by scan ID.
          */
-        get: operations["getCodebaseScan"];
+        get: operations["getCodebaseScanById"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14768,7 +14768,7 @@ export interface paths {
          * List scans
          * @description List scan history for a repository.
          */
-        get: operations["getCodebaseScan"];
+        get: operations["listCodebaseScans"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15108,7 +15108,7 @@ export interface paths {
          * Get latest metrics
          * @description Fetch the latest metrics report.
          */
-        get: operations["getCodebaseMetric"];
+        get: operations["getCodebaseLatestMetrics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15128,7 +15128,7 @@ export interface paths {
          * Get metrics by ID
          * @description Fetch a metrics report by analysis ID.
          */
-        get: operations["getCodebaseMetric"];
+        get: operations["getCodebaseMetricById"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19928,7 +19928,7 @@ export interface operations {
             };
         };
     };
-    listMetricsSystem: {
+    getSystemMetrics: {
         parameters: {
             query?: never;
             header?: never;
@@ -19946,7 +19946,7 @@ export interface operations {
             };
         };
     };
-    listMetricsSystem: {
+    getPrometheusMetrics: {
         parameters: {
             query?: never;
             header?: never;
@@ -21563,7 +21563,7 @@ export interface operations {
             };
         };
     };
-    listWorkflowTemplates: {
+    listWorkflowTemplatesGallery: {
         parameters: {
             query?: {
                 /** @description Filter templates by category */
@@ -21586,7 +21586,7 @@ export interface operations {
             };
         };
     };
-    getWorkflowTemplate: {
+    getWorkflowTemplateGallery: {
         parameters: {
             query?: never;
             header?: never;
@@ -23005,7 +23005,7 @@ export interface operations {
             };
         };
     };
-    getCodebaseScan: {
+    getCodebaseScanById: {
         parameters: {
             query?: never;
             header?: never;
@@ -23064,7 +23064,7 @@ export interface operations {
             };
         };
     };
-    getCodebaseScan: {
+    listCodebaseScans: {
         parameters: {
             query?: {
                 status?: string;
@@ -24033,7 +24033,7 @@ export interface operations {
             };
         };
     };
-    getCodebaseMetric: {
+    getCodebaseLatestMetrics: {
         parameters: {
             query?: never;
             header?: never;
@@ -24091,7 +24091,7 @@ export interface operations {
             };
         };
     };
-    getCodebaseMetric: {
+    getCodebaseMetricById: {
         parameters: {
             query?: never;
             header?: never;

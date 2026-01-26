@@ -6159,7 +6159,7 @@
           "Monitoring"
         ],
         "summary": "System metrics",
-        "operationId": "listMetricsSystem",
+        "operationId": "getSystemMetrics",
         "responses": {
           "200": {
             "description": "System metrics"
@@ -6173,7 +6173,7 @@
           "Monitoring"
         ],
         "summary": "Prometheus metrics",
-        "operationId": "listMetricsSystem",
+        "operationId": "getPrometheusMetrics",
         "description": "Metrics in Prometheus format",
         "responses": {
           "200": {
@@ -14466,7 +14466,7 @@
           "Workflows"
         ],
         "summary": "List workflow templates",
-        "operationId": "listWorkflowTemplates",
+        "operationId": "listWorkflowTemplatesGallery",
         "description": "Get gallery of workflow templates for quick start.",
         "parameters": [
           {
@@ -14552,7 +14552,7 @@
           "Workflows"
         ],
         "summary": "Get workflow template",
-        "operationId": "getWorkflowTemplate",
+        "operationId": "getWorkflowTemplateGallery",
         "description": "Get a specific workflow template for use as starting point.",
         "parameters": [
           {
@@ -19864,7 +19864,7 @@
           "Codebase"
         ],
         "summary": "Get scan by ID",
-        "operationId": "getCodebaseScan",
+        "operationId": "getCodebaseScanById",
         "description": "Fetch a specific scan result by scan ID.",
         "security": [
           {}
@@ -20008,7 +20008,7 @@
           "Codebase"
         ],
         "summary": "List scans",
-        "operationId": "getCodebaseScan",
+        "operationId": "listCodebaseScans",
         "description": "List scan history for a repository.",
         "security": [
           {}
@@ -22450,7 +22450,7 @@
           "Codebase"
         ],
         "summary": "Get latest metrics",
-        "operationId": "getCodebaseMetric",
+        "operationId": "getCodebaseLatestMetrics",
         "description": "Fetch the latest metrics report.",
         "security": [
           {}
@@ -22586,7 +22586,7 @@
           "Codebase"
         ],
         "summary": "Get metrics by ID",
-        "operationId": "getCodebaseMetric",
+        "operationId": "getCodebaseMetricById",
         "description": "Fetch a metrics report by analysis ID.",
         "security": [
           {}
