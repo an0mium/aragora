@@ -65,6 +65,7 @@ dev = [
     "pytest-cov>=4.0,<8.0",
     "pytest-timeout>=2.0,<3.0",
     "pytest-xdist>=3.5,<4.0",  # Parallel test execution
+    "pytest-rerunfailures>=14.0,<15.0",  # Rerun flaky tests
     "black>=23.0,<27.0",
     "ruff>=0.1,<1.0",
     "bandit>=1.7,<2.0",
@@ -268,6 +269,8 @@ markers = [
     "flaky: marks tests with known intermittent failures",
     "requires_server: marks tests that need a running Aragora server",
 ]
+# Automatically rerun flaky tests up to 3 times
+addopts = "--reruns 2 --reruns-delay 1 --only-rerun AssertionError"
 # Parallel test execution: pip install pytest-xdist && pytest -n auto
 # To run serial-only tests: pytest -m serial -n0
 
