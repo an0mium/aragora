@@ -301,6 +301,45 @@ class JWTSessionManager:
             user_sessions.move_to_end(token_jti)
             return True
 
+    def update_mfa_verification(
+        self, user_id: str, token_jti: str, methods: Optional[List[str]] = None
+    ) -> bool:
+        """Record MFA verification for a session (step-up auth)."""
+        with self._lock:
+            user_sessions = self._sessions.get(user_id)
+            if not user_sessions:
+                return False
+            session = user_sessions.get(token_jti)
+            if not session:
+                return False
+            session.record_mfa_verification(methods)
+            logger.debug(f"MFA verification recorded for session {token_jti[:8]}...")
+            return True
+
+    def get_mfa_freshness(self, user_id: str, token_jti: str) -> Optional[int]:
+        """Get seconds since last MFA verification."""
+        with self._lock:
+            user_sessions = self._sessions.get(user_id)
+            if not user_sessions:
+                return None
+            session = user_sessions.get(token_jti)
+            if not session:
+                return None
+            return session.mfa_age_seconds()
+
+    def is_session_mfa_fresh(
+        self, user_id: str, token_jti: str, max_age_seconds: int = 900
+    ) -> bool:
+        """Check if MFA verification is fresh for a session."""
+        with self._lock:
+            user_sessions = self._sessions.get(user_id)
+            if not user_sessions:
+                return False
+            session = user_sessions.get(token_jti)
+            if not session:
+                return False
+            return session.is_mfa_fresh(max_age_seconds)
+
     def get_session(self, user_id: str, token_jti: str) -> Optional[JWTSession]:
         """Get a specific session.
 
