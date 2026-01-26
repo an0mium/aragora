@@ -31,11 +31,10 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.facade import KnowledgeMound
-    from aragora.knowledge.mound.ops.confidence_decay import DecayReport
 
 logger = logging.getLogger(__name__)
 
@@ -317,9 +316,14 @@ class ConfidenceDecayScheduler:
             # Use the KnowledgeMound's apply_confidence_decay method
             # Note: Uses ConfidenceDecayMixin.apply_confidence_decay (returns DecayReport)
             # not PruningOperationsMixin.apply_confidence_decay (returns int)
-            decay_report: DecayReport = await self._knowledge_mound.apply_confidence_decay(  # type: ignore[call-arg,assignment]
-                workspace_id=workspace_id,
-                force=force,
+            from aragora.knowledge.mound.ops.confidence_decay import DecayReport as DR
+
+            decay_report = cast(
+                DR,
+                await self._knowledge_mound.apply_confidence_decay(
+                    workspace_id=workspace_id,
+                    force=force,
+                ),
             )
 
             # Validate decay_report has expected attributes
