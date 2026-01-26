@@ -22,9 +22,12 @@ from .models import (
     CanvasEventType,
     CanvasNode,
     CanvasNodeType,
+    EdgeType,
     Position,
+    Size,
 )
 from .renderer import CanvasRenderer
+from .manager import CanvasStateManager, get_canvas_manager
 
 __all__ = [
     "Canvas",
@@ -33,6 +36,10 @@ __all__ = [
     "CanvasNodeType",
     "CanvasEventType",
     "CanvasEvent",
+    "EdgeType",
     "Position",
+    "Size",
     "CanvasRenderer",
+    "CanvasStateManager",
+    "get_canvas_manager",
 ]
