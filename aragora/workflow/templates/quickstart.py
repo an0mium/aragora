@@ -237,41 +237,34 @@ def create_risk_assessment_workflow(
     workflow_id = f"risk_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     categories = risk_categories or ["operational", "financial", "reputational", "strategic"]
 
-    return WorkflowDefinition(
-        id=workflow_id,
-        name=f"Risk Assessment: {scenario[:40]}",
-        description="Quick risk identification and assessment",
-        category=WorkflowCategory.GENERAL,
-        tags=["quickstart", "risk", "assessment", "decision"],
-        inputs={
-            "scenario": scenario,
-            "context": context,
-            "categories": categories,
-            "include_mitigation": include_mitigation,
-        },
-        steps=[
-            StepDefinition(
-                id="identify",
-                name="Identify Risks",
-                step_type="debate",
-                config={
-                    "agents": ["claude", "gpt-4"],
-                    "topic": f"What are the risks of: {scenario}",
-                    "rounds": 2,
-                    "categories": categories,
-                },
-                next_steps=["score"],
-            ),
-            StepDefinition(
-                id="score",
-                name="Score Risks",
-                step_type="agent",
-                config={
-                    "agent_type": "claude",
-                    "prompt_template": "Score each risk: likelihood (1-5) x impact (1-5)",
-                },
-                next_steps=["mitigate"] if include_mitigation else ["summarize"],
-            ),
+    # Build steps conditionally based on include_mitigation parameter
+    steps = [
+        StepDefinition(
+            id="identify",
+            name="Identify Risks",
+            step_type="debate",
+            config={
+                "agents": ["claude", "gpt-4"],
+                "topic": f"What are the risks of: {scenario}",
+                "rounds": 2,
+                "categories": categories,
+            },
+            next_steps=["score"],
+        ),
+        StepDefinition(
+            id="score",
+            name="Score Risks",
+            step_type="agent",
+            config={
+                "agent_type": "claude",
+                "prompt_template": "Score each risk: likelihood (1-5) x impact (1-5)",
+            },
+            next_steps=["mitigate"] if include_mitigation else ["summarize"],
+        ),
+    ]
+
+    if include_mitigation:
+        steps.append(
             StepDefinition(
                 id="mitigate",
                 name="Mitigation Strategies",
@@ -281,7 +274,11 @@ def create_risk_assessment_workflow(
                     "prompt_template": "Propose mitigation strategy for each high-priority risk",
                 },
                 next_steps=["summarize"],
-            ),
+            )
+        )
+
+    steps.extend(
+        [
             StepDefinition(
                 id="summarize",
                 name="Risk Summary",
@@ -301,7 +298,22 @@ def create_risk_assessment_workflow(
                 },
                 next_steps=[],
             ),
-        ],
+        ]
+    )
+
+    return WorkflowDefinition(
+        id=workflow_id,
+        name=f"Risk Assessment: {scenario[:40]}",
+        description="Quick risk identification and assessment",
+        category=WorkflowCategory.GENERAL,
+        tags=["quickstart", "risk", "assessment", "decision"],
+        inputs={
+            "scenario": scenario,
+            "context": context,
+            "categories": categories,
+            "include_mitigation": include_mitigation,
+        },
+        steps=steps,
         entry_step="identify",
     )
 
