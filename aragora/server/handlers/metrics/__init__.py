@@ -18,8 +18,9 @@ Endpoints served:
 """
 
 from .formatters import format_size, format_uptime
-from .handler import MetricsHandler
+from .handler import MetricsHandler, _metrics_limiter
 from .tracking import (
+    MAX_TRACKED_ENDPOINTS,
     _error_counts,
     _request_counts,
     _start_time,
@@ -33,6 +34,7 @@ from .tracking import (
 __all__ = [
     # Handler
     "MetricsHandler",
+    "_metrics_limiter",
     # Tracking
     "track_request",
     "track_verification",
@@ -42,6 +44,7 @@ __all__ = [
     "_request_counts",
     "_error_counts",
     "_start_time",
+    "MAX_TRACKED_ENDPOINTS",
     # Formatters
     "format_uptime",
     "format_size",

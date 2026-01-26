@@ -22,6 +22,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.asyncio
+
 
 class MockHandler:
     """Mock HTTP handler for testing."""
@@ -107,7 +109,7 @@ class TestCanHandle:
 class TestRateLimiting:
     """Tests for rate limiting in handle()."""
 
-    def test_rate_limit_exceeded_returns_429(self):
+    async def test_rate_limit_exceeded_returns_429(self):
         """Should return 429 when rate limit exceeded."""
         from aragora.server.handlers.analytics import _analytics_limiter
 
@@ -116,7 +118,7 @@ class TestRateLimiting:
 
         # Force rate limit by mocking is_allowed to return False
         with patch.object(_analytics_limiter, "is_allowed", return_value=False):
-            result = handler.handle("/api/v1/analytics/disagreements", {}, mock_http)
+            result = await handler.handle("/api/v1/analytics/disagreements", {}, mock_http)
 
         assert get_status(result) == 429
         assert "Rate limit" in get_body(result)["error"]
@@ -523,35 +525,35 @@ class TestGetMemoryStats:
 class TestRouteDispatching:
     """Tests for handle() route dispatching."""
 
-    def test_routes_to_disagreement_stats(self):
+    async def test_routes_to_disagreement_stats(self):
         """Should route to _get_disagreement_stats."""
         handler = create_analytics_handler()
         mock_http = MockHandler()
 
         with patch.object(handler, "get_storage", return_value=None):
-            result = handler.handle("/api/v1/analytics/disagreements", {}, mock_http)
+            result = await handler.handle("/api/v1/analytics/disagreements", {}, mock_http)
 
         body = get_body(result)
         assert get_status(result) == 200
         assert "stats" in body
 
-    def test_routes_to_role_rotation_stats(self):
+    async def test_routes_to_role_rotation_stats(self):
         """Should route to _get_role_rotation_stats."""
         handler = create_analytics_handler()
         mock_http = MockHandler()
 
         with patch.object(handler, "get_storage", return_value=None):
-            result = handler.handle("/api/v1/analytics/role-rotation", {}, mock_http)
+            result = await handler.handle("/api/v1/analytics/role-rotation", {}, mock_http)
 
         body = get_body(result)
         assert get_status(result) == 200
         assert "stats" in body
 
-    def test_returns_none_for_unknown_route(self):
+    async def test_returns_none_for_unknown_route(self):
         """Should return None for unhandled routes."""
         handler = create_analytics_handler()
         mock_http = MockHandler()
 
-        result = handler.handle("/api/v1/unknown/route", {}, mock_http)
+        result = await handler.handle("/api/v1/unknown/route", {}, mock_http)
 
         assert result is None

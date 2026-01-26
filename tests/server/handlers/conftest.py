@@ -70,15 +70,20 @@ def mock_auth_for_handler_tests(request, monkeypatch):
         """Mock get_auth_context that returns admin context."""
         return mock_auth_ctx
 
-    # Patch at both locations where get_auth_context is imported
-    monkeypatch.setattr(
-        "aragora.server.handlers.utils.auth.get_auth_context",
-        mock_get_auth_context,
-    )
-    monkeypatch.setattr(
-        "aragora.server.handlers.secure.get_auth_context",
-        mock_get_auth_context,
-    )
+    # Import modules first to ensure they're loaded before patching
+    try:
+        from aragora.server.handlers.utils import auth as utils_auth
+
+        monkeypatch.setattr(utils_auth, "get_auth_context", mock_get_auth_context)
+    except (ImportError, AttributeError):
+        pass  # Module may not be available in all test contexts
+
+    try:
+        from aragora.server.handlers import secure
+
+        monkeypatch.setattr(secure, "get_auth_context", mock_get_auth_context)
+    except (ImportError, AttributeError):
+        pass  # Module may not be available in all test contexts
 
     yield mock_auth_ctx
 
