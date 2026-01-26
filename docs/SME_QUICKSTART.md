@@ -105,11 +105,62 @@ View all workflow templates:
 /aragora templates
 ```
 
-Popular templates:
-- **Hiring Decision** - Evaluate candidates
-- **Feature Prioritization** - Rank backlog items
-- **Vendor Selection** - Compare tools/services
-- **Policy Review** - Draft or update policies
+#### Quickstart Templates (5-minute decisions)
+
+| Template | URL | Use Case |
+|----------|-----|----------|
+| Quick Yes/No | `/arena?template=quickstart/yes-no` | Binary decisions |
+| Pros & Cons | `/arena?template=quickstart/pros-cons` | Option evaluation |
+| Risk Assessment | `/arena?template=quickstart/risk-assessment` | Risk identification |
+| Brainstorm | `/arena?template=quickstart/brainstorm` | Idea generation |
+
+#### Business Templates (15-minute decisions)
+
+| Template | URL | Use Case |
+|----------|-----|----------|
+| Vendor Evaluation | `/arena?template=sme/vendor-evaluation` | Procurement decisions |
+| Hiring Decision | `/arena?template=sme/hiring-decision` | Candidate evaluation |
+| Budget Allocation | `/arena?template=sme/budget-allocation` | Financial planning |
+| Business Decision | `/arena?template=sme/business-decision` | Strategic decisions |
+
+### Using Templates Programmatically
+
+```python
+from aragora.workflow.templates import (
+    # Quickstart templates
+    create_yes_no_workflow,
+    create_pros_cons_workflow,
+    create_risk_assessment_workflow,
+    create_brainstorm_workflow,
+    # Convenience functions
+    quick_decision,
+    quick_analysis,
+    quick_risks,
+    quick_ideas,
+    # Business templates
+    create_vendor_evaluation_workflow,
+    create_hiring_decision_workflow,
+    create_budget_allocation_workflow,
+    create_business_decision_workflow,
+)
+
+# Quick binary decision
+workflow = quick_decision("Should we proceed with the launch?")
+
+# Detailed vendor evaluation
+workflow = create_vendor_evaluation_workflow(
+    vendor_name="Acme Corp",
+    evaluation_criteria=["price", "support", "features"],
+    budget_range="$10k-$50k",
+)
+
+# Business decision with impact assessment
+workflow = create_business_decision_workflow(
+    decision_topic="Should we expand to Europe?",
+    context="50% US market share achieved",
+    impact_level="high",  # Includes approval step
+)
+```
 
 ---
 
