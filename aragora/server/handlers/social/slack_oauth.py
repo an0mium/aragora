@@ -51,6 +51,46 @@ SLACK_SCOPES = os.environ.get("SLACK_SCOPES", DEFAULT_SCOPES)
 SLACK_OAUTH_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize"
 SLACK_OAUTH_TOKEN_URL = "https://slack.com/api/oauth.v2.access"
 
+# Scope descriptions for consent preview page
+SCOPE_DESCRIPTIONS = {
+    "channels:history": {
+        "name": "Read Channel Messages",
+        "description": "Access message history to provide context for debates and discussions",
+        "required": True,
+        "icon": "📖",
+    },
+    "chat:write": {
+        "name": "Send Messages",
+        "description": "Post debate results, summaries, and AI-generated insights to channels",
+        "required": True,
+        "icon": "✍️",
+    },
+    "commands": {
+        "name": "Slash Commands",
+        "description": "Respond to /aragora commands for quick access to debates",
+        "required": False,
+        "icon": "⚡",
+    },
+    "users:read": {
+        "name": "View User Information",
+        "description": "Identify participants in discussions by name and profile",
+        "required": True,
+        "icon": "👥",
+    },
+    "team:read": {
+        "name": "View Workspace Info",
+        "description": "Access workspace metadata for configuration and analytics",
+        "required": False,
+        "icon": "🏢",
+    },
+    "channels:read": {
+        "name": "List Channels",
+        "description": "View available channels to select where Aragora can operate",
+        "required": True,
+        "icon": "📋",
+    },
+}
+
 # Lazy import for audit logger
 _slack_oauth_audit: Any = None
 
@@ -96,6 +136,7 @@ class SlackOAuthHandler(BaseHandler):
 
     ROUTES = [
         "/api/integrations/slack/install",
+        "/api/integrations/slack/preview",
         "/api/integrations/slack/callback",
         "/api/integrations/slack/uninstall",
     ]
@@ -119,6 +160,11 @@ class SlackOAuthHandler(BaseHandler):
         if path == "/api/integrations/slack/install":
             if method == "GET":
                 return await self._handle_install(query_params)
+            return error_response("Method not allowed", 405)
+
+        elif path == "/api/integrations/slack/preview":
+            if method == "GET":
+                return await self._handle_preview(query_params)
             return error_response("Method not allowed", 405)
 
         elif path == "/api/integrations/slack/callback":
