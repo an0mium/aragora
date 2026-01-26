@@ -81,6 +81,13 @@ from aragora.workflow.templates.sme import (
     create_followup_workflow,
     create_inventory_alert_workflow,
     create_report_workflow,
+    # New SME decision templates
+    create_performance_review_workflow,
+    create_feature_prioritization_workflow,
+    create_sprint_planning_workflow,
+    create_tool_selection_workflow,
+    create_contract_review_workflow,
+    create_remote_work_policy_workflow,
 )
 from aragora.workflow.templates.quickstart import (
     create_yes_no_workflow,
@@ -235,7 +242,7 @@ __all__ = [
     "SUPPORT_TICKET_TRIAGE_TEMPLATE",
     "ECOMMERCE_ORDER_SYNC_TEMPLATE",
     "MARKETING_TEMPLATES",
-    # SME Templates
+    # SME Templates (original)
     "create_vendor_evaluation_workflow",
     "create_hiring_decision_workflow",
     "create_budget_allocation_workflow",
@@ -244,6 +251,13 @@ __all__ = [
     "create_followup_workflow",
     "create_inventory_alert_workflow",
     "create_report_workflow",
+    # SME Templates (new decision templates)
+    "create_performance_review_workflow",
+    "create_feature_prioritization_workflow",
+    "create_sprint_planning_workflow",
+    "create_tool_selection_workflow",
+    "create_contract_review_workflow",
+    "create_remote_work_policy_workflow",
     # Quickstart Templates
     "create_yes_no_workflow",
     "create_pros_cons_workflow",

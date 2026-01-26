@@ -126,6 +126,242 @@ class TestSMEDecisionTemplates:
         assert "approve" not in low_step_ids or low_impact.inputs["impact_level"] == "low"
 
 
+class TestNewSMEDecisionTemplates:
+    """Tests for new SME decision workflow templates (Phase 1)."""
+
+    def test_create_performance_review_workflow(self):
+        """Performance review workflow creates correctly."""
+        from aragora.workflow.templates.sme import create_performance_review_workflow
+
+        workflow = create_performance_review_workflow(
+            employee_name="Jane Doe",
+            role="Senior Developer",
+            review_period="Q4 2024",
+            self_assessment="Exceeded sprint goals",
+        )
+
+        assert isinstance(workflow, WorkflowDefinition)
+        assert "perf_review_senior_developer" in workflow.id
+        assert "Jane Doe" in workflow.name
+        assert workflow.category == WorkflowCategory.GENERAL
+        assert "performance" in workflow.tags
+        assert "sme" in workflow.tags
+
+    def test_performance_review_has_debate_step(self):
+        """Performance review includes multi-perspective debate."""
+        from aragora.workflow.templates.sme import create_performance_review_workflow
+
+        workflow = create_performance_review_workflow(
+            employee_name="Test",
+            role="Developer",
+        )
+
+        step_ids = [s.id for s in workflow.steps]
+        assert "debate" in step_ids
+
+    def test_create_feature_prioritization_workflow(self):
+        """Feature prioritization workflow creates correctly."""
+        from aragora.workflow.templates.sme import create_feature_prioritization_workflow
+
+        workflow = create_feature_prioritization_workflow(
+            features=["Dark mode", "API v2", "Mobile app"],
+            constraints=["2 developers available"],
+            timeline="next quarter",
+        )
+
+        assert isinstance(workflow, WorkflowDefinition)
+        assert "feature_priority" in workflow.id
+        assert "3 features" in workflow.name
+        assert "prioritization" in workflow.tags
+        assert len(workflow.inputs["features"]) == 3
+
+    def test_feature_prioritization_default_criteria(self):
+        """Feature prioritization uses default criteria."""
+        from aragora.workflow.templates.sme import create_feature_prioritization_workflow
+
+        workflow = create_feature_prioritization_workflow(
+            features=["Feature A", "Feature B"],
+        )
+
+        criteria = workflow.inputs["criteria"]
+        assert "impact" in criteria
+        assert "effort" in criteria
+
+    def test_create_sprint_planning_workflow(self):
+        """Sprint planning workflow creates correctly."""
+        from aragora.workflow.templates.sme import create_sprint_planning_workflow
+
+        workflow = create_sprint_planning_workflow(
+            sprint_name="Sprint 24",
+            backlog_items=["User auth", "Dashboard"],
+            team_size=5,
+            velocity=32,
+        )
+
+        assert isinstance(workflow, WorkflowDefinition)
+        assert "sprint_sprint_24" in workflow.id
+        assert "Sprint 24" in workflow.name
+        assert "agile" in workflow.tags
+        assert workflow.inputs["velocity"] == 32
+
+    def test_create_tool_selection_workflow(self):
+        """Tool selection workflow creates correctly."""
+        from aragora.workflow.templates.sme import create_tool_selection_workflow
+
+        workflow = create_tool_selection_workflow(
+            category="Project Management",
+            candidates=["Jira", "Linear", "Asana"],
+            requirements=["GitHub integration"],
+            budget="$50/user/month",
+        )
+
+        assert isinstance(workflow, WorkflowDefinition)
+        assert "tool_select_project_management" in workflow.id
+        assert "Project Management" in workflow.name
+        assert "tools" in workflow.tags
+        assert len(workflow.inputs["candidates"]) == 3
+
+    def test_tool_selection_has_cost_analysis(self):
+        """Tool selection includes cost analysis step."""
+        from aragora.workflow.templates.sme import create_tool_selection_workflow
+
+        workflow = create_tool_selection_workflow(
+            category="CRM",
+            candidates=["Salesforce", "HubSpot"],
+            team_size=20,
+        )
+
+        step_ids = [s.id for s in workflow.steps]
+        assert "cost" in step_ids
+
+    def test_create_contract_review_workflow(self):
+        """Contract review workflow creates correctly."""
+        from aragora.workflow.templates.sme import create_contract_review_workflow
+
+        workflow = create_contract_review_workflow(
+            contract_type="SaaS Agreement",
+            counterparty="Vendor Corp",
+            contract_value="$120k/year",
+            key_terms=["SLA", "data ownership"],
+        )
+
+        assert isinstance(workflow, WorkflowDefinition)
+        assert "contract_saas_agreement" in workflow.id
+        assert "Vendor Corp" in workflow.name
+        assert "contract" in workflow.tags
+        assert "legal" in workflow.tags
+
+    def test_contract_review_default_terms(self):
+        """Contract review uses default key terms."""
+        from aragora.workflow.templates.sme import create_contract_review_workflow
+
+        workflow = create_contract_review_workflow(
+            contract_type="NDA",
+            counterparty="Partner Inc",
+        )
+
+        key_terms = workflow.inputs["key_terms"]
+        assert "liability" in key_terms
+        assert "termination" in key_terms
+
+    def test_create_remote_work_policy_workflow(self):
+        """Remote work policy workflow creates correctly."""
+        from aragora.workflow.templates.sme import create_remote_work_policy_workflow
+
+        workflow = create_remote_work_policy_workflow(
+            company_size=75,
+            current_policy="3 days in office",
+            concerns=["collaboration", "timezone"],
+            industry="fintech",
+        )
+
+        assert isinstance(workflow, WorkflowDefinition)
+        assert "remote_policy" in workflow.id
+        assert "75-person fintech" in workflow.description
+        assert "remote" in workflow.tags
+        assert "policy" in workflow.tags
+
+    def test_remote_work_policy_has_legal_step(self):
+        """Remote work policy includes legal considerations."""
+        from aragora.workflow.templates.sme import create_remote_work_policy_workflow
+
+        workflow = create_remote_work_policy_workflow(company_size=50)
+
+        step_ids = [s.id for s in workflow.steps]
+        assert "legal" in step_ids
+
+
+class TestNewSMETemplateExports:
+    """Tests for new SME template exports."""
+
+    def test_new_sme_functions_exported(self):
+        """New SME functions are exported from templates module."""
+        from aragora.workflow.templates import (
+            create_performance_review_workflow,
+            create_feature_prioritization_workflow,
+            create_sprint_planning_workflow,
+            create_tool_selection_workflow,
+            create_contract_review_workflow,
+            create_remote_work_policy_workflow,
+        )
+
+        assert callable(create_performance_review_workflow)
+        assert callable(create_feature_prioritization_workflow)
+        assert callable(create_sprint_planning_workflow)
+        assert callable(create_tool_selection_workflow)
+        assert callable(create_contract_review_workflow)
+        assert callable(create_remote_work_policy_workflow)
+
+    def test_all_sme_templates_have_sme_tag(self):
+        """All SME templates include 'sme' tag."""
+        from aragora.workflow.templates.sme import (
+            create_performance_review_workflow,
+            create_feature_prioritization_workflow,
+            create_sprint_planning_workflow,
+            create_tool_selection_workflow,
+            create_contract_review_workflow,
+            create_remote_work_policy_workflow,
+        )
+
+        templates = [
+            create_performance_review_workflow("Test", "Role"),
+            create_feature_prioritization_workflow(["A", "B"]),
+            create_sprint_planning_workflow("Sprint 1", ["Task"]),
+            create_tool_selection_workflow("Cat", ["Tool"]),
+            create_contract_review_workflow("Type", "Party"),
+            create_remote_work_policy_workflow(),
+        ]
+
+        for template in templates:
+            assert "sme" in template.tags, f"Template {template.id} missing 'sme' tag"
+
+    def test_all_sme_templates_have_entry_step(self):
+        """All SME templates have valid entry_step."""
+        from aragora.workflow.templates.sme import (
+            create_performance_review_workflow,
+            create_feature_prioritization_workflow,
+            create_sprint_planning_workflow,
+            create_tool_selection_workflow,
+            create_contract_review_workflow,
+            create_remote_work_policy_workflow,
+        )
+
+        templates = [
+            create_performance_review_workflow("Test", "Role"),
+            create_feature_prioritization_workflow(["A", "B"]),
+            create_sprint_planning_workflow("Sprint 1", ["Task"]),
+            create_tool_selection_workflow("Cat", ["Tool"]),
+            create_contract_review_workflow("Type", "Party"),
+            create_remote_work_policy_workflow(),
+        ]
+
+        for template in templates:
+            step_ids = [s.id for s in template.steps]
+            assert (
+                template.entry_step in step_ids
+            ), f"Entry step {template.entry_step} not in {step_ids}"
+
+
 class TestQuickstartTemplates:
     """Tests for quickstart workflow templates."""
 

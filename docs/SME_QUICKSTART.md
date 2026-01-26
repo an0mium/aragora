@@ -1,253 +1,225 @@
 # SME Quick Start Guide
 
-Get your first AI-facilitated debate running in under 15 minutes.
+This guide helps Subject Matter Experts (SMEs) get started with Aragora for AI-powered decision making.
 
----
+## Overview
 
-## Prerequisites
+Aragora provides a multi-agent debate platform that helps SMEs make defensible decisions. Multiple AI agents (Claude, GPT, Gemini, etc.) analyze your question from different perspectives and reach consensus.
 
-- A workspace on [aragora.ai](https://aragora.ai) or self-hosted instance
-- Admin access to create integrations
-- A Slack workspace (recommended) or email access
+## Getting Started
 
----
+### 1. First-Time Setup
 
-## Step 1: Create Your Workspace (2 min)
+When you first log in, you'll go through a brief onboarding:
 
-1. Sign up at [aragora.ai/signup](https://aragora.ai/signup)
-2. Enter your organization name
-3. Choose a workspace URL (e.g., `acme.aragora.ai`)
-4. Verify your email
+1. **Welcome**: Overview of the platform
+2. **Profile Setup**: Configure your preferences
+3. **First Debate**: Run a sample debate to see how it works
 
----
+### 2. Running Your First Debate
 
-## Step 2: Connect Slack (3 min)
+#### Quick Debate (2-3 minutes)
 
-1. Go to **Settings > Integrations**
-2. Click **Add Slack**
-3. Authorize the Aragora app in your Slack workspace
-4. Select a channel for debate results
-
-**What Aragora can do in Slack:**
-- Read messages in connected channels (for evidence gathering)
-- Post debate results and receipts
-- Respond to `/aragora` commands
-
----
-
-## Step 3: Run Your First Debate (5 min)
-
-### Option A: From the Web UI
-
-1. Go to **Debates > New Debate**
-2. Select a template:
-   - **Quick Decision** - 2 rounds, 2 agents
-   - **Team Consensus** - 3 rounds, 3 agents
-   - **Deep Analysis** - 4 rounds, 4 agents
-3. Enter your topic (e.g., "Should we adopt TypeScript for our frontend?")
-4. Click **Start Debate**
-
-### Option B: From Slack
-
-Type in your connected channel:
-```
-/aragora debate "Should we adopt TypeScript for our frontend?"
-```
-
-**Debate Options:**
-```
-/aragora debate --template "vendor-selection" "Which CI/CD tool should we use?"
-/aragora debate --rounds 4 "How should we structure our Q2 goals?"
-```
-
----
-
-## Step 4: Review Results (3 min)
-
-After the debate completes:
-
-1. **View the Summary** - Consensus decision with confidence score
-2. **Explore Arguments** - See what each AI agent proposed
-3. **Check Dissent** - Review any minority opinions
-4. **Download Receipt** - PDF or Markdown for records
-
-### Understanding the Receipt
-
-| Field | Meaning |
-|-------|---------|
-| **Verdict** | The consensus decision |
-| **Confidence** | How strongly agents agreed (0-100%) |
-| **Risk Level** | LOW (>70%), MEDIUM (50-70%), HIGH (<50%) |
-| **Participants** | Which AI models participated |
-| **Receipt ID** | Unique identifier for audit trail |
-
----
-
-## Step 5: Customize Your Setup
-
-### Add Team Members
-
-1. Go to **Settings > Team**
-2. Click **Invite Member**
-3. Enter email addresses
-4. Choose role: **Admin** or **Member**
-
-### Set Budget Limits
-
-1. Go to **Settings > Billing**
-2. Set monthly spend cap
-3. Configure alerts (50%, 75%, 90%)
-
-### Explore Templates
-
-View all workflow templates:
-```
-/aragora templates
-```
-
-#### Quickstart Templates (5-minute decisions)
-
-| Template | URL | Use Case |
-|----------|-----|----------|
-| Quick Yes/No | `/arena?template=quickstart/yes-no` | Binary decisions |
-| Pros & Cons | `/arena?template=quickstart/pros-cons` | Option evaluation |
-| Risk Assessment | `/arena?template=quickstart/risk-assessment` | Risk identification |
-| Brainstorm | `/arena?template=quickstart/brainstorm` | Idea generation |
-
-#### Business Templates (15-minute decisions)
-
-| Template | URL | Use Case |
-|----------|-----|----------|
-| Vendor Evaluation | `/arena?template=sme/vendor-evaluation` | Procurement decisions |
-| Hiring Decision | `/arena?template=sme/hiring-decision` | Candidate evaluation |
-| Budget Allocation | `/arena?template=sme/budget-allocation` | Financial planning |
-| Business Decision | `/arena?template=sme/business-decision` | Strategic decisions |
-
-### Using Templates Programmatically
-
-```python
-from aragora.workflow.templates import (
-    # Quickstart templates
-    create_yes_no_workflow,
-    create_pros_cons_workflow,
-    create_risk_assessment_workflow,
-    create_brainstorm_workflow,
-    # Convenience functions
-    quick_decision,
-    quick_analysis,
-    quick_risks,
-    quick_ideas,
-    # Business templates
-    create_vendor_evaluation_workflow,
-    create_hiring_decision_workflow,
-    create_budget_allocation_workflow,
-    create_business_decision_workflow,
-)
-
-# Quick binary decision
-workflow = quick_decision("Should we proceed with the launch?")
-
-# Detailed vendor evaluation
-workflow = create_vendor_evaluation_workflow(
-    vendor_name="Acme Corp",
-    evaluation_criteria=["price", "support", "features"],
-    budget_range="$10k-$50k",
-)
-
-# Business decision with impact assessment
-workflow = create_business_decision_workflow(
-    decision_topic="Should we expand to Europe?",
-    context="50% US market share achieved",
-    impact_level="high",  # Includes approval step
-)
-```
-
----
-
-## API Access (Optional)
-
-For programmatic access:
-
-### Python SDK
+Use the Quick Debate feature for fast decisions:
 
 ```bash
-pip install aragora-client
+# Via API
+curl -X POST https://api.aragora.ai/api/v1/debates/quick \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "topic": "Should we migrate our database to PostgreSQL?",
+    "context": "Currently using MySQL, 500GB data, 3 developers",
+    "template": "quick_decision"
+  }'
 ```
 
-```python
-from aragora_client import AragoraClient
+#### Template Options
 
-client = AragoraClient(
-    base_url="https://acme.aragora.ai",
-    api_key="your-api-key"
-)
+| Template | Rounds | Best For |
+|----------|--------|----------|
+| `quick_decision` | 2 | Simple yes/no decisions |
+| `thorough_analysis` | 4 | Complex strategic decisions |
+| `risk_assessment` | 3 | Risk-sensitive choices |
+| `cost_benefit` | 3 | Financial decisions |
 
-# Start a debate
-result = await client.debates.create(
-    task="Should we migrate to Kubernetes?",
-    rounds=3,
-    agents=["claude", "gpt-4o", "gemini"]
-)
+### 3. Understanding Results
 
-print(f"Verdict: {result.verdict}")
-print(f"Confidence: {result.confidence:.0%}")
+Each debate produces:
+
+- **Consensus**: The agreed-upon recommendation
+- **Confidence Score**: How certain the agents are (0-1)
+- **Dissents**: Any minority opinions
+- **Receipt**: Cryptographic proof of the decision
+
+Example response:
+
+```json
+{
+  "id": "debate-abc123",
+  "consensus_reached": true,
+  "confidence": 0.85,
+  "final_position": "Recommend proceeding with PostgreSQL migration",
+  "key_factors": [
+    "Better JSON support for your use case",
+    "Stronger community and tooling",
+    "Migration effort is manageable with 3 developers"
+  ],
+  "dissenting_views": [
+    "Consider waiting until Q2 when team capacity increases"
+  ]
+}
 ```
 
-### TypeScript SDK
+## Usage Dashboard
 
-```bash
-npm install @aragora/sdk
+Monitor your usage at `/api/v1/dashboard/debates`:
+
+### Metrics Available
+
+- **Total Debates**: Number of debates run
+- **Consensus Rate**: How often consensus is reached
+- **Average Confidence**: Overall decision quality
+- **Recent Activity**: Debates in the last 24 hours
+
+### Dashboard Permissions
+
+The dashboard requires authentication with `dashboard.read` permission. Your organization admin can grant this permission.
+
+## Template Selection Guide
+
+### When to Use Each Template
+
+#### Quick Decision (`quick_decision`)
+- Simple binary choices
+- Time-sensitive decisions
+- Low-risk scenarios
+- Example: "Should we enable dark mode?"
+
+#### Thorough Analysis (`thorough_analysis`)
+- Complex strategic decisions
+- High-stakes choices
+- Multiple stakeholders
+- Example: "Should we expand to the European market?"
+
+#### Risk Assessment (`risk_assessment`)
+- Security decisions
+- Compliance choices
+- Operational changes
+- Example: "Should we adopt a zero-trust security model?"
+
+#### Cost-Benefit Analysis (`cost_benefit`)
+- Budget decisions
+- Investment choices
+- Resource allocation
+- Example: "Should we build vs. buy this feature?"
+
+## Best Practices
+
+### Writing Good Topics
+
+**Good Topics:**
+- "Should we migrate from AWS to GCP given our cost constraints?"
+- "What's the best approach to handle customer data retention?"
+- "Should we adopt GraphQL for our public API?"
+
+**Poor Topics:**
+- "What should we do?" (too vague)
+- "Is AWS good?" (not specific enough)
+- "Tell me everything about databases" (not a decision)
+
+### Providing Context
+
+Include relevant context:
+
+```json
+{
+  "topic": "Should we implement rate limiting?",
+  "context": {
+    "current_traffic": "10,000 requests/minute",
+    "incident_history": "3 DDoS attempts in last month",
+    "team_size": "2 backend engineers",
+    "timeline": "Need decision by Friday"
+  }
+}
 ```
 
-```typescript
-import { AragoraClient } from '@aragora/sdk';
+## API Reference
 
-const client = new AragoraClient({
-  baseUrl: 'https://acme.aragora.ai',
-  apiKey: 'your-api-key'
-});
+### Create Quick Debate
 
-const result = await client.debates.create({
-  task: 'Should we migrate to Kubernetes?',
-  rounds: 3,
-  agents: ['claude', 'gpt-4o', 'gemini']
-});
-
-console.log(`Verdict: ${result.verdict}`);
-console.log(`Confidence: ${(result.confidence * 100).toFixed(0)}%`);
+```
+POST /api/v1/debates/quick
 ```
 
----
+**Request:**
+```json
+{
+  "topic": "string (required)",
+  "context": "string or object (optional)",
+  "template": "quick_decision | thorough_analysis | risk_assessment | cost_benefit"
+}
+```
+
+**Response:**
+```json
+{
+  "debate_id": "string",
+  "status": "pending | running | completed | failed",
+  "estimated_duration_seconds": 120
+}
+```
+
+### Get Debate Status
+
+```
+GET /api/v1/debates/{debate_id}
+```
+
+### Get Receipt
+
+```
+GET /api/v1/debates/{debate_id}/receipt
+```
+
+### Export Receipt
+
+```
+GET /api/v1/debates/{debate_id}/receipt/export?format=json|html|markdown|sarif
+```
 
 ## Troubleshooting
 
-### Debate takes too long
+### Common Issues
 
-- Reduce rounds (2-3 is usually sufficient)
-- Use fewer agents (2-3 for quick decisions)
-- Check your network connection
+**"Authentication required"**
+- Ensure your API token is valid
+- Check token expiration
+- Verify token permissions
 
-### Slack integration not working
+**"Permission denied: dashboard.read"**
+- Contact your org admin to grant dashboard access
+- Required for viewing usage statistics
 
-1. Verify the app is installed: `/aragora status`
-2. Check channel permissions
-3. Re-authorize at Settings > Integrations > Slack
+**"Debate timeout"**
+- Complex topics may take longer
+- Try simplifying the question
+- Use `thorough_analysis` template for complex decisions
 
-### Low confidence scores
+### Getting Help
 
-- Add more context to your question
-- Try different agents for the topic
-- Use more debate rounds
-
----
+- Documentation: https://docs.aragora.ai
+- API Reference: https://api.aragora.ai/docs
+- Support: support@aragora.ai
 
 ## Next Steps
 
-- [Full Documentation](https://docs.aragora.ai)
-- [Template Library](https://docs.aragora.ai/templates)
-- [API Reference](https://docs.aragora.ai/api)
-- [Community Discord](https://discord.aragora.ai)
+1. Run your first debate using the Quick Debate feature
+2. Review the results and receipt
+3. Explore different templates for various decision types
+4. Check the usage dashboard to monitor your activity
+5. Integrate with your workflow using the API
 
 ---
 
-*Need help? Email support@aragora.ai or use the chat widget in the app.*
+*Last updated: January 2025*

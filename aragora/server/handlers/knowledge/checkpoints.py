@@ -23,6 +23,7 @@ from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    json_response,
     success_response,
 )
 from aragora.server.handlers.utils.rate_limit import (
@@ -69,8 +70,8 @@ class KMCheckpointHandler(BaseHandler):
         "/api/v1/km/checkpoints/{name}/download",
     ]
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, server_context: Any = None):
+        super().__init__(server_context)  # type: ignore[arg-type]
         self._checkpoint_store: Optional["KMCheckpointStore"] = None
 
     def _get_checkpoint_store(self) -> "KMCheckpointStore":
@@ -245,7 +246,7 @@ class KMCheckpointHandler(BaseHandler):
                 ctx["size_bytes"] = metadata.size_bytes
 
             success = True  # noqa: F841
-            return success_response(
+            return json_response(
                 {
                     "name": metadata.name,
                     "description": metadata.description,

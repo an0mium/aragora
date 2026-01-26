@@ -48,8 +48,13 @@ jobs:
       - name: Check version alignment
         run: python scripts/check_version_alignment.py
 
-      - name: Check SDK types are up to date
+      - name: Check TypeScript SDK types are up to date
         run: python scripts/generate_sdk_types.py --check
+
+      - name: Check Python SDK types are up to date
+        run: |
+          pip install datamodel-code-generator
+          python scripts/generate_python_sdk_types.py --check
 
   # Skip marker audit (warns if skip count increases)
   skip-audit:

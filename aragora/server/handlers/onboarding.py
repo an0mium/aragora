@@ -78,6 +78,7 @@ class QuickStartProfile(str, Enum):
     EXECUTIVE = "executive"
     PRODUCT = "product"
     COMPLIANCE = "compliance"
+    SME = "sme"  # Small-Medium Enterprise focused profile
 
 
 @dataclass
@@ -242,6 +243,103 @@ STARTER_TEMPLATES: List[StarterTemplate] = [
         tags=["onboarding", "express", "fast", "starter"],
         difficulty="beginner",
     ),
+    # SME Starter Templates
+    StarterTemplate(
+        id="sme_hiring_decision",
+        name="Hiring Decision",
+        description="Evaluate candidates with structured multi-agent debate for balanced, fair hiring decisions.",
+        use_cases=[UseCase.TEAM_DECISIONS.value],
+        agents_count=2,
+        rounds=3,
+        estimated_minutes=5,
+        example_prompt="Should we hire [candidate] for the [role] position? Consider their technical skills, cultural fit, and growth potential.",
+        tags=["sme", "hiring", "hr", "team"],
+        difficulty="beginner",
+    ),
+    StarterTemplate(
+        id="sme_performance_review",
+        name="Performance Review",
+        description="Generate balanced performance assessments with multiple AI perspectives on strengths and growth areas.",
+        use_cases=[UseCase.TEAM_DECISIONS.value],
+        agents_count=2,
+        rounds=2,
+        estimated_minutes=3,
+        example_prompt="Evaluate [employee]'s Q4 performance: they exceeded sprint goals but had communication challenges with stakeholders.",
+        tags=["sme", "hr", "performance", "team"],
+        difficulty="beginner",
+    ),
+    StarterTemplate(
+        id="sme_feature_prioritization",
+        name="Feature Prioritization",
+        description="Prioritize product features based on impact, effort, and strategic alignment using multi-agent debate.",
+        use_cases=[UseCase.TECHNICAL_PLANNING.value],
+        agents_count=3,
+        rounds=3,
+        estimated_minutes=5,
+        example_prompt="Prioritize these features for next quarter: dark mode, API v2, mobile app, export to PDF. We have 2 developers available.",
+        tags=["sme", "product", "planning", "project"],
+        difficulty="beginner",
+    ),
+    StarterTemplate(
+        id="sme_sprint_planning",
+        name="Sprint Planning",
+        description="Plan sprint scope and commitments with AI-assisted capacity and estimation analysis.",
+        use_cases=[UseCase.TECHNICAL_PLANNING.value],
+        agents_count=2,
+        rounds=2,
+        estimated_minutes=3,
+        example_prompt="Plan Sprint 24 for our 5-person team. Backlog: user auth, dashboard redesign, API refactor. Historical velocity: 32 points.",
+        tags=["sme", "agile", "sprint", "project"],
+        difficulty="beginner",
+    ),
+    StarterTemplate(
+        id="sme_tool_selection",
+        name="Tool Selection",
+        description="Compare and select tools with comprehensive multi-agent analysis of features, pricing, and fit.",
+        use_cases=[UseCase.VENDOR_SELECTION.value],
+        agents_count=3,
+        rounds=4,
+        estimated_minutes=7,
+        example_prompt="Compare Jira, Linear, and Asana for our 15-person team. We need GitHub integration and good Agile support. Budget: $50/user/month.",
+        tags=["sme", "tools", "vendor", "selection"],
+        difficulty="beginner",
+    ),
+    StarterTemplate(
+        id="sme_contract_review",
+        name="Contract Review",
+        description="Review contracts for risks and negotiate favorable terms with multi-perspective legal analysis.",
+        use_cases=[UseCase.VENDOR_SELECTION.value, UseCase.POLICY_REVIEW.value],
+        agents_count=2,
+        rounds=3,
+        estimated_minutes=5,
+        example_prompt="Review our SaaS agreement with Vendor Corp ($120k/year). Key concerns: data ownership, SLA commitments, termination terms.",
+        tags=["sme", "legal", "contract", "vendor"],
+        difficulty="beginner",
+    ),
+    StarterTemplate(
+        id="sme_remote_work_policy",
+        name="Remote Work Policy",
+        description="Design or refine remote work policies balancing flexibility, productivity, and compliance.",
+        use_cases=[UseCase.POLICY_REVIEW.value],
+        agents_count=3,
+        rounds=3,
+        estimated_minutes=5,
+        example_prompt="Review our remote policy: 3 days in office required. We're a 75-person fintech. Concerns: collaboration quality, timezone coverage.",
+        tags=["sme", "hr", "policy", "remote"],
+        difficulty="beginner",
+    ),
+    StarterTemplate(
+        id="sme_budget_allocation",
+        name="Budget Allocation",
+        description="Allocate budgets across categories with data-driven multi-agent analysis and proposals.",
+        use_cases=[UseCase.POLICY_REVIEW.value, UseCase.TEAM_DECISIONS.value],
+        agents_count=3,
+        rounds=2,
+        estimated_minutes=3,
+        example_prompt="Allocate $500k Engineering budget for FY2025 across: infrastructure (cloud), tools (dev tools), training, contractors.",
+        tags=["sme", "budget", "finance", "policy"],
+        difficulty="beginner",
+    ),
 ]
 
 
@@ -292,6 +390,20 @@ QUICK_START_CONFIGS: Dict[str, Dict[str, Any]] = {
         "default_agents": ["claude", "gpt-4", "gemini", "grok"],
         "default_rounds": 4,
         "focus_areas": ["regulations", "audit", "documentation"],
+    },
+    QuickStartProfile.SME.value: {
+        "default_template": "sme_hiring_decision",
+        "suggested_templates": [
+            "sme_hiring_decision",
+            "sme_feature_prioritization",
+            "sme_tool_selection",
+            "sme_budget_allocation",
+        ],
+        "default_agents": ["claude", "gpt-4"],
+        "default_rounds": 3,
+        "focus_areas": ["team_decisions", "vendor_selection", "policy", "project_planning"],
+        "budget_enabled": True,
+        "max_debates_free": 50,
     },
 }
 

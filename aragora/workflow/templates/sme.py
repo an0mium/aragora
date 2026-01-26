@@ -1770,11 +1770,18 @@ __all__ = [
     "create_followup_workflow",
     "create_inventory_alert_workflow",
     "create_report_workflow",
-    # SME Decision templates
+    # SME Decision templates (original)
     "create_vendor_evaluation_workflow",
     "create_hiring_decision_workflow",
     "create_budget_allocation_workflow",
     "create_business_decision_workflow",
+    # SME Decision templates (new)
+    "create_performance_review_workflow",
+    "create_feature_prioritization_workflow",
+    "create_sprint_planning_workflow",
+    "create_tool_selection_workflow",
+    "create_contract_review_workflow",
+    "create_remote_work_policy_workflow",
     # Quick convenience functions
     "quick_invoice",
     "weekly_sales_report",

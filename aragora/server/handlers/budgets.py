@@ -81,7 +81,7 @@ class BudgetHandler(BaseHandler):
                 user_email=user_ctx.email,
                 org_id=user_ctx.org_id,
                 workspace_id=None,
-                roles=set(user_ctx.roles) if user_ctx.roles else {"member"},
+                roles={user_ctx.role} if user_ctx.role else {"member"},
             )
 
             checker = get_permission_checker()
