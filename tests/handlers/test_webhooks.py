@@ -586,7 +586,7 @@ class TestWebhookHandlerSLO:
             slo_module.get_slo_webhook_status = MagicMock(return_value=mock_status)
             slo_module.get_violation_state = MagicMock(return_value=mock_violation_state)
 
-            result = handler._handle_slo_status()
+            result = handler._handle_slo_status(MagicMock())
 
             assert result.status_code == 200
 
@@ -604,7 +604,7 @@ class TestWebhookHandlerSLO:
                 return_value=mock_status
             )
 
-            result = handler._handle_slo_test()
+            result = handler._handle_slo_test(MagicMock())
 
             assert result.status_code == 400
 
