@@ -1684,6 +1684,8 @@ ROLE_MEMBER = Role(
         PERM_CANVAS_READ.key,
         PERM_CANVAS_CREATE.key,
         PERM_CANVAS_RUN.key,
+        # Nomic (read-only access to self-improvement loop)
+        PERM_NOMIC_READ.key,
     },
     parent_roles=[],
     priority=40,
