@@ -309,6 +309,9 @@ class DebateOrigin:
     thread_id: Optional[str] = None
     message_id: Optional[str] = None
 
+    # Session tracking for multi-channel support
+    session_id: Optional[str] = None
+
     # Result routing
     result_sent: bool = False
     result_sent_at: Optional[float] = None
@@ -323,6 +326,7 @@ class DebateOrigin:
             "metadata": self.metadata,
             "thread_id": self.thread_id,
             "message_id": self.message_id,
+            "session_id": self.session_id,
             "result_sent": self.result_sent,
             "result_sent_at": self.result_sent_at,
         }
@@ -338,9 +342,25 @@ class DebateOrigin:
             metadata=data.get("metadata", {}),
             thread_id=data.get("thread_id"),
             message_id=data.get("message_id"),
+            session_id=data.get("session_id"),
             result_sent=data.get("result_sent", False),
             result_sent_at=data.get("result_sent_at"),
         )
+
+
+async def _create_and_link_session(
+    manager,
+    platform: str,
+    user_id: str,
+    metadata: Optional[Dict[str, Any]],
+    debate_id: str,
+) -> None:
+    """Helper to create and link session in async context."""
+    try:
+        session = await manager.create_session(platform, user_id, metadata)
+        await manager.link_debate(session.session_id, debate_id)
+    except Exception as e:
+        logger.debug(f"Async session creation failed: {e}")
 
 
 def register_debate_origin(
@@ -351,6 +371,8 @@ def register_debate_origin(
     thread_id: Optional[str] = None,
     message_id: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
+    session_id: Optional[str] = None,
+    create_session: bool = False,
 ) -> DebateOrigin:
     """Register the origin of a debate for result routing.
 
@@ -362,10 +384,62 @@ def register_debate_origin(
         thread_id: Optional thread ID for threaded conversations
         message_id: Optional message ID that started the debate
         metadata: Optional additional metadata (username, etc.)
+        session_id: Optional existing session ID to link
+        create_session: If True and no session_id, create a new session
 
     Returns:
         DebateOrigin instance
     """
+    # Handle session creation/linking
+    linked_session_id = session_id
+    if create_session and not session_id:
+        try:
+            from aragora.connectors.debate_session import get_debate_session_manager
+            import asyncio
+
+            manager = get_debate_session_manager()
+            # Try to create session synchronously
+            try:
+                loop = asyncio.get_event_loop()
+                if not loop.is_running():
+                    session = loop.run_until_complete(
+                        manager.create_session(platform, user_id, metadata)
+                    )
+                    linked_session_id = session.session_id
+                    # Link debate to session
+                    loop.run_until_complete(manager.link_debate(session.session_id, debate_id))
+                else:
+                    # In async context, schedule tasks
+                    asyncio.create_task(
+                        _create_and_link_session(manager, platform, user_id, metadata, debate_id)
+                    )
+            except RuntimeError:
+                # No event loop available
+                pass
+        except ImportError:
+            logger.debug("Session management not available")
+        except Exception as e:
+            logger.debug(f"Session creation failed: {e}")
+    elif session_id:
+        # Link existing session to debate
+        try:
+            from aragora.connectors.debate_session import get_debate_session_manager
+            import asyncio
+
+            manager = get_debate_session_manager()
+            try:
+                loop = asyncio.get_event_loop()
+                if not loop.is_running():
+                    loop.run_until_complete(manager.link_debate(session_id, debate_id))
+                else:
+                    asyncio.create_task(manager.link_debate(session_id, debate_id))
+            except RuntimeError:
+                pass
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.debug(f"Session linking failed: {e}")
+
     origin = DebateOrigin(
         debate_id=debate_id,
         platform=platform,
@@ -373,6 +447,7 @@ def register_debate_origin(
         user_id=user_id,
         thread_id=thread_id,
         message_id=message_id,
+        session_id=linked_session_id,
         metadata=metadata or {},
     )
 
@@ -1777,12 +1852,110 @@ def cleanup_expired_origins() -> int:
     return total_cleaned
 
 
+async def get_sessions_for_debate(debate_id: str) -> list:
+    """Get all sessions linked to a debate for multi-channel routing.
+
+    Args:
+        debate_id: The debate ID
+
+    Returns:
+        List of DebateSession objects linked to the debate
+    """
+    try:
+        from aragora.connectors.debate_session import get_debate_session_manager
+
+        manager = get_debate_session_manager()
+        return await manager.find_sessions_for_debate(debate_id)
+    except ImportError:
+        return []
+    except Exception as e:
+        logger.debug(f"Session lookup failed: {e}")
+        return []
+
+
+async def route_result_to_all_sessions(
+    debate_id: str,
+    result: Dict[str, Any],
+    include_voice: bool = False,
+) -> int:
+    """Route debate result to all sessions linked to the debate.
+
+    This extends route_debate_result to support multi-channel scenarios
+    where a user may have started a debate on one channel but wants
+    results on multiple channels.
+
+    Args:
+        debate_id: The debate ID
+        result: The debate result dict
+        include_voice: Whether to include TTS voice message
+
+    Returns:
+        Number of channels successfully notified
+    """
+    success_count = 0
+
+    # First, route via origin (primary channel)
+    origin_success = await route_debate_result(debate_id, result, include_voice)
+    if origin_success:
+        success_count += 1
+
+    # Then route to any additional sessions
+    try:
+        sessions = await get_sessions_for_debate(debate_id)
+        origin = get_debate_origin(debate_id)
+        origin_session_id = origin.session_id if origin else None
+
+        for session in sessions:
+            # Skip if this is the same session as the origin
+            if session.session_id == origin_session_id:
+                continue
+
+            # Create a temporary origin for this session
+            temp_origin = DebateOrigin(
+                debate_id=debate_id,
+                platform=session.channel,
+                channel_id=session.context.get("channel_id", session.user_id),
+                user_id=session.user_id,
+                session_id=session.session_id,
+                metadata=session.context,
+            )
+
+            # Route to this session's channel
+            try:
+                platform = temp_origin.platform.lower()
+                if platform == "telegram":
+                    success = await _send_telegram_result(temp_origin, result)
+                elif platform == "slack":
+                    success = await _send_slack_result(temp_origin, result)
+                elif platform == "discord":
+                    success = await _send_discord_result(temp_origin, result)
+                elif platform == "teams":
+                    success = await _send_teams_result(temp_origin, result)
+                elif platform == "whatsapp":
+                    success = await _send_whatsapp_result(temp_origin, result)
+                else:
+                    success = False
+
+                if success:
+                    success_count += 1
+                    logger.info(f"Routed result to session {session.session_id[:8]}")
+            except Exception as e:
+                logger.warning(f"Failed to route to session {session.session_id[:8]}: {e}")
+
+    except Exception as e:
+        logger.debug(f"Multi-session routing failed: {e}")
+
+    return success_count
+
+
 __all__ = [
     "DebateOrigin",
     "register_debate_origin",
     "get_debate_origin",
     "mark_result_sent",
     "route_debate_result",
+    "route_result_to_all_sessions",
+    "get_sessions_for_debate",
     "post_receipt_to_channel",
     "format_error_for_chat",
     "send_error_to_channel",

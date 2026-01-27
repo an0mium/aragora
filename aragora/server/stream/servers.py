@@ -966,8 +966,12 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             # Convert headers to dict for check_auth
             headers = dict(request.headers)
 
-            # Extract token from Authorization header for tracking
+            # Extract token from Authorization header or query param for tracking
             auth_header = headers.get("Authorization", "")
+            token_param = request.query.get("token")
+            if not auth_header and token_param:
+                auth_header = f"Bearer {token_param}"
+                headers["Authorization"] = auth_header
             if auth_header.startswith("Bearer "):
                 ws_token = auth_header[7:]
 

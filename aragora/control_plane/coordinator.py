@@ -94,6 +94,27 @@ except ImportError:
     RedisMode = None  # type: ignore
     get_redis_ha_config = None  # type: ignore
 
+# Optional Watchdog support (Gastown three-tier monitoring)
+try:
+    from aragora.control_plane.watchdog import (
+        ThreeTierWatchdog,
+        WatchdogConfig,
+        WatchdogTier,
+        WatchdogIssue,
+        IssueSeverity,
+        get_watchdog,
+    )
+
+    HAS_WATCHDOG = True
+except ImportError:
+    HAS_WATCHDOG = False
+    ThreeTierWatchdog = None  # type: ignore
+    WatchdogConfig = None  # type: ignore
+    WatchdogTier = None  # type: ignore
+    WatchdogIssue = None  # type: ignore
+    IssueSeverity = None  # type: ignore
+    get_watchdog = None  # type: ignore
+
 logger = get_logger(__name__)
 
 
@@ -123,6 +144,12 @@ class ControlPlaneConfig:
     redis_ha_enabled: bool = False
     redis_ha_mode: str = "standalone"
     redis_ha_settings: Optional["RedisHASettings"] = None
+
+    # Three-tier watchdog (Gastown pattern)
+    enable_watchdog: bool = True
+    watchdog_heartbeat_timeout: float = 30.0
+    watchdog_check_interval: float = 5.0
+    watchdog_auto_escalate: bool = True
 
     @classmethod
     def from_env(cls) -> "ControlPlaneConfig":
@@ -191,6 +218,12 @@ class ControlPlaneConfig:
             redis_ha_enabled=redis_ha_enabled,
             redis_ha_mode=redis_ha_mode,
             redis_ha_settings=redis_ha_settings,
+            # Watchdog settings
+            enable_watchdog=os.environ.get("CP_ENABLE_WATCHDOG", "true").lower() == "true",
+            watchdog_heartbeat_timeout=float(os.environ.get("CP_WATCHDOG_HEARTBEAT_TIMEOUT", "30")),
+            watchdog_check_interval=float(os.environ.get("CP_WATCHDOG_CHECK_INTERVAL", "5")),
+            watchdog_auto_escalate=os.environ.get("CP_WATCHDOG_AUTO_ESCALATE", "true").lower()
+            == "true",
         )
 
 
@@ -314,6 +347,42 @@ class ControlPlaneCoordinator:
                     shared_state=shared_state,
                 )
 
+        # Three-tier watchdog integration (Gastown pattern)
+        self._watchdog: Optional["ThreeTierWatchdog"] = None
+        if self._config.enable_watchdog and HAS_WATCHDOG:
+            self._watchdog = get_watchdog()
+
+            # Configure watchdog tiers based on control plane config
+            self._watchdog.configure_tier(
+                WatchdogConfig(
+                    tier=WatchdogTier.MECHANICAL,
+                    heartbeat_timeout_seconds=self._config.watchdog_heartbeat_timeout,
+                    check_interval_seconds=self._config.watchdog_check_interval,
+                    auto_escalate=self._config.watchdog_auto_escalate,
+                )
+            )
+
+            # Register issue handler for control plane actions
+            self._watchdog.register_handler(
+                WatchdogTier.MECHANICAL,
+                self._handle_watchdog_issue,
+            )
+            self._watchdog.register_handler(
+                WatchdogTier.BOOT_AGENT,
+                self._handle_watchdog_issue,
+            )
+            self._watchdog.register_handler(
+                WatchdogTier.DEACON,
+                self._handle_watchdog_issue,
+            )
+
+            logger.info(
+                "watchdog_initialized",
+                heartbeat_timeout=self._config.watchdog_heartbeat_timeout,
+                check_interval=self._config.watchdog_check_interval,
+                auto_escalate=self._config.watchdog_auto_escalate,
+            )
+
         self._connected = False
         self._result_waiters: Dict[str, asyncio.Event] = {}
 
@@ -354,6 +423,18 @@ class ControlPlaneCoordinator:
             await self._health_monitor.start()
             self._sync_policies_from_store()
 
+            # Start three-tier watchdog monitoring
+            if self._watchdog:
+                await self._watchdog.start()
+                # Register existing agents with watchdog
+                agents = await self._registry.list_agents()
+                for agent in agents:
+                    self._watchdog.register_agent(agent.id)
+                logger.debug(
+                    "watchdog_started",
+                    monitored_agents=len(agents),
+                )
+
             self._connected = True
             latency_ms = (time.monotonic() - start) * 1000
             add_span_attributes(
@@ -388,6 +469,10 @@ class ControlPlaneCoordinator:
 
         with create_span("control_plane.shutdown") as span:
             start = time.monotonic()
+
+            # Stop watchdog first
+            if self._watchdog:
+                await self._watchdog.stop()
 
             await self._health_monitor.stop()
             await self._scheduler.close()
@@ -474,6 +559,72 @@ class ControlPlaneCoordinator:
                 )
         except Exception as e:
             logger.debug("policy_notification_failed", error=str(e))
+
+    async def _handle_watchdog_issue(self, issue: "WatchdogIssue") -> None:
+        """Handle watchdog issues with control plane actions.
+
+        This method is called by the ThreeTierWatchdog when issues are detected
+        across any tier. It triggers appropriate control plane responses:
+
+        - CRITICAL issues: May trigger agent quarantine or circuit breaker
+        - ERROR issues: Logged and may affect scheduling priority
+        - WARNING issues: Logged for monitoring
+
+        Args:
+            issue: The watchdog issue detected
+        """
+        if not HAS_WATCHDOG:
+            return
+
+        try:
+            # Log issue with structured attributes
+            logger.info(
+                "watchdog_issue_detected",
+                issue_id=issue.id,
+                severity=issue.severity.name,
+                category=issue.category.value,
+                agent=issue.agent,
+                message=issue.message,
+                detected_by=issue.detected_by.value if issue.detected_by else None,
+            )
+
+            # Take action based on severity
+            if issue.severity >= IssueSeverity.CRITICAL:
+                # Critical issues may trigger agent status change
+                if issue.agent:
+                    # Update health status
+                    health = await self._registry.get_health(issue.agent)
+                    if health and health.status != HealthStatus.UNHEALTHY:
+                        logger.warning(
+                            "watchdog_critical_agent",
+                            agent=issue.agent,
+                            issue_category=issue.category.value,
+                            message=issue.message,
+                        )
+                        # Circuit breaker may already be handling this via health monitor
+
+            # Broadcast issue event if stream server available
+            if self._stream_server:
+                try:
+                    await self._stream_server.broadcast_event(
+                        {
+                            "type": "watchdog_issue",
+                            "issue": issue.to_dict(),
+                        }
+                    )
+                except Exception as e:
+                    logger.debug(f"Failed to broadcast watchdog issue: {e}")
+
+            # Record in KM if adapter available
+            if self._km_adapter and issue.severity >= IssueSeverity.ERROR:
+                try:
+                    # KM adapter can track operational incidents
+                    pass  # KM tracking is optional - no-op if not needed
+                except Exception:
+                    pass
+
+        except Exception as e:
+            logger.warning(f"Error handling watchdog issue: {e}")
 
     def _should_sync_policies_from_store(self) -> bool:
         """Determine whether to sync policies from the compliance store.
@@ -634,6 +785,10 @@ class ControlPlaneCoordinator:
             if health_probe:
                 self._health_monitor.register_probe(agent_id, health_probe)
 
+            # Register with watchdog for multi-tier monitoring
+            if self._watchdog:
+                self._watchdog.register_agent(agent_id)
+
             logger.info(
                 "agent_registered",
                 agent_id=agent_id,
@@ -654,6 +809,11 @@ class ControlPlaneCoordinator:
             True if unregistered, False if not found
         """
         self._health_monitor.unregister_probe(agent_id)
+
+        # Unregister from watchdog
+        if self._watchdog:
+            self._watchdog.unregister_agent(agent_id)
+
         return await self._registry.unregister(agent_id)
 
     async def heartbeat(
@@ -671,7 +831,13 @@ class ControlPlaneCoordinator:
         Returns:
             True if recorded, False if agent not found
         """
-        return await self._registry.heartbeat(agent_id, status)
+        result = await self._registry.heartbeat(agent_id, status)
+
+        # Record heartbeat with watchdog for three-tier monitoring
+        if result and self._watchdog:
+            self._watchdog.record_heartbeat(agent_id)
+
+        return result
 
     async def get_agent(self, agent_id: str) -> Optional[AgentInfo]:
         """
@@ -1363,7 +1529,45 @@ class ControlPlaneCoordinator:
         if self._policy_manager and HAS_POLICY:
             stats["policy"] = self._policy_manager.get_metrics()
 
+        # Add watchdog stats if available
+        if self._watchdog and HAS_WATCHDOG:
+            stats["watchdog"] = self._watchdog.get_stats()
+
         return stats
+
+    # =========================================================================
+    # Watchdog Integration
+    # =========================================================================
+
+    @property
+    def watchdog(self) -> Optional["ThreeTierWatchdog"]:
+        """Get the Three-Tier Watchdog if configured.
+
+        The watchdog provides multi-tier monitoring:
+        - MECHANICAL: Heartbeat, memory, circuit breaker checks
+        - BOOT_AGENT: Response quality, latency, semantic checks
+        - DEACON: SLA compliance, cross-agent coordination, global policy
+
+        Returns:
+            ThreeTierWatchdog instance or None if not enabled
+        """
+        return self._watchdog
+
+    def record_request(
+        self,
+        agent_id: str,
+        success: bool,
+        latency_ms: float,
+    ) -> None:
+        """Record a request to an agent for watchdog monitoring.
+
+        Args:
+            agent_id: Agent that handled the request
+            success: Whether the request succeeded
+            latency_ms: Request latency in milliseconds
+        """
+        if self._watchdog:
+            self._watchdog.record_request(agent_id, success, latency_ms)
 
     # =========================================================================
     # Policy Manager Integration

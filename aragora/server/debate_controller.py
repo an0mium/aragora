@@ -187,6 +187,52 @@ class DebateController:
         self.auto_select_fn = auto_select_fn
         self.storage = storage
 
+    def _preflight_agents(self, agents_str: Any) -> Optional[str]:
+        """Validate agent availability before starting a debate.
+
+        Returns:
+            Error message if agents are missing/unavailable, otherwise None.
+        """
+        try:
+            from aragora.agents import filter_available_agents
+            from aragora.agents.spec import AgentSpec
+        except ImportError:
+            logger.debug("Agent preflight skipped: credential validator unavailable")
+            return None
+
+        try:
+            # Handle list or string formats
+            if isinstance(agents_str, list):
+                agents_str = ",".join(
+                    s.strip() if isinstance(s, str) else str(s) for s in agents_str if s
+                )
+            specs = AgentSpec.parse_list(str(agents_str))
+        except Exception as e:
+            return f"Invalid agent specification: {e}"
+
+        try:
+            available_specs, filtered = filter_available_agents(
+                specs,
+                log_filtered=False,
+                min_agents=0,
+            )
+        except Exception as e:
+            return str(e)
+
+        if filtered:
+            missing_detail = "; ".join(f"{agent}: {reason}" for agent, reason in filtered)
+            available_names = ", ".join(s.provider for s in available_specs) or "none"
+            return (
+                "Missing credentials for requested agents. "
+                f"Missing: {missing_detail}. Available: {available_names}. "
+                "Configure API keys in AWS Secrets Manager or environment variables."
+            )
+
+        if len(available_specs) < 2:
+            return "At least 2 agents are required to start a debate."
+
+        return None
+
     async def _quick_classify_async(self, question: str) -> dict:
         """Fast Haiku classification of question type and domain.
 
@@ -307,6 +353,15 @@ Return JSON with these exact fields:
                 agents_str = self.auto_select_fn(request.question, request.auto_select_config)
             except Exception as e:
                 logger.warning(f"Auto-select failed, using defaults: {e}")
+
+        preflight_error = self._preflight_agents(agents_str)
+        if preflight_error:
+            logger.warning(f"[debate] Agent preflight failed: {preflight_error}")
+            return DebateResponse(
+                success=False,
+                error=preflight_error,
+                status_code=400,
+            )
 
         # Track debate state (use "task" not "question" for StateManager compatibility)
         with _active_debates_lock:
