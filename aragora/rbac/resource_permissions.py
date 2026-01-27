@@ -23,6 +23,7 @@ from .models import ResourceType
 
 if TYPE_CHECKING:
     from .cache import RBACDistributedCache
+    from .hierarchy import HierarchyRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -309,6 +310,7 @@ class ResourcePermissionStore:
         cache_ttl: int = 300,
         enable_cache: bool = True,
         cache_backend: "RBACDistributedCache | None" = None,
+        hierarchy_registry: "HierarchyRegistry | None" = None,
     ) -> None:
         """
         Initialize the resource permission store.
@@ -317,10 +319,12 @@ class ResourcePermissionStore:
             cache_ttl: Cache time-to-live in seconds (default 5 minutes)
             enable_cache: Whether to enable permission caching
             cache_backend: Optional distributed cache backend
+            hierarchy_registry: Optional hierarchy registry for hierarchical lookups
         """
         self._cache_ttl = cache_ttl
         self._enable_cache = enable_cache
         self._cache_backend = cache_backend
+        self._hierarchy = hierarchy_registry
 
         # In-memory storage (primary or fallback)
         self._permissions: dict[str, ResourcePermission] = {}
