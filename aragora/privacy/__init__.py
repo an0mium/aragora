@@ -43,6 +43,29 @@ from aragora.privacy.audit_log import (
     AuditAction,
     AuditOutcome,
 )
+from aragora.privacy.deletion import (
+    GDPRDeletionScheduler,
+    DeletionCascadeManager,
+    DataErasureVerifier,
+    DeletionRequest,
+    DeletionStatus,
+    DeletionStore,
+    DeletionCertificate,
+    LegalHold,
+    LegalHoldManager,
+    EntityType,
+    get_deletion_scheduler,
+    get_cascade_manager,
+    get_legal_hold_manager,
+)
+from aragora.privacy.consent import (
+    ConsentManager,
+    ConsentPurpose,
+    ConsentRecord,
+    ConsentStatus,
+    ConsentExport,
+    get_consent_manager,
+)
 
 __all__ = [
     # Isolation
@@ -67,4 +90,25 @@ __all__ = [
     "AuditEntry",
     "AuditAction",
     "AuditOutcome",
+    # GDPR Deletion
+    "GDPRDeletionScheduler",
+    "DeletionCascadeManager",
+    "DataErasureVerifier",
+    "DeletionRequest",
+    "DeletionStatus",
+    "DeletionStore",
+    "DeletionCertificate",
+    "LegalHold",
+    "LegalHoldManager",
+    "EntityType",
+    "get_deletion_scheduler",
+    "get_cascade_manager",
+    "get_legal_hold_manager",
+    # Consent
+    "ConsentManager",
+    "ConsentPurpose",
+    "ConsentRecord",
+    "ConsentStatus",
+    "ConsentExport",
+    "get_consent_manager",
 ]

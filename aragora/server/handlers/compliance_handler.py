@@ -38,6 +38,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
 from aragora.storage.audit_store import get_audit_store
 from aragora.storage.receipt_store import get_receipt_store
+from aragora.privacy.deletion import get_deletion_scheduler, get_legal_hold_manager
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,30 @@ class ComplianceHandler(BaseHandler):
             # GDPR Right-to-be-Forgotten endpoint
             if path == "/api/v2/compliance/gdpr/right-to-be-forgotten" and method == "POST":
                 return await self._right_to_be_forgotten(body)
+
+            # GDPR Deletion Management endpoints
+            if path == "/api/v2/compliance/gdpr/deletions" and method == "GET":
+                return await self._list_deletions(query_params)
+
+            if path.startswith("/api/v2/compliance/gdpr/deletions/") and path.endswith("/cancel"):
+                if method == "POST":
+                    request_id = path.split("/")[-2]
+                    return await self._cancel_deletion(request_id, body)
+
+            if path.startswith("/api/v2/compliance/gdpr/deletions/") and method == "GET":
+                request_id = path.split("/")[-1]
+                return await self._get_deletion(request_id)
+
+            # Legal Hold Management endpoints
+            if path == "/api/v2/compliance/gdpr/legal-holds" and method == "GET":
+                return await self._list_legal_holds(query_params)
+
+            if path == "/api/v2/compliance/gdpr/legal-holds" and method == "POST":
+                return await self._create_legal_hold(body)
+
+            if path.startswith("/api/v2/compliance/gdpr/legal-holds/") and method == "DELETE":
+                hold_id = path.split("/")[-1]
+                return await self._release_legal_hold(hold_id, body)
 
             return error_response("Not found", 404)
 
@@ -466,34 +491,93 @@ class ComplianceHandler(BaseHandler):
         scheduled_for: datetime,
         reason: str,
     ) -> Dict[str, Any]:
-        """Schedule data deletion for user."""
-        # In a production system, this would:
-        # 1. Create a deletion job in a job queue
-        # 2. Store the deletion schedule in a database
-        # 3. Send notification to administrators
+        """
+        Schedule data deletion for user using GDPRDeletionScheduler.
 
-        deletion_record = {
-            "request_id": request_id,
-            "user_id": user_id,
-            "scheduled_for": scheduled_for.isoformat(),
-            "reason": reason,
-            "status": "scheduled",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }
+        Uses the actual deletion infrastructure that will execute
+        the deletion after the grace period expires.
+        """
+        # Calculate grace period from scheduled_for
+        now = datetime.now(timezone.utc)
+        grace_period_days = max(0, (scheduled_for - now).days)
 
-        # Log for audit trail
         try:
-            store = get_audit_store()
-            store.log_event(
-                action="gdpr_deletion_scheduled",
-                resource_type="user",
-                resource_id=user_id,
-                metadata=deletion_record,
-            )
-        except Exception as e:
-            logger.warning(f"Failed to log deletion schedule: {e}")
+            scheduler = get_deletion_scheduler()
 
-        return deletion_record
+            # Check for legal holds first
+            hold_manager = get_legal_hold_manager()
+            if hold_manager.is_user_on_hold(user_id):
+                active_holds = scheduler.store.get_active_holds_for_user(user_id)
+                hold = active_holds[0] if active_holds else None
+                raise ValueError(
+                    f"Cannot schedule deletion: User is under legal hold "
+                    f"(hold_id={hold.hold_id if hold else 'unknown'}, "
+                    f"reason={hold.reason if hold else 'unknown'})"
+                )
+
+            # Schedule the deletion
+            deletion_request = scheduler.schedule_deletion(
+                user_id=user_id,
+                grace_period_days=grace_period_days,
+                reason=reason,
+                metadata={
+                    "rtbf_request_id": request_id,
+                    "source": "compliance_handler",
+                },
+            )
+
+            deletion_record = {
+                "request_id": deletion_request.request_id,
+                "rtbf_request_id": request_id,
+                "user_id": user_id,
+                "scheduled_for": deletion_request.scheduled_for.isoformat(),
+                "reason": reason,
+                "status": deletion_request.status.value,
+                "created_at": deletion_request.created_at.isoformat(),
+            }
+
+            # Log for audit trail
+            try:
+                store = get_audit_store()
+                store.log_event(
+                    action="gdpr_deletion_scheduled",
+                    resource_type="user",
+                    resource_id=user_id,
+                    metadata=deletion_record,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to log deletion schedule: {e}")
+
+            return deletion_record
+
+        except ValueError:
+            # Re-raise legal hold errors
+            raise
+        except Exception as e:
+            logger.error(f"Failed to schedule deletion: {e}")
+            # Fall back to basic audit logging if scheduler fails
+            deletion_record = {
+                "request_id": request_id,
+                "user_id": user_id,
+                "scheduled_for": scheduled_for.isoformat(),
+                "reason": reason,
+                "status": "scheduled_fallback",
+                "error": str(e),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+            try:
+                store = get_audit_store()
+                store.log_event(
+                    action="gdpr_deletion_scheduled_fallback",
+                    resource_type="user",
+                    resource_id=user_id,
+                    metadata=deletion_record,
+                )
+            except Exception as log_err:
+                logger.warning(f"Failed to log deletion schedule: {log_err}")
+
+            return deletion_record
 
     async def _log_rtbf_request(
         self,
@@ -522,6 +606,271 @@ class ComplianceHandler(BaseHandler):
             )
         except Exception as e:
             logger.warning(f"Failed to log RTBF request: {e}")
+
+    # =========================================================================
+    # Deletion Management Endpoints
+    # =========================================================================
+
+    @require_permission("compliance:gdpr")
+    async def _list_deletions(self, query_params: Dict[str, str]) -> HandlerResult:
+        """
+        List scheduled deletion requests.
+
+        Query params:
+            status: Filter by status (pending, completed, failed, cancelled, held)
+            limit: Max results (default 50, max 200)
+        """
+        status_filter = query_params.get("status")
+        limit = min(int(query_params.get("limit", "50")), 200)
+
+        try:
+            from aragora.privacy.deletion import DeletionStatus
+
+            scheduler = get_deletion_scheduler()
+            status = DeletionStatus(status_filter) if status_filter else None
+            requests = scheduler.store.get_all_requests(status=status, limit=limit)
+
+            return json_response(
+                {
+                    "deletions": [r.to_dict() for r in requests],
+                    "count": len(requests),
+                    "filters": {"status": status_filter, "limit": limit},
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Error listing deletions: {e}")
+            return error_response(f"Failed to list deletions: {str(e)}", 500)
+
+    @require_permission("compliance:gdpr")
+    async def _get_deletion(self, request_id: str) -> HandlerResult:
+        """
+        Get a specific deletion request.
+
+        Path params:
+            request_id: The deletion request ID
+        """
+        try:
+            scheduler = get_deletion_scheduler()
+            request = scheduler.store.get_request(request_id)
+
+            if not request:
+                return error_response("Deletion request not found", 404)
+
+            return json_response({"deletion": request.to_dict()})
+
+        except Exception as e:
+            logger.exception(f"Error getting deletion: {e}")
+            return error_response(f"Failed to get deletion: {str(e)}", 500)
+
+    @require_permission("compliance:gdpr")
+    async def _cancel_deletion(
+        self,
+        request_id: str,
+        body: Dict[str, Any],
+    ) -> HandlerResult:
+        """
+        Cancel a pending deletion request.
+
+        Path params:
+            request_id: The deletion request ID to cancel
+
+        Body:
+            reason: Reason for cancellation (optional)
+        """
+        reason = body.get("reason", "Administrator cancelled")
+
+        try:
+            scheduler = get_deletion_scheduler()
+            cancelled = scheduler.cancel_deletion(request_id, reason)
+
+            if not cancelled:
+                return error_response("Deletion request not found", 404)
+
+            # Log the cancellation
+            try:
+                store = get_audit_store()
+                store.log_event(
+                    action="gdpr_deletion_cancelled",
+                    resource_type="deletion_request",
+                    resource_id=request_id,
+                    metadata={
+                        "user_id": cancelled.user_id,
+                        "reason": reason,
+                        "cancelled_at": cancelled.cancelled_at.isoformat()
+                        if cancelled.cancelled_at
+                        else None,
+                    },
+                )
+            except Exception as log_err:
+                logger.warning(f"Failed to log deletion cancellation: {log_err}")
+
+            return json_response(
+                {
+                    "message": "Deletion cancelled successfully",
+                    "deletion": cancelled.to_dict(),
+                }
+            )
+
+        except ValueError as e:
+            return error_response(str(e), 400)
+        except Exception as e:
+            logger.exception(f"Error cancelling deletion: {e}")
+            return error_response(f"Failed to cancel deletion: {str(e)}", 500)
+
+    # =========================================================================
+    # Legal Hold Management Endpoints
+    # =========================================================================
+
+    @require_permission("compliance:legal")
+    async def _list_legal_holds(self, query_params: Dict[str, str]) -> HandlerResult:
+        """
+        List legal holds.
+
+        Query params:
+            active_only: If true, only show active holds (default: true)
+        """
+        active_only = query_params.get("active_only", "true").lower() == "true"
+
+        try:
+            hold_manager = get_legal_hold_manager()
+
+            if active_only:
+                holds = hold_manager.get_active_holds()
+            else:
+                # Get all holds from the store
+                holds = list(hold_manager._store._holds.values())
+
+            return json_response(
+                {
+                    "legal_holds": [h.to_dict() for h in holds],
+                    "count": len(holds),
+                    "filters": {"active_only": active_only},
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Error listing legal holds: {e}")
+            return error_response(f"Failed to list legal holds: {str(e)}", 500)
+
+    @require_permission("compliance:legal")
+    async def _create_legal_hold(self, body: Dict[str, Any]) -> HandlerResult:
+        """
+        Create a new legal hold.
+
+        Body:
+            user_ids: List of user IDs to place on hold (required)
+            reason: Reason for the hold (required)
+            case_reference: External case reference (optional)
+            expires_at: Expiration date ISO string (optional)
+        """
+        user_ids = body.get("user_ids", [])
+        reason = body.get("reason")
+        case_reference = body.get("case_reference")
+        expires_at_str = body.get("expires_at")
+
+        if not user_ids:
+            return error_response("user_ids is required", 400)
+        if not reason:
+            return error_response("reason is required", 400)
+
+        expires_at = None
+        if expires_at_str:
+            try:
+                expires_at = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
+            except ValueError:
+                return error_response("Invalid expires_at format", 400)
+
+        try:
+            hold_manager = get_legal_hold_manager()
+            hold = hold_manager.create_hold(
+                user_ids=user_ids,
+                reason=reason,
+                created_by="compliance_api",  # TODO: Get from auth context
+                case_reference=case_reference,
+                expires_at=expires_at,
+            )
+
+            # Log the hold creation
+            try:
+                store = get_audit_store()
+                store.log_event(
+                    action="legal_hold_created",
+                    resource_type="legal_hold",
+                    resource_id=hold.hold_id,
+                    metadata={
+                        "user_ids": user_ids,
+                        "reason": reason,
+                        "case_reference": case_reference,
+                    },
+                )
+            except Exception as log_err:
+                logger.warning(f"Failed to log legal hold creation: {log_err}")
+
+            return json_response(
+                {
+                    "message": "Legal hold created successfully",
+                    "legal_hold": hold.to_dict(),
+                },
+                status=201,
+            )
+
+        except Exception as e:
+            logger.exception(f"Error creating legal hold: {e}")
+            return error_response(f"Failed to create legal hold: {str(e)}", 500)
+
+    @require_permission("compliance:legal")
+    async def _release_legal_hold(
+        self,
+        hold_id: str,
+        body: Dict[str, Any],
+    ) -> HandlerResult:
+        """
+        Release a legal hold.
+
+        Path params:
+            hold_id: The legal hold ID to release
+
+        Body:
+            released_by: Who is releasing the hold (optional)
+        """
+        released_by = body.get("released_by", "compliance_api")
+
+        try:
+            hold_manager = get_legal_hold_manager()
+            released = hold_manager.release_hold(hold_id, released_by)
+
+            if not released:
+                return error_response("Legal hold not found", 404)
+
+            # Log the release
+            try:
+                store = get_audit_store()
+                store.log_event(
+                    action="legal_hold_released",
+                    resource_type="legal_hold",
+                    resource_id=hold_id,
+                    metadata={
+                        "released_by": released_by,
+                        "released_at": released.released_at.isoformat()
+                        if released.released_at
+                        else None,
+                        "user_ids": released.user_ids,
+                    },
+                )
+            except Exception as log_err:
+                logger.warning(f"Failed to log legal hold release: {log_err}")
+
+            return json_response(
+                {
+                    "message": "Legal hold released successfully",
+                    "legal_hold": released.to_dict(),
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Error releasing legal hold: {e}")
+            return error_response(f"Failed to release legal hold: {str(e)}", 500)
 
     @require_permission("compliance:audit")
     async def _verify_audit(self, body: Dict[str, Any]) -> HandlerResult:

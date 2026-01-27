@@ -55,6 +55,7 @@ AgentsHandler: HandlerType = None
 PulseHandler: HandlerType = None
 AnalyticsHandler: HandlerType = None
 AnalyticsDashboardHandler: HandlerType = None
+EndpointAnalyticsHandler: HandlerType = None
 MetricsHandler: HandlerType = None
 ConsensusHandler: HandlerType = None
 BeliefHandler: HandlerType = None
@@ -82,6 +83,7 @@ EvolutionABTestingHandler: HandlerType = None
 PluginsHandler: HandlerType = None
 BroadcastHandler: HandlerType = None
 AudioHandler: HandlerType = None
+DeviceHandler: HandlerType = None
 SocialMediaHandler: HandlerType = None
 LaboratoryHandler: HandlerType = None
 ProbesHandler: HandlerType = None
@@ -189,7 +191,13 @@ try:
         AnalyticsDashboardHandler as _AnalyticsDashboardHandler,
     )
     from aragora.server.handlers import (
+        EndpointAnalyticsHandler as _EndpointAnalyticsHandler,
+    )
+    from aragora.server.handlers import (
         AudioHandler as _AudioHandler,
+    )
+    from aragora.server.handlers import (
+        DeviceHandler as _DeviceHandler,
     )
     from aragora.server.handlers import (
         AuditingHandler as _AuditingHandler,
@@ -496,6 +504,7 @@ try:
     PulseHandler = _PulseHandler
     AnalyticsHandler = _AnalyticsHandler
     AnalyticsDashboardHandler = _AnalyticsDashboardHandler
+    EndpointAnalyticsHandler = _EndpointAnalyticsHandler
     MetricsHandler = _MetricsHandler
     ConsensusHandler = _ConsensusHandler
     BeliefHandler = _BeliefHandler
@@ -523,6 +532,7 @@ try:
     PluginsHandler = _PluginsHandler
     BroadcastHandler = _BroadcastHandler
     AudioHandler = _AudioHandler
+    DeviceHandler = _DeviceHandler
     SocialMediaHandler = _SocialMediaHandler
     LaboratoryHandler = _LaboratoryHandler
     ProbesHandler = _ProbesHandler
@@ -621,6 +631,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_pulse_handler", PulseHandler),
     ("_analytics_handler", AnalyticsHandler),
     ("_analytics_dashboard_handler", AnalyticsDashboardHandler),
+    ("_endpoint_analytics_handler", EndpointAnalyticsHandler),
     ("_metrics_handler", MetricsHandler),
     ("_slo_handler", SLOHandler),
     ("_consensus_handler", ConsensusHandler),
@@ -648,6 +659,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_evolution_handler", EvolutionHandler),
     ("_plugins_handler", PluginsHandler),
     ("_audio_handler", AudioHandler),
+    ("_devices_handler", DeviceHandler),
     ("_social_handler", SocialMediaHandler),
     ("_broadcast_handler", BroadcastHandler),
     ("_laboratory_handler", LaboratoryHandler),
@@ -765,6 +777,7 @@ class RouteIndex:
             ],
             "_pulse_handler": ["/api/pulse/"],
             "_analytics_dashboard_handler": ["/api/analytics/"],
+            "_endpoint_analytics_handler": ["/api/analytics/endpoints"],
             "_consensus_handler": ["/api/consensus/"],
             "_belief_handler": ["/api/belief-network/", "/api/laboratory/"],
             "_decision_handler": ["/api/decisions"],
@@ -787,6 +800,7 @@ class RouteIndex:
             "_evolution_handler": ["/api/evolution/"],
             "_plugins_handler": ["/api/plugins/", "/api/v1/plugins/"],
             "_audio_handler": ["/audio/", "/api/podcast/"],
+            "_devices_handler": ["/api/devices/", "/api/v1/devices/"],
             "_social_handler": ["/api/youtube/"],
             "_broadcast_handler": ["/api/podcast/"],
             "_insights_handler": ["/api/insights/"],
@@ -1254,6 +1268,7 @@ class HandlerRegistryMixin:
     _pulse_handler: Optional["BaseHandler"] = None
     _analytics_handler: Optional["BaseHandler"] = None
     _analytics_dashboard_handler: Optional["BaseHandler"] = None
+    _endpoint_analytics_handler: Optional["BaseHandler"] = None
     _metrics_handler: Optional["BaseHandler"] = None
     _slo_handler: Optional["BaseHandler"] = None
     _consensus_handler: Optional["BaseHandler"] = None
@@ -1280,6 +1295,7 @@ class HandlerRegistryMixin:
     _plugins_handler: Optional["BaseHandler"] = None
     _broadcast_handler: Optional["BaseHandler"] = None
     _audio_handler: Optional["BaseHandler"] = None
+    _devices_handler: Optional["BaseHandler"] = None
     _social_handler: Optional["BaseHandler"] = None
     _laboratory_handler: Optional["BaseHandler"] = None
     _probes_handler: Optional["BaseHandler"] = None

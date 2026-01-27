@@ -35,6 +35,8 @@ class ResourceType(str, Enum):
     ADMIN = "admin"
     BILLING = "billing"
     CONNECTOR = "connectors"
+    BOT = "bots"
+    DEVICE = "devices"
     WEBHOOK = "webhooks"
     REPOSITORY = "repository"
     BINDINGS = "bindings"
@@ -116,7 +118,9 @@ class Action(str, Enum):
     CREATE = "create"
     READ = "read"
     UPDATE = "update"
+    WRITE = "write"
     DELETE = "delete"
+    NOTIFY = "notify"
 
     # Debate-specific
     RUN = "run"

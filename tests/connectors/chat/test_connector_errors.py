@@ -344,7 +344,8 @@ class TestCircuitBreakerBehavior:
         cb = connector_with_cb._get_circuit_breaker()
         if cb:
             # If circuit breaker is available, it should have recorded failures
-            assert cb.failure_count >= 0
+            # CircuitBreaker uses 'failures' property, not 'failure_count'
+            assert cb.failures >= 0
 
     @pytest.mark.asyncio
     async def test_circuit_breaker_blocks_requests_when_open(self, connector_with_cb):

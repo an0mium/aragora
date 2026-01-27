@@ -17,7 +17,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from typing import Optional
-from ...base import HandlerResult, error_response
+from ...base import HandlerResult, error_response, success_response
 from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.models import AuthorizationContext
 
@@ -81,11 +81,7 @@ class DashboardOperationsMixin:
             metrics = get_metrics()
             health_report = metrics.get_health()
 
-            return HandlerResult(  # type: ignore[call-arg]
-                success=True,
-                data=health_report.to_dict(),
-                message="Health check completed",
-            )
+            return success_response(health_report.to_dict())
 
         except ImportError:
             return error_response(
@@ -117,11 +113,7 @@ class DashboardOperationsMixin:
 
             metrics = get_metrics()
 
-            return HandlerResult(  # type: ignore[call-arg]
-                success=True,
-                data=metrics.to_dict(),
-                message="Metrics retrieved",
-            )
+            return success_response(metrics.to_dict())
 
         except ImportError:
             return error_response(
@@ -158,14 +150,13 @@ class DashboardOperationsMixin:
             # Get the BidirectionalCoordinator if available
             mound = self._get_mound()  # type: ignore[attr-defined]
             if not mound:
-                return HandlerResult(  # type: ignore[call-arg]
-                    success=True,
-                    data={
+                return success_response(
+                    {
                         "adapters": [],
                         "total": 0,
                         "enabled": 0,
                         "message": "Knowledge Mound not initialized",
-                    },
+                    }
                 )
 
             # Try to get coordinator from the mound or server context
@@ -175,14 +166,13 @@ class DashboardOperationsMixin:
                 coordinator = self.server_context.get("km_coordinator")  # type: ignore[attr-defined]
 
             if coordinator is None:
-                return HandlerResult(  # type: ignore[call-arg]
-                    success=True,
-                    data={
+                return success_response(
+                    {
                         "adapters": [],
                         "total": 0,
                         "enabled": 0,
                         "message": "No coordinator available",
-                    },
+                    }
                 )
 
             # Get adapter stats from coordinator
@@ -202,14 +192,13 @@ class DashboardOperationsMixin:
                     }
                 )
 
-            return HandlerResult(  # type: ignore[call-arg]
-                success=True,
-                data={
+            return success_response(
+                {
                     "adapters": adapters_list,
                     "total": stats.get("total_adapters", len(adapters_list)),
                     "enabled": stats.get("enabled_adapters", 0),
                     "last_sync": stats.get("last_full_sync"),
-                },
+                }
             )
 
         except Exception as e:
@@ -238,11 +227,7 @@ class DashboardOperationsMixin:
 
             stats = aggregator.get_stats()
 
-            return HandlerResult(  # type: ignore[call-arg]
-                success=True,
-                data=stats,
-                message="Query stats retrieved",
-            )
+            return success_response(stats)
 
         except ImportError:
             return error_response(
@@ -266,10 +251,7 @@ class DashboardOperationsMixin:
             metrics = get_metrics()
             metrics.reset()
 
-            return HandlerResult(  # type: ignore[call-arg]
-                success=True,
-                data={"message": "Metrics reset successfully"},
-            )
+            return success_response({"message": "Metrics reset successfully"})
 
         except ImportError:
             return error_response(

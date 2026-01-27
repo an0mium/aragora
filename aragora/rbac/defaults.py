@@ -251,6 +251,22 @@ PERM_CONNECTOR_DELETE = _permission(
     ResourceType.CONNECTOR, Action.DELETE, "Delete Connectors", "Remove connector configurations"
 )
 
+# Bot integration permissions
+PERM_BOTS_READ = _permission(
+    ResourceType.BOT, Action.READ, "View Bot Status", "View bot integration status"
+)
+
+# Device permissions
+PERM_DEVICE_READ = _permission(
+    ResourceType.DEVICE, Action.READ, "View Devices", "View registered devices"
+)
+PERM_DEVICE_WRITE = _permission(
+    ResourceType.DEVICE, Action.WRITE, "Manage Devices", "Register or remove devices"
+)
+PERM_DEVICE_NOTIFY = _permission(
+    ResourceType.DEVICE, Action.NOTIFY, "Notify Devices", "Send notifications to devices"
+)
+
 # Repository permissions
 PERM_REPOSITORY_READ = _permission(
     ResourceType.REPOSITORY, Action.READ, "View Repositories", "View repository indexing status"
@@ -1168,6 +1184,12 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_CONNECTOR_READ,
         PERM_CONNECTOR_CREATE,
         PERM_CONNECTOR_DELETE,
+        # Bots
+        PERM_BOTS_READ,
+        # Devices
+        PERM_DEVICE_READ,
+        PERM_DEVICE_WRITE,
+        PERM_DEVICE_NOTIFY,
         # Repositories
         PERM_REPOSITORY_READ,
         PERM_REPOSITORY_CREATE,
@@ -1454,6 +1476,12 @@ ROLE_ADMIN = Role(
         PERM_CONNECTOR_READ.key,
         PERM_CONNECTOR_CREATE.key,
         PERM_CONNECTOR_DELETE.key,
+        # Bots
+        PERM_BOTS_READ.key,
+        # Devices
+        PERM_DEVICE_READ.key,
+        PERM_DEVICE_WRITE.key,
+        PERM_DEVICE_NOTIFY.key,
         # Repositories
         PERM_REPOSITORY_READ.key,
         PERM_REPOSITORY_CREATE.key,
@@ -1706,6 +1734,12 @@ ROLE_MEMBER = Role(
         # Inbox
         PERM_INBOX_READ.key,
         PERM_INBOX_UPDATE.key,
+        # Bots
+        PERM_BOTS_READ.key,
+        # Devices
+        PERM_DEVICE_READ.key,
+        PERM_DEVICE_WRITE.key,
+        PERM_DEVICE_NOTIFY.key,
         # Checkpoints
         PERM_CHECKPOINT_READ.key,
         PERM_CHECKPOINT_CREATE.key,

@@ -32,6 +32,7 @@ from .agents import AgentConfigHandler
 from .agents import AgentsHandler
 from .analytics import AnalyticsHandler
 from .analytics_dashboard import AnalyticsDashboardHandler
+from .endpoint_analytics import EndpointAnalyticsHandler
 from .analytics_metrics import AnalyticsMetricsHandler
 from .auditing import AuditingHandler
 from .auth import AuthHandler
@@ -74,6 +75,7 @@ from .usage_metering import UsageMeteringHandler  # Token-level usage metering
 from .sme_usage_dashboard import SMEUsageDashboardHandler  # SME usage dashboard
 from .breakpoints import BreakpointsHandler
 from .features import AudioHandler  # Moved to features/
+from .devices import DeviceHandler
 from .transcription import TranscriptionHandler
 from .features import BroadcastHandler  # Moved to features/
 from .agents import CalibrationHandler  # Moved to agents/
@@ -438,6 +440,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "AnalyticsHandler": Stability.STABLE,
     "AnalyticsDashboardHandler": Stability.EXPERIMENTAL,  # Enterprise analytics dashboard
     "AnalyticsMetricsHandler": Stability.EXPERIMENTAL,  # Debate metrics and agent performance analytics
+    "EndpointAnalyticsHandler": Stability.EXPERIMENTAL,  # API endpoint performance analytics
     "CrossPlatformAnalyticsHandler": Stability.EXPERIMENTAL,  # Cross-platform analytics aggregation
     "ConsensusHandler": Stability.STABLE,
     "MetricsHandler": Stability.STABLE,
@@ -470,6 +473,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "BudgetHandler": Stability.EXPERIMENTAL,  # Budget management API
     "OAuthHandler": Stability.STABLE,  # OAuth flow tests, Google integration
     "AudioHandler": Stability.STABLE,  # Podcast generation, TTS
+    "DeviceHandler": Stability.EXPERIMENTAL,  # Device registration and notifications
     "TranscriptionHandler": Stability.EXPERIMENTAL,  # Speech-to-text transcription - new
     "TrainingHandler": Stability.EXPERIMENTAL,  # RLM training data collection - new
     "VerificationHandler": Stability.STABLE,  # Z3 formal verification
@@ -647,6 +651,7 @@ __all__ = [
     "AnalyticsHandler",
     "AnalyticsDashboardHandler",
     "AnalyticsMetricsHandler",
+    "EndpointAnalyticsHandler",
     "CrossPlatformAnalyticsHandler",
     "MetricsHandler",
     "SLOHandler",
@@ -694,7 +699,10 @@ __all__ = [
     "EvolutionABTestingHandler",
     "PluginsHandler",
     "AudioHandler",
+    "DeviceHandler",
     "TranscriptionHandler",
+    "DeviceHandler",
+    "EndpointAnalyticsHandler",
     "SocialMediaHandler",
     "BroadcastHandler",
     "LaboratoryHandler",
