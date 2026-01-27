@@ -347,38 +347,46 @@ class CRUDOperationsMixin:
         """
         self._ensure_initialized()
 
-        # Validate input
-        validate_id(node_id, field_name="node_id")
+        with trace_context("km.delete") as span:
+            span.set_tag("node_id", node_id)
+            span.set_tag("archive", archive)
 
-        if archive:
-            await self._archive_node(node_id)
+            # Validate input
+            validate_id(node_id, field_name="node_id")
 
-        result = await self._delete_node(node_id)
+            if archive:
+                await self._archive_node(node_id)
+                span.add_event("node_archived")
 
-        # Invalidate cache
-        if self._cache:
-            await self._cache.invalidate_node(node_id)
+            result = await self._delete_node(node_id)
+            span.add_event("node_deleted", {"success": result})
 
-        # Emit MOUND_UPDATED event for structural change
-        if result and self.event_emitter:
-            try:
-                from aragora.events.types import StreamEvent, StreamEventType
+            # Invalidate cache
+            if self._cache:
+                await self._cache.invalidate_node(node_id)
+                span.add_event("cache_invalidated")
 
-                self.event_emitter.emit(
-                    StreamEvent(
-                        type=StreamEventType.MOUND_UPDATED,
-                        data={
-                            "node_id": node_id,
-                            "update_type": "node_deleted",
-                            "archived": archive,
-                            "workspace_id": self.workspace_id,
-                        },
+            # Emit MOUND_UPDATED event for structural change
+            if result and self.event_emitter:
+                try:
+                    from aragora.events.types import StreamEvent, StreamEventType
+
+                    self.event_emitter.emit(
+                        StreamEvent(
+                            type=StreamEventType.MOUND_UPDATED,
+                            data={
+                                "node_id": node_id,
+                                "update_type": "node_deleted",
+                                "archived": archive,
+                                "workspace_id": self.workspace_id,
+                            },
+                        )
                     )
-                )
-            except (ImportError, AttributeError, TypeError):
-                pass
+                except (ImportError, AttributeError, TypeError):
+                    pass
 
-        return result
+            span.set_tag("success", result)
+            return result
 
     async def add(
         self: CRUDProtocol,
