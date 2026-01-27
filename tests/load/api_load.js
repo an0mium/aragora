@@ -52,8 +52,8 @@ export const options = {
 
 // Setup - runs once at the start
 export function setup() {
-  // Verify API is reachable
-  const res = http.get(`${API_URL}/api/v1/health`);
+  // Verify API is reachable using healthz (no auth required)
+  const res = http.get(`${API_URL}/healthz`);
   check(res, {
     'setup: health check passed': (r) => r.status === 200,
   });
@@ -67,7 +67,8 @@ export function setup() {
 export default function(data) {
   group('Health Check', function() {
     const start = Date.now();
-    const res = http.get(`${API_URL}/api/v1/health`);
+    // Use /healthz (liveness probe) - no auth required
+    const res = http.get(`${API_URL}/healthz`);
     healthLatency.add(Date.now() - start);
     requestCount.add(1);
 
