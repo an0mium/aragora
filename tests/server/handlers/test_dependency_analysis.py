@@ -209,7 +209,7 @@ class TestScanVulnerabilities:
         assert "repo_path is required" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_scan_returns_vulnerabilities(self, tmp_path):
+    async def test_scan_returns_vulnerabilities(self, tmp_path, mock_auth_context):
         """Scan returns list of vulnerabilities."""
         (tmp_path / "requirements.txt").write_text("requests==2.31.0\n")
 
@@ -242,9 +242,10 @@ class TestScanVulnerabilities:
 
             result = parse_result(
                 await handle_scan_vulnerabilities(
+                    mock_auth_context,
                     {
                         "repo_path": str(tmp_path),
-                    }
+                    },
                 )
             )
 
@@ -261,16 +262,16 @@ class TestCheckLicenses:
     """Test license compatibility endpoint."""
 
     @pytest.mark.asyncio
-    async def test_missing_repo_path(self):
+    async def test_missing_repo_path(self, mock_auth_context):
         """Returns error when repo_path is missing."""
-        result = parse_result(await handle_check_licenses({}))
+        result = parse_result(await handle_check_licenses(mock_auth_context, {}))
 
         assert result["success"] is False
         assert result["status"] == 400
         assert "repo_path is required" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_check_returns_conflicts(self, tmp_path):
+    async def test_check_returns_conflicts(self, tmp_path, mock_auth_context):
         """Check returns license conflicts."""
         (tmp_path / "requirements.txt").write_text("requests==2.31.0\n")
 
@@ -294,10 +295,11 @@ class TestCheckLicenses:
 
             result = parse_result(
                 await handle_check_licenses(
+                    mock_auth_context,
                     {
                         "repo_path": str(tmp_path),
                         "project_license": "MIT",
-                    }
+                    },
                 )
             )
 
