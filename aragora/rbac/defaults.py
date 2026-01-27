@@ -175,6 +175,34 @@ PERM_REASONING_UPDATE = _permission(
     "Modify belief networks and propagation",
 )
 
+# Knowledge permissions
+PERM_KNOWLEDGE_READ = _permission(
+    ResourceType.KNOWLEDGE,
+    Action.READ,
+    "View Knowledge",
+    "View knowledge base and mound content",
+)
+PERM_KNOWLEDGE_UPDATE = _permission(
+    ResourceType.KNOWLEDGE,
+    Action.UPDATE,
+    "Update Knowledge",
+    "Modify knowledge base curation and settings",
+)
+
+# Inbox permissions
+PERM_INBOX_READ = _permission(
+    ResourceType.INBOX,
+    Action.READ,
+    "View Inbox",
+    "View action items and meetings",
+)
+PERM_INBOX_UPDATE = _permission(
+    ResourceType.INBOX,
+    Action.UPDATE,
+    "Manage Inbox",
+    "Create and manage action items",
+)
+
 # Training permissions
 PERM_TRAINING_READ = _permission(
     ResourceType.TRAINING, Action.READ, "View Training Data", "Access training data exports"
@@ -1119,6 +1147,12 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         # Reasoning
         PERM_REASONING_READ,
         PERM_REASONING_UPDATE,
+        # Knowledge
+        PERM_KNOWLEDGE_READ,
+        PERM_KNOWLEDGE_UPDATE,
+        # Inbox
+        PERM_INBOX_READ,
+        PERM_INBOX_UPDATE,
         # Training
         PERM_TRAINING_READ,
         PERM_TRAINING_CREATE,
@@ -1667,6 +1701,11 @@ ROLE_MEMBER = Role(
         PERM_INTROSPECTION_READ.key,
         # Reasoning
         PERM_REASONING_READ.key,
+        # Knowledge
+        PERM_KNOWLEDGE_READ.key,
+        # Inbox
+        PERM_INBOX_READ.key,
+        PERM_INBOX_UPDATE.key,
         # Checkpoints
         PERM_CHECKPOINT_READ.key,
         PERM_CHECKPOINT_CREATE.key,

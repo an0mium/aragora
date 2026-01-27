@@ -46,6 +46,8 @@ class ResourceType(str, Enum):
     DECISION = "decisions"  # Unified decision routing
     INTROSPECTION = "introspection"  # System introspection and status
     REASONING = "reasoning"  # Belief networks and reasoning analysis
+    KNOWLEDGE = "knowledge"  # Knowledge base and mound operations
+    INBOX = "inbox"  # Action items and meeting management
 
     # Governance and orchestration
     POLICY = "policies"  # Governance policies
