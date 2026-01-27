@@ -104,10 +104,11 @@ class SecretsConfig:
             env_value = os.environ.get("ARAGORA_ENV", "").lower()
             use_aws = env_value in ("production", "prod", "staging", "stage")
             if not use_aws:
-                use_aws = bool(
-                    os.environ.get("ARAGORA_SECRET_NAME")
-                    and (os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION"))
-                )
+                region_hint = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
+                use_aws = bool(os.environ.get("ARAGORA_SECRET_NAME") and region_hint)
+                if not use_aws and region_hint:
+                    # Default to AWS Secrets Manager when a region is configured
+                    use_aws = True
 
         primary_region = (
             os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"

@@ -553,7 +553,10 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
             import os
 
             # Skip permission checks in test mode (pytest sets this)
-            if os.environ.get("PYTEST_CURRENT_TEST"):
+            # Tests can set ARAGORA_TEST_REAL_AUTH=1 to test actual auth behavior
+            if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
+                "ARAGORA_TEST_REAL_AUTH"
+            ):
                 # Return mock authenticated user for tests
                 class _TestUserCtx:
                     is_authenticated = True

@@ -172,6 +172,24 @@ PERM_EVIDENCE_CREATE = _permission(
     ResourceType.EVIDENCE, Action.CREATE, "Add Evidence", "Add new evidence sources"
 )
 
+# Document permissions
+PERM_DOCUMENTS_READ = _permission(
+    ResourceType.DOCUMENTS, Action.READ, "View Documents", "Access document metadata and queries"
+)
+PERM_DOCUMENTS_CREATE = _permission(
+    ResourceType.DOCUMENTS, Action.CREATE, "Upload Documents", "Upload and process documents"
+)
+
+# Upload permissions
+PERM_UPLOAD_CREATE = _permission(
+    ResourceType.UPLOAD, Action.CREATE, "Create Uploads", "Create document folder uploads"
+)
+
+# Speech permissions
+PERM_SPEECH_CREATE = _permission(
+    ResourceType.SPEECH, Action.CREATE, "Create Speech Jobs", "Generate speech transcripts"
+)
+
 # Connector permissions
 PERM_CONNECTOR_READ = _permission(
     ResourceType.CONNECTOR, Action.READ, "View Connectors", "View connector configurations"
@@ -1003,6 +1021,11 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         # Evidence
         PERM_EVIDENCE_READ,
         PERM_EVIDENCE_CREATE,
+        # Documents
+        PERM_DOCUMENTS_READ,
+        PERM_DOCUMENTS_CREATE,
+        PERM_UPLOAD_CREATE,
+        PERM_SPEECH_CREATE,
         # Connectors
         PERM_CONNECTOR_READ,
         PERM_CONNECTOR_CREATE,
@@ -1252,6 +1275,16 @@ ROLE_ADMIN = Role(
         # Evidence
         PERM_EVIDENCE_READ.key,
         PERM_EVIDENCE_CREATE.key,
+        # Documents
+        PERM_DOCUMENTS_READ.key,
+        PERM_DOCUMENTS_CREATE.key,
+        PERM_UPLOAD_CREATE.key,
+        PERM_SPEECH_CREATE.key,
+        # Documents
+        PERM_DOCUMENTS_READ.key,
+        PERM_DOCUMENTS_CREATE.key,
+        PERM_UPLOAD_CREATE.key,
+        PERM_SPEECH_CREATE.key,
         # Connectors
         PERM_CONNECTOR_READ.key,
         PERM_CONNECTOR_CREATE.key,
@@ -1401,6 +1434,8 @@ ROLE_ANALYST = Role(
         PERM_TRAINING_READ.key,
         # Evidence read
         PERM_EVIDENCE_READ.key,
+        # Documents read
+        PERM_DOCUMENTS_READ.key,
         # Checkpoint read
         PERM_CHECKPOINT_READ.key,
         # Gauntlet (read only)
