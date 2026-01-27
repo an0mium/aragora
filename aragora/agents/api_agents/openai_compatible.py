@@ -175,6 +175,20 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
 
         Includes circuit breaker protection to prevent cascading failures.
         """
+        if not self.api_key:
+            logger.warning(
+                "[%s] Missing API key, attempting OpenRouter fallback",
+                getattr(self, "name", "agent"),
+            )
+            result = await self.fallback_generate(prompt, context, status_code=401)
+            if result is not None:
+                return result
+            raise AgentAPIError(
+                f"{self._get_error_prefix()} API key not configured",
+                agent_name=self.name,
+                status_code=401,
+            )
+
         # Check circuit breaker before attempting API call
         cb = getattr(self, "_circuit_breaker", None)
         if cb is not None and not cb.can_proceed():
@@ -206,6 +220,13 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
                         # Record failure for circuit breaker (non-quota errors)
                         if cb is not None and not self.is_quota_error(response.status, error_text):
                             cb.record_failure()
+
+                        if response.status in (401, 403):
+                            result = await self.fallback_generate(
+                                prompt, context, status_code=response.status
+                            )
+                            if result is not None:
+                                return result
 
                         # Check for quota/billing errors and fallback
                         if self.is_quota_error(response.status, error_text):
@@ -252,6 +273,19 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         self, prompt: str, context: list[Message] | None = None
     ) -> AsyncGenerator[str, None]:
         """Stream tokens from the OpenAI-compatible API."""
+        if not self.api_key:
+            logger.warning(
+                "[%s] Missing API key, attempting OpenRouter streaming fallback",
+                getattr(self, "name", "agent"),
+            )
+            async for chunk in self.fallback_generate_stream(prompt, context, status_code=401):
+                yield chunk
+            raise AgentAPIError(
+                f"{self._get_error_prefix()} API key not configured",
+                agent_name=self.name,
+                status_code=401,
+            )
+
         full_prompt = prompt
         if context:
             full_prompt = self._build_context_prompt(context) + prompt
@@ -270,6 +304,13 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
+
+                    if response.status in (401, 403):
+                        async for chunk in self.fallback_generate_stream(
+                            prompt, context, status_code=response.status
+                        ):
+                            yield chunk
+                        return
 
                     # Check for quota errors and fallback
                     if self.is_quota_error(response.status, error_text):
