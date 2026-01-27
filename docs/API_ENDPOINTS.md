@@ -32,16 +32,20 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Decision](#decision)
 - [Deliberations](#deliberations)
 - [Dependency Analysis](#dependency-analysis)
+- [Devices](#devices)
 - [Docs](#docs)
 - [Dr Handler](#dr-handler)
 - [Email](#email)
 - [EmailDebate](#emaildebate)
 - [Email Services](#email-services)
+- [EndpointAnalytics](#endpointanalytics)
 - [Evaluation](#evaluation)
 - [Expenses](#expenses)
 - [Explainability](#explainability)
 - [External Integrations](#external-integrations)
+- [Feedback](#feedback)
 - [Gallery](#gallery)
+- [Gastown Dashboard](#gastown-dashboard)
 - [Gauntlet](#gauntlet)
 - [Genesis](#genesis)
 - [Inbox Command](#inbox-command)
@@ -71,6 +75,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [RLMContext](#rlmcontext)
 - [Selection](#selection)
 - [Shared Inbox](#shared-inbox)
+- [Skill Marketplace](#skill-marketplace)
 - [Skills](#skills)
 - [Slo](#slo)
 - [SMEUsageDashboard](#smeusagedashboard)
@@ -639,9 +644,21 @@ Remove override
 
 Reset budget period
 
+### `GET` `/api/v1/budgets/:id/transactions`
+
+Get transaction history
+
+### `GET` `/api/v1/budgets/:id/trends`
+
+Get spending trends for budget
+
 ### `GET` `/api/v1/budgets/summary`
 
 Get org budget summary
+
+### `GET` `/api/v1/budgets/trends`
+
+Get org-wide spending trends
 
 ### `POST` `/api/v1/budgets/check`
 
@@ -720,6 +737,10 @@ Generate SOC 2 compliance summary
 ### `GET` `/api/v2/compliance/gdpr-export`
 
 Export user data for GDPR
+
+### `POST` `/api/v2/compliance/gdpr/right-to-be-forgotten`
+
+Execute GDPR right to erasure
 
 ### `POST` `/api/v2/compliance/audit-verify`
 
@@ -971,6 +992,44 @@ Check license compatibility
 
 ---
 
+## Devices
+
+Device Registration and Notification API Handlers.
+
+### `POST` `/api/devices/register`
+
+Register a device for push notifications
+
+### `DELETE` `/api/devices/{device_id}`
+
+Unregister a device
+
+### `POST` `/api/devices/{device_id}/notify`
+
+Send notification to a device
+
+### `POST` `/api/devices/user/{user_id}/notify`
+
+Send to all user devices
+
+### `GET` `/api/devices/user/{user_id}`
+
+List user's devices
+
+### `GET` `/api/devices/health`
+
+Get device connector health
+
+### `POST` `/api/devices/alexa/webhook`
+
+Alexa skill webhook
+
+### `POST` `/api/devices/google/webhook`
+
+Google Actions webhook
+
+---
+
 ## Docs
 
 API documentation endpoint handlers.
@@ -1126,6 +1185,28 @@ List available categories
 ### `POST` `/api/v1/email/categories/learn`
 
 Submit category feedback
+
+---
+
+## EndpointAnalytics
+
+Handler for API endpoint performance analytics.
+
+### `GET` `/api/analytics/endpoints`
+
+GET /api/analytics/endpoints - List all endpoints with metrics
+
+### `GET` `/api/analytics/endpoints/slowest`
+
+GET /api/analytics/endpoints/slowest - Top N slowest endpoints
+
+### `GET` `/api/analytics/endpoints/errors`
+
+GET /api/analytics/endpoints/errors - Top N endpoints by error rate
+
+### `GET` `/api/analytics/endpoints/health`
+
+GET /api/analytics/endpoints/health - Overall API health summary
 
 ---
 
@@ -1341,6 +1422,24 @@ Get node definitions
 
 ---
 
+## Feedback
+
+User Feedback Collection Handler.
+
+### `POST` `/api/v1/feedback/nps`
+
+Submit NPS score
+
+### `POST` `/api/v1/feedback/general`
+
+Submit general feedback
+
+### `GET` `/api/v1/feedback/prompts`
+
+Get active feedback prompts
+
+---
+
 ## Gallery
 
 Public Gallery endpoint handlers.
@@ -1356,6 +1455,32 @@ Get specific debate with full history
 ### `GET` `/api/gallery/:debate_id/embed`
 
 Get embeddable debate summary
+
+---
+
+## Gastown Dashboard
+
+Gas Town Dashboard API Handlers.
+
+### `GET` `/api/v1/dashboard/gastown/overview`
+
+Get Gas Town overview
+
+### `GET` `/api/v1/dashboard/gastown/convoys`
+
+Get convoy list with progress
+
+### `GET` `/api/v1/dashboard/gastown/agents`
+
+Get agent workload distribution
+
+### `GET` `/api/v1/dashboard/gastown/beads`
+
+Get bead queue stats
+
+### `GET` `/api/v1/dashboard/gastown/metrics`
+
+Get throughput metrics
 
 ---
 
@@ -1726,6 +1851,14 @@ Get nomic loop logs
 ### `GET` `/api/nomic/risk-register`
 
 Get risk register entries
+
+### `GET` `/api/nomic/witness/status`
+
+Get Gas Town witness patrol status
+
+### `GET` `/api/nomic/mayor/current`
+
+Get current Gas Town mayor information
 
 ### `GET` `/api/modes`
 
@@ -2137,6 +2270,10 @@ Decision Receipt HTTP Handlers for Aragora.
 
 List receipts with filters
 
+### `GET` `/api/v2/receipts/search`
+
+Full-text search receipts
+
 ### `GET` `/api/v2/receipts/:receipt_id`
 
 Get specific receipt
@@ -2336,6 +2473,52 @@ Delete routing rule
 ### `POST` `/api/v1/inbox/routing/rules/:id/test`
 
 Test routing rule
+
+---
+
+## Skill Marketplace
+
+Skill Marketplace API Handlers.
+
+### `GET` `/api/v1/skills/marketplace/search`
+
+Search skills
+
+### `GET` `/api/v1/skills/marketplace/{skill_id}`
+
+Get skill details
+
+### `GET` `/api/v1/skills/marketplace/{skill_id}/versions`
+
+Get skill versions
+
+### `GET` `/api/v1/skills/marketplace/{skill_id}/ratings`
+
+Get skill ratings
+
+### `POST` `/api/v1/skills/marketplace/publish`
+
+Publish a skill
+
+### `POST` `/api/v1/skills/marketplace/{skill_id}/install`
+
+Install a skill
+
+### `DELETE` `/api/v1/skills/marketplace/{skill_id}/install`
+
+Uninstall a skill
+
+### `POST` `/api/v1/skills/marketplace/{skill_id}/rate`
+
+Rate a skill
+
+### `GET` `/api/v1/skills/marketplace/installed`
+
+List installed skills
+
+### `GET` `/api/v1/skills/marketplace/stats`
+
+Get marketplace statistics
 
 ---
 
