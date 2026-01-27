@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # Import error types and response builders
 try:
     from ..base import HandlerResult, error_response
-    from ..secure import ForbiddenError, UnauthorizedError
+    from .auth import ForbiddenError, UnauthorizedError
 
     _AUTH_AVAILABLE = True
 except ImportError:
