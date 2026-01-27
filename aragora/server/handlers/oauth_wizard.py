@@ -25,13 +25,18 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from aragora.server.handlers.base import (
-    BaseHandler,
     HandlerResult,
     ServerContext,
     error_response,
     json_response,
 )
+from aragora.server.handlers.secure import SecureHandler, UnauthorizedError
 from aragora.server.handlers.utils.rate_limit import rate_limit
+
+# RBAC Permissions for OAuth wizard operations
+CONNECTOR_READ = "connector:read"
+CONNECTOR_CREATE = "connector:create"
+CONNECTOR_DELETE = "connector:delete"
 
 logger = logging.getLogger(__name__)
 
@@ -152,12 +157,19 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
 }
 
 
-class OAuthWizardHandler(BaseHandler):
+class OAuthWizardHandler(SecureHandler):
     """
     Unified OAuth wizard handler for SME onboarding.
 
     Provides a single API for discovering and configuring all integrations.
+
+    RBAC Protection:
+    - GET endpoints: Requires connector:read permission
+    - POST validate/test: Requires connector:create permission
+    - POST disconnect: Requires connector:delete permission
     """
+
+    RESOURCE_TYPE = "connector"
 
     ROUTES = [
         "/api/v2/integrations/wizard",
@@ -175,17 +187,45 @@ class OAuthWizardHandler(BaseHandler):
     @rate_limit(requests_per_minute=60)
     async def handle(  # type: ignore[override]
         self,
-        method: str,
         path: str,
-        body: Optional[Dict[str, Any]] = None,
-        query_params: Optional[Dict[str, str]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        query_params: dict,
+        handler: Optional[Any] = None,
     ) -> HandlerResult:
-        """Route request to appropriate handler method."""
+        """Route request to appropriate handler method.
+
+        RBAC:
+        - GET endpoints: connector:read
+        - POST validate/test: connector:create
+        - POST disconnect: connector:delete
+        """
+        method = getattr(handler, "command", "GET") if handler else "GET"
         query_params = query_params or {}
-        body = body or {}
+        body: dict[str, Any] = {}
+        if handler is not None and method in {"POST", "PUT", "PATCH"}:
+            body = self.read_json_body(handler) or {}
+
+        # All wizard endpoints require authentication
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+        except (UnauthorizedError, Exception) as e:
+            logger.debug(f"OAuth wizard auth failed: {e}")
+            return error_response("Authentication required", 401)
 
         try:
+            # Determine required permission based on method and path
+            required_permission = CONNECTOR_READ  # Default for GET
+            if method == "POST":
+                if "disconnect" in path:
+                    required_permission = CONNECTOR_DELETE
+                else:
+                    required_permission = CONNECTOR_CREATE
+
+            # Check permission
+            try:
+                self.check_permission(auth_context, required_permission)
+            except Exception:
+                return error_response(f"Permission denied: {required_permission} required", 403)
+
             # Main wizard endpoint
             if path == "/api/v2/integrations/wizard" and method == "GET":
                 return await self._get_wizard_config(query_params)

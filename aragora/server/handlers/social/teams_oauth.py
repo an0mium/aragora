@@ -30,11 +30,14 @@ from urllib.parse import urlencode
 logger = logging.getLogger(__name__)
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
 )
+from ..secure import SecureHandler, UnauthorizedError
+
+# RBAC Permissions for Teams OAuth operations
+CONNECTOR_AUTHORIZE = "connector:authorize"
 
 # Environment configuration
 TEAMS_CLIENT_ID = os.environ.get("TEAMS_CLIENT_ID", "")
@@ -57,8 +60,16 @@ def _get_state_store():
     return get_oauth_state_store()
 
 
-class TeamsOAuthHandler(BaseHandler):
-    """Handler for Microsoft Teams OAuth installation flow."""
+class TeamsOAuthHandler(SecureHandler):
+    """Handler for Microsoft Teams OAuth installation flow.
+
+    RBAC Protection:
+    - /install: Requires connector:authorize permission
+    - /callback: No auth (OAuth callback from Microsoft)
+    - /refresh: Requires authentication
+    """
+
+    RESOURCE_TYPE = "connector"
 
     ROUTES = [
         "/api/integrations/teams/install",
@@ -77,23 +88,43 @@ class TeamsOAuthHandler(BaseHandler):
         body: Optional[Dict[str, Any]] = None,
         query_params: Optional[Dict[str, str]] = None,
         headers: Optional[Dict[str, str]] = None,
+        handler: Optional[Any] = None,
     ) -> HandlerResult:
-        """Route OAuth requests to appropriate methods."""
+        """Route OAuth requests to appropriate methods.
+
+        Authentication:
+        - /install: Requires authentication + connector:authorize permission
+        - /callback: No auth (OAuth redirect from Microsoft)
+        - /refresh: Requires authentication (admin operation)
+        """
         query_params = query_params or {}
         body = body or {}
 
-        if path == "/api/integrations/teams/install":
-            if method == "GET":
-                return await self._handle_install(query_params)
-            return error_response("Method not allowed", 405)
-
-        elif path == "/api/integrations/teams/callback":
+        # OAuth callback from Microsoft - no auth required (external redirect)
+        if path == "/api/integrations/teams/callback":
             if method == "GET":
                 return await self._handle_callback(query_params)
             return error_response("Method not allowed", 405)
 
-        elif path == "/api/integrations/teams/refresh":
+        # All other routes require authentication
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+        except (UnauthorizedError, Exception) as e:
+            logger.debug(f"Teams OAuth auth failed: {e}")
+            return error_response("Authentication required", 401)
+
+        if path == "/api/integrations/teams/install":
+            if method == "GET":
+                try:
+                    self.check_permission(auth_context, CONNECTOR_AUTHORIZE)
+                except Exception:
+                    return error_response("Permission denied: connector:authorize required", 403)
+                return await self._handle_install(query_params)
+            return error_response("Method not allowed", 405)
+
+        if path == "/api/integrations/teams/refresh":
             if method == "POST":
+                # Refresh is an admin operation - auth is enough (or could add specific permission)
                 return await self._handle_refresh(body)
             return error_response("Method not allowed", 405)
 

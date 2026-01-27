@@ -31,11 +31,15 @@ logger = logging.getLogger(__name__)
 from aragora.server.oauth_state_store import OAUTH_STATE_TTL_SECONDS
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
 )
+from ..secure import SecureHandler, UnauthorizedError
+
+# RBAC Permissions for Slack OAuth operations
+CONNECTOR_READ = "connector:read"
+CONNECTOR_AUTHORIZE = "connector:authorize"
 
 # Environment configuration
 SLACK_CLIENT_ID = os.environ.get("SLACK_CLIENT_ID", "")
@@ -131,8 +135,17 @@ def _get_state_store():
     return get_oauth_state_store()
 
 
-class SlackOAuthHandler(BaseHandler):
-    """Handler for Slack OAuth installation flow."""
+class SlackOAuthHandler(SecureHandler):
+    """Handler for Slack OAuth installation flow.
+
+    RBAC Protection:
+    - /install: Requires connector:authorize permission
+    - /preview: Requires connector:read permission
+    - /callback: No auth (OAuth callback from Slack)
+    - /uninstall: Verified via Slack signature (webhook)
+    """
+
+    RESOURCE_TYPE = "connector"
 
     ROUTES = [
         "/api/integrations/slack/install",
@@ -152,29 +165,58 @@ class SlackOAuthHandler(BaseHandler):
         body: Optional[Dict[str, Any]] = None,
         query_params: Optional[Dict[str, str]] = None,
         headers: Optional[Dict[str, str]] = None,
+        handler: Optional[Any] = None,
     ) -> HandlerResult:
-        """Route OAuth requests to appropriate methods."""
+        """Route OAuth requests to appropriate methods.
+
+        RBAC enforcement:
+        - /install and /preview require authentication
+        - /callback is unauthenticated (OAuth redirect from Slack)
+        - /uninstall uses Slack signature verification (webhook)
+        """
         query_params = query_params or {}
+        headers = headers or {}
         body = body or {}
+
+        # OAuth callback from Slack - no auth required (external redirect)
+        if path == "/api/integrations/slack/callback":
+            if method == "GET":
+                return await self._handle_callback(query_params)
+            return error_response("Method not allowed", 405)
+
+        # Uninstall webhook from Slack - verified via Slack signature
+        if path == "/api/integrations/slack/uninstall":
+            if method == "POST":
+                return await self._handle_uninstall(body, headers or {})
+            return error_response("Method not allowed", 405)
+
+        # All other routes require authentication
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+        except (UnauthorizedError, Exception) as e:
+            logger.debug(f"Slack OAuth auth failed: {e}")
+            return error_response("Authentication required", 401)
 
         if path == "/api/integrations/slack/install":
             if method == "GET":
+                # Require connector:authorize permission
+                try:
+                    self.check_permission(auth_context, CONNECTOR_AUTHORIZE)
+                except Exception as e:
+                    logger.warning(f"Permission denied for Slack install: {e}")
+                    return error_response("Permission denied: connector:authorize required", 403)
                 return await self._handle_install(query_params)
             return error_response("Method not allowed", 405)
 
         elif path == "/api/integrations/slack/preview":
             if method == "GET":
+                # Require connector:read permission
+                try:
+                    self.check_permission(auth_context, CONNECTOR_READ)
+                except Exception as e:
+                    logger.warning(f"Permission denied for Slack preview: {e}")
+                    return error_response("Permission denied: connector:read required", 403)
                 return await self._handle_preview(query_params)
-            return error_response("Method not allowed", 405)
-
-        elif path == "/api/integrations/slack/callback":
-            if method == "GET":
-                return await self._handle_callback(query_params)
-            return error_response("Method not allowed", 405)
-
-        elif path == "/api/integrations/slack/uninstall":
-            if method == "POST":
-                return await self._handle_uninstall(body, headers or {})
             return error_response("Method not allowed", 405)
 
         return error_response("Not found", 404)

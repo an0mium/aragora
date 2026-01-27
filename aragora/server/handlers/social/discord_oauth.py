@@ -31,11 +31,15 @@ from urllib.parse import urlencode
 logger = logging.getLogger(__name__)
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
 )
+from ..secure import SecureHandler, UnauthorizedError
+
+# RBAC Permissions for Discord OAuth operations
+CONNECTOR_READ = "connector:read"
+CONNECTOR_AUTHORIZE = "connector:authorize"
 
 # Environment configuration
 DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID", "")
@@ -59,8 +63,16 @@ DISCORD_API_BASE = "https://discord.com/api/v10"
 _oauth_states: Dict[str, Dict[str, Any]] = {}
 
 
-class DiscordOAuthHandler(BaseHandler):
-    """Handler for Discord OAuth bot installation flow."""
+class DiscordOAuthHandler(SecureHandler):
+    """Handler for Discord OAuth bot installation flow.
+
+    RBAC Protection:
+    - /install: Requires connector:authorize permission
+    - /callback: No auth (OAuth callback from Discord)
+    - /uninstall: Webhook from Discord (external event)
+    """
+
+    RESOURCE_TYPE = "connector"
 
     ROUTES = [
         "/api/integrations/discord/install",
@@ -79,24 +91,44 @@ class DiscordOAuthHandler(BaseHandler):
         body: Optional[Dict[str, Any]] = None,
         query_params: Optional[Dict[str, str]] = None,
         headers: Optional[Dict[str, str]] = None,
+        handler: Optional[Any] = None,
     ) -> HandlerResult:
-        """Route OAuth requests to appropriate methods."""
+        """Route OAuth requests to appropriate methods.
+
+        Authentication:
+        - /install: Requires authentication + connector:authorize permission
+        - /callback: No auth (OAuth redirect from Discord)
+        - /uninstall: No auth (webhook event from Discord)
+        """
         query_params = query_params or {}
         body = body or {}
 
-        if path == "/api/integrations/discord/install":
-            if method == "GET":
-                return await self._handle_install(query_params)
-            return error_response("Method not allowed", 405)
-
-        elif path == "/api/integrations/discord/callback":
+        # OAuth callback from Discord - no auth required (external redirect)
+        if path == "/api/integrations/discord/callback":
             if method == "GET":
                 return await self._handle_callback(query_params)
             return error_response("Method not allowed", 405)
 
-        elif path == "/api/integrations/discord/uninstall":
+        # Uninstall webhook from Discord - external event, no auth
+        if path == "/api/integrations/discord/uninstall":
             if method == "POST":
                 return await self._handle_uninstall(body)
+            return error_response("Method not allowed", 405)
+
+        # All other routes require authentication
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+        except (UnauthorizedError, Exception) as e:
+            logger.debug(f"Discord OAuth auth failed: {e}")
+            return error_response("Authentication required", 401)
+
+        if path == "/api/integrations/discord/install":
+            if method == "GET":
+                try:
+                    self.check_permission(auth_context, CONNECTOR_AUTHORIZE)
+                except Exception:
+                    return error_response("Permission denied: connector:authorize required", 403)
+                return await self._handle_install(query_params)
             return error_response("Method not allowed", 405)
 
         return error_response("Not found", 404)
