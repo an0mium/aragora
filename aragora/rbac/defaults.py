@@ -1600,6 +1600,8 @@ ROLE_MEMBER = Role(
         # Workspaces (read and share)
         PERM_WORKSPACE_READ.key,
         PERM_WORKSPACE_SHARE.key,
+        # Verticals
+        PERM_VERTICALS_READ.key,
     },
     parent_roles=[],
     priority=40,

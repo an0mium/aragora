@@ -14,6 +14,7 @@ import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+from .conditions import ConditionResult, get_condition_evaluator
 from .defaults import get_role_permissions
 from .models import (
     Action,
@@ -26,10 +27,41 @@ from .models import (
 if TYPE_CHECKING:
     from .audit import AuthorizationAuditor
     from .cache import RBACDistributedCache
+    from .conditions import ConditionEvaluator
     from .delegation import DelegationManager
     from .resource_permissions import ResourcePermissionStore
 
 logger = logging.getLogger(__name__)
+
+
+def _build_condition_context(
+    context: AuthorizationContext,
+    resource_attrs: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build condition context from authorization context and resource attributes.
+
+    Args:
+        context: Authorization context with user info
+        resource_attrs: Optional resource attributes
+
+    Returns:
+        Combined context dict for condition evaluation
+    """
+    condition_ctx: dict[str, Any] = {
+        "user_id": context.user_id,
+        "org_id": context.org_id,
+        "current_time": context.timestamp or datetime.now(timezone.utc),
+    }
+
+    # Add IP if available
+    if context.ip_address:
+        condition_ctx["ip_address"] = context.ip_address
+
+    # Add resource attributes
+    if resource_attrs:
+        condition_ctx.update(resource_attrs)
+
+    return condition_ctx
 
 
 class PermissionChecker:
@@ -56,6 +88,8 @@ class PermissionChecker:
         delegation_manager: Optional["DelegationManager"] = None,
         enable_delegation: bool = True,
         enable_workspace_scope: bool = True,
+        enable_conditions: bool = True,
+        condition_evaluator: Optional["ConditionEvaluator"] = None,
     ) -> None:
         """
         Initialize the permission checker.
@@ -72,6 +106,9 @@ class PermissionChecker:
                           If provided, checks delegated permissions.
             enable_delegation: Whether to check delegated permissions (default True)
             enable_workspace_scope: Whether to enforce workspace-level scoping (default True)
+            enable_conditions: Whether to evaluate ABAC conditions on permissions (default True)
+            condition_evaluator: Optional custom condition evaluator. If not provided,
+                          uses the global condition evaluator singleton.
         """
         self._auditor = auditor
         self._cache_ttl = cache_ttl
@@ -81,6 +118,8 @@ class PermissionChecker:
         self._delegation_manager = delegation_manager
         self._enable_delegation = enable_delegation
         self._enable_workspace_scope = enable_workspace_scope
+        self._enable_conditions = enable_conditions
+        self._condition_evaluator = condition_evaluator
 
         # Local cache (used when no distributed backend, or as L1)
         self._decision_cache: dict[str, tuple[AuthorizationDecision, datetime]] = {}
@@ -119,6 +158,36 @@ class PermissionChecker:
         global_v = self._global_resource_cache_version
         user_v = self._user_resource_cache_versions.get(user_id, 0)
         return f"v{global_v}.{user_v}"
+
+    def _get_condition_evaluator(self) -> "ConditionEvaluator":
+        """Get the condition evaluator (custom or global singleton)."""
+        if self._condition_evaluator is not None:
+            return self._condition_evaluator
+        return get_condition_evaluator()
+
+    def _evaluate_conditions(
+        self,
+        conditions: dict[str, Any],
+        context: AuthorizationContext,
+        resource_attrs: dict[str, Any] | None = None,
+    ) -> tuple[bool, list[ConditionResult]]:
+        """Evaluate ABAC conditions against context.
+
+        Args:
+            conditions: Condition definitions from permission/role assignment
+            context: Authorization context
+            resource_attrs: Optional resource attributes
+
+        Returns:
+            Tuple of (all_satisfied, list_of_results)
+        """
+        if not self._enable_conditions or not conditions:
+            return True, []
+
+        evaluator = self._get_condition_evaluator()
+        condition_ctx = _build_condition_context(context, resource_attrs)
+
+        return evaluator.evaluate(conditions, condition_ctx)
 
     def check_permission(
         self,

@@ -24,12 +24,13 @@ if TYPE_CHECKING:
 from aragora.utils.optional_imports import try_import
 
 from .base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     get_int_param,
     json_response,
 )
+from .secure import SecureHandler
+from .utils.auth import ForbiddenError, UnauthorizedError
 from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.versioning.compat import strip_version_prefix
 
@@ -59,8 +60,10 @@ SignificantMoment = _moment_imports["SignificantMoment"]
 from aragora.server.errors import safe_error_message as _safe_error_message
 
 
-class MomentsHandler(BaseHandler):
-    """Handler for moments endpoints."""
+class MomentsHandler(SecureHandler):
+    """Handler for moments endpoints with RBAC protection."""
+
+    RESOURCE_TYPE = "moments"
 
     ROUTES = [
         "/api/moments/summary",
@@ -79,8 +82,17 @@ class MomentsHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    async def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route moments requests to appropriate methods."""
+        # RBAC check
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, "moments:read")
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
         # Normalize path to handle both /api/... and /api/v1/... paths
         normalized = strip_version_prefix(path)
 
