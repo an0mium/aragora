@@ -23,6 +23,56 @@ def _default_environment() -> "Environment":
 
 
 @dataclass
+class AgentWorkspace:
+    """
+    Isolated workspace for an agent during debate execution.
+
+    Prevents crosstalk between agents by providing dedicated storage for:
+    - Agent-specific scratch memory
+    - Tool execution results
+    - Isolated state variables
+
+    This supports the clawdbot pattern of agent workspace isolation,
+    ensuring each agent operates independently without shared mutable state.
+
+    Example:
+        workspace = context.get_workspace("claude-opus")
+        workspace.memory["planning_notes"] = "..."
+        workspace.tool_results["search"] = search_results
+        workspace.state["iteration"] = 2
+    """
+
+    agent_id: str
+    memory: dict[str, Any] = field(default_factory=dict)
+    """Agent-specific scratch memory."""
+
+    tool_results: dict[str, Any] = field(default_factory=dict)
+    """Cached results from tool executions."""
+
+    state: dict[str, Any] = field(default_factory=dict)
+    """Isolated state variables for the agent."""
+
+    created_at: float = field(default_factory=lambda: __import__("time").time())
+    """Timestamp when workspace was created."""
+
+    def clear(self) -> None:
+        """Clear all workspace data."""
+        self.memory.clear()
+        self.tool_results.clear()
+        self.state.clear()
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize workspace to dictionary."""
+        return {
+            "agent_id": self.agent_id,
+            "memory": dict(self.memory),
+            "tool_results": dict(self.tool_results),
+            "state": dict(self.state),
+            "created_at": self.created_at,
+        }
+
+
+@dataclass
 class DebateContext:
     """
     Shared state container for debate execution pipeline.
@@ -231,6 +281,13 @@ class DebateContext:
     """Agents whose proposals are too similar to prior proposals (below threshold)."""
 
     # =========================================================================
+    # Agent Workspaces (isolated per-agent state)
+    # =========================================================================
+
+    agent_workspaces: dict[str, "AgentWorkspace"] = field(default_factory=dict)
+    """Per-agent isolated workspaces to prevent crosstalk."""
+
+    # =========================================================================
     # Helper Methods
     # =========================================================================
 
@@ -240,6 +297,29 @@ class DebateContext:
             if agent.name == name:
                 return agent
         return None
+
+    def get_workspace(self, agent_id: str) -> "AgentWorkspace":
+        """
+        Get or create an isolated workspace for an agent.
+
+        This ensures each agent has dedicated storage that cannot
+        be accidentally shared with other agents.
+
+        Args:
+            agent_id: ID of the agent
+
+        Returns:
+            AgentWorkspace instance for this agent
+        """
+        if agent_id not in self.agent_workspaces:
+            self.agent_workspaces[agent_id] = AgentWorkspace(agent_id=agent_id)
+        return self.agent_workspaces[agent_id]
+
+    def clear_workspaces(self) -> None:
+        """Clear all agent workspaces."""
+        for workspace in self.agent_workspaces.values():
+            workspace.clear()
+        self.agent_workspaces.clear()
 
     def get_proposal(self, agent_name: str) -> str:
         """Get proposal for an agent, or empty string if none."""
