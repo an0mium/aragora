@@ -46,6 +46,14 @@ curl http://localhost:8080/api/health
 # Expected response:
 # {"status": "healthy", "version": "1.0.0", "uptime": 3600}
 
+# WebSocket health check (public endpoint, no auth required)
+curl http://localhost:8080/api/health/ws
+
+# Expected response:
+# {"status": "healthy", "clients": 5}
+# or when unavailable:
+# {"status": "unavailable", "clients": 0, "message": "WebSocket manager not configured"}
+
 # WebSocket connectivity test
 wscat -c ws://localhost:8765/ws
 ```
