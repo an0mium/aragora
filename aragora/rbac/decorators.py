@@ -73,6 +73,11 @@ def _get_context_from_args(
         if isinstance(value, AuthorizationContext):
             return value
 
+    # Check if any arg has _auth_context attribute (e.g., HTTP request handler)
+    for arg in args:
+        if hasattr(arg, "_auth_context") and isinstance(arg._auth_context, AuthorizationContext):
+            return arg._auth_context
+
     return None
 
 

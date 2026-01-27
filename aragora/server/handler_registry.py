@@ -1489,6 +1489,30 @@ class HandlerRegistryMixin:
         attr_name, handler = route_match
 
         try:
+            # Extract auth context and store on request handler for permission checks
+            try:
+                from aragora.billing.jwt_auth import extract_user_from_request
+                from aragora.rbac.models import AuthorizationContext
+
+                user_ctx = extract_user_from_request(self)
+                if user_ctx and user_ctx.is_authenticated:
+                    # Store auth context for handlers to access
+                    self._auth_context = AuthorizationContext(
+                        user_id=user_ctx.user_id,
+                        user_email=user_ctx.email,
+                        org_id=user_ctx.org_id,
+                        workspace_id=self.headers.get("X-Workspace-ID")
+                        if hasattr(self, "headers")
+                        else None,
+                        roles={user_ctx.role} if user_ctx.role else {"member"},
+                        permissions=set(),  # Permissions loaded by checker
+                    )
+                else:
+                    self._auth_context = None
+            except Exception as auth_err:
+                logger.debug(f"[handlers] Auth context extraction failed: {auth_err}")
+                self._auth_context = None
+
             # Use matched path if available, otherwise fall back to normalized path
             dispatch_path = matched_path or normalized_path
             if normalized_path != dispatch_path and handler.can_handle(normalized_path):
@@ -1542,6 +1566,22 @@ class HandlerRegistryMixin:
                 self.wfile.write(result.body)
                 return True
         except Exception as e:
+            # Check for permission-related errors
+            error_msg = str(e)
+            if "AuthorizationContext" in error_msg or "Permission" in error_msg:
+                logger.warning(f"[handlers] Permission denied in {handler.__class__.__name__}: {e}")
+                # Return 403 Forbidden for permission errors
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                self._add_cors_headers()
+                self._add_security_headers()
+                self.end_headers()
+                import json
+
+                self.wfile.write(
+                    json.dumps({"error": "Permission denied", "code": "forbidden"}).encode()
+                )
+                return True
             logger.error(f"[handlers] Error in {handler.__class__.__name__}: {e}")
             # Fall through to legacy handler on error
             return False
