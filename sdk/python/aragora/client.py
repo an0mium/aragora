@@ -125,6 +125,68 @@ class AragoraClient:
             json={"question": question, "agents": agents, "rounds": rounds, **kwargs},
         )
 
+    async def run_debate(
+        self,
+        question: str,
+        agents: List[str],
+        rounds: int = 3,
+        poll_interval: float = 1.0,
+        timeout: float = 300.0,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Create a debate and wait for completion.
+
+        Convenience method that creates a debate and polls until it completes.
+        For real-time updates, use create_debate_and_stream() instead.
+
+        Args:
+            question: The debate question/topic
+            agents: List of agent names to participate
+            rounds: Number of debate rounds (default: 3)
+            poll_interval: Seconds between status checks (default: 1.0)
+            timeout: Maximum wait time in seconds (default: 300.0)
+            **kwargs: Additional arguments passed to create_debate
+
+        Returns:
+            Completed debate object with consensus and all rounds
+
+        Raises:
+            TimeoutError: If debate doesn't complete within timeout
+            httpx.HTTPStatusError: If API request fails
+
+        Example:
+            ```python
+            async with AragoraClient(base_url="http://localhost:8080") as client:
+                debate = await client.run_debate(
+                    question="Should we use microservices?",
+                    agents=["claude", "gpt4", "gemini"],
+                )
+                print(f"Consensus: {debate.get('consensus')}")
+                print(f"Final answer: {debate.get('final_answer')}")
+            ```
+        """
+        import time
+
+        response = await self.create_debate(
+            question=question, agents=agents, rounds=rounds, **kwargs
+        )
+        debate_id = response.get("debate_id") or response.get("id")
+
+        if not debate_id:
+            raise ValueError("No debate_id returned from create_debate")
+
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            debate = await self.get_debate(debate_id)
+            status = debate.get("status", "")
+
+            if status in ("completed", "failed", "cancelled"):
+                return debate
+
+            await asyncio.sleep(poll_interval)
+
+        raise TimeoutError(f"Debate {debate_id} did not complete within {timeout}s")
+
     # =========================================================================
     # Explainability
     # =========================================================================

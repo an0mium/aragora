@@ -110,6 +110,16 @@ jobs:
           python scripts/audit_openapi_docs.py --spec docs/api/openapi_generated.json --min-coverage 90
           echo "Documentation coverage check passed"
 
+      - name: Validate handler route coverage
+        run: |
+          python scripts/validate_openapi_routes.py --spec docs/api/openapi_generated.json --json | tee /tmp/route-coverage.json
+          # Extract coverage percentage and warn if low
+          COVERAGE=$(python -c "import json; print(json.load(open('/tmp/route-coverage.json'))['coverage_percentage'])")
+          echo "Handler route coverage: ${COVERAGE}%"
+          if [ "$(echo "$COVERAGE < 50" | bc)" -eq 1 ]; then
+            echo "::warning::Low handler route coverage (${COVERAGE}%). Many handler routes may not be documented in OpenAPI spec."
+          fi
+
       - name: Check for missing operationIds (warning only)
         run: |
           python scripts/audit_openapi_docs.py --spec docs/api/openapi_generated.json --json | python -c "

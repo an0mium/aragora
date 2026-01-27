@@ -62,6 +62,320 @@ class WebSocketEvent:
         )
 
 
+# ============================================================================
+# Typed WebSocket Events (discriminated unions for type safety)
+# ============================================================================
+
+
+@dataclass
+class DebateStartEvent:
+    """Event fired when a debate begins."""
+
+    debate_id: str
+    task: str = ""
+    agents: List[str] = None  # type: ignore[assignment]
+    timestamp: Optional[str] = None
+    type: str = "debate_start"
+
+    def __post_init__(self):
+        if self.agents is None:
+            self.agents = []
+
+
+@dataclass
+class RoundStartEvent:
+    """Event fired when a new round begins."""
+
+    debate_id: str
+    round_number: int = 0
+    phase: str = ""
+    timestamp: Optional[str] = None
+    type: str = "round_start"
+
+
+@dataclass
+class RoundEndEvent:
+    """Event fired when a round ends."""
+
+    debate_id: str
+    round_number: int = 0
+    timestamp: Optional[str] = None
+    type: str = "round_end"
+
+
+@dataclass
+class AgentMessageEvent:
+    """Event fired when an agent sends a message."""
+
+    debate_id: str
+    agent: str = ""
+    content: str = ""
+    round_number: int = 0
+    role: str = ""
+    confidence: Optional[float] = None
+    timestamp: Optional[str] = None
+    type: str = "agent_message"
+
+
+@dataclass
+class ProposeEvent:
+    """Event fired when an agent proposes an answer."""
+
+    debate_id: str
+    agent: str = ""
+    proposal: str = ""
+    round_number: int = 0
+    confidence: Optional[float] = None
+    timestamp: Optional[str] = None
+    type: str = "propose"
+
+
+@dataclass
+class CritiqueEvent:
+    """Event fired when an agent critiques a proposal."""
+
+    debate_id: str
+    agent: str = ""
+    target_agent: str = ""
+    critique: str = ""
+    round_number: int = 0
+    timestamp: Optional[str] = None
+    type: str = "critique"
+
+
+@dataclass
+class RevisionEvent:
+    """Event fired when an agent revises their proposal."""
+
+    debate_id: str
+    agent: str = ""
+    revision: str = ""
+    round_number: int = 0
+    timestamp: Optional[str] = None
+    type: str = "revision"
+
+
+@dataclass
+class VoteEvent:
+    """Event fired when an agent casts a vote."""
+
+    debate_id: str
+    agent: str = ""
+    choice: str = ""
+    confidence: Optional[float] = None
+    round_number: int = 0
+    timestamp: Optional[str] = None
+    type: str = "vote"
+
+
+@dataclass
+class ConsensusEvent:
+    """Event fired when consensus status is updated."""
+
+    debate_id: str
+    reached: bool = False
+    agreement: Optional[float] = None
+    final_answer: Optional[str] = None
+    timestamp: Optional[str] = None
+    type: str = "consensus"
+
+
+@dataclass
+class DebateEndEvent:
+    """Event fired when a debate concludes."""
+
+    debate_id: str
+    final_answer: Optional[str] = None
+    consensus_reached: bool = False
+    total_rounds: int = 0
+    timestamp: Optional[str] = None
+    type: str = "debate_end"
+
+
+@dataclass
+class PhaseChangeEvent:
+    """Event fired when the debate phase changes."""
+
+    debate_id: str
+    phase: str = ""
+    previous_phase: Optional[str] = None
+    timestamp: Optional[str] = None
+    type: str = "phase_change"
+
+
+@dataclass
+class ErrorEvent:
+    """Event fired when an error occurs."""
+
+    message: str = ""
+    code: Optional[str] = None
+    debate_id: Optional[str] = None
+    timestamp: Optional[str] = None
+    type: str = "error"
+
+
+@dataclass
+class HeartbeatEvent:
+    """Event fired for connection keepalive."""
+
+    timestamp: Optional[str] = None
+    type: str = "heartbeat"
+
+
+# Union type for all typed events
+TypedWebSocketEvent = (
+    DebateStartEvent
+    | RoundStartEvent
+    | RoundEndEvent
+    | AgentMessageEvent
+    | ProposeEvent
+    | CritiqueEvent
+    | RevisionEvent
+    | VoteEvent
+    | ConsensusEvent
+    | DebateEndEvent
+    | PhaseChangeEvent
+    | ErrorEvent
+    | HeartbeatEvent
+    | WebSocketEvent  # Fallback for unknown events
+)
+
+
+def parse_typed_event(data: Dict[str, Any]) -> TypedWebSocketEvent:
+    """Parse raw event data into a typed event object.
+
+    Args:
+        data: Raw event dictionary from WebSocket
+
+    Returns:
+        A typed event object based on the event type
+
+    Example:
+        ```python
+        event = parse_typed_event({"type": "agent_message", "agent": "claude", ...})
+        if isinstance(event, AgentMessageEvent):
+            print(f"{event.agent}: {event.content}")
+        ```
+    """
+    event_type = data.get("type", "")
+    event_data = data.get("data", {})
+    debate_id = data.get("debate_id", "")
+    timestamp = data.get("timestamp")
+
+    if event_type == "debate_start":
+        return DebateStartEvent(
+            debate_id=debate_id,
+            task=event_data.get("task", ""),
+            agents=event_data.get("agents", []),
+            timestamp=timestamp,
+        )
+
+    if event_type == "round_start":
+        return RoundStartEvent(
+            debate_id=debate_id,
+            round_number=event_data.get("round_number", 0),
+            phase=event_data.get("phase", ""),
+            timestamp=timestamp,
+        )
+
+    if event_type == "round_end":
+        return RoundEndEvent(
+            debate_id=debate_id,
+            round_number=event_data.get("round_number", 0),
+            timestamp=timestamp,
+        )
+
+    if event_type == "agent_message":
+        return AgentMessageEvent(
+            debate_id=debate_id,
+            agent=event_data.get("agent", ""),
+            content=event_data.get("content", ""),
+            round_number=event_data.get("round_number", 0),
+            role=event_data.get("role", ""),
+            confidence=event_data.get("confidence"),
+            timestamp=timestamp,
+        )
+
+    if event_type == "propose":
+        return ProposeEvent(
+            debate_id=debate_id,
+            agent=event_data.get("agent", ""),
+            proposal=event_data.get("proposal", ""),
+            round_number=event_data.get("round_number", 0),
+            confidence=event_data.get("confidence"),
+            timestamp=timestamp,
+        )
+
+    if event_type == "critique":
+        return CritiqueEvent(
+            debate_id=debate_id,
+            agent=event_data.get("agent", ""),
+            target_agent=event_data.get("target_agent", ""),
+            critique=event_data.get("critique", ""),
+            round_number=event_data.get("round_number", 0),
+            timestamp=timestamp,
+        )
+
+    if event_type == "revision":
+        return RevisionEvent(
+            debate_id=debate_id,
+            agent=event_data.get("agent", ""),
+            revision=event_data.get("revision", ""),
+            round_number=event_data.get("round_number", 0),
+            timestamp=timestamp,
+        )
+
+    if event_type == "vote":
+        return VoteEvent(
+            debate_id=debate_id,
+            agent=event_data.get("agent", ""),
+            choice=event_data.get("choice", ""),
+            confidence=event_data.get("confidence"),
+            round_number=event_data.get("round_number", 0),
+            timestamp=timestamp,
+        )
+
+    if event_type in ("consensus", "consensus_reached"):
+        return ConsensusEvent(
+            debate_id=debate_id,
+            reached=event_data.get("reached", False),
+            agreement=event_data.get("agreement"),
+            final_answer=event_data.get("final_answer"),
+            timestamp=timestamp,
+        )
+
+    if event_type == "debate_end":
+        return DebateEndEvent(
+            debate_id=debate_id,
+            final_answer=event_data.get("final_answer"),
+            consensus_reached=event_data.get("consensus_reached", False),
+            total_rounds=event_data.get("total_rounds", 0),
+            timestamp=timestamp,
+        )
+
+    if event_type == "phase_change":
+        return PhaseChangeEvent(
+            debate_id=debate_id,
+            phase=event_data.get("phase", ""),
+            previous_phase=event_data.get("previous_phase"),
+            timestamp=timestamp,
+        )
+
+    if event_type == "error":
+        return ErrorEvent(
+            message=event_data.get("message", ""),
+            code=event_data.get("code"),
+            debate_id=debate_id,
+            timestamp=timestamp,
+        )
+
+    if event_type == "heartbeat":
+        return HeartbeatEvent(timestamp=timestamp)
+
+    # Fallback to generic event for unknown types
+    return WebSocketEvent.from_dict(data)
+
+
 @dataclass
 class WebSocketOptions:
     """Options for WebSocket connection."""
