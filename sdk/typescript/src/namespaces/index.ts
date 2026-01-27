@@ -375,3 +375,207 @@ export {
   type QueueStatus,
   type ListBatchesOptions,
 } from './batch';
+
+// Email Integrations
+export {
+  GmailAPI,
+  type GmailConnection,
+  type EmailTriageRule,
+  type EmailDebateConfig,
+  type ProcessedEmail,
+  type GmailStats,
+  type OAuthInitResponse,
+  type SyncResult,
+  type CreateTriageRuleRequest,
+  type UpdateTriageRuleRequest,
+  type CreateDebateConfigRequest,
+} from './gmail';
+
+export {
+  OutlookAPI,
+  type OutlookOAuthResponse,
+  type OutlookAuthResult,
+  type OutlookStatus,
+  type MailFolder,
+  type MessageSummary,
+  type Message,
+  type Attachment,
+  type Conversation,
+  type SendMessageRequest,
+  type ReplyMessageRequest,
+  type ListMessagesParams,
+} from './outlook';
+
+// Accounting & Payroll
+export {
+  AccountingAPI,
+  type Company,
+  type FinancialStats,
+  type Customer,
+  type Transaction,
+  type AccountingStatus,
+  type FinancialReport,
+  type ReportRequest,
+  type Employee,
+  type PayrollRun,
+  type PayrollDetails,
+  type JournalEntry,
+  type ListCustomersParams,
+  type ListTransactionsParams,
+} from './accounting';
+
+// Unified Inbox (Multi-Account Email)
+export {
+  UnifiedInboxAPI,
+  type EmailProvider,
+  type AccountStatus,
+  type TriageAction,
+  type PriorityTier,
+  type ConnectedAccount,
+  type UnifiedMessage,
+  type TriageResult,
+  type InboxStats,
+  type InboxTrends,
+  type OAuthUrlResponse,
+  type ConnectAccountRequest,
+  type ListMessagesParams as UnifiedInboxListParams,
+  type TriageRequest,
+  type BulkAction,
+  type BulkActionRequest,
+} from './unified-inbox';
+
+// Expenses
+export {
+  ExpensesAPI,
+  type ExpenseCategory,
+  type ExpenseStatus,
+  type PaymentMethod,
+  type Expense,
+  type UploadReceiptRequest,
+  type CreateExpenseRequest,
+  type UpdateExpenseRequest,
+  type ListExpensesParams,
+  type ExpenseStats,
+  type SyncResult as ExpenseSyncResult,
+  type CategorizeResult,
+} from './expenses';
+
+// Threat Intelligence
+export {
+  ThreatIntelAPI,
+  type ThreatSeverity,
+  type ThreatType,
+  type HashType,
+  type URLCheckResult,
+  type URLBatchSummary,
+  type IPReputationResult,
+  type IPBatchSummary,
+  type HashCheckResult,
+  type HashBatchSummary,
+  type EmailScanResult,
+  type ThreatIntelStatus,
+  type CheckURLRequest,
+  type CheckURLsBatchRequest,
+  type CheckIPsBatchRequest,
+  type CheckHashesBatchRequest,
+  type ScanEmailRequest,
+} from './threat-intel';
+
+// Devices & Push Notifications
+export {
+  DevicesAPI,
+  type DeviceType,
+  type NotificationStatus,
+  type DeviceRegistration,
+  type Device,
+  type NotificationMessage,
+  type NotificationResult,
+  type UserNotificationResult,
+  type ConnectorHealth,
+  type AlexaRequest,
+  type AlexaResponse,
+  type GoogleActionsRequest,
+  type GoogleActionsResponse,
+} from './devices';
+
+// Privacy (GDPR/CCPA)
+export {
+  PrivacyAPI,
+  type DataCategory,
+  type ThirdPartySharing,
+  type DataInventory,
+  type PrivacyPreferences,
+  type ExportMetadata,
+  type DataExport,
+  type AccountDeletionResponse,
+  type AccountDeletionRequest,
+} from './privacy';
+
+// Feedback (NPS & User Feedback)
+export {
+  FeedbackAPI,
+  type FeedbackType,
+  type NPSSubmission,
+  type FeedbackSubmission,
+  type FeedbackResponse,
+  type NPSSummary,
+  type FeedbackPrompt,
+} from './feedback';
+
+// Code Review
+export {
+  CodeReviewAPI,
+  type FindingSeverity,
+  type FindingCategory,
+  type ReviewFinding,
+  type ReviewResult,
+  type CodeReviewRequest,
+  type DiffReviewRequest,
+  type PRReviewRequest,
+  type SecurityScanResult,
+  type ReviewHistoryResponse,
+} from './code-review';
+
+// RLM (Recursive Language Models)
+export {
+  RLMAPI,
+  type RLMStrategy,
+  type SourceType,
+  type StreamMode,
+  type StrategyInfo,
+  type CompressionResult,
+  type QueryResult,
+  type ContextSummary,
+  type ContextDetails,
+  type StreamChunk,
+  type RLMStats,
+} from './rlm';
+
+// Backups (Disaster Recovery)
+export {
+  BackupsAPI,
+  type BackupType,
+  type BackupStatus,
+  type Backup,
+  type VerificationResult,
+  type ComprehensiveVerificationResult,
+  type RetentionPolicy,
+  type BackupStats,
+} from './backups';
+
+// Dashboard
+export {
+  DashboardAPI,
+  type StatCard,
+  type DashboardOverview,
+  type TeamPerformance,
+  type TopSender,
+  type DashboardStats,
+  type ActivityItem,
+  type LabelInfo,
+  type UrgentEmail,
+  type PendingAction,
+  type InboxSummary,
+  type QuickAction,
+  type QuickActionResult,
+} from './dashboard';
