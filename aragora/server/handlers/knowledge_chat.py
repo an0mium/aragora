@@ -271,32 +271,12 @@ class KnowledgeChatHandler(BaseHandler):
                 return True
         return False
 
-    def _check_auth(self, handler: Any) -> Optional[HandlerResult]:
-        """Check authentication and return error response if not authenticated."""
-        user, err = self.require_auth_or_error(handler)
-        if err:
-            return err
-        return None
-
-    def _check_permission(self, handler: Any, permission: str) -> Optional[HandlerResult]:
-        """Check RBAC permission and return error response if denied."""
-        user, err = self.require_auth_or_error(handler)
-        if err:
-            return err
-
-        # Check permission
-        permissions = getattr(user, "permissions", []) or []
-        roles = getattr(user, "roles", []) or []
-        if permission not in permissions and "admin" not in roles and "admin" not in permissions:
-            return error_response(f"Permission denied: requires {permission}", 403)
-        return None
-
     def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle GET requests."""
         # Check read permission for all GET requests
-        perm_error = self._check_permission(handler, self.KNOWLEDGE_READ_PERMISSION)
+        _, perm_error = self.require_permission_or_error(handler, self.KNOWLEDGE_READ_PERMISSION)
         if perm_error:
             return perm_error
 
