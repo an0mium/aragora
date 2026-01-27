@@ -469,9 +469,10 @@ class RedisSessionStore(SessionStore):
         # Get Redis client
         from aragora.server.redis_config import get_redis_client
 
-        self._redis = get_redis_client()
-        if self._redis is None:
+        redis_client = get_redis_client()
+        if redis_client is None:
             raise RuntimeError("Redis not available")
+        self._redis = redis_client  # Type is narrowed after None check
 
         # Pub/Sub subscriber thread
         self._pubsub = None
