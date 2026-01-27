@@ -1,7 +1,7 @@
 # Test Skip Marker Audit
 
-**Generated**: 2026-01-26
-**Total Skip Markers**: 598
+**Generated**: 2026-01-27
+**Total Skip Markers**: 595
 
 ---
 
@@ -9,12 +9,11 @@
 
 | Category | Count | Percentage |
 |----------|-------|------------|
-| missing_feature | 346 | 57.9% |
-| optional_dependency | 193 | 32.3% |
-| integration_dependency | 26 | 4.3% |
+| missing_feature | 346 | 58.2% |
+| optional_dependency | 193 | 32.4% |
+| integration_dependency | 30 | 5.0% |
 | known_bug | 12 | 2.0% |
 | platform_specific | 9 | 1.5% |
-| uncategorized | 7 | 1.2% |
 | performance | 3 | 0.5% |
 | flaky_test | 2 | 0.3% |
 
@@ -22,9 +21,9 @@
 
 | Type | Count |
 |------|-------|
-| `pytest.skip` | 367 |
+| `pytest.skip` | 369 |
 | `skipif` | 224 |
-| `skip` | 7 |
+| `skip` | 2 |
 
 ## High-Skip Files (Top 10)
 
@@ -71,7 +70,7 @@
 
 ## Skip Count Baseline
 
-Current baseline: **598** skips
+Current baseline: **595** skips
 
 CI will warn if skip count exceeds this baseline.
 Update `tests/.skip_baseline` when intentionally adding skips.
