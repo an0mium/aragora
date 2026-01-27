@@ -19,7 +19,39 @@ from aragora.agents.cv import (
     ReliabilityMetrics,
 )
 from aragora.debate.team_selector import TeamSelector, TeamSelectionConfig
-from aragora.core import Agent
+from aragora.core import Agent, Critique, Vote
+
+
+class MockAgent(Agent):
+    """Mock agent for CV selection tests."""
+
+    def __init__(self, name: str = "mock", model: str = "mock-model", role: str = "proposer"):
+        super().__init__(name, model, role)
+        self.agent_type = "mock"
+
+    async def generate(self, prompt: str, context: list = None) -> str:
+        return f"Response from {self.name}"
+
+    async def critique(self, proposal: str, task: str, context: list = None):
+        return Critique(
+            agent=self.name,
+            target_agent="proposer",
+            target_content=proposal[:50] if proposal else "",
+            issues=["Minor issue"],
+            suggestions=["Consider edge cases"],
+            severity=0.3,
+            reasoning="Good overall approach",
+        )
+
+    async def vote(self, proposals: dict, task: str):
+        choice = list(proposals.keys())[0] if proposals else "none"
+        return Vote(
+            agent=self.name,
+            choice=choice,
+            reasoning="Best solution",
+            confidence=0.9,
+            continue_debate=False,
+        )
 
 
 # =============================================================================
@@ -91,7 +123,32 @@ def mock_elo_system():
 @pytest.fixture
 def mock_calibration_tracker():
     """Create a mock calibration tracker."""
+    from dataclasses import dataclass
+
+    @dataclass
+    class MockCalibrationSummary:
+        accuracy: float = 0.85
+        brier_score: float = 0.15
+        ece: float = 0.08  # Expected calibration error
+        bias_direction: str = "well-calibrated"
+
+    calibration_data = {
+        "claude-opus": MockCalibrationSummary(accuracy=0.90, brier_score=0.15, ece=0.08),
+        "gpt-4": MockCalibrationSummary(accuracy=0.85, brier_score=0.20, ece=0.10),
+        "gemini-pro": MockCalibrationSummary(accuracy=0.80, brier_score=0.25, ece=0.12),
+        "mistral-large": MockCalibrationSummary(accuracy=0.75, brier_score=0.30, ece=0.15),
+    }
+
     tracker = MagicMock()
+
+    # Set up get_calibration_summary to return proper data structure
+    tracker.get_calibration_summary = Mock(
+        side_effect=lambda name: calibration_data.get(name, MockCalibrationSummary())
+    )
+
+    # Set up domain breakdown to return empty (no domain-specific data in mock)
+    tracker.get_domain_breakdown = Mock(return_value={})
+
     tracker.get_brier_score = Mock(
         side_effect=lambda name, domain=None: {
             "claude-opus": 0.15,
@@ -118,7 +175,24 @@ def mock_calibration_tracker():
 @pytest.fixture
 def mock_performance_monitor():
     """Create a mock performance monitor."""
+    from dataclasses import dataclass
+
+    @dataclass
+    class MockAgentStats:
+        success_rate: float = 95.0  # Percentage
+        timeout_rate: float = 2.0
+        total_calls: int = 100
+        avg_duration_ms: float = 250.0
+        max_duration_ms: float = 800.0
+
     monitor = MagicMock()
+    # Set up agent_stats to return proper data for known agents
+    monitor.agent_stats = {
+        "claude-opus": MockAgentStats(success_rate=95.0, total_calls=100),
+        "gpt-4": MockAgentStats(success_rate=92.0, total_calls=80),
+        "gemini-pro": MockAgentStats(success_rate=88.0, total_calls=60),
+        "mistral-large": MockAgentStats(success_rate=85.0, total_calls=40),
+    }
     monitor.get_agent_metrics = Mock(
         return_value={
             "success_rate": 0.95,
@@ -147,10 +221,10 @@ def cv_builder(mock_elo_system, mock_calibration_tracker, mock_performance_monit
 def sample_agents():
     """Create sample Agent objects for testing."""
     return [
-        Agent(name="claude-opus", model="claude-3-opus"),
-        Agent(name="gpt-4", model="gpt-4-turbo"),
-        Agent(name="gemini-pro", model="gemini-1.5-pro"),
-        Agent(name="mistral-large", model="mistral-large"),
+        MockAgent(name="claude-opus", model="claude-3-opus"),
+        MockAgent(name="gpt-4", model="gpt-4-turbo"),
+        MockAgent(name="gemini-pro", model="gemini-1.5-pro"),
+        MockAgent(name="mistral-large", model="mistral-large"),
     ]
 
 
@@ -418,7 +492,7 @@ class TestCVSelectionEdgeCases:
         self, cv_builder, mock_elo_system, mock_calibration_tracker
     ):
         """Verify selection handles unknown agents gracefully."""
-        unknown_agent = Agent(name="unknown-model", model="unknown")
+        unknown_agent = MockAgent(name="unknown-model", model="unknown")
 
         config = TeamSelectionConfig(enable_cv_selection=True)
         selector = TeamSelector(

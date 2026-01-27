@@ -465,8 +465,10 @@ class TeamSelector:
         """Get ELO rating for an agent."""
         if self.elo_system:
             try:
-                return self.elo_system.get_rating(agent.name)
-            except (KeyError, AttributeError):
+                rating = self.elo_system.get_rating(agent.name)
+                # Handle both AgentRating objects and raw float values
+                return rating.elo if hasattr(rating, "elo") else float(rating)
+            except (KeyError, AttributeError, TypeError):
                 pass
         return 1000.0  # Default ELO
 
@@ -1025,10 +1027,12 @@ class TeamSelector:
         # ELO contribution
         if self.elo_system:
             try:
-                elo = self.elo_system.get_rating(agent.name)
+                rating = self.elo_system.get_rating(agent.name)
+                # Handle both AgentRating objects and raw float values
+                elo = rating.elo if hasattr(rating, "elo") else float(rating)
                 # Normalize: baseline is average, each 100 points = weight bonus
                 score += (elo - self.config.elo_baseline) / 1000 * self.config.elo_weight
-            except (KeyError, AttributeError) as e:
+            except (KeyError, AttributeError, TypeError) as e:
                 logger.debug(f"ELO rating not found for {agent.name}: {e}")
 
         # Calibration contribution (well-calibrated agents get a bonus)
