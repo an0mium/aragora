@@ -25,6 +25,8 @@ import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
+from aragora.rbac.decorators import require_permission
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -67,7 +69,9 @@ def _set_cached_data(user_id: str, key: str, data: Dict[str, Any]) -> None:
 # =============================================================================
 
 
+@require_permission("dashboard:read")
 async def handle_get_dashboard(
+    context: AuthorizationContext,
     data: Dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
@@ -177,7 +181,9 @@ async def handle_get_dashboard(
 # =============================================================================
 
 
+@require_permission("dashboard:read")
 async def handle_get_stats(
+    context: AuthorizationContext,
     data: Dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
@@ -269,7 +275,9 @@ async def handle_get_stats(
 # =============================================================================
 
 
+@require_permission("dashboard:read")
 async def handle_get_activity(
+    context: AuthorizationContext,
     data: Dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
@@ -393,7 +401,9 @@ async def handle_get_activity(
 # =============================================================================
 
 
+@require_permission("dashboard:read")
 async def handle_get_inbox_summary(
+    context: AuthorizationContext,
     data: Dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
@@ -483,7 +493,9 @@ async def handle_get_inbox_summary(
 # =============================================================================
 
 
+@require_permission("dashboard:read")
 async def handle_get_quick_actions(
+    context: AuthorizationContext,
     data: Dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
@@ -556,7 +568,9 @@ async def handle_get_quick_actions(
         return error_response(f"Get actions failed: {str(e)}", status=500)
 
 
+@require_permission("dashboard:write")
 async def handle_execute_quick_action(
+    context: AuthorizationContext,
     data: Dict[str, Any],
     action_id: str = "",
     user_id: str = "default",
