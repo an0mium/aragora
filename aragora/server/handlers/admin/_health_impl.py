@@ -1175,6 +1175,118 @@ class HealthHandler(SecureHandler):
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
             }
 
+        # 8. Integration Store
+        try:
+            from aragora.storage.integration_store import IntegrationStore  # noqa: F401
+
+            integration_store = self.ctx.get("integration_store")
+            if integration_store is not None:
+                stores["integration_store"] = {
+                    "healthy": True,
+                    "status": "connected",
+                    "type": type(integration_store).__name__,
+                }
+            else:
+                stores["integration_store"] = {
+                    "healthy": True,
+                    "status": "not_initialized",
+                    "hint": "Will auto-create on first integration",
+                }
+        except ImportError:
+            stores["integration_store"] = {
+                "healthy": True,
+                "status": "module_not_available",
+            }
+        except Exception as e:
+            stores["integration_store"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+            }
+
+        # 9. Gmail Token Store
+        try:
+            from aragora.storage.gmail_token_store import GmailTokenStore  # noqa: F401
+
+            gmail_token_store = self.ctx.get("gmail_token_store")
+            if gmail_token_store is not None:
+                stores["gmail_token_store"] = {
+                    "healthy": True,
+                    "status": "connected",
+                    "type": type(gmail_token_store).__name__,
+                }
+            else:
+                stores["gmail_token_store"] = {
+                    "healthy": True,
+                    "status": "not_initialized",
+                    "hint": "Configure Gmail OAuth to enable",
+                }
+        except ImportError:
+            stores["gmail_token_store"] = {
+                "healthy": True,
+                "status": "module_not_available",
+            }
+        except Exception as e:
+            stores["gmail_token_store"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+            }
+
+        # 10. Sync Store
+        try:
+            from aragora.connectors.enterprise.sync_store import SyncStore  # noqa: F401
+
+            sync_store = self.ctx.get("sync_store")
+            if sync_store is not None:
+                stores["sync_store"] = {
+                    "healthy": True,
+                    "status": "connected",
+                    "type": type(sync_store).__name__,
+                }
+            else:
+                stores["sync_store"] = {
+                    "healthy": True,
+                    "status": "not_initialized",
+                    "hint": "Enable enterprise sync to initialize",
+                }
+        except ImportError:
+            stores["sync_store"] = {
+                "healthy": True,
+                "status": "module_not_available",
+            }
+        except Exception as e:
+            stores["sync_store"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+            }
+
+        # 11. Decision Result Store
+        try:
+            from aragora.storage.decision_result_store import DecisionResultStore  # noqa: F401
+
+            decision_store = self.ctx.get("decision_result_store")
+            if decision_store is not None:
+                stores["decision_result_store"] = {
+                    "healthy": True,
+                    "status": "connected",
+                    "type": type(decision_store).__name__,
+                }
+            else:
+                stores["decision_result_store"] = {
+                    "healthy": True,
+                    "status": "not_initialized",
+                    "hint": "Will auto-create on first decision",
+                }
+        except ImportError:
+            stores["decision_result_store"] = {
+                "healthy": True,
+                "status": "module_not_available",
+            }
+        except Exception as e:
+            stores["decision_result_store"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+            }
+
         elapsed_ms = round((time.time() - start_time) * 1000, 2)
 
         return json_response(

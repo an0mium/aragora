@@ -509,7 +509,6 @@ class TestDatabaseStoresHealth:
         assert "debate_storage" in stores
         assert "elo_system" in stores
 
-    @pytest.mark.xfail(reason="Stores not yet added to health endpoint")
     def test_stores_health_includes_new_stores(self, health_handler):
         """Stores health includes new stores (integration, gmail, sync, decision)."""
         result = health_handler.handle("/api/health/stores", {}, None)
