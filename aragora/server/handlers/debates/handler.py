@@ -176,6 +176,10 @@ class DebatesHandler(
         if not auth_config.enabled:
             return None
 
+        # If no API token is configured on the server, skip token authentication
+        if not auth_config.api_token:
+            return None
+
         # Extract auth token from Authorization header
         auth_header = None
         if hasattr(handler, "headers"):
