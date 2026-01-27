@@ -824,11 +824,14 @@ async def handle_connector_health(
     """
     scheduler = get_scheduler()
 
+    stats = scheduler.get_stats()
+
     # Basic health check for unauthenticated requests
     if not auth_context or not RBAC_AVAILABLE:
         return {
             "status": "healthy",
             "scheduler_running": scheduler._scheduler_task is not None,
+            "total_connectors": stats["total_jobs"],
         }
 
     # Detailed stats for authenticated users
@@ -838,9 +841,8 @@ async def handle_connector_health(
         return {
             "status": "healthy",
             "scheduler_running": scheduler._scheduler_task is not None,
+            "total_connectors": stats["total_jobs"],
         }
-
-    stats = scheduler.get_stats()
 
     return {
         "status": "healthy",
