@@ -93,6 +93,27 @@ jobs:
           name: sbom
           path: sbom.spdx.json
 
+      - name: Install Cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign container image
+        if: github.event_name != 'pull_request'
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          # Sign each tag with keyless (OIDC) signing
+          for tag in ${TAGS}; do
+            cosign sign --yes "${tag}"
+          done
+        continue-on-error: true
+
+      - name: Attest SBOM
+        if: github.event_name != 'pull_request'
+        run: |
+          cosign attest --yes --predicate sbom.spdx.json --type spdx ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        continue-on-error: true
+
   security-scan:
     needs: build
     if: github.event_name != 'pull_request'
