@@ -78,17 +78,17 @@ class SharingNotificationsHandler(BaseHandler):
         if err:
             return err
 
-        user_id = user.get("sub") or user.get("user_id") or user.get("id", "anonymous")  # type: ignore[union-attr]
+        user_id = user.user_id or "anonymous"
 
         # RBAC permission check for read operations
         if RBAC_AVAILABLE and user:
             try:
                 auth_ctx = RBACContext(
                     user_id=str(user_id),
-                    user_email=user.get("email"),  # type: ignore[union-attr]
-                    org_id=user.get("org_id"),  # type: ignore[union-attr]
+                    user_email=user.email,
+                    org_id=user.org_id,
                     workspace_id=query_params.get("workspace_id"),
-                    roles=set(user.get("roles", ["member"])) if user else {"member"},  # type: ignore[union-attr]
+                    roles={user.role} if user and user.role else {"member"},
                 )
                 checker = get_permission_checker()
                 decision = checker.check_permission(auth_ctx, NOTIFICATIONS_READ_PERMISSION)
@@ -129,17 +129,17 @@ class SharingNotificationsHandler(BaseHandler):
         if err:
             return err
 
-        user_id = user.get("sub") or user.get("user_id") or user.get("id", "anonymous")  # type: ignore[union-attr]
+        user_id = user.user_id or "anonymous"
 
         # RBAC permission check for write operations
         if RBAC_AVAILABLE and user:
             try:
                 auth_ctx = RBACContext(
                     user_id=str(user_id),
-                    user_email=user.get("email"),  # type: ignore[union-attr]
-                    org_id=user.get("org_id"),  # type: ignore[union-attr]
+                    user_email=user.email,
+                    org_id=user.org_id,
                     workspace_id=query_params.get("workspace_id"),
-                    roles=set(user.get("roles", ["member"])) if user else {"member"},  # type: ignore[union-attr]
+                    roles={user.role} if user and user.role else {"member"},
                 )
                 checker = get_permission_checker()
                 decision = checker.check_permission(auth_ctx, NOTIFICATIONS_WRITE_PERMISSION)
@@ -188,7 +188,7 @@ class SharingNotificationsHandler(BaseHandler):
         if err:
             return err
 
-        user_id = user.get("sub") or user.get("user_id") or user.get("id", "anonymous")  # type: ignore[union-attr]
+        user_id = user.user_id or "anonymous"
 
         if path == "/api/v1/knowledge/notifications/preferences":
             return self._update_preferences(user_id, handler)

@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from aragora.ranking.elo import EloSystem
     from aragora.server.documents import DocumentStore
     from aragora.server.middleware.rate_limit import RateLimitResult
+    from aragora.server.stream.canvas_stream import CanvasStreamServer
     from aragora.storage import UserStore
 import logging
 import time
@@ -98,6 +99,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     stream_emitter: Optional[SyncEventEmitter] = None
     control_plane_stream: Optional["ControlPlaneStreamServer"] = None
     nomic_loop_stream: Optional["NomicLoopStreamServer"] = None
+    canvas_stream: Optional["CanvasStreamServer"] = None
     tracing: TracingMiddleware = TracingMiddleware(service_name="aragora-api")
     rbac: RBACMiddleware = RBACMiddleware(
         RBACMiddlewareConfig(

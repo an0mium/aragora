@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.events.types import StreamEvent
 
@@ -44,10 +44,13 @@ class DebateHandlersMixin:
 
         Updates team selection weights based on performance changes.
         """
+        _check_and_record_slo: Optional[Callable[[str, float, str], Any]] = None
         try:
-            from aragora.observability.metrics.slo import check_and_record_slo
+            from aragora.observability.metrics.slo import check_and_record_slo as _slo_fn
+
+            _check_and_record_slo = _slo_fn
         except ImportError:
-            check_and_record_slo = None
+            pass
 
         start = time.time()
 
@@ -86,9 +89,9 @@ class DebateHandlersMixin:
             self.stats["elo_to_debate"]["events"] += 1
 
             # Record SLO
-            if check_and_record_slo:
+            if _check_and_record_slo is not None:
                 latency_ms = (time.time() - start) * 1000
-                check_and_record_slo("elo_to_debate", latency_ms)
+                _check_and_record_slo("elo_to_debate", latency_ms, "success")
 
         except Exception as e:
             logger.error(f"ELO → Debate handler error: {e}")
@@ -99,10 +102,13 @@ class DebateHandlersMixin:
 
         Updates agent confidence based on calibration results.
         """
+        _check_and_record_slo: Optional[Callable[[str, float, str], Any]] = None
         try:
-            from aragora.observability.metrics.slo import check_and_record_slo
+            from aragora.observability.metrics.slo import check_and_record_slo as _slo_fn
+
+            _check_and_record_slo = _slo_fn
         except ImportError:
-            check_and_record_slo = None
+            pass
 
         start = time.time()
 
@@ -140,9 +146,9 @@ class DebateHandlersMixin:
             self.stats["calibration_to_agent"]["events"] += 1
 
             # Record SLO
-            if check_and_record_slo:
+            if _check_and_record_slo is not None:
                 latency_ms = (time.time() - start) * 1000
-                check_and_record_slo("calibration_to_agent", latency_ms)
+                _check_and_record_slo("calibration_to_agent", latency_ms, "success")
 
         except Exception as e:
             logger.error(f"Calibration → Agent handler error: {e}")
