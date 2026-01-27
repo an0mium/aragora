@@ -426,14 +426,16 @@ class DependencyAnalysisHandler(BaseHandler):
 
     async def handle_post(self, path: str, data: dict[str, Any]) -> HandlerResult:  # type: ignore[override]
         """Handle POST requests."""
+        # Create a default context for dependency analysis operations
+        context = AuthorizationContext(user_id="system", roles=set())
         if path == "/api/v1/codebase/analyze-dependencies":
-            return await handle_analyze_dependencies(data)
+            return await handle_analyze_dependencies(context, data)
         elif path == "/api/v1/codebase/sbom":
-            return await handle_generate_sbom(data)
+            return await handle_generate_sbom(context, data)
         elif path == "/api/v1/codebase/scan-vulnerabilities":
-            return await handle_scan_vulnerabilities(data)
+            return await handle_scan_vulnerabilities(context, data)
         elif path == "/api/v1/codebase/check-licenses":
-            return await handle_check_licenses(data)
+            return await handle_check_licenses(context, data)
         elif path == "/api/v1/codebase/clear-cache":
             return await handle_clear_cache()
         return error_response("Not found", status=404)
