@@ -355,6 +355,9 @@ print(f"Registered {count} handlers")
 - `PRE_CONSENSUS` → Trickster hollow consensus check
 - `ON_CONVERGENCE` → Convergence tracking
 
+Declarative hook configs can also be layered on top of the HookManager. See
+[HOOKS.md](HOOKS.md) for YAML configuration and built-in actions.
+
 ### Performance-ELO Integration
 
 The `PerformanceEloIntegrator` modulates ELO K-factors based on agent performance:

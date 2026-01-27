@@ -319,6 +319,21 @@ Command center endpoints power the inbox UI quick actions and daily digest.
 | GET | `/api/v1/inbox/daily-digest` | Daily digest (v1 alias) |
 | GET | `/api/email/daily-digest` | Daily digest (email alias) |
 
+## Message Bindings API
+
+Bindings map messages to routing targets (provider/account/pattern). All routes
+support `/api/v1` via version stripping.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/bindings` | List all bindings |
+| GET | `/api/bindings/{provider}` | List bindings for provider |
+| POST | `/api/bindings` | Create binding |
+| PUT | `/api/bindings/{id}` | Update binding |
+| DELETE | `/api/bindings/{id}` | Delete binding |
+| POST | `/api/bindings/resolve` | Resolve binding for a message |
+| GET | `/api/bindings/stats` | Router statistics |
+
 ## Email Services API
 
 Follow-up tracking, snooze, and category APIs live under `/api/v1/email`.

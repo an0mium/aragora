@@ -291,6 +291,8 @@ class TestGauntletStartRun:
             handler.headers = {"Content-Length": "5"}
             handler.rfile = BytesIO(b"invalid")
             handler.client_address = ("127.0.0.1", 12345)
+            # Explicitly set user_store to None to skip quota checking
+            handler.user_store = None
 
             result = await gauntlet_handler.handle("/api/v1/gauntlet/run", "POST", handler)
 

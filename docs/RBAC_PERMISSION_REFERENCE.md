@@ -182,6 +182,22 @@ Some handler permissions use a colon‑separated format (`resource:action`), e.g
 | `template.update` | Modify templates | Owner, Admin |
 | `template.delete` | Delete templates | Owner, Admin |
 
+### Repository Permissions
+
+| Permission | Description | Roles |
+|------------|-------------|-------|
+| `repository:read` | View repository indexing status, entities, graphs | Configurable |
+| `repository:write` | Start indexing or incremental updates | Configurable |
+| `repository:delete` | Remove indexed repositories | Configurable |
+
+### Bindings Permissions
+
+| Permission | Description | Roles |
+|------------|-------------|-------|
+| `bindings:read` | List bindings and router stats | Configurable |
+| `bindings:write` | Create or update bindings | Configurable |
+| `bindings:delete` | Delete bindings | Configurable |
+
 ---
 
 ## Analytics & Training Permissions

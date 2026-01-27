@@ -1,6 +1,6 @@
 # Security
 
-> **Last Updated:** 2026-01-21
+> **Last Updated:** 2026-01-27
 
 
 This document covers security features implemented in Aragora, including authentication, authorization, sandboxing, and rate limiting.
@@ -30,6 +30,7 @@ This document covers security features implemented in Aragora, including authent
   - [Admin Console](#admin-console)
   - [Developer Portal](#developer-portal)
 - [Proof Sandbox](#proof-sandbox)
+- [Sandbox Executor](#sandbox-executor)
 - [Rate Limiting](#rate-limiting)
 - [Security Headers](#security-headers)
 - [Environment Variables](#environment-variables)
@@ -373,6 +374,35 @@ try:
 except asyncio.TimeoutError:
     os.killpg(os.getpgid(process.pid), signal.SIGKILL)
 ```
+
+---
+
+## Sandbox Executor
+
+For general-purpose code execution (plugins, analysis tasks), Aragora provides
+a sandbox executor with tool policies and resource limits:
+
+```python
+from aragora.sandbox.executor import SandboxExecutor, SandboxConfig, ExecutionMode
+
+executor = SandboxExecutor(
+    SandboxConfig(
+        mode=ExecutionMode.SUBPROCESS,
+        network_enabled=False,
+        cleanup_on_complete=True,
+    )
+)
+result = await executor.execute("print('ok')", language="python")
+```
+
+Key safeguards:
+
+- **Policy enforcement** via `ToolPolicy` (allow/deny rules)
+- **Resource limits** (CPU, memory, execution time, file count)
+- **Network disabled** by default
+- **Workspace isolation** in per-execution directories
+
+See `aragora/sandbox/policies.py` for policy defaults and `SandboxConfig` fields.
 
 ---
 

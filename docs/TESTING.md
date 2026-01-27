@@ -151,6 +151,7 @@ Tests use markers to categorize them:
 | `integration_minimal` | Minimal integration baseline (no external services) | `-m integration_minimal` |
 | `knowledge` | Knowledge Mound tests | `-m knowledge` |
 | `e2e` | End-to-end tests | `-m e2e` |
+| `no_auto_auth` | Opt out of autouse auth mocking in handler tests | `-m no_auto_auth` |
 
 ```bash
 # Run only fast tests

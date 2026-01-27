@@ -35,6 +35,7 @@ Use this index for fast navigation. For a fuller map, see
 
 - Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Debate engine: [DEBATE_INTERNALS.md](DEBATE_INTERNALS.md)
+- Declarative hooks: [HOOKS.md](HOOKS.md)
 - Workflow engine: [WORKFLOW_ENGINE.md](WORKFLOW_ENGINE.md)
 - Templates: [TEMPLATES.md](TEMPLATES.md)
 - Knowledge Mound: [KNOWLEDGE_MOUND.md](KNOWLEDGE_MOUND.md)

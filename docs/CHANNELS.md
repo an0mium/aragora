@@ -155,6 +155,58 @@ await dock.send_message("C123456", message)
 
 ---
 
+## Agent Channels (Peer Messaging)
+
+Debates can enable peer‑to‑peer messaging between agents using `AgentChannel`.
+This enables proposals, critiques, and direct questions to flow alongside the
+main debate loop.
+
+**Integration helper:** `aragora/debate/channel_integration.py`
+
+**Protocol flags:**
+- `enable_agent_channels` (default: true)
+- `agent_channel_max_history` (default: 100)
+
+```python
+from aragora.debate.channel_integration import ChannelIntegration
+
+integration = ChannelIntegration(
+    debate_id="debate-123",
+    agents=agents,
+    protocol=protocol,
+)
+await integration.setup()
+
+context = integration.get_context_for_prompt(limit=5)
+await integration.broadcast_proposal(
+    agent_name="proposer",
+    proposal_content="We should rate-limit by org tier.",
+    round_number=1,
+)
+```
+
+---
+
+## Message Bindings API
+
+Bindings map incoming messages to routing targets (provider, account, pattern).
+
+**Endpoints:**
+- `GET /api/bindings` – list all bindings
+- `GET /api/bindings/{provider}` – list provider bindings
+- `POST /api/bindings` – create binding
+- `PUT /api/bindings/{id}` – update binding
+- `DELETE /api/bindings/{id}` – remove binding
+- `POST /api/bindings/resolve` – resolve binding for a message
+- `GET /api/bindings/stats` – router statistics
+
+**RBAC permissions:**
+- `bindings:read`
+- `bindings:write`
+- `bindings:delete`
+
+---
+
 ## Voice Integration
 
 Aragora supports bidirectional voice I/O over WebSocket:

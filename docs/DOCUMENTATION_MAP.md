@@ -44,6 +44,7 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [DEBATE_INTERNALS.md](DEBATE_INTERNALS.md)
+- [HOOKS.md](HOOKS.md)
 - [WORKFLOW_ENGINE.md](WORKFLOW_ENGINE.md)
 - [TEMPLATES.md](TEMPLATES.md)
 - [KNOWLEDGE_MOUND.md](KNOWLEDGE_MOUND.md)
