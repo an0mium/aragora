@@ -341,12 +341,12 @@ class MoleculeOrchestrator:
         if agent_name:
             profile = self._agent_profiles.get(agent_name)
             if profile:
-                return self._tracker.assign_molecule(molecule_id, profile)
+                return self._tracker.assign_molecule(molecule_id, profile)  # type: ignore[arg-type]
             return False
 
         # Find best agent
         available = list(self._agent_profiles.values())
-        best = self._tracker.find_best_agent(molecule, available)
+        best = self._tracker.find_best_agent(molecule, available)  # type: ignore[arg-type]
 
         if best:
             return self._tracker.assign_molecule(molecule_id, best)
@@ -482,7 +482,7 @@ class MoleculeOrchestrator:
                     p for p in self._agent_profiles.values() if p.name not in mol.assignment_history
                 ]
 
-                best = self._tracker.find_best_agent(mol, available)
+                best = self._tracker.find_best_agent(mol, available)  # type: ignore[arg-type]
                 if best:
                     # Reset to pending and reassign
                     mol.status = MoleculeStatus.PENDING
