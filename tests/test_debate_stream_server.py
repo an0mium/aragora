@@ -97,6 +97,7 @@ class TestDebateStreamServerConnectionRate:
     def test_allows_connections_within_limit(self):
         """Should allow connections within rate limit."""
         server = DebateStreamServer()
+        server._clients_lock = asyncio.Lock()
 
         for i in range(5):
             allowed, error = server._check_ws_connection_rate(f"192.168.1.{i}")
@@ -105,6 +106,7 @@ class TestDebateStreamServerConnectionRate:
     def test_rate_limits_single_ip(self):
         """Should rate limit connections from single IP after exceeding limits."""
         server = DebateStreamServer()
+        server._clients_lock = asyncio.Lock()
 
         # Keep connecting and releasing until we hit rate limit
         # (concurrent limit is smaller, so release after each)
@@ -121,6 +123,7 @@ class TestDebateStreamServerConnectionRate:
     def test_limits_concurrent_connections_per_ip(self):
         """Should limit concurrent connections per IP."""
         server = DebateStreamServer()
+        server._clients_lock = asyncio.Lock()
 
         # Simulate max concurrent connections
         for _ in range(WS_MAX_CONNECTIONS_PER_IP):
@@ -134,6 +137,7 @@ class TestDebateStreamServerConnectionRate:
     def test_release_frees_connection_slot(self):
         """Releasing connection should free slot."""
         server = DebateStreamServer()
+        server._clients_lock = asyncio.Lock()
 
         # Fill up concurrent connections
         for _ in range(WS_MAX_CONNECTIONS_PER_IP):
