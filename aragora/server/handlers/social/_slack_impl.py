@@ -1442,8 +1442,28 @@ class SlackHandler(SecureHandler):
         """
         import uuid
 
-        debate_id = f"debate-{uuid.uuid4().hex[:8]}"
+        debate_id = f"slack-{uuid.uuid4().hex[:8]}"
         thread_ts: Optional[str] = None
+
+        # Register debate origin for tracking and cross-system integration
+        try:
+            from aragora.server.debate_origin import register_debate_origin
+
+            register_debate_origin(
+                debate_id=debate_id,
+                platform="slack",
+                channel_id=channel_id,
+                user_id=user_id,
+                metadata={
+                    "topic": topic,
+                    "workspace_id": workspace_id,
+                    "response_url": response_url,
+                },
+            )
+        except ImportError:
+            logger.debug("Debate origin tracking not available")
+        except Exception as e:
+            logger.warning(f"Failed to register debate origin: {e}")
 
         try:
             from aragora import Arena, DebateProtocol, Environment
@@ -1472,6 +1492,15 @@ class SlackHandler(SecureHandler):
                 )
                 if thread_ts:
                     logger.debug(f"Debate {debate_id} started thread: {thread_ts}")
+                    # Update origin with thread_ts for proper threaded routing
+                    try:
+                        from aragora.server.debate_origin import get_debate_origin
+
+                        origin = get_debate_origin(debate_id)
+                        if origin:
+                            origin.thread_id = thread_ts
+                    except Exception:
+                        pass
                 else:
                     # Fall back to response_url if Web API failed
                     logger.warning("Web API post failed, falling back to response_url")
@@ -1628,6 +1657,14 @@ class SlackHandler(SecureHandler):
 
             # Update debate status to completed
             self._update_debate_status(debate_id, "completed", receipt_id=receipt_id)
+
+            # Mark result sent in origin tracking
+            try:
+                from aragora.server.debate_origin import mark_result_sent
+
+                mark_result_sent(debate_id)
+            except Exception:
+                pass
 
         except Exception as e:
             logger.error(f"Async debate creation failed: {e}", exc_info=True)

@@ -355,9 +355,33 @@ class TeamsIntegrationHandler(BaseHandler):
         thread_ts: Optional[str],
     ) -> None:
         """Run a debate asynchronously and post updates."""
+        import uuid
+
         connector = get_teams_connector()
         if not connector:
             return
+
+        debate_id = f"teams-{uuid.uuid4().hex[:8]}"
+
+        # Register debate origin for tracking and cross-system integration
+        try:
+            from aragora.server.debate_origin import register_debate_origin
+
+            register_debate_origin(
+                debate_id=debate_id,
+                platform="teams",
+                channel_id=conv_id,
+                user_id="teams-user",  # Teams user ID from activity if available
+                thread_id=thread_ts,
+                metadata={
+                    "topic": topic,
+                    "service_url": service_url,
+                },
+            )
+        except ImportError:
+            logger.debug("Debate origin tracking not available")
+        except Exception as e:
+            logger.warning(f"Failed to register debate origin: {e}")
 
         try:
             # Import debate components
@@ -383,9 +407,10 @@ class TeamsIntegrationHandler(BaseHandler):
                 self._active_debates.pop(conv_id, None)
                 return
 
-            # Update status
+            # Update status with debate_id
             if conv_id in self._active_debates:
                 self._active_debates[conv_id]["status"] = "running"
+                self._active_debates[conv_id]["debate_id"] = debate_id
 
             # Run debate
             arena = Arena(env, agents, protocol)
@@ -420,6 +445,14 @@ class TeamsIntegrationHandler(BaseHandler):
             if conv_id in self._active_debates:
                 self._active_debates[conv_id]["status"] = "completed"
                 self._active_debates[conv_id]["result"] = result
+
+            # Mark result sent in origin tracking
+            try:
+                from aragora.server.debate_origin import mark_result_sent
+
+                mark_result_sent(debate_id)
+            except Exception:
+                pass
 
         except Exception as e:
             logger.exception(f"Teams debate error: {e}")
