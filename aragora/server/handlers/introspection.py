@@ -60,6 +60,7 @@ class IntrospectionHandler(BaseHandler):
         "/api/introspection/all",
         "/api/introspection/leaderboard",
         "/api/introspection/agents",
+        "/api/introspection/agents/availability",
         "/api/introspection/agents/*",
     ]
 
@@ -72,6 +73,7 @@ class IntrospectionHandler(BaseHandler):
             "/api/introspection/all",
             "/api/introspection/leaderboard",
             "/api/introspection/agents",
+            "/api/introspection/agents/availability",
         ):
             return True
         if path.startswith("/api/introspection/agents/"):
@@ -95,6 +97,8 @@ class IntrospectionHandler(BaseHandler):
             return self._get_introspection_leaderboard(min(limit, 50))
         elif path == "/api/introspection/agents":
             return self._list_agents()
+        elif path == "/api/introspection/agents/availability":
+            return self._get_agent_availability()
         elif path.startswith("/api/introspection/agents/"):
             # Path: /api/introspection/agents/{name}
             # After strip().split("/") = ["api", "introspection", "agents", "{name}"]
@@ -199,6 +203,42 @@ class IntrospectionHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Error getting introspection for {agent}: {e}", exc_info=True)
             return error_response("Failed to get introspection", 500)
+
+    def _get_agent_availability(self) -> HandlerResult:
+        """Return credential availability for known agent types."""
+        try:
+            from aragora.agents.credential_validator import get_agent_credential_status
+        except ImportError:
+            return error_response("Credential validator not available", 503)
+
+        try:
+            statuses = get_agent_credential_status()
+            available = []
+            missing = []
+            details: dict[str, Any] = {}
+
+            for agent_type, status in statuses.items():
+                details[agent_type] = {
+                    "available": status.is_available,
+                    "required_vars": status.required_vars,
+                    "missing_vars": status.missing_vars,
+                    "available_via": status.available_via,
+                }
+                if status.is_available:
+                    available.append(agent_type)
+                else:
+                    missing.append(agent_type)
+
+            return json_response(
+                {
+                    "available": sorted(available),
+                    "missing": sorted(missing),
+                    "details": details,
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error getting agent availability: {e}", exc_info=True)
+            return error_response("Failed to determine agent availability", 500)
 
     @ttl_cache(ttl_seconds=120, key_prefix="lb_introspection_all")
     def _get_all_introspection(self) -> HandlerResult:
