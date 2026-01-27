@@ -145,13 +145,16 @@ def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Ta
 
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     auto_error_response,
     error_response,
     json_response,
 )
+from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 from ..utils.rate_limit import rate_limit
+
+# RBAC permission for integration status endpoints
+BOTS_READ_PERMISSION = "bots:read"
 
 # Environment variables for Slack integration (fallback for single-workspace mode)
 SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")
@@ -227,8 +230,15 @@ def get_slack_integration() -> Optional[Any]:
     return _slack_integration
 
 
-class SlackHandler(BaseHandler):
-    """Handler for Slack integration endpoints."""
+class SlackHandler(SecureHandler):
+    """Handler for Slack integration endpoints.
+
+    RBAC Protected:
+    - bots:read - required for status endpoint
+
+    Note: Webhook endpoints are authenticated via Slack's signature,
+    not RBAC, since they are called by Slack servers directly.
+    """
 
     ROUTES = [
         "/api/v1/integrations/slack/commands",
@@ -241,13 +251,22 @@ class SlackHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    def handle(
+    async def handle(  # type: ignore[override]
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route Slack requests to appropriate methods."""
         logger.debug(f"Slack request: {path}")
 
         if path == "/api/v1/integrations/slack/status":
+            # RBAC: Require authentication and bots:read permission
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=True)
+                self.check_permission(auth_context, BOTS_READ_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                logger.warning(f"Slack status access denied: {e}")
+                return error_response(str(e), 403)
             return self._get_status()
 
         # All other endpoints require POST
