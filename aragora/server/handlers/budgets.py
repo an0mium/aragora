@@ -14,7 +14,10 @@ Endpoints:
 - POST /api/v1/budgets/:id/override - Add override for user
 - DELETE /api/v1/budgets/:id/override/:user_id - Remove override
 - POST /api/v1/budgets/:id/reset    - Reset budget period
+- GET  /api/v1/budgets/:id/transactions - Get transaction history
+- GET  /api/v1/budgets/:id/trends   - Get spending trends for budget
 - GET  /api/v1/budgets/summary      - Get org budget summary
+- GET  /api/v1/budgets/trends       - Get org-wide spending trends
 - POST /api/v1/budgets/check        - Pre-flight cost check
 """
 
@@ -123,6 +126,10 @@ class BudgetHandler(BaseHandler):
         if path == "/api/v1/budgets/summary" and method == "GET":
             return self._get_summary(org_id)
 
+        # GET /api/v1/budgets/trends - org-wide trends
+        if path == "/api/v1/budgets/trends" and method == "GET":
+            return self._get_org_trends(org_id, handler)
+
         # POST /api/v1/budgets/check
         if path == "/api/v1/budgets/check" and method == "POST":
             return await self._check_budget(org_id, user_id, handler)
@@ -177,6 +184,14 @@ class BudgetHandler(BaseHandler):
             # POST /api/v1/budgets/:id/reset
             if len(parts) == 6 and parts[5] == "reset" and method == "POST":
                 return self._reset_budget(budget_id, org_id)
+
+            # GET /api/v1/budgets/:id/transactions
+            if len(parts) == 6 and parts[5] == "transactions" and method == "GET":
+                return self._get_transactions(budget_id, org_id, handler)
+
+            # GET /api/v1/budgets/:id/trends
+            if len(parts) == 6 and parts[5] == "trends" and method == "GET":
+                return self._get_budget_trends(budget_id, org_id, handler)
 
         return error_response("Not found", 404)
 
@@ -549,6 +564,163 @@ class BudgetHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Failed to reset budget: {e}")
             return error_response(f"Failed to reset budget: {str(e)[:100]}", 500)
+
+    def _get_transactions(self, budget_id: str, org_id: str, handler: Any) -> HandlerResult:
+        """Get transaction history for a budget."""
+        try:
+            manager = self._get_budget_manager()
+            budget = manager.get_budget(budget_id)
+
+            if not budget:
+                return error_response("Budget not found", 404)
+
+            if budget.org_id != org_id:
+                return error_response("Access denied", 403)
+
+            # Parse query params
+            limit = 50
+            offset = 0
+            date_from = None
+            date_to = None
+            user_id = None
+
+            if handler:
+                query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
+                from urllib.parse import parse_qs
+
+                params = parse_qs(query_str)
+                limit = min(int(params.get("limit", ["50"])[0]), 100)
+                offset = int(params.get("offset", ["0"])[0])
+                if "date_from" in params:
+                    date_from = float(params["date_from"][0])
+                if "date_to" in params:
+                    date_to = float(params["date_to"][0])
+                user_id = params.get("user_id", [None])[0]
+
+            transactions = manager.get_transactions(
+                budget_id=budget_id,
+                limit=limit,
+                offset=offset,
+                date_from=date_from,
+                date_to=date_to,
+                user_id=user_id,
+            )
+
+            total = manager.count_transactions(
+                budget_id=budget_id,
+                date_from=date_from,
+                date_to=date_to,
+                user_id=user_id,
+            )
+
+            return json_response(
+                {
+                    "transactions": [t.to_dict() for t in transactions],
+                    "count": len(transactions),
+                    "total": total,
+                    "budget_id": budget_id,
+                    "pagination": {
+                        "limit": limit,
+                        "offset": offset,
+                        "has_more": offset + len(transactions) < total,
+                    },
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to get transactions: {e}")
+            return error_response(f"Failed to get transactions: {str(e)[:100]}", 500)
+
+    def _get_budget_trends(self, budget_id: str, org_id: str, handler: Any) -> HandlerResult:
+        """Get spending trends for a budget."""
+        try:
+            manager = self._get_budget_manager()
+            budget = manager.get_budget(budget_id)
+
+            if not budget:
+                return error_response("Budget not found", 404)
+
+            if budget.org_id != org_id:
+                return error_response("Access denied", 403)
+
+            # Parse query params
+            period = "day"
+            limit = 30
+
+            if handler:
+                query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
+                from urllib.parse import parse_qs
+
+                params = parse_qs(query_str)
+                period = params.get("period", ["day"])[0]
+                limit = min(int(params.get("limit", ["30"])[0]), 365)
+
+            if period not in ("hour", "day", "week", "month"):
+                return error_response(
+                    f"Invalid period: {period}. Must be hour, day, week, or month.",
+                    400,
+                )
+
+            trends = manager.get_spending_trends(
+                budget_id=budget_id,
+                period=period,
+                limit=limit,
+            )
+
+            return json_response(
+                {
+                    "trends": trends,
+                    "budget_id": budget_id,
+                    "period": period,
+                    "count": len(trends),
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to get trends: {e}")
+            return error_response(f"Failed to get trends: {str(e)[:100]}", 500)
+
+    def _get_org_trends(self, org_id: str, handler: Any) -> HandlerResult:
+        """Get org-wide spending trends across all budgets."""
+        try:
+            manager = self._get_budget_manager()
+
+            # Parse query params
+            period = "day"
+            limit = 30
+
+            if handler:
+                query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
+                from urllib.parse import parse_qs
+
+                params = parse_qs(query_str)
+                period = params.get("period", ["day"])[0]
+                limit = min(int(params.get("limit", ["30"])[0]), 365)
+
+            if period not in ("hour", "day", "week", "month"):
+                return error_response(
+                    f"Invalid period: {period}. Must be hour, day, week, or month.",
+                    400,
+                )
+
+            trends = manager.get_org_spending_trends(
+                org_id=org_id,
+                period=period,
+                limit=limit,
+            )
+
+            return json_response(
+                {
+                    "trends": trends,
+                    "org_id": org_id,
+                    "period": period,
+                    "count": len(trends),
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to get org trends: {e}")
+            return error_response(f"Failed to get trends: {str(e)[:100]}", 500)
 
 
 # Handler factory function

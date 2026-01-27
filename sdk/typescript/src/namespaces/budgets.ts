@@ -19,6 +19,73 @@ import type {
 /**
  * Interface for the internal client methods used by BudgetsAPI.
  */
+/**
+ * Budget transaction record.
+ */
+export interface BudgetTransaction {
+  transaction_id: string;
+  budget_id: string;
+  amount_usd: number;
+  description: string;
+  debate_id?: string;
+  user_id?: string;
+  created_at: number;
+  created_at_iso: string;
+}
+
+/**
+ * Transactions list response.
+ */
+export interface BudgetTransactionList {
+  transactions: BudgetTransaction[];
+  count: number;
+  total: number;
+  budget_id: string;
+  pagination: {
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  };
+}
+
+/**
+ * Spending trend data point.
+ */
+export interface SpendingTrendPoint {
+  period: string;
+  total_spent_usd: number;
+  transaction_count: number;
+  avg_transaction_usd: number;
+}
+
+/**
+ * Spending trends response.
+ */
+export interface SpendingTrends {
+  trends: SpendingTrendPoint[];
+  period: string;
+  count: number;
+  budget_id?: string;
+  org_id?: string;
+}
+
+/**
+ * Transaction filter options.
+ */
+export interface TransactionFilterOptions extends PaginationParams {
+  date_from?: number;
+  date_to?: number;
+  user_id?: string;
+}
+
+/**
+ * Trends options.
+ */
+export interface TrendsOptions {
+  period?: 'hour' | 'day' | 'week' | 'month';
+  limit?: number;
+}
+
 interface BudgetsClientInterface {
   listBudgets(params?: PaginationParams): Promise<BudgetList>;
   createBudget(body: CreateBudgetRequest): Promise<Budget>;
@@ -36,6 +103,9 @@ interface BudgetsClientInterface {
     estimated_cost: number;
     budget_id?: string;
   }): Promise<{ allowed: boolean; remaining_budget: number; warnings?: string[] }>;
+  getBudgetTransactions(budgetId: string, params?: TransactionFilterOptions): Promise<BudgetTransactionList>;
+  getBudgetTrends(budgetId: string, params?: TrendsOptions): Promise<SpendingTrends>;
+  getOrgTrends(params?: TrendsOptions): Promise<SpendingTrends>;
 }
 
 /**
@@ -217,7 +287,102 @@ export class BudgetsAPI {
   async reset(budgetId: string): Promise<{ reset: boolean; new_period_start: string }> {
     return this.client.resetBudget(budgetId);
   }
+
+  // ===========================================================================
+  // Transaction History
+  // ===========================================================================
+
+  /**
+   * Get transaction history for a budget.
+   *
+   * Returns all recorded spending transactions with pagination and filtering.
+   *
+   * @example
+   * ```typescript
+   * // Get recent transactions
+   * const { transactions, total } = await client.budgets.getTransactions('budget-123');
+   *
+   * // Filter by date range (unix timestamps)
+   * const recent = await client.budgets.getTransactions('budget-123', {
+   *   date_from: Date.now() / 1000 - 86400 * 7,  // Last 7 days
+   *   limit: 100
+   * });
+   *
+   * // Analyze spending
+   * const totalSpent = transactions.reduce((sum, t) => sum + t.amount_usd, 0);
+   * ```
+   */
+  async getTransactions(
+    budgetId: string,
+    params?: TransactionFilterOptions
+  ): Promise<BudgetTransactionList> {
+    return this.client.getBudgetTransactions(budgetId, params);
+  }
+
+  // ===========================================================================
+  // Spending Trends
+  // ===========================================================================
+
+  /**
+   * Get spending trends for a budget.
+   *
+   * Returns aggregated spending data for charts and analysis.
+   *
+   * @param budgetId - Budget ID to get trends for
+   * @param params.period - Aggregation period: 'hour', 'day', 'week', 'month'
+   * @param params.limit - Number of periods to return (default 30)
+   *
+   * @example
+   * ```typescript
+   * // Get daily spending for the last 30 days
+   * const { trends } = await client.budgets.getTrends('budget-123', {
+   *   period: 'day',
+   *   limit: 30
+   * });
+   *
+   * // Create a chart
+   * trends.forEach(t => {
+   *   console.log(`${t.period}: $${t.total_spent_usd} (${t.transaction_count} txns)`);
+   * });
+   *
+   * // Weekly summary
+   * const weekly = await client.budgets.getTrends('budget-123', { period: 'week' });
+   * ```
+   */
+  async getTrends(budgetId: string, params?: TrendsOptions): Promise<SpendingTrends> {
+    return this.client.getBudgetTrends(budgetId, params);
+  }
+
+  /**
+   * Get organization-wide spending trends across all budgets.
+   *
+   * Useful for executive dashboards and org-level reporting.
+   *
+   * @example
+   * ```typescript
+   * // Get monthly org spending
+   * const { trends } = await client.budgets.getOrgTrends({ period: 'month' });
+   *
+   * const totalYTD = trends.reduce((sum, t) => sum + t.total_spent_usd, 0);
+   * console.log(`Year-to-date spend: $${totalYTD}`);
+   * ```
+   */
+  async getOrgTrends(params?: TrendsOptions): Promise<SpendingTrends> {
+    return this.client.getOrgTrends(params);
+  }
 }
 
 // Re-export types for convenience
-export type { Budget, BudgetAlert, BudgetSummary, CreateBudgetRequest, UpdateBudgetRequest };
+export type {
+  Budget,
+  BudgetAlert,
+  BudgetSummary,
+  CreateBudgetRequest,
+  UpdateBudgetRequest,
+  BudgetTransaction,
+  BudgetTransactionList,
+  SpendingTrendPoint,
+  SpendingTrends,
+  TransactionFilterOptions,
+  TrendsOptions,
+};
