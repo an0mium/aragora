@@ -138,6 +138,13 @@ class ServerContext(TypedDict, total=False):
     analytics_db: str
     debate_embeddings: "DebateEmbeddingsDatabase"
 
+    # Request Context (populated by handler registry)
+    body: dict[str, Any]  # Parsed JSON request body
+    headers: dict[str, str]  # Request headers
+    raw_body: bytes  # Raw request body for signature verification
+    user_id: str  # Authenticated user ID
+    query: dict[str, str]  # Query string parameters
+
 
 # Import from extracted utility modules (re-exported for backwards compatibility)
 from aragora.server.errors import safe_error_message
