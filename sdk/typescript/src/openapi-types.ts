@@ -443,6 +443,589 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/nomic/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get nomic metrics
+         * @deprecated
+         * @description Get detailed metrics about nomic loop performance.
+         *
+         *     **Response includes:**
+         *     - Cycle completion times
+         *     - Phase durations
+         *     - Success/failure rates
+         *     - Resource usage per cycle
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Nomic metrics */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            total_cycles?: number;
+                            successful_cycles?: number;
+                            failed_cycles?: number;
+                            avg_cycle_duration_s?: number;
+                            phase_durations?: {
+                                debate?: number;
+                                design?: number;
+                                implement?: number;
+                                verify?: number;
+                            };
+                            resource_usage?: {
+                                tokens_used?: number;
+                                api_calls?: number;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nomic/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get nomic metrics
+         * @description Get detailed metrics about nomic loop performance.
+         *
+         *     **Response includes:**
+         *     - Cycle completion times
+         *     - Phase durations
+         *     - Success/failure rates
+         *     - Resource usage per cycle
+         */
+        get: operations["getNomicMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nomic/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List nomic proposals
+         * @deprecated
+         * @description Get pending and recent nomic improvement proposals.
+         *
+         *     **Response includes:**
+         *     - Proposal ID and description
+         *     - Proposed changes
+         *     - Debate outcome
+         *     - Approval status
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter by proposal status */
+                    status?: "pending" | "approved" | "rejected" | "implemented";
+                    /** @description Maximum number of proposals to return */
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Nomic proposals */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            proposals?: {
+                                id?: string;
+                                title?: string;
+                                description?: string;
+                                /** @enum {string} */
+                                status?: "pending" | "approved" | "rejected" | "implemented";
+                                debate_id?: string;
+                                /** Format: date-time */
+                                created_at?: string;
+                                /** Format: date-time */
+                                updated_at?: string;
+                            }[];
+                            total?: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nomic/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List nomic proposals
+         * @description Get pending and recent nomic improvement proposals.
+         *
+         *     **Response includes:**
+         *     - Proposal ID and description
+         *     - Proposed changes
+         *     - Debate outcome
+         *     - Approval status
+         */
+        get: operations["listNomicProposals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nomic/proposals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update proposal status
+         * @deprecated
+         * @description Approve or reject a nomic improvement proposal.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Proposal ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @description Action to take on the proposal
+                         * @enum {string}
+                         */
+                        action: "approve" | "reject";
+                        /** @description Reason for approval/rejection */
+                        reason?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Proposal updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Proposal not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nomic/proposals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update proposal status
+         * @description Approve or reject a nomic improvement proposal.
+         */
+        post: operations["updateNomicProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nomic/control/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start nomic loop
+         * @deprecated
+         * @description Start or resume the nomic self-improvement loop.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Loop started */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Loop already running */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nomic/control/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start nomic loop
+         * @description Start or resume the nomic self-improvement loop.
+         */
+        post: operations["startNomicLoop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nomic/control/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop nomic loop
+         * @deprecated
+         * @description Gracefully stop the nomic self-improvement loop.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Loop stopped */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Loop not running */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nomic/control/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop nomic loop
+         * @description Gracefully stop the nomic self-improvement loop.
+         */
+        post: operations["stopNomicLoop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nomic/control/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause nomic loop
+         * @deprecated
+         * @description Pause the nomic loop at the end of the current phase.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Loop paused */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Loop not running or already paused */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nomic/control/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause nomic loop
+         * @description Pause the nomic loop at the end of the current phase.
+         */
+        post: operations["pauseNomicLoop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nomic/control/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume nomic loop
+         * @deprecated
+         * @description Resume a paused nomic loop.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Loop resumed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Loop not paused */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nomic/control/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume nomic loop
+         * @description Resume a paused nomic loop.
+         */
+        post: operations["resumeNomicLoop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nomic/control/skip-phase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip current phase
+         * @deprecated
+         * @description Skip the current nomic phase and move to the next one.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Phase skipped */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Loop not running */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nomic/control/skip-phase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip current phase
+         * @description Skip the current nomic phase and move to the next one.
+         */
+        post: operations["skipNomicPhase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/modes": {
         parameters: {
             query?: never;
@@ -12269,6 +12852,258 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cross-pollination/km": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Knowledge Mound integration status
+         * @deprecated
+         * @description Get status of cross-pollination integration with the Knowledge Mound including sync state and adapter health.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description KM integration status */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            connected?: boolean;
+                            /** @enum {string} */
+                            sync_state?: "idle" | "syncing" | "error";
+                            /** Format: date-time */
+                            last_sync?: string;
+                            adapters?: {
+                                name?: string;
+                                healthy?: boolean;
+                                entries_synced?: number;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cross-pollination/km": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Knowledge Mound integration status
+         * @description Get status of cross-pollination integration with the Knowledge Mound including sync state and adapter health.
+         */
+        get: operations["listCrossPollinationKm"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cross-pollination/km/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger Knowledge Mound sync
+         * @deprecated
+         * @description Manually trigger synchronization of cross-pollination data to the Knowledge Mound.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Sync triggered with job ID */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Knowledge Mound unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cross-pollination/km/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger Knowledge Mound sync
+         * @description Manually trigger synchronization of cross-pollination data to the Knowledge Mound.
+         */
+        post: operations["createCrossPollinationKmSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cross-pollination/km/staleness-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check data staleness
+         * @deprecated
+         * @description Check for stale cross-pollination data in the Knowledge Mound that needs revalidation.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Staleness report with entries needing refresh */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cross-pollination/km/staleness-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check data staleness
+         * @description Check for stale cross-pollination data in the Knowledge Mound that needs revalidation.
+         */
+        get: operations["listCrossPollinationKmStalenessCheck"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cross-pollination/km/culture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get debate culture patterns
+         * @deprecated
+         * @description Get learned debate culture patterns from cross-pollination analysis across debates.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Culture patterns with collaboration and dissent metrics */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cross-pollination/km/culture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get debate culture patterns
+         * @description Get learned debate culture patterns from cross-pollination analysis across debates.
+         */
+        get: operations["listCrossPollinationKmCulture"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/gauntlet/receipts": {
         parameters: {
             query?: never;
@@ -16079,6 +16914,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/webhooks/dead-letter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List dead-letter deliveries
+         * @description List webhook deliveries that failed and are in the dead-letter queue.
+         */
+        get: operations["listWebhooksDeadLetter"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/dead-letter/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get dead-letter delivery
+         * @description Get details of a specific dead-letter delivery.
+         */
+        get: operations["getWebhooksDeadLetter"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete dead-letter delivery
+         * @description Remove a delivery from the dead-letter queue without retrying.
+         */
+        delete: operations["deleteWebhooksDeadLetter"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/dead-letter/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry dead-letter delivery
+         * @description Retry a dead-letter delivery by moving it back to the processing queue.
+         */
+        post: operations["retryWebhooksDeadLetter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/queue/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get webhook queue statistics
+         * @description Get statistics about the webhook delivery queue including pending, processing, and dead-letter counts.
+         */
+        get: operations["getWebhooksQueueStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/integrations": {
         parameters: {
             query?: never;
@@ -17874,6 +18793,245 @@ export interface operations {
         responses: {
             /** @description Risk entries */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getNomicMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Nomic metrics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        total_cycles?: number;
+                        successful_cycles?: number;
+                        failed_cycles?: number;
+                        avg_cycle_duration_s?: number;
+                        phase_durations?: {
+                            debate?: number;
+                            design?: number;
+                            implement?: number;
+                            verify?: number;
+                        };
+                        resource_usage?: {
+                            tokens_used?: number;
+                            api_calls?: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    listNomicProposals: {
+        parameters: {
+            query?: {
+                /** @description Filter by proposal status */
+                status?: "pending" | "approved" | "rejected" | "implemented";
+                /** @description Maximum number of proposals to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Nomic proposals */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        proposals?: {
+                            id?: string;
+                            title?: string;
+                            description?: string;
+                            /** @enum {string} */
+                            status?: "pending" | "approved" | "rejected" | "implemented";
+                            debate_id?: string;
+                            /** Format: date-time */
+                            created_at?: string;
+                            /** Format: date-time */
+                            updated_at?: string;
+                        }[];
+                        total?: number;
+                    };
+                };
+            };
+        };
+    };
+    updateNomicProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Proposal ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description Action to take on the proposal
+                     * @enum {string}
+                     */
+                    action: "approve" | "reject";
+                    /** @description Reason for approval/rejection */
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Proposal updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Proposal not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    startNomicLoop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Loop started */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Loop already running */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    stopNomicLoop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Loop stopped */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Loop not running */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    pauseNomicLoop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Loop paused */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Loop not running or already paused */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    resumeNomicLoop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Loop resumed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Loop not paused */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    skipNomicPhase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Phase skipped */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Loop not running */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -22480,6 +23638,98 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Statistics reset confirmation with handler count */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listCrossPollinationKm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description KM integration status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        connected?: boolean;
+                        /** @enum {string} */
+                        sync_state?: "idle" | "syncing" | "error";
+                        /** Format: date-time */
+                        last_sync?: string;
+                        adapters?: {
+                            name?: string;
+                            healthy?: boolean;
+                            entries_synced?: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    createCrossPollinationKmSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync triggered with job ID */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Knowledge Mound unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listCrossPollinationKmStalenessCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Staleness report with entries needing refresh */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listCrossPollinationKmCulture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Culture patterns with collaboration and dissent metrics */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -28136,6 +29386,165 @@ export interface operations {
                     "application/json": {
                         success?: boolean;
                         message?: string;
+                    };
+                };
+            };
+        };
+    };
+    listWebhooksDeadLetter: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of deliveries to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of dead-letter deliveries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dead_letters?: {
+                            id?: string;
+                            webhook_id?: string;
+                            event_type?: string;
+                            payload?: Record<string, never>;
+                            error?: string;
+                            attempts?: number;
+                            /** Format: date-time */
+                            created_at?: string;
+                            /** Format: date-time */
+                            last_attempt?: string;
+                        }[];
+                        count?: number;
+                    };
+                };
+            };
+        };
+    };
+    getWebhooksDeadLetter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dead-letter delivery details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id?: string;
+                        webhook_id?: string;
+                        event_type?: string;
+                        payload?: Record<string, never>;
+                        error?: string;
+                        attempts?: number;
+                        /** Format: date-time */
+                        created_at?: string;
+                        /** Format: date-time */
+                        last_attempt?: string;
+                    };
+                };
+            };
+            /** @description Delivery not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteWebhooksDeadLetter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delivery deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Delivery not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    retryWebhooksDeadLetter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delivery queued for retry */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Delivery not found or not in dead-letter queue */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getWebhooksQueueStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queue statistics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stats?: {
+                            pending?: number;
+                            processing?: number;
+                            dead_letter?: number;
+                            total_delivered?: number;
+                            total_failed?: number;
+                        };
                     };
                 };
             };
