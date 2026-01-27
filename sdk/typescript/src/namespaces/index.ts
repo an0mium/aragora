@@ -222,3 +222,62 @@ export {
   type ExpiringItem,
   type ExecutionResult,
 } from './retention';
+
+// Notifications
+export {
+  NotificationsAPI,
+  type NotificationChannel,
+  type NotificationEventType,
+  type IntegrationStatus,
+  type EmailConfig,
+  type TelegramConfig,
+  type EmailRecipient,
+  type NotificationDelivery,
+} from './notifications';
+
+// Pulse (Trending Topics)
+export {
+  PulseAPI,
+  type PulseSource,
+  type TrendingTopic,
+  type DebateSuggestion,
+  type PulseAnalytics,
+  type SchedulerStatus,
+  type SchedulerConfig,
+  type ScheduledDebate,
+} from './pulse';
+
+// Leaderboard
+export {
+  LeaderboardAPI,
+  type RankingEntry,
+  type AgentPerformance,
+  type HeadToHead,
+  type DomainLeaderboard,
+  type LeaderboardView,
+} from './leaderboard';
+
+// Policies
+export {
+  PoliciesAPI,
+  type PolicyType,
+  type PolicySeverity,
+  type PolicyAction,
+  type Policy,
+  type PolicyRule,
+  type PolicyViolation,
+  type ComplianceSummary,
+  type CreatePolicyRequest,
+  type UpdatePolicyRequest,
+} from './policies';
+
+// Replays
+export {
+  ReplaysAPI,
+  type ReplayEventType,
+  type ReplaySummary,
+  type ReplayEvent,
+  type Replay,
+  type EvolutionEntry,
+  type ReplayFork,
+} from './replays';
