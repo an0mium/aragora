@@ -307,3 +307,71 @@ export {
   type QuickStartProfile,
   type FlowAction,
 } from './onboarding';
+
+// Deliberations
+export {
+  DeliberationsAPI,
+  type Deliberation,
+  type DeliberationStatus,
+  type DeliberationStats,
+  type ActiveDeliberationsResponse,
+  type DeliberationStreamConfig,
+} from './deliberations';
+
+// Genesis (Evolution Visibility)
+export {
+  GenesisAPI,
+  type GenesisEventType,
+  type GenesisEvent,
+  type GenesisStats,
+  type Genome,
+  type LineageNode,
+  type DescendantNode,
+  type Population,
+  type DebateTree,
+  type ListEventsOptions,
+  type ListGenomesOptions,
+} from './genesis';
+
+// Laboratory (Persona Lab)
+export {
+  LaboratoryAPI,
+  type EmergentTrait,
+  type CrossPollinationSuggestion,
+  type EmergentTraitsResponse,
+  type CrossPollinationResponse,
+  type EmergentTraitsOptions,
+  type CrossPollinationRequest,
+} from './laboratory';
+
+// Teams Bot Integration
+export {
+  TeamsAPI,
+  type TeamsBotStatus,
+} from './teams';
+
+// Learning (Meta-Learning Analytics)
+export {
+  LearningAPI,
+  type LearningSession,
+  type MetaLearningStats,
+  type LearningPattern,
+  type LearningEfficiency,
+  type ListSessionsOptions as LearningSessionsOptions,
+  type ListPatternsOptions as LearningPatternsOptions,
+} from './learning';
+
+// Batch Operations
+export {
+  BatchAPI,
+  type BatchItem,
+  type BatchItemStatus,
+  type BatchStatus,
+  type BatchSubmitRequest,
+  type BatchSubmitResponse,
+  type BatchItemResult,
+  type BatchStatusResponse,
+  type BatchSummary,
+  type QueueStatus,
+  type ListBatchesOptions,
+} from './batch';
