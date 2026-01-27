@@ -95,8 +95,7 @@ class NomicLoop:
 
     def _log(self, message: str) -> None:
         """Log a message using the configured log function."""
-        if self.log_fn:
-            self.log_fn(message)
+        self.log_fn(message)
 
     async def run(self, max_cycles: Optional[int] = None) -> Dict[str, Any]:
         """

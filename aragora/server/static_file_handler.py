@@ -129,7 +129,7 @@ class StaticFileHandler:
 
         # Handle missing files with SPA routing
         if not filepath.exists():
-            if self.enable_spa_routing:
+            if self.enable_spa_routing and self.static_dir is not None:
                 fallback_path = self.static_dir / self.spa_fallback
                 if fallback_path.exists():
                     filepath = fallback_path
