@@ -2160,6 +2160,9 @@ class Arena:
             self.agents = self._select_debate_team(self.agents)
             ctx.agents = self.agents  # Update context with selected agents
 
+        # Assign hierarchy roles to agents (Gastown pattern)
+        self._assign_hierarchy_roles(ctx, task_type=domain)
+
         # Structured logging for debate lifecycle (JSON in production)
         with correlation_context(correlation_id):
             logger.info(
