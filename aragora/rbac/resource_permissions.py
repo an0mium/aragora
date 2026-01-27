@@ -600,6 +600,70 @@ class ResourcePermissionStore:
 
         return None
 
+    def find_permission_hierarchical(
+        self,
+        user_id: str,
+        permission_id: str,
+        resource_type: ResourceType,
+        resource_id: str,
+        org_id: str | None = None,
+    ) -> tuple[ResourcePermission | None, bool]:
+        """
+        Find permission checking ancestors if no direct grant exists.
+
+        This method enables hierarchical permission inheritance where granting
+        access to a parent resource (e.g., Organization) cascades to child
+        resources (Workspace -> Project -> Debate).
+
+        Args:
+            user_id: User to check
+            permission_id: Permission key
+            resource_type: Type of resource
+            resource_id: Specific resource ID
+            org_id: Organization context
+
+        Returns:
+            Tuple of (ResourcePermission or None, inherited: bool)
+            - If direct grant found: (permission, False)
+            - If inherited from ancestor: (permission, True)
+            - If no permission found: (None, False)
+        """
+        # 1. Try exact match first
+        direct = self.find_permission(user_id, permission_id, resource_type, resource_id, org_id)
+        if direct:
+            return (direct, False)
+
+        # 2. Walk up hierarchy if registry is configured
+        if not self._hierarchy:
+            return (None, False)
+
+        ancestors = self._hierarchy.get_ancestors(resource_type, resource_id)
+        for depth, ancestor in enumerate(ancestors, start=1):
+            perm = self.find_permission(
+                user_id,
+                permission_id,
+                ancestor.resource_type,
+                ancestor.resource_id,
+                org_id,
+            )
+            if perm and perm.is_valid and perm.inherit_to_children:
+                # Check depth limit
+                if perm.max_inheritance_depth is not None:
+                    if depth > perm.max_inheritance_depth:
+                        continue
+                return (perm, True)
+
+        return (None, False)
+
+    def set_hierarchy_registry(self, registry: "HierarchyRegistry") -> None:
+        """
+        Set the hierarchy registry for hierarchical lookups.
+
+        Args:
+            registry: HierarchyRegistry instance
+        """
+        self._hierarchy = registry
+
     def list_permissions_for_resource(
         self,
         resource_type: ResourceType,
