@@ -167,7 +167,7 @@ class TeamsDock(ChannelDock):
                     )
 
         # Build Adaptive Card structure
-        card = {
+        card: dict[str, Any] = {
             "type": "message",
             "attachments": [
                 {

@@ -189,6 +189,7 @@ class DiscordDock(ChannelDock):
         channel_id: str,
         audio_data: bytes,
         text: Optional[str] = None,
+        thread_id: Optional[str] = None,
         **kwargs: Any,
     ) -> SendResult:
         """
