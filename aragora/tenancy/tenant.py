@@ -352,14 +352,14 @@ class TenantManager:
                     return tenant if tenant.is_active() else None
             return None
 
-        tenant = self._tenants.get(tenant_id)
-        if not tenant:
+        found_tenant = self._tenants.get(tenant_id)
+        if not found_tenant:
             return None
 
-        if tenant.status == TenantStatus.SUSPENDED:
-            raise TenantSuspendedError(tenant.id)
+        if found_tenant.status == TenantStatus.SUSPENDED:
+            raise TenantSuspendedError(found_tenant.id)
 
-        return tenant if tenant.is_active() else None
+        return found_tenant if found_tenant.is_active() else None
 
     async def suspend_tenant(self, tenant_id: str, reason: str = "") -> bool:
         """Suspend a tenant account.

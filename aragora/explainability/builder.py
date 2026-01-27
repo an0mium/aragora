@@ -130,23 +130,23 @@ class ExplanationBuilder:
     def _extract_task(self, result: Any, context: Optional[Any]) -> str:
         """Extract task/topic from result or context."""
         if hasattr(result, "task"):
-            return result.task
+            return str(result.task)
         if context and hasattr(context, "env"):
-            return getattr(context.env, "task", "")
+            return str(getattr(context.env, "task", ""))
         return ""
 
     def _extract_domain(self, result: Any, context: Optional[Any]) -> str:
         """Extract domain from result or context."""
         if hasattr(result, "domain"):
-            return result.domain
+            return str(result.domain)
         if context and hasattr(context, "domain"):
-            return context.domain
+            return str(context.domain)
         return "general"
 
     def _extract_agents(self, result: Any, context: Optional[Any]) -> List[str]:
         """Extract list of participating agents."""
         if hasattr(result, "participants"):
-            return result.participants
+            return list(result.participants)
         if hasattr(result, "agents"):
             return [a.name if hasattr(a, "name") else str(a) for a in result.agents]
         if context and hasattr(context, "agents"):
@@ -291,7 +291,9 @@ class ExplanationBuilder:
             vote_data.append((vote, weight))
 
         # Calculate influence scores - find choice with highest weight
-        winner = max(choice_counts, key=choice_counts.get) if choice_counts else ""
+        winner = (
+            max(choice_counts, key=lambda k: choice_counts.get(k, 0.0)) if choice_counts else ""
+        )
 
         for vote, weight in vote_data:
             choice = getattr(vote, "choice", "")
@@ -360,7 +362,8 @@ class ExplanationBuilder:
         if not self.calibration_tracker:
             return None
         try:
-            return self.calibration_tracker.get_adjustment(agent)
+            adj = self.calibration_tracker.get_adjustment(agent)
+            return float(adj) if adj is not None else None
         except (KeyError, AttributeError) as e:
             logger.debug(f"Calibration adjustment not available for {agent}: {e}")
             return None
@@ -373,7 +376,8 @@ class ExplanationBuilder:
         if not self.elo_system:
             return None
         try:
-            return self.elo_system.get_rating(agent)
+            rating = self.elo_system.get_rating(agent)
+            return float(rating) if rating is not None else None
         except (KeyError, AttributeError) as e:
             logger.debug(f"ELO rating not available for {agent}: {e}")
             return None

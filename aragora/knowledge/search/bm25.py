@@ -407,13 +407,13 @@ class HybridSearcher:
         # Build content/metadata lookup
         content_lookup = {}
         metadata_lookup = {}
-        for r in bm25_results:
-            content_lookup[r.id] = r.content
-            metadata_lookup[r.id] = r.metadata
-        for r in vector_results:
-            if r["id"] not in content_lookup:
-                content_lookup[r["id"]] = r.get("content", "")
-                metadata_lookup[r["id"]] = r.get("metadata", {})
+        for bm25_r in bm25_results:
+            content_lookup[bm25_r.id] = bm25_r.content
+            metadata_lookup[bm25_r.id] = bm25_r.metadata
+        for vec_r in vector_results:
+            if vec_r["id"] not in content_lookup:
+                content_lookup[vec_r["id"]] = vec_r.get("content", "")
+                metadata_lookup[vec_r["id"]] = vec_r.get("metadata", {})
 
         # Calculate fused scores
         fused = []
