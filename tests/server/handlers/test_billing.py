@@ -23,6 +23,8 @@ from io import BytesIO
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import os
+
 import pytest
 
 from aragora.server.handlers.admin import BillingHandler
@@ -31,6 +33,22 @@ from aragora.server.handlers.admin import BillingHandler
 # ===========================================================================
 # Test Fixtures
 # ===========================================================================
+
+
+@pytest.fixture(autouse=True)
+def enable_real_auth_for_auth_tests(request):
+    """Enable real auth checks for tests marked with no_auto_auth.
+
+    The require_permission decorator in utils/decorators.py bypasses auth
+    in test mode. Tests that want to test actual auth behavior need to set
+    ARAGORA_TEST_REAL_AUTH to bypass this bypass.
+    """
+    if "no_auto_auth" in [m.name for m in request.node.iter_markers()]:
+        os.environ["ARAGORA_TEST_REAL_AUTH"] = "1"
+        yield
+        del os.environ["ARAGORA_TEST_REAL_AUTH"]
+    else:
+        yield
 
 
 @dataclass
@@ -107,6 +125,11 @@ class MockAuthContext:
     org_id: str | None = "org-123"
     role: str = "owner"
     error_reason: str | None = None
+
+    @property
+    def authenticated(self) -> bool:
+        """Alias for is_authenticated to match UserAuthContext."""
+        return self.is_authenticated
 
 
 class MockUserStore:
@@ -268,6 +291,10 @@ def user_store():
     store.orgs["org-123"] = org
     store.orgs_by_subscription["sub_test123"] = "org-123"
     store.orgs_by_customer["cus_test123"] = "org-123"
+
+    # Also add test_user for the pytest bypass in require_permission decorator
+    test_user = MockUser(id="test_user", email="test@test.com")
+    store.users["test_user"] = test_user
 
     return store
 
@@ -614,8 +641,8 @@ class TestBillingHandlerInvoices:
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext()
 
-        # Create user without org
-        billing_handler.ctx["user_store"].users["user-123"].org_id = None
+        # Create user without org (test_user is used by require_permission decorator in test mode)
+        billing_handler.ctx["user_store"].users["test_user"].org_id = None
 
         handler = make_mock_handler()
 

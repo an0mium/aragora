@@ -54,6 +54,15 @@ def create_request_body(data: dict) -> MagicMock:
     return handler
 
 
+class MockAuthUser:
+    """Mock authenticated user with permissions for knowledge handler tests."""
+
+    def __init__(self, user_id: str = "test-user"):
+        self.user_id = user_id
+        self.permissions = {"*", "admin", "knowledge.read", "knowledge.write", "knowledge.delete"}
+        self.roles = {"admin", "owner"}
+
+
 class TestKnowledgeHandlerCanHandle:
     """Test KnowledgeHandler.can_handle method."""
 
@@ -215,7 +224,7 @@ class TestKnowledgeHandlerCreateFact:
 
         # Patch require_auth_or_error to return success
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = ({"user_id": "test-user"}, None)
+            mock_auth.return_value = (MockAuthUser(), None)
 
             result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
 
@@ -234,7 +243,7 @@ class TestKnowledgeHandlerCreateFact:
         )
 
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = ({"user_id": "test-user"}, None)
+            mock_auth.return_value = (MockAuthUser(), None)
 
             result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
 
@@ -257,7 +266,7 @@ class TestKnowledgeHandlerUpdateFact:
         handler.command = "PUT"
 
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = ({"user_id": "test-user"}, None)
+            mock_auth.return_value = (MockAuthUser(), None)
 
             result = knowledge_handler.handle("/api/v1/knowledge/facts/nonexistent-id", {}, handler)
 
@@ -284,7 +293,7 @@ class TestKnowledgeHandlerUpdateFact:
         handler.command = "PUT"
 
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = ({"user_id": "test-user"}, None)
+            mock_auth.return_value = (MockAuthUser(), None)
 
             result = knowledge_handler.handle(f"/api/v1/knowledge/facts/{fact.id}", {}, handler)
 
@@ -302,7 +311,7 @@ class TestKnowledgeHandlerDeleteFact:
         mock_http_handler.command = "DELETE"
 
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = ({"user_id": "test-user"}, None)
+            mock_auth.return_value = (MockAuthUser(), None)
 
             result = knowledge_handler.handle(
                 "/api/v1/knowledge/facts/nonexistent-id", {}, mock_http_handler
@@ -323,7 +332,7 @@ class TestKnowledgeHandlerDeleteFact:
         mock_http_handler.command = "DELETE"
 
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = ({"user_id": "test-user"}, None)
+            mock_auth.return_value = (MockAuthUser(), None)
 
             result = knowledge_handler.handle(
                 f"/api/v1/knowledge/facts/{fact.id}", {}, mock_http_handler
@@ -553,7 +562,7 @@ class TestKnowledgeHandlerIntegration:
         )
 
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = ({"user_id": "test-user"}, None)
+            mock_auth.return_value = (MockAuthUser(), None)
             create_result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, create_handler)
 
         assert create_result is not None
@@ -581,7 +590,7 @@ class TestKnowledgeHandlerIntegration:
         update_handler.command = "PUT"
 
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = ({"user_id": "test-user"}, None)
+            mock_auth.return_value = (MockAuthUser(), None)
             update_result = knowledge_handler.handle(
                 f"/api/v1/knowledge/facts/{fact_id}", {}, update_handler
             )
@@ -597,7 +606,7 @@ class TestKnowledgeHandlerIntegration:
         delete_handler.command = "DELETE"
 
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = ({"user_id": "test-user"}, None)
+            mock_auth.return_value = (MockAuthUser(), None)
             delete_result = knowledge_handler.handle(
                 f"/api/v1/knowledge/facts/{fact_id}", {}, delete_handler
             )
