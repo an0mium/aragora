@@ -279,20 +279,16 @@ class DashboardOperationsMixin:
 
             bridge = get_km_bridge()
             if bridge is None:
-                return HandlerResult(  # type: ignore[call-arg]
-                    success=True,
-                    data={
+                return success_response(
+                    {
                         "running": False,
                         "message": "Event batcher not initialized",
-                    },
+                    }
                 )
 
             stats = bridge.get_stats()
 
-            return HandlerResult(  # type: ignore[call-arg]
-                success=True,
-                data=stats,
-            )
+            return success_response(stats)
 
         except ImportError:
             return error_response(
