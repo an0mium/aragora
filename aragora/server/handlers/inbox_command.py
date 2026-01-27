@@ -235,6 +235,7 @@ class InboxCommandHandler:
             - unread_only: Only return unread emails (default false)
         """
         try:
+            self._check_permission(request, "inbox:read")
             self._ensure_services()
 
             limit = int(request.query.get("limit", "50"))
