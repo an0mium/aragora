@@ -24,6 +24,7 @@ from ..base import (
     require_user_auth,
     safe_error_message,
 )
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class DocumentQueryHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    @require_permission("documents:read")
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle GET requests - not supported for query endpoints."""
         return error_response("Use POST method for document queries", 405)

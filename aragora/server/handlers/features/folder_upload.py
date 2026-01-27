@@ -31,6 +31,7 @@ from ..base import (
     require_user_auth,
     safe_error_message,
 )
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +135,7 @@ class FolderUploadHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("upload:create")
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET folder requests."""
         if path == "/api/v1/documents/folders":
@@ -153,6 +155,7 @@ class FolderUploadHandler(BaseHandler):
 
         return None
 
+    @require_permission("upload:create")
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST folder requests."""
         if path == "/api/v1/documents/folder/scan":

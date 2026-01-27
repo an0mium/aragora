@@ -12,6 +12,7 @@ import logging
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import BaseHandler, HandlerResult
 
 if TYPE_CHECKING:
@@ -36,6 +37,7 @@ def _get_registry() -> "TemplateRegistry":
 class MarketplaceHandler(BaseHandler):
     """Handler for marketplace template operations."""
 
+    @require_permission("marketplace:read")
     def handle_list_templates(self) -> HandlerResult:
         """
         GET /api/v1/marketplace/templates

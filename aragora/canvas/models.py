@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional
 class CanvasNodeType(Enum):
     """Types of nodes that can appear on a canvas."""
 
+    # Core nodes
     AGENT = "agent"  # AI agent
     DEBATE = "debate"  # Active debate
     KNOWLEDGE = "knowledge"  # KM node
@@ -33,6 +34,16 @@ class CanvasNodeType(Enum):
     GROUP = "group"  # Group container
     DECISION = "decision"  # Decision node
     EVIDENCE = "evidence"  # Evidence item
+
+    # A2UI (Agent-to-User Interface) primitives
+    BUTTON = "button"  # Interactive button with callback
+    FORM = "form"  # Form with input fields
+    SELECT = "select"  # Dropdown/selection control
+    CHART = "chart"  # Data visualization
+    PROGRESS = "progress"  # Progress indicator
+    ALERT = "alert"  # Alert/notification display
+    CARD = "card"  # Information card
+    TABLE = "table"  # Data table display
 
 
 class CanvasEventType(Enum):
@@ -80,6 +91,13 @@ class CanvasEventType(Enum):
 
     # Error events
     ERROR = "canvas:error"
+
+    # A2UI (Agent-to-User Interface) events
+    BUTTON_CLICK = "canvas:ui:button:click"
+    FORM_SUBMIT = "canvas:ui:form:submit"
+    SELECT_CHANGE = "canvas:ui:select:change"
+    PROGRESS_UPDATE = "canvas:ui:progress:update"
+    ALERT_DISMISS = "canvas:ui:alert:dismiss"
 
 
 @dataclass

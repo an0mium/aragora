@@ -11,6 +11,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
+from aragora.rbac.decorators import require_permission
+
 from ..base import (
     HandlerResult,
     error_response,
@@ -54,6 +56,7 @@ class _DebatesHandlerProtocol(Protocol):
 class ForkOperationsMixin:
     """Mixin providing fork and follow-up operations for DebatesHandler."""
 
+    @require_permission("debates:create")
     @user_rate_limit(action="debate_create")
     @rate_limit(rpm=5, limiter_name="debates_fork")
     @require_storage

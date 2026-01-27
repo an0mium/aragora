@@ -12,6 +12,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from aragora.rbac.decorators import require_permission
 from .base import BaseHandler, HandlerResult
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,7 @@ class CompositeHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("composite:read")
     def handle(
         self, path: str, query_params: Dict[str, str], handler: Any
     ) -> Optional[HandlerResult]:

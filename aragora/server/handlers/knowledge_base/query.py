@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.knowledge import QueryOptions
 from aragora.server.http_utils import run_async as _run_async
+from aragora.rbac.decorators import require_permission
 
 from ..base import (
     HandlerResult,
@@ -36,6 +37,7 @@ class QueryOperationsMixin:
     """Mixin providing query operations for KnowledgeHandler."""
 
     @handle_errors("knowledge query")
+    @require_permission("knowledge:read")
     def _handle_query(
         self: QueryHandlerProtocol, query_params: dict, handler: Any
     ) -> HandlerResult:

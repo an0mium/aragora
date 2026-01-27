@@ -11,6 +11,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
+from aragora.rbac.decorators import require_permission
+
 from ..base import (
     HandlerResult,
     error_response,
@@ -44,6 +46,7 @@ class _DebatesHandlerProtocol(Protocol):
 class AnalysisOperationsMixin:
     """Mixin providing analysis operations for DebatesHandler."""
 
+    @require_permission("analysis:read")
     def _get_meta_critique(self: _DebatesHandlerProtocol, debate_id: str) -> HandlerResult:
         """Get meta-level analysis of a debate (repetition, circular arguments, etc)."""
         from aragora.exceptions import (
@@ -108,6 +111,7 @@ class AnalysisOperationsMixin:
             logger.warning("Invalid meta critique request for %s: %s", debate_id, e)
             return error_response(f"Invalid request: {e}", 400)
 
+    @require_permission("analysis:read")
     def _get_graph_stats(self: _DebatesHandlerProtocol, debate_id: str) -> HandlerResult:
         """Get argument graph statistics for a debate.
 

@@ -23,6 +23,7 @@ from ..base import (
     require_user_auth,
     safe_error_message,
 )
+from aragora.rbac.decorators import require_permission
 
 if TYPE_CHECKING:
     from aragora.audit.document_auditor import AuditFinding
@@ -57,6 +58,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("evidence:read")
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
         if path.startswith("/api/v1/findings/") and path.endswith("/evidence"):

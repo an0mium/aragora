@@ -28,6 +28,7 @@ from ..base import (
     safe_error_message,
 )
 from ..utils.rate_limit import RateLimiter, get_client_ip
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ class SpeechHandler(BaseHandler):
             return self._get_providers()
         return None
 
+    @require_permission("speech:create")
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests."""
         # Rate limit check for resource-intensive speech operations

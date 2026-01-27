@@ -28,6 +28,7 @@ from ..base import (
     json_response,
     safe_error_message,
 )
+from aragora.rbac.decorators import require_permission
 
 # Knowledge processing enabled by default
 KNOWLEDGE_PROCESSING_DEFAULT = (
@@ -67,6 +68,7 @@ class DocumentBatchHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("documents:read")
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET requests."""
         if path == "/api/v1/documents/processing/stats":
@@ -116,6 +118,7 @@ class DocumentBatchHandler(BaseHandler):
 
         return None
 
+    @require_permission("documents:create")
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests."""
         if path == "/api/v1/documents/batch":

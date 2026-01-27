@@ -18,6 +18,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional, Protocol
 
+from aragora.rbac.decorators import require_permission
+
 from ..base import (
     HandlerResult,
     error_response,
@@ -395,6 +397,7 @@ class ExportOperationsMixin:
             }
         )
 
+    @require_permission("export:read")
     @require_storage
     def _export_debate(
         self: _DebatesHandlerProtocol,

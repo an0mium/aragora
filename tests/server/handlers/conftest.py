@@ -115,6 +115,41 @@ def mock_auth_for_handler_tests(request, monkeypatch):
         except (ImportError, AttributeError):
             pass
 
+    # Patch extract_user_from_request for JWT-based user auth (separate from RBAC)
+    # This fixes tests that use require_auth_or_error() / get_current_user()
+    try:
+        from aragora.billing.auth.context import UserAuthContext
+
+        mock_user_ctx = UserAuthContext(
+            authenticated=True,
+            user_id="test-user-001",
+            email="test@example.com",
+            org_id="test-org-001",
+            role="admin",
+            token_type="access",
+        )
+        # Add permissions and roles for _check_permission in handlers
+        mock_user_ctx.permissions = {
+            "*",
+            "admin",
+            "knowledge.read",
+            "knowledge.write",
+            "knowledge.delete",
+        }  # type: ignore[attr-defined]
+        mock_user_ctx.roles = {"admin", "owner"}  # type: ignore[attr-defined]
+
+        def mock_extract_user(handler, user_store=None):
+            """Mock extract_user_from_request returning authenticated context."""
+            return mock_user_ctx
+
+        # Patch at the source module
+        monkeypatch.setattr(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            mock_extract_user,
+        )
+    except (ImportError, AttributeError):
+        pass  # UserAuthContext may not be available in all test contexts
+
     yield mock_auth_ctx
 
 

@@ -298,6 +298,74 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/audit/presets$", "GET", "findings.read"),
     RoutePermission(r"^/api/audit/types$", "GET", "findings.read"),
     # =========================================================================
+    # Authentication Routes
+    # =========================================================================
+    # Public (no auth required) - login flows and callbacks
+    RoutePermission(r"^/api/(v1/)?auth/login$", "POST", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?auth/register$", "POST", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?auth/signup$", "POST", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?auth/refresh$", "POST", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?auth/verify-email$", "*", "", allow_unauthenticated=True),
+    RoutePermission(
+        r"^/api/(v1/)?auth/resend-verification$", "POST", "", allow_unauthenticated=True
+    ),
+    RoutePermission(r"^/api/(v1/)?auth/check-invite$", "GET", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?auth/accept-invite$", "POST", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?auth/mfa/verify$", "POST", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?auth/forgot-password$", "POST", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?auth/reset-password$", "POST", "", allow_unauthenticated=True),
+    # SSO - public callbacks
+    RoutePermission(r"^/api/(v1/)?auth/sso/login$", "*", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?auth/sso/callback$", "*", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?auth/sso/metadata$", "GET", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?auth/sso/providers$", "GET", "", allow_unauthenticated=True),
+    RoutePermission(r"^/auth/sso/.*$", "*", "", allow_unauthenticated=True),
+    # OAuth - public start and callbacks
+    RoutePermission(r"^/api/(v1/)?auth/oauth/[^/]+$", "GET", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?auth/oauth/[^/]+/callback$", "*", "", allow_unauthenticated=True),
+    # Authenticated user endpoints
+    RoutePermission(r"^/api/(v1/)?auth/me$", "GET", "authentication.read"),
+    RoutePermission(r"^/api/(v1/)?auth/me$", "PATCH", "authentication.read"),
+    RoutePermission(r"^/api/(v1/)?auth/me$", "PUT", "authentication.read"),
+    RoutePermission(r"^/api/(v1/)?auth/logout$", "POST", "authentication.revoke"),
+    RoutePermission(r"^/api/(v1/)?auth/logout-all$", "POST", "authentication.revoke"),
+    RoutePermission(r"^/api/(v1/)?auth/password$", "POST", "authentication.read"),
+    RoutePermission(r"^/api/(v1/)?auth/change-password$", "POST", "authentication.read"),
+    # Session management
+    RoutePermission(r"^/api/(v1/)?auth/sessions$", "GET", "session.list_active"),
+    RoutePermission(r"^/api/(v1/)?auth/sessions/([^/]+)$", "DELETE", "session.revoke", 1),
+    RoutePermission(r"^/api/(v1/)?auth/revoke$", "POST", "session.revoke"),
+    # MFA management
+    RoutePermission(r"^/api/(v1/)?auth/mfa/setup$", "POST", "authentication.create"),
+    RoutePermission(r"^/api/(v1/)?auth/mfa/enable$", "POST", "authentication.update"),
+    RoutePermission(r"^/api/(v1/)?auth/mfa/disable$", "POST", "authentication.update"),
+    RoutePermission(r"^/api/(v1/)?auth/mfa/backup-codes$", "POST", "authentication.read"),
+    RoutePermission(r"^/api/(v1/)?auth/mfa/status$", "GET", "authentication.read"),
+    # API key management
+    RoutePermission(r"^/api/(v1/)?auth/api-key$", "POST", "api_key.create"),
+    RoutePermission(r"^/api/(v1/)?auth/api-key$", "DELETE", "api_key.revoke"),
+    RoutePermission(r"^/api/(v1/)?auth/api-keys$", "GET", "authentication.read"),
+    RoutePermission(r"^/api/(v1/)?auth/api-keys$", "POST", "api_key.create"),
+    RoutePermission(r"^/api/(v1/)?auth/api-keys/([^/]+)$", "DELETE", "api_key.revoke", 1),
+    # Organization management (auth-related)
+    RoutePermission(r"^/api/(v1/)?auth/invite$", "POST", "organization.invite"),
+    RoutePermission(r"^/api/(v1/)?auth/setup-organization$", "POST", "organization.update"),
+    RoutePermission(r"^/api/(v1/)?onboarding/complete$", "POST", "authentication.read"),
+    RoutePermission(r"^/api/(v1/)?onboarding/status$", "GET", "authentication.read"),
+    # OAuth account linking (authenticated)
+    RoutePermission(r"^/api/(v1/)?auth/oauth/link$", "POST", "authentication.update"),
+    RoutePermission(r"^/api/(v1/)?auth/oauth/unlink$", "DELETE", "authentication.update"),
+    RoutePermission(r"^/api/(v1/)?user/oauth-providers$", "GET", "authentication.read"),
+    # Social integration OAuth (authenticated for install, public for callback)
+    RoutePermission(r"^/api/integrations/slack/install$", "GET", "connector.create"),
+    RoutePermission(r"^/api/integrations/slack/callback$", "*", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/integrations/slack/uninstall$", "POST", "connector.delete"),
+    RoutePermission(r"^/api/integrations/teams/install$", "GET", "connector.create"),
+    RoutePermission(r"^/api/integrations/teams/callback$", "*", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/integrations/discord/install$", "GET", "connector.create"),
+    RoutePermission(r"^/api/integrations/discord/callback$", "*", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/integrations/discord/uninstall$", "POST", "connector.delete"),
+    # =========================================================================
     # External Webhooks - MUST be publicly accessible (called by external services)
     # =========================================================================
     # Payment webhooks (Stripe calls these)

@@ -28,8 +28,27 @@ from .models import (
 )
 from .renderer import CanvasRenderer
 from .manager import CanvasStateManager, get_canvas_manager
+from .primitives import (
+    AlertPrimitive,
+    AlertSeverity,
+    ButtonPrimitive,
+    ButtonVariant,
+    CardPrimitive,
+    ChartDataPoint,
+    ChartPrimitive,
+    ChartSeries,
+    ChartType,
+    FormField,
+    FormPrimitive,
+    ProgressPrimitive,
+    SelectOption,
+    SelectPrimitive,
+    TableColumn,
+    TablePrimitive,
+)
 
 __all__ = [
+    # Core canvas
     "Canvas",
     "CanvasNode",
     "CanvasEdge",
@@ -42,4 +61,21 @@ __all__ = [
     "CanvasRenderer",
     "CanvasStateManager",
     "get_canvas_manager",
+    # A2UI Primitives
+    "AlertPrimitive",
+    "AlertSeverity",
+    "ButtonPrimitive",
+    "ButtonVariant",
+    "CardPrimitive",
+    "ChartDataPoint",
+    "ChartPrimitive",
+    "ChartSeries",
+    "ChartType",
+    "FormField",
+    "FormPrimitive",
+    "ProgressPrimitive",
+    "SelectOption",
+    "SelectPrimitive",
+    "TableColumn",
+    "TablePrimitive",
 ]

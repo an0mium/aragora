@@ -14,6 +14,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.server.http_utils import run_async as _run_async
+from aragora.rbac.decorators import require_permission
 
 from ...base import (
     HandlerResult,
@@ -38,6 +39,7 @@ class SyncOperationsMixin:
     """Mixin providing sync operations for KnowledgeMoundHandler."""
 
     @handle_errors("sync continuum")
+    @require_permission("knowledge:read")
     def _handle_sync_continuum(self: SyncHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/sync/continuum - Sync from ContinuumMemory."""
 
@@ -100,6 +102,7 @@ class SyncOperationsMixin:
         )
 
     @handle_errors("sync consensus")
+    @require_permission("knowledge:read")
     def _handle_sync_consensus(self: SyncHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/sync/consensus - Sync from ConsensusMemory."""
 
@@ -162,6 +165,7 @@ class SyncOperationsMixin:
         )
 
     @handle_errors("sync facts")
+    @require_permission("knowledge:read")
     def _handle_sync_facts(self: SyncHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/sync/facts - Sync from FactStore."""
 

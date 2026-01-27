@@ -18,6 +18,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -194,6 +195,7 @@ class TranscriptionHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("transcription:read")
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle GET requests."""
         if path == "/api/v1/transcription/config":

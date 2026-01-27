@@ -21,6 +21,7 @@ from aragora.knowledge import (
     FactRelationType,
     ValidationStatus,
 )
+from aragora.rbac.decorators import require_permission
 
 from ..base import (
     HandlerResult,
@@ -56,6 +57,7 @@ class FactsOperationsMixin:
 
     @ttl_cache(ttl_seconds=CACHE_TTL_FACTS, key_prefix="knowledge_facts", skip_first=True)
     @handle_errors("list facts")
+    @require_permission("knowledge:read")
     def _handle_list_facts(self: FactsHandlerProtocol, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/facts - List facts."""
         workspace_id = get_bounded_string_param(query_params, "workspace_id", None, max_length=100)

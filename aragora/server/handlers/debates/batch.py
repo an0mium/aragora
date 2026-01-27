@@ -14,6 +14,8 @@ from aragora.exceptions import DebateStartError
 from aragora.server.validation.entities import SAFE_ID_PATTERN, validate_path_segment
 from aragora.server.validation.schema import BATCH_SUBMIT_SCHEMA, validate_against_schema
 
+from aragora.rbac.decorators import require_permission
+
 from ..base import (
     HandlerResult,
     ServerContext,
@@ -48,6 +50,7 @@ logger = logging.getLogger(__name__)
 class BatchOperationsMixin:
     """Mixin providing batch debate operations for DebatesHandler."""
 
+    @require_permission("debates:create")
     @user_rate_limit(action="debate_create")
     @rate_limit(rpm=10, limiter_name="batch_submit")
     @handle_errors("submit batch")

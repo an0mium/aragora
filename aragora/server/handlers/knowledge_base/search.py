@@ -10,6 +10,7 @@ import logging
 from typing import TYPE_CHECKING, Optional, Protocol
 
 from aragora.server.http_utils import run_async as _run_async
+from aragora.rbac.decorators import require_permission
 
 from ..base import (
     HandlerResult,
@@ -41,6 +42,7 @@ class SearchOperationsMixin:
     """Mixin providing search and stats operations for KnowledgeHandler."""
 
     @handle_errors("search chunks")
+    @require_permission("knowledge:read")
     def _handle_search(self: SearchHandlerProtocol, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/search - Search chunks."""
 

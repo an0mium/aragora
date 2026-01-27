@@ -678,6 +678,54 @@ PERM_AUTH_REQUIRE_MFA = _permission(
     "Enforce MFA for users or operations",
 )
 
+# User self-service authentication permissions
+PERM_AUTH_READ = _permission(
+    ResourceType.AUTHENTICATION,
+    Action.READ,
+    "View Auth Info",
+    "View own authentication info and settings",
+)
+PERM_AUTH_CREATE = _permission(
+    ResourceType.AUTHENTICATION,
+    Action.CREATE,
+    "Setup Auth",
+    "Setup authentication methods (MFA)",
+)
+PERM_AUTH_UPDATE = _permission(
+    ResourceType.AUTHENTICATION,
+    Action.UPDATE,
+    "Update Auth",
+    "Update authentication settings (enable/disable MFA, link accounts)",
+)
+PERM_AUTH_REVOKE = _permission(
+    ResourceType.AUTHENTICATION,
+    Action.REVOKE,
+    "Revoke Auth",
+    "Revoke sessions and tokens (logout)",
+)
+
+# API Key self-service permissions
+PERM_API_KEY_CREATE = _permission(
+    ResourceType.API_KEY,
+    Action.CREATE,
+    "Create API Key",
+    "Generate personal API keys",
+)
+PERM_API_KEY_REVOKE = _permission(
+    ResourceType.API_KEY,
+    Action.REVOKE,
+    "Revoke API Key",
+    "Revoke personal API keys",
+)
+
+# Organization invite permission
+PERM_ORG_INVITE = _permission(
+    ResourceType.ORGANIZATION,
+    Action.INVITE,
+    "Invite to Organization",
+    "Invite new users to the organization",
+)
+
 # ============================================================================
 # ENTERPRISE PERMISSIONS - Approval Workflows
 # ============================================================================
@@ -1059,6 +1107,13 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_SESSION_REVOKE,
         PERM_AUTH_RESET_PASSWORD,
         PERM_AUTH_REQUIRE_MFA,
+        PERM_AUTH_READ,
+        PERM_AUTH_CREATE,
+        PERM_AUTH_UPDATE,
+        PERM_AUTH_REVOKE,
+        PERM_API_KEY_CREATE,
+        PERM_API_KEY_REVOKE,
+        PERM_ORG_INVITE,
         # Enterprise - Approvals
         PERM_APPROVAL_REQUEST,
         PERM_APPROVAL_GRANT,
@@ -1163,9 +1218,22 @@ ROLE_ADMIN = Role(
         PERM_ORG_UPDATE.key,
         PERM_ORG_AUDIT.key,
         PERM_ORG_EXPORT.key,
+        PERM_ORG_INVITE.key,
         # API keys
         PERM_API_GENERATE_KEY.key,
         PERM_API_REVOKE_KEY.key,
+        PERM_API_KEY_CREATE.key,
+        PERM_API_KEY_REVOKE.key,
+        # Authentication management
+        PERM_AUTH_READ.key,
+        PERM_AUTH_CREATE.key,
+        PERM_AUTH_UPDATE.key,
+        PERM_AUTH_REVOKE.key,
+        PERM_AUTH_RESET_PASSWORD.key,
+        PERM_AUTH_REQUIRE_MFA.key,
+        # Session management
+        PERM_SESSION_READ.key,
+        PERM_SESSION_REVOKE.key,
         # All memory
         PERM_MEMORY_READ.key,
         PERM_MEMORY_UPDATE.key,
@@ -1414,6 +1482,16 @@ ROLE_MEMBER = Role(
         PERM_ORG_READ.key,
         # API key for self
         PERM_API_GENERATE_KEY.key,
+        PERM_API_KEY_CREATE.key,
+        PERM_API_KEY_REVOKE.key,
+        # Authentication (self-service)
+        PERM_AUTH_READ.key,
+        PERM_AUTH_CREATE.key,
+        PERM_AUTH_UPDATE.key,
+        PERM_AUTH_REVOKE.key,
+        # Session management (self)
+        PERM_SESSION_READ.key,
+        PERM_SESSION_REVOKE.key,
         # Decisions
         PERM_DECISION_CREATE.key,
         PERM_DECISION_READ.key,

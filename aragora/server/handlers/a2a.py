@@ -27,6 +27,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ class A2AHandler(BaseHandler):
         return False
 
     @rate_limit(rpm=120)
+    @require_permission("a2a:read")
     def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
@@ -161,6 +163,7 @@ class A2AHandler(BaseHandler):
 
         return json_response(agent.to_dict())
 
+    @require_permission("a2a:create")
     def _handle_submit_task(self, handler: Any) -> HandlerResult:
         """Submit a task for execution."""
         try:

@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+from aragora.rbac.decorators import require_permission
 from .base import BaseHandler, HandlerResult, error_response, json_response
 from .utils.rate_limit import RateLimiter
 
@@ -38,6 +39,7 @@ class CrossPollinationStatsHandler(BaseHandler):
 
     ROUTES = ["/api/v1/cross-pollination/stats"]
 
+    @require_permission("cross_pollination:read")
     async def get(self) -> HandlerResult:
         """Get cross-subscriber statistics."""
         try:

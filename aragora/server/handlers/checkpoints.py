@@ -25,6 +25,7 @@ from aragora.debate.checkpoint import (
     DatabaseCheckpointStore,
 )
 
+from aragora.rbac.decorators import require_permission
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -71,6 +72,7 @@ class CheckpointHandler(BaseHandler):
             or (path.startswith("/api/v1/debates/") and "/checkpoint" in path)
         )
 
+    @require_permission("checkpoints:read")
     @handle_errors("checkpoint handling")  # type: ignore[arg-type]
     async def handle(  # type: ignore[override]
         self,

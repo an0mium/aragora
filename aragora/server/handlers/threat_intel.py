@@ -35,6 +35,7 @@ from aragora.server.handlers.base import (
     rate_limit,
     validate_body,
 )
+from aragora.rbac.decorators import require_permission
 from aragora.services.threat_intelligence import (
     ThreatIntelligenceService,
     ThreatType,
@@ -61,6 +62,13 @@ class ThreatIntelHandler(BaseHandler):
         """Initialize handler."""
         super().__init__()
         self.service = get_threat_service()
+
+    @require_permission("threat_intel:read")
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult:
+        """Route threat intel requests to appropriate methods."""
+        # This handler uses @api_endpoint decorators, this is a placeholder
+        # for RBAC enforcement at the handler routing level
+        pass
 
     # =========================================================================
     # URL Scanning

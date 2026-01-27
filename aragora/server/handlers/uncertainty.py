@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
 
 from .base import (
@@ -45,6 +46,7 @@ class UncertaintyHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("uncertainty:read")
     @rate_limit(rpm=60)
     async def handle(  # type: ignore[override]
         self, path: str, method: str, handler: Any = None

@@ -15,6 +15,8 @@ from aragora.server.validation.security import (
     MAX_SEARCH_QUERY_LENGTH,
 )
 
+from aragora.rbac.decorators import require_permission
+
 from ..base import (
     HandlerResult,
     error_response,
@@ -51,6 +53,7 @@ class _DebatesHandlerProtocol(Protocol):
 class SearchOperationsMixin:
     """Mixin providing search operations for DebatesHandler."""
 
+    @require_permission("debates:read")
     @rate_limit(rpm=30, limiter_name="debates_search")
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_SEARCH, key_prefix="debates_search", skip_first=True)

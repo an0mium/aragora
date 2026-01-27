@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     pass
 
 from aragora.billing.jwt_auth import extract_user_from_request
+from aragora.rbac.decorators import require_permission
 
 from .base import (
     HandlerResult,
@@ -58,6 +59,7 @@ class PrivacyHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    @require_permission("privacy:read")
     def handle(
         self, path: str, query_params: dict, handler: Any, method: str = "GET"
     ) -> Optional[HandlerResult]:
