@@ -11,6 +11,8 @@ This package organizes MCP tools into logical modules:
 - evidence: Evidence collection and citation
 - trending: Trending topic analysis
 - browser: Browser automation with Playwright
+- context_tools: Rich context fetching for chat integration
+- chat_actions: Tool-first chat interactions
 """
 
 from aragora.mcp.tools_module.debate import (
@@ -114,6 +116,23 @@ from aragora.mcp.tools_module.canvas import (
     canvas_list_tool,
     canvas_delete_node_tool,
 )
+from aragora.mcp.tools_module.context_tools import (
+    fetch_channel_context_tool,
+    fetch_debate_context_tool,
+    analyze_conversation_tool,
+    get_thread_context_tool,
+    get_user_context_tool,
+)
+from aragora.mcp.tools_module.chat_actions import (
+    send_message_tool,
+    create_poll_tool,
+    trigger_debate_tool,
+    post_receipt_tool,
+    update_message_tool,
+    add_reaction_tool,
+    create_thread_tool,
+    stream_progress_tool,
+)
 
 __all__ = [
     # Debate tools
@@ -206,4 +225,19 @@ __all__ = [
     "canvas_execute_action_tool",
     "canvas_list_tool",
     "canvas_delete_node_tool",
+    # Context tools
+    "fetch_channel_context_tool",
+    "fetch_debate_context_tool",
+    "analyze_conversation_tool",
+    "get_thread_context_tool",
+    "get_user_context_tool",
+    # Chat action tools
+    "send_message_tool",
+    "create_poll_tool",
+    "trigger_debate_tool",
+    "post_receipt_tool",
+    "update_message_tool",
+    "add_reaction_tool",
+    "create_thread_tool",
+    "stream_progress_tool",
 ]

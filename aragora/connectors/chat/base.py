@@ -1110,5 +1110,517 @@ class ChatPlatformConnector(ABC):
             return timestamp.isoformat()
         return str(timestamp) if timestamp else None
 
+    # ==========================================================================
+    # Rich Context Injection (ClawdBot Pattern)
+    # ==========================================================================
+
+    async def fetch_rich_context(
+        self,
+        channel_id: str,
+        lookback_minutes: int = 60,
+        max_messages: int = 50,
+        include_participants: bool = True,
+        include_topics: bool = True,
+        include_sentiment: bool = False,
+        thread_id: Optional[str] = None,
+        format_for_llm: bool = True,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """
+        Fetch rich context from a channel for LLM prompt enrichment.
+
+        This implements the ClawdBot pattern of context injection, providing
+        comprehensive channel state for multi-agent deliberation. Returns
+        structured context suitable for injection into LLM prompts.
+
+        Args:
+            channel_id: Channel to fetch context from
+            lookback_minutes: How far back to look for messages (default: 60)
+            max_messages: Maximum messages to retrieve (default: 50)
+            include_participants: Whether to extract participant info (default: True)
+            include_topics: Whether to extract discussion topics (default: True)
+            include_sentiment: Whether to analyze sentiment (default: False)
+            thread_id: Optional thread/conversation to focus on
+            format_for_llm: Whether to include LLM-ready formatted string (default: True)
+            **kwargs: Platform-specific options
+
+        Returns:
+            Dict containing:
+                - channel: Channel information
+                - messages: List of recent messages
+                - participants: List of active participants
+                - topics: Extracted discussion topics (if include_topics)
+                - sentiment: Sentiment analysis (if include_sentiment)
+                - statistics: Message statistics (counts, activity patterns)
+                - formatted_context: LLM-ready context string (if format_for_llm)
+                - metadata: Additional context metadata
+
+        Example:
+            context = await connector.fetch_rich_context(
+                "C123456",
+                lookback_minutes=30,
+                include_topics=True,
+            )
+
+            # Use formatted context in LLM prompt
+            prompt = f\"\"\"
+            Channel context:
+            {context['formatted_context']}
+
+            Based on this discussion, respond to: {user_query}
+            \"\"\"
+        """
+        from datetime import datetime
+
+        # Fetch base context
+        base_context = await self.fetch_context(
+            channel_id=channel_id,
+            lookback_minutes=lookback_minutes,
+            max_messages=max_messages,
+            include_participants=include_participants,
+            thread_id=thread_id,
+            **kwargs,
+        )
+
+        # Build rich context
+        rich_context: dict[str, Any] = {
+            "channel": {
+                "id": base_context.channel.id,
+                "name": base_context.channel.name,
+                "platform": base_context.channel.platform,
+                "type": base_context.channel.channel_type,
+            },
+            "messages": [
+                {
+                    "id": msg.id,
+                    "author": msg.author.display_name or msg.author.username or msg.author.id,
+                    "content": msg.content,
+                    "timestamp": msg.timestamp.isoformat() if msg.timestamp else None,
+                    "thread_id": msg.thread_id,
+                }
+                for msg in base_context.messages
+            ],
+            "participants": [
+                {
+                    "id": p.id,
+                    "name": p.display_name or p.username or p.id,
+                    "is_bot": p.is_bot,
+                }
+                for p in base_context.participants
+            ],
+            "statistics": {
+                "message_count": base_context.message_count,
+                "participant_count": base_context.participant_count,
+                "timespan_minutes": lookback_minutes,
+                "oldest_message": (
+                    base_context.oldest_timestamp.isoformat()
+                    if base_context.oldest_timestamp
+                    else None
+                ),
+                "newest_message": (
+                    base_context.newest_timestamp.isoformat()
+                    if base_context.newest_timestamp
+                    else None
+                ),
+            },
+            "metadata": {
+                "platform": self.platform_name,
+                "fetched_at": datetime.utcnow().isoformat(),
+                "thread_id": thread_id,
+                **base_context.metadata,
+            },
+            "warnings": base_context.warnings,
+        }
+
+        # Extract discussion topics
+        if include_topics:
+            topics = self._extract_topics(base_context.messages)
+            rich_context["topics"] = topics
+
+        # Analyze sentiment (basic implementation)
+        if include_sentiment:
+            sentiment = self._analyze_sentiment(base_context.messages)
+            rich_context["sentiment"] = sentiment
+
+        # Calculate activity patterns
+        rich_context["activity"] = self._calculate_activity_patterns(base_context.messages)
+
+        # Format for LLM consumption
+        if format_for_llm:
+            rich_context["formatted_context"] = self._format_context_for_llm(rich_context)
+
+        logger.debug(
+            f"Fetched rich context from {self.platform_name} channel {channel_id}: "
+            f"{len(base_context.messages)} messages, "
+            f"{len(rich_context.get('topics', []))} topics extracted"
+        )
+
+        return rich_context
+
+    def _extract_topics(self, messages: list[ChatMessage]) -> list[dict[str, Any]]:
+        """
+        Extract discussion topics from messages.
+
+        Simple keyword extraction - can be overridden for more sophisticated
+        NLP-based topic extraction.
+
+        Args:
+            messages: List of messages to analyze
+
+        Returns:
+            List of topic dicts with topic and frequency
+        """
+        from collections import Counter
+        import re
+
+        if not messages:
+            return []
+
+        # Simple word frequency for topic extraction
+        # Skip common words
+        stop_words = {
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "shall",
+            "can",
+            "need",
+            "dare",
+            "ought",
+            "used",
+            "to",
+            "of",
+            "in",
+            "for",
+            "on",
+            "with",
+            "at",
+            "by",
+            "from",
+            "as",
+            "into",
+            "through",
+            "during",
+            "before",
+            "after",
+            "above",
+            "below",
+            "between",
+            "under",
+            "again",
+            "further",
+            "then",
+            "once",
+            "here",
+            "there",
+            "when",
+            "where",
+            "why",
+            "how",
+            "all",
+            "each",
+            "few",
+            "more",
+            "most",
+            "other",
+            "some",
+            "such",
+            "no",
+            "nor",
+            "not",
+            "only",
+            "own",
+            "same",
+            "so",
+            "than",
+            "too",
+            "very",
+            "just",
+            "and",
+            "but",
+            "if",
+            "or",
+            "because",
+            "until",
+            "while",
+            "this",
+            "that",
+            "these",
+            "those",
+            "i",
+            "you",
+            "he",
+            "she",
+            "it",
+            "we",
+            "they",
+            "what",
+            "which",
+            "who",
+            "whom",
+            "whose",
+            "me",
+            "him",
+            "her",
+            "us",
+            "them",
+            "my",
+            "your",
+            "his",
+            "its",
+            "our",
+            "their",
+        }
+
+        word_counts: Counter[str] = Counter()
+        for msg in messages:
+            if not msg.content:
+                continue
+            # Extract words (lowercase, alphanumeric only)
+            words = re.findall(r"\b[a-zA-Z]{3,}\b", msg.content.lower())
+            significant_words = [w for w in words if w not in stop_words]
+            word_counts.update(significant_words)
+
+        # Get top topics
+        topics = [
+            {"topic": word, "frequency": count, "relevance": min(1.0, count / 10)}
+            for word, count in word_counts.most_common(10)
+            if count >= 2  # At least 2 mentions
+        ]
+
+        return topics
+
+    def _analyze_sentiment(self, messages: list[ChatMessage]) -> dict[str, Any]:
+        """
+        Basic sentiment analysis of messages.
+
+        Simple keyword-based sentiment - can be overridden for more sophisticated
+        analysis using NLP models.
+
+        Args:
+            messages: List of messages to analyze
+
+        Returns:
+            Dict with sentiment metrics
+        """
+        if not messages:
+            return {"overall": "neutral", "positive_ratio": 0.5, "scores": []}
+
+        # Simple keyword-based sentiment
+        positive_words = {
+            "good",
+            "great",
+            "excellent",
+            "awesome",
+            "amazing",
+            "wonderful",
+            "fantastic",
+            "perfect",
+            "love",
+            "like",
+            "agree",
+            "yes",
+            "thanks",
+            "thank",
+            "helpful",
+            "nice",
+            "well",
+            "best",
+            "happy",
+            "glad",
+        }
+        negative_words = {
+            "bad",
+            "terrible",
+            "awful",
+            "horrible",
+            "hate",
+            "dislike",
+            "disagree",
+            "no",
+            "wrong",
+            "problem",
+            "issue",
+            "error",
+            "fail",
+            "broken",
+            "bug",
+            "frustrated",
+            "annoyed",
+            "worst",
+            "sad",
+        }
+
+        scores = []
+        for msg in messages:
+            if not msg.content:
+                scores.append(0)
+                continue
+
+            words = set(msg.content.lower().split())
+            pos_count = len(words & positive_words)
+            neg_count = len(words & negative_words)
+
+            if pos_count > neg_count:
+                scores.append(1)
+            elif neg_count > pos_count:
+                scores.append(-1)
+            else:
+                scores.append(0)
+
+        positive_ratio = (sum(1 for s in scores if s > 0) / len(scores)) if scores else 0.5
+        avg_score = sum(scores) / len(scores) if scores else 0
+
+        if avg_score > 0.3:
+            overall = "positive"
+        elif avg_score < -0.3:
+            overall = "negative"
+        else:
+            overall = "neutral"
+
+        return {
+            "overall": overall,
+            "positive_ratio": round(positive_ratio, 2),
+            "average_score": round(avg_score, 2),
+            "message_count": len(scores),
+        }
+
+    def _calculate_activity_patterns(self, messages: list[ChatMessage]) -> dict[str, Any]:
+        """
+        Calculate activity patterns from messages.
+
+        Args:
+            messages: List of messages to analyze
+
+        Returns:
+            Dict with activity metrics
+        """
+        from collections import Counter
+
+        if not messages:
+            return {
+                "messages_per_hour": 0,
+                "most_active_participants": [],
+                "peak_activity_time": None,
+            }
+
+        # Messages per participant
+        participant_counts: Counter[str] = Counter()
+        hour_counts: Counter[int] = Counter()
+
+        for msg in messages:
+            author_name = msg.author.display_name or msg.author.username or msg.author.id
+            participant_counts[author_name] += 1
+
+            if msg.timestamp:
+                hour_counts[msg.timestamp.hour] += 1
+
+        # Calculate messages per hour
+        if messages and messages[0].timestamp and messages[-1].timestamp:
+            time_span = abs((messages[0].timestamp - messages[-1].timestamp).total_seconds() / 3600)
+            messages_per_hour = len(messages) / max(time_span, 1)
+        else:
+            messages_per_hour = len(messages)
+
+        # Find peak activity time
+        peak_hour = hour_counts.most_common(1)[0][0] if hour_counts else None
+
+        return {
+            "messages_per_hour": round(messages_per_hour, 1),
+            "most_active_participants": [
+                {"name": name, "message_count": count}
+                for name, count in participant_counts.most_common(5)
+            ],
+            "peak_activity_hour": peak_hour,
+            "unique_participants": len(participant_counts),
+        }
+
+    def _format_context_for_llm(self, rich_context: dict[str, Any]) -> str:
+        """
+        Format rich context into an LLM-ready string.
+
+        Args:
+            rich_context: The rich context dictionary
+
+        Returns:
+            Formatted string suitable for LLM prompt injection
+        """
+        lines = []
+
+        # Channel info
+        channel = rich_context.get("channel", {})
+        channel_name = channel.get("name") or channel.get("id", "unknown")
+        lines.append(f"## Channel: {channel_name} ({channel.get('platform', 'unknown')})")
+        lines.append("")
+
+        # Participants
+        participants = rich_context.get("participants", [])
+        if participants:
+            human_participants = [p["name"] for p in participants if not p.get("is_bot")]
+            if human_participants:
+                lines.append(f"**Participants:** {', '.join(human_participants[:10])}")
+                if len(human_participants) > 10:
+                    lines.append(f"  ... and {len(human_participants) - 10} more")
+            lines.append("")
+
+        # Topics
+        topics = rich_context.get("topics", [])
+        if topics:
+            topic_names = [t["topic"] for t in topics[:5]]
+            lines.append(f"**Current topics:** {', '.join(topic_names)}")
+            lines.append("")
+
+        # Activity summary
+        stats = rich_context.get("statistics", {})
+        activity = rich_context.get("activity", {})
+        if stats.get("message_count"):
+            lines.append(
+                f"**Activity:** {stats['message_count']} messages in the last "
+                f"{stats.get('timespan_minutes', 60)} minutes "
+                f"({activity.get('messages_per_hour', 0):.1f}/hour)"
+            )
+            lines.append("")
+
+        # Recent messages summary
+        messages = rich_context.get("messages", [])
+        if messages:
+            lines.append("**Recent discussion:**")
+            # Show last 10 messages
+            for msg in messages[-10:]:
+                author = msg.get("author", "unknown")
+                content = msg.get("content", "")
+                # Truncate long messages
+                if len(content) > 200:
+                    content = content[:200] + "..."
+                lines.append(f"- **{author}:** {content}")
+            lines.append("")
+
+        # Sentiment if available
+        sentiment = rich_context.get("sentiment")
+        if sentiment and sentiment.get("overall"):
+            lines.append(f"**Conversation tone:** {sentiment['overall']}")
+
+        return "\n".join(lines)
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(platform={self.platform_name})"

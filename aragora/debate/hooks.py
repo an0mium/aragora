@@ -32,6 +32,7 @@ __all__ = [
     "HookCallback",
     "DebateHooks",
     "AuditHooks",
+    "PropulsionHooks",
     "create_hook_manager",
 ]
 
@@ -109,6 +110,12 @@ class HookType(str, Enum):
     ON_RESUME = "on_resume"
     ON_CHECKPOINT = "on_checkpoint"
 
+    # Propulsion hooks (Gastown pattern - push-based work assignment)
+    ON_READY = "on_ready"  # Agent signals readiness for work
+    ON_PROPEL = "on_propel"  # Push work to next stage
+    ON_ESCALATE = "on_escalate"  # Escalation trigger (severity threshold crossed)
+    ON_MOLECULE_COMPLETE = "on_molecule_complete"  # Multi-step workflow completed
+
 
 # Type alias for hook callbacks
 HookCallback = Union[
@@ -179,6 +186,32 @@ class AuditHooks(Protocol):
     def on_progress(
         self, phase: str, completed: int, total: int
     ) -> Optional[Coroutine[Any, Any, None]]: ...
+
+
+class PropulsionHooks(Protocol):
+    """Protocol for propulsion hooks (Gastown pattern - push-based work assignment)."""
+
+    def on_ready(self, agent: str, capabilities: list[str]) -> Optional[Coroutine[Any, Any, None]]:
+        """Called when an agent signals readiness for work."""
+        ...
+
+    def on_propel(
+        self, source_stage: str, target_stage: str, payload: dict[str, Any]
+    ) -> Optional[Coroutine[Any, Any, None]]:
+        """Called to push work to the next stage in a pipeline."""
+        ...
+
+    def on_escalate(
+        self, severity: str, source: str, reason: str, context: dict[str, Any]
+    ) -> Optional[Coroutine[Any, Any, None]]:
+        """Called when an escalation is triggered (severity threshold crossed)."""
+        ...
+
+    def on_molecule_complete(
+        self, molecule_id: str, steps_completed: int, result: dict[str, Any]
+    ) -> Optional[Coroutine[Any, Any, None]]:
+        """Called when a multi-step workflow (molecule) completes."""
+        ...
 
 
 @dataclass
