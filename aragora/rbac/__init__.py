@@ -168,6 +168,21 @@ from .profiles import (
     get_lite_role_summary,
 )
 
+# ABAC Conditions (Attribute-Based Access Control)
+from .conditions import (
+    Condition,
+    ConditionResult,
+    ConditionError,
+    ConditionEvaluator,
+    EqualityCondition,
+    TimeCondition,
+    IPCondition,
+    ResourceOwnerCondition,
+    ResourceStatusCondition,
+    TagCondition,
+    get_condition_evaluator,
+)
+
 __all__ = [
     # Legacy Types (backward compatible)
     "ResourceType",
@@ -275,4 +290,16 @@ __all__ = [
     "can_upgrade_profile",
     "get_migration_plan",
     "get_lite_role_summary",
+    # ABAC Conditions (Attribute-Based Access Control)
+    "Condition",
+    "ConditionResult",
+    "ConditionError",
+    "ConditionEvaluator",
+    "EqualityCondition",
+    "TimeCondition",
+    "IPCondition",
+    "ResourceOwnerCondition",
+    "ResourceStatusCondition",
+    "TagCondition",
+    "get_condition_evaluator",
 ]

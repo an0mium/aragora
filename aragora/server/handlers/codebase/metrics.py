@@ -471,7 +471,7 @@ class MetricsHandler(SecureHandler):
                     return True
         return False
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route metrics endpoint requests."""

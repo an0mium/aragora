@@ -236,19 +236,23 @@ class PermissionChecker:
         action: Action,
         resource_id: str,
         resource_attrs: dict[str, Any] | None = None,
+        permission_conditions: dict[str, Any] | None = None,
     ) -> AuthorizationDecision:
         """
         Check if context can perform an action on a specific resource.
 
         This method supports attribute-based access control (ABAC) by
-        allowing resource policies to be evaluated.
+        allowing resource policies and conditions to be evaluated.
 
         Args:
             context: Authorization context
             resource_type: Type of resource
             action: Action to perform
             resource_id: Specific resource ID
-            resource_attrs: Optional resource attributes for ABAC
+            resource_attrs: Optional resource attributes for ABAC conditions.
+                          Used to evaluate conditions like owner, status, tags.
+            permission_conditions: Optional explicit conditions to evaluate.
+                          If not provided, uses conditions from the permission.
 
         Returns:
             AuthorizationDecision
@@ -259,6 +263,35 @@ class PermissionChecker:
         decision = self.check_permission(context, permission_key, resource_id)
         if not decision.allowed:
             return decision
+
+        # Check ABAC conditions if provided or if resource has attributes
+        if self._enable_conditions and (permission_conditions or resource_attrs):
+            conditions_to_check = permission_conditions or {}
+
+            # Add implicit owner check if owner_id in resource_attrs
+            if (
+                resource_attrs
+                and "owner_id" in resource_attrs
+                and "owner" not in conditions_to_check
+            ):
+                conditions_to_check = {**conditions_to_check, "owner": True}
+
+            if conditions_to_check:
+                satisfied, results = self._evaluate_conditions(
+                    conditions_to_check,
+                    context,
+                    resource_attrs,
+                )
+                if not satisfied:
+                    failed_conditions = [r for r in results if not r.satisfied]
+                    reasons = [f"{r.condition_name}: {r.reason}" for r in failed_conditions]
+                    return AuthorizationDecision(
+                        allowed=False,
+                        reason=f"ABAC conditions not satisfied: {'; '.join(reasons)}",
+                        permission_key=permission_key,
+                        resource_id=resource_id,
+                        context=context,
+                    )
 
         # Check resource-specific policies
         policy_key = f"{resource_type.value}:{resource_id}"
@@ -753,6 +786,30 @@ class PermissionChecker:
         """Get the current delegation manager."""
         return self._delegation_manager
 
+    def set_condition_evaluator(self, evaluator: Optional["ConditionEvaluator"]) -> None:
+        """Set a custom condition evaluator.
+
+        Args:
+            evaluator: ConditionEvaluator instance or None to use global singleton
+        """
+        self._condition_evaluator = evaluator
+
+    def get_condition_evaluator(self) -> Optional["ConditionEvaluator"]:
+        """Get the current condition evaluator (custom instance only)."""
+        return self._condition_evaluator
+
+    def set_conditions_enabled(self, enabled: bool) -> None:
+        """Enable or disable ABAC condition evaluation.
+
+        Args:
+            enabled: Whether to evaluate conditions on permission checks
+        """
+        self._enable_conditions = enabled
+
+    def is_conditions_enabled(self) -> bool:
+        """Check if ABAC condition evaluation is enabled."""
+        return self._enable_conditions
+
     def _roles_hash(self, roles: set[str]) -> str:
         """Generate hash for a set of roles."""
         return str(hash(frozenset(roles)))
@@ -912,6 +969,8 @@ class PermissionChecker:
             "delegation_manager_enabled": self._delegation_manager is not None,
             "workspace_scope_enabled": self._enable_workspace_scope,
             "workspace_count": len(self._workspace_roles),
+            "conditions_enabled": self._enable_conditions,
+            "condition_evaluator_custom": self._condition_evaluator is not None,
         }
 
         if self._cache_backend:

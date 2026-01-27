@@ -82,7 +82,9 @@ class MomentsHandler(SecureHandler):
             return True
         return False
 
-    async def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    async def handle(  # type: ignore[override]
+        self, path: str, query_params: dict, handler: Any
+    ) -> Optional[HandlerResult]:
         """Route moments requests to appropriate methods."""
         # RBAC check
         try:

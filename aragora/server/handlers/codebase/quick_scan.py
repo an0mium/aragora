@@ -48,7 +48,7 @@ async def _check_permission(request: web.Request, permission: str) -> Optional[w
                 status=401,
             )
 
-        if not checker.has_permission(user_id, permission):
+        if not checker.check_permission(user_id, permission).allowed:
             return web.json_response(
                 {"success": False, "error": f"Permission denied: {permission}"},
                 status=403,

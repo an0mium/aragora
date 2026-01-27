@@ -22,6 +22,8 @@ import threading
 from pathlib import Path
 from typing import Any, Optional
 
+from aragora.rbac.decorators import require_permission
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -54,7 +56,9 @@ def get_dependency_analyzer():
         return _dependency_analyzer
 
 
+@require_permission("codebase:analyze")
 async def handle_analyze_dependencies(
+    context: AuthorizationContext,
     data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
@@ -129,7 +133,9 @@ async def handle_analyze_dependencies(
         return error_response(f"Failed to analyze dependencies: {e}", status=500)
 
 
+@require_permission("codebase:analyze")
 async def handle_generate_sbom(
+    context: AuthorizationContext,
     data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
@@ -188,7 +194,9 @@ async def handle_generate_sbom(
         return error_response(f"Failed to generate SBOM: {e}", status=500)
 
 
+@require_permission("codebase:analyze")
 async def handle_scan_vulnerabilities(
+    context: AuthorizationContext,
     data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
@@ -265,7 +273,9 @@ async def handle_scan_vulnerabilities(
         return error_response(f"Failed to scan vulnerabilities: {e}", status=500)
 
 
+@require_permission("codebase:analyze")
 async def handle_check_licenses(
+    context: AuthorizationContext,
     data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
