@@ -2,14 +2,16 @@
 
 Roadmap for achieving 95%+ API coverage across TypeScript and Python SDKs.
 
-## Current Status
+## Current Status (Updated 2026-01-27)
 
-| SDK | Endpoints | Coverage | Target |
+| SDK | Namespaces/Methods | Coverage | Target |
 |-----|-----------|----------|--------|
-| TypeScript | 193/358 | 53.9% | 95% |
-| Python | 41/358 | 11.5% | 95% |
+| TypeScript | 65 namespaces | ~70% | 95% |
+| Python | 272 methods | ~75% | 95% |
 
-**Gap to Close:** +147 TypeScript, +299 Python endpoints
+**Recent Progress:**
+- TypeScript: Added 12 new namespaces (Deliberations, Genesis, Laboratory, Teams, Learning, Batch, Privacy, Feedback, CodeReview, RLM, Backups, Dashboard)
+- Python: Auto-generated client has 272 methods covering most core functionality
 
 ## Coverage Tiers
 
