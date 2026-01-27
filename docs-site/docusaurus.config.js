@@ -184,19 +184,19 @@ const config = {
         additionalLanguages: ['bash', 'python', 'json', 'yaml', 'typescript'],
       },
 
-      // Search (Algolia)
-      algolia: {
-        appId: 'YOUR_ALGOLIA_APP_ID',
-        apiKey: 'YOUR_ALGOLIA_API_KEY',
-        indexName: 'aragora-docs',
-        contextualSearch: true,
-      },
+      // Search (Algolia) - Configure with real credentials before enabling
+      // algolia: {
+      //   appId: 'YOUR_ALGOLIA_APP_ID',
+      //   apiKey: 'YOUR_ALGOLIA_API_KEY',
+      //   indexName: 'aragora-docs',
+      //   contextualSearch: true,
+      // },
 
-      // Announcement bar (optional)
+      // Announcement bar
       announcementBar: {
-        id: 'v2_release',
+        id: 'v2_4_release',
         content:
-          'Aragora v2.1 is out! Check out the <a href="/docs/migration">migration guide</a>.',
+          'Aragora v2.4 is out! Expanded Python SDK with 10+ new resource namespaces. <a href="/docs/changelog">See what\'s new</a>.',
         backgroundColor: '#4F46E5',
         textColor: '#FFFFFF',
         isCloseable: true,

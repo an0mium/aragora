@@ -214,6 +214,23 @@ aragora ask "Implement a secure auth system" \
 
 > **See [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for the complete setup and usage guide.**
 
+### SDK Packages
+
+Aragora offers multiple SDK packages for different use cases:
+
+| Package | Purpose | Installation |
+|---------|---------|--------------|
+| **`aragora`** | Full control plane (server, CLI, SDK) | `pip install aragora` |
+| **`aragora-client`** | Lightweight async client (remote API only) | `pip install aragora-client` |
+| **`@aragora/sdk`** | TypeScript/Node.js SDK | `npm install @aragora/sdk` |
+
+**Deprecated packages** (do not use):
+- `aragora-sdk` - Use `aragora-client` instead
+- `aragora-js` - Use `@aragora/sdk` instead
+- `sdk/python/` - Use `aragora-client` from `aragora-py/`
+
+See [docs/SDK_COMPARISON.md](docs/SDK_COMPARISON.md) for detailed feature comparison.
+
 ### Python SDK
 
 Use the type-safe Python SDK for programmatic access:
