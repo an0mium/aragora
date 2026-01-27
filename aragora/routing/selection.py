@@ -102,6 +102,11 @@ class AgentProfile:
     latency_ms: float = 1000  # Average response latency
     success_rate: float = 0.8  # Historical success rate
 
+    # Gastown-inspired capability tags for role-based hierarchy
+    capabilities: set[str] = field(default_factory=set)  # e.g., {"reasoning", "coding", "research"}
+    hierarchy_role: str = "worker"  # "orchestrator", "monitor", "worker"
+    task_affinity: dict[str, float] = field(default_factory=dict)  # task_type -> affinity score
+
     # Probe-based reliability metrics (from ProbeFilter)
     probe_score: float = 1.0  # 1 = no vulnerabilities, 0 = high vulnerability
     has_critical_probes: bool = False  # True if agent has critical probe failures

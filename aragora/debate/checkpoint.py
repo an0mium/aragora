@@ -480,17 +480,32 @@ class S3CheckpointStore(CheckpointStore):
 
 
 class GitCheckpointStore(CheckpointStore):
-    """Git branch-based checkpoint storage for version control."""
+    """Git branch-based checkpoint storage for version control.
+
+    Enhanced with Gastown-inspired continuous commit mode for crash recovery.
+
+    Modes:
+    - sparse (default): Create checkpoints at configured intervals
+    - continuous: Commit after every round for maximum crash resilience
+
+    The continuous mode enables any crash recovery scenario - debates can
+    be resumed from the exact round where they were interrupted.
+    """
 
     def __init__(
         self,
         repo_path: str = ".",
         branch_prefix: str = "checkpoint/",
+        continuous_mode: bool = False,
+        commit_message_template: str = "Debate {debate_id} round {round}",
     ):
         self.repo_path = Path(repo_path)
         self.branch_prefix = branch_prefix
         self.checkpoint_dir = self.repo_path / ".checkpoints"
         self.checkpoint_dir.mkdir(exist_ok=True)
+        self.continuous_mode = continuous_mode
+        self.commit_message_template = commit_message_template
+        self._commit_history: dict[str, list[str]] = {}  # debate_id -> commit hashes
 
     async def _run_git(self, args: list[str]) -> tuple[bool, str]:
         """Run git command asynchronously (non-blocking).
@@ -607,6 +622,253 @@ class GitCheckpointStore(CheckpointStore):
             path.unlink()
 
         return success
+
+    async def commit_round(
+        self,
+        debate_id: str,
+        round_num: int,
+        checkpoint: DebateCheckpoint,
+        message: Optional[str] = None,
+    ) -> Optional[str]:
+        """Commit a single round checkpoint (continuous mode).
+
+        Returns the commit hash if successful, None otherwise.
+        """
+        if not self.continuous_mode:
+            # In sparse mode, use standard save
+            await self.save(checkpoint)
+            return None
+
+        # Validate checkpoint ID
+        if not SAFE_CHECKPOINT_ID.match(checkpoint.checkpoint_id):
+            raise ValueError(f"Invalid checkpoint ID format: {checkpoint.checkpoint_id}")
+
+        # Save to file
+        path = self.checkpoint_dir / f"{checkpoint.checkpoint_id}.json"
+        path.write_text(json.dumps(checkpoint.to_dict(), indent=2))
+
+        # Commit with round-specific message
+        commit_msg = message or self.commit_message_template.format(
+            debate_id=debate_id,
+            round=round_num,
+        )
+
+        await self._run_git(["add", str(path)])
+        success, output = await self._run_git(["commit", "-m", commit_msg])
+
+        if success:
+            # Get commit hash
+            _, commit_hash = await self._run_git(["rev-parse", "HEAD"])
+            if debate_id not in self._commit_history:
+                self._commit_history[debate_id] = []
+            self._commit_history[debate_id].append(commit_hash)
+            return commit_hash
+
+        return None
+
+    async def get_commit_history(
+        self,
+        debate_id: str,
+        limit: int = 50,
+    ) -> list[dict]:
+        """Get git commit history for a debate.
+
+        Returns list of commits with hash, message, timestamp.
+        """
+        # Search for commits mentioning this debate
+        success, log_output = await self._run_git(
+            [
+                "log",
+                f"--grep=Debate {debate_id}",
+                f"-{limit}",
+                "--format=%H|%s|%ai",
+            ]
+        )
+
+        if not success:
+            return []
+
+        commits = []
+        for line in log_output.strip().split("\n"):
+            if not line:
+                continue
+            parts = line.split("|", 2)
+            if len(parts) >= 3:
+                commits.append(
+                    {
+                        "hash": parts[0],
+                        "message": parts[1],
+                        "timestamp": parts[2],
+                    }
+                )
+
+        return commits
+
+    async def restore_to_round(
+        self,
+        debate_id: str,
+        target_round: int,
+    ) -> Optional[DebateCheckpoint]:
+        """Restore debate state to a specific round from git history.
+
+        Searches commit history to find the checkpoint for the target round.
+        """
+        commits = await self.get_commit_history(debate_id)
+
+        for commit in commits:
+            if f"round {target_round}" in commit["message"]:
+                # Checkout the checkpoint file at that commit
+                success, content = await self._run_git(
+                    [
+                        "show",
+                        f"{commit['hash']}:.checkpoints/cp-{debate_id[:8]}-{target_round:03d}*.json",
+                    ]
+                )
+                if success and content:
+                    try:
+                        data = json.loads(content)
+                        return DebateCheckpoint.from_dict(data)
+                    except (json.JSONDecodeError, KeyError):
+                        continue
+
+        return None
+
+
+class RecoveryNarrator:
+    """Summarizes git history for resuming debates (Gastown pattern).
+
+    The RecoveryNarrator reads checkpoint commit history and generates
+    a human-readable summary that can be injected into agent prompts
+    when resuming a debate, providing context about what happened before
+    the interruption.
+    """
+
+    def __init__(self, git_store: GitCheckpointStore):
+        self.git_store = git_store
+
+    async def generate_recovery_summary(
+        self,
+        debate_id: str,
+        include_agent_states: bool = True,
+        include_consensus_progress: bool = True,
+        max_rounds_detail: int = 5,
+    ) -> str:
+        """Generate a narrative summary of debate progress for recovery.
+
+        Args:
+            debate_id: The debate to summarize
+            include_agent_states: Include agent stance/position info
+            include_consensus_progress: Include consensus trajectory
+            max_rounds_detail: Number of recent rounds to detail
+
+        Returns:
+            Human-readable summary suitable for prompt injection
+        """
+        commits = await self.git_store.get_commit_history(debate_id)
+
+        if not commits:
+            return "No previous debate history found."
+
+        # Load most recent checkpoint for full context
+        latest_checkpoint = None
+        for commit in commits:
+            # Try to extract checkpoint from commit
+            success, content = await self.git_store._run_git(
+                [
+                    "show",
+                    f"{commit['hash']}:.checkpoints/*.json",
+                ]
+            )
+            if success and content:
+                try:
+                    data = json.loads(content)
+                    latest_checkpoint = DebateCheckpoint.from_dict(data)
+                    break
+                except (json.JSONDecodeError, KeyError):
+                    continue
+
+        # Build narrative
+        lines = [
+            "## Debate Recovery Context",
+            "",
+            f"**Debate ID:** {debate_id}",
+            f"**Total Commits:** {len(commits)}",
+        ]
+
+        if latest_checkpoint:
+            lines.extend(
+                [
+                    f"**Last Round:** {latest_checkpoint.current_round} of {latest_checkpoint.total_rounds}",
+                    f"**Phase at Interruption:** {latest_checkpoint.phase}",
+                    f"**Task:** {latest_checkpoint.task[:200]}",
+                    "",
+                ]
+            )
+
+            if include_consensus_progress and latest_checkpoint.current_consensus:
+                lines.extend(
+                    [
+                        "### Consensus Progress",
+                        f"**Current Working Consensus:** {latest_checkpoint.current_consensus[:500]}",
+                        f"**Confidence:** {latest_checkpoint.consensus_confidence:.1%}",
+                        f"**Convergence Status:** {latest_checkpoint.convergence_status}",
+                        "",
+                    ]
+                )
+
+            if include_agent_states and latest_checkpoint.agent_states:
+                lines.append("### Agent Positions at Interruption")
+                for agent in latest_checkpoint.agent_states:
+                    lines.append(f"- **{agent.agent_name}** ({agent.agent_role}): {agent.stance}")
+                lines.append("")
+
+            # Recent round summaries
+            if latest_checkpoint.messages:
+                lines.append(f"### Recent Discussion (Last {max_rounds_detail} Rounds)")
+                recent_messages = latest_checkpoint.messages[-max_rounds_detail * 3 :]
+                for msg in recent_messages:
+                    agent = msg.get("agent", "unknown")
+                    content = msg.get("content", "")[:200]
+                    lines.append(f"- **{agent}**: {content}...")
+                lines.append("")
+
+            if latest_checkpoint.intervention_notes:
+                lines.append("### Human Interventions")
+                for note in latest_checkpoint.intervention_notes:
+                    lines.append(f"- {note}")
+                lines.append("")
+
+        # Commit timeline
+        lines.append("### Checkpoint Timeline")
+        for commit in commits[:10]:
+            lines.append(f"- {commit['timestamp']}: {commit['message']}")
+
+        return "\n".join(lines)
+
+    async def get_resumption_prompt(
+        self,
+        debate_id: str,
+        agent_name: str,
+    ) -> str:
+        """Generate a prompt injection for an agent resuming a debate.
+
+        This provides the agent with context about:
+        - What was being discussed
+        - Where consensus stood
+        - What their position was
+        - What happened before interruption
+        """
+        summary = await self.generate_recovery_summary(debate_id)
+
+        return f"""
+You are resuming a debate that was interrupted. Here is the context:
+
+{summary}
+
+You are agent **{agent_name}**. Please continue the debate from where it left off,
+maintaining consistency with your previous positions while remaining open to
+new arguments. The debate will now continue.
+"""
 
 
 class DatabaseCheckpointStore(CheckpointStore):
@@ -864,6 +1126,10 @@ class CheckpointConfig:
     expiry_hours: float = 72.0  # Delete checkpoints after N hours
     compress: bool = True
     auto_cleanup: bool = True
+    # Gastown-inspired continuous mode
+    continuous_mode: bool = False  # Commit after every round
+    enable_recovery_narrator: bool = True  # Generate recovery summaries
+    glacial_tier_sync: bool = False  # Sync to ContinuumMemory glacial tier
 
 
 class CheckpointManager:
@@ -871,6 +1137,11 @@ class CheckpointManager:
     Manages checkpoint lifecycle for debates.
 
     Handles creation, storage, resumption, and cleanup.
+
+    Enhanced with Gastown-inspired features:
+    - Continuous mode: commit after every round for crash resilience
+    - Recovery narrator: generate context summaries for debate resumption
+    - Glacial tier sync: persist to ContinuumMemory for long-term storage
     """
 
     def __init__(
@@ -883,6 +1154,25 @@ class CheckpointManager:
 
         self._last_checkpoint_time: dict[str, datetime] = {}
         self._checkpoint_count: dict[str, int] = {}
+
+        # Initialize recovery narrator for GitCheckpointStore
+        self._recovery_narrator: Optional[RecoveryNarrator] = None
+        if isinstance(self.store, GitCheckpointStore) and self.config.enable_recovery_narrator:
+            self._recovery_narrator = RecoveryNarrator(self.store)
+
+    @property
+    def recovery_narrator(self) -> Optional["RecoveryNarrator"]:
+        """Get the recovery narrator (only available with GitCheckpointStore)."""
+        return self._recovery_narrator
+
+    async def get_recovery_context(self, debate_id: str, agent_name: str) -> Optional[str]:
+        """Get recovery context for resuming a debate.
+
+        Returns a prompt injection with debate history summary.
+        """
+        if self._recovery_narrator:
+            return await self._recovery_narrator.get_resumption_prompt(debate_id, agent_name)
+        return None
 
     def should_checkpoint(
         self,
