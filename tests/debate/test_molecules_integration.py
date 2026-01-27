@@ -364,10 +364,15 @@ class TestMoleculeTracker:
         tracker.assign_molecule(mol.molecule_id, agent)
         tracker.start_molecule(mol.molecule_id)
 
+        # Verify workload is 1 before failure
+        assert tracker._agent_workload.get("agent", 0) == 1
+
         result = tracker.fail_molecule(mol.molecule_id, "Timeout")
 
         assert result is True
         assert mol.status == MoleculeStatus.FAILED
+        assert mol.error_message == "Timeout"
+        # Workload should be decremented to 0
         assert tracker._agent_workload.get("agent", 0) == 0
 
     def test_get_progress(self):
@@ -490,6 +495,10 @@ class TestPhaseIntegration:
         ctx.context_messages = []
         ctx.add_message = MagicMock()
         ctx.record_agent_failure = MagicMock()
+        # Explicitly set cancellation_token to None to avoid MagicMock truthy evaluation
+        ctx.cancellation_token = None
+        # Also disable hook_manager
+        ctx.hook_manager = None
 
         # Create mock proposer
         proposer = MagicMock()

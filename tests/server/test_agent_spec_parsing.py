@@ -188,10 +188,11 @@ class TestDebateFactoryCompatibility:
 
         agent_string = classifier.get_agent_string(classification)
 
-        # Create DebateConfig and parse
+        # Create DebateConfig and parse (disable auto_trim to test parsing, not credentials)
         config = DebateConfig(
             question="Test question",
             agents_str=agent_string,
+            auto_trim_unavailable=False,
         )
 
         specs = config.parse_agent_specs()

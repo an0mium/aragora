@@ -154,12 +154,16 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
 def generate_report(handlers: list[HandlerInfo], output_format: str = "text") -> str:
     """Generate the audit report."""
     total = len(handlers)
-    with_permission = sum(1 for h in handlers if h.has_permission)
-    with_role = sum(1 for h in handlers if h.has_role)
     protected = sum(1 for h in handlers if h.has_permission or h.has_role)
     unprotected = total - protected
 
     coverage = (protected / total * 100) if total > 0 else 0
+
+    # Count by protection type
+    by_type = defaultdict(int)
+    for h in handlers:
+        if h.protection_type:
+            by_type[h.protection_type] += 1
 
     # Group by module
     by_module = defaultdict(list)
@@ -176,8 +180,7 @@ def generate_report(handlers: list[HandlerInfo], output_format: str = "text") ->
                     "protected_handlers": protected,
                     "unprotected_handlers": unprotected,
                     "coverage_percent": round(coverage, 1),
-                    "with_permission": with_permission,
-                    "with_role": with_role,
+                    "by_protection_type": dict(by_type),
                 },
                 "by_module": {
                     m: {
@@ -204,13 +207,17 @@ def generate_report(handlers: list[HandlerInfo], output_format: str = "text") ->
         "-" * 40,
         f"Total handlers:      {total}",
         f"Protected:           {protected} ({coverage:.1f}%)",
-        f"  @require_permission: {with_permission}",
-        f"  @require_role:       {with_role}",
-        f"Unprotected:         {unprotected}",
-        "",
-        "BY MODULE",
-        "-" * 40,
     ]
+    for ptype, count in sorted(by_type.items()):
+        lines.append(f"  {ptype}: {count}")
+    lines.append(f"Unprotected:         {unprotected}")
+    lines.extend(
+        [
+            "",
+            "BY MODULE",
+            "-" * 40,
+        ]
+    )
 
     for module, hs in sorted(by_module.items(), key=lambda x: -len(x[1])):
         prot = sum(1 for h in hs if h.has_permission or h.has_role)
