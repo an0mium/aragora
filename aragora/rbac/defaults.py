@@ -203,6 +203,32 @@ PERM_INBOX_UPDATE = _permission(
     "Create and manage action items",
 )
 
+# Skills permissions
+PERM_SKILLS_READ = _permission(
+    ResourceType.SKILLS,
+    Action.READ,
+    "View Skills",
+    "Browse skill marketplace and view details",
+)
+PERM_SKILLS_INSTALL = _permission(
+    ResourceType.SKILLS,
+    Action.UPDATE,
+    "Install Skills",
+    "Install and uninstall skills",
+)
+PERM_SKILLS_PUBLISH = _permission(
+    ResourceType.SKILLS,
+    Action.CREATE,
+    "Publish Skills",
+    "Publish skills to marketplace",
+)
+PERM_SKILLS_RATE = _permission(
+    ResourceType.SKILLS,
+    Action.UPDATE,
+    "Rate Skills",
+    "Rate and review skills",
+)
+
 # Training permissions
 PERM_TRAINING_READ = _permission(
     ResourceType.TRAINING, Action.READ, "View Training Data", "Access training data exports"
