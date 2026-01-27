@@ -477,8 +477,8 @@ asyncio.run(stream_debate("debate-123"))
 ```
 
 **Dependency:** `pip install websockets`
-**Auth:** `api_key` is sent as a `token` query parameter; use a proxy to inject
-`Authorization` headers if your WebSocket server requires header auth.
+**Auth:** `api_key` is sent as a `token` query parameter. Header-based auth is
+also supported for proxy-based or server-side clients.
 
 ### Gauntlet for Policy Review
 

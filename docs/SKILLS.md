@@ -99,6 +99,20 @@ loader.load_builtin_skills(register=True)
 registry.register(WebSearchSkill())
 ```
 
+## Arena Integration
+
+Debate arenas can enable skills for evidence collection and tool access:
+
+```python
+from aragora.debate.arena_config import ArenaConfig
+from aragora.skills import get_skill_registry
+
+config = ArenaConfig(
+    skill_registry=get_skill_registry(),
+    enable_skills=True,
+)
+```
+
 ## Capabilities
 
 Common capability categories:
@@ -125,4 +139,3 @@ Example permission keys:
 - Enforce timeouts with `max_execution_time_seconds`.
 - Avoid logging raw secrets; rely on structured logging redaction.
 - Mark `debate_compatible=False` for skills that should not run mid‑debate.
-

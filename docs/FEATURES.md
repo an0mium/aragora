@@ -505,6 +505,19 @@ checkpoint.save(debate_id, state)
 restored = checkpoint.restore(debate_id)
 ```
 
+For git‑backed checkpoints, `GitCheckpointStore` supports **continuous mode**
+to commit after every round for maximum crash resilience:
+
+```python
+from aragora.debate.checkpoint import GitCheckpointStore
+
+store = GitCheckpointStore(
+    repo_path=".",
+    continuous_mode=True,
+    commit_message_template="Debate {debate_id} round {round}",
+)
+```
+
 ### BreakpointManager
 **File:** `aragora/debate/breakpoints.py`
 

@@ -26,12 +26,12 @@ the handshake:
 wscat -c ws://localhost:8765/ws -H "Authorization: Bearer $ARAGORA_API_TOKEN"
 ```
 
-Browser clients cannot set custom headers; use a server-side proxy if auth is
-enforced.
+Browser clients cannot set custom headers; the server accepts a `token` query
+parameter for WebSocket authentication (e.g. `wss://.../ws?token=...`).
 
 **SDK note:** The Python streaming client (`AragoraWebSocket`) appends the API
-key as a `token` query parameter. If your deployment requires header-based auth,
-use a proxy to inject `Authorization` or disable auth for WebSocket reads.
+key as a `token` query parameter. Header-based auth is still supported for
+proxies or non-browser clients.
 
 ### Initial Messages
 
