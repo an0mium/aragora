@@ -5960,10 +5960,11 @@
         "summary": "Extract detailed insights",
         "description": "Computationally expensive insight extraction (requires auth).",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/InsightExtractionRequest"
               }
             }
           }
@@ -5997,10 +5998,11 @@
         "operationId": "createInsightsExtractDetailed",
         "description": "Computationally expensive insight extraction (requires auth).",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/InsightExtractionRequest"
               }
             }
           }
@@ -7398,19 +7400,27 @@
           "Verification"
         ],
         "summary": "Formal verification",
-        "description": "Run formal verification on claims",
+        "description": "Run formal verification on claims using Z3 SMT solver",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/FormalVerificationRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Verification result"
+            "description": "Verification result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormalVerificationResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -7428,19 +7438,27 @@
         ],
         "summary": "Formal verification",
         "operationId": "createVerificationFormalVerify",
-        "description": "Run formal verification on claims",
+        "description": "Run formal verification on claims using Z3 SMT solver",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/FormalVerificationRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Verification result"
+            "description": "Verification result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormalVerificationResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -7458,17 +7476,25 @@
         "summary": "Run capability probe",
         "description": "Run a capability probe to test agent abilities and identify potential limitations.",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/CapabilityProbeRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Probe results"
+            "description": "Probe results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityProbeResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -7488,17 +7514,25 @@
         "operationId": "createDebatesCapabilityProbe",
         "description": "Run a capability probe to test agent abilities and identify potential limitations.",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/CapabilityProbeRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Probe results"
+            "description": "Probe results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityProbeResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -7516,17 +7550,25 @@
         "summary": "Deep audit",
         "description": "Run a comprehensive deep audit on debate results to identify quality issues.",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/DeepAuditRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Audit results"
+            "description": "Audit results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepAuditResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -7546,17 +7588,25 @@
         "operationId": "createDebatesDeepAudit",
         "description": "Run a comprehensive deep audit on debate results to identify quality issues.",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/DeepAuditRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Audit results"
+            "description": "Audit results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepAuditResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -7574,17 +7624,25 @@
         "summary": "Capability probe",
         "description": "Execute a capability probe to assess agent performance across various dimensions.",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/CapabilityProbeRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Probe results"
+            "description": "Probe results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityProbeResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -7604,17 +7662,25 @@
         "operationId": "createProbesCapability",
         "description": "Execute a capability probe to assess agent performance across various dimensions.",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/CapabilityProbeRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Probe results"
+            "description": "Probe results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityProbeResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -7692,17 +7758,25 @@
         "summary": "Upload document",
         "description": "Upload a document to be used as context in debates.",
         "requestBody": {
+          "required": true,
           "content": {
             "multipart/form-data": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/DocumentUploadRequest"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Document uploaded"
+            "description": "Document uploaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentUploadResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -7722,17 +7796,25 @@
         "description": "Upload a document to be used as context in debates.",
         "operationId": "createDocumentsUpload",
         "requestBody": {
+          "required": true,
           "content": {
             "multipart/form-data": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/DocumentUploadRequest"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Document uploaded"
+            "description": "Document uploaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentUploadResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -7957,17 +8039,25 @@
         "operationId": "submitPlugin",
         "description": "Submit a new plugin for marketplace review.",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/PluginSubmissionRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Submission confirmation"
+            "description": "Submission confirmation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginSubmissionResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -8043,17 +8133,25 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/PluginRunRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Plugin result"
+            "description": "Plugin result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginRunResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -8086,14 +8184,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/PluginInstallRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Installation result"
+            "description": "Installation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginInstallResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -8190,17 +8295,25 @@
         "summary": "Submit plugin for review",
         "description": "Deprecated: Use /api/v1/plugins/submit instead. Sunset: 2026-12-31.",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/PluginSubmissionRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Submission confirmation"
+            "description": "Submission confirmation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginSubmissionResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -8276,17 +8389,25 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/PluginRunRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Plugin result"
+            "description": "Plugin result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginRunResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -8319,14 +8440,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/PluginInstallRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Installation result"
+            "description": "Installation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginInstallResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -24764,7 +24892,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/CodebaseAnalyzeRequest"
               }
             }
           }
@@ -25036,7 +25164,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/CodebaseImpactRequest"
               }
             }
           }
@@ -25433,7 +25561,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/CodebaseAnalyzeRequest"
               }
             }
           }
@@ -25705,7 +25833,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/CodebaseImpactRequest"
               }
             }
           }
@@ -40096,6 +40224,399 @@
           },
           "processing_time_ms": {
             "type": "integer"
+          }
+        }
+      },
+      "InsightExtractionRequest": {
+        "type": "object",
+        "description": "Request body for insight extraction",
+        "required": ["content"],
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The debate content to analyze",
+            "maxLength": 1048576
+          },
+          "debate_id": {
+            "type": "string",
+            "description": "Optional debate ID for context"
+          },
+          "extract_claims": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to extract claims"
+          },
+          "extract_evidence": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to extract evidence chains"
+          },
+          "extract_patterns": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to extract argumentation patterns"
+          }
+        }
+      },
+      "FormalVerificationRequest": {
+        "type": "object",
+        "description": "Request body for formal verification",
+        "required": ["claim"],
+        "properties": {
+          "claim": {
+            "type": "string",
+            "description": "The claim to verify"
+          },
+          "claim_type": {
+            "type": "string",
+            "description": "Optional hint about claim type",
+            "enum": ["assertion", "logical", "arithmetic", "comparison"]
+          },
+          "context": {
+            "type": "string",
+            "description": "Optional additional context"
+          },
+          "timeout": {
+            "type": "number",
+            "default": 30,
+            "maximum": 120,
+            "description": "Timeout in seconds"
+          }
+        }
+      },
+      "FormalVerificationResponse": {
+        "type": "object",
+        "description": "Formal verification result",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["proof_found", "proof_failed", "translation_failed", "timeout", "unavailable"]
+          },
+          "is_verified": {
+            "type": "boolean",
+            "description": "True if claim was formally proven"
+          },
+          "formal_statement": {
+            "type": "string",
+            "description": "The SMT-LIB2 translation (if successful)"
+          },
+          "proof_hash": {
+            "type": "string",
+            "description": "Hash of the proof (if found)"
+          }
+        }
+      },
+      "CapabilityProbeRequest": {
+        "type": "object",
+        "description": "Request body for capability probe",
+        "required": ["agent_name"],
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "description": "Name of the agent to probe"
+          },
+          "probe_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["contradiction", "hallucination", "sycophancy", "persistence"]
+            },
+            "default": ["contradiction", "hallucination", "sycophancy", "persistence"],
+            "description": "Types of probes to run"
+          },
+          "probes_per_type": {
+            "type": "integer",
+            "default": 3,
+            "maximum": 10,
+            "description": "Number of probes per type"
+          },
+          "model_type": {
+            "type": "string",
+            "default": "anthropic-api",
+            "description": "Model type to use"
+          }
+        }
+      },
+      "CapabilityProbeResponse": {
+        "type": "object",
+        "description": "Capability probe results",
+        "properties": {
+          "agent_name": {
+            "type": "string"
+          },
+          "probes_run": {
+            "type": "integer"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "probe_type": {"type": "string"},
+                "passed": {"type": "boolean"},
+                "score": {"type": "number"},
+                "details": {"type": "string"}
+              }
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "total_score": {"type": "number"},
+              "passed_count": {"type": "integer"},
+              "failed_count": {"type": "integer"}
+            }
+          }
+        }
+      },
+      "DeepAuditRequest": {
+        "type": "object",
+        "description": "Request body for deep audit",
+        "required": ["task"],
+        "properties": {
+          "task": {
+            "type": "string",
+            "description": "The task to audit"
+          },
+          "context": {
+            "type": "string",
+            "description": "Optional additional context"
+          },
+          "agent_names": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Specific agents to include in audit"
+          },
+          "model_type": {
+            "type": "string",
+            "default": "anthropic-api"
+          },
+          "config": {
+            "type": "object",
+            "properties": {
+              "audit_type": {"type": "string"},
+              "rounds": {
+                "type": "integer",
+                "default": 6,
+                "maximum": 10
+              },
+              "cross_examination_depth": {
+                "type": "integer",
+                "default": 3,
+                "maximum": 10
+              },
+              "risk_threshold": {
+                "type": "number",
+                "default": 0.7
+              }
+            }
+          }
+        }
+      },
+      "DeepAuditResponse": {
+        "type": "object",
+        "description": "Deep audit results",
+        "properties": {
+          "audit_id": {"type": "string"},
+          "task": {"type": "string"},
+          "status": {"type": "string"},
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {"type": "string"},
+                "severity": {"type": "string"},
+                "description": {"type": "string"},
+                "evidence": {"type": "string"}
+              }
+            }
+          },
+          "risk_score": {"type": "number"},
+          "recommendations": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        }
+      },
+      "DocumentUploadRequest": {
+        "type": "object",
+        "description": "Document upload request (multipart)",
+        "required": ["file"],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "The document file to upload"
+          },
+          "name": {
+            "type": "string",
+            "description": "Optional custom name for the document"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional description"
+          },
+          "tags": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Optional tags for categorization"
+          }
+        }
+      },
+      "DocumentUploadResponse": {
+        "type": "object",
+        "description": "Document upload result",
+        "properties": {
+          "document_id": {"type": "string"},
+          "name": {"type": "string"},
+          "size_bytes": {"type": "integer"},
+          "format": {"type": "string"},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "PluginSubmissionRequest": {
+        "type": "object",
+        "description": "Plugin submission request",
+        "required": ["manifest"],
+        "properties": {
+          "manifest": {
+            "type": "object",
+            "description": "Plugin manifest with name, version, description, entry_point",
+            "required": ["name", "version", "description", "entry_point"],
+            "properties": {
+              "name": {"type": "string"},
+              "version": {"type": "string"},
+              "description": {"type": "string"},
+              "entry_point": {"type": "string"},
+              "author": {"type": "string"},
+              "license": {"type": "string"},
+              "tags": {
+                "type": "array",
+                "items": {"type": "string"}
+              }
+            }
+          },
+          "source_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to plugin source repository"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional notes for reviewers"
+          }
+        }
+      },
+      "PluginSubmissionResponse": {
+        "type": "object",
+        "description": "Plugin submission result",
+        "properties": {
+          "submission_id": {"type": "string"},
+          "status": {"type": "string", "enum": ["pending", "approved", "rejected"]},
+          "submitted_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "PluginRunRequest": {
+        "type": "object",
+        "description": "Plugin execution request",
+        "properties": {
+          "input": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Input data for the plugin"
+          },
+          "config": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Plugin configuration"
+          },
+          "working_dir": {
+            "type": "string",
+            "default": ".",
+            "description": "Working directory for execution"
+          }
+        }
+      },
+      "PluginRunResponse": {
+        "type": "object",
+        "description": "Plugin execution result",
+        "properties": {
+          "success": {"type": "boolean"},
+          "output": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "execution_time_ms": {"type": "integer"},
+          "error": {"type": "string"}
+        }
+      },
+      "PluginInstallRequest": {
+        "type": "object",
+        "description": "Plugin installation request",
+        "properties": {
+          "config": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "User configuration for the plugin"
+          }
+        }
+      },
+      "PluginInstallResponse": {
+        "type": "object",
+        "description": "Plugin installation result",
+        "properties": {
+          "success": {"type": "boolean"},
+          "message": {"type": "string"},
+          "installed_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "CodebaseAnalyzeRequest": {
+        "type": "object",
+        "description": "Codebase analysis request",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to analyze within the repository"
+          },
+          "include_symbols": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to extract symbol information"
+          },
+          "include_metrics": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to compute code metrics"
+          },
+          "max_depth": {
+            "type": "integer",
+            "description": "Maximum depth for recursive analysis"
+          }
+        }
+      },
+      "CodebaseImpactRequest": {
+        "type": "object",
+        "description": "Impact analysis request",
+        "properties": {
+          "changed_files": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "List of changed file paths"
+          },
+          "commit_sha": {
+            "type": "string",
+            "description": "Commit SHA to analyze (alternative to changed_files)"
+          },
+          "include_tests": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to identify affected tests"
+          },
+          "include_dependencies": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to trace dependency impacts"
           }
         }
       },
