@@ -186,6 +186,11 @@ async def handle_list_pending_actions(
         limit: int (optional, default 50) - Max items to return
         offset: int (optional, default 0) - Pagination offset
     """
+    # RBAC check for inbox read permission
+    rbac_err = _check_inbox_permission(user_id, "read")
+    if rbac_err:
+        return rbac_err
+
     try:
         assignee_filter = data.get("assignee")
         priority_filter = data.get("priority")
@@ -280,6 +285,11 @@ async def handle_complete_action(
         notes: str (optional) - Completion notes
     }
     """
+    # RBAC check for inbox update permission
+    rbac_err = _check_inbox_permission(user_id, "update")
+    if rbac_err:
+        return rbac_err
+
     try:
         if not action_id:
             action_id = data.get("action_id", "")
@@ -326,6 +336,11 @@ async def handle_update_action_status(
         notes: str (optional) - Status change notes
     }
     """
+    # RBAC check for inbox update permission
+    rbac_err = _check_inbox_permission(user_id, "update")
+    if rbac_err:
+        return rbac_err
+
     try:
         if not action_id:
             action_id = data.get("action_id", "")
@@ -393,6 +408,11 @@ async def handle_get_due_soon(
         hours: int (optional, default 24) - Items due within N hours
         include_overdue: bool (optional, default true) - Include past-due items
     """
+    # RBAC check for inbox read permission
+    rbac_err = _check_inbox_permission(user_id, "read")
+    if rbac_err:
+        return rbac_err
+
     try:
         hours = int(data.get("hours", 24))
         include_overdue = data.get("include_overdue", True)
@@ -471,6 +491,11 @@ async def handle_batch_extract(
         }]
     }
     """
+    # RBAC check for inbox update permission
+    rbac_err = _check_inbox_permission(user_id, "update")
+    if rbac_err:
+        return rbac_err
+
     try:
         extractor = get_action_extractor()
 
@@ -564,6 +589,11 @@ async def handle_detect_meeting(
         check_calendar: bool (optional, default false)
     }
     """
+    # RBAC check for inbox read permission
+    rbac_err = _check_inbox_permission(user_id, "read")
+    if rbac_err:
+        return rbac_err
+
     try:
         detector = get_meeting_detector()
 
@@ -614,6 +644,11 @@ async def handle_auto_snooze_meeting(
         minutes_before: int (optional, default 30)
     }
     """
+    # RBAC check for inbox update permission
+    rbac_err = _check_inbox_permission(user_id, "update")
+    if rbac_err:
+        return rbac_err
+
     try:
         detector = get_meeting_detector()
 

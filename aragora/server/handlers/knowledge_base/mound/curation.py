@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING, Any, Optional
 from aragora.server.http_utils import run_async as _run_async
 
 from ...base import HandlerResult, error_response, json_response, require_auth
+from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.models import AuthorizationContext
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
@@ -35,10 +37,51 @@ class CurationOperationsMixin:
         """Abstract method - implemented by main handler."""
         raise NotImplementedError("Subclass must implement _get_mound")
 
+    def _check_knowledge_permission(
+        self, handler: Any, action: str = "read"
+    ) -> Optional[HandlerResult]:
+        """Check RBAC permission for knowledge operations."""
+        permission = f"knowledge.{action}"
+        try:
+            from aragora.billing.auth import extract_user_from_request
+
+            user_ctx = extract_user_from_request(handler, None)
+            if not user_ctx.authenticated:
+                return error_response("Authentication required", 401)
+
+            user_id = str(user_ctx.user_id) if user_ctx.user_id else "unknown"
+            org_id = user_ctx.org_id if hasattr(user_ctx, "org_id") else None
+            roles = (
+                set(user_ctx.roles) if hasattr(user_ctx, "roles") and user_ctx.roles else {"member"}
+            )
+
+            context = AuthorizationContext(
+                user_id=user_id,
+                org_id=org_id,
+                roles=roles,
+                permissions=set(),
+            )
+            checker = get_permission_checker()
+            decision = checker.check_permission(context, permission)
+            if not decision.allowed:
+                logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
+                return error_response(f"Permission denied: {decision.reason}", 403)
+            return None
+        except Exception as e:
+            logger.error(f"RBAC check failed: {e}")
+            return error_response("Authorization check failed", 500)
+
     def _handle_curation_routes(
         self, path: str, query_params: dict, handler: Any
     ) -> Optional[HandlerResult]:
         """Route curation-related requests."""
+        # Check RBAC permission for knowledge operations
+        method = getattr(handler, "command", "GET")
+        required_action = "update" if method == "POST" else "read"
+        rbac_err = self._check_knowledge_permission(handler, required_action)
+        if rbac_err:
+            return rbac_err
+
         if path == "/api/v1/knowledge/mound/curation/policy":
             method = getattr(handler, "command", "GET")
             if method == "POST":

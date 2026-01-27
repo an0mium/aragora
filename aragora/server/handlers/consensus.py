@@ -45,6 +45,8 @@ from .base import (
     ttl_cache,
 )
 from aragora.billing.auth import extract_user_from_request
+from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.models import AuthorizationContext
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 # Rate limiter for consensus endpoints (30 requests per minute)
@@ -85,6 +87,34 @@ class ConsensusHandler(BaseHandler):
             return True
         return False
 
+    def _check_memory_permission(
+        self, handler: Any, user: Any, action: str = "read"
+    ) -> Optional[HandlerResult]:
+        """Check RBAC permission for memory operations."""
+        permission = f"memory.{action}"
+        try:
+            user_id = str(user.id) if hasattr(user, "id") else str(user.get("id", "unknown"))
+            org_id = user.org_id if hasattr(user, "org_id") else user.get("org_id")
+            roles = (
+                set(user.roles) if hasattr(user, "roles") else set(user.get("roles", ["member"]))
+            )
+
+            context = AuthorizationContext(
+                user_id=user_id,
+                org_id=org_id,
+                roles=roles,
+                permissions=set(),
+            )
+            checker = get_permission_checker()
+            decision = checker.check_permission(context, permission)
+            if not decision.allowed:
+                logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
+                return error_response(f"Permission denied: {decision.reason}", 403)
+            return None
+        except Exception as e:
+            logger.error(f"RBAC check failed: {e}")
+            return error_response("Authorization check failed", 500)
+
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route consensus requests to appropriate methods."""
         path = strip_version_prefix(path)
@@ -102,6 +132,15 @@ class ConsensusHandler(BaseHandler):
         except Exception as e:
             logger.warning(f"Authentication failed for consensus endpoint: {e}")
             return error_response("Authentication required", 401)
+
+        # Check RBAC permission for memory operations
+        # seed-demo requires update permission, all others require read
+        if path == "/api/consensus/seed-demo":
+            rbac_err = self._check_memory_permission(handler, user, "update")
+        else:
+            rbac_err = self._check_memory_permission(handler, user, "read")
+        if rbac_err:
+            return rbac_err
 
         if path == "/api/consensus/similar":
             # Validate raw topic length before truncation
