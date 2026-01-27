@@ -87,8 +87,8 @@ class MockKnowledgeMound:
     get_contradiction_stats: MagicMock = field(default_factory=MagicMock)
 
 
-class TestContradictionHandler(ContradictionOperationsMixin):
-    """Test implementation of ContradictionOperationsMixin."""
+class ContradictionHandler(ContradictionOperationsMixin):
+    """Handler implementation for testing ContradictionOperationsMixin."""
 
     def __init__(self, mound: Optional[MockKnowledgeMound] = None):
         self._mound = mound
@@ -112,13 +112,13 @@ def mock_mound():
 @pytest.fixture
 def handler(mock_mound):
     """Create a test handler with mock mound."""
-    return TestContradictionHandler(mound=mock_mound)
+    return ContradictionHandler(mound=mock_mound)
 
 
 @pytest.fixture
 def handler_no_mound():
     """Create a test handler without mound."""
-    return TestContradictionHandler(mound=None)
+    return ContradictionHandler(mound=None)
 
 
 # =============================================================================

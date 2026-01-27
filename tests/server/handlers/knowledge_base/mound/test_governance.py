@@ -119,8 +119,8 @@ class MockKnowledgeMound:
     get_governance_stats: MagicMock = field(default_factory=MagicMock)
 
 
-class TestGovernanceHandler(GovernanceOperationsMixin):
-    """Test implementation of GovernanceOperationsMixin."""
+class GovernanceHandler(GovernanceOperationsMixin):
+    """Handler implementation for testing GovernanceOperationsMixin."""
 
     def __init__(self, mound: Optional[MockKnowledgeMound] = None):
         self._mound = mound
@@ -144,13 +144,13 @@ def mock_mound():
 @pytest.fixture
 def handler(mock_mound):
     """Create a test handler with mock mound."""
-    return TestGovernanceHandler(mound=mock_mound)
+    return GovernanceHandler(mound=mock_mound)
 
 
 @pytest.fixture
 def handler_no_mound():
     """Create a test handler without mound."""
-    return TestGovernanceHandler(mound=None)
+    return GovernanceHandler(mound=None)
 
 
 # =============================================================================

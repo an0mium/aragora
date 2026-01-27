@@ -87,8 +87,8 @@ class MockKnowledgeMound:
     get_decay_stats: MagicMock = field(default_factory=MagicMock)
 
 
-class TestConfidenceDecayHandler(ConfidenceDecayOperationsMixin):
-    """Test implementation of ConfidenceDecayOperationsMixin."""
+class ConfidenceDecayHandler(ConfidenceDecayOperationsMixin):
+    """Handler implementation for testing ConfidenceDecayOperationsMixin."""
 
     def __init__(self, mound: Optional[MockKnowledgeMound] = None):
         self._mound = mound
@@ -112,13 +112,13 @@ def mock_mound():
 @pytest.fixture
 def handler(mock_mound):
     """Create a test handler with mock mound."""
-    return TestConfidenceDecayHandler(mound=mock_mound)
+    return ConfidenceDecayHandler(mound=mock_mound)
 
 
 @pytest.fixture
 def handler_no_mound():
     """Create a test handler without mound."""
-    return TestConfidenceDecayHandler(mound=None)
+    return ConfidenceDecayHandler(mound=None)
 
 
 # =============================================================================

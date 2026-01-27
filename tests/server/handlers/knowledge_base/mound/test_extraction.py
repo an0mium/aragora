@@ -91,8 +91,8 @@ class MockKnowledgeMound:
     get_extraction_stats: MagicMock = field(default_factory=MagicMock)
 
 
-class TestExtractionHandler(ExtractionOperationsMixin):
-    """Test implementation of ExtractionOperationsMixin."""
+class ExtractionHandler(ExtractionOperationsMixin):
+    """Handler implementation for testing ExtractionOperationsMixin."""
 
     def __init__(self, mound: Optional[MockKnowledgeMound] = None):
         self._mound = mound
@@ -116,13 +116,13 @@ def mock_mound():
 @pytest.fixture
 def handler(mock_mound):
     """Create a test handler with mock mound."""
-    return TestExtractionHandler(mound=mock_mound)
+    return ExtractionHandler(mound=mock_mound)
 
 
 @pytest.fixture
 def handler_no_mound():
     """Create a test handler without mound."""
-    return TestExtractionHandler(mound=None)
+    return ExtractionHandler(mound=None)
 
 
 @pytest.fixture
