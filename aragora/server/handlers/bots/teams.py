@@ -66,8 +66,8 @@ class TeamsHandler(SecureHandler):
         "/api/v1/bots/teams/status",
     ]
 
-    def __init__(self, ctx: dict = None):
-        super().__init__(ctx or {})
+    def __init__(self, ctx: dict = None):  # type: ignore[assignment]
+        super().__init__(ctx or {})  # type: ignore[arg-type]
         self._bot: Optional[Any] = None
         self._bot_initialized = False
 
@@ -118,7 +118,7 @@ class TeamsHandler(SecureHandler):
         return path in self.ROUTES
 
     @rate_limit(rpm=30, limiter_name="teams_status")
-    async def handle(
+    async def handle(  # type: ignore[override]
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route Teams requests with RBAC for status endpoint."""
