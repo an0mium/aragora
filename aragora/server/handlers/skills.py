@@ -153,8 +153,7 @@ class SkillsHandler(BaseHandler):
             )
 
         skills = []
-        for skill in registry.list_skills():
-            manifest = skill.manifest
+        for manifest in registry.list_skills():
             skills.append(
                 {
                     "name": manifest.name,
@@ -162,7 +161,7 @@ class SkillsHandler(BaseHandler):
                     "description": manifest.description or "",
                     "capabilities": [cap.value for cap in manifest.capabilities],
                     "input_schema": manifest.input_schema or {},
-                    "tags": getattr(manifest, "tags", []),
+                    "tags": manifest.tags,
                 }
             )
 
@@ -202,8 +201,8 @@ class SkillsHandler(BaseHandler):
                 "input_schema": manifest.input_schema or {},
                 "output_schema": manifest.output_schema or {},
                 "rate_limit_per_minute": manifest.rate_limit_per_minute,
-                "timeout_seconds": manifest.timeout_seconds,
-                "tags": getattr(manifest, "tags", []),
+                "timeout_seconds": manifest.max_execution_time_seconds,
+                "tags": manifest.tags,
             }
         )
 
