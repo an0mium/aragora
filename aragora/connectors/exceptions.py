@@ -340,6 +340,32 @@ class ConnectorConfigError(ConnectorError):
         self.config_key = config_key
 
 
+class ConnectorCircuitOpenError(ConnectorError):
+    """Circuit breaker is open - connector temporarily unavailable.
+
+    Raised when:
+    - Too many recent failures tripped the circuit breaker
+    - Connector is in cooldown period
+    - Requests are being fast-failed to prevent cascade failures
+
+    IS retryable after the circuit breaker cooldown period.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        connector_name: str = "unknown",
+        cooldown_remaining: Optional[float] = None,
+    ):
+        super().__init__(
+            message,
+            connector_name=connector_name,
+            retry_after=cooldown_remaining or 60.0,
+            is_retryable=True,  # Retryable after cooldown
+        )
+        self.cooldown_remaining = cooldown_remaining
+
+
 # =============================================================================
 # Exception Utilities
 # =============================================================================
@@ -565,6 +591,7 @@ __all__ = [
     "ConnectorQuotaError",
     "ConnectorParseError",
     "ConnectorConfigError",
+    "ConnectorCircuitOpenError",
     # Utilities
     "is_retryable_error",
     "get_retry_delay",

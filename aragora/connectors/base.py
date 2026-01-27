@@ -18,6 +18,7 @@ __all__ = [
     "ConnectorRateLimitError",
     "ConnectorAPIError",
     "ConnectorTimeoutError",
+    "ConnectorCircuitOpenError",
 ]
 
 import asyncio
@@ -46,6 +47,7 @@ from aragora.connectors.exceptions import (
     ConnectorRateLimitError,
     ConnectorAPIError,
     ConnectorTimeoutError,
+    ConnectorCircuitOpenError,
 )
 
 
@@ -284,6 +286,7 @@ class BaseConnector(ABC):
         max_retries: int = DEFAULT_MAX_RETRIES,
         base_delay: float = DEFAULT_BASE_DELAY,
         max_delay: float = DEFAULT_MAX_DELAY,
+        enable_circuit_breaker: bool = True,
     ):
         self.provenance = provenance
         self.default_confidence = default_confidence
@@ -295,6 +298,23 @@ class BaseConnector(ABC):
         self._max_retries = max_retries
         self._base_delay = base_delay
         self._max_delay = max_delay
+        # Circuit breaker for failure protection
+        self._circuit_breaker = None
+        self._enable_circuit_breaker = enable_circuit_breaker
+
+    def _get_circuit_breaker(self):
+        """Lazy-initialize circuit breaker on first use."""
+        if self._circuit_breaker is None and self._enable_circuit_breaker:
+            try:
+                from aragora.resilience import get_circuit_breaker
+
+                # Use connector name for unique circuit breaker per connector type
+                connector_name = getattr(self, "name", self.__class__.__name__)
+                self._circuit_breaker = get_circuit_breaker(f"connector_{connector_name}")
+            except ImportError:
+                logger.debug("resilience module not available, circuit breaker disabled")
+                self._enable_circuit_breaker = False
+        return self._circuit_breaker
 
     def _cache_get(self, evidence_id: str) -> Optional[Evidence]:
         """Get from cache if not expired."""
@@ -409,6 +429,7 @@ class BaseConnector(ABC):
         - 4xx errors (except 429)
         - Parse errors
         - Auth errors
+        - Circuit breaker open (fast-fail)
 
         Args:
             request_func: Async callable that performs the HTTP request.
@@ -420,6 +441,7 @@ class BaseConnector(ABC):
 
         Raises:
             ConnectorError subclass on failure after all retries exhausted
+            ConnectorCircuitOpenError if circuit breaker is open
 
         Example:
             async def do_request():
@@ -432,11 +454,26 @@ class BaseConnector(ABC):
         """
         from aragora.connectors.exceptions import (
             ConnectorAPIError,
+            ConnectorCircuitOpenError,
             ConnectorNetworkError,
             ConnectorParseError,
             ConnectorRateLimitError,
             ConnectorTimeoutError,
         )
+
+        # Check circuit breaker before attempting request
+        circuit_breaker = self._get_circuit_breaker()
+        if circuit_breaker is not None and not circuit_breaker.can_proceed():
+            cooldown = circuit_breaker.cooldown_remaining()
+            logger.warning(
+                f"[{self.name}] Circuit breaker open for {operation}, "
+                f"cooldown remaining: {cooldown:.1f}s"
+            )
+            raise ConnectorCircuitOpenError(
+                f"{operation} blocked by circuit breaker",
+                connector_name=self.name,
+                cooldown_remaining=cooldown,
+            )
 
         # Lazy import httpx (optional dependency)
         try:
@@ -461,7 +498,11 @@ class BaseConnector(ABC):
 
         for attempt in range(self._max_retries + 1):
             try:
-                return await request_func()
+                result = await request_func()
+                # Record success with circuit breaker
+                if circuit_breaker is not None:
+                    circuit_breaker.record_success()
+                return result
 
             except httpx.TimeoutException:
                 last_error = ConnectorTimeoutError(
@@ -567,7 +608,10 @@ class BaseConnector(ABC):
                 )
                 await asyncio.sleep(delay)
 
-        # All retries exhausted
+        # All retries exhausted - record failure with circuit breaker
+        if circuit_breaker is not None:
+            circuit_breaker.record_failure()
+
         if last_error is not None:
             raise last_error
 
