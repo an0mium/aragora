@@ -7,7 +7,6 @@
 import type {
   AragoraConfig,
   WebSocketEvent,
-  WebSocketEventType,
   DebateStartEvent,
   RoundStartEvent,
   AgentMessageEvent,
@@ -20,7 +19,6 @@ import type {
   PhaseChangeEvent,
   AudienceSuggestionEvent,
   UserVoteEvent,
-  ErrorEvent,
   WarningEvent,
 } from './types';
 
@@ -145,7 +143,7 @@ export class AragoraWebSocket {
           this.handleDisconnect(event.code, event.reason);
         };
 
-        this.ws!.onerror = (event) => {
+        this.ws!.onerror = (_event) => {
           const error = new Error('WebSocket error');
           this.emit('error', error);
           if (this.state === 'connecting') {

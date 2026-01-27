@@ -8,7 +8,6 @@
 import type {
   Role,
   Permission,
-  RoleAssignment,
   AssignmentList,
   BulkAssignRequest,
   BulkAssignResponse,
