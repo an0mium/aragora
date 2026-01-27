@@ -284,6 +284,17 @@ def mock_env_with_api_keys(monkeypatch):
     monkeypatch.setenv("GROK_API_KEY", "test-grok-key")
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
     monkeypatch.setenv("GOOGLE_API_KEY", "test-google-key")
+    # Ensure fallback is disabled by default for deterministic tests
+    monkeypatch.setenv("ARAGORA_OPENROUTER_FALLBACK_ENABLED", "false")
+
+
+@pytest.fixture
+def mock_env_with_fallback_enabled(monkeypatch):
+    """Set up environment with mock API keys and fallback explicitly enabled."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
+    monkeypatch.setenv("ARAGORA_OPENROUTER_FALLBACK_ENABLED", "true")
 
 
 @pytest.fixture

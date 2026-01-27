@@ -222,7 +222,8 @@ class TestHealthEndpointWorkflow:
 class TestLeaderboardWorkflow:
     """Test leaderboard API workflow."""
 
-    def test_leaderboard_returns_rankings(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_leaderboard_returns_rankings(self, handler_context):
         """Test leaderboard endpoint returns agent rankings."""
         # Add some ratings using the proper API
         elo = handler_context["elo_system"]
@@ -231,8 +232,8 @@ class TestLeaderboardWorkflow:
 
         handler = AgentsHandler(handler_context)
 
-        # AgentsHandler.handle is synchronous
-        result = handler.handle("/api/v1/leaderboard", {}, None)
+        # AgentsHandler.handle is async
+        result = await handler.handle("/api/v1/leaderboard", {}, None)
         data, status = parse_handler_result(result)
 
         assert status == 200
@@ -242,7 +243,8 @@ class TestLeaderboardWorkflow:
         else:
             assert isinstance(data, list)
 
-    def test_leaderboard_respects_limit(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_leaderboard_respects_limit(self, handler_context):
         """Test leaderboard limit parameter."""
         elo = handler_context["elo_system"]
         for i in range(10):
@@ -252,8 +254,8 @@ class TestLeaderboardWorkflow:
 
         handler = AgentsHandler(handler_context)
 
-        # AgentsHandler.handle is synchronous
-        result = handler.handle("/api/v1/leaderboard", {"limit": "5"}, None)
+        # AgentsHandler.handle is async
+        result = await handler.handle("/api/v1/leaderboard", {"limit": "5"}, None)
         data, status = parse_handler_result(result)
 
         assert len(data) <= 5
