@@ -511,6 +511,24 @@ export class AragoraClient {
    */
   readonly onboarding: OnboardingAPI;
 
+  /**
+   * Email Priority API namespace.
+   * Provides methods for email prioritization and inbox management.
+   */
+  readonly emailPriority: EmailPriorityAPI;
+
+  /**
+   * Payments API namespace.
+   * Provides payment processing and subscription management.
+   */
+  readonly payments: PaymentsAPI;
+
+  /**
+   * Training API namespace.
+   * Provides training data exports and job management.
+   */
+  readonly training: TrainingAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -569,6 +587,9 @@ export class AragoraClient {
     this.policies = new PoliciesAPI(this);
     this.costManagement = new CostManagementAPI(this);
     this.onboarding = new OnboardingAPI(this);
+    this.emailPriority = new EmailPriorityAPI(this);
+    this.payments = new PaymentsAPI(this);
+    this.training = new TrainingAPI(this);
   }
 
   // ===========================================================================

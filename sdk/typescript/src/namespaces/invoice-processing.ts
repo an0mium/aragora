@@ -250,7 +250,7 @@ export class InvoiceProcessingAPI {
     request: CreateInvoiceRequest
   ): Promise<{ invoice: ProcessedInvoice; message: string }> {
     return this.client.request('POST', '/api/v1/accounting/invoices', {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 
@@ -311,7 +311,7 @@ export class InvoiceProcessingAPI {
     request?: SchedulePaymentRequest
   ): Promise<{ schedule: ScheduledPayment; message: string }> {
     return this.client.request('POST', `/api/v1/accounting/invoices/${invoiceId}/schedule`, {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 
@@ -356,7 +356,7 @@ export class InvoiceProcessingAPI {
     request: CreatePORequest
   ): Promise<{ purchase_order: PurchaseOrder; message: string }> {
     return this.client.request('POST', '/api/v1/accounting/purchase-orders', {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 
