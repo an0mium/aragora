@@ -49,6 +49,7 @@ def _build_condition_context(
     """
     condition_ctx: dict[str, Any] = {
         "user_id": context.user_id,
+        "actor_id": context.user_id,  # Alias for ResourceOwnerCondition
         "org_id": context.org_id,
         "current_time": context.timestamp or datetime.now(timezone.utc),
     }
@@ -57,9 +58,19 @@ def _build_condition_context(
     if context.ip_address:
         condition_ctx["ip_address"] = context.ip_address
 
-    # Add resource attributes
+    # Add resource attributes with condition-friendly aliases
     if resource_attrs:
-        condition_ctx.update(resource_attrs)
+        attrs = dict(resource_attrs)
+        # Map owner_id to resource_owner for ResourceOwnerCondition
+        if "owner_id" in attrs and "resource_owner" not in attrs:
+            attrs["resource_owner"] = attrs["owner_id"]
+        # Map status to resource_status for ResourceStatusCondition
+        if "status" in attrs and "resource_status" not in attrs:
+            attrs["resource_status"] = attrs["status"]
+        # Map tags to resource_tags for TagCondition
+        if "tags" in attrs and "resource_tags" not in attrs:
+            attrs["resource_tags"] = attrs["tags"]
+        condition_ctx.update(attrs)
 
     return condition_ctx
 
