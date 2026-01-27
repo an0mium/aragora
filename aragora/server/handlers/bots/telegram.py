@@ -22,19 +22,17 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
-from aragora.audit.unified import audit_data, audit_security
+from aragora.audit.unified import audit_data
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
 )
-from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.bots.base import BotHandlerMixin
+from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
-
-# RBAC permission for bot configuration endpoints
-BOTS_READ_PERMISSION = "bots.read"
 
 # Environment variables
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -70,8 +68,10 @@ def _verify_webhook_token(token: str) -> bool:
     return hmac.compare_digest(token, TELEGRAM_WEBHOOK_TOKEN)
 
 
-class TelegramHandler(SecureHandler):
+class TelegramHandler(BotHandlerMixin, SecureHandler):
     """Handler for Telegram Bot API webhook endpoints.
+
+    Uses BotHandlerMixin for shared auth/status patterns.
 
     RBAC Protected:
     - bots.read - required for status endpoint
@@ -79,6 +79,9 @@ class TelegramHandler(SecureHandler):
     Note: Webhook endpoints are authenticated via Telegram's secret token,
     not RBAC, since they are called by Telegram servers directly.
     """
+
+    # BotHandlerMixin configuration
+    bot_platform = "telegram"
 
     ROUTES = [
         "/api/v1/bots/telegram/webhook",
@@ -94,22 +97,35 @@ class TelegramHandler(SecureHandler):
             return True
         return False
 
+    def _is_bot_enabled(self) -> bool:
+        """Check if Telegram bot is configured."""
+        return bool(TELEGRAM_BOT_TOKEN)
+
+    def _build_status_response(
+        self, extra_status: Optional[Dict[str, Any]] = None
+    ) -> HandlerResult:
+        """Build Telegram-specific status response."""
+        status = {
+            "platform": self.bot_platform,
+            "enabled": self._is_bot_enabled(),
+            "token_configured": bool(TELEGRAM_BOT_TOKEN),
+            "webhook_secret_configured": bool(TELEGRAM_WEBHOOK_SECRET),
+            "webhook_token": (
+                TELEGRAM_WEBHOOK_TOKEN[:8] + "..." if TELEGRAM_WEBHOOK_TOKEN else None
+            ),
+        }
+        if extra_status:
+            status.update(extra_status)
+        return json_response(status)
+
     @rate_limit(rpm=60)
     async def handle(  # type: ignore[override]
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route Telegram GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/telegram/status":
-            # RBAC: Require authentication and bots.read permission
-            try:
-                auth_context = await self.get_auth_context(handler, require_auth=True)
-                self.check_permission(auth_context, BOTS_READ_PERMISSION)
-            except UnauthorizedError:
-                return error_response("Authentication required", 401)
-            except ForbiddenError as e:
-                logger.warning(f"Telegram status access denied: {e}")
-                return error_response(str(e), 403)
-            return self._get_status()
+            # Use BotHandlerMixin's RBAC-protected status handler
+            return await self.handle_status_request(handler)
 
         return None
 
@@ -125,31 +141,10 @@ class TelegramHandler(SecureHandler):
         if path.startswith("/api/v1/bots/telegram/webhook/"):
             token = path.split("/")[-1]
             if not _verify_webhook_token(token):
-                logger.warning("Telegram webhook token verification failed")
-                audit_security(
-                    event_type="telegram_webhook_auth_failed",
-                    actor_id="unknown",
-                    resource_type="telegram_webhook",
-                    resource_id="token_path",
-                )
-                return error_response("Unauthorized", 401)
+                return self.handle_webhook_auth_failed("token_path")
             return self._handle_webhook(handler, skip_secret_check=True)
 
         return None
-
-    def _get_status(self) -> HandlerResult:
-        """Get Telegram bot status."""
-        return json_response(
-            {
-                "platform": "telegram",
-                "enabled": bool(TELEGRAM_BOT_TOKEN),
-                "token_configured": bool(TELEGRAM_BOT_TOKEN),
-                "webhook_secret_configured": bool(TELEGRAM_WEBHOOK_SECRET),
-                "webhook_token": (
-                    TELEGRAM_WEBHOOK_TOKEN[:8] + "..." if TELEGRAM_WEBHOOK_TOKEN else None
-                ),
-            }
-        )
 
     def _handle_webhook(self, handler: Any, skip_secret_check: bool = False) -> HandlerResult:
         """Handle Telegram webhook updates.
@@ -162,14 +157,7 @@ class TelegramHandler(SecureHandler):
             if not skip_secret_check:
                 secret_token = handler.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
                 if not _verify_telegram_secret(secret_token):
-                    logger.warning("Telegram secret token verification failed")
-                    audit_security(
-                        event_type="telegram_webhook_auth_failed",
-                        actor_id="unknown",
-                        resource_type="telegram_webhook",
-                        resource_id="secret_header",
-                    )
-                    return error_response("Unauthorized", 401)
+                    return self.handle_webhook_auth_failed("secret_header")
 
             # Read body
             content_length = int(handler.headers.get("Content-Length", 0))

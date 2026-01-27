@@ -29,20 +29,20 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
-from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.bots.base import BotHandlerMixin
+from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
-
-# RBAC permission for bot configuration endpoints
-BOTS_READ_PERMISSION = "bots.read"
 
 # Configuration
 EMAIL_INBOUND_ENABLED = os.environ.get("EMAIL_INBOUND_ENABLED", "true").lower() == "true"
 
 
-class EmailWebhookHandler(SecureHandler):
+class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
     """Handler for email inbound webhook endpoints.
+
+    Uses BotHandlerMixin for shared auth/status patterns.
 
     RBAC Protected:
     - bots.read - required for status endpoint
@@ -50,6 +50,9 @@ class EmailWebhookHandler(SecureHandler):
     Note: Webhook endpoints are authenticated via platform-specific signatures,
     not RBAC, since they are called by SendGrid/AWS SES directly.
     """
+
+    # BotHandlerMixin configuration
+    bot_platform = "email"
 
     ROUTES = [
         "/api/v1/bots/email/webhook/sendgrid",
@@ -61,22 +64,44 @@ class EmailWebhookHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    def _is_bot_enabled(self) -> bool:
+        """Check if email inbound is enabled."""
+        return EMAIL_INBOUND_ENABLED
+
+    def _build_status_response(
+        self, extra_status: Optional[Dict[str, Any]] = None
+    ) -> HandlerResult:
+        """Build email-specific status response."""
+        sendgrid_configured = bool(os.environ.get("SENDGRID_INBOUND_SECRET"))
+        ses_configured = bool(os.environ.get("SES_NOTIFICATION_SECRET"))
+
+        status = {
+            "platform": self.bot_platform,
+            "enabled": self._is_bot_enabled(),
+            "inbound_enabled": EMAIL_INBOUND_ENABLED,
+            "providers": {
+                "sendgrid": {
+                    "configured": sendgrid_configured,
+                    "webhook_url": "/api/v1/bots/email/webhook/sendgrid",
+                },
+                "ses": {
+                    "configured": ses_configured,
+                    "webhook_url": "/api/v1/bots/email/webhook/ses",
+                },
+            },
+        }
+        if extra_status:
+            status.update(extra_status)
+        return json_response(status)
+
     @rate_limit(rpm=30)
     async def handle(  # type: ignore[override]
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route email GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/email/status":
-            # RBAC: Require authentication and bots.read permission
-            try:
-                auth_context = await self.get_auth_context(handler, require_auth=True)
-                self.check_permission(auth_context, BOTS_READ_PERMISSION)
-            except UnauthorizedError:
-                return error_response("Authentication required", 401)
-            except ForbiddenError as e:
-                logger.warning(f"Email status access denied: {e}")
-                return error_response(str(e), 403)
-            return self._get_status()
+            # Use BotHandlerMixin's RBAC-protected status handler
+            return await self.handle_status_request(handler)
         return None
 
     @rate_limit(rpm=120)
@@ -93,28 +118,6 @@ class EmailWebhookHandler(SecureHandler):
             return self._handle_ses_webhook(handler)
 
         return None
-
-    def _get_status(self) -> HandlerResult:
-        """Get email integration status."""
-        sendgrid_configured = bool(os.environ.get("SENDGRID_INBOUND_SECRET"))
-        ses_configured = bool(os.environ.get("SES_NOTIFICATION_SECRET"))
-
-        return json_response(
-            {
-                "platform": "email",
-                "inbound_enabled": EMAIL_INBOUND_ENABLED,
-                "providers": {
-                    "sendgrid": {
-                        "configured": sendgrid_configured,
-                        "webhook_url": "/api/v1/bots/email/webhook/sendgrid",
-                    },
-                    "ses": {
-                        "configured": ses_configured,
-                        "webhook_url": "/api/v1/bots/email/webhook/ses",
-                    },
-                },
-            }
-        )
 
     def _handle_sendgrid_webhook(self, handler: Any) -> HandlerResult:
         """

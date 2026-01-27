@@ -30,13 +30,11 @@ from aragora.server.handlers.base import (
     json_response,
     safe_error_message,
 )
-from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.bots.base import BotHandlerMixin
+from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
-
-# RBAC permission for bot configuration endpoints
-BOTS_READ_PERMISSION = "bots.read"
 
 # Environment variables
 ZOOM_CLIENT_ID = os.environ.get("ZOOM_CLIENT_ID", "")
@@ -45,8 +43,10 @@ ZOOM_BOT_JID = os.environ.get("ZOOM_BOT_JID", "")
 ZOOM_SECRET_TOKEN = os.environ.get("ZOOM_SECRET_TOKEN", "")
 
 
-class ZoomHandler(SecureHandler):
+class ZoomHandler(BotHandlerMixin, SecureHandler):
     """Handler for Zoom Bot endpoints.
+
+    Uses BotHandlerMixin for shared auth/status patterns.
 
     RBAC Protected:
     - bots.read - required for status endpoint
@@ -54,6 +54,9 @@ class ZoomHandler(SecureHandler):
     Note: Event webhook endpoints are authenticated via Zoom's signature,
     not RBAC, since they are called by Zoom servers directly.
     """
+
+    # BotHandlerMixin configuration
+    bot_platform = "zoom"
 
     ROUTES = [
         "/api/v1/bots/zoom/events",
@@ -64,6 +67,26 @@ class ZoomHandler(SecureHandler):
         super().__init__(ctx or {})  # type: ignore[arg-type]
         self._bot: Optional[Any] = None
         self._bot_initialized = False
+
+    def _is_bot_enabled(self) -> bool:
+        """Check if Zoom bot is configured."""
+        return bool(ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET)
+
+    def _build_status_response(
+        self, extra_status: Optional[Dict[str, Any]] = None
+    ) -> HandlerResult:
+        """Build Zoom-specific status response."""
+        status = {
+            "platform": self.bot_platform,
+            "enabled": self._is_bot_enabled(),
+            "client_id_configured": bool(ZOOM_CLIENT_ID),
+            "client_secret_configured": bool(ZOOM_CLIENT_SECRET),
+            "bot_jid_configured": bool(ZOOM_BOT_JID),
+            "secret_token_configured": bool(ZOOM_SECRET_TOKEN),
+        }
+        if extra_status:
+            status.update(extra_status)
+        return json_response(status)
 
     def _ensure_bot(self) -> Optional[Any]:
         """Lazily initialize the Zoom bot."""
@@ -103,16 +126,8 @@ class ZoomHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Route Zoom requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/zoom/status":
-            # RBAC: Require authentication and bots.read permission
-            try:
-                auth_context = await self.get_auth_context(handler, require_auth=True)
-                self.check_permission(auth_context, BOTS_READ_PERMISSION)
-            except UnauthorizedError:
-                return error_response("Authentication required", 401)
-            except ForbiddenError as e:
-                logger.warning(f"Zoom status access denied: {e}")
-                return error_response(str(e), 403)
-            return self._get_status()
+            # Use BotHandlerMixin's RBAC-protected status handler
+            return await self.handle_status_request(handler)
 
         return None
 
@@ -125,18 +140,6 @@ class ZoomHandler(SecureHandler):
             return self._handle_events(handler)
 
         return None
-
-    def _get_status(self) -> HandlerResult:
-        """Get Zoom bot status."""
-        return json_response(
-            {
-                "enabled": bool(ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET),
-                "client_id_configured": bool(ZOOM_CLIENT_ID),
-                "client_secret_configured": bool(ZOOM_CLIENT_SECRET),
-                "bot_jid_configured": bool(ZOOM_BOT_JID),
-                "secret_token_configured": bool(ZOOM_SECRET_TOKEN),
-            }
-        )
 
     def _handle_events(self, handler: Any) -> HandlerResult:
         """Handle incoming Zoom webhook events.

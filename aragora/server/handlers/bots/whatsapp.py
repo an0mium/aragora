@@ -29,13 +29,11 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
-from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.bots.base import BotHandlerMixin
+from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
-
-# RBAC permission for bot configuration endpoints
-BOTS_READ_PERMISSION = "bots.read"
 
 # Environment variables
 WHATSAPP_VERIFY_TOKEN = os.environ.get("WHATSAPP_VERIFY_TOKEN", "")
@@ -67,8 +65,10 @@ def _verify_whatsapp_signature(signature: str, body: bytes) -> bool:
     return hmac.compare_digest(expected_sig, computed_sig)
 
 
-class WhatsAppHandler(SecureHandler):
+class WhatsAppHandler(BotHandlerMixin, SecureHandler):
     """Handler for WhatsApp Cloud API webhook endpoints.
+
+    Uses BotHandlerMixin for shared auth/status patterns.
 
     RBAC Protected:
     - bots.read - required for status endpoint
@@ -76,6 +76,9 @@ class WhatsAppHandler(SecureHandler):
     Note: Webhook endpoints are authenticated via WhatsApp's signature,
     not RBAC, since they are called by Meta servers directly.
     """
+
+    # BotHandlerMixin configuration
+    bot_platform = "whatsapp"
 
     ROUTES = [
         "/api/v1/bots/whatsapp/webhook",
@@ -86,22 +89,34 @@ class WhatsAppHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    def _is_bot_enabled(self) -> bool:
+        """Check if WhatsApp bot is configured."""
+        return bool(WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID)
+
+    def _build_status_response(
+        self, extra_status: Optional[Dict[str, Any]] = None
+    ) -> HandlerResult:
+        """Build WhatsApp-specific status response."""
+        status = {
+            "platform": self.bot_platform,
+            "enabled": self._is_bot_enabled(),
+            "access_token_configured": bool(WHATSAPP_ACCESS_TOKEN),
+            "phone_number_configured": bool(WHATSAPP_PHONE_NUMBER_ID),
+            "verify_token_configured": bool(WHATSAPP_VERIFY_TOKEN),
+            "app_secret_configured": bool(WHATSAPP_APP_SECRET),
+        }
+        if extra_status:
+            status.update(extra_status)
+        return json_response(status)
+
     @rate_limit(rpm=60)
     async def handle(  # type: ignore[override]
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route WhatsApp GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/whatsapp/status":
-            # RBAC: Require authentication and bots.read permission
-            try:
-                auth_context = await self.get_auth_context(handler, require_auth=True)
-                self.check_permission(auth_context, BOTS_READ_PERMISSION)
-            except UnauthorizedError:
-                return error_response("Authentication required", 401)
-            except ForbiddenError as e:
-                logger.warning(f"WhatsApp status access denied: {e}")
-                return error_response(str(e), 403)
-            return self._get_status()
+            # Use BotHandlerMixin's RBAC-protected status handler
+            return await self.handle_status_request(handler)
 
         if path == "/api/v1/bots/whatsapp/webhook":
             # Webhook verification challenge - no RBAC (called by Meta)
@@ -118,19 +133,6 @@ class WhatsAppHandler(SecureHandler):
             return self._handle_webhook(handler)
 
         return None
-
-    def _get_status(self) -> HandlerResult:
-        """Get WhatsApp integration status."""
-        return json_response(
-            {
-                "platform": "whatsapp",
-                "enabled": bool(WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID),
-                "access_token_configured": bool(WHATSAPP_ACCESS_TOKEN),
-                "phone_number_configured": bool(WHATSAPP_PHONE_NUMBER_ID),
-                "verify_token_configured": bool(WHATSAPP_VERIFY_TOKEN),
-                "app_secret_configured": bool(WHATSAPP_APP_SECRET),
-            }
-        )
 
     def _handle_verification(self, query_params: Dict[str, Any]) -> HandlerResult:
         """Handle WhatsApp webhook verification challenge.

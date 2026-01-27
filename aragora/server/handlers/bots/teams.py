@@ -28,13 +28,11 @@ from aragora.server.handlers.base import (
     json_response,
     safe_error_message,
 )
-from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.bots.base import BotHandlerMixin
+from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
-
-# RBAC permission for bot configuration endpoints
-BOTS_READ_PERMISSION = "bots.read"
 
 # Environment variables
 TEAMS_APP_ID = os.environ.get("TEAMS_APP_ID", "")
@@ -51,8 +49,10 @@ def _check_botframework_available() -> tuple[bool, Optional[str]]:
         return False, "botbuilder-core not installed"
 
 
-class TeamsHandler(SecureHandler):
+class TeamsHandler(BotHandlerMixin, SecureHandler):
     """Handler for Microsoft Teams Bot endpoints.
+
+    Uses BotHandlerMixin for shared auth/status patterns.
 
     RBAC Protected:
     - bots.read - required for status endpoint
@@ -60,6 +60,9 @@ class TeamsHandler(SecureHandler):
     Note: Message webhook endpoints are authenticated via Bot Framework,
     not RBAC, since they are called by Microsoft servers directly.
     """
+
+    # BotHandlerMixin configuration
+    bot_platform = "teams"
 
     ROUTES = [
         "/api/v1/bots/teams/messages",
@@ -70,6 +73,28 @@ class TeamsHandler(SecureHandler):
         super().__init__(ctx or {})  # type: ignore[arg-type]
         self._bot: Optional[Any] = None
         self._bot_initialized = False
+
+    def _is_bot_enabled(self) -> bool:
+        """Check if Teams bot is configured."""
+        return bool(TEAMS_APP_ID and TEAMS_APP_PASSWORD)
+
+    def _build_status_response(
+        self, extra_status: Optional[Dict[str, Any]] = None
+    ) -> HandlerResult:
+        """Build Teams-specific status response."""
+        available, error = _check_botframework_available()
+
+        status = {
+            "platform": self.bot_platform,
+            "enabled": self._is_bot_enabled(),
+            "app_id_configured": bool(TEAMS_APP_ID),
+            "password_configured": bool(TEAMS_APP_PASSWORD),
+            "sdk_available": available,
+            "sdk_error": error,
+        }
+        if extra_status:
+            status.update(extra_status)
+        return json_response(status)
 
     def _ensure_bot(self) -> Optional[Any]:
         """Lazily initialize the Teams bot."""
@@ -123,16 +148,8 @@ class TeamsHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Route Teams requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/teams/status":
-            # RBAC: Require authentication and bots.read permission
-            try:
-                auth_context = await self.get_auth_context(handler, require_auth=True)
-                self.check_permission(auth_context, BOTS_READ_PERMISSION)
-            except UnauthorizedError:
-                return error_response("Authentication required", 401)
-            except ForbiddenError as e:
-                logger.warning(f"Teams status access denied: {e}")
-                return error_response(str(e), 403)
-            return self._get_status()
+            # Use BotHandlerMixin's RBAC-protected status handler
+            return await self.handle_status_request(handler)
 
         return None
 
@@ -145,20 +162,6 @@ class TeamsHandler(SecureHandler):
             return self._handle_messages(handler)
 
         return None
-
-    def _get_status(self) -> HandlerResult:
-        """Get Teams bot status."""
-        available, error = _check_botframework_available()
-
-        return json_response(
-            {
-                "enabled": bool(TEAMS_APP_ID and TEAMS_APP_PASSWORD),
-                "app_id_configured": bool(TEAMS_APP_ID),
-                "password_configured": bool(TEAMS_APP_PASSWORD),
-                "sdk_available": available,
-                "sdk_error": error,
-            }
-        )
 
     def _handle_messages(self, handler: Any) -> HandlerResult:
         """Handle incoming Bot Framework messages.

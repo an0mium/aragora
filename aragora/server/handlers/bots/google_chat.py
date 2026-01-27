@@ -26,13 +26,11 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
-from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.bots.base import BotHandlerMixin
+from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
-
-# RBAC permission for bot configuration endpoints
-BOTS_READ_PERMISSION = "bots.read"
 
 # Environment variables
 GOOGLE_CHAT_CREDENTIALS = os.environ.get("GOOGLE_CHAT_CREDENTIALS", "")
@@ -87,8 +85,10 @@ def get_google_chat_connector() -> Optional[Any]:
     return _google_chat_connector
 
 
-class GoogleChatHandler(SecureHandler):
+class GoogleChatHandler(BotHandlerMixin, SecureHandler):
     """Handler for Google Chat App webhook endpoints.
+
+    Uses BotHandlerMixin for shared auth/status patterns.
 
     RBAC Protected:
     - bots.read - required for status endpoint
@@ -96,6 +96,9 @@ class GoogleChatHandler(SecureHandler):
     Note: Webhook endpoints are authenticated via Google's bearer token,
     not RBAC, since they are called by Google servers directly.
     """
+
+    # BotHandlerMixin configuration
+    bot_platform = "google_chat"
 
     ROUTES = [
         "/api/v1/bots/google-chat/webhook",
@@ -106,22 +109,33 @@ class GoogleChatHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    def _is_bot_enabled(self) -> bool:
+        """Check if Google Chat bot is configured."""
+        connector = get_google_chat_connector()
+        return connector is not None
+
+    def _build_status_response(
+        self, extra_status: Optional[Dict[str, Any]] = None
+    ) -> HandlerResult:
+        """Build Google Chat-specific status response."""
+        status = {
+            "platform": self.bot_platform,
+            "enabled": self._is_bot_enabled(),
+            "credentials_configured": bool(GOOGLE_CHAT_CREDENTIALS),
+            "project_id_configured": bool(GOOGLE_CHAT_PROJECT_ID),
+        }
+        if extra_status:
+            status.update(extra_status)
+        return json_response(status)
+
     @rate_limit(rpm=60)
     async def handle(  # type: ignore[override]
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route Google Chat GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/google-chat/status":
-            # RBAC: Require authentication and bots.read permission
-            try:
-                auth_context = await self.get_auth_context(handler, require_auth=True)
-                self.check_permission(auth_context, BOTS_READ_PERMISSION)
-            except UnauthorizedError:
-                return error_response("Authentication required", 401)
-            except ForbiddenError as e:
-                logger.warning(f"Google Chat status access denied: {e}")
-                return error_response(str(e), 403)
-            return self._get_status()
+            # Use BotHandlerMixin's RBAC-protected status handler
+            return await self.handle_status_request(handler)
 
         return None
 
@@ -134,18 +148,6 @@ class GoogleChatHandler(SecureHandler):
             return self._handle_webhook(handler)
 
         return None
-
-    def _get_status(self) -> HandlerResult:
-        """Get Google Chat bot status."""
-        connector = get_google_chat_connector()
-        return json_response(
-            {
-                "platform": "google_chat",
-                "enabled": connector is not None,
-                "credentials_configured": bool(GOOGLE_CHAT_CREDENTIALS),
-                "project_id_configured": bool(GOOGLE_CHAT_PROJECT_ID),
-            }
-        )
 
     def _handle_webhook(self, handler: Any) -> HandlerResult:
         """Handle Google Chat webhook events.
