@@ -285,7 +285,6 @@ class TestSyncJobOperations:
         assert completed.duration_seconds > 0
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HAS_AIOSQLITE, reason="aiosqlite required for persistence tests")
     async def test_get_sync_history(self, store):
         """Should return sync history."""
         await store.initialize()
@@ -302,7 +301,6 @@ class TestSyncJobOperations:
         assert len(history) >= 2
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HAS_AIOSQLITE, reason="aiosqlite required for persistence tests")
     async def test_get_sync_stats(self, store):
         """Should return aggregate statistics."""
         await store.initialize()
@@ -348,7 +346,6 @@ class TestConnectorConfig:
         assert config.items_indexed == 0
 
 
-@pytest.mark.skipif(not HAS_AIOSQLITE, reason="aiosqlite required")
 class TestSyncJobRecovery:
     """Tests for sync job recovery on startup."""
 
