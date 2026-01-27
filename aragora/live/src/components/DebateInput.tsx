@@ -296,7 +296,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, defaultFormat, 
     }
   }, [recommendations]);
 
-  const preflightAgents = useCallback(async (agentList: string[]) => {
+  const preflightAgents = useCallback(async (_agentList: string[]) => {
     try {
       const response = await fetch(`${apiBase}/api/introspection/agents/availability`);
       if (!response.ok) {
