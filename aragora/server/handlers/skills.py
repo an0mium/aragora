@@ -293,8 +293,8 @@ class SkillsHandler(BaseHandler):
         # Create skill context
         ctx = SkillContext(
             user_id=user_id,
-            permissions=permissions,
-            metadata=body.get("metadata", {}),
+            permissions=list(permissions),
+            config=body.get("metadata", {}),
         )
 
         # Invoke with timeout
@@ -304,33 +304,36 @@ class SkillsHandler(BaseHandler):
                 timeout=min(timeout, 60.0),  # Cap at 60 seconds
             )
 
+            # Compute execution time in ms from duration_seconds
+            exec_time_ms = int(result.duration_seconds * 1000) if result.duration_seconds else None
+
             if result.status == SkillStatus.SUCCESS:
                 return json_response(
                     {
                         "status": "success",
-                        "output": result.output,
-                        "execution_time_ms": result.execution_time_ms,
+                        "output": result.data,
+                        "execution_time_ms": exec_time_ms,
                         "metadata": result.metadata or {},
                     }
                 )
-            elif result.status == SkillStatus.ERROR:
+            elif result.status == SkillStatus.FAILURE:
                 return json_response(
                     {
                         "status": "error",
-                        "error": result.error or "Unknown error",
-                        "execution_time_ms": result.execution_time_ms,
+                        "error": result.error_message or "Unknown error",
+                        "execution_time_ms": exec_time_ms,
                     },
                     status=500,
                 )
             elif result.status == SkillStatus.RATE_LIMITED:
                 return error_response(
-                    result.error or "Skill rate limited",
+                    result.error_message or "Skill rate limited",
                     429,
                     code="SKILL_RATE_LIMITED",
                 )
             elif result.status == SkillStatus.PERMISSION_DENIED:
                 return error_response(
-                    result.error or "Permission denied",
+                    result.error_message or "Permission denied",
                     403,
                     code="PERMISSION_DENIED",
                 )
@@ -338,9 +341,9 @@ class SkillsHandler(BaseHandler):
                 return json_response(
                     {
                         "status": result.status.value,
-                        "output": result.output,
-                        "error": result.error,
-                        "execution_time_ms": result.execution_time_ms,
+                        "output": result.data,
+                        "error": result.error_message,
+                        "execution_time_ms": exec_time_ms,
                     }
                 )
 

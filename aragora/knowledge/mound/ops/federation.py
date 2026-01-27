@@ -131,7 +131,7 @@ class KnowledgeFederationMixin:
         Returns:
             The registered FederatedRegion
         """
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]  # type: ignore[attr-defined]
 
         region = FederatedRegion(
             region_id=region_id,
@@ -155,7 +155,7 @@ class KnowledgeFederationMixin:
                 api_key=api_key,
                 mode=mode.value,
                 sync_scope=sync_scope.value,
-                workspace_id=self.workspace_id,
+                workspace_id=self.workspace_id,  # type: ignore[attr-defined]
             )
             await store.save(config)
         except ImportError:
@@ -195,7 +195,7 @@ class KnowledgeFederationMixin:
             from aragora.storage.federation_registry_store import get_federation_registry_store
 
             store = get_federation_registry_store()
-            result = await store.delete(region_id, self.workspace_id)
+            result = await store.delete(region_id, self.workspace_id)  # type: ignore[attr-defined]
             if result or was_in_cache:
                 logger.info(f"Unregistered federated region {region_id}")
                 return True
@@ -237,7 +237,7 @@ class KnowledgeFederationMixin:
         """
         import time
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         start_time = time.time()
         ws_id = workspace_id or self.workspace_id
@@ -356,7 +356,7 @@ class KnowledgeFederationMixin:
         """
         import time
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         start_time = time.time()
         ws_id = workspace_id or self.workspace_id

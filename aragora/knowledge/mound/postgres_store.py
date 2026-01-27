@@ -700,7 +700,7 @@ class PostgresStore:
                 json.dumps(pattern.get("metadata", {})),
             )
 
-        return pattern["id"]
+        return cast(str, pattern["id"])
 
     async def get_culture_patterns_async(
         self, workspace_id: str, pattern_type: Optional[str] = None
