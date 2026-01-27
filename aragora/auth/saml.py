@@ -547,7 +547,12 @@ class SAMLProvider(SSOProvider):
             settings = self._get_onelogin_settings()
             from onelogin.saml2.metadata import OneLogin_Saml2_Metadata
 
-            return OneLogin_Saml2_Metadata.builder(settings)
+            # builder() expects the SP data dict, not the full settings dict
+            return OneLogin_Saml2_Metadata.builder(
+                sp=settings["sp"],
+                authnsign=settings.get("security", {}).get("authnRequestsSigned", False),
+                wsign=settings.get("security", {}).get("wantAssertionsSigned", False),
+            )
 
         # Simple metadata without library
         return f"""<?xml version="1.0" encoding="UTF-8"?>
