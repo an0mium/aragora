@@ -157,8 +157,11 @@ class TestOpenRouterRateLimiter:
     async def test_acquire_consumes_token(self, limiter):
         """Acquiring consumes a token."""
         # Use standard tier (moderate RPM) for reliable token consumption check
+        # Freeze refill time to prevent auto-refill during the test
         initial_tokens = limiter._tokens
+        limiter._last_refill = time.monotonic()  # Freeze refill
         await limiter.acquire(timeout=1.0)
+        limiter._last_refill = time.monotonic()  # Freeze again after acquire
         assert limiter._tokens < initial_tokens
 
     @pytest.mark.asyncio
