@@ -1,8 +1,145 @@
 # Aragora Project Status
 
-*Last updated: January 23, 2026*
+*Last updated: January 27, 2026*
 
 ## Current Release
+
+### v2.4.0 - Python SDK Expansion & Knowledge Mound Integration (January 2026)
+
+**Production Ready** - Aragora 2.4.0 expands Python SDK coverage with 10+ new resource namespaces, improves CDC → Knowledge Mound integration, and aligns all package versions.
+
+#### Key Highlights
+- **Python SDK expansion** - Added orgs, tenants, policies, codebase, costs, decisions, onboarding, notifications, gmail, explainability resources
+- **Knowledge Mound integration** - CDC integration coverage with search parameter alignment
+- **Bot client improvements** - Deferred API base validation to runtime initialization
+- **Control plane hardening** - Improved error handling for agent/task retrieval
+- **Package alignment** - All packages aligned to v2.4.0
+- **Lines of Code**: 695,000+ LOC
+- **0 production blockers**
+
+#### What's New in 2.4.0
+
+**Python SDK Resource Expansion** (FEATURE)
+- **SDK Resources** (`aragora-py/src/aragora_client/`)
+  - Organizations namespace for org management
+  - Tenants namespace for multi-tenancy
+  - Policies namespace for policy configuration
+  - Codebase namespace for code analysis
+  - Costs namespace for usage tracking
+  - Decisions namespace for decision management
+  - Onboarding namespace for user onboarding
+  - Notifications namespace for alert management
+  - Gmail namespace for email integration
+  - Explainability namespace for decision explanations
+
+**CDC → Knowledge Mound Integration** (FEATURE)
+- **Integration Tests** (`tests/knowledge/`)
+  - Comprehensive CDC to Knowledge Mound flow testing
+  - Search parameter alignment (`q` key)
+  - Real-time knowledge sync validation
+
+**Bot Client Improvements** (FEATURE)
+- **Bot Runtime** (`aragora/bots/`)
+  - Deferred API base validation to runtime
+  - Better initialization error handling
+  - Improved session management
+
+**Bug Fixes** (BUG)
+- Fixed Python SDK payloads for billing + RBAC endpoints
+- Aligned knowledge search parameter key to `q`
+- Preserved legacy Sunset header behavior for normalized paths
+- Fixed per-debate cost tracking reset during initialization
+
+---
+
+### v2.2.0 - CLI Setup Wizard & Decision Routing (January 2026)
+
+**Production Ready** - Aragora 2.2.0 introduces a guided CLI setup wizard for self-hosted deployments and enhanced decision inbox with deep links.
+
+#### Key Highlights
+- **CLI setup wizard** - Guided `aragora setup` command for self-hosted configuration
+- **Decision Inbox** - Filters and receipt deep links for better navigation
+- **Slack/Teams routing** - Receipt links routed to UI when `ARAGORA_PUBLIC_URL` is set
+- **Cost dashboard** - Components wired to backend API
+- **Lines of Code**: 693,000+ LOC
+- **0 production blockers**
+
+#### What's New in 2.2.0
+
+**CLI Setup Wizard** (FEATURE)
+- **Setup Command** (`aragora/cli/setup.py`)
+  - Interactive configuration wizard
+  - Database connection setup
+  - API key configuration
+  - Environment file generation
+  - Self-hosted deployment guidance
+
+**Decision Inbox Enhancements** (FEATURE)
+- **Inbox Filters** (`aragora/live/components/inbox/`)
+  - Filter by status, date, priority
+  - Receipt deep links for direct navigation
+  - Improved search functionality
+
+**Slack/Teams Receipt Routing** (FEATURE)
+- **Receipt Router** (`aragora/integrations/`)
+  - Routes receipt links to UI when `ARAGORA_PUBLIC_URL` configured
+  - Supports Slack and Teams platforms
+  - Deep link generation for decision receipts
+
+**Cost Dashboard Wiring** (FEATURE)
+- **Dashboard Components** (`aragora/live/components/costs/`)
+  - Backend API integration
+  - Real-time cost display
+  - Usage breakdown visualization
+
+---
+
+### v2.1.15 - Connector Hardening & CI Validation (January 2026)
+
+**Production Ready** - Aragora 2.1.15 hardens connector implementations with abstract property enforcement and adds CI version alignment validation.
+
+#### Key Highlights
+- **Connector hardening** - Abstract property pattern enforcement for connector identification
+- **AuthContext improvements** - Better error handling and session management
+- **Playwright configuration** - Production-ready E2E test setup
+- **CI validation** - Version alignment validation job added to CI
+- **Q1 2026 planning** - 60+ issues across 6 sprints documented
+- **Lines of Code**: 692,000+ LOC
+- **0 production blockers**
+
+#### What's New in 2.1.15
+
+**Connector Hardening** (FEATURE)
+- **Abstract Properties** (`aragora/connectors/`)
+  - Enforced abstract property pattern for connector identification
+  - Removed class-level defaults that shadowed abstract properties
+  - Improved connector type safety
+
+**AuthContext Improvements** (FEATURE)
+- **Session Management** (`aragora/auth/`)
+  - Better error handling for auth failures
+  - Improved session lifecycle management
+  - Enhanced security logging
+
+**Playwright E2E Configuration** (FEATURE)
+- **Test Setup** (`aragora/live/playwright.config.ts`)
+  - Production-ready Playwright configuration
+  - Multi-browser test support
+  - CI-optimized test runner
+
+**CI Version Alignment** (CI/CD)
+- **Validation Job** (`.github/workflows/`)
+  - Cross-package version validation
+  - `check_version_alignment.py` script
+  - Prevents version drift between packages
+
+**Bug Fixes** (BUG)
+- Fixed flaky timing test with tolerance for CI variability
+- Fixed circuit breaker test with explicit threshold configuration
+- Fixed router path handling for unified inbox
+- Fixed SDK version mismatch (2.2.0 → 2.1.15)
+
+---
 
 ### v2.1.14 - Infrastructure Improvements Release (January 2026)
 
