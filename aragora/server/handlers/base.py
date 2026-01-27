@@ -1323,6 +1323,66 @@ class BaseHandler:
 
         return user, None
 
+    def require_permission_or_error(
+        self, handler: HTTPRequestHandler, permission: str
+    ) -> Tuple[Optional[UserAuthContext], Optional["HandlerResult"]]:
+        """Require authentication and specific permission.
+
+        Checks that the user is authenticated and has the required permission.
+        Use this for inline permission checking when different paths need
+        different permissions.
+
+        Args:
+            handler: HTTP request handler with headers
+            permission: Required permission string (e.g., "knowledge.read")
+
+        Returns:
+            Tuple of (UserAuthContext, None) if authenticated with permission,
+            or (None, HandlerResult) with 401/403 error if not
+
+        Example:
+            def handle_post(self, path, query_params, handler):
+                if path.endswith("/store"):
+                    user, err = self.require_permission_or_error(handler, "knowledge.write")
+                else:
+                    user, err = self.require_permission_or_error(handler, "knowledge.read")
+                if err:
+                    return err
+                # user has required permission
+                return json_response({"status": "ok"})
+        """
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return None, err
+
+        # Check permission using role and permissions
+        roles = getattr(user, "roles", []) or []
+        permissions = getattr(user, "permissions", []) or []
+        role = getattr(user, "role", None)
+
+        # Admin role has all permissions
+        if "admin" in roles or "admin" in permissions or role == "admin":
+            return user, None
+
+        # Owner role has all permissions
+        if "owner" in roles or role == "owner":
+            return user, None
+
+        # Check specific permission
+        if permission in permissions:
+            return user, None
+
+        # Check using PERMISSION_MATRIX from decorators
+        try:
+            from aragora.server.handlers.utils.decorators import has_permission
+
+            if role and has_permission(role, permission):
+                return user, None
+        except ImportError:
+            pass
+
+        return None, error_response(f"Permission denied: requires '{permission}'", 403)
+
     # === POST Body Parsing Support ===
 
     # Maximum request body size (10MB default)

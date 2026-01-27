@@ -154,11 +154,12 @@ class TestOpenRouterRateLimiter:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_acquire_consumes_token(self, fast_limiter):
+    async def test_acquire_consumes_token(self, limiter):
         """Acquiring consumes a token."""
-        initial_tokens = fast_limiter._tokens
-        await fast_limiter.acquire(timeout=1.0)
-        assert fast_limiter._tokens < initial_tokens
+        # Use standard tier (moderate RPM) for reliable token consumption check
+        initial_tokens = limiter._tokens
+        await limiter.acquire(timeout=1.0)
+        assert limiter._tokens < initial_tokens
 
     @pytest.mark.asyncio
     async def test_acquire_timeout_when_no_tokens(self):
@@ -283,7 +284,8 @@ class TestRateLimitContext:
     @pytest.mark.asyncio
     async def test_context_acquires_on_entry(self):
         """Context manager acquires on entry."""
-        limiter = OpenRouterRateLimiter(tier="unlimited")
+        # Use free tier (low RPM) to prevent rapid refill during test
+        limiter = OpenRouterRateLimiter(tier="free")
         initial_tokens = limiter._tokens
 
         async with limiter.request(timeout=1.0) as ctx:
@@ -310,7 +312,8 @@ class TestRateLimitContext:
     @pytest.mark.asyncio
     async def test_release_on_error(self):
         """Can release token back on error."""
-        limiter = OpenRouterRateLimiter(tier="unlimited")
+        # Use free tier (low RPM) to prevent rapid refill during test
+        limiter = OpenRouterRateLimiter(tier="free")
 
         async with limiter.request(timeout=1.0) as ctx:
             tokens_after_acquire = limiter._tokens

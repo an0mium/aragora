@@ -7,9 +7,27 @@ Provides reusable utilities for HTTP handlers including:
 - Database connection helpers
 - Safe data access utilities
 - Handler decorators (auth, validation, error handling)
+- Lazy store initialization (LazyStoreFactory)
+- Safe data fetching with error handling (safe_fetch_with_fallback)
+- Authentication mixins (SecureEndpointMixin)
 """
 
 from .database import get_db_connection, table_exists
+from .lazy_stores import LazyStoreFactory, LazyStoreRegistry
+from .safe_fetch import (
+    safe_fetch as safe_fetch_with_fallback,
+    safe_fetch_async,
+    SafeFetchContext,
+    fetch_multiple,
+    fetch_multiple_async,
+)
+from .auth_mixins import (
+    SecureEndpointMixin,
+    AuthenticatedHandlerMixin,
+    require_permission as require_permission_mixin,
+    require_any_permission,
+    require_all_permissions,
+)
 from .decorators import (
     PERMISSION_MATRIX,
     auto_error_response,
@@ -94,4 +112,19 @@ __all__ = [
     "require_feature",
     "safe_fetch",
     "with_error_recovery",
+    # Lazy store initialization (new)
+    "LazyStoreFactory",
+    "LazyStoreRegistry",
+    # Safe fetching with fallback (new)
+    "safe_fetch_with_fallback",
+    "safe_fetch_async",
+    "SafeFetchContext",
+    "fetch_multiple",
+    "fetch_multiple_async",
+    # Auth mixins (new)
+    "SecureEndpointMixin",
+    "AuthenticatedHandlerMixin",
+    "require_permission_mixin",
+    "require_any_permission",
+    "require_all_permissions",
 ]
