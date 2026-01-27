@@ -142,28 +142,28 @@ export class PluginsAPI {
    * List all available plugins.
    */
   async list(): Promise<{ plugins: Plugin[]; total: number }> {
-    return this.client.get('/api/plugins');
+    return this.client.get('/api/v1/plugins');
   }
 
   /**
    * Get a specific plugin by name.
    */
   async get(name: string): Promise<Plugin> {
-    return this.client.get(`/api/plugins/${name}`);
+    return this.client.get(`/api/v1/plugins/${name}`);
   }
 
   /**
    * Get marketplace listings with categories and featured plugins.
    */
   async getMarketplace(): Promise<{ plugins: PluginListing[]; categories: string[]; featured: PluginListing[] }> {
-    return this.client.get('/api/plugins/marketplace');
+    return this.client.get('/api/v1/plugins/marketplace');
   }
 
   /**
    * Query plugins with search and filters.
    */
   async query(body: PluginQueryRequest): Promise<{ plugins: PluginListing[]; total: number }> {
-    return this.client.post('/api/plugins/query', body);
+    return this.client.post('/api/v1/plugins/query', body);
   }
 
   // ===========================================================================
@@ -174,28 +174,28 @@ export class PluginsAPI {
    * List installed plugins.
    */
   async listInstalled(): Promise<{ plugins: Plugin[]; total: number }> {
-    return this.client.get('/api/plugins/installed');
+    return this.client.get('/api/v1/plugins/installed');
   }
 
   /**
    * Install a plugin.
    */
   async install(name: string, body?: InstallPluginRequest): Promise<Plugin> {
-    return this.client.post(`/api/plugins/${name}/install`, body);
+    return this.client.post(`/api/v1/plugins/${name}/install`, body);
   }
 
   /**
    * Uninstall a plugin.
    */
   async uninstall(name: string): Promise<{ uninstalled: boolean }> {
-    return this.client.delete(`/api/plugins/${name}`);
+    return this.client.delete(`/api/v1/plugins/${name}`);
   }
 
   /**
    * Run a plugin with the given parameters.
    */
   async run(name: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.post(`/api/plugins/${name}/run`, body);
+    return this.client.post(`/api/v1/plugins/${name}/run`, body);
   }
 
   // ===========================================================================
@@ -206,20 +206,20 @@ export class PluginsAPI {
    * Submit a plugin for marketplace review.
    */
   async submit(body: Record<string, unknown>): Promise<PluginSubmission> {
-    return this.client.post('/api/plugins/submit', body);
+    return this.client.post('/api/v1/plugins/submit', body);
   }
 
   /**
    * List your plugin submissions.
    */
   async listSubmissions(): Promise<{ submissions: PluginSubmission[] }> {
-    return this.client.get('/api/plugins/submissions');
+    return this.client.get('/api/v1/plugins/submissions');
   }
 
   /**
    * Validate a plugin manifest before submission.
    */
   async validate(body: PluginValidateRequest): Promise<{ valid: boolean; errors?: string[] }> {
-    return this.client.post('/api/plugins/validate', body);
+    return this.client.post('/api/v1/plugins/validate', body);
   }
 }

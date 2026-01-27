@@ -179,6 +179,9 @@ import {
   OAuthAPI,
   MonitoringAPI,
   SystemAPI,
+  NomicAPI,
+  CrossPollinationAPI,
+  DecisionsAPI,
 } from './namespaces';
 
 interface RequestOptions {
@@ -398,6 +401,24 @@ export class AragoraClient {
    */
   readonly system: SystemAPI;
 
+  /**
+   * Nomic API namespace.
+   * Provides methods for nomic loop control, monitoring, and proposal management.
+   */
+  readonly nomic: NomicAPI;
+
+  /**
+   * Cross-Pollination API namespace.
+   * Provides methods for cross-debate knowledge sharing and Knowledge Mound integration.
+   */
+  readonly crossPollination: CrossPollinationAPI;
+
+  /**
+   * Decisions API namespace.
+   * Provides methods for unified decision routing through debate, workflow, or gauntlet.
+   */
+  readonly decisions: DecisionsAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -440,6 +461,9 @@ export class AragoraClient {
     this.oauth = new OAuthAPI(this);
     this.monitoring = new MonitoringAPI(this);
     this.system = new SystemAPI(this);
+    this.nomic = new NomicAPI(this);
+    this.crossPollination = new CrossPollinationAPI(this);
+    this.decisions = new DecisionsAPI(this);
   }
 
   // ===========================================================================

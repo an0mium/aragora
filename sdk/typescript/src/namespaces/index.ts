@@ -121,3 +121,54 @@ export {
   type RevokeTokenResponse,
   type HistoryOptions,
 } from './system';
+
+// Nomic Loop Control
+export {
+  NomicAPI,
+  type NomicHealthStatus,
+  type NomicPhase,
+  type NomicState,
+  type NomicHealth,
+  type NomicMetrics,
+  type NomicLogResponse,
+  type RiskEntry,
+  type RiskRegisterResponse,
+  type Proposal,
+  type ProposalsResponse,
+  type StartLoopRequest,
+  type StopLoopRequest,
+  type ApproveProposalRequest,
+  type RejectProposalRequest,
+  type OperationalMode,
+  type ModesResponse,
+} from './nomic';
+
+// Cross-Pollination
+export {
+  CrossPollinationAPI,
+  type CrossPollinationStats,
+  type CrossPollinationSubscriber,
+  type CrossPollinationBridge,
+  type CrossPollinationMetrics,
+  type KMIntegrationStatus,
+  type KMSyncResult,
+  type KMStalenessResult,
+  type CulturePattern,
+  type WorkspaceCulture,
+} from './cross-pollination';
+
+// Unified Decisions
+export {
+  DecisionsAPI,
+  type DecisionType,
+  type DecisionPriority,
+  type DecisionStatus,
+  type ResponseChannel,
+  type DecisionContext,
+  type DecisionConfig,
+  type DecisionRequest,
+  type DecisionResult,
+  type DecisionStatusResponse,
+  type DecisionSummary,
+  type DecisionListResponse,
+} from './decisions';

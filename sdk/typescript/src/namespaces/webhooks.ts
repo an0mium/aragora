@@ -338,4 +338,43 @@ export class WebhooksAPI {
   async bulkDelete(webhookIds: string[]): Promise<{ deleted: number }> {
     return this.client.request('DELETE', '/api/v1/webhooks/bulk', { json: { ids: webhookIds } });
   }
+
+  // ===========================================================================
+  // Dead-Letter Queue Management
+  // ===========================================================================
+
+  /**
+   * List deliveries in the dead-letter queue.
+   */
+  async listDeadLetter(options?: { limit?: number }): Promise<{ dead_letters: WebhookDelivery[]; count: number }> {
+    return this.client.request('GET', '/api/v1/webhooks/dead-letter', { params: options });
+  }
+
+  /**
+   * Get a specific dead-letter delivery by ID.
+   */
+  async getDeadLetter(id: string): Promise<WebhookDelivery> {
+    return this.client.request('GET', `/api/v1/webhooks/dead-letter/${id}`);
+  }
+
+  /**
+   * Retry a dead-letter delivery.
+   */
+  async retryDeadLetter(id: string): Promise<{ retried: boolean; new_delivery_id?: string }> {
+    return this.client.request('POST', `/api/v1/webhooks/dead-letter/${id}/retry`);
+  }
+
+  /**
+   * Delete a dead-letter delivery.
+   */
+  async deleteDeadLetter(id: string): Promise<{ deleted: boolean }> {
+    return this.client.request('DELETE', `/api/v1/webhooks/dead-letter/${id}`);
+  }
+
+  /**
+   * Get webhook queue statistics.
+   */
+  async getQueueStats(): Promise<{ stats: { pending: number; processing: number; dead_letter: number; total_delivered: number; total_failed: number } }> {
+    return this.client.request('GET', '/api/v1/webhooks/queue/stats');
+  }
 }
