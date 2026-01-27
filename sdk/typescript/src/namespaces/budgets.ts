@@ -14,60 +14,11 @@ import type {
   CreateBudgetRequest,
   UpdateBudgetRequest,
   PaginationParams,
+  BudgetTransaction,
+  BudgetTransactionList,
+  BudgetTrendPoint,
+  BudgetTrendsResponse,
 } from '../types';
-
-/**
- * Interface for the internal client methods used by BudgetsAPI.
- */
-/**
- * Budget transaction record.
- */
-export interface BudgetTransaction {
-  transaction_id: string;
-  budget_id: string;
-  amount_usd: number;
-  description: string;
-  debate_id?: string;
-  user_id?: string;
-  created_at: number;
-  created_at_iso: string;
-}
-
-/**
- * Transactions list response.
- */
-export interface BudgetTransactionList {
-  transactions: BudgetTransaction[];
-  count: number;
-  total: number;
-  budget_id: string;
-  pagination: {
-    limit: number;
-    offset: number;
-    has_more: boolean;
-  };
-}
-
-/**
- * Spending trend data point.
- */
-export interface SpendingTrendPoint {
-  period: string;
-  total_spent_usd: number;
-  transaction_count: number;
-  avg_transaction_usd: number;
-}
-
-/**
- * Spending trends response.
- */
-export interface SpendingTrends {
-  trends: SpendingTrendPoint[];
-  period: string;
-  count: number;
-  budget_id?: string;
-  org_id?: string;
-}
 
 /**
  * Transaction filter options.
@@ -104,8 +55,8 @@ interface BudgetsClientInterface {
     budget_id?: string;
   }): Promise<{ allowed: boolean; remaining_budget: number; warnings?: string[] }>;
   getBudgetTransactions(budgetId: string, params?: TransactionFilterOptions): Promise<BudgetTransactionList>;
-  getBudgetTrends(budgetId: string, params?: TrendsOptions): Promise<SpendingTrends>;
-  getOrgTrends(params?: TrendsOptions): Promise<SpendingTrends>;
+  getBudgetTrends(budgetId: string, params?: TrendsOptions): Promise<BudgetTrendsResponse>;
+  getOrgTrends(params?: TrendsOptions): Promise<BudgetTrendsResponse>;
 }
 
 /**
@@ -349,7 +300,7 @@ export class BudgetsAPI {
    * const weekly = await client.budgets.getTrends('budget-123', { period: 'week' });
    * ```
    */
-  async getTrends(budgetId: string, params?: TrendsOptions): Promise<SpendingTrends> {
+  async getTrends(budgetId: string, params?: TrendsOptions): Promise<BudgetTrendsResponse> {
     return this.client.getBudgetTrends(budgetId, params);
   }
 
@@ -367,18 +318,20 @@ export class BudgetsAPI {
    * console.log(`Year-to-date spend: $${totalYTD}`);
    * ```
    */
-  async getOrgTrends(params?: TrendsOptions): Promise<SpendingTrends> {
+  async getOrgTrends(params?: TrendsOptions): Promise<BudgetTrendsResponse> {
     return this.client.getOrgTrends(params);
   }
 }
 
 // Re-export imported types for convenience
-// Note: BudgetTransaction, BudgetTransactionList, SpendingTrendPoint, SpendingTrends,
-// TransactionFilterOptions, and TrendsOptions are already exported above
 export type {
   Budget,
   BudgetAlert,
   BudgetSummary,
   CreateBudgetRequest,
   UpdateBudgetRequest,
+  BudgetTransaction,
+  BudgetTransactionList,
+  BudgetTrendPoint,
+  BudgetTrendsResponse,
 };
