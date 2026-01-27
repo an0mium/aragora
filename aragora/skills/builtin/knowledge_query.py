@@ -149,7 +149,7 @@ class KnowledgeQuerySkill(Skill):
         try:
             from aragora.knowledge.mound import get_knowledge_mound
 
-            return await get_knowledge_mound()
+            return get_knowledge_mound()  # Sync function
         except ImportError:
             logger.debug("Knowledge Mound not available")
             return None

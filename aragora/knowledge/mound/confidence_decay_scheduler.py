@@ -328,7 +328,7 @@ class ConfidenceDecayScheduler:
 
             decay_report = cast(
                 DR,
-                await self._knowledge_mound.apply_confidence_decay(
+                await self._knowledge_mound.apply_confidence_decay(  # type: ignore[call-arg]
                     workspace_id=workspace_id,
                     force=force,
                 ),

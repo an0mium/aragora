@@ -154,7 +154,7 @@ class SlackDock(ChannelDock):
             payload["thread_ts"] = thread_ts
 
         # Build blocks for rich formatting
-        blocks = []
+        blocks: list[dict[str, Any]] = []
 
         # Add title if present
         if message.title:
