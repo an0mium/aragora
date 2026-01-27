@@ -251,7 +251,7 @@ class TestSecureHandlerAuditAction:
 
             call_kwargs = mock_audit_log.append.call_args.kwargs
             assert call_kwargs["resource_type"] == "settings"
-            assert call_kwargs["event_type"] == "settings:update"
+            assert call_kwargs["event_type"] == "settings.update"
 
     @pytest.mark.asyncio
     async def test_audit_action_with_details(self, secure_handler, auth_context):

@@ -501,10 +501,10 @@ class TestWebhookHandlerList:
 
     def test_list_webhooks_returns_registered(self, webhook_handler, server_context):
         """Should return registered webhooks."""
-        # Register some webhooks
+        # Register some webhooks (with user_id matching mock auth context)
         store = server_context["webhook_store"]
-        store.register(url="https://a.com", events=["debate_start"])
-        store.register(url="https://b.com", events=["debate_end"])
+        store.register(url="https://a.com", events=["debate_start"], user_id="test-user-001")
+        store.register(url="https://b.com", events=["debate_end"], user_id="test-user-001")
 
         handler = MockHandler(headers={})
         result = webhook_handler.handle("/api/v1/webhooks", {}, handler)
@@ -516,7 +516,7 @@ class TestWebhookHandlerList:
     def test_list_webhooks_excludes_secrets(self, webhook_handler, server_context):
         """Should not include secrets in list response."""
         store = server_context["webhook_store"]
-        store.register(url="https://a.com", events=["debate_start"])
+        store.register(url="https://a.com", events=["debate_start"], user_id="test-user-001")
 
         handler = MockHandler(headers={})
         result = webhook_handler.handle("/api/v1/webhooks", {}, handler)
@@ -532,7 +532,9 @@ class TestWebhookHandlerGet:
     def test_get_webhook_success(self, webhook_handler, server_context):
         """Should return specific webhook by ID."""
         store = server_context["webhook_store"]
-        webhook = store.register(url="https://example.com", events=["debate_start"])
+        webhook = store.register(
+            url="https://example.com", events=["debate_start"], user_id="test-user-001"
+        )
 
         handler = MockHandler(headers={})
         result = webhook_handler.handle(f"/api/v1/webhooks/{webhook.id}", {}, handler)
@@ -555,7 +557,9 @@ class TestWebhookHandlerDelete:
     def test_delete_webhook_success(self, webhook_handler, server_context):
         """Should delete webhook."""
         store = server_context["webhook_store"]
-        webhook = store.register(url="https://example.com", events=["debate_start"])
+        webhook = store.register(
+            url="https://example.com", events=["debate_start"], user_id="test-user-001"
+        )
 
         handler = MockHandler(headers={})
         result = webhook_handler.handle_delete(f"/api/v1/webhooks/{webhook.id}", {}, handler)
@@ -581,7 +585,9 @@ class TestWebhookHandlerUpdate:
     def test_update_webhook_success(self, webhook_handler, server_context):
         """Should update webhook fields."""
         store = server_context["webhook_store"]
-        webhook = store.register(url="https://old.com", events=["debate_start"])
+        webhook = store.register(
+            url="https://old.com", events=["debate_start"], user_id="test-user-001"
+        )
 
         body = json.dumps({"url": "https://new.com", "active": False}).encode()
         handler = MockHandler(
@@ -610,7 +616,9 @@ class TestWebhookHandlerUpdate:
     def test_update_webhook_invalid_events(self, webhook_handler, server_context):
         """Should reject invalid event types in update."""
         store = server_context["webhook_store"]
-        webhook = store.register(url="https://example.com", events=["debate_start"])
+        webhook = store.register(
+            url="https://example.com", events=["debate_start"], user_id="test-user-001"
+        )
 
         body = json.dumps({"events": ["invalid_event"]}).encode()
         handler = MockHandler(
@@ -634,7 +642,9 @@ class TestWebhookHandlerTest:
     def test_test_webhook_success(self, webhook_handler, server_context):
         """Should send test event to webhook."""
         store = server_context["webhook_store"]
-        webhook = store.register(url="https://example.com/hook", events=["debate_start"])
+        webhook = store.register(
+            url="https://example.com/hook", events=["debate_start"], user_id="test-user-001"
+        )
 
         handler = MockHandler(headers={})
 
@@ -652,7 +662,9 @@ class TestWebhookHandlerTest:
     def test_test_webhook_delivery_failure(self, webhook_handler, server_context):
         """Should report delivery failure."""
         store = server_context["webhook_store"]
-        webhook = store.register(url="https://example.com/hook", events=["debate_start"])
+        webhook = store.register(
+            url="https://example.com/hook", events=["debate_start"], user_id="test-user-001"
+        )
 
         handler = MockHandler(headers={})
 
