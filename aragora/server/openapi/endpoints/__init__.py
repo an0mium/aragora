@@ -52,6 +52,8 @@ from aragora.server.openapi.endpoints.budgets import BUDGET_ENDPOINTS
 from aragora.server.openapi.endpoints.teams import TEAMS_ENDPOINTS
 from aragora.server.openapi.endpoints.webhooks import WEBHOOK_ENDPOINTS
 from aragora.server.openapi.endpoints.integrations import INTEGRATION_ENDPOINTS
+from aragora.server.openapi.endpoints.nomic import NOMIC_ENDPOINTS
+from aragora.server.openapi.endpoints.deliberations import DELIBERATIONS_ENDPOINTS
 
 
 from typing import Any
@@ -116,6 +118,8 @@ ALL_ENDPOINTS = {
     **TEAMS_ENDPOINTS,
     **WEBHOOK_ENDPOINTS,
     **INTEGRATION_ENDPOINTS,
+    **NOMIC_ENDPOINTS,
+    **DELIBERATIONS_ENDPOINTS,
     # Decorator-registered endpoints (merged last to allow overrides)
     **_get_decorator_endpoints(),
 }
@@ -164,5 +168,7 @@ __all__ = [
     "TEAMS_ENDPOINTS",
     "WEBHOOK_ENDPOINTS",
     "INTEGRATION_ENDPOINTS",
+    "NOMIC_ENDPOINTS",
+    "DELIBERATIONS_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]

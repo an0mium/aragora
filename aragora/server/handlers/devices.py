@@ -602,3 +602,122 @@ class DeviceHandler(SecureHandler):
         except Exception as e:
             logger.error(f"Error sending notifications: {e}")
             return error_response(f"Error sending notifications: {e}", 500)
+
+    async def _handle_alexa_webhook(
+        self,
+        body: Dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult:
+        """
+        Handle incoming Alexa skill webhook requests.
+
+        Processes voice commands and returns Alexa-formatted responses.
+        """
+        try:
+            from aragora.connectors.devices.alexa import AlexaConnector
+            from aragora.connectors.devices.registry import get_registry
+
+            # Get or initialize Alexa connector
+            registry = get_registry()
+            try:
+                connector = registry.get("alexa", auto_initialize=True)
+            except KeyError:
+                return error_response("Alexa connector not available", 503)
+
+            if not isinstance(connector, AlexaConnector):
+                return error_response("Invalid connector type", 500)
+
+            # Verify skill ID
+            if not connector.verify_skill_id(body):
+                return error_response("Invalid skill ID", 403)
+
+            # Parse request
+            voice_request = connector.parse_alexa_request(body)
+
+            # Handle the request
+            voice_response = await connector.handle_voice_request(voice_request)
+
+            # Build Alexa response format
+            session_attributes = body.get("session", {}).get("attributes", {})
+            alexa_response = connector.build_alexa_response(voice_response, session_attributes)
+
+            return json_response(alexa_response)
+
+        except ImportError:
+            return error_response("Alexa connector not available", 503)
+        except Exception as e:
+            logger.error(f"Error handling Alexa webhook: {e}")
+            return error_response(f"Error processing request: {e}", 500)
+
+    async def _handle_google_webhook(
+        self,
+        body: Dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult:
+        """
+        Handle incoming Google Actions webhook requests.
+
+        Processes voice commands and Smart Home intents.
+        """
+        try:
+            from aragora.connectors.devices.google_home import GoogleHomeConnector
+            from aragora.connectors.devices.registry import get_registry
+
+            # Get or initialize Google Home connector
+            registry = get_registry()
+            try:
+                connector = registry.get("google_home", auto_initialize=True)
+            except KeyError:
+                return error_response("Google Home connector not available", 503)
+
+            if not isinstance(connector, GoogleHomeConnector):
+                return error_response("Invalid connector type", 500)
+
+            # Check for Smart Home intents
+            inputs = body.get("inputs", [])
+            if inputs:
+                intent = inputs[0].get("intent", "")
+
+                # Handle Smart Home SYNC
+                if intent == "action.devices.SYNC":
+                    request_id = body.get("requestId", "")
+                    user_id = body.get("user", {}).get("userId", "")
+                    response = await connector.handle_sync(request_id, user_id)
+                    return json_response(response)
+
+                # Handle Smart Home QUERY
+                if intent == "action.devices.QUERY":
+                    request_id = body.get("requestId", "")
+                    devices = inputs[0].get("payload", {}).get("devices", [])
+                    response = await connector.handle_query(request_id, devices)
+                    return json_response(response)
+
+                # Handle Smart Home EXECUTE
+                if intent == "action.devices.EXECUTE":
+                    request_id = body.get("requestId", "")
+                    commands = inputs[0].get("payload", {}).get("commands", [])
+                    response = await connector.handle_execute(request_id, commands)
+                    return json_response(response)
+
+                # Handle Smart Home DISCONNECT
+                if intent == "action.devices.DISCONNECT":
+                    request_id = body.get("requestId", "")
+                    user_id = body.get("user", {}).get("userId", "")
+                    response = await connector.handle_disconnect(request_id, user_id)
+                    return json_response(response)
+
+            # Handle Conversational Actions
+            voice_request = connector.parse_google_request(body)
+            voice_response = await connector.handle_voice_request(voice_request)
+
+            # Build Google response format
+            session_params = body.get("session", {}).get("params", {})
+            google_response = connector.build_google_response(voice_response, session_params)
+
+            return json_response(google_response)
+
+        except ImportError:
+            return error_response("Google Home connector not available", 503)
+        except Exception as e:
+            logger.error(f"Error handling Google webhook: {e}")
+            return error_response(f"Error processing request: {e}", 500)

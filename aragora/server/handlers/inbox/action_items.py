@@ -29,6 +29,8 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.models import AuthorizationContext
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,33 @@ _action_extractor: Optional[Any] = None
 _action_extractor_lock = threading.Lock()
 _meeting_detector: Optional[Any] = None
 _meeting_detector_lock = threading.Lock()
+
+
+def _check_inbox_permission(
+    user_id: str,
+    action: str = "read",
+    org_id: Optional[str] = None,
+    roles: Optional[set] = None,
+) -> Optional[HandlerResult]:
+    """Check RBAC permission for inbox operations."""
+    permission = f"inbox.{action}"
+    try:
+        context = AuthorizationContext(
+            user_id=user_id,
+            org_id=org_id,
+            roles=roles if roles else {"member"},
+            permissions=set(),
+        )
+        checker = get_permission_checker()
+        decision = checker.check_permission(context, permission)
+        if not decision.allowed:
+            logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
+            return error_response(f"Permission denied: {decision.reason}", status=403)
+        return None
+    except Exception as e:
+        logger.error(f"RBAC check failed: {e}")
+        return error_response("Authorization check failed", status=500)
+
 
 # In-memory action item storage (replace with DB in production)
 _action_items: Dict[str, Dict[str, Any]] = {}
@@ -94,6 +123,11 @@ async def handle_extract_action_items(
         detect_assignees: bool (optional, default true)
     }
     """
+    # RBAC check for inbox update permission
+    rbac_err = _check_inbox_permission(user_id, "update")
+    if rbac_err:
+        return rbac_err
+
     try:
         extractor = get_action_extractor()
 

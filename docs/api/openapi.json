@@ -337,14 +337,63 @@
     "/api/v1/nomic/state": {
       "get": {
         "tags": [
-          "System"
+          "Nomic"
         ],
         "summary": "Get nomic loop state",
-        "description": "Get current state of the nomic self-improvement loop.\n\n**Response includes:**\n- Current phase (debate, design, implement, verify)\n- Active cycle ID\n- Last successful cycle timestamp\n- Pending improvements queue",
         "operationId": "getNomicState",
+        "description": "Returns the current state of the nomic self-improvement loop, including phase, cycle count, and activity status.",
         "responses": {
           "200": {
-            "description": "Nomic state"
+            "description": "Current nomic loop state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "running": {
+                      "type": "boolean",
+                      "description": "Whether the loop is running"
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "context",
+                        "debate",
+                        "design",
+                        "implement",
+                        "verify",
+                        "idle"
+                      ],
+                      "description": "Current phase of the nomic loop"
+                    },
+                    "cycle": {
+                      "type": "integer",
+                      "description": "Current cycle number"
+                    },
+                    "paused": {
+                      "type": "boolean",
+                      "description": "Whether the loop is paused"
+                    },
+                    "last_activity": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "Timestamp of last activity"
+                    },
+                    "active_task": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Current task being executed"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient permissions"
           }
         },
         "security": [
@@ -372,16 +421,57 @@
     "/api/v1/nomic/health": {
       "get": {
         "tags": [
-          "System"
+          "Nomic"
         ],
-        "summary": "Nomic loop health",
-        "description": "Get nomic loop health with stall detection.\n\n**Stall detection:** Alerts if the nomic loop hasn't progressed within expected timeframes.\n\n**Response includes:**\n- Health status (healthy, stalled, degraded)\n- Time since last activity\n- Phase duration statistics",
+        "summary": "Get nomic loop health",
         "operationId": "getNomicHealth",
+        "description": "Returns health metrics for the nomic loop including stall detection, resource usage, and phase timing.",
         "responses": {
           "200": {
-            "description": "Nomic health status"
+            "description": "Nomic loop health metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "healthy": {
+                      "type": "boolean",
+                      "description": "Overall health status"
+                    },
+                    "stall_detected": {
+                      "type": "boolean",
+                      "description": "Whether a stall has been detected"
+                    },
+                    "time_in_phase_seconds": {
+                      "type": "number",
+                      "description": "Time spent in current phase"
+                    },
+                    "max_phase_duration_seconds": {
+                      "type": "number",
+                      "description": "Maximum allowed phase duration"
+                    },
+                    "memory_usage_mb": {
+                      "type": "number",
+                      "description": "Memory usage in MB"
+                    },
+                    "cpu_percent": {
+                      "type": "number",
+                      "description": "CPU utilization percentage"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/nomic/log": {
@@ -420,27 +510,80 @@
     "/api/v1/nomic/log": {
       "get": {
         "tags": [
-          "System"
+          "Nomic"
         ],
-        "summary": "Get nomic logs",
-        "description": "Get recent nomic loop log lines for debugging and monitoring.\n\n**Authentication:** Required. Admin access recommended.\n\n**Log levels:** DEBUG, INFO, WARNING, ERROR included.",
+        "summary": "Get nomic loop logs",
         "operationId": "getNomicLogs",
+        "description": "Returns recent log entries from the nomic loop with optional filtering by level and phase.",
         "parameters": [
           {
-            "name": "lines",
+            "name": "limit",
             "in": "query",
-            "description": "Number of log lines to return",
             "schema": {
               "type": "integer",
-              "default": 100,
-              "minimum": 1,
-              "maximum": 1000
-            }
+              "default": 100
+            },
+            "description": "Maximum number of log entries to return"
+          },
+          {
+            "name": "level",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "debug",
+                "info",
+                "warning",
+                "error"
+              ]
+            },
+            "description": "Filter by log level"
+          },
+          {
+            "name": "phase",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by nomic phase"
           }
         ],
         "responses": {
           "200": {
-            "description": "Log lines"
+            "description": "Log entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "timestamp": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "level": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "phase": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -486,27 +629,55 @@
     "/api/v1/nomic/risk-register": {
       "get": {
         "tags": [
-          "System"
+          "Nomic"
         ],
-        "summary": "Risk register",
-        "description": "Get risk register entries from nomic loop execution.\n\n**Risk categories:**\n- Code changes that could break existing functionality\n- Security-sensitive modifications\n- Performance-impacting changes\n- External dependency updates",
-        "operationId": "getRiskRegister",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Maximum number of risk entries to return",
-            "schema": {
-              "type": "integer",
-              "default": 50,
-              "minimum": 1,
-              "maximum": 200
-            }
-          }
-        ],
+        "summary": "Get risk register",
+        "operationId": "getNomicRiskRegister",
+        "description": "Returns entries from the nomic loop risk register, tracking potential issues and mitigations.",
         "responses": {
           "200": {
-            "description": "Risk entries"
+            "description": "Risk register entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "risks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "low",
+                              "medium",
+                              "high",
+                              "critical"
+                            ]
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "mitigation": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -588,58 +759,33 @@
     "/api/v1/nomic/metrics": {
       "get": {
         "tags": [
-          "System"
+          "Nomic"
         ],
-        "summary": "Get nomic metrics",
-        "description": "Get detailed metrics about nomic loop performance.\n\n**Response includes:**\n- Cycle completion times\n- Phase durations\n- Success/failure rates\n- Resource usage per cycle",
+        "summary": "Get nomic loop metrics",
         "operationId": "getNomicMetrics",
+        "description": "Returns Prometheus-style metrics summary for the nomic loop including cycle counts, phase durations, and success rates.",
         "responses": {
           "200": {
-            "description": "Nomic metrics",
+            "description": "Prometheus metrics summary",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "total_cycles": {
+                    "cycles_completed": {
                       "type": "integer"
                     },
-                    "successful_cycles": {
+                    "cycles_failed": {
                       "type": "integer"
                     },
-                    "failed_cycles": {
-                      "type": "integer"
-                    },
-                    "avg_cycle_duration_s": {
+                    "avg_cycle_duration_seconds": {
                       "type": "number"
                     },
-                    "phase_durations": {
-                      "type": "object",
-                      "properties": {
-                        "debate": {
-                          "type": "number"
-                        },
-                        "design": {
-                          "type": "number"
-                        },
-                        "implement": {
-                          "type": "number"
-                        },
-                        "verify": {
-                          "type": "number"
-                        }
-                      }
+                    "proposals_generated": {
+                      "type": "integer"
                     },
-                    "resource_usage": {
-                      "type": "object",
-                      "properties": {
-                        "tokens_used": {
-                          "type": "integer"
-                        },
-                        "api_calls": {
-                          "type": "integer"
-                        }
-                      }
+                    "proposals_approved": {
+                      "type": "integer"
                     }
                   }
                 }
@@ -753,16 +899,15 @@
     "/api/v1/nomic/proposals": {
       "get": {
         "tags": [
-          "System"
+          "Nomic"
         ],
         "summary": "List nomic proposals",
-        "description": "Get pending and recent nomic improvement proposals.\n\n**Response includes:**\n- Proposal ID and description\n- Proposed changes\n- Debate outcome\n- Approval status",
         "operationId": "listNomicProposals",
+        "description": "Returns all proposals generated by the nomic loop, with optional status filtering.",
         "parameters": [
           {
             "name": "status",
             "in": "query",
-            "description": "Filter by proposal status",
             "schema": {
               "type": "string",
               "enum": [
@@ -771,23 +916,13 @@
                 "rejected",
                 "implemented"
               ]
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Maximum number of proposals to return",
-            "schema": {
-              "type": "integer",
-              "default": 50,
-              "minimum": 1,
-              "maximum": 200
-            }
+            },
+            "description": "Filter by proposal status"
           }
         ],
         "responses": {
           "200": {
-            "description": "Nomic proposals",
+            "description": "List of proposals",
             "content": {
               "application/json": {
                 "schema": {
@@ -799,13 +934,16 @@
                         "type": "object",
                         "properties": {
                           "id": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Unique proposal identifier"
                           },
                           "title": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Proposal title"
                           },
                           "description": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Detailed proposal description"
                           },
                           "status": {
                             "type": "string",
@@ -814,18 +952,27 @@
                               "approved",
                               "rejected",
                               "implemented"
-                            ]
+                            ],
+                            "description": "Current proposal status"
                           },
-                          "debate_id": {
-                            "type": "string"
+                          "author": {
+                            "type": "string",
+                            "description": "Agent that created the proposal"
                           },
                           "created_at": {
                             "type": "string",
                             "format": "date-time"
                           },
-                          "updated_at": {
-                            "type": "string",
-                            "format": "date-time"
+                          "votes": {
+                            "type": "object",
+                            "properties": {
+                              "approve": {
+                                "type": "integer"
+                              },
+                              "reject": {
+                                "type": "integer"
+                              }
+                            }
                           }
                         }
                       }
@@ -994,14 +1141,35 @@
     "/api/v1/nomic/control/start": {
       "post": {
         "tags": [
-          "System"
+          "Nomic"
         ],
         "summary": "Start nomic loop",
-        "description": "Start or resume the nomic self-improvement loop.",
         "operationId": "startNomicLoop",
+        "description": "Starts the nomic self-improvement loop. Requires nomic:control permission.",
         "responses": {
           "200": {
-            "description": "Loop started"
+            "description": "Loop started successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient permissions (nomic:control required)"
           },
           "409": {
             "description": "Loop already running"
@@ -1040,17 +1208,35 @@
     "/api/v1/nomic/control/stop": {
       "post": {
         "tags": [
-          "System"
+          "Nomic"
         ],
         "summary": "Stop nomic loop",
-        "description": "Gracefully stop the nomic self-improvement loop.",
         "operationId": "stopNomicLoop",
+        "description": "Gracefully stops the nomic loop after completing the current phase.",
         "responses": {
           "200": {
-            "description": "Loop stopped"
+            "description": "Loop stopped successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
-          "409": {
-            "description": "Loop not running"
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient permissions"
           }
         },
         "security": [
@@ -1086,17 +1272,29 @@
     "/api/v1/nomic/control/pause": {
       "post": {
         "tags": [
-          "System"
+          "Nomic"
         ],
         "summary": "Pause nomic loop",
-        "description": "Pause the nomic loop at the end of the current phase.",
         "operationId": "pauseNomicLoop",
+        "description": "Pauses the nomic loop at the current position, allowing for inspection or manual intervention.",
         "responses": {
           "200": {
-            "description": "Loop paused"
-          },
-          "409": {
-            "description": "Loop not running or already paused"
+            "description": "Loop paused successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "paused_at_phase": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1132,17 +1330,29 @@
     "/api/v1/nomic/control/resume": {
       "post": {
         "tags": [
-          "System"
+          "Nomic"
         ],
         "summary": "Resume nomic loop",
-        "description": "Resume a paused nomic loop.",
         "operationId": "resumeNomicLoop",
+        "description": "Resumes a paused nomic loop from where it was paused.",
         "responses": {
           "200": {
-            "description": "Loop resumed"
-          },
-          "409": {
-            "description": "Loop not paused"
+            "description": "Loop resumed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "resumed_at_phase": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1178,17 +1388,32 @@
     "/api/v1/nomic/control/skip-phase": {
       "post": {
         "tags": [
-          "System"
+          "Nomic"
         ],
         "summary": "Skip current phase",
-        "description": "Skip the current nomic phase and move to the next one.",
         "operationId": "skipNomicPhase",
+        "description": "Skips the current phase and advances to the next phase in the nomic loop.",
         "responses": {
           "200": {
-            "description": "Phase skipped"
-          },
-          "409": {
-            "description": "Loop not running"
+            "description": "Phase skipped successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "skipped_phase": {
+                      "type": "string"
+                    },
+                    "new_phase": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -31753,6 +31978,657 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/nomic/witness/status": {
+      "get": {
+        "tags": [
+          "Nomic",
+          "Gas Town"
+        ],
+        "summary": "Get witness patrol status",
+        "operationId": "getWitnessStatus",
+        "description": "Returns the status of the Gas Town witness patrol, which monitors agent behavior and system integrity.",
+        "responses": {
+          "200": {
+            "description": "Witness patrol status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "active": {
+                      "type": "boolean"
+                    },
+                    "last_patrol": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "anomalies_detected": {
+                      "type": "integer"
+                    },
+                    "agents_monitored": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/nomic/mayor/current": {
+      "get": {
+        "tags": [
+          "Nomic",
+          "Gas Town"
+        ],
+        "summary": "Get current mayor",
+        "operationId": "getCurrentMayor",
+        "description": "Returns information about the current Gas Town mayor, the elected leader coordinating multi-agent operations.",
+        "responses": {
+          "200": {
+            "description": "Current mayor information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "node_id": {
+                      "type": "string"
+                    },
+                    "elected_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "term_expires": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "region": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/nomic/proposals/approve": {
+      "post": {
+        "tags": [
+          "Nomic"
+        ],
+        "summary": "Approve proposal",
+        "operationId": "approveNomicProposal",
+        "description": "Approves a pending nomic proposal for implementation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "proposal_id": {
+                    "type": "string",
+                    "description": "ID of the proposal to approve"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "Optional approval reason"
+                  }
+                },
+                "required": [
+                  "proposal_id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Proposal approved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "proposal": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Unique proposal identifier"
+                        },
+                        "title": {
+                          "type": "string",
+                          "description": "Proposal title"
+                        },
+                        "description": {
+                          "type": "string",
+                          "description": "Detailed proposal description"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "approved",
+                            "rejected",
+                            "implemented"
+                          ],
+                          "description": "Current proposal status"
+                        },
+                        "author": {
+                          "type": "string",
+                          "description": "Agent that created the proposal"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "votes": {
+                          "type": "object",
+                          "properties": {
+                            "approve": {
+                              "type": "integer"
+                            },
+                            "reject": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Proposal not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/nomic/proposals/reject": {
+      "post": {
+        "tags": [
+          "Nomic"
+        ],
+        "summary": "Reject proposal",
+        "operationId": "rejectNomicProposal",
+        "description": "Rejects a pending nomic proposal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "proposal_id": {
+                    "type": "string",
+                    "description": "ID of the proposal to reject"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "Rejection reason"
+                  }
+                },
+                "required": [
+                  "proposal_id",
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Proposal rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "proposal": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Unique proposal identifier"
+                        },
+                        "title": {
+                          "type": "string",
+                          "description": "Proposal title"
+                        },
+                        "description": {
+                          "type": "string",
+                          "description": "Detailed proposal description"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "approved",
+                            "rejected",
+                            "implemented"
+                          ],
+                          "description": "Current proposal status"
+                        },
+                        "author": {
+                          "type": "string",
+                          "description": "Agent that created the proposal"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "votes": {
+                          "type": "object",
+                          "properties": {
+                            "approve": {
+                              "type": "integer"
+                            },
+                            "reject": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Proposal not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/deliberations/active": {
+      "get": {
+        "tags": [
+          "Deliberations"
+        ],
+        "summary": "List active deliberations",
+        "operationId": "listActiveDeliberations",
+        "description": "Returns all currently active deliberation sessions with their status and participating agents.",
+        "responses": {
+          "200": {
+            "description": "List of active deliberations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "description": "Number of active deliberations"
+                    },
+                    "deliberations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique deliberation identifier"
+                          },
+                          "task": {
+                            "type": "string",
+                            "description": "The task being deliberated"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "initializing",
+                              "active",
+                              "consensus_forming",
+                              "complete"
+                            ],
+                            "description": "Current deliberation status"
+                          },
+                          "agents": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Agents participating in the deliberation"
+                          },
+                          "current_round": {
+                            "type": "integer",
+                            "description": "Current round number"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "When the deliberation started"
+                          },
+                          "updated_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Last activity timestamp"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/deliberations/stats": {
+      "get": {
+        "tags": [
+          "Deliberations"
+        ],
+        "summary": "Get deliberation statistics",
+        "operationId": "getDeliberationStats",
+        "description": "Returns aggregate statistics about deliberations including completion rates, timing metrics, and top contributors.",
+        "responses": {
+          "200": {
+            "description": "Deliberation statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "active_count": {
+                      "type": "integer",
+                      "description": "Number of currently active deliberations"
+                    },
+                    "completed_today": {
+                      "type": "integer",
+                      "description": "Deliberations completed in last 24 hours"
+                    },
+                    "average_consensus_time": {
+                      "type": "number",
+                      "description": "Average time to reach consensus (seconds)"
+                    },
+                    "average_rounds": {
+                      "type": "number",
+                      "description": "Average rounds per deliberation"
+                    },
+                    "top_agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agent": {
+                            "type": "string"
+                          },
+                          "contributions": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "description": "Most active agents in recent deliberations"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "When stats were computed"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/deliberations/{deliberation_id}": {
+      "get": {
+        "tags": [
+          "Deliberations"
+        ],
+        "summary": "Get deliberation details",
+        "operationId": "getDeliberation",
+        "description": "Returns detailed information about a specific deliberation including messages, votes, and current state.",
+        "parameters": [
+          {
+            "name": "deliberation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Unique identifier of the deliberation"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deliberation details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Unique deliberation identifier"
+                        },
+                        "task": {
+                          "type": "string",
+                          "description": "The task being deliberated"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "initializing",
+                            "active",
+                            "consensus_forming",
+                            "complete"
+                          ],
+                          "description": "Current deliberation status"
+                        },
+                        "agents": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Agents participating in the deliberation"
+                        },
+                        "current_round": {
+                          "type": "integer",
+                          "description": "Current round number"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "When the deliberation started"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Last activity timestamp"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "messages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "agent": {
+                                "type": "string"
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "round": {
+                                "type": "integer"
+                              },
+                              "timestamp": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            }
+                          }
+                        },
+                        "votes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "agent": {
+                                "type": "string"
+                              },
+                              "position": {
+                                "type": "string"
+                              },
+                              "confidence": {
+                                "type": "number"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Deliberation not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/deliberations/stream": {
+      "get": {
+        "tags": [
+          "Deliberations"
+        ],
+        "summary": "Stream deliberation events",
+        "operationId": "streamDeliberationEvents",
+        "description": "Returns WebSocket connection information for real-time deliberation event streaming. Events include agent messages, votes, consensus detection, and status changes.",
+        "responses": {
+          "200": {
+            "description": "WebSocket stream configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "websocket"
+                      ],
+                      "description": "Connection type"
+                    },
+                    "url": {
+                      "type": "string",
+                      "description": "WebSocket URL to connect to"
+                    },
+                    "events": {
+                      "type": "object",
+                      "description": "Available event types",
+                      "properties": {
+                        "agent_message": {
+                          "type": "string",
+                          "description": "Agent sends a message"
+                        },
+                        "vote_cast": {
+                          "type": "string",
+                          "description": "Agent casts a vote"
+                        },
+                        "consensus_reached": {
+                          "type": "string",
+                          "description": "Consensus has been achieved"
+                        },
+                        "status_change": {
+                          "type": "string",
+                          "description": "Deliberation status changed"
+                        },
+                        "round_complete": {
+                          "type": "string",
+                          "description": "A round has completed"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     }
   },
