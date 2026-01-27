@@ -337,7 +337,9 @@ export class PaymentsAPI {
   async createCustomer(
     request: CreateCustomerRequest
   ): Promise<{ success: boolean; customer_id: string; customer: CustomerProfile }> {
-    return this.client.request('POST', '/api/payments/customer', { json: request });
+    return this.client.request('POST', '/api/payments/customer', {
+      json: request as unknown as Record<string, unknown>,
+    });
   }
 
   /**
