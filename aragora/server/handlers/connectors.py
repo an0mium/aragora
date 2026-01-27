@@ -505,12 +505,18 @@ async def handle_webhook(
     connector_id: str,
     payload: Dict[str, Any],
     tenant_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Handle incoming webhook for a connector.
 
     POST /api/connectors/:connector_id/webhook
     """
+    # Check RBAC permission
+    perm_error = _check_permission(auth_context, "connectors:execute", connector_id)
+    if perm_error:
+        return perm_error
+
     scheduler = get_scheduler()
 
     handled = await scheduler.handle_webhook(
@@ -619,6 +625,7 @@ async def handle_get_scheduler_stats(
 
 async def handle_list_workflow_templates(
     category: Optional[str] = None,
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     List available workflow templates.
@@ -626,6 +633,11 @@ async def handle_list_workflow_templates(
     GET /api/workflows/templates
     GET /api/workflows/templates?category=legal
     """
+    # Check RBAC permission
+    perm_error = _check_permission(auth_context, "workflows:read")
+    if perm_error:
+        return perm_error
+
     from aragora.workflow.templates import list_templates
 
     templates = list_templates(category=category)
@@ -639,12 +651,18 @@ async def handle_list_workflow_templates(
 
 async def handle_get_workflow_template(
     template_id: str,
+    auth_context: Optional[Any] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Get a specific workflow template.
 
     GET /api/workflows/templates/:template_id
     """
+    # Check RBAC permission
+    perm_error = _check_permission(auth_context, "workflows:read", template_id)
+    if perm_error:
+        return perm_error
+
     from aragora.workflow.templates import get_template
 
     template = get_template(template_id)
@@ -794,13 +812,34 @@ async def handle_mongodb_collections(
 # =============================================================================
 
 
-async def handle_connector_health() -> Dict[str, Any]:
+async def handle_connector_health(
+    auth_context: Optional[Any] = None,
+) -> Dict[str, Any]:
     """
     Health check for connector subsystem.
 
     GET /api/connectors/health
+
+    Returns basic health status without auth, detailed stats with auth.
     """
     scheduler = get_scheduler()
+
+    # Basic health check for unauthenticated requests
+    if not auth_context or not RBAC_AVAILABLE:
+        return {
+            "status": "healthy",
+            "scheduler_running": scheduler._scheduler_task is not None,
+        }
+
+    # Detailed stats for authenticated users
+    perm_error = _check_permission(auth_context, "connectors:read")
+    if perm_error:
+        # Return basic health even without permission
+        return {
+            "status": "healthy",
+            "scheduler_running": scheduler._scheduler_task is not None,
+        }
+
     stats = scheduler.get_stats()
 
     return {

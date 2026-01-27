@@ -234,11 +234,11 @@ class WebhookHandler(SecureHandler):
         """Handle GET requests for webhook endpoints."""
         # GET /api/webhooks/events - list available event types
         if path == "/api/v1/webhooks/events":
-            return self._handle_list_events()
+            return self._handle_list_events(handler)
 
         # GET /api/webhooks/slo/status - get SLO webhook status
         if path == "/api/v1/webhooks/slo/status":
-            return self._handle_slo_status()
+            return self._handle_slo_status(handler)
 
         # GET /api/webhooks/dead-letter - list dead-letter queue
         if path == "/api/v1/webhooks/dead-letter":
@@ -274,7 +274,7 @@ class WebhookHandler(SecureHandler):
         """Handle POST requests for webhook endpoints."""
         # POST /api/webhooks/slo/test - send test SLO violation notification
         if path == "/api/v1/webhooks/slo/test":
-            return self._handle_slo_test()
+            return self._handle_slo_test(handler)
 
         # POST /api/webhooks/dead-letter/:id/retry - retry dead-letter delivery
         if path.endswith("/retry") and "/dead-letter/" in path:
@@ -339,8 +339,14 @@ class WebhookHandler(SecureHandler):
     # Handler Methods
     # =========================================================================
 
-    def _handle_list_events(self) -> HandlerResult:
+    def _handle_list_events(self, handler: Any = None) -> HandlerResult:
         """Handle GET /api/webhooks/events - list available event types."""
+        # RBAC permission check (read access for event types)
+        if handler:
+            rbac_error = self._check_rbac_permission(handler, "webhooks.read")
+            if rbac_error:
+                return rbac_error
+
         events = sorted(WEBHOOK_EVENTS)
         return json_response(
             {
@@ -382,6 +388,11 @@ class WebhookHandler(SecureHandler):
 
     def _handle_list_webhooks(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/webhooks - list all webhooks."""
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "webhooks.read")
+        if rbac_error:
+            return rbac_error
+
         # Get optional user context for filtering
         user = self.get_current_user(handler)
         user_id = user.user_id if user else None
@@ -400,6 +411,11 @@ class WebhookHandler(SecureHandler):
 
     def _handle_get_webhook(self, webhook_id: str, handler: Any) -> HandlerResult:
         """Handle GET /api/webhooks/:id - get specific webhook."""
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "webhooks.read")
+        if rbac_error:
+            return rbac_error
+
         store = self._get_webhook_store()
         webhook = store.get(webhook_id)
 
@@ -616,8 +632,13 @@ class WebhookHandler(SecureHandler):
                 status=502,
             )
 
-    def _handle_slo_status(self) -> HandlerResult:
+    def _handle_slo_status(self, handler: Any) -> HandlerResult:
         """Handle GET /api/webhooks/slo/status - get SLO webhook status."""
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "webhooks.read")
+        if rbac_error:
+            return rbac_error
+
         try:
             from aragora.observability.metrics.slo import (
                 get_slo_webhook_status,
@@ -661,8 +682,13 @@ class WebhookHandler(SecureHandler):
             logger.error(f"Error getting SLO webhook status: {e}")
             return error_response(f"Failed to get SLO status: {e}", 500)
 
-    def _handle_slo_test(self) -> HandlerResult:
+    def _handle_slo_test(self, handler: Any) -> HandlerResult:
         """Handle POST /api/webhooks/slo/test - send test SLO violation notification."""
+        # RBAC permission check (admin operation)
+        rbac_error = self._check_rbac_permission(handler, "webhooks.admin")
+        if rbac_error:
+            return rbac_error
+
         try:
             from aragora.observability.metrics.slo import (
                 get_slo_webhook_status,
