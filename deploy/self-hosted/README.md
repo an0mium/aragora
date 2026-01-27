@@ -126,13 +126,36 @@ docker compose --profile backup up -d
 
 Backups are stored in `./backups/` with 7-day retention.
 
-### Manual Backup
+### Using the Backup CLI
+
+For advanced backup operations with verification:
+
+```bash
+# Create a backup with integrity verification
+python scripts/backup_cli.py backup /app/data/aragora.db
+
+# List all verified backups
+python scripts/backup_cli.py list --status verified
+
+# Verify backup integrity (comprehensive)
+python scripts/backup_cli.py verify abc123 --comprehensive
+
+# Restore a backup (dry-run first)
+python scripts/backup_cli.py restore abc123 ./restored.db --dry-run
+python scripts/backup_cli.py restore abc123 ./restored.db
+
+# Clean up old backups per retention policy
+python scripts/backup_cli.py cleanup --dry-run
+python scripts/backup_cli.py cleanup
+```
+
+### Manual PostgreSQL Backup
 
 ```bash
 docker exec aragora-postgres pg_dump -U aragora aragora | gzip > backup.sql.gz
 ```
 
-### Restore
+### Restore from PostgreSQL Backup
 
 ```bash
 gunzip < backup.sql.gz | docker exec -i aragora-postgres psql -U aragora aragora
@@ -194,6 +217,62 @@ docker exec aragora-postgres pg_isready -U aragora
         ┌─────▼─────┐ ┌────▼────┐ ┌─────▼─────┐
         │ PostgreSQL│ │  Redis  │ │  Workers  │
         └───────────┘ └─────────┘ └───────────┘
+```
+
+## TLS/SSL Configuration
+
+For production deployments, always use HTTPS. Two approaches:
+
+### Option 1: Reverse Proxy (Recommended)
+
+Use nginx, Traefik, or Caddy with Let's Encrypt:
+
+```yaml
+# Add to docker-compose.yml (Traefik example)
+services:
+  traefik:
+    image: traefik:v3.0
+    command:
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.le.acme.email=your@email.com"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  aragora:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.aragora.rule=Host(`api.yourdomain.com`)"
+      - "traefik.http.routers.aragora.entrypoints=websecure"
+      - "traefik.http.routers.aragora.tls.certresolver=le"
+```
+
+### Option 2: Direct SSL
+
+Add to `.env`:
+```bash
+ARAGORA_SSL_ENABLED=true
+ARAGORA_SSL_CERT=/etc/ssl/certs/aragora.pem
+ARAGORA_SSL_KEY=/etc/ssl/private/aragora-key.pem
+```
+
+Mount certificates in docker-compose:
+```yaml
+  aragora:
+    volumes:
+      - /path/to/cert.pem:/etc/ssl/certs/aragora.pem:ro
+      - /path/to/key.pem:/etc/ssl/private/aragora-key.pem:ro
+```
+
+Generate self-signed cert for testing:
+```bash
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes
 ```
 
 ## Security Recommendations

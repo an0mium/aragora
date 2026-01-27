@@ -388,6 +388,7 @@ class InboxCommandHandler:
             - email: Sender email address
         """
         try:
+            self._check_permission(request, "inbox:read")
             self._ensure_services()
 
             email = request.query.get("email")
@@ -413,6 +414,7 @@ class InboxCommandHandler:
         Get daily digest statistics.
         """
         try:
+            self._check_permission(request, "inbox:read")
             self._ensure_services()
 
             digest = await self._calculate_daily_digest()
@@ -435,6 +437,7 @@ class InboxCommandHandler:
             - force_tier: Optional tier to force (tier_1_rules, tier_2_lightweight, tier_3_debate)
         """
         try:
+            self._check_permission(request, "inbox:write")
             self._ensure_services()
 
             body = await request.json()
