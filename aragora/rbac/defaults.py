@@ -153,6 +153,14 @@ PERM_ANALYTICS_EXPORT = _permission(
     ResourceType.ANALYTICS, Action.EXPORT_DATA, "Export Analytics", "Export analytics data"
 )
 
+# Introspection permissions
+PERM_INTROSPECTION_READ = _permission(
+    ResourceType.INTROSPECTION,
+    Action.READ,
+    "View Introspection",
+    "Access system introspection and agent status",
+)
+
 # Training permissions
 PERM_TRAINING_READ = _permission(
     ResourceType.TRAINING, Action.READ, "View Training Data", "Access training data exports"
@@ -1054,6 +1062,8 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         # Analytics
         PERM_ANALYTICS_READ,
         PERM_ANALYTICS_EXPORT,
+        # Introspection
+        PERM_INTROSPECTION_READ,
         # Training
         PERM_TRAINING_READ,
         PERM_TRAINING_CREATE,
@@ -1563,6 +1573,8 @@ ROLE_MEMBER = Role(
         PERM_EVIDENCE_CREATE.key,
         # Analytics read
         PERM_ANALYTICS_READ.key,
+        # Introspection
+        PERM_INTROSPECTION_READ.key,
         # Checkpoints
         PERM_CHECKPOINT_READ.key,
         PERM_CHECKPOINT_CREATE.key,
