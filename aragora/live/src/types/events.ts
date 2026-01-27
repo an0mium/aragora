@@ -166,6 +166,9 @@ export interface DebateStartData {
   task: string;
   agents: string[];
   rounds: number;
+  filtered?: boolean;
+  missing_agents?: string[];
+  requested_agents?: string[];
 }
 
 export interface RoundStartData {

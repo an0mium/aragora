@@ -26,6 +26,7 @@ from .base import (
     require_auth,
     safe_error_message,
 )
+from .utils.decorators import require_permission
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -106,6 +107,7 @@ class RLMContextHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("rlm:read")
     def handle(
         self,
         path: str,
@@ -129,6 +131,7 @@ class RLMContextHandler(BaseHandler):
 
         return None
 
+    @require_permission("rlm:create")
     def handle_post(
         self,
         path: str,
