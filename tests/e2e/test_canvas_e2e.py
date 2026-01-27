@@ -60,12 +60,11 @@ class TestCanvasManagerE2E:
         assert retrieved.name == canvas.name
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="update_canvas method not implemented in CanvasStateManager")
     async def test_update_canvas(self, manager):
         """Test updating canvas properties."""
         canvas = await manager.create_canvas(name="Original Name")
 
-        # Update canvas
+        # Update canvas name
         updated = await manager.update_canvas(canvas.id, name="Updated Name")
         assert updated is not None
         assert updated.name == "Updated Name"
@@ -73,6 +72,14 @@ class TestCanvasManagerE2E:
         # Verify persistence
         retrieved = await manager.get_canvas(canvas.id)
         assert retrieved.name == "Updated Name"
+
+        # Update canvas metadata
+        updated_with_meta = await manager.update_canvas(
+            canvas.id,
+            metadata={"custom_field": "custom_value"},
+        )
+        assert updated_with_meta is not None
+        assert updated_with_meta.metadata.get("custom_field") == "custom_value"
 
     @pytest.mark.asyncio
     async def test_delete_canvas(self, manager):

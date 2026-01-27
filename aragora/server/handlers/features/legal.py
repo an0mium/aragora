@@ -33,6 +33,7 @@ from ..base import (
     json_response,
     success_response,
 )
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,7 @@ class LegalHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/legal")
 
+    @require_permission("legal:read")
     async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
         """Route requests to appropriate handler methods."""
         try:

@@ -33,6 +33,7 @@ from ..base import (
     error_response,
     success_response,
 )
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -387,6 +388,7 @@ class EmailWebhooksHandler(BaseHandler):
         """Initialize handler with optional server context."""
         super().__init__(server_context or {})  # type: ignore[arg-type]
 
+    @require_permission("webhooks:read")
     async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
         """Route requests to appropriate handler methods."""
         try:

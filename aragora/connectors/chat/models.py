@@ -413,20 +413,24 @@ class ChatEvidence:
     def from_message(
         cls,
         message: ChatMessage,
-        query: str,
+        query: Optional[str] = None,
         relevance_score: float = 1.0,
     ) -> ChatEvidence:
         """Create ChatEvidence from a ChatMessage.
 
         Args:
             message: The source chat message
-            query: The search query that found this message
+            query: Optional search query that found this message
             relevance_score: Relevance score for this evidence (0-1)
 
         Returns:
             ChatEvidence instance with data from the message
         """
         import uuid
+
+        metadata = {**message.metadata}
+        if query:
+            metadata["query"] = query
 
         return cls(
             id=f"evidence_{uuid.uuid4().hex[:12]}",
@@ -444,7 +448,7 @@ class ChatEvidence:
             is_thread_root=message.thread_id == message.id,
             relevance_score=relevance_score,
             source_message=message,
-            metadata={"query": query, **message.metadata},
+            metadata=metadata,
         )
 
 

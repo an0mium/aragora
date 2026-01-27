@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from aragora.agents.grounded import RelationshipTracker
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
+from aragora.rbac.decorators import require_permission
 from aragora.utils.optional_imports import try_import
 
 from ..base import (
@@ -201,6 +202,7 @@ class RelationshipHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("relationships:read")
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route relationship requests to appropriate methods."""
         # Rate limit check

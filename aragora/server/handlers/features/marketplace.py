@@ -33,6 +33,7 @@ from ..base import (
     error_response,
     success_response,
 )
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -406,6 +407,7 @@ class MarketplaceHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("marketplace:read")
     async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
         """Route requests to appropriate handler methods."""
         try:

@@ -384,7 +384,7 @@ class TransitionRule:
             id=transition_id,
             from_step=data["from_step"],
             to_step=data["to_step"],
-            condition=data["condition"],
+            condition=data.get("condition", "True"),
             priority=data.get("priority", 0),
             visual=VisualEdgeData.from_dict(data.get("visual", {})),
             label=data.get("label", ""),

@@ -44,6 +44,7 @@ from ..base import (
     error_response,
     success_response,
 )
+from aragora.rbac.decorators import require_permission
 from aragora.storage.unified_inbox_store import get_unified_inbox_store
 
 logger = logging.getLogger(__name__)
@@ -325,6 +326,7 @@ class UnifiedInboxHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/inbox")
 
+    @require_permission("inbox:read")
     async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
         """Route requests to appropriate handler methods."""
         try:

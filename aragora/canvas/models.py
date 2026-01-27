@@ -46,6 +46,9 @@ class CanvasEventType(Enum):
     STATE = "canvas:state"
     SYNC = "canvas:sync"
 
+    # Canvas events
+    CANVAS_UPDATE = "canvas:update"
+
     # Node events
     NODE_CREATE = "canvas:node:create"
     NODE_UPDATE = "canvas:node:update"

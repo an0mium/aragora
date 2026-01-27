@@ -34,6 +34,7 @@ from aragora.control_plane.leader import (
     DistributedStateError,
     is_distributed_state_required,
 )
+from aragora.rbac.decorators import require_permission
 
 from .base import (
     BaseHandler,
@@ -432,6 +433,7 @@ class TemplateMarketplaceHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/marketplace/")
 
+    @require_permission("marketplace:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route marketplace requests."""
         # Ensure marketplace is seeded

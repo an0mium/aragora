@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async
 from aragora.server.middleware.rate_limit import rate_limit
 from aragora.server.validation.schema import VERIFICATION_SCHEMA, validate_against_schema
@@ -53,12 +54,14 @@ class VerificationHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    @require_permission("verification:read")
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
         if path == "/api/v1/verification/status":
             return self._get_status()
         return None
 
+    @require_permission("verification:create")
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/verification/formal-verify":

@@ -20,6 +20,7 @@ import logging
 import time
 from typing import Optional
 
+from aragora.rbac.decorators import require_permission
 
 from ..base import (
     HandlerResult,
@@ -99,6 +100,7 @@ class MemoryHandler(SecureHandler):
         """Get user store from context."""
         return self.ctx.get("user_store")
 
+    @require_permission("memory:read")
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route memory requests to appropriate handler methods."""
         client_ip = get_client_ip(handler)
@@ -155,6 +157,7 @@ class MemoryHandler(SecureHandler):
 
         return None
 
+    @require_permission("memory:write")
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST memory requests to state-mutating methods with auth."""
         from aragora.billing.jwt_auth import extract_user_from_request

@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
 
 from ..base import (
@@ -79,6 +80,7 @@ class EvolutionABTestingHandler(BaseHandler):
         normalized = strip_version_prefix(path)
         return normalized.startswith("/api/evolution/ab-tests")
 
+    @require_permission("testing:read")
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests."""
         if not AB_TESTING_AVAILABLE:
@@ -112,6 +114,7 @@ class EvolutionABTestingHandler(BaseHandler):
 
         return None
 
+    @require_permission("testing:create")
     def handle_post(self, path: str, body: dict, handler=None) -> Optional[HandlerResult]:
         """Route POST requests."""
         if not AB_TESTING_AVAILABLE:

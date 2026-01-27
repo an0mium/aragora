@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Optional, Tuple
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.validation.schema import SHARE_UPDATE_SCHEMA, validate_against_schema
 
 from ..base import (
@@ -228,6 +229,7 @@ class SharingHandler(BaseHandler):
         super().__init__(server_context or {})  # type: ignore[arg-type]
         self._store = get_share_store()
 
+    @require_permission("sharing:read")
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle GET requests."""
         # Shared debate access (public endpoint)
@@ -244,6 +246,7 @@ class SharingHandler(BaseHandler):
 
         return None
 
+    @require_permission("sharing:create")
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests."""
         # Revoke share link

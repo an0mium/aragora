@@ -128,6 +128,68 @@ class CanvasStateManager:
 
         return canvases
 
+    async def update_canvas(
+        self,
+        canvas_id: str,
+        name: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        owner_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> Optional[Canvas]:
+        """
+        Update canvas properties.
+
+        Args:
+            canvas_id: ID of the canvas to update
+            name: New name for the canvas (if provided)
+            metadata: Metadata to merge into existing metadata (if provided)
+            owner_id: New owner ID (if provided)
+            workspace_id: New workspace ID (if provided)
+            user_id: ID of the user performing the update (for event tracking)
+
+        Returns:
+            Updated Canvas object, or None if canvas not found
+        """
+        async with self._lock:
+            canvas = self._canvases.get(canvas_id)
+            if not canvas:
+                return None
+
+            updates: Dict[str, Any] = {}
+
+            if name is not None:
+                canvas.name = name
+                updates["name"] = name
+
+            if metadata is not None:
+                canvas.metadata.update(metadata)
+                updates["metadata"] = metadata
+
+            if owner_id is not None:
+                canvas.owner_id = owner_id
+                updates["owner_id"] = owner_id
+
+            if workspace_id is not None:
+                canvas.workspace_id = workspace_id
+                updates["workspace_id"] = workspace_id
+
+            canvas.updated_at = datetime.now(timezone.utc)
+            updates["updated_at"] = canvas.updated_at.isoformat()
+
+            # Broadcast update event
+            event = CanvasEvent(
+                event_type=CanvasEventType.CANVAS_UPDATE,
+                canvas_id=canvas_id,
+                user_id=user_id,
+                data={"updates": updates, "canvas": canvas.to_dict()},
+            )
+            await self._broadcast(canvas_id, event)
+            self._add_to_history(canvas_id, event)
+
+            logger.info(f"Updated canvas: {canvas_id} (updates: {list(updates.keys())})")
+            return canvas
+
     # =========================================================================
     # Node Operations
     # =========================================================================

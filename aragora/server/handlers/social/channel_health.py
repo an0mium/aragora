@@ -13,6 +13,8 @@ from typing import Any
 
 from aiohttp import web
 
+from aragora.rbac.decorators import require_permission
+
 logger = logging.getLogger(__name__)
 
 
@@ -270,6 +272,7 @@ class ChannelHealthHandler:
 
         return False
 
+    @require_permission("channels:read")
     async def handle(self, request: web.Request) -> web.Response:
         """Route the request to the appropriate handler method."""
         path = request.path.rstrip("/")

@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 from aragora.debate.sanitization import OutputSanitizer
+from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async
 from aragora.server.middleware.rate_limit import rate_limit
 from aragora.server.validation import validate_agent_name
@@ -73,6 +74,7 @@ class ProbesHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("probes:read")
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests."""
         if path == "/api/v1/probes/reports":

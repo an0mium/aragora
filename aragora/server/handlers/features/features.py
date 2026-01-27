@@ -23,6 +23,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.versioning.compat import strip_version_prefix
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -611,6 +612,7 @@ class FeaturesHandler(BaseHandler):
                 return True
         return False
 
+    @require_permission("features:read")
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET/POST requests to appropriate methods."""
         path = strip_version_prefix(path)

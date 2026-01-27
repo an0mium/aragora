@@ -30,6 +30,7 @@ from aragora.knowledge import (
     InMemoryFactStore,
     SimpleQueryEngine,
 )
+from aragora.rbac.decorators import require_permission
 
 from ..base import (
     BaseHandler,
@@ -130,6 +131,7 @@ class KnowledgeHandler(
             return error_response(f"Permission denied: requires {permission}", 403)
         return None
 
+    @require_permission("knowledge:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route knowledge requests to appropriate methods."""
         # Rate limit check

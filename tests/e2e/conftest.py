@@ -25,6 +25,9 @@ import pytest_asyncio
 
 pytestmark = pytest.mark.e2e
 
+# Configure pytest-asyncio for E2E tests - use function scope to match global config
+pytest_plugins = ["pytest_asyncio"]
+
 
 def pytest_collection_modifyitems(config, items):
     for item in items:
@@ -62,12 +65,8 @@ def e2e_config() -> E2EConfig:
     )
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an event loop for the test session."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+# Note: Using default event loop from pytest-asyncio with function scope
+# This matches the global asyncio_default_fixture_loop_scope = "function" setting
 
 
 # ============================================================================

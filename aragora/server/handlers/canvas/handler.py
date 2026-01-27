@@ -287,16 +287,21 @@ class CanvasHandler(BaseHandler):
         """Update a canvas."""
         try:
             manager = self._get_canvas_manager()
-            canvas = self._run_async(manager.get_canvas(canvas_id))
+
+            # Use the manager's update method for proper event broadcasting
+            canvas = self._run_async(
+                manager.update_canvas(
+                    canvas_id=canvas_id,
+                    name=body.get("name"),
+                    metadata=body.get("metadata"),
+                    owner_id=body.get("owner_id"),
+                    workspace_id=body.get("workspace_id"),
+                    user_id=user_id,
+                )
+            )
 
             if not canvas:
                 return error_response("Canvas not found", 404)
-
-            # Update allowed fields
-            if "name" in body:
-                canvas.name = body["name"]
-            if "metadata" in body:
-                canvas.metadata.update(body["metadata"])
 
             return json_response(canvas.to_dict())
         except Exception as e:

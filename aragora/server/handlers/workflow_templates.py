@@ -19,6 +19,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from aragora.rbac.decorators import require_permission
+
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -174,6 +176,7 @@ class WorkflowTemplatesHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/workflow/templates")
 
+    @require_permission("workflow:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route workflow template requests."""
         # Rate limit check

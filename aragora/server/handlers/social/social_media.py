@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Optional, Protocol, cast
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.errors import safe_error_message as _safe_error_message
 from aragora.server.http_utils import run_async
 
@@ -255,6 +256,7 @@ class SocialMediaHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("social:read")
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle GET requests."""
         # YouTube OAuth endpoints
@@ -269,6 +271,7 @@ class SocialMediaHandler(BaseHandler):
 
         return None
 
+    @require_permission("social:create")
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests."""
         # Twitter publishing

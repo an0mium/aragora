@@ -5,7 +5,7 @@ Provides typed, queryable structured messages for debate protocol events.
 Inspired by gastown's protocol message pattern for inter-agent coordination.
 
 Usage:
-    from aragora.debate.protocol import (
+    from aragora.debate.protocol_messages import (
         ProtocolMessage,
         ProtocolMessageType,
         ProtocolMessageStore,
