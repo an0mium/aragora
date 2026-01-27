@@ -80,6 +80,11 @@ CATEGORY_PATTERNS = {
         r"ARAGORA_TEST_",  # "ARAGORA_TEST_SERVER_URL not set"
         r"_URL not set",
         r"_TOKEN not set",
+        r"covered by",  # "covered by authenticated API tests"
+        r"valid credentials",  # "agents have valid credentials"
+        r"require full server",  # "Handler tests require full server setup"
+        r"INTEGRATION_TESTS",  # "require ARAGORA_INTEGRATION_TESTS=1"
+        r"require.*authentication",  # "NomicHandler requires authentication"
     ],
     "platform_specific": [
         r"platform",
@@ -118,6 +123,9 @@ CATEGORY_PATTERNS = {
         r"complex setup",  # "requires complex setup"
         r"complex.*mocking",  # "Requires complex httpx mocking"
         r"import failed",  # "Subprocess import failed"
+        r"behavior differs",  # "behavior differs from test expectation"
+        r"signature incompatible",  # "Handler method signature incompatible"
+        r"requires.*refactoring",  # "Requires handler refactoring"
     ],
     "performance": [
         r"slow",
