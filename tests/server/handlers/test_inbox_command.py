@@ -17,9 +17,20 @@ from datetime import datetime, timedelta
 class MockRequest:
     """Mock aiohttp request."""
 
-    def __init__(self, query: dict = None, body: dict = None):
+    def __init__(self, query: dict = None, body: dict = None, headers: dict = None):
         self._query = query or {}
         self._body = body or {}
+        self._headers = headers or {}
+        self._data = {}
+
+    def get(self, key, default=None):
+        """Support dict-like access for request data."""
+        return self._data.get(key, default)
+
+    @property
+    def headers(self):
+        """Return headers dict with get support."""
+        return self._headers
 
     @property
     def query(self):
@@ -42,6 +53,42 @@ def mock_json_response(data, status=200):
     return MockResponse(data, status)
 
 
+class MockHTTPException(Exception):
+    """Base mock HTTP exception."""
+
+    def __init__(self, reason=None, text=None, **kwargs):
+        self.reason = reason
+        self.text = text
+        super().__init__(reason or text or "HTTP Error")
+
+
+class MockHTTPForbidden(MockHTTPException):
+    """Mock 403 Forbidden."""
+
+    pass
+
+
+class MockHTTPUnauthorized(MockHTTPException):
+    """Mock 401 Unauthorized."""
+
+    pass
+
+
+class MockPermissionDecision:
+    """Mock permission decision that always allows."""
+
+    def __init__(self):
+        self.allowed = True
+        self.reason = "Allowed by test mock"
+
+
+class MockPermissionChecker:
+    """Mock permission checker that always allows."""
+
+    def check_permission(self, context, permission):
+        return MockPermissionDecision()
+
+
 @pytest.fixture
 def mock_web():
     """Set up mock for aiohttp.web."""
@@ -49,15 +96,22 @@ def mock_web():
         web_mock.json_response = mock_json_response
         web_mock.Request = MockRequest
         web_mock.Response = MockResponse
+        web_mock.HTTPForbidden = MockHTTPForbidden
+        web_mock.HTTPUnauthorized = MockHTTPUnauthorized
         yield web_mock
 
 
 @pytest.fixture
 def handler(mock_web):
     """Create handler instance for testing."""
-    from aragora.server.handlers.inbox_command import InboxCommandHandler
+    with patch(
+        "aragora.server.handlers.inbox_command.get_permission_checker",
+        return_value=MockPermissionChecker(),
+    ):
+        from aragora.server.handlers.inbox_command import InboxCommandHandler
 
-    return InboxCommandHandler()
+        handler_instance = InboxCommandHandler()
+        yield handler_instance
 
 
 @pytest.fixture

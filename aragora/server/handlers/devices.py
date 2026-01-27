@@ -24,6 +24,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -41,43 +42,60 @@ class DeviceHandler(SecureHandler):
     RESOURCE_TYPE = "devices"
 
     ROUTES = [
-        "/api/v1/devices/register",
-        "/api/v1/devices/health",
-        "/api/v1/devices/alexa/webhook",
-        "/api/v1/devices/google/webhook",
+        "/api/devices/register",
+        "/api/devices/health",
+        "/api/devices/alexa/webhook",
+        "/api/devices/google/webhook",
     ]
 
-    # Pattern routes (handled via prefix matching)
-    PATTERN_PREFIXES = [
-        "/api/v1/devices/user/",
-        "/api/v1/devices/",
-    ]
-
-    def can_handle(self, path: str, method: str = "GET") -> bool:
+    def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
-        path = strip_version_prefix(path)
-
-        # Exact matches
-        if path in self.ROUTES:
+        normalized = strip_version_prefix(path)
+        if normalized in self.ROUTES:
             return True
-
-        # Pattern matches
-        for prefix in self.PATTERN_PREFIXES:
-            if path.startswith(prefix):
-                return True
-
-        return False
+        return normalized.startswith("/api/devices/")
 
     async def handle(
+        self, path: str, query_params: Dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
+        """Route GET requests."""
+        return await self._route_request(path, "GET", query_params, handler, None)
+
+    async def handle_post(
+        self, path: str, query_params: Dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
+        """Route POST requests."""
+        body, err = self.read_json_body_validated(handler)
+        if err:
+            return err
+        return await self._route_request(path, "POST", query_params, handler, body)
+
+    async def handle_delete(
+        self, path: str, query_params: Dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
+        """Route DELETE requests."""
+        return await self._route_request(path, "DELETE", query_params, handler, None)
+
+    async def _route_request(
         self,
         path: str,
+        method: str,
         query_params: Dict[str, Any],
         handler: Any,
-        method: str = "GET",
-        body: Optional[Dict[str, Any]] = None,
+        body: Optional[Dict[str, Any]],
     ) -> Optional[HandlerResult]:
         """Route device requests."""
-        # Require authentication for all endpoints
+        normalized = strip_version_prefix(path)
+
+        # Alexa webhook (no auth required - uses Alexa signature verification)
+        if normalized == "/api/devices/alexa/webhook" and method == "POST":
+            return await self._handle_alexa_webhook(body or {}, handler)
+
+        # Google webhook (no auth required - uses Google verification)
+        if normalized == "/api/devices/google/webhook" and method == "POST":
+            return await self._handle_google_webhook(body or {}, handler)
+
+        # Require authentication for all other endpoints
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
         except UnauthorizedError:
@@ -85,83 +103,68 @@ class DeviceHandler(SecureHandler):
         except ForbiddenError as e:
             return error_response(str(e), 403)
 
-        path = strip_version_prefix(path)
-
         # Health endpoint (read permission)
-        if path == "/api/v1/devices/health":
+        if normalized == "/api/devices/health" and method == "GET":
             try:
-                self.check_permission(auth_context, "devices:read")
+                self.check_permission(auth_context, "devices.read")
             except ForbiddenError:
-                return error_response("Permission denied: devices:read", 403)
+                return error_response("Permission denied: devices.read", 403)
             return await self._get_health()
 
         # Register device
-        if path == "/api/v1/devices/register" and method == "POST":
+        if normalized == "/api/devices/register" and method == "POST":
             try:
-                self.check_permission(auth_context, "devices:write")
+                self.check_permission(auth_context, "devices.write")
             except ForbiddenError:
-                return error_response("Permission denied: devices:write", 403)
+                return error_response("Permission denied: devices.write", 403)
             return await self._register_device(body or {}, auth_context)
 
-        # Alexa webhook (no auth required - uses Alexa signature verification)
-        if path == "/api/v1/devices/alexa/webhook" and method == "POST":
-            return await self._handle_alexa_webhook(body or {}, handler)
+        segments = normalized.strip("/").split("/")
+        if len(segments) < 2 or segments[0] != "api" or segments[1] != "devices":
+            return None
 
-        # Google webhook (no auth required - uses Google verification)
-        if path == "/api/v1/devices/google/webhook" and method == "POST":
-            return await self._handle_google_webhook(body or {}, handler)
+        # User-specific endpoints: /api/devices/user/{user_id}[/notify]
+        if len(segments) >= 4 and segments[2] == "user":
+            user_id = segments[3]
+            if len(segments) == 4 and method == "GET":
+                try:
+                    self.check_permission(auth_context, "devices.read")
+                except ForbiddenError:
+                    return error_response("Permission denied: devices.read", 403)
+                return await self._list_user_devices(user_id, auth_context)
+            if len(segments) == 5 and segments[4] == "notify" and method == "POST":
+                try:
+                    self.check_permission(auth_context, "devices.notify")
+                except ForbiddenError:
+                    return error_response("Permission denied: devices.notify", 403)
+                return await self._notify_user(user_id, body or {}, auth_context)
+            return None
 
-        # User-specific endpoints
-        if path.startswith("/api/v1/devices/user/"):
-            parts = path.split("/")
-            if len(parts) >= 6:
-                user_id = parts[5]
+        # Device-specific endpoints: /api/devices/{device_id}[/notify]
+        device_id = segments[2] if len(segments) >= 3 else None
+        if not device_id:
+            return None
 
-                # List user devices
-                if len(parts) == 6 and method == "GET":
-                    try:
-                        self.check_permission(auth_context, "devices:read")
-                    except ForbiddenError:
-                        return error_response("Permission denied: devices:read", 403)
-                    return await self._list_user_devices(user_id, auth_context)
+        if len(segments) == 3 and method == "GET":
+            try:
+                self.check_permission(auth_context, "devices.read")
+            except ForbiddenError:
+                return error_response("Permission denied: devices.read", 403)
+            return await self._get_device(device_id, auth_context)
 
-                # Notify all user devices
-                if len(parts) == 7 and parts[6] == "notify" and method == "POST":
-                    try:
-                        self.check_permission(auth_context, "devices:notify")
-                    except ForbiddenError:
-                        return error_response("Permission denied: devices:notify", 403)
-                    return await self._notify_user(user_id, body or {}, auth_context)
+        if len(segments) == 3 and method == "DELETE":
+            try:
+                self.check_permission(auth_context, "devices.write")
+            except ForbiddenError:
+                return error_response("Permission denied: devices.write", 403)
+            return await self._unregister_device(device_id, auth_context)
 
-        # Device-specific endpoints
-        if path.startswith("/api/v1/devices/") and not path.startswith("/api/v1/devices/user/"):
-            parts = path.split("/")
-            if len(parts) >= 5:
-                device_id = parts[4]
-
-                # Unregister device
-                if len(parts) == 5 and method == "DELETE":
-                    try:
-                        self.check_permission(auth_context, "devices:write")
-                    except ForbiddenError:
-                        return error_response("Permission denied: devices:write", 403)
-                    return await self._unregister_device(device_id, auth_context)
-
-                # Notify single device
-                if len(parts) == 6 and parts[5] == "notify" and method == "POST":
-                    try:
-                        self.check_permission(auth_context, "devices:notify")
-                    except ForbiddenError:
-                        return error_response("Permission denied: devices:notify", 403)
-                    return await self._notify_device(device_id, body or {}, auth_context)
-
-                # Get device info
-                if len(parts) == 5 and method == "GET":
-                    try:
-                        self.check_permission(auth_context, "devices:read")
-                    except ForbiddenError:
-                        return error_response("Permission denied: devices:read", 403)
-                    return await self._get_device(device_id, auth_context)
+        if len(segments) == 4 and segments[3] == "notify" and method == "POST":
+            try:
+                self.check_permission(auth_context, "devices.notify")
+            except ForbiddenError:
+                return error_response("Permission denied: devices.notify", 403)
+            return await self._notify_device(device_id, body or {}, auth_context)
 
         return None
 
@@ -189,7 +192,7 @@ class DeviceHandler(SecureHandler):
     async def _register_device(
         self,
         body: Dict[str, Any],
-        auth_context: Dict[str, Any],
+        auth_context: AuthorizationContext,
     ) -> HandlerResult:
         """Register a device for push notifications."""
         # Validate required fields
@@ -202,7 +205,7 @@ class DeviceHandler(SecureHandler):
         push_token = body.get("push_token")
 
         # Get user_id from auth context or body
-        user_id = body.get("user_id") or auth_context.get("user_id")
+        user_id = body.get("user_id") or auth_context.user_id
         if not user_id:
             return error_response("user_id is required", 400)
 
@@ -279,7 +282,7 @@ class DeviceHandler(SecureHandler):
     async def _unregister_device(
         self,
         device_id: str,
-        auth_context: Dict[str, Any],
+        auth_context: AuthorizationContext,
     ) -> HandlerResult:
         """Unregister a device."""
         try:
@@ -293,8 +296,8 @@ class DeviceHandler(SecureHandler):
                 return error_response("Device not found", 404)
 
             # Check ownership (unless admin)
-            user_id = auth_context.get("user_id")
-            is_admin = "admin" in auth_context.get("roles", [])
+            user_id = auth_context.user_id
+            is_admin = auth_context.has_any_role("admin", "owner")
             if not is_admin and device.user_id != user_id:
                 return error_response("Not authorized to delete this device", 403)
 
@@ -321,7 +324,7 @@ class DeviceHandler(SecureHandler):
     async def _get_device(
         self,
         device_id: str,
-        auth_context: Dict[str, Any],
+        auth_context: AuthorizationContext,
     ) -> HandlerResult:
         """Get device information."""
         try:
@@ -334,8 +337,8 @@ class DeviceHandler(SecureHandler):
                 return error_response("Device not found", 404)
 
             # Check ownership (unless admin)
-            user_id = auth_context.get("user_id")
-            is_admin = "admin" in auth_context.get("roles", [])
+            user_id = auth_context.user_id
+            is_admin = auth_context.has_any_role("admin", "owner")
             if not is_admin and device.user_id != user_id:
                 return error_response("Not authorized to view this device", 403)
 
@@ -361,12 +364,12 @@ class DeviceHandler(SecureHandler):
     async def _list_user_devices(
         self,
         user_id: str,
-        auth_context: Dict[str, Any],
+        auth_context: AuthorizationContext,
     ) -> HandlerResult:
         """List all devices for a user."""
         # Check ownership (unless admin)
-        caller_id = auth_context.get("user_id")
-        is_admin = "admin" in auth_context.get("roles", [])
+        caller_id = auth_context.user_id
+        is_admin = auth_context.has_any_role("admin", "owner")
         if not is_admin and user_id != caller_id:
             return error_response("Not authorized to view these devices", 403)
 
@@ -404,7 +407,7 @@ class DeviceHandler(SecureHandler):
         self,
         device_id: str,
         body: Dict[str, Any],
-        auth_context: Dict[str, Any],
+        auth_context: AuthorizationContext,
     ) -> HandlerResult:
         """Send notification to a specific device."""
         # Validate required fields
@@ -495,7 +498,7 @@ class DeviceHandler(SecureHandler):
         self,
         user_id: str,
         body: Dict[str, Any],
-        auth_context: Dict[str, Any],
+        auth_context: AuthorizationContext,
     ) -> HandlerResult:
         """Send notification to all devices for a user."""
         # Validate required fields
