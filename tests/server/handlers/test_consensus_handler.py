@@ -256,13 +256,13 @@ class TestConsensusHandlerDomain:
 class TestConsensusHandlerSeedDemo:
     """Test GET /api/consensus/seed-demo endpoint."""
 
-    def test_seed_demo(self, consensus_handler, mock_http_handler):
-        """Test seed-demo endpoint."""
+    def test_seed_demo_requires_auth(self, consensus_handler, mock_http_handler):
+        """Test seed-demo endpoint requires authentication."""
         result = consensus_handler.handle("/api/v1/consensus/seed-demo", {}, mock_http_handler)
 
         assert result is not None
-        # Either returns data, 503 if feature unavailable, or 500 if fixtures fail
-        assert result.status_code in [200, 400, 429, 500, 503]
+        # Without authentication, should return 401
+        assert result.status_code == 401
 
 
 class TestConsensusHandlerRateLimiting:
