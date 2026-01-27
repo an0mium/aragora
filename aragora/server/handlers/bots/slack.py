@@ -295,6 +295,10 @@ def build_consensus_message_blocks(
     return blocks
 
 
+# Alias for backward compatibility
+build_debate_result_blocks = build_consensus_message_blocks
+
+
 async def handle_slack_events(request: Any) -> HandlerResult:
     """Handle Slack Events API webhook."""
     try:

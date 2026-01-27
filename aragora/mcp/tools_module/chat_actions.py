@@ -179,20 +179,10 @@ async def trigger_debate_tool(
     """
     try:
         from aragora.mcp.tools_module.debate import run_debate_tool
-        from aragora.server.debate_origin import DebateOrigin, OriginType
 
-        # Record origin for result routing (reserved for future origin-aware debate routing)
-        _origin = DebateOrigin(
-            origin_type=OriginType.CHAT,
-            platform=platform,
-            channel_id=channel_id,
-            thread_id=None,
-            user_id=None,
-            metadata={
-                "stream_progress": stream_progress,
-                "post_receipt": post_receipt,
-            },
-        )
+        # Note: Origin tracking for result routing will be implemented when
+        # origin-aware debate routing is added. For now, we route results
+        # through the debate tool's callback mechanism.
 
         # Notify channel that debate is starting
         await send_message_tool(
