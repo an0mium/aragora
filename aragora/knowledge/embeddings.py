@@ -9,6 +9,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from aragora.knowledge.search.bm25 import BM25Index, HybridSearcher
+
 logger = logging.getLogger(__name__)
 
 # Optional Weaviate import
@@ -468,6 +470,13 @@ class InMemoryEmbeddingService:
         self._chunks: dict[str, dict[str, Any]] = {}  # chunk_id -> chunk data
         self._by_workspace: dict[str, set[str]] = {}  # workspace_id -> chunk_ids
         self._by_document: dict[str, set[str]] = {}  # document_id -> chunk_ids
+        self._bm25_indices: dict[str, BM25Index] = {}  # workspace_id -> BM25 index
+
+    def _get_bm25_index(self, workspace_id: str) -> BM25Index:
+        """Get or create BM25 index for workspace."""
+        if workspace_id not in self._bm25_indices:
+            self._bm25_indices[workspace_id] = BM25Index()
+        return self._bm25_indices[workspace_id]
 
     def connect(self) -> None:
         """No-op for in-memory."""
@@ -488,8 +497,10 @@ class InMemoryEmbeddingService:
         chunks: list[dict[str, Any]],
         workspace_id: str,
     ) -> int:
-        """Store chunks in memory."""
+        """Store chunks in memory and index in BM25."""
         count = 0
+        bm25_index = self._get_bm25_index(workspace_id)
+
         for chunk in chunks:
             chunk_id = chunk.get("chunk_id", "")
             if not chunk_id:
@@ -509,6 +520,15 @@ class InMemoryEmbeddingService:
                     self._by_document[doc_id] = set()
                 self._by_document[doc_id].add(chunk_id)
 
+            # Index in BM25
+            content = chunk.get("content", "")
+            if content:
+                bm25_index.add_document(
+                    id=chunk_id,
+                    content=content,
+                    metadata={"document_id": doc_id},
+                )
+
             count += 1
 
         return count
@@ -521,8 +541,48 @@ class InMemoryEmbeddingService:
         alpha: float = 0.5,
         min_score: float = 0.0,
     ) -> list[ChunkMatch]:
-        """Simple keyword search."""
-        return await self._keyword_match(query, workspace_id, limit)
+        """Hybrid search using BM25 + keyword matching with score fusion."""
+        bm25_index = self._get_bm25_index(workspace_id)
+
+        # Get BM25 results
+        bm25_results = bm25_index.search(query, limit=limit * 2)
+
+        # Get keyword match results (as fallback "vector" scores)
+        keyword_results = await self._keyword_match(query, workspace_id, limit * 2)
+
+        # Convert keyword results to HybridSearcher format
+        vector_formatted = [
+            {
+                "id": r.chunk_id,
+                "score": r.score,
+                "content": r.content,
+                "metadata": r.metadata,
+            }
+            for r in keyword_results
+        ]
+
+        # Use HybridSearcher to fuse results
+        searcher = HybridSearcher(bm25_index, alpha=alpha, fusion_strategy="linear")
+        fused = searcher.fuse_results(bm25_results, vector_formatted, limit)
+
+        # Convert back to ChunkMatch format
+        results = []
+        for item in fused:
+            chunk_id = item["id"]
+            chunk = self._chunks.get(chunk_id, {})
+            if item.get("score", 0) >= min_score:
+                results.append(
+                    ChunkMatch(
+                        chunk_id=chunk_id,
+                        document_id=chunk.get("document_id", ""),
+                        workspace_id=workspace_id,
+                        content=item.get("content", chunk.get("content", "")),
+                        score=item["score"],
+                        metadata=item.get("metadata", {}),
+                    )
+                )
+
+        return results
 
     async def vector_search(
         self,
@@ -589,6 +649,14 @@ class InMemoryEmbeddingService:
     async def delete_workspace_chunks(self, workspace_id: str) -> int:
         """Delete workspace chunks."""
         chunk_ids = self._by_workspace.pop(workspace_id, set())
+
+        # Remove from BM25 index
+        if workspace_id in self._bm25_indices:
+            bm25_index = self._bm25_indices[workspace_id]
+            for chunk_id in chunk_ids:
+                bm25_index.remove_document(chunk_id)
+            del self._bm25_indices[workspace_id]
+
         for chunk_id in chunk_ids:
             chunk = self._chunks.pop(chunk_id, None)
             if chunk:
@@ -606,6 +674,9 @@ class InMemoryEmbeddingService:
                 ws_id = chunk.get("workspace_id", "")
                 if ws_id in self._by_workspace:
                     self._by_workspace[ws_id].discard(chunk_id)
+                # Remove from BM25 index
+                if ws_id in self._bm25_indices:
+                    self._bm25_indices[ws_id].remove_document(chunk_id)
         return len(chunk_ids)
 
     def get_statistics(self, workspace_id: Optional[str] = None) -> dict[str, Any]:
