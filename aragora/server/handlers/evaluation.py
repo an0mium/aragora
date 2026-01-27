@@ -30,6 +30,7 @@ from .base import (
     handle_errors,
     json_response,
 )
+from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,7 @@ class EvaluationHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    @require_permission("evaluation:read")
     def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
         # Rate limit check
@@ -83,6 +85,7 @@ class EvaluationHandler(BaseHandler):
             return self._list_profiles()
         return None
 
+    @require_permission("evaluation:create")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
         # Rate limit check

@@ -19,6 +19,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +41,12 @@ class EmailDebateHandler(BaseHandler):
         """Check if this handler can handle the request."""
         return path in self.ROUTES
 
+    @require_permission("email:read")
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle GET requests (not supported)."""
         return error_response("Use POST method for email vetted decisionmaking", 405)
 
+    @require_permission("email:create")
     def handle_post(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle POST requests."""
         if path == "/api/v1/email/prioritize":

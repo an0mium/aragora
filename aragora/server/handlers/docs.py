@@ -25,6 +25,8 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     pass
 
+from aragora.rbac.decorators import require_permission
+
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -57,6 +59,7 @@ class DocsHandler(BaseHandler):
         """Check if this handler can handle the given path."""
         return path in self.ROUTES
 
+    @require_permission("docs:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route documentation endpoint requests."""
         if path in ("/api/v1/openapi", "/api/v1/openapi.json"):

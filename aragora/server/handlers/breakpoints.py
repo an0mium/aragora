@@ -31,6 +31,7 @@ from .base import (
     safe_error_message,
     validate_path_segment,
 )
+from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 # Rate limiter for breakpoints endpoints (60 requests per minute - debug feature)
@@ -70,6 +71,7 @@ class BreakpointsHandler(BaseHandler):
             return True
         return bool(self.BREAKPOINT_PATTERN.match(path))
 
+    @require_permission("breakpoint:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route breakpoint requests to appropriate methods."""
         # Rate limit check
@@ -102,6 +104,7 @@ class BreakpointsHandler(BaseHandler):
 
         return None
 
+    @require_permission("breakpoint:update")
     def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
         """Handle POST requests for breakpoint resolution."""
         match = self.BREAKPOINT_PATTERN.match(path)
