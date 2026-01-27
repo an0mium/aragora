@@ -80,7 +80,7 @@ class IntrospectionHandler(BaseHandler):
             return True
         return False
 
-    @require_permission("introspection:read")
+    @require_permission("introspection.read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route introspection requests to appropriate methods."""
         path = strip_version_prefix(path)

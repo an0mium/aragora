@@ -977,6 +977,72 @@ async def init_shared_control_plane_state() -> bool:
         return False
 
 
+# Global witness instance for handlers to access
+_witness_behavior: Optional[Any] = None
+
+
+def get_witness_behavior() -> Optional[Any]:
+    """Get the global witness behavior instance.
+
+    Returns:
+        WitnessBehavior instance if initialized, None otherwise
+    """
+    return _witness_behavior
+
+
+async def init_witness_patrol() -> bool:
+    """Initialize and start the Witness Patrol for Gas Town monitoring.
+
+    Creates the WitnessBehavior with an AgentHierarchy and starts the patrol
+    loop which monitors:
+    - Agent health and heartbeats
+    - Bead progress and stuck detection
+    - Convoy completion rates
+    - Automatic escalation to MAYOR on critical issues
+
+    The witness instance is stored globally and can be accessed via
+    get_witness_behavior() for the status endpoint.
+
+    Returns:
+        True if patrol started successfully, False otherwise
+    """
+    global _witness_behavior
+
+    try:
+        from aragora.nomic.witness_behavior import WitnessBehavior, WitnessConfig
+        from aragora.nomic.agent_roles import AgentHierarchy
+
+        # Create hierarchy with default persistence directory
+        hierarchy = AgentHierarchy()
+
+        # Configure witness with reasonable defaults
+        config = WitnessConfig(
+            patrol_interval_seconds=30,
+            heartbeat_timeout_seconds=120,
+            notify_mayor_on_critical=True,
+        )
+
+        # Create witness behavior
+        witness = WitnessBehavior(
+            hierarchy=hierarchy,
+            config=config,
+        )
+
+        # Start the patrol loop
+        await witness.start_patrol()
+
+        _witness_behavior = witness
+        logger.info("Witness patrol started successfully")
+        return True
+
+    except ImportError as e:
+        logger.debug(f"Witness behavior not available: {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"Witness patrol initialization failed: {e}")
+        return False
+
+
 async def init_persistent_task_queue() -> int:
     """Initialize persistent task queue with recovery of pending tasks.
 
@@ -1902,6 +1968,7 @@ async def run_startup_sequence(
         "notification_worker": False,
         "graphql": False,
         "backup_scheduler": False,
+        "witness_patrol": False,
     }
 
     # Initialize Redis HA early (other components may depend on it)
@@ -1921,6 +1988,10 @@ async def run_startup_sequence(
     status["watchdog_task"] = await init_stuck_debate_watchdog()
     status["control_plane_coordinator"] = await init_control_plane_coordinator()
     status["shared_control_plane_state"] = await init_shared_control_plane_state()
+
+    # Initialize Witness Patrol for Gas Town agent monitoring
+    status["witness_patrol"] = await init_witness_patrol()
+
     status["km_adapters"] = await init_km_adapters()
     status["workflow_checkpoint_persistence"] = init_workflow_checkpoint_persistence()
     status["tts_integration"] = await init_tts_integration()
@@ -2580,5 +2651,7 @@ __all__ = [
     "init_notification_worker",
     "init_graphql_routes",
     "init_deployment_validation",
+    "init_witness_patrol",
+    "get_witness_behavior",
     "run_startup_sequence",
 ]
