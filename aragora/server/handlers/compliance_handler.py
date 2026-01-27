@@ -39,6 +39,9 @@ from aragora.rbac.decorators import require_permission
 from aragora.storage.audit_store import get_audit_store
 from aragora.storage.receipt_store import get_receipt_store
 from aragora.privacy.deletion import get_deletion_scheduler, get_legal_hold_manager
+from aragora.deletion_coordinator import (
+    get_deletion_coordinator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +130,21 @@ class ComplianceHandler(BaseHandler):
             if path.startswith("/api/v2/compliance/gdpr/legal-holds/") and method == "DELETE":
                 hold_id = path.split("/")[-1]
                 return await self._release_legal_hold(hold_id, body)
+
+            # Coordinated deletion endpoint (backup-aware)
+            if path == "/api/v2/compliance/gdpr/coordinated-deletion" and method == "POST":
+                return await self._coordinated_deletion(body)
+
+            # Execute pending deletions (for background job or manual trigger)
+            if path == "/api/v2/compliance/gdpr/execute-pending" and method == "POST":
+                return await self._execute_pending_deletions(body)
+
+            # Backup exclusion management
+            if path == "/api/v2/compliance/gdpr/backup-exclusions" and method == "GET":
+                return await self._list_backup_exclusions(query_params)
+
+            if path == "/api/v2/compliance/gdpr/backup-exclusions" and method == "POST":
+                return await self._add_backup_exclusion(body)
 
             return error_response("Not found", 404)
 
@@ -871,6 +889,230 @@ class ComplianceHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Error releasing legal hold: {e}")
             return error_response(f"Failed to release legal hold: {str(e)}", 500)
+
+    # =========================================================================
+    # Coordinated Deletion Endpoints (Backup-Aware GDPR Compliance)
+    # =========================================================================
+
+    @require_permission("compliance:gdpr")
+    async def _coordinated_deletion(self, body: Dict[str, Any]) -> HandlerResult:
+        """
+        Execute coordinated deletion across all systems including backups.
+
+        This is the GDPR-compliant deletion that ensures user data is removed
+        from both primary storage AND backup systems.
+
+        Body:
+            user_id: User ID to delete (required)
+            reason: Reason for deletion (required)
+            delete_from_backups: Whether to purge from backups (default: true)
+            dry_run: If true, simulate without actual deletion (default: false)
+
+        Returns:
+            Deletion report showing what was deleted from each system
+        """
+        user_id = body.get("user_id")
+        if not user_id:
+            return error_response("user_id is required", 400)
+
+        reason = body.get("reason")
+        if not reason:
+            return error_response("reason is required", 400)
+
+        delete_from_backups = body.get("delete_from_backups", True)
+        dry_run = body.get("dry_run", False)
+
+        try:
+            coordinator = get_deletion_coordinator()
+
+            # Check for legal holds first
+            hold_manager = get_legal_hold_manager()
+            if hold_manager.is_user_on_hold(user_id):
+                active_holds = hold_manager.get_active_holds()
+                user_holds = [h for h in active_holds if user_id in h.user_ids]
+                return error_response(
+                    f"Cannot delete: User is under legal hold "
+                    f"(hold_id={user_holds[0].hold_id if user_holds else 'unknown'})",
+                    409,
+                )
+
+            # Execute coordinated deletion
+            report = await coordinator.execute_coordinated_deletion(
+                user_id=user_id,
+                reason=reason,
+                delete_from_backups=delete_from_backups,
+                dry_run=dry_run,
+            )
+
+            # Log the coordinated deletion
+            try:
+                store = get_audit_store()
+                store.log_event(
+                    action="gdpr_coordinated_deletion",
+                    resource_type="user",
+                    resource_id=user_id,
+                    metadata={
+                        "reason": reason,
+                        "dry_run": dry_run,
+                        "delete_from_backups": delete_from_backups,
+                        "success": report.success,
+                        "systems_deleted": [s.value for s in report.deleted_from],
+                        "backup_purge_results": report.backup_purge_results,
+                    },
+                )
+            except Exception as log_err:
+                logger.warning(f"Failed to log coordinated deletion: {log_err}")
+
+            return json_response(
+                {
+                    "message": "Coordinated deletion completed"
+                    if not dry_run
+                    else "Dry run completed",
+                    "report": report.to_dict(),
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Error executing coordinated deletion: {e}")
+            return error_response(f"Failed to execute deletion: {str(e)}", 500)
+
+    @require_permission("compliance:gdpr")
+    async def _execute_pending_deletions(self, body: Dict[str, Any]) -> HandlerResult:
+        """
+        Execute all pending deletions that have passed their grace period.
+
+        This endpoint is designed to be called by a background job or cron
+        to process scheduled deletions.
+
+        Body:
+            include_backups: Whether to also purge from backups (default: true)
+            limit: Maximum number of deletions to process (default: 100)
+
+        Returns:
+            Summary of processed deletions
+        """
+        include_backups = body.get("include_backups", True)
+        limit = min(int(body.get("limit", 100)), 500)
+
+        try:
+            coordinator = get_deletion_coordinator()
+            results = await coordinator.process_pending_deletions(
+                include_backups=include_backups,
+                limit=limit,
+            )
+
+            successful = [r for r in results if r.success]
+            failed = [r for r in results if not r.success]
+
+            # Log batch processing
+            try:
+                store = get_audit_store()
+                store.log_event(
+                    action="gdpr_batch_deletion_processed",
+                    resource_type="system",
+                    resource_id="deletion_coordinator",
+                    metadata={
+                        "total_processed": len(results),
+                        "successful": len(successful),
+                        "failed": len(failed),
+                        "include_backups": include_backups,
+                    },
+                )
+            except Exception as log_err:
+                logger.warning(f"Failed to log batch deletion: {log_err}")
+
+            return json_response(
+                {
+                    "message": f"Processed {len(results)} pending deletions",
+                    "summary": {
+                        "total_processed": len(results),
+                        "successful": len(successful),
+                        "failed": len(failed),
+                    },
+                    "results": [r.to_dict() for r in results],
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Error processing pending deletions: {e}")
+            return error_response(f"Failed to process deletions: {str(e)}", 500)
+
+    @require_permission("compliance:gdpr")
+    async def _list_backup_exclusions(self, query_params: Dict[str, str]) -> HandlerResult:
+        """
+        List users excluded from backup retention.
+
+        These are users whose data has been deleted and should not be
+        restored from backups.
+
+        Query params:
+            limit: Maximum results (default: 100)
+        """
+        limit = min(int(query_params.get("limit", "100")), 500)
+
+        try:
+            coordinator = get_deletion_coordinator()
+            exclusions = coordinator.get_backup_exclusion_list(limit=limit)
+
+            return json_response(
+                {
+                    "exclusions": exclusions,
+                    "count": len(exclusions),
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Error listing backup exclusions: {e}")
+            return error_response(f"Failed to list exclusions: {str(e)}", 500)
+
+    @require_permission("compliance:gdpr")
+    async def _add_backup_exclusion(self, body: Dict[str, Any]) -> HandlerResult:
+        """
+        Add a user to the backup exclusion list.
+
+        This prevents the user's data from being restored in future
+        backup restoration operations.
+
+        Body:
+            user_id: User ID to exclude (required)
+            reason: Reason for exclusion (required)
+        """
+        user_id = body.get("user_id")
+        if not user_id:
+            return error_response("user_id is required", 400)
+
+        reason = body.get("reason")
+        if not reason:
+            return error_response("reason is required", 400)
+
+        try:
+            coordinator = get_deletion_coordinator()
+            coordinator.add_to_backup_exclusion_list(user_id, reason)
+
+            # Log the exclusion
+            try:
+                store = get_audit_store()
+                store.log_event(
+                    action="gdpr_backup_exclusion_added",
+                    resource_type="user",
+                    resource_id=user_id,
+                    metadata={"reason": reason},
+                )
+            except Exception as log_err:
+                logger.warning(f"Failed to log backup exclusion: {log_err}")
+
+            return json_response(
+                {
+                    "message": "User added to backup exclusion list",
+                    "user_id": user_id,
+                    "reason": reason,
+                },
+                status=201,
+            )
+
+        except Exception as e:
+            logger.exception(f"Error adding backup exclusion: {e}")
+            return error_response(f"Failed to add exclusion: {str(e)}", 500)
 
     @require_permission("compliance:audit")
     async def _verify_audit(self, body: Dict[str, Any]) -> HandlerResult:

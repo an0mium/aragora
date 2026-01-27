@@ -22,6 +22,7 @@ from .models import (
     AuthorizationDecision,
     ResourceType,
     RoleAssignment,
+    _permission_candidates,
 )
 
 if TYPE_CHECKING:
@@ -677,8 +678,9 @@ class PermissionChecker:
                     context=context,
                 )
 
-        # Check for exact permission
-        if permission_key in context.permissions:
+        # Check for exact permission (try both colon and dot formats)
+        candidates = _permission_candidates(permission_key)
+        if candidates & context.permissions:
             return AuthorizationDecision(
                 allowed=True,
                 reason=f"Permission '{permission_key}' granted",
@@ -687,13 +689,14 @@ class PermissionChecker:
                 context=context,
             )
 
-        # Check for wildcard permission (e.g., "debates.*")
+        # Check for wildcard permission (e.g., "debates.*" or "debates:*")
         resource = permission_key.split(".")[0]
-        wildcard_key = f"{resource}.*"
-        if wildcard_key in context.permissions:
+        wildcard_candidates = {f"{resource}.*", f"{resource}:*"}
+        matched_wildcard = wildcard_candidates & context.permissions
+        if matched_wildcard:
             return AuthorizationDecision(
                 allowed=True,
-                reason=f"Wildcard permission '{wildcard_key}' grants '{permission_key}'",
+                reason=f"Wildcard permission '{next(iter(matched_wildcard))}' grants '{permission_key}'",
                 permission_key=permission_key,
                 resource_id=resource_id,
                 context=context,
@@ -712,7 +715,7 @@ class PermissionChecker:
         # Check workspace-scoped permissions if enabled
         if self._enable_workspace_scope and context.workspace_id:
             workspace_perms = self._get_workspace_permissions(context.user_id, context.workspace_id)
-            if permission_key in workspace_perms:
+            if candidates & workspace_perms:
                 return AuthorizationDecision(
                     allowed=True,
                     reason=f"Workspace-scoped permission '{permission_key}' granted",
