@@ -1550,6 +1550,189 @@ export class AuthAPI {
   }
 }
 
+// =============================================================================
+// Codebase API
+// =============================================================================
+
+export class CodebaseAPI {
+  private client: AragoraClient;
+
+  constructor(client: AragoraClient) {
+    this.client = client;
+  }
+
+  /**
+   * Start a security scan on a repository.
+   */
+  async startScan(repoId: string, options: {
+    repoPath: string;
+    includePatterns?: string[];
+    excludePatterns?: string[];
+    severityThreshold?: string;
+    includeSecrets?: boolean;
+    includeDependencies?: boolean;
+  }): Promise<{ scan_id: string; status: string }> {
+    return this.client.post<{ scan_id: string; status: string }>(
+      `/api/v1/codebase/${repoId}/scan`,
+      {
+        repo_path: options.repoPath,
+        include_patterns: options.includePatterns,
+        exclude_patterns: options.excludePatterns,
+        severity_threshold: options.severityThreshold,
+        include_secrets: options.includeSecrets,
+        include_dependencies: options.includeDependencies,
+      }
+    );
+  }
+
+  /**
+   * Get the latest scan result for a repository.
+   */
+  async getLatestScan(repoId: string): Promise<CodebaseScanResult> {
+    return this.client.get<CodebaseScanResult>(`/api/v1/codebase/${repoId}/scan/latest`);
+  }
+
+  /**
+   * Get a specific scan result.
+   */
+  async getScan(repoId: string, scanId: string): Promise<CodebaseScanResult> {
+    return this.client.get<CodebaseScanResult>(`/api/v1/codebase/${repoId}/scan/${scanId}`);
+  }
+
+  /**
+   * List all scans for a repository.
+   */
+  async listScans(repoId: string, options: {
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{ scans: CodebaseScanResult[]; total: number }> {
+    return this.client.get<{ scans: CodebaseScanResult[]; total: number }>(
+      `/api/v1/codebase/${repoId}/scans`,
+      {
+        ...(options.limit !== undefined && { limit: options.limit }),
+        ...(options.offset !== undefined && { offset: options.offset }),
+      }
+    );
+  }
+
+  /**
+   * Get vulnerabilities found in a repository.
+   */
+  async getVulnerabilities(repoId: string, options: {
+    scanId?: string;
+    severity?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{ vulnerabilities: CodebaseVulnerability[]; total: number }> {
+    return this.client.get<{ vulnerabilities: CodebaseVulnerability[]; total: number }>(
+      `/api/v1/codebase/${repoId}/vulnerabilities`,
+      {
+        ...(options.scanId && { scan_id: options.scanId }),
+        ...(options.severity && { severity: options.severity }),
+        ...(options.limit !== undefined && { limit: options.limit }),
+        ...(options.offset !== undefined && { offset: options.offset }),
+      }
+    );
+  }
+
+  /**
+   * Analyze dependencies for security vulnerabilities.
+   */
+  async analyzeDependencies(options: {
+    repoPath: string;
+    includeTransitive?: boolean;
+    checkVulnerabilities?: boolean;
+  }): Promise<CodebaseDependencyAnalysis> {
+    return this.client.post<CodebaseDependencyAnalysis>(
+      '/api/v1/codebase/analyze-dependencies',
+      {
+        repo_path: options.repoPath,
+        include_transitive: options.includeTransitive ?? true,
+        check_vulnerabilities: options.checkVulnerabilities ?? true,
+      }
+    );
+  }
+
+  /**
+   * Run a quick vulnerability scan (combined patterns + secrets).
+   */
+  async quickScan(options: {
+    repoPath: string;
+    severityThreshold?: string;
+    includeSecrets?: boolean;
+  }): Promise<CodebaseScanResult & { findings: CodebaseVulnerability[] }> {
+    return this.client.post<CodebaseScanResult & { findings: CodebaseVulnerability[] }>(
+      '/api/v1/codebase/scan-vulnerabilities',
+      {
+        repo_path: options.repoPath,
+        severity_threshold: options.severityThreshold ?? 'medium',
+        include_secrets: options.includeSecrets ?? true,
+      }
+    );
+  }
+
+  /**
+   * Get code metrics for a repository.
+   */
+  async getMetrics(repoId: string): Promise<CodebaseMetrics> {
+    return this.client.get<CodebaseMetrics>(`/api/v1/codebase/${repoId}/metrics`);
+  }
+
+  /**
+   * Analyze code metrics (complexity, duplication, etc.).
+   */
+  async analyzeMetrics(repoId: string, options: {
+    repoPath: string;
+    includePatterns?: string[];
+    excludePatterns?: string[];
+    complexityWarning?: number;
+    complexityError?: number;
+  }): Promise<{ analysis_id: string; status: string }> {
+    return this.client.post<{ analysis_id: string; status: string }>(
+      `/api/v1/codebase/${repoId}/metrics/analyze`,
+      {
+        repo_path: options.repoPath,
+        include_patterns: options.includePatterns,
+        exclude_patterns: options.excludePatterns,
+        complexity_warning: options.complexityWarning ?? 10,
+        complexity_error: options.complexityError ?? 20,
+      }
+    );
+  }
+
+  /**
+   * Get complexity hotspots in a repository.
+   */
+  async getHotspots(repoId: string, options: {
+    minComplexity?: number;
+    limit?: number;
+  } = {}): Promise<{ hotspots: Array<{ file_path: string; complexity: number; risk_score: number }>; total: number }> {
+    return this.client.get<{ hotspots: Array<{ file_path: string; complexity: number; risk_score: number }>; total: number }>(
+      `/api/v1/codebase/${repoId}/hotspots`,
+      {
+        ...(options.minComplexity !== undefined && { min_complexity: options.minComplexity }),
+        ...(options.limit !== undefined && { limit: options.limit }),
+      }
+    );
+  }
+
+  /**
+   * Get code duplicates in a repository.
+   */
+  async getDuplicates(repoId: string, options: {
+    minLines?: number;
+    limit?: number;
+  } = {}): Promise<{ duplicates: Array<{ hash: string; lines: number; occurrences: Array<{ file: string; start: number; end: number }> }>; total: number }> {
+    return this.client.get<{ duplicates: Array<{ hash: string; lines: number; occurrences: Array<{ file: string; start: number; end: number }> }>; total: number }>(
+      `/api/v1/codebase/${repoId}/duplicates`,
+      {
+        ...(options.minLines !== undefined && { min_lines: options.minLines }),
+        ...(options.limit !== undefined && { limit: options.limit }),
+      }
+    );
+  }
+}
+
 export class AragoraClient {
   public readonly baseUrl: string;
   private apiKey?: string;
