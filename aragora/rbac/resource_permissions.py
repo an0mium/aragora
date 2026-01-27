@@ -519,11 +519,14 @@ class ResourcePermissionStore:
         resource_type: ResourceType,
         resource_id: str,
         org_id: str | None = None,
+        check_hierarchy: bool = True,
     ) -> bool:
         """
         Check if a user has a specific permission on a resource.
 
         This checks resource-level permissions only, not role-based permissions.
+        If check_hierarchy is True and a hierarchy registry is configured,
+        it will also check parent resources for inherited permissions.
 
         Args:
             user_id: User to check
@@ -531,6 +534,7 @@ class ResourcePermissionStore:
             resource_type: Type of resource
             resource_id: Specific resource ID
             org_id: Organization context
+            check_hierarchy: If True, check parent resources for inherited permissions
 
         Returns:
             True if the user has the permission on the resource
@@ -544,14 +548,23 @@ class ResourcePermissionStore:
             if cached is not None:
                 return cached
 
-        # Find matching permission
-        permission = self.find_permission(
-            user_id=user_id,
-            permission_id=permission_id,
-            resource_type=resource_type,
-            resource_id=resource_id,
-            org_id=org_id,
-        )
+        # Find matching permission (with hierarchy if enabled)
+        if check_hierarchy and self._hierarchy:
+            permission, _inherited = self.find_permission_hierarchical(
+                user_id=user_id,
+                permission_id=permission_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                org_id=org_id,
+            )
+        else:
+            permission = self.find_permission(
+                user_id=user_id,
+                permission_id=permission_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                org_id=org_id,
+            )
 
         result = permission is not None and permission.is_valid
 

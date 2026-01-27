@@ -183,6 +183,14 @@ from .conditions import (
     get_condition_evaluator,
 )
 
+# Resource Hierarchy (Permission Inheritance)
+from .hierarchy import (
+    ResourceNode,
+    HierarchyRegistry,
+    get_hierarchy_registry,
+    set_hierarchy_registry,
+)
+
 __all__ = [
     # Legacy Types (backward compatible)
     "ResourceType",
@@ -302,4 +310,9 @@ __all__ = [
     "ResourceStatusCondition",
     "TagCondition",
     "get_condition_evaluator",
+    # Resource Hierarchy (Permission Inheritance)
+    "ResourceNode",
+    "HierarchyRegistry",
+    "get_hierarchy_registry",
+    "set_hierarchy_registry",
 ]
