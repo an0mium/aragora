@@ -25,6 +25,18 @@ from aragora.server.handlers.dependency_analysis import (
     DependencyAnalysisHandler,
 )
 from aragora.server.handlers.utils.responses import HandlerResult
+from aragora.rbac.models import AuthorizationContext
+
+
+@pytest.fixture
+def mock_auth_context():
+    """Create a mock authorization context for testing."""
+    return AuthorizationContext(
+        user_id="test-user",
+        user_email="test@example.com",
+        roles={"admin"},
+        permissions={"codebase.run"},
+    )
 
 
 def parse_result(result: HandlerResult) -> dict:
@@ -69,20 +81,20 @@ class TestAnalyzeDependencies:
     """Test dependency analysis endpoint."""
 
     @pytest.mark.asyncio
-    async def test_missing_repo_path(self):
+    async def test_missing_repo_path(self, mock_auth_context):
         """Returns error when repo_path is missing."""
-        result = parse_result(await handle_analyze_dependencies({}))
+        result = parse_result(await handle_analyze_dependencies(mock_auth_context, {}))
 
         assert result["success"] is False
         assert result["status"] == 400
         assert "repo_path is required" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_nonexistent_path(self):
+    async def test_nonexistent_path(self, mock_auth_context):
         """Returns error for nonexistent path."""
         result = parse_result(
             await handle_analyze_dependencies(
-                {"repo_path": "/nonexistent/path/that/does/not/exist"}
+                mock_auth_context, {"repo_path": "/nonexistent/path/that/does/not/exist"}
             )
         )
 
@@ -91,7 +103,7 @@ class TestAnalyzeDependencies:
         assert "does not exist" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_analyze_with_cache(self, tmp_path):
+    async def test_analyze_with_cache(self, tmp_path, mock_auth_context):
         """Analysis uses cache when available."""
         # Create a mock requirements.txt
         (tmp_path / "requirements.txt").write_text("requests==2.31.0\n")
@@ -110,10 +122,11 @@ class TestAnalyzeDependencies:
 
             result = parse_result(
                 await handle_analyze_dependencies(
+                    mock_auth_context,
                     {
                         "repo_path": str(tmp_path),
                         "use_cache": True,
-                    }
+                    },
                 )
             )
 
@@ -125,25 +138,26 @@ class TestGenerateSBOM:
     """Test SBOM generation endpoint."""
 
     @pytest.mark.asyncio
-    async def test_missing_repo_path(self):
+    async def test_missing_repo_path(self, mock_auth_context):
         """Returns error when repo_path is missing."""
-        result = parse_result(await handle_generate_sbom({}))
+        result = parse_result(await handle_generate_sbom(mock_auth_context, {}))
 
         assert result["success"] is False
         assert result["status"] == 400
         assert "repo_path is required" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_invalid_format(self, tmp_path):
+    async def test_invalid_format(self, tmp_path, mock_auth_context):
         """Returns error for invalid SBOM format."""
         (tmp_path / "requirements.txt").write_text("requests==2.31.0\n")
 
         result = parse_result(
             await handle_generate_sbom(
+                mock_auth_context,
                 {
                     "repo_path": str(tmp_path),
                     "format": "invalid_format",
-                }
+                },
             )
         )
 
@@ -152,7 +166,7 @@ class TestGenerateSBOM:
         assert "cyclonedx" in result["error"] or "spdx" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_cyclonedx_format(self, tmp_path):
+    async def test_cyclonedx_format(self, tmp_path, mock_auth_context):
         """Generates CycloneDX SBOM."""
         (tmp_path / "requirements.txt").write_text("requests==2.31.0\n")
 
@@ -170,10 +184,11 @@ class TestGenerateSBOM:
 
             result = parse_result(
                 await handle_generate_sbom(
+                    mock_auth_context,
                     {
                         "repo_path": str(tmp_path),
                         "format": "cyclonedx",
-                    }
+                    },
                 )
             )
 
@@ -185,9 +200,9 @@ class TestScanVulnerabilities:
     """Test vulnerability scanning endpoint."""
 
     @pytest.mark.asyncio
-    async def test_missing_repo_path(self):
+    async def test_missing_repo_path(self, mock_auth_context):
         """Returns error when repo_path is missing."""
-        result = parse_result(await handle_scan_vulnerabilities({}))
+        result = parse_result(await handle_scan_vulnerabilities(mock_auth_context, {}))
 
         assert result["success"] is False
         assert result["status"] == 400
