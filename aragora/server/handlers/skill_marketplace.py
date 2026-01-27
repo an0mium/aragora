@@ -153,6 +153,10 @@ class SkillMarketplaceHandler(SecureHandler):
                 if len(parts) == 6 and parts[5] == "rate" and method == "POST":
                     if not auth_context.get("user_id"):
                         return error_response("Authentication required", 401)
+                    try:
+                        self.check_permission(auth_context, "skills:rate")
+                    except ForbiddenError:
+                        return error_response("Permission denied: skills:rate", 403)
                     return await self._rate_skill(skill_id, body or {}, auth_context)
 
         return None

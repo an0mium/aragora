@@ -1404,6 +1404,11 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         # Codebase analysis
         PERM_CODEBASE_READ,
         PERM_CODEBASE_ANALYZE,
+        # Skills marketplace
+        PERM_SKILLS_READ,
+        PERM_SKILLS_INSTALL,
+        PERM_SKILLS_PUBLISH,
+        PERM_SKILLS_RATE,
     ]
 }
 
@@ -1779,6 +1784,10 @@ ROLE_MEMBER = Role(
         PERM_MARKETPLACE_IMPORT.key,
         PERM_MARKETPLACE_RATE.key,
         PERM_MARKETPLACE_REVIEW.key,
+        # Skills marketplace
+        PERM_SKILLS_READ.key,
+        PERM_SKILLS_INSTALL.key,
+        PERM_SKILLS_RATE.key,
         # Explainability (read only)
         PERM_EXPLAINABILITY_READ.key,
         # Findings (read and update own assignments)
