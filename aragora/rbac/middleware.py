@@ -43,8 +43,25 @@ def validate_route_permissions(
     # Build set of valid permission prefixes for wildcard validation
     valid_prefixes: set[str] = set()
     for perm_key in SYSTEM_PERMISSIONS:
-        prefix = perm_key.rsplit(".", 1)[0]  # e.g., "admin.config" -> "admin"
-        valid_prefixes.add(prefix)
+        if "." in perm_key:
+            prefix = perm_key.rsplit(".", 1)[0]  # e.g., "admin.config" -> "admin"
+            valid_prefixes.add(prefix)
+        if ":" in perm_key:
+            prefix = perm_key.rsplit(":", 1)[0]  # e.g., "admin:config" -> "admin"
+            valid_prefixes.add(prefix)
+
+    def resolve_permission_key(permission_key: str) -> str | None:
+        if permission_key in SYSTEM_PERMISSIONS:
+            return permission_key
+        if ":" in permission_key:
+            candidate = permission_key.replace(":", ".")
+            if candidate in SYSTEM_PERMISSIONS:
+                return candidate
+        if "." in permission_key:
+            candidate = permission_key.replace(".", ":")
+            if candidate in SYSTEM_PERMISSIONS:
+                return candidate
+        return None
 
     for rule in route_permissions:
         perm_key = rule.permission_key
@@ -53,9 +70,9 @@ def validate_route_permissions(
         if not perm_key:
             continue
 
-        # Handle wildcard permissions (e.g., "admin.*")
-        if perm_key.endswith(".*"):
-            prefix = perm_key[:-2]  # Strip ".*"
+        # Handle wildcard permissions (e.g., "admin.*" or "admin:*")
+        if perm_key.endswith(".*") or perm_key.endswith(":*"):
+            prefix = perm_key[:-2]  # Strip wildcard suffix
             if prefix not in valid_prefixes:
                 msg = (
                     f"SECURITY: Wildcard permission '{perm_key}' references undefined "
@@ -66,11 +83,19 @@ def validate_route_permissions(
                 logger.warning(msg)
         else:
             # Standard permission - must exist exactly
-            if perm_key not in SYSTEM_PERMISSIONS:
+            resolved = resolve_permission_key(perm_key)
+            if resolved is None:
                 msg = (
                     f"SECURITY: Route permission '{perm_key}' is not defined in "
                     f"SYSTEM_PERMISSIONS. This route may have undefined access control. "
                     f"Route pattern: {rule.pattern.pattern if hasattr(rule.pattern, 'pattern') else rule.pattern}"
+                )
+                warnings.append(msg)
+                logger.warning(msg)
+            elif resolved != perm_key:
+                msg = (
+                    f"SECURITY: Route permission '{perm_key}' uses a legacy separator; "
+                    f"prefer '{resolved}'. Route pattern: {rule.pattern.pattern if hasattr(rule.pattern, 'pattern') else rule.pattern}"
                 )
                 warnings.append(msg)
                 logger.warning(msg)

@@ -325,6 +325,27 @@ class Role:
         self.permissions.discard(permission_id)
 
 
+def _permission_candidates(permission_key: str) -> set[str]:
+    """Return equivalent permission key candidates for colon/dot formats."""
+    candidates = {permission_key}
+    if ":" in permission_key:
+        candidates.add(permission_key.replace(":", "."))
+    if "." in permission_key:
+        candidates.add(permission_key.replace(".", ":"))
+    return candidates
+
+
+def _resource_candidates(permission_key: str) -> set[str]:
+    """Return resource name candidates from either colon or dot formats."""
+    resources: set[str] = set()
+    for candidate in _permission_candidates(permission_key):
+        if "." in candidate:
+            resources.add(candidate.split(".", 1)[0])
+        if ":" in candidate:
+            resources.add(candidate.split(":", 1)[0])
+    return resources
+
+
 @dataclass
 class RoleAssignment:
     """
@@ -394,13 +415,15 @@ class APIKeyScope:
         # Check for wildcard
         if "*" in self.permissions:
             return True
-        # Check exact match
-        if permission_key in self.permissions:
+        # Check exact match (colon/dot compatible)
+        if any(
+            candidate in self.permissions for candidate in _permission_candidates(permission_key)
+        ):
             return True
-        # Check resource wildcard (e.g., "debates.*")
-        resource = permission_key.split(".")[0]
-        if f"{resource}.*" in self.permissions:
-            return True
+        # Check resource wildcard (e.g., "debates.*" or "debates:*")
+        for resource in _resource_candidates(permission_key):
+            if f"{resource}.*" in self.permissions or f"{resource}:*" in self.permissions:
+                return True
         return False
 
     def allows_resource(self, resource_type: ResourceType, resource_id: str) -> bool:
@@ -449,12 +472,14 @@ class AuthorizationContext:
         if self.api_key_scope and not self.api_key_scope.allows_permission(permission_key):
             return False
         # Check resolved permissions
-        if permission_key in self.permissions:
+        if any(
+            candidate in self.permissions for candidate in _permission_candidates(permission_key)
+        ):
             return True
         # Check for wildcard
-        resource = permission_key.split(".")[0]
-        if f"{resource}.*" in self.permissions:
-            return True
+        for resource in _resource_candidates(permission_key):
+            if f"{resource}.*" in self.permissions or f"{resource}:*" in self.permissions:
+                return True
         if "*" in self.permissions:
             return True
         return False

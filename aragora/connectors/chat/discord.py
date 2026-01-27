@@ -32,8 +32,7 @@ except ImportError:
     HTTPX_AVAILABLE = False
 
 try:
-    from nacl.signing import VerifyKey
-    from nacl.exceptions import BadSignatureError
+    import nacl.signing  # noqa: F401 - used for availability check
 
     NACL_AVAILABLE = True
 except ImportError:
@@ -611,44 +610,20 @@ class DiscordConnector(ChatPlatformConnector):
         """Verify Discord interaction webhook signature.
 
         SECURITY: Fails closed in production if PyNaCl is unavailable or public_key not configured.
-        Uses centralized webhook_security module for production-safe bypass handling.
+        Uses centralized Ed25519Verifier for consistent verification across platforms.
         """
-        from aragora.connectors.chat.webhook_security import should_allow_unverified
+        from aragora.connectors.chat.webhook_security import Ed25519Verifier
 
-        if not NACL_AVAILABLE:
-            # SECURITY: Use centralized bypass check (ignores flag in production)
-            if should_allow_unverified("discord"):
-                logger.warning(
-                    "Discord webhook verification skipped - PyNaCl not available (dev mode)"
-                )
-                return True
-            logger.error("Discord webhook rejected - PyNaCl not available")
-            return False
+        verifier = Ed25519Verifier(
+            public_key=self.public_key or "",
+            source="discord",
+        )
+        result = verifier.verify(headers, body)
 
-        if not self.public_key:
-            if should_allow_unverified("discord"):
-                logger.warning(
-                    "Discord webhook verification skipped - public_key not configured (dev mode)"
-                )
-                return True
-            logger.error("Discord webhook rejected - public_key not configured")
-            return False
+        if not result.verified and result.error:
+            logger.warning(f"Discord webhook verification failed: {result.error}")
 
-        signature = headers.get("X-Signature-Ed25519", "")
-        timestamp = headers.get("X-Signature-Timestamp", "")
-
-        if not signature or not timestamp:
-            return False
-
-        try:
-            verify_key = VerifyKey(bytes.fromhex(self.public_key))
-            verify_key.verify(f"{timestamp}{body.decode()}".encode(), bytes.fromhex(signature))
-            return True
-        except BadSignatureError:
-            return False
-        except Exception as e:
-            logger.error(f"Discord signature verification error: {e}")
-            return False
+        return result.verified
 
     def parse_webhook_event(
         self,
