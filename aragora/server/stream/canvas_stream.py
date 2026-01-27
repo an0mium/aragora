@@ -211,6 +211,14 @@ class CanvasStreamServer:
             await self._send_error(websocket, "Not connected to a canvas")
             return
 
+        if not user_id:
+            await self._send_error(websocket, "User ID not available")
+            return
+
+        # Type narrowing: canvas_id and user_id are now confirmed to be strings
+        canvas_id = str(canvas_id)
+        user_id = str(user_id)
+
         manager = self._get_manager()
 
         # Route message to appropriate handler

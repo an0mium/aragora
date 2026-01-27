@@ -1511,7 +1511,7 @@ class HandlerRegistryMixin:
                 from aragora.rbac.models import AuthorizationContext
 
                 user_ctx = extract_user_from_request(self)
-                if user_ctx and user_ctx.is_authenticated:
+                if user_ctx and user_ctx.is_authenticated and user_ctx.user_id:
                     # Store auth context for handlers to access
                     self._auth_context = AuthorizationContext(
                         user_id=user_ctx.user_id,
@@ -1524,10 +1524,10 @@ class HandlerRegistryMixin:
                         permissions=set(),  # Permissions loaded by checker
                     )
                 else:
-                    self._auth_context = None
+                    self._auth_context = None  # type: ignore[assignment]
             except Exception as auth_err:
                 logger.debug(f"[handlers] Auth context extraction failed: {auth_err}")
-                self._auth_context = None
+                self._auth_context = None  # type: ignore[assignment]
 
             # Use matched path if available, otherwise fall back to normalized path
             dispatch_path = matched_path or normalized_path
