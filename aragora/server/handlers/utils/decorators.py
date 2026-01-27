@@ -496,6 +496,14 @@ PERMISSION_MATRIX: dict[str, list[str]] = {
     "policies:create": ["admin", "owner"],
     "policies:update": ["admin", "owner"],
     "policies:delete": ["owner"],
+    # Metrics permissions
+    "metrics:read": ["member", "admin", "owner"],
+    # RLM permissions
+    "rlm:read": ["member", "admin", "owner"],
+    "rlm:create": ["admin", "owner"],
+    # Queue permissions
+    "queue:read": ["member", "admin", "owner"],
+    "queue:create": ["admin", "owner"],
 }
 
 

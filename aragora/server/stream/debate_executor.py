@@ -61,6 +61,7 @@ _OPENROUTER_FALLBACK_MODELS = {
     "grok": "x-ai/grok-2-1212",
     "mistral-api": "mistralai/mistral-large-2411",
 }
+_OPENROUTER_GENERIC_FALLBACK_MODEL = "openai/gpt-4o-mini"
 
 
 def _missing_required_env_vars(env_vars: str) -> list[str]:
@@ -274,7 +275,9 @@ def execute_debate_thread(
         from aragora.agents.spec import AgentSpec
 
         agent_specs = AgentSpec.parse_list(agents_str)
+        requested_agents = [spec.name or spec.provider for spec in agent_specs]
         filtered_specs = []
+        missing_agents: list[str] = []
         openrouter_available = _openrouter_key_available()
         for spec in agent_specs:
             registry_spec = AgentRegistry.get_spec(spec.provider)
@@ -282,7 +285,9 @@ def execute_debate_thread(
             if registry_spec and registry_spec.env_vars:
                 missing_env = _missing_required_env_vars(registry_spec.env_vars)
             if missing_env:
-                fallback_model = _OPENROUTER_FALLBACK_MODELS.get(spec.provider)
+                fallback_model = _OPENROUTER_FALLBACK_MODELS.get(
+                    spec.provider, _OPENROUTER_GENERIC_FALLBACK_MODEL
+                )
                 if openrouter_available and fallback_model:
                     fallback_spec = AgentSpec(
                         provider="openrouter",
@@ -330,6 +335,7 @@ def execute_debate_thread(
                     )
                 )
                 logger.warning(f"[debate] {debate_id}: {message}")
+                missing_agents.append(spec.name or spec.provider)
                 continue
             filtered_specs.append(spec)
         agent_specs = filtered_specs
@@ -359,10 +365,17 @@ def execute_debate_thread(
             )
             return
 
+        filtered = len(filtered_specs) != len(requested_agents)
         emitter.emit(
             StreamEvent(
                 type=StreamEventType.DEBATE_START,
-                data={"task": question, "agents": actual_agents, "filtered": True},
+                data={
+                    "task": question,
+                    "agents": actual_agents,
+                    "filtered": filtered,
+                    "missing_agents": missing_agents,
+                    "requested_agents": requested_agents,
+                },
                 loop_id=debate_id,
             )
         )

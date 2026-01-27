@@ -209,6 +209,19 @@ class AutonomicExecutor:
             except Exception as e:
                 logger.debug(f"[Autonomic] Failed to emit agent error event: {e}")
 
+    @staticmethod
+    def _is_empty_critique(result: "Critique | None") -> bool:
+        """Return True if a critique is empty or only contains placeholder content."""
+        if result is None:
+            return True
+        issues = [i.strip() for i in result.issues if isinstance(i, str) and i.strip()]
+        suggestions = [s.strip() for s in result.suggestions if isinstance(s, str) and s.strip()]
+        if not issues and not suggestions:
+            return True
+        if len(issues) == 1 and issues[0].strip().lower() == "agent response was empty":
+            return not suggestions
+        return False
+
     def _emit_agent_telemetry(
         self,
         agent_name: str,
@@ -614,6 +627,39 @@ class AutonomicExecutor:
 
         try:
             result = await agent.critique(proposal, task, context, target_agent=target_agent)
+            if self._is_empty_critique(result):
+                logger.warning(
+                    f"[Autonomic] Agent {agent.name} returned empty critique, retrying once..."
+                )
+                retry_result = await agent.critique(
+                    proposal, task, context, target_agent=target_agent
+                )
+                if not self._is_empty_critique(retry_result):
+                    result = retry_result
+                else:
+                    logger.warning(
+                        f"[Autonomic] Agent {agent.name} retry also returned empty critique"
+                    )
+                    if tracking_id and self.performance_monitor:
+                        self.performance_monitor.record_completion(
+                            tracking_id, success=False, error="empty critique"
+                        )
+                    self._emit_agent_telemetry(
+                        agent.name,
+                        "critique",
+                        start_time,
+                        success=False,
+                        output=None,
+                        input_text=proposal,
+                    )
+                    self._emit_agent_error(
+                        agent.name,
+                        error_type="empty",
+                        message="Agent returned empty critique",
+                        recoverable=True,
+                        phase=phase,
+                    )
+                    return None
             if result is None:
                 if tracking_id and self.performance_monitor:
                     self.performance_monitor.record_completion(

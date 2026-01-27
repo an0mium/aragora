@@ -232,13 +232,15 @@ class TestSecretManagerAWS:
         config = SecretsConfig(use_aws=True)
         manager = SecretManager(config)
 
-        assert manager._aws_client is None
+        assert manager._aws_clients == {}
 
         with patch("boto3.client") as mock_boto:
             mock_boto.return_value = MagicMock()
-            client = manager._get_aws_client()
+            client = manager._get_aws_client(manager.config.aws_region)
             assert client is not None
-            mock_boto.assert_called_once_with("secretsmanager", region_name="us-east-1")
+            mock_boto.assert_called_once_with(
+                "secretsmanager", region_name=manager.config.aws_region
+            )
 
     def test_aws_client_handles_missing_boto3(self):
         """Gracefully handles missing boto3 library."""
@@ -247,7 +249,7 @@ class TestSecretManagerAWS:
 
         with patch.dict("sys.modules", {"boto3": None}):
             with patch("builtins.__import__", side_effect=ImportError("No module named 'boto3'")):
-                client = manager._get_aws_client()
+                client = manager._get_aws_client(manager.config.aws_region)
                 assert client is None
 
     @pytest.mark.skipif(not BOTO3_AVAILABLE, reason="boto3 not installed")

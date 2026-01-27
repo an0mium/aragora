@@ -101,7 +101,8 @@ class SecretsConfig:
         if use_flag:
             use_aws = use_flag.lower() in ("true", "1", "yes")
         else:
-            use_aws = os.environ.get("ARAGORA_ENV", "").lower() == "production"
+            env_value = os.environ.get("ARAGORA_ENV", "").lower()
+            use_aws = env_value in ("production", "prod", "staging", "stage")
             if not use_aws:
                 use_aws = bool(
                     os.environ.get("ARAGORA_SECRET_NAME")

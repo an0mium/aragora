@@ -33,6 +33,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.explainability_store import (
     BatchJob as StoreBatchJob,
     get_batch_job_store,
@@ -309,6 +310,7 @@ class ExplainabilityHandler(BaseHandler):
         return not path.startswith("/api/v1/")
 
     @rate_limit(rpm=60)
+    @require_permission("explainability:read")
     def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
