@@ -188,6 +188,11 @@ import {
   IntrospectionAPI,
   DocumentsAPI,
   RetentionAPI,
+  NotificationsAPI,
+  PulseAPI,
+  LeaderboardAPI,
+  ReplaysAPI,
+  PoliciesAPI,
 } from './namespaces';
 
 interface RequestOptions {
@@ -461,6 +466,36 @@ export class AragoraClient {
    */
   readonly retention: RetentionAPI;
 
+  /**
+   * Notifications API namespace.
+   * Provides methods for notification settings and delivery.
+   */
+  readonly notifications: NotificationsAPI;
+
+  /**
+   * Pulse API namespace.
+   * Provides methods for trending topics discovery and automated debate suggestions.
+   */
+  readonly pulse: PulseAPI;
+
+  /**
+   * Leaderboard API namespace.
+   * Provides methods for agent rankings, ELO scores, and performance comparisons.
+   */
+  readonly leaderboard: LeaderboardAPI;
+
+  /**
+   * Replays API namespace.
+   * Provides methods for debate replays, event timelines, and replay visualization.
+   */
+  readonly replays: ReplaysAPI;
+
+  /**
+   * Policies API namespace.
+   * Provides methods for policy management and compliance enforcement.
+   */
+  readonly policies: PoliciesAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -512,6 +547,11 @@ export class AragoraClient {
     this.introspection = new IntrospectionAPI(this);
     this.documents = new DocumentsAPI(this);
     this.retention = new RetentionAPI(this);
+    this.notifications = new NotificationsAPI(this);
+    this.pulse = new PulseAPI(this);
+    this.leaderboard = new LeaderboardAPI(this);
+    this.replays = new ReplaysAPI(this);
+    this.policies = new PoliciesAPI(this);
   }
 
   // ===========================================================================

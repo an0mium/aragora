@@ -50,6 +50,13 @@ from .registry import (
 )
 from .voice_bridge import VoiceBridge, get_voice_bridge
 from .tts_bridge import TTSBridge, TTSConfig, get_tts_bridge, clear_tts_bridge
+from .thread_manager import (
+    ThreadInfo,
+    ThreadStats,
+    ThreadParticipant,
+    ThreadManager,
+    ThreadNotFoundError,
+)
 
 __all__ = [
     # Base class
@@ -84,6 +91,14 @@ __all__ = [
     "TTSConfig",
     "get_tts_bridge",
     "clear_tts_bridge",
+    # Thread Management
+    "ThreadInfo",
+    "ThreadStats",
+    "ThreadParticipant",
+    "ThreadManager",
+    "ThreadNotFoundError",
+    "SlackThreadManager",
+    "TeamsThreadManager",
 ]
 
 
@@ -113,5 +128,13 @@ def __getattr__(name: str):
         from .whatsapp import WhatsAppConnector
 
         return WhatsAppConnector
+    elif name == "SlackThreadManager":
+        from .slack import SlackThreadManager
+
+        return SlackThreadManager
+    elif name == "TeamsThreadManager":
+        from .teams import TeamsThreadManager
+
+        return TeamsThreadManager
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
