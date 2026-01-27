@@ -280,7 +280,7 @@ class RlmAdapter:
         self,
         limit: int = 20,
         content_type: Optional[str] = None,
-        min_access_count: int = None,
+        min_access_count: Optional[int] = None,
     ) -> List[ContentPriority]:
         """
         Get high-priority content IDs for compression decisions.
