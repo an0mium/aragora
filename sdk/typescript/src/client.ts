@@ -193,6 +193,8 @@ import {
   LeaderboardAPI,
   ReplaysAPI,
   PoliciesAPI,
+  CostManagementAPI,
+  OnboardingAPI,
 } from './namespaces';
 
 interface RequestOptions {
@@ -496,6 +498,18 @@ export class AragoraClient {
    */
   readonly policies: PoliciesAPI;
 
+  /**
+   * Cost Management API namespace.
+   * Provides methods for tracking and managing AI costs.
+   */
+  readonly costManagement: CostManagementAPI;
+
+  /**
+   * Onboarding API namespace.
+   * Provides methods for user onboarding and getting started.
+   */
+  readonly onboarding: OnboardingAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -552,6 +566,8 @@ export class AragoraClient {
     this.leaderboard = new LeaderboardAPI(this);
     this.replays = new ReplaysAPI(this);
     this.policies = new PoliciesAPI(this);
+    this.costManagement = new CostManagementAPI(this);
+    this.onboarding = new OnboardingAPI(this);
   }
 
   // ===========================================================================

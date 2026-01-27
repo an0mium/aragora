@@ -281,3 +281,29 @@ export {
   type EvolutionEntry,
   type ReplayFork,
 } from './replays';
+
+// Cost Management
+export {
+  CostManagementAPI,
+  type CostBreakdownItem,
+  type DailyCost,
+  type CostAlert,
+  type CostSummary,
+  type CostBudget,
+  type CostRecommendation,
+  type EfficiencyMetrics,
+  type CostForecast,
+  type TimeRange,
+  type GroupBy,
+} from './cost-management';
+
+// Onboarding
+export {
+  OnboardingAPI,
+  type StarterTemplate,
+  type OnboardingFlow,
+  type QuickStartConfig,
+  type OnboardingAnalytics,
+  type QuickStartProfile,
+  type FlowAction,
+} from './onboarding';
