@@ -172,3 +172,20 @@ export {
   type DecisionSummary,
   type DecisionListResponse,
 } from './decisions';
+
+// Critiques
+export {
+  CritiquesAPI,
+  type Critique,
+  type CritiquePattern,
+  type ArchivedCritique,
+} from './critiques';
+
+// Belief Network
+export {
+  BeliefNetworkAPI,
+  type Crux,
+  type LoadBearingClaim,
+  type BeliefNode,
+  type BeliefEdge,
+} from './belief-network';
