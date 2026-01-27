@@ -97,6 +97,29 @@ Owner
 - `workspace_member.add_member` - Invite users to workspaces
 - `workspace_member.remove_member` - Remove users from workspaces
 
+## Permission Key Formats
+
+Aragora supports two permission key formats for compatibility:
+
+| Format | Example | Usage |
+|--------|---------|-------|
+| Dot notation | `debate.create` | Preferred, matches system conventions |
+| Colon notation | `debate:create` | Legacy, still supported |
+
+Both formats are interchangeable. The system automatically converts between them:
+
+```python
+# These are equivalent:
+ctx.has_permission("debate.create")  # dot format
+ctx.has_permission("debate:create")  # colon format
+
+# Wildcards work with both formats:
+ctx.has_permission("debate.*")   # grants all debate permissions
+ctx.has_permission("debate:*")   # equivalent wildcard
+```
+
+When defining new permissions, prefer dot notation for consistency with the codebase.
+
 ## Using RBAC in Code
 
 ### Permission Decorators
