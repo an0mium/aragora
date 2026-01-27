@@ -297,7 +297,7 @@ class DeviceHandler(SecureHandler):
 
             # Check ownership (unless admin)
             user_id = auth_context.user_id
-            is_admin = auth_context.has_any_role("admin", "owner")
+            is_admin = auth_context.has_role("admin") or auth_context.has_role("owner")
             if not is_admin and device.user_id != user_id:
                 return error_response("Not authorized to delete this device", 403)
 
@@ -338,7 +338,7 @@ class DeviceHandler(SecureHandler):
 
             # Check ownership (unless admin)
             user_id = auth_context.user_id
-            is_admin = auth_context.has_any_role("admin", "owner")
+            is_admin = auth_context.has_role("admin") or auth_context.has_role("owner")
             if not is_admin and device.user_id != user_id:
                 return error_response("Not authorized to view this device", 403)
 
@@ -369,7 +369,7 @@ class DeviceHandler(SecureHandler):
         """List all devices for a user."""
         # Check ownership (unless admin)
         caller_id = auth_context.user_id
-        is_admin = auth_context.has_any_role("admin", "owner")
+        is_admin = auth_context.has_role("admin") or auth_context.has_role("owner")
         if not is_admin and user_id != caller_id:
             return error_response("Not authorized to view these devices", 403)
 
@@ -427,7 +427,7 @@ class DeviceHandler(SecureHandler):
 
             # Check ownership (unless admin/owner)
             if (
-                not auth_context.has_any_role("admin", "owner")
+                not (auth_context.has_role("admin") or auth_context.has_role("owner"))
                 and device.user_id != auth_context.user_id
             ):
                 return error_response("Not authorized to notify this device", 403)
@@ -513,7 +513,10 @@ class DeviceHandler(SecureHandler):
             return error_response("title and body are required", 400)
 
         # Check ownership (unless admin/owner)
-        if not auth_context.has_any_role("admin", "owner") and user_id != auth_context.user_id:
+        if (
+            not (auth_context.has_role("admin") or auth_context.has_role("owner"))
+            and user_id != auth_context.user_id
+        ):
             return error_response("Not authorized to notify these devices", 403)
 
         try:
