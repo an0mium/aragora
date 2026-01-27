@@ -63,7 +63,7 @@ class GmailLabelsHandler(SecureHandler):
                 return True
         return False
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         path: str,
         query_params: Dict[str, Any],
@@ -93,7 +93,7 @@ class GmailLabelsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def handle_post(
+    async def handle_post(  # type: ignore[override]
         self,
         path: str,
         body: Dict[str, Any],
@@ -143,7 +143,7 @@ class GmailLabelsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def handle_patch(
+    async def handle_patch(  # type: ignore[override]
         self,
         path: str,
         body: Dict[str, Any],
