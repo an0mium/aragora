@@ -115,6 +115,10 @@ class ArenaConfig:
     memory: Optional[Any] = None  # CritiqueStore
     event_hooks: Optional[Dict[str, Any]] = None
     hook_manager: Optional[Any] = None  # HookManager for extended lifecycle hooks
+    # YAML-based declarative hooks
+    yaml_hooks_dir: str = "hooks"  # Directory to search for YAML hook definitions
+    enable_yaml_hooks: bool = True  # Auto-discover and load YAML hooks on startup
+    yaml_hooks_recursive: bool = True  # Search subdirectories for YAML hooks
     event_emitter: Optional[EventEmitterProtocol] = None
     spectator: Optional[SpectatorStream] = None
     debate_embeddings: Optional[DebateEmbeddingsProtocol] = None
