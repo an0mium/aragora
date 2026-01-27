@@ -212,3 +212,43 @@ class TestHealthEndpointSLO:
 
         assert avg_time < 0.5, f"Average cached readiness {avg_time:.2f}ms exceeds 0.5ms"
         assert max_time < 1, f"Max cached readiness {max_time:.2f}ms exceeds 1ms"
+
+
+class TestWebSocketHealth:
+    """Tests for WebSocket health endpoint."""
+
+    def test_websocket_health_unavailable_without_manager(self):
+        """WebSocket health returns unavailable when no ws_manager."""
+        ctx = MagicMock()
+        ctx.get.return_value = None  # No ws_manager
+        handler = HealthHandler(ctx)
+
+        result = handler._websocket_health()
+        import json
+
+        body = json.loads(result.body.decode("utf-8"))
+        assert body["status"] == "unavailable"
+        assert body["clients"] == 0
+        assert result.status_code == 200
+
+    def test_websocket_health_with_manager(self):
+        """WebSocket health returns healthy with client count when ws_manager present."""
+        mock_ws = MagicMock()
+        mock_ws.clients = [MagicMock(), MagicMock()]  # 2 mock clients
+
+        ctx = MagicMock()
+        ctx.get.return_value = mock_ws
+        handler = HealthHandler(ctx)
+
+        result = handler._websocket_health()
+        import json
+
+        body = json.loads(result.body.decode("utf-8"))
+        assert body["status"] == "healthy"
+        assert body["clients"] == 2
+        assert result.status_code == 200
+
+    def test_websocket_health_is_public(self):
+        """WebSocket health endpoint should be in PUBLIC_ROUTES."""
+        assert "/api/health/ws" in HealthHandler.PUBLIC_ROUTES
+        assert "/api/v1/health/ws" in HealthHandler.PUBLIC_ROUTES
