@@ -397,9 +397,8 @@ class TestListTypes:
         mock_registry = MagicMock()
         mock_registry.list_audit_types.return_value = [MockAuditType()]
 
-        with patch.dict("sys.modules", {"aragora.audit.registry": MagicMock()}):
-            with patch("aragora.cli.audit.audit_registry", mock_registry):
-                result = await list_types(types_args)
+        with patch("aragora.audit.registry.audit_registry", mock_registry):
+            result = await list_types(types_args)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -414,9 +413,8 @@ class TestListTypes:
         mock_registry = MagicMock()
         mock_registry.list_audit_types.return_value = [MockAuditType()]
 
-        with patch.dict("sys.modules", {"aragora.audit.registry": MagicMock()}):
-            with patch("aragora.cli.audit.audit_registry", mock_registry):
-                result = await list_types(types_args)
+        with patch("aragora.audit.registry.audit_registry", mock_registry):
+            result = await list_types(types_args)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -480,7 +478,7 @@ class TestCreateAudit:
         mock_audit_module.get_document_auditor.return_value = mock_auditor
 
         with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
-            with patch("aragora.cli.audit.audit_registry", mock_registry):
+            with patch("aragora.audit.registry.audit_registry", mock_registry):
                 result = await create_audit(create_args)
 
         assert result == 0
@@ -496,9 +494,8 @@ class TestCreateAudit:
         mock_registry = MagicMock()
         mock_registry.get_preset.return_value = None
 
-        with patch.dict("sys.modules", {"aragora.audit.registry": MagicMock()}):
-            with patch("aragora.cli.audit.audit_registry", mock_registry):
-                result = await create_audit(create_args)
+        with patch("aragora.audit.registry.audit_registry", mock_registry):
+            result = await create_audit(create_args)
 
         assert result == 1
         captured = capsys.readouterr()
