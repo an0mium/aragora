@@ -36,6 +36,10 @@ from .base import (
 from .secure import SecureHandler
 from .utils.rate_limit import RateLimiter, get_client_ip
 
+# RBAC imports
+from aragora.rbac import AuthorizationContext, check_permission
+from aragora.rbac.defaults import get_role_permissions
+
 logger = logging.getLogger(__name__)
 
 # Rate limiter for OAuth endpoints (20 requests per minute - auth attempts should be limited)
@@ -552,6 +556,43 @@ class OAuthHandler(SecureHandler):
     def _get_user_store(self):
         """Get user store from context."""
         return self.ctx.get("user_store")
+
+    def _check_permission(
+        self, handler, permission_key: str, resource_id: str | None = None
+    ) -> Optional[HandlerResult]:
+        """Check RBAC permission. Returns error response if denied, None if allowed."""
+        from aragora.billing.jwt_auth import extract_user_from_request
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+
+        # Not authenticated - return 401
+        if not auth_ctx.is_authenticated or not auth_ctx.user_id:
+            return error_response("Authentication required", 401)
+
+        # Build RBAC authorization context
+        roles = {auth_ctx.role} if auth_ctx.role else {"member"}
+        permissions: set[str] = set()
+        for role in roles:
+            permissions |= get_role_permissions(role, include_inherited=True)
+
+        rbac_context = AuthorizationContext(
+            user_id=auth_ctx.user_id,
+            org_id=auth_ctx.org_id,
+            roles=roles,
+            permissions=permissions,
+            ip_address=auth_ctx.client_ip,
+        )
+
+        # Check permission
+        decision = check_permission(rbac_context, permission_key, resource_id)
+        if not decision.allowed:
+            logger.warning(
+                f"Permission denied: user={auth_ctx.user_id} permission={permission_key} reason={decision.reason}"
+            )
+            return error_response(f"Permission denied: {decision.reason}", 403)
+
+        return None  # Allowed
 
     @handle_errors("Google OAuth start")
     @log_request("Google OAuth start")
@@ -1806,12 +1847,15 @@ class OAuthHandler(SecureHandler):
     @handle_errors("get user OAuth providers")
     def _handle_get_user_providers(self, handler) -> HandlerResult:
         """Get OAuth providers linked to the current user."""
+        # RBAC check: authentication.read permission required
+        if error := self._check_permission(handler, "authentication.read"):
+            return error
+
         from aragora.billing.jwt_auth import extract_user_from_request
 
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         # Get linked providers for this user
         providers = []
@@ -1825,12 +1869,15 @@ class OAuthHandler(SecureHandler):
     @handle_errors("link OAuth account")
     def _handle_link_account(self, handler) -> HandlerResult:
         """Link OAuth account to current user (initiated from settings)."""
+        # RBAC check: authentication.update permission required
+        if error := self._check_permission(handler, "authentication.update"):
+            return error
+
         from aragora.billing.jwt_auth import extract_user_from_request
 
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         body = self.read_json_body(handler)
         if body is None:
@@ -1881,12 +1928,15 @@ class OAuthHandler(SecureHandler):
     @handle_errors("unlink OAuth account")
     def _handle_unlink_account(self, handler) -> HandlerResult:
         """Unlink OAuth provider from current user."""
+        # RBAC check: authentication.update permission required
+        if error := self._check_permission(handler, "authentication.update"):
+            return error
+
         from aragora.billing.jwt_auth import extract_user_from_request
 
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         body = self.read_json_body(handler)
         if body is None:

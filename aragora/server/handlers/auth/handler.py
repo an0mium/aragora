@@ -29,6 +29,10 @@ from aragora.auth.lockout import get_lockout_tracker
 # Module-level imports for test mocking compatibility
 from aragora.billing.jwt_auth import extract_user_from_request, validate_refresh_token
 
+# RBAC imports
+from aragora.rbac import AuthorizationContext, check_permission
+from aragora.rbac.defaults import get_role_permissions
+
 from ..base import (
     HandlerResult,
     error_response,
@@ -172,6 +176,45 @@ class AuthHandler(SecureHandler):
     def _get_user_store(self):
         """Get user store from context."""
         return self.ctx.get("user_store")
+
+    def _check_permission(
+        self, handler, permission_key: str, resource_id: str | None = None
+    ) -> Optional[HandlerResult]:
+        """Check RBAC permission. Returns error response if denied, None if allowed.
+
+        This builds an AuthorizationContext from the JWT token and checks
+        the specified permission using the RBAC system.
+        """
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+
+        # Not authenticated - return 401
+        if not auth_ctx.is_authenticated or not auth_ctx.user_id:
+            return error_response("Authentication required", 401)
+
+        # Build RBAC authorization context
+        roles = {auth_ctx.role} if auth_ctx.role else {"member"}
+        permissions: set[str] = set()
+        for role in roles:
+            permissions |= get_role_permissions(role, include_inherited=True)
+
+        rbac_context = AuthorizationContext(
+            user_id=auth_ctx.user_id,
+            org_id=auth_ctx.org_id,
+            roles=roles,
+            permissions=permissions,
+            ip_address=auth_ctx.client_ip,
+        )
+
+        # Check permission
+        decision = check_permission(rbac_context, permission_key, resource_id)
+        if not decision.allowed:
+            logger.warning(
+                f"Permission denied: user={auth_ctx.user_id} permission={permission_key} reason={decision.reason}"
+            )
+            return error_response(f"Permission denied: {decision.reason}", 403)
+
+        return None  # Allowed
 
     @rate_limit(rpm=2, limiter_name="auth_register")
     @handle_errors("user registration")
@@ -460,17 +503,19 @@ class AuthHandler(SecureHandler):
     @handle_errors("logout")
     def _handle_logout(self, handler) -> HandlerResult:
         """Handle user logout (token invalidation)."""
+        # RBAC check: authentication.revoke permission required
+        if error := self._check_permission(handler, "authentication.revoke"):
+            return error
+
         from aragora.billing.jwt_auth import (
             get_token_blacklist,
             revoke_token_persistent,
         )
         from aragora.server.middleware.auth import extract_token
 
-        # Get current user
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         # Revoke the current token using both persistent and in-memory blacklists
         # IMPORTANT: Persist first, then in-memory for atomic revocation
@@ -515,20 +560,22 @@ class AuthHandler(SecureHandler):
         existing JWT tokens for this user across all devices.
         Also revokes the current token for immediate effect.
         """
+        # RBAC check: authentication.revoke permission required
+        if error := self._check_permission(handler, "authentication.revoke"):
+            return error
+
         from aragora.billing.jwt_auth import (
             get_token_blacklist,
             revoke_token_persistent,
         )
         from aragora.server.middleware.auth import extract_token
 
-        # Get current user
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         if not user_store:
             return error_response("User service unavailable", 503)
 
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         # Increment token version to invalidate all existing tokens
         new_version = user_store.increment_token_version(auth_ctx.user_id)
@@ -571,15 +618,16 @@ class AuthHandler(SecureHandler):
     @handle_errors("get user info")
     def _handle_get_me(self, handler) -> HandlerResult:
         """Get current user information."""
-        # Get current user
-        user_store = self._get_user_store()
+        # RBAC check: authentication.read permission required
+        if error := self._check_permission(handler, "authentication.read"):
+            return error
 
+        # Get current user (already verified by _check_permission)
+        user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
         logger.debug(
             f"Auth /me: authenticated={auth_ctx.is_authenticated}, user_id={auth_ctx.user_id}"
         )
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401, headers=self.AUTH_NO_CACHE_HEADERS)
 
         # Get user store
         if not user_store:
@@ -612,11 +660,13 @@ class AuthHandler(SecureHandler):
     @handle_errors("update user info")
     def _handle_update_me(self, handler) -> HandlerResult:
         """Update current user information."""
-        # Get current user
+        # RBAC check: authentication.read permission required (user updating own info)
+        if error := self._check_permission(handler, "authentication.read"):
+            return error
+
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         # Parse request body
         body = self.read_json_body(handler)
@@ -648,11 +698,13 @@ class AuthHandler(SecureHandler):
     @handle_errors("change password")
     def _handle_change_password(self, handler) -> HandlerResult:
         """Change user password."""
-        # Get current user
+        # RBAC check: authentication.read permission required
+        if error := self._check_permission(handler, "authentication.read"):
+            return error
+
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         # Parse request body
         body = self.read_json_body(handler)
@@ -709,6 +761,10 @@ class AuthHandler(SecureHandler):
     @handle_errors("revoke token")
     def _handle_revoke_token(self, handler) -> HandlerResult:
         """Explicitly revoke a specific token."""
+        # RBAC check: session.revoke permission required
+        if error := self._check_permission(handler, "session.revoke"):
+            return error
+
         from aragora.billing.jwt_auth import (
             extract_user_from_request,
             get_token_blacklist,
@@ -716,11 +772,9 @@ class AuthHandler(SecureHandler):
         )
         from aragora.server.middleware.auth import extract_token
 
-        # Get current user (required for authorization)
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         # Parse request body
         body = self.read_json_body(handler)
@@ -761,11 +815,13 @@ class AuthHandler(SecureHandler):
     @handle_errors("generate API key")
     def _handle_generate_api_key(self, handler) -> HandlerResult:
         """Generate a new API key for the user."""
-        # Get current user
+        # RBAC check: api_key.create permission required
+        if error := self._check_permission(handler, "api_key.create"):
+            return error
+
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         # Get user store
         if not user_store:
@@ -822,11 +878,13 @@ class AuthHandler(SecureHandler):
     @handle_errors("revoke API key")
     def _handle_revoke_api_key(self, handler) -> HandlerResult:
         """Revoke the user's API key."""
-        # Get current user
+        # RBAC check: api_key.revoke permission required
+        if error := self._check_permission(handler, "api_key.revoke"):
+            return error
+
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         # Get user store
         if not user_store:
@@ -868,15 +926,18 @@ class AuthHandler(SecureHandler):
     @log_request("MFA setup")
     def _handle_mfa_setup(self, handler) -> HandlerResult:
         """Generate MFA secret and provisioning URI for setup."""
+        # RBAC check: authentication.create permission required
+        if error := self._check_permission(handler, "authentication.create"):
+            return error
+
         try:
             import pyotp
         except ImportError:
             return error_response("MFA not available (pyotp not installed)", 503)
 
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         user = user_store.get_user_by_id(auth_ctx.user_id)
         if not user:
@@ -908,6 +969,10 @@ class AuthHandler(SecureHandler):
     @log_request("MFA enable")
     def _handle_mfa_enable(self, handler) -> HandlerResult:
         """Enable MFA after verifying setup code."""
+        # RBAC check: authentication.update permission required
+        if error := self._check_permission(handler, "authentication.update"):
+            return error
+
         import hashlib
         import secrets as py_secrets
 
@@ -924,10 +989,9 @@ class AuthHandler(SecureHandler):
         if not code:
             return error_response("Verification code is required", 400)
 
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         user = user_store.get_user_by_id(auth_ctx.user_id)
         if not user:
@@ -983,6 +1047,10 @@ class AuthHandler(SecureHandler):
     @log_request("MFA disable")
     def _handle_mfa_disable(self, handler) -> HandlerResult:
         """Disable MFA for the user."""
+        # RBAC check: authentication.update permission required
+        if error := self._check_permission(handler, "authentication.update"):
+            return error
+
         try:
             import pyotp
         except ImportError:
@@ -999,10 +1067,9 @@ class AuthHandler(SecureHandler):
         if not code and not password:
             return error_response("MFA code or password required to disable MFA", 400)
 
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         user = user_store.get_user_by_id(auth_ctx.user_id)
         if not user:
@@ -1160,6 +1227,10 @@ class AuthHandler(SecureHandler):
     @log_request("MFA backup codes")
     def _handle_mfa_backup_codes(self, handler) -> HandlerResult:
         """Regenerate MFA backup codes."""
+        # RBAC check: authentication.read permission required
+        if error := self._check_permission(handler, "authentication.read"):
+            return error
+
         import hashlib
         import secrets as py_secrets
 
@@ -1177,10 +1248,9 @@ class AuthHandler(SecureHandler):
         if not code:
             return error_response("Current MFA code is required", 400)
 
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         user = user_store.get_user_by_id(auth_ctx.user_id)
         if not user:
@@ -1226,14 +1296,17 @@ class AuthHandler(SecureHandler):
         Returns list of sessions with metadata (device, IP, last activity).
         The current session is marked with is_current=true.
         """
+        # RBAC check: session.list_active permission required
+        if error := self._check_permission(handler, "session.list_active"):
+            return error
+
         from aragora.billing.auth.sessions import get_session_manager
         from aragora.billing.jwt_auth import decode_jwt
         from aragora.server.middleware.auth import extract_token
 
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         # Get current token JTI to mark current session
         current_jti = None
@@ -1271,14 +1344,17 @@ class AuthHandler(SecureHandler):
         This invalidates the session and adds the token to the blacklist.
         Users cannot revoke their current session (use logout instead).
         """
+        # RBAC check: session.revoke permission required
+        if error := self._check_permission(handler, "session.revoke"):
+            return error
+
         from aragora.billing.auth.sessions import get_session_manager
         from aragora.billing.jwt_auth import decode_jwt
         from aragora.server.middleware.auth import extract_token
 
+        # Get current user (already verified by _check_permission)
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
 
         # Validate session_id format
         if not session_id or len(session_id) < 8:
