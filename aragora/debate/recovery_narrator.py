@@ -192,6 +192,60 @@ class RecoveryNarrator:
             ],
             "mood": "cautionary",
         },
+        # Checkpoint events (Gastown pattern integration)
+        "checkpoint_created": {
+            "headlines": [
+                "Progress saved!",
+                "Checkpoint created",
+                "Debate state secured",
+            ],
+            "narratives": [
+                "Progress checkpoint saved at round {round}. The debate can now safely resume from this point.",
+                "Checkpoint created! Your debate progress is now protected against interruptions.",
+                "State captured at round {round}. We've got your back if anything goes wrong.",
+            ],
+            "mood": "neutral",
+        },
+        "debate_resumed": {
+            "headlines": [
+                "Debate resuming!",
+                "Back in action!",
+                "Picking up where we left off",
+            ],
+            "narratives": [
+                "The debate is resuming from round {round}! The agents are catching up on the conversation.",
+                "Welcome back! We're picking up the discussion from where it was interrupted.",
+                "Resuming debate from checkpoint. The agents remember everything that happened before.",
+                "Time to continue! The debate resumes at round {round} with full context restored.",
+            ],
+            "mood": "triumphant",
+        },
+        "debate_paused": {
+            "headlines": [
+                "Debate paused",
+                "Taking a break",
+                "On hold",
+            ],
+            "narratives": [
+                "The debate has been paused. All progress has been saved - you can resume anytime.",
+                "Taking a breather! The discussion is on hold but nothing is lost.",
+                "Debate paused at round {round}. Come back when you're ready to continue.",
+            ],
+            "mood": "neutral",
+        },
+        "checkpoint_restored": {
+            "headlines": [
+                "Checkpoint loaded!",
+                "State restored",
+                "Ready to continue",
+            ],
+            "narratives": [
+                "Successfully loaded checkpoint from round {round}. All agent positions and context restored.",
+                "Checkpoint restored! The agents are ready to continue from where they left off.",
+                "Debate state fully restored. {agent_count} agents are back in position.",
+            ],
+            "mood": "triumphant",
+        },
     }
 
     def __init__(
@@ -392,3 +446,103 @@ def setup_narrator_with_immune_system() -> RecoveryNarrator:
         logger.warning("narrator_immune_integration_failed immune_system_not_available")
 
     return narrator
+
+
+def setup_narrator_with_checkpoint_manager(
+    narrator: Optional[RecoveryNarrator] = None,
+) -> RecoveryNarrator:
+    """
+    Set up narrator to receive checkpoint events.
+
+    This integrates the template-based narrator with the CheckpointWebhook
+    system to generate audience-friendly narratives for checkpoint events.
+
+    Args:
+        narrator: Optional narrator instance. Uses global if not provided.
+
+    Returns:
+        The configured narrator
+    """
+    narrator = narrator or get_narrator()
+
+    def on_checkpoint_created(event: dict) -> None:
+        """Handle checkpoint creation event."""
+        checkpoint = event.get("checkpoint", {})
+        details = {
+            "round": checkpoint.get("current_round", 0),
+            "debate_id": checkpoint.get("debate_id", "unknown"),
+        }
+        narrative = narrator.narrate("checkpoint_created", "System", details)
+        logger.debug(f"narrator_checkpoint_created round={details['round']}")
+
+        if narrator.broadcast_callback:
+            try:
+                narrator.broadcast_callback(
+                    {
+                        "type": "recovery_narrative",
+                        "data": narrative.to_dict(),
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"narrator_checkpoint_broadcast_failed error={e}")
+
+    def on_debate_resumed(event: dict) -> None:
+        """Handle debate resume event."""
+        checkpoint = event.get("checkpoint", {})
+        agent_count = len(checkpoint.get("agent_states", []))
+        details = {
+            "round": checkpoint.get("current_round", 0),
+            "debate_id": checkpoint.get("debate_id", "unknown"),
+            "agent_count": agent_count,
+        }
+        narrative = narrator.narrate("debate_resumed", "System", details)
+        logger.debug(f"narrator_debate_resumed round={details['round']} agents={agent_count}")
+
+        if narrator.broadcast_callback:
+            try:
+                narrator.broadcast_callback(
+                    {
+                        "type": "recovery_narrative",
+                        "data": narrative.to_dict(),
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"narrator_resume_broadcast_failed error={e}")
+
+    # Store handlers on narrator for external registration
+    narrator._checkpoint_handlers = {
+        "on_checkpoint": on_checkpoint_created,
+        "on_resume": on_debate_resumed,
+    }
+
+    logger.info("narrator_checkpoint_handlers_configured")
+    return narrator
+
+
+def integrate_narrator_with_checkpoint_webhook(
+    webhook: Any,
+    narrator: Optional[RecoveryNarrator] = None,
+) -> None:
+    """
+    Register narrator handlers with a CheckpointWebhook instance.
+
+    Args:
+        webhook: CheckpointWebhook instance
+        narrator: Optional narrator instance. Uses global if not provided.
+    """
+    narrator = setup_narrator_with_checkpoint_manager(narrator)
+
+    handlers = getattr(narrator, "_checkpoint_handlers", None)
+    if not handlers:
+        logger.warning("narrator_has_no_checkpoint_handlers")
+        return
+
+    # Register with webhook
+    try:
+        if hasattr(webhook, "on_checkpoint") and "on_checkpoint" in handlers:
+            webhook.on_checkpoint(handlers["on_checkpoint"])
+        if hasattr(webhook, "on_resume") and "on_resume" in handlers:
+            webhook.on_resume(handlers["on_resume"])
+        logger.info("narrator_registered_with_checkpoint_webhook")
+    except Exception as e:
+        logger.warning(f"narrator_webhook_registration_failed error={e}")

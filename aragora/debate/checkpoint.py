@@ -1148,9 +1148,11 @@ class CheckpointManager:
         self,
         store: Optional[CheckpointStore] = None,
         config: Optional[CheckpointConfig] = None,
+        webhook: Optional["CheckpointWebhook"] = None,
     ):
         self.store = store or FileCheckpointStore()
         self.config = config or CheckpointConfig()
+        self.webhook = webhook
 
         self._last_checkpoint_time: dict[str, datetime] = {}
         self._checkpoint_count: dict[str, int] = {}
@@ -1296,6 +1298,17 @@ class CheckpointManager:
         self._last_checkpoint_time[debate_id] = datetime.now()
         self._checkpoint_count[debate_id] = self._checkpoint_count.get(debate_id, 0) + 1
 
+        # Emit checkpoint event for UI narrator
+        if self.webhook:
+            await self.webhook.emit(
+                "on_checkpoint",
+                {
+                    "checkpoint": checkpoint.to_dict(),
+                    "debate_id": debate_id,
+                    "round": current_round,
+                },
+            )
+
         # Cleanup old checkpoints if needed
         if self.config.auto_cleanup:
             await self._cleanup_old_checkpoints(debate_id)
@@ -1352,6 +1365,18 @@ class CheckpointManager:
         checkpoint.status = CheckpointStatus.RESUMING
 
         await self.store.save(checkpoint)
+
+        # Emit resume event for UI narrator
+        if self.webhook:
+            await self.webhook.emit(
+                "on_resume",
+                {
+                    "checkpoint": checkpoint.to_dict(),
+                    "debate_id": checkpoint.debate_id,
+                    "round": checkpoint.current_round,
+                    "resumed_by": resumed_by,
+                },
+            )
 
         return ResumedDebate(
             checkpoint=checkpoint,
