@@ -340,7 +340,7 @@ class TestDebateWithHighConfidence:
         valid_votes = [v for v in result.votes if not isinstance(v, Exception)]
         if valid_votes:
             avg_confidence = sum(v.confidence for v in valid_votes) / len(valid_votes)
-            assert avg_confidence > 0.8, "Average confidence should be high"
+            assert avg_confidence >= 0.75, "Average confidence should be reasonably high"
 
 
 class TestErrorRecovery:

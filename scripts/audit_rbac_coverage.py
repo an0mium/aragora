@@ -34,18 +34,27 @@ class HandlerInfo:
     role_name: Optional[str] = None
     http_method: Optional[str] = None
     route: Optional[str] = None
+    protection_type: Optional[str] = None  # 'decorator', 'admin_secure', 'manual_check'
 
 
 def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
     """Find all handler functions and their RBAC decorators."""
     handlers = []
 
-    # Patterns
-    func_pattern = re.compile(r"^async\s+def\s+(\w+)\s*\(")
+    # Decorator patterns
+    func_pattern = re.compile(r"^(?:async\s+)?def\s+(\w+)\s*\(")
     require_permission = re.compile(r'@require_permission\s*\(\s*["\']([^"\']+)["\']')
     require_role = re.compile(r'@require_role\s*\(\s*["\']([^"\']+)["\']')
+    admin_secure = re.compile(r"@admin_secure_endpoint\s*\(")
+    admin_secure_perm = re.compile(
+        r'@admin_secure_endpoint\s*\([^)]*permission\s*=\s*["\']([^"\']+)["\']'
+    )
     route_pattern = re.compile(
         r'@(get|post|put|delete|patch)\s*\(\s*["\']([^"\']+)["\']', re.IGNORECASE
+    )
+    # Pattern for check_permission method calls within function body
+    manual_check_pattern = re.compile(
+        r"\bcheck_permission\s*\(|self\.check_permission\s*\(|_check_permission\s*\("
     )
 
     for py_file in handler_dir.rglob("*.py"):
@@ -74,20 +83,58 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
 
                     decorator_text = "\n".join(decorator_lines)
 
+                    # Look forward for function body (next 30 lines or until next function)
+                    body_lines = []
+                    k = i + 1
+                    indent_level = len(line) - len(line.lstrip())
+                    while k < min(i + 30, len(lines)):
+                        body_line = lines[k]
+                        if body_line.strip() and not body_line.startswith(" " * (indent_level + 1)):
+                            if func_pattern.match(body_line.strip()):
+                                break
+                        body_lines.append(body_line)
+                        k += 1
+                    body_text = "\n".join(body_lines)
+
                     perm_match = require_permission.search(decorator_text)
                     role_match = require_role.search(decorator_text)
+                    admin_secure_match = admin_secure.search(decorator_text)
+                    admin_secure_perm_match = admin_secure_perm.search(decorator_text)
                     route_match = route_pattern.search(decorator_text)
+                    manual_check_match = manual_check_pattern.search(body_text)
+
+                    # Determine protection type
+                    protection_type = None
+                    has_perm = False
+                    perm_name = None
+
+                    if perm_match:
+                        has_perm = True
+                        protection_type = "decorator"
+                        perm_name = perm_match.group(1)
+                    elif role_match:
+                        has_perm = True
+                        protection_type = "role_decorator"
+                    elif admin_secure_match:
+                        has_perm = True
+                        protection_type = "admin_secure"
+                        if admin_secure_perm_match:
+                            perm_name = admin_secure_perm_match.group(1)
+                    elif manual_check_match:
+                        has_perm = True
+                        protection_type = "manual_check"
 
                     handler = HandlerInfo(
                         file=str(py_file.relative_to(handler_dir.parent.parent)),
                         function=func_name,
                         line=i + 1,
-                        has_permission=perm_match is not None,
+                        has_permission=has_perm,
                         has_role=role_match is not None,
-                        permission_name=perm_match.group(1) if perm_match else None,
+                        permission_name=perm_name,
                         role_name=role_match.group(1) if role_match else None,
                         http_method=route_match.group(1).upper() if route_match else None,
                         route=route_match.group(2) if route_match else None,
+                        protection_type=protection_type,
                     )
 
                     # Only include if it's a route handler

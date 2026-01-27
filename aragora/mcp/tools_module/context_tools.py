@@ -108,10 +108,10 @@ async def fetch_debate_context_tool(
 
         # Get consensus memory
         memory = ConsensusMemory()
-        await memory.initialize()
+        await memory.initialize()  # type: ignore[attr-defined]
 
         # Look up debate
-        debate = await memory.get_debate(debate_id)
+        debate = await memory.get_debate(debate_id)  # type: ignore[attr-defined]
         if not debate:
             return {
                 "error": f"Debate not found: {debate_id}",
@@ -337,7 +337,8 @@ async def _fetch_channel_messages(
 ) -> List[Dict[str, Any]]:
     """Fetch messages from a channel."""
     if hasattr(connector, "get_channel_messages"):
-        return await connector.get_channel_messages(channel_id, limit=limit)
+        result = await connector.get_channel_messages(channel_id, limit=limit)
+        return list(result) if result else []
     return []
 
 
@@ -440,7 +441,7 @@ def _analyze_activity(messages: List[Dict[str, Any]]) -> Dict[str, Any]:
             except Exception:
                 pass
 
-    activity = {
+    activity: Dict[str, Any] = {
         "total_messages": len(messages),
         "unique_authors": len(set(msg.get("author", "") for msg in messages)),
     }

@@ -585,18 +585,20 @@ class TestDebateStreamServerAudiencePayload:
 class TestDebateStreamServerCleanup:
     """Tests for connection cleanup."""
 
-    def test_cleanup_removes_client(self):
+    @pytest.mark.asyncio
+    async def test_cleanup_removes_client(self):
         """Cleanup should remove client from set."""
         server = DebateStreamServer()
 
         mock_ws = MagicMock()
         server.clients.add(mock_ws)
 
-        server._cleanup_connection("192.168.1.1", "client-123", 12345, mock_ws)
+        await server._cleanup_connection("192.168.1.1", "client-123", 12345, mock_ws)
 
         assert mock_ws not in server.clients
 
-    def test_cleanup_removes_rate_limiter(self):
+    @pytest.mark.asyncio
+    async def test_cleanup_removes_rate_limiter(self):
         """Cleanup should remove client's rate limiter."""
         server = DebateStreamServer()
 
@@ -608,12 +610,13 @@ class TestDebateStreamServerCleanup:
         server._rate_limiters["client-123"] = MagicMock()
         server._rate_limiter_last_access["client-123"] = time.time()
 
-        server._cleanup_connection("192.168.1.1", "client-123", ws_id, mock_ws)
+        await server._cleanup_connection("192.168.1.1", "client-123", ws_id, mock_ws)
 
         assert ws_id not in server._client_ids
         assert "client-123" not in server._rate_limiters
 
-    def test_cleanup_releases_connection_slot(self):
+    @pytest.mark.asyncio
+    async def test_cleanup_releases_connection_slot(self):
         """Cleanup should release IP connection slot."""
         server = DebateStreamServer()
 
@@ -623,11 +626,12 @@ class TestDebateStreamServerCleanup:
         server._check_ws_connection_rate("192.168.1.1")
         initial_count = server._ws_conn_per_ip.get("192.168.1.1", 0)
 
-        server._cleanup_connection("192.168.1.1", "client-123", 12345, mock_ws)
+        await server._cleanup_connection("192.168.1.1", "client-123", 12345, mock_ws)
 
         assert server._ws_conn_per_ip.get("192.168.1.1", 0) < initial_count
 
-    def test_cleanup_removes_token_tracking(self):
+    @pytest.mark.asyncio
+    async def test_cleanup_removes_token_tracking(self):
         """Cleanup should remove token validation tracking."""
         server = DebateStreamServer()
 
@@ -637,7 +641,7 @@ class TestDebateStreamServerCleanup:
         server._ws_token_validated[ws_id] = time.time()
         server._ws_msg_limiters[ws_id] = MagicMock()
 
-        server._cleanup_connection("192.168.1.1", "client-123", ws_id, mock_ws)
+        await server._cleanup_connection("192.168.1.1", "client-123", ws_id, mock_ws)
 
         assert ws_id not in server._ws_token_validated
         assert ws_id not in server._ws_msg_limiters

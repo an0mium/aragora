@@ -754,3 +754,314 @@ class TestKMExpertiseSelection:
         # Both should contribute, km_expert should edge out due to high KM expertise
         assert km_score > 1.0
         assert elo_score > 1.0
+
+
+# =============================================================================
+# CV-Based Selection
+# =============================================================================
+
+
+class MockAgentCV:
+    """Mock AgentCV for testing."""
+
+    def __init__(
+        self,
+        agent_id: str,
+        overall_elo: float = 1000.0,
+        brier_score: float = 0.5,
+        success_rate: float = 0.9,
+        has_meaningful_data: bool = True,
+        is_reliable: bool = True,
+        is_well_calibrated: bool = False,
+    ):
+        self.agent_id = agent_id
+        self.overall_elo = overall_elo
+        self.brier_score = brier_score
+
+        # Mock reliability
+        class MockReliability:
+            pass
+
+        self.reliability = MockReliability()
+        self.reliability.success_rate = success_rate
+        self.reliability.is_reliable = is_reliable
+
+        self._has_meaningful_data = has_meaningful_data
+        self._is_well_calibrated = is_well_calibrated
+
+    @property
+    def has_meaningful_data(self) -> bool:
+        return self._has_meaningful_data
+
+    @property
+    def is_well_calibrated(self) -> bool:
+        return self._is_well_calibrated
+
+    def compute_selection_score(
+        self,
+        domain: Optional[str] = None,
+        elo_weight: float = 0.3,
+        calibration_weight: float = 0.2,
+        reliability_weight: float = 0.2,
+        domain_weight: float = 0.3,
+    ) -> float:
+        """Return a mock composite score."""
+        # Normalize ELO to 0-1
+        elo_score = (self.overall_elo - 800) / 400
+        elo_score = max(0.0, min(1.0, elo_score))
+
+        # Calibration score (invert brier)
+        calibration_score = 1 - self.brier_score
+
+        # Simple composite
+        return (
+            elo_score * elo_weight
+            + calibration_score * calibration_weight
+            + self.reliability.success_rate * reliability_weight
+        )
+
+
+class MockCVBuilder:
+    """Mock CVBuilder for testing."""
+
+    def __init__(self, cvs: dict[str, MockAgentCV] = None):
+        self._cvs = cvs or {}
+
+    def build_cv(self, agent_id: str) -> MockAgentCV:
+        if agent_id in self._cvs:
+            return self._cvs[agent_id]
+        return MockAgentCV(agent_id)
+
+    def build_cvs_batch(self, agent_ids: list[str]) -> dict[str, MockAgentCV]:
+        return {aid: self.build_cv(aid) for aid in agent_ids}
+
+
+class TestCVBasedSelection:
+    """Tests for CV-based agent selection."""
+
+    def test_cv_affects_ordering(self):
+        """CV scores should affect agent ordering."""
+        agents = [
+            MockAgent(name="low_cv"),
+            MockAgent(name="high_cv"),
+        ]
+        cv_builder = MockCVBuilder(
+            {
+                "low_cv": MockAgentCV("low_cv", overall_elo=900, brier_score=0.8, success_rate=0.7),
+                "high_cv": MockAgentCV(
+                    "high_cv", overall_elo=1200, brier_score=0.2, success_rate=0.95
+                ),
+            }
+        )
+        config = TeamSelectionConfig(
+            enable_cv_selection=True,
+            cv_weight=0.5,
+        )
+        selector = TeamSelector(cv_builder=cv_builder, config=config)
+
+        selected = selector.select(agents, domain="general")
+
+        # High CV agent should be ranked first
+        assert selected[0].name == "high_cv"
+        assert selected[1].name == "low_cv"
+
+    def test_cv_disabled(self):
+        """CV scoring should be skipped when disabled."""
+        agents = [
+            MockAgent(name="agent1"),
+            MockAgent(name="agent2"),
+        ]
+        cv_builder = MockCVBuilder(
+            {
+                "agent1": MockAgentCV("agent1", overall_elo=1200),
+                "agent2": MockAgentCV("agent2", overall_elo=900),
+            }
+        )
+        config = TeamSelectionConfig(
+            enable_cv_selection=False,
+            cv_weight=0.5,
+        )
+        selector = TeamSelector(cv_builder=cv_builder, config=config)
+
+        # Without CV scoring, order should be unchanged (both have same base score)
+        selected = selector.select(agents, domain="general")
+
+        # Order unchanged since both have same base score
+        assert len(selected) == 2
+
+    def test_cv_reliability_filtering(self):
+        """Unreliable agents should be filtered when configured."""
+        agents = [
+            MockAgent(name="reliable"),
+            MockAgent(name="unreliable"),
+        ]
+        cv_builder = MockCVBuilder(
+            {
+                "reliable": MockAgentCV("reliable", success_rate=0.95),
+                "unreliable": MockAgentCV("unreliable", success_rate=0.5),
+            }
+        )
+        config = TeamSelectionConfig(
+            enable_cv_selection=True,
+            cv_filter_unreliable=True,
+            cv_reliability_threshold=0.7,
+        )
+        selector = TeamSelector(cv_builder=cv_builder, config=config)
+
+        selected = selector.select(agents, domain="general")
+
+        # Only reliable agent should remain
+        assert len(selected) == 1
+        assert selected[0].name == "reliable"
+
+    def test_cv_no_filtering_below_threshold(self):
+        """Without filtering, low reliability agents should still be selected."""
+        agents = [
+            MockAgent(name="reliable"),
+            MockAgent(name="unreliable"),
+        ]
+        cv_builder = MockCVBuilder(
+            {
+                "reliable": MockAgentCV("reliable", success_rate=0.95),
+                "unreliable": MockAgentCV("unreliable", success_rate=0.5),
+            }
+        )
+        config = TeamSelectionConfig(
+            enable_cv_selection=True,
+            cv_filter_unreliable=False,  # Filtering disabled
+            cv_reliability_threshold=0.7,
+        )
+        selector = TeamSelector(cv_builder=cv_builder, config=config)
+
+        selected = selector.select(agents, domain="general")
+
+        # Both agents should be included
+        assert len(selected) == 2
+
+    def test_cv_bonuses_applied(self):
+        """CV with good reliability and calibration should get bonuses."""
+        agents = [MockAgent(name="excellent")]
+        cv_builder = MockCVBuilder(
+            {
+                "excellent": MockAgentCV(
+                    "excellent",
+                    overall_elo=1100,
+                    brier_score=0.1,
+                    success_rate=0.95,
+                    is_reliable=True,
+                    is_well_calibrated=True,
+                ),
+            }
+        )
+        config = TeamSelectionConfig(
+            enable_cv_selection=True,
+            cv_weight=0.35,
+        )
+        selector = TeamSelector(cv_builder=cv_builder, config=config)
+
+        # Get score directly
+        cvs = selector._get_agent_cvs_batch(["excellent"])
+        cv_score = selector._compute_cv_score(cvs["excellent"], domain="general")
+
+        # Should have base score + reliability bonus + calibration bonus
+        assert cv_score > 0.5  # Base composite score
+        # The actual value depends on bonuses being applied
+
+    def test_cv_caching(self):
+        """CVs should be cached to avoid repeated lookups."""
+        agents = [MockAgent(name="cached")]
+        cv_builder = MockCVBuilder({"cached": MockAgentCV("cached", overall_elo=1100)})
+        config = TeamSelectionConfig(
+            enable_cv_selection=True,
+            cv_cache_ttl=60,
+        )
+        selector = TeamSelector(cv_builder=cv_builder, config=config)
+
+        # First call populates cache
+        selector.select(agents, domain="general")
+        assert "cached" in selector._cv_cache
+
+        # Modify the builder to return different data
+        cv_builder._cvs["cached"] = MockAgentCV("cached", overall_elo=500)
+
+        # Second call should use cache, not new data
+        cvs = selector._get_agent_cvs_batch(["cached"])
+        assert cvs["cached"].overall_elo == 1100  # Cached value
+
+    def test_get_cv_method(self):
+        """Should be able to get a single agent's CV."""
+        cv_builder = MockCVBuilder({"agent1": MockAgentCV("agent1", overall_elo=1150)})
+        selector = TeamSelector(cv_builder=cv_builder)
+
+        cv = selector.get_cv("agent1")
+
+        assert cv is not None
+        assert cv.agent_id == "agent1"
+        assert cv.overall_elo == 1150
+
+    def test_cv_combined_with_elo(self):
+        """CV scoring should combine with ELO scoring."""
+        agents = [
+            MockAgent(name="cv_high"),
+            MockAgent(name="elo_high"),
+        ]
+        elo = MockEloSystem({"cv_high": 900, "elo_high": 1500})
+        cv_builder = MockCVBuilder(
+            {
+                "cv_high": MockAgentCV(
+                    "cv_high",
+                    overall_elo=1200,
+                    brier_score=0.1,
+                    success_rate=0.99,
+                    is_reliable=True,
+                    is_well_calibrated=True,
+                ),
+                "elo_high": MockAgentCV(
+                    "elo_high",
+                    overall_elo=1000,
+                    brier_score=0.5,
+                    success_rate=0.8,
+                ),
+            }
+        )
+        config = TeamSelectionConfig(
+            enable_cv_selection=True,
+            elo_weight=0.3,
+            cv_weight=0.4,
+        )
+        selector = TeamSelector(
+            elo_system=elo,
+            cv_builder=cv_builder,
+            config=config,
+        )
+
+        cv_score = selector.score_agent(agents[0], domain="general")
+        elo_score = selector.score_agent(agents[1], domain="general")
+
+        # cv_high has low ELO (900) but excellent CV - scores reasonably
+        # elo_high has high ELO (1500) but weaker CV - benefits from ELO
+        assert cv_score > 0.8  # Has CV bonus despite low ELO
+        assert elo_score > 1.0  # Has high ELO bonus
+
+    def test_cv_no_meaningful_data(self):
+        """CV without meaningful data should return 0 score."""
+        agents = [MockAgent(name="new_agent")]
+        cv_builder = MockCVBuilder(
+            {
+                "new_agent": MockAgentCV(
+                    "new_agent",
+                    has_meaningful_data=False,
+                ),
+            }
+        )
+        config = TeamSelectionConfig(
+            enable_cv_selection=True,
+            cv_weight=0.5,
+        )
+        selector = TeamSelector(cv_builder=cv_builder, config=config)
+
+        cvs = selector._get_agent_cvs_batch(["new_agent"])
+        cv_score = selector._compute_cv_score(cvs["new_agent"], domain="general")
+
+        # No meaningful data = 0 CV score
+        assert cv_score == 0.0
