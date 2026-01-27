@@ -89,7 +89,7 @@ class TestWhatsAppStatus:
         handler = WhatsAppHandler({})
 
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
-            mock_auth.return_value = MagicMock(permissions=["bots:read"])
+            mock_auth.return_value = MagicMock(permissions=["bots.read"])
             with patch.object(handler, "check_permission"):
                 mock_handler = MagicMock()
                 result = await handler.handle("/api/v1/bots/whatsapp/status", {}, mock_handler)

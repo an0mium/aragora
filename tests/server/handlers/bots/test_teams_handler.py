@@ -53,7 +53,7 @@ class TestTeamsStatus:
 
         # Mock auth context
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
-            mock_auth.return_value = MagicMock(permissions=["bots:read"])
+            mock_auth.return_value = MagicMock(permissions=["bots.read"])
             with patch.object(handler, "check_permission"):
                 mock_handler = MagicMock()
                 result = await handler.handle("/api/v1/bots/teams/status", {}, mock_handler)
@@ -83,7 +83,7 @@ class TestTeamsStatus:
 
     @pytest.mark.asyncio
     async def test_get_status_requires_permission(self):
-        """Should require bots:read permission."""
+        """Should require bots.read permission."""
         from aragora.server.handlers.secure import ForbiddenError
 
         handler = TeamsHandler({})

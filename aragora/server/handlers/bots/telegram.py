@@ -34,7 +34,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 logger = logging.getLogger(__name__)
 
 # RBAC permission for bot configuration endpoints
-BOTS_READ_PERMISSION = "bots:read"
+BOTS_READ_PERMISSION = "bots.read"
 
 # Environment variables
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -74,7 +74,7 @@ class TelegramHandler(SecureHandler):
     """Handler for Telegram Bot API webhook endpoints.
 
     RBAC Protected:
-    - bots:read - required for status endpoint
+    - bots.read - required for status endpoint
 
     Note: Webhook endpoints are authenticated via Telegram's secret token,
     not RBAC, since they are called by Telegram servers directly.
@@ -100,7 +100,7 @@ class TelegramHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Route Telegram GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/telegram/status":
-            # RBAC: Require authentication and bots:read permission
+            # RBAC: Require authentication and bots.read permission
             try:
                 auth_context = await self.get_auth_context(handler, require_auth=True)
                 self.check_permission(auth_context, BOTS_READ_PERMISSION)

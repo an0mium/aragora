@@ -32,7 +32,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 logger = logging.getLogger(__name__)
 
 # RBAC permission for bot configuration endpoints
-BOTS_READ_PERMISSION = "bots:read"
+BOTS_READ_PERMISSION = "bots.read"
 
 # Environment variables
 GOOGLE_CHAT_CREDENTIALS = os.environ.get("GOOGLE_CHAT_CREDENTIALS", "")
@@ -91,7 +91,7 @@ class GoogleChatHandler(SecureHandler):
     """Handler for Google Chat App webhook endpoints.
 
     RBAC Protected:
-    - bots:read - required for status endpoint
+    - bots.read - required for status endpoint
 
     Note: Webhook endpoints are authenticated via Google's bearer token,
     not RBAC, since they are called by Google servers directly.
@@ -112,7 +112,7 @@ class GoogleChatHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Route Google Chat GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/google-chat/status":
-            # RBAC: Require authentication and bots:read permission
+            # RBAC: Require authentication and bots.read permission
             try:
                 auth_context = await self.get_auth_context(handler, require_auth=True)
                 self.check_permission(auth_context, BOTS_READ_PERMISSION)

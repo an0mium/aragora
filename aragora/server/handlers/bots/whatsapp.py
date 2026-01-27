@@ -35,7 +35,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 logger = logging.getLogger(__name__)
 
 # RBAC permission for bot configuration endpoints
-BOTS_READ_PERMISSION = "bots:read"
+BOTS_READ_PERMISSION = "bots.read"
 
 # Environment variables
 WHATSAPP_VERIFY_TOKEN = os.environ.get("WHATSAPP_VERIFY_TOKEN", "")
@@ -71,7 +71,7 @@ class WhatsAppHandler(SecureHandler):
     """Handler for WhatsApp Cloud API webhook endpoints.
 
     RBAC Protected:
-    - bots:read - required for status endpoint
+    - bots.read - required for status endpoint
 
     Note: Webhook endpoints are authenticated via WhatsApp's signature,
     not RBAC, since they are called by Meta servers directly.
@@ -92,7 +92,7 @@ class WhatsAppHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Route WhatsApp GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/whatsapp/status":
-            # RBAC: Require authentication and bots:read permission
+            # RBAC: Require authentication and bots.read permission
             try:
                 auth_context = await self.get_auth_context(handler, require_auth=True)
                 self.check_permission(auth_context, BOTS_READ_PERMISSION)

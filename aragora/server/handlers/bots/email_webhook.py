@@ -35,7 +35,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 logger = logging.getLogger(__name__)
 
 # RBAC permission for bot configuration endpoints
-BOTS_READ_PERMISSION = "bots:read"
+BOTS_READ_PERMISSION = "bots.read"
 
 # Configuration
 EMAIL_INBOUND_ENABLED = os.environ.get("EMAIL_INBOUND_ENABLED", "true").lower() == "true"
@@ -45,7 +45,7 @@ class EmailWebhookHandler(SecureHandler):
     """Handler for email inbound webhook endpoints.
 
     RBAC Protected:
-    - bots:read - required for status endpoint
+    - bots.read - required for status endpoint
 
     Note: Webhook endpoints are authenticated via platform-specific signatures,
     not RBAC, since they are called by SendGrid/AWS SES directly.
@@ -67,7 +67,7 @@ class EmailWebhookHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Route email GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/email/status":
-            # RBAC: Require authentication and bots:read permission
+            # RBAC: Require authentication and bots.read permission
             try:
                 auth_context = await self.get_auth_context(handler, require_auth=True)
                 self.check_permission(auth_context, BOTS_READ_PERMISSION)

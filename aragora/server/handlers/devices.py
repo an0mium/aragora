@@ -8,14 +8,14 @@ Provides REST APIs for device push notification management:
 - Voice assistant webhooks (Alexa, Google Home)
 
 Endpoints:
-- POST /api/v1/devices/register - Register a device for push notifications
-- DELETE /api/v1/devices/{device_id} - Unregister a device
-- POST /api/v1/devices/{device_id}/notify - Send notification to a device
-- POST /api/v1/devices/user/{user_id}/notify - Send to all user devices
-- GET /api/v1/devices/user/{user_id} - List user's devices
-- GET /api/v1/devices/health - Get device connector health
-- POST /api/v1/devices/alexa/webhook - Alexa skill webhook
-- POST /api/v1/devices/google/webhook - Google Actions webhook
+- POST /api/devices/register - Register a device for push notifications
+- DELETE /api/devices/{device_id} - Unregister a device
+- POST /api/devices/{device_id}/notify - Send notification to a device
+- POST /api/devices/user/{user_id}/notify - Send to all user devices
+- GET /api/devices/user/{user_id} - List user's devices
+- GET /api/devices/health - Get device connector health
+- POST /api/devices/alexa/webhook - Alexa skill webhook
+- POST /api/devices/google/webhook - Google Actions webhook
 """
 
 from __future__ import annotations
@@ -425,6 +425,13 @@ class DeviceHandler(SecureHandler):
             if not device:
                 return error_response("Device not found", 404)
 
+            # Check ownership (unless admin/owner)
+            if (
+                not auth_context.has_any_role("admin", "owner")
+                and device.user_id != auth_context.user_id
+            ):
+                return error_response("Not authorized to notify this device", 403)
+
             # Build message
             message = DeviceMessage(
                 title=body["title"],
@@ -504,6 +511,10 @@ class DeviceHandler(SecureHandler):
         # Validate required fields
         if not body.get("title") or not body.get("body"):
             return error_response("title and body are required", 400)
+
+        # Check ownership (unless admin/owner)
+        if not auth_context.has_any_role("admin", "owner") and user_id != auth_context.user_id:
+            return error_response("Not authorized to notify these devices", 403)
 
         try:
             from aragora.connectors.devices import DeviceMessage, DeviceToken, DeviceType

@@ -36,7 +36,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 logger = logging.getLogger(__name__)
 
 # RBAC permission for bot configuration endpoints
-BOTS_READ_PERMISSION = "bots:read"
+BOTS_READ_PERMISSION = "bots.read"
 
 # Environment variables
 ZOOM_CLIENT_ID = os.environ.get("ZOOM_CLIENT_ID", "")
@@ -49,7 +49,7 @@ class ZoomHandler(SecureHandler):
     """Handler for Zoom Bot endpoints.
 
     RBAC Protected:
-    - bots:read - required for status endpoint
+    - bots.read - required for status endpoint
 
     Note: Event webhook endpoints are authenticated via Zoom's signature,
     not RBAC, since they are called by Zoom servers directly.
@@ -103,7 +103,7 @@ class ZoomHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Route Zoom requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/zoom/status":
-            # RBAC: Require authentication and bots:read permission
+            # RBAC: Require authentication and bots.read permission
             try:
                 auth_context = await self.get_auth_context(handler, require_auth=True)
                 self.check_permission(auth_context, BOTS_READ_PERMISSION)

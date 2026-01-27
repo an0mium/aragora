@@ -34,7 +34,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 logger = logging.getLogger(__name__)
 
 # RBAC permission for bot configuration endpoints
-BOTS_READ_PERMISSION = "bots:read"
+BOTS_READ_PERMISSION = "bots.read"
 
 # Environment variables
 TEAMS_APP_ID = os.environ.get("TEAMS_APP_ID", "")
@@ -55,7 +55,7 @@ class TeamsHandler(SecureHandler):
     """Handler for Microsoft Teams Bot endpoints.
 
     RBAC Protected:
-    - bots:read - required for status endpoint
+    - bots.read - required for status endpoint
 
     Note: Message webhook endpoints are authenticated via Bot Framework,
     not RBAC, since they are called by Microsoft servers directly.
@@ -123,7 +123,7 @@ class TeamsHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Route Teams requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/teams/status":
-            # RBAC: Require authentication and bots:read permission
+            # RBAC: Require authentication and bots.read permission
             try:
                 auth_context = await self.get_auth_context(handler, require_auth=True)
                 self.check_permission(auth_context, BOTS_READ_PERMISSION)

@@ -31,7 +31,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 logger = logging.getLogger(__name__)
 
 # RBAC permission for bot configuration endpoints
-BOTS_READ_PERMISSION = "bots:read"
+BOTS_READ_PERMISSION = "bots.read"
 
 # Environment variables
 DISCORD_APPLICATION_ID = os.environ.get("DISCORD_APPLICATION_ID", "")
@@ -76,7 +76,7 @@ class DiscordHandler(SecureHandler):
     """Handler for Discord Interactions API endpoints.
 
     RBAC Protected:
-    - bots:read - required for status endpoint
+    - bots.read - required for status endpoint
 
     Note: Webhook endpoints are authenticated via Discord's Ed25519 signature,
     not RBAC, since they are called by Discord servers directly.
@@ -97,7 +97,7 @@ class DiscordHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Route Discord requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/discord/status":
-            # RBAC: Require authentication and bots:read permission
+            # RBAC: Require authentication and bots.read permission
             try:
                 auth_context = await self.get_auth_context(handler, require_auth=True)
                 self.check_permission(auth_context, BOTS_READ_PERMISSION)

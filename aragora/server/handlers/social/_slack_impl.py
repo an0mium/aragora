@@ -154,7 +154,7 @@ from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 from ..utils.rate_limit import rate_limit
 
 # RBAC permission for integration status endpoints
-BOTS_READ_PERMISSION = "bots:read"
+BOTS_READ_PERMISSION = "bots.read"
 
 # Environment variables for Slack integration (fallback for single-workspace mode)
 SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")
@@ -234,7 +234,7 @@ class SlackHandler(SecureHandler):
     """Handler for Slack integration endpoints.
 
     RBAC Protected:
-    - bots:read - required for status endpoint
+    - bots.read - required for status endpoint
 
     Note: Webhook endpoints are authenticated via Slack's signature,
     not RBAC, since they are called by Slack servers directly.
@@ -258,7 +258,7 @@ class SlackHandler(SecureHandler):
         logger.debug(f"Slack request: {path}")
 
         if path == "/api/v1/integrations/slack/status":
-            # RBAC: Require authentication and bots:read permission
+            # RBAC: Require authentication and bots.read permission
             try:
                 auth_context = await self.get_auth_context(handler, require_auth=True)
                 self.check_permission(auth_context, BOTS_READ_PERMISSION)
