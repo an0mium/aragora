@@ -131,7 +131,7 @@ def _get_user_permissions(user_ctx: Any) -> set[str]:
         checker = get_permission_checker()
         # Get all permissions for user's roles
         permissions = set()
-        roles = set(user_ctx.roles) if user_ctx.roles else {"member"}
+        roles = {user_ctx.role} if user_ctx.role else {"member"}
         for role in roles:
             role_perms = checker.get_role_permissions(role)
             permissions.update(role_perms)
