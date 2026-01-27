@@ -105,6 +105,11 @@ import type {
   User,
   MFASetupResponse,
   MFAVerifyResponse,
+  // Codebase types
+  CodebaseScanResult,
+  CodebaseVulnerability,
+  CodebaseDependencyAnalysis,
+  CodebaseMetrics,
 } from './types';
 
 export interface AragoraClientOptions {
@@ -1755,6 +1760,7 @@ export class AragoraClient {
   public readonly tournaments: TournamentsAPI;
   public readonly rbac: RBACAPI;
   public readonly auth: AuthAPI;
+  public readonly codebase: CodebaseAPI;
 
   constructor(baseUrl: string = 'http://localhost:8080', options: AragoraClientOptions = {}) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
@@ -1783,6 +1789,7 @@ export class AragoraClient {
     this.tournaments = new TournamentsAPI(this);
     this.rbac = new RBACAPI(this);
     this.auth = new AuthAPI(this);
+    this.codebase = new CodebaseAPI(this);
   }
 
   /**
