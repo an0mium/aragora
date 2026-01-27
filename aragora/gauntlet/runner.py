@@ -29,6 +29,19 @@ from .result import (
     Vulnerability,
 )
 
+# Optional sandbox support for code execution scenarios
+try:
+    from aragora.sandbox.executor import SandboxConfig, SandboxExecutor, ExecutionMode
+    from aragora.sandbox.policies import create_strict_policy
+
+    SANDBOX_AVAILABLE = True
+except ImportError:
+    SANDBOX_AVAILABLE = False
+    SandboxExecutor = None
+    SandboxConfig = None
+    ExecutionMode = None
+    create_strict_policy = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,6 +58,8 @@ class GauntletRunner:
         config: Optional[GauntletConfig] = None,
         agent_factory: Optional[Callable[[str], Any]] = None,
         run_agent_fn: Optional[Callable] = None,
+        enable_sandbox: bool = False,
+        sandbox_config: Optional["SandboxConfig"] = None,
     ):
         """
         Initialize GauntletRunner.
@@ -53,11 +68,28 @@ class GauntletRunner:
             config: Gauntlet configuration
             agent_factory: Factory function to create agents by name
             run_agent_fn: Function to run an agent with a prompt
+            enable_sandbox: Enable sandboxed code execution for code-based scenarios
+            sandbox_config: Optional custom sandbox configuration
         """
         self.config = config or GauntletConfig()
         self.agent_factory = agent_factory
         self.run_agent_fn = run_agent_fn
         self._vulnerability_counter = 0
+
+        # Initialize sandbox for code execution scenarios (Clawdbot pattern)
+        self._sandbox: Optional["SandboxExecutor"] = None
+        self.enable_sandbox = enable_sandbox and SANDBOX_AVAILABLE
+
+        if self.enable_sandbox:
+            policy = create_strict_policy() if create_strict_policy else None
+            sandbox_cfg = sandbox_config or SandboxConfig(
+                mode=ExecutionMode.SUBPROCESS,
+                policy=policy,
+                network_enabled=False,
+                cleanup_on_complete=True,
+            )
+            self._sandbox = SandboxExecutor(sandbox_cfg)
+            logger.info("[gauntlet] Sandbox executor initialized for code execution scenarios")
 
     async def run(
         self,
@@ -547,6 +579,61 @@ class GauntletRunner:
             agent_name=agent_name,
         )
         result.add_vulnerability(vuln)
+
+    async def execute_code_sandboxed(
+        self,
+        code: str,
+        language: str = "python",
+        timeout: float = 30.0,
+    ) -> dict[str, Any]:
+        """Execute code in sandbox for code-based scenarios.
+
+        Provides safe code execution for:
+        - Code review gauntlet scenarios
+        - Adversarial code injection testing
+        - Generated code validation
+
+        Args:
+            code: Code to execute
+            language: Programming language (python, javascript, bash)
+            timeout: Maximum execution time in seconds
+
+        Returns:
+            Dict with execution results (stdout, stderr, exit_code, status)
+        """
+        if not self.enable_sandbox or self._sandbox is None:
+            return {
+                "status": "sandbox_disabled",
+                "stdout": "",
+                "stderr": "Sandbox not enabled for this gauntlet run",
+                "exit_code": -1,
+                "executed": False,
+            }
+
+        try:
+            result = await self._sandbox.execute(
+                code=code,
+                language=language,
+                timeout=timeout,
+            )
+            return {
+                "status": result.status.value,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "exit_code": result.exit_code,
+                "duration_seconds": result.duration_seconds,
+                "policy_violations": result.policy_violations,
+                "executed": True,
+            }
+        except Exception as e:
+            logger.error(f"[gauntlet] Sandbox execution error: {e}")
+            return {
+                "status": "error",
+                "stdout": "",
+                "stderr": str(e),
+                "exit_code": -1,
+                "executed": False,
+            }
 
     async def _default_run_agent(self, agent, prompt: str) -> str:
         """Default agent runner (placeholder)."""
