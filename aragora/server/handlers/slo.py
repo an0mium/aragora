@@ -38,6 +38,7 @@ from aragora.observability.slo import (
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import BaseHandler, HandlerResult, error_response, json_response
+from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 if TYPE_CHECKING:
@@ -79,6 +80,7 @@ class SLOHandler(BaseHandler):
 
         return False
 
+    @require_permission("slo:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route SLO requests to appropriate methods."""
         path = strip_version_prefix(path)
