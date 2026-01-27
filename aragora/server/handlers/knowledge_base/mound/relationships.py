@@ -12,6 +12,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Protocol
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
 
 from ...base import (
@@ -38,6 +39,7 @@ class RelationshipHandlerProtocol(Protocol):
 class RelationshipOperationsMixin:
     """Mixin providing relationship operations for KnowledgeMoundHandler."""
 
+    @require_permission("knowledge:read")
     @handle_errors("get node relationships")
     def _handle_get_node_relationships(
         self: RelationshipHandlerProtocol, node_id: str, query_params: dict
@@ -98,6 +100,7 @@ class RelationshipOperationsMixin:
             }
         )
 
+    @require_permission("knowledge:read")
     @handle_errors("create relationship")
     def _handle_create_relationship(
         self: RelationshipHandlerProtocol, handler: Any

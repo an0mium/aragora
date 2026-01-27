@@ -13,6 +13,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Protocol
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
 
 from ...base import (
@@ -40,6 +41,7 @@ class StalenessHandlerProtocol(Protocol):
 class StalenessOperationsMixin:
     """Mixin providing staleness operations for KnowledgeMoundHandler."""
 
+    @require_permission("knowledge:read")
     @handle_errors("get stale knowledge")
     def _handle_get_stale(self: StalenessHandlerProtocol, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/stale - Get stale knowledge items."""
@@ -88,6 +90,7 @@ class StalenessOperationsMixin:
             }
         )
 
+    @require_permission("knowledge:read")
     @handle_errors("revalidate node")
     def _handle_revalidate_node(
         self: StalenessHandlerProtocol, node_id: str, handler: Any
@@ -127,6 +130,7 @@ class StalenessOperationsMixin:
             }
         )
 
+    @require_permission("knowledge:read")
     @handle_errors("schedule revalidation")
     def _handle_schedule_revalidation(
         self: StalenessHandlerProtocol, handler: Any

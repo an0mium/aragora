@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.server.http_utils import run_async as _run_async
 from aragora.server.metrics import track_federation_sync, track_federation_regions
+from aragora.rbac.decorators import require_permission
 
 from ...base import (
     HandlerResult,
@@ -346,6 +347,7 @@ class FederationOperationsMixin:
         )
 
     @handle_errors("get federation status")
+    @require_permission("federation:read")
     def _handle_get_federation_status(
         self: FederationHandlerProtocol, query_params: dict
     ) -> HandlerResult:
@@ -381,6 +383,7 @@ class FederationOperationsMixin:
         )
 
     @handle_errors("list federated regions")
+    @require_permission("federation:read")
     def _handle_list_regions(self: FederationHandlerProtocol, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/federation/regions - List federated regions."""
         mound = self._get_mound()

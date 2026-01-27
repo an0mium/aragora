@@ -146,6 +146,7 @@ def _cleanup_expired_sessions():
 # =============================================================================
 
 
+@require_permission("auth:read")
 async def handle_sso_login(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -201,6 +202,7 @@ async def handle_sso_login(
         return error_response(f"SSO login failed: {str(e)}", status=500)
 
 
+@require_permission("auth:read")
 async def handle_sso_callback(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -276,6 +278,7 @@ async def handle_sso_callback(
         return error_response(f"SSO authentication failed: {str(e)}", status=401)
 
 
+@require_permission("auth:read")
 async def handle_sso_refresh(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -327,6 +330,7 @@ async def handle_sso_refresh(
         return error_response(f"Token refresh failed: {str(e)}", status=401)
 
 
+@require_permission("auth:read")
 async def handle_sso_logout(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -374,6 +378,7 @@ async def handle_sso_logout(
 # =============================================================================
 
 
+@require_permission("auth:read")
 async def handle_list_providers(
     data: Dict[str, Any],
     user_id: str = "default",

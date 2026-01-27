@@ -68,6 +68,7 @@ def get_email_actions_service_instance():
 # =============================================================================
 
 
+@require_permission("email:create")
 async def handle_send_email(
     data: dict[str, Any],
     user_id: str = "default",
@@ -128,6 +129,7 @@ async def handle_send_email(
         return error_response(f"Send failed: {str(e)}", status=500)
 
 
+@require_permission("email:create")
 async def handle_reply_email(
     data: dict[str, Any],
     message_id: str = "",
@@ -878,6 +880,7 @@ async def handle_batch_modify(
 # =============================================================================
 
 
+@require_permission("email:read")
 async def handle_get_action_logs(
     data: dict[str, Any],
     user_id: str = "default",

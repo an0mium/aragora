@@ -17,6 +17,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
+from aragora.rbac.decorators import require_permission
+
 from ...base import (
     HandlerResult,
     error_response,
@@ -40,6 +42,7 @@ class AnalyticsOperationsMixin:
         """Get the knowledge mound instance."""
         raise NotImplementedError("Subclass must implement _get_mound")
 
+    @require_permission("analytics:read")
     @rate_limit(requests_per_minute=20)
     async def analyze_coverage(
         self,
@@ -76,6 +79,7 @@ class AnalyticsOperationsMixin:
             logger.error(f"Error analyzing coverage: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("analytics:read")
     @rate_limit(requests_per_minute=20)
     async def analyze_usage(
         self,
@@ -112,6 +116,7 @@ class AnalyticsOperationsMixin:
             logger.error(f"Error analyzing usage: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("analytics:read")
     @rate_limit(requests_per_minute=100)
     async def record_usage_event(
         self,
@@ -179,6 +184,7 @@ class AnalyticsOperationsMixin:
             logger.error(f"Error recording usage event: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("analytics:read")
     @rate_limit(requests_per_minute=30)
     async def capture_quality_snapshot(
         self,
@@ -215,6 +221,7 @@ class AnalyticsOperationsMixin:
             logger.error(f"Error capturing quality snapshot: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("analytics:read")
     @rate_limit(requests_per_minute=30)
     async def get_quality_trend(
         self,
@@ -251,6 +258,7 @@ class AnalyticsOperationsMixin:
             logger.error(f"Error getting quality trend: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("analytics:read")
     @rate_limit(requests_per_minute=60)
     async def get_analytics_stats(self) -> HandlerResult:
         """

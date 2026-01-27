@@ -17,6 +17,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 
+from aragora.rbac.decorators import require_permission
+
 from ...base import (
     HandlerResult,
     error_response,
@@ -40,6 +42,7 @@ class PruningOperationsMixin:
         """Get the knowledge mound instance."""
         raise NotImplementedError("Subclass must implement _get_mound")
 
+    @require_permission("knowledge:admin")
     @rate_limit(requests_per_minute=30)
     async def get_prunable_items(
         self,
@@ -108,6 +111,7 @@ class PruningOperationsMixin:
             logger.error(f"Error getting prunable items: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("knowledge:admin")
     @rate_limit(requests_per_minute=10)
     async def execute_prune(
         self,
@@ -181,6 +185,7 @@ class PruningOperationsMixin:
             logger.error(f"Error executing prune: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("knowledge:admin")
     @rate_limit(requests_per_minute=5)
     async def auto_prune(
         self,
@@ -271,6 +276,7 @@ class PruningOperationsMixin:
             logger.error(f"Error in auto-prune: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("knowledge:admin")
     @rate_limit(requests_per_minute=30)
     async def get_prune_history(
         self,
@@ -334,6 +340,7 @@ class PruningOperationsMixin:
             logger.error(f"Error getting prune history: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("knowledge:admin")
     @rate_limit(requests_per_minute=20)
     async def restore_pruned_item(
         self,
@@ -387,6 +394,7 @@ class PruningOperationsMixin:
             logger.error(f"Error restoring pruned item: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("knowledge:admin")
     @rate_limit(requests_per_minute=5)
     async def apply_confidence_decay(
         self,

@@ -217,9 +217,9 @@ class DecisionHandler(BaseHandler):
                 )
 
                 enforcer = RBACEnforcer()
-                ctx = IsolationContext(  # type: ignore[call-arg]
+                ctx = IsolationContext(
+                    actor_id=request.context.user_id,
                     workspace_id=request.context.workspace_id,
-                    user_id=request.context.user_id,
                 )
                 enforcer.require(  # type: ignore[unused-coroutine]
                     auth_ctx.user_id,

@@ -362,6 +362,7 @@ def _generate_mock_summary(time_range: str) -> CostSummary:
 class CostHandler:
     """Handler for cost visibility API endpoints."""
 
+    @require_permission("costs:read")
     async def handle_get_costs(self, request: web.Request) -> web.Response:
         """
         GET /api/costs
@@ -402,6 +403,7 @@ class CostHandler:
                 status=500,
             )
 
+    @require_permission("costs:read")
     async def handle_get_breakdown(self, request: web.Request) -> web.Response:
         """
         GET /api/costs/breakdown
@@ -434,6 +436,7 @@ class CostHandler:
             logger.exception(f"Failed to get breakdown: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
+    @require_permission("costs:read")
     async def handle_get_timeline(self, request: web.Request) -> web.Response:
         """
         GET /api/costs/timeline
@@ -460,6 +463,7 @@ class CostHandler:
             logger.exception(f"Failed to get timeline: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
+    @require_permission("costs:read")
     async def handle_get_alerts(self, request: web.Request) -> web.Response:
         """
         GET /api/costs/alerts
@@ -551,6 +555,7 @@ class CostHandler:
             logger.exception(f"Failed to set budget: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
+    @require_permission("costs:read")
     async def handle_dismiss_alert(self, request: web.Request) -> web.Response:
         """
         POST /api/costs/alerts/{alert_id}/dismiss
@@ -577,6 +582,7 @@ class CostHandler:
             logger.exception(f"Failed to dismiss alert: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
+    @require_permission("costs:read")
     async def handle_get_recommendations(self, request: web.Request) -> web.Response:
         """
         GET /api/costs/recommendations
@@ -627,6 +633,7 @@ class CostHandler:
             logger.exception(f"Failed to get recommendations: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
+    @require_permission("costs:read")
     async def handle_get_recommendation(self, request: web.Request) -> web.Response:
         """
         GET /api/costs/recommendations/{recommendation_id}
@@ -653,6 +660,7 @@ class CostHandler:
             logger.exception(f"Failed to get recommendation: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
+    @require_permission("costs:read")
     async def handle_apply_recommendation(self, request: web.Request) -> web.Response:
         """
         POST /api/costs/recommendations/{recommendation_id}/apply
@@ -688,6 +696,7 @@ class CostHandler:
             logger.exception(f"Failed to apply recommendation: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
+    @require_permission("costs:read")
     async def handle_dismiss_recommendation(self, request: web.Request) -> web.Response:
         """
         POST /api/costs/recommendations/{recommendation_id}/dismiss
@@ -714,6 +723,7 @@ class CostHandler:
             logger.exception(f"Failed to dismiss recommendation: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
+    @require_permission("costs:read")
     async def handle_get_efficiency(self, request: web.Request) -> web.Response:
         """
         GET /api/costs/efficiency
@@ -778,6 +788,7 @@ class CostHandler:
             logger.exception(f"Failed to get efficiency: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
+    @require_permission("costs:read")
     async def handle_get_forecast(self, request: web.Request) -> web.Response:
         """
         GET /api/costs/forecast
@@ -806,6 +817,7 @@ class CostHandler:
             logger.exception(f"Failed to get forecast: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
+    @require_permission("costs:read")
     async def handle_simulate_forecast(self, request: web.Request) -> web.Response:
         """
         POST /api/costs/forecast/simulate

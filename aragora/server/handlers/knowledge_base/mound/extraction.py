@@ -14,6 +14,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from aragora.rbac.decorators import require_permission
+
 from ...base import (
     HandlerResult,
     error_response,
@@ -37,6 +39,7 @@ class ExtractionOperationsMixin:
         """Get the knowledge mound instance."""
         raise NotImplementedError("Subclass must implement _get_mound")
 
+    @require_permission("extraction:create")
     @rate_limit(requests_per_minute=20)
     async def extract_from_debate(
         self,
@@ -91,6 +94,7 @@ class ExtractionOperationsMixin:
             logger.error(f"Error extracting from debate: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("extraction:create")
     @rate_limit(requests_per_minute=10)
     async def promote_extracted_knowledge(
         self,
@@ -146,6 +150,7 @@ class ExtractionOperationsMixin:
             logger.error(f"Error promoting extracted knowledge: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("extraction:create")
     @rate_limit(requests_per_minute=60)
     async def get_extraction_stats(self) -> HandlerResult:
         """

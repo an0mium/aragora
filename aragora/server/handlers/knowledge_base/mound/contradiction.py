@@ -15,6 +15,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
+from aragora.rbac.decorators import require_permission
+
 from ...base import (
     HandlerResult,
     error_response,
@@ -38,6 +40,7 @@ class ContradictionOperationsMixin:
         """Get the knowledge mound instance."""
         raise NotImplementedError("Subclass must implement _get_mound")
 
+    @require_permission("knowledge:read")
     @rate_limit(requests_per_minute=10)
     async def detect_contradictions(
         self,
@@ -78,6 +81,7 @@ class ContradictionOperationsMixin:
             logger.error(f"Error detecting contradictions: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("knowledge:read")
     @rate_limit(requests_per_minute=30)
     async def list_contradictions(
         self,
@@ -118,6 +122,7 @@ class ContradictionOperationsMixin:
             logger.error(f"Error listing contradictions: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("knowledge:read")
     @rate_limit(requests_per_minute=20)
     async def resolve_contradiction(
         self,
@@ -187,6 +192,7 @@ class ContradictionOperationsMixin:
             logger.error(f"Error resolving contradiction: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("knowledge:read")
     @rate_limit(requests_per_minute=60)
     async def get_contradiction_stats(self) -> HandlerResult:
         """

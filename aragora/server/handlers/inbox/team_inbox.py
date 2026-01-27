@@ -111,6 +111,7 @@ def _log_activity(
 # =============================================================================
 
 
+@require_permission("inbox:read")
 async def handle_get_team_members(
     data: dict[str, Any],
     inbox_id: str = "",
@@ -143,6 +144,7 @@ async def handle_get_team_members(
         return error_response(f"Get team members failed: {str(e)}", status=500)
 
 
+@require_permission("inbox:create")
 async def handle_add_team_member(
     data: dict[str, Any],
     inbox_id: str = "",
@@ -472,6 +474,7 @@ async def handle_stop_typing(
 # =============================================================================
 
 
+@require_permission("inbox:read")
 async def handle_get_notes(
     data: dict[str, Any],
     inbox_id: str = "",
@@ -507,6 +510,7 @@ async def handle_get_notes(
         return error_response(f"Get notes failed: {str(e)}", status=500)
 
 
+@require_permission("inbox:create")
 async def handle_add_note(
     data: dict[str, Any],
     inbox_id: str = "",
@@ -595,6 +599,7 @@ async def handle_add_note(
 # =============================================================================
 
 
+@require_permission("inbox:read")
 async def handle_get_mentions(
     data: dict[str, Any],
     user_id: str = "default",
@@ -670,6 +675,7 @@ async def handle_acknowledge_mention(
 # =============================================================================
 
 
+@require_permission("inbox:read")
 async def handle_get_activity_feed(
     data: dict[str, Any],
     inbox_id: str = "",

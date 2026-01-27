@@ -642,6 +642,7 @@ async def handle_create_issue(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("audit:read")
 async def handle_bulk_create_issues(
     repository: str,
     findings: List[Dict[str, Any]],
@@ -872,6 +873,7 @@ async def handle_create_fix_pr(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("audit:read")
 async def handle_sync_session(
     repository: str,
     session_id: str,
@@ -993,6 +995,7 @@ async def handle_sync_session(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("audit:read")
 async def handle_get_sync_status(
     session_id: str,
     sync_id: Optional[str] = None,
@@ -1033,6 +1036,7 @@ async def handle_get_sync_status(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("audit:read")
 async def handle_get_finding_issues(
     session_id: str,
     finding_id: Optional[str] = None,

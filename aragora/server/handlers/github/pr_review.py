@@ -409,6 +409,7 @@ class GitHubClient:
 # =============================================================================
 
 
+@require_permission("github:create")
 async def handle_trigger_pr_review(
     repository: str,
     pr_number: int,
@@ -930,6 +931,7 @@ def _parse_debate_result(
     return comments, verdict, summary
 
 
+@require_permission("github:read")
 async def handle_get_pr_details(
     repository: str,
     pr_number: int,
@@ -964,6 +966,7 @@ async def handle_get_pr_details(
         }
 
 
+@require_permission("github:read")
 async def handle_get_review_status(
     review_id: str,
 ) -> Dict[str, Any]:
@@ -992,6 +995,7 @@ async def handle_get_review_status(
         }
 
 
+@require_permission("github:read")
 async def handle_list_pr_reviews(
     repository: str,
     pr_number: int,

@@ -15,6 +15,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
+from aragora.rbac.decorators import require_permission
+
 from ...base import (
     HandlerResult,
     error_response,
@@ -38,6 +40,7 @@ class ConfidenceDecayOperationsMixin:
         """Get the knowledge mound instance."""
         raise NotImplementedError("Subclass must implement _get_mound")
 
+    @require_permission("knowledge:read")
     @rate_limit(requests_per_minute=10)
     async def apply_confidence_decay_endpoint(
         self,
@@ -78,6 +81,7 @@ class ConfidenceDecayOperationsMixin:
             logger.error(f"Error applying confidence decay: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("knowledge:read")
     @rate_limit(requests_per_minute=100)
     async def record_confidence_event(
         self,
@@ -148,6 +152,7 @@ class ConfidenceDecayOperationsMixin:
             logger.error(f"Error recording confidence event: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("knowledge:read")
     @rate_limit(requests_per_minute=30)
     async def get_confidence_history(
         self,
@@ -206,6 +211,7 @@ class ConfidenceDecayOperationsMixin:
             logger.error(f"Error getting confidence history: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("knowledge:read")
     @rate_limit(requests_per_minute=60)
     async def get_decay_stats(self) -> HandlerResult:
         """

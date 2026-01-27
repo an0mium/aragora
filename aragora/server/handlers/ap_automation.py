@@ -136,6 +136,7 @@ async def handle_add_invoice(
         return error_response(f"Failed to add invoice: {e}", status=500)
 
 
+@require_permission("ap:read")
 async def handle_list_invoices(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -197,6 +198,7 @@ async def handle_list_invoices(
         return error_response(f"Failed to list invoices: {e}", status=500)
 
 
+@require_permission("ap:read")
 async def handle_get_invoice(
     data: Dict[str, Any],
     invoice_id: str,
@@ -396,6 +398,7 @@ async def handle_batch_payments(
 # =============================================================================
 
 
+@require_permission("ap:read")
 async def handle_get_forecast(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -430,6 +433,7 @@ async def handle_get_forecast(
         return error_response(f"Failed to generate forecast: {e}", status=500)
 
 
+@require_permission("ap:read")
 async def handle_get_discounts(
     data: Dict[str, Any],
     user_id: str = "default",

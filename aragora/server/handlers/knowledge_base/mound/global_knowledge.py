@@ -14,6 +14,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Protocol
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
 from aragora.server.metrics import track_global_fact, track_global_query
 
@@ -43,6 +44,7 @@ class GlobalKnowledgeHandlerProtocol(Protocol):
 class GlobalKnowledgeOperationsMixin:
     """Mixin providing global knowledge operations for KnowledgeMoundHandler."""
 
+    @require_permission("knowledge:read")
     @handle_errors("store verified fact")
     def _handle_store_verified_fact(
         self: GlobalKnowledgeHandlerProtocol, handler: Any
@@ -115,6 +117,7 @@ class GlobalKnowledgeOperationsMixin:
             status=201,
         )
 
+    @require_permission("knowledge:read")
     @handle_errors("query global knowledge")
     def _handle_query_global(
         self: GlobalKnowledgeHandlerProtocol, query_params: dict
@@ -165,6 +168,7 @@ class GlobalKnowledgeOperationsMixin:
             }
         )
 
+    @require_permission("knowledge:read")
     @handle_errors("promote to global")
     def _handle_promote_to_global(
         self: GlobalKnowledgeHandlerProtocol, handler: Any
@@ -228,6 +232,7 @@ class GlobalKnowledgeOperationsMixin:
             status=201,
         )
 
+    @require_permission("knowledge:read")
     @handle_errors("get system facts")
     def _handle_get_system_facts(
         self: GlobalKnowledgeHandlerProtocol, query_params: dict
@@ -270,6 +275,7 @@ class GlobalKnowledgeOperationsMixin:
             }
         )
 
+    @require_permission("knowledge:read")
     @handle_errors("get system workspace id")
     def _handle_get_system_workspace_id(
         self: GlobalKnowledgeHandlerProtocol,

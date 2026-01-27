@@ -13,6 +13,7 @@ import logging
 from typing import TYPE_CHECKING, Protocol
 
 from aragora.knowledge.unified.types import RelationshipType
+from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
 
 from ...base import (
@@ -39,6 +40,7 @@ class GraphHandlerProtocol(Protocol):
 class GraphOperationsMixin:
     """Mixin providing graph operations for KnowledgeMoundHandler."""
 
+    @require_permission("knowledge:read")
     @handle_errors("graph traversal")
     def _handle_graph_traversal(
         self: GraphHandlerProtocol, path: str, query_params: dict
@@ -87,6 +89,7 @@ class GraphOperationsMixin:
             }
         )
 
+    @require_permission("knowledge:read")
     @handle_errors("graph lineage")
     def _handle_graph_lineage(
         self: GraphHandlerProtocol, path: str, query_params: dict
@@ -129,6 +132,7 @@ class GraphOperationsMixin:
             }
         )
 
+    @require_permission("knowledge:read")
     @handle_errors("graph related")
     def _handle_graph_related(
         self: GraphHandlerProtocol, path: str, query_params: dict

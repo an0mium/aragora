@@ -14,6 +14,7 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
 from aragora.server.metrics import track_access_grant, track_visibility_change
 
@@ -40,6 +41,7 @@ class VisibilityHandlerProtocol(Protocol):
 class VisibilityOperationsMixin:
     """Mixin providing visibility operations for KnowledgeMoundHandler."""
 
+    @require_permission("knowledge:update")
     @handle_errors("set visibility")
     def _handle_set_visibility(
         self: VisibilityHandlerProtocol, node_id: str, handler: Any
@@ -116,6 +118,7 @@ class VisibilityOperationsMixin:
             }
         )
 
+    @require_permission("knowledge:read")
     @handle_errors("get visibility")
     def _handle_get_visibility(self: VisibilityHandlerProtocol, node_id: str) -> HandlerResult:
         """Handle GET /api/knowledge/mound/nodes/:id/visibility - Get item visibility."""
@@ -147,6 +150,7 @@ class VisibilityOperationsMixin:
             }
         )
 
+    @require_permission("knowledge:update")
     @handle_errors("grant access")
     def _handle_grant_access(
         self: VisibilityHandlerProtocol, node_id: str, handler: Any
@@ -240,6 +244,7 @@ class VisibilityOperationsMixin:
             status=201,
         )
 
+    @require_permission("knowledge:update")
     @handle_errors("revoke access")
     def _handle_revoke_access(
         self: VisibilityHandlerProtocol, node_id: str, handler: Any
@@ -300,6 +305,7 @@ class VisibilityOperationsMixin:
             }
         )
 
+    @require_permission("knowledge:read")
     @handle_errors("list access grants")
     def _handle_list_access_grants(
         self: VisibilityHandlerProtocol, node_id: str, query_params: dict

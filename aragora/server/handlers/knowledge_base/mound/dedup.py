@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
+from aragora.rbac.decorators import require_permission
 
 from ...base import (
     HandlerResult,
@@ -38,6 +39,7 @@ class DedupOperationsMixin:
         raise NotImplementedError("Subclass must implement _get_mound")
 
     @rate_limit(requests_per_minute=30)
+    @require_permission("knowledge:read")
     async def get_duplicate_clusters(
         self,
         workspace_id: str,
@@ -103,6 +105,7 @@ class DedupOperationsMixin:
             return error_response(safe_error_message(e), status=500)
 
     @rate_limit(requests_per_minute=10)
+    @require_permission("knowledge:read")
     async def get_dedup_report(
         self,
         workspace_id: str,
@@ -147,6 +150,7 @@ class DedupOperationsMixin:
             return error_response(safe_error_message(e), status=500)
 
     @rate_limit(requests_per_minute=20)
+    @require_permission("knowledge:read")
     async def merge_duplicate_cluster(
         self,
         workspace_id: str,
@@ -203,6 +207,7 @@ class DedupOperationsMixin:
             return error_response(safe_error_message(e), status=500)
 
     @rate_limit(requests_per_minute=5)
+    @require_permission("knowledge:read")
     async def auto_merge_exact_duplicates(
         self,
         workspace_id: str,

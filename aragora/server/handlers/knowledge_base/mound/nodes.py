@@ -14,6 +14,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Protocol
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
 
 from ...base import (
@@ -42,6 +43,7 @@ class NodeHandlerProtocol(Protocol):
 class NodeOperationsMixin:
     """Mixin providing node operations for KnowledgeMoundHandler."""
 
+    @require_permission("knowledge:read")
     @handle_errors("mound query")
     def _handle_mound_query(self: NodeHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/query - Semantic query."""
@@ -92,6 +94,7 @@ class NodeOperationsMixin:
             }
         )
 
+    @require_permission("knowledge:create")
     @handle_errors("create node")
     def _handle_create_node(self: NodeHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/nodes - Create knowledge node."""
@@ -161,6 +164,7 @@ class NodeOperationsMixin:
 
         return json_response(saved_node.to_dict() if saved_node else {"id": node_id}, status=201)
 
+    @require_permission("knowledge:read")
     @handle_errors("get node")
     def _handle_get_node(self: NodeHandlerProtocol, node_id: str) -> HandlerResult:
         """Handle GET /api/knowledge/mound/nodes/:id - Get specific node."""
@@ -180,6 +184,7 @@ class NodeOperationsMixin:
 
         return json_response(node.to_dict())
 
+    @require_permission("knowledge:read")
     @handle_errors("list nodes")
     def _handle_list_nodes(self: NodeHandlerProtocol, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/nodes - List/filter nodes."""
@@ -226,6 +231,7 @@ class NodeOperationsMixin:
             }
         )
 
+    @require_permission("knowledge:read")
     @handle_errors("mound stats")
     def _handle_mound_stats(self: NodeHandlerProtocol, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/stats - Get mound statistics."""

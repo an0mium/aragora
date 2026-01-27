@@ -13,6 +13,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Protocol
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
 
 from ...base import (
@@ -38,6 +39,7 @@ class CultureHandlerProtocol(Protocol):
 class CultureOperationsMixin:
     """Mixin providing culture operations for KnowledgeMoundHandler."""
 
+    @require_permission("culture:read")
     @handle_errors("get culture")
     def _handle_get_culture(self: CultureHandlerProtocol, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/culture - Get organization culture profile."""
@@ -68,6 +70,7 @@ class CultureOperationsMixin:
             }
         )
 
+    @require_permission("culture:read")
     @handle_errors("add culture document")
     def _handle_add_culture_document(self: CultureHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/culture/documents - Add culture document."""
@@ -129,6 +132,7 @@ class CultureOperationsMixin:
             status=201,
         )
 
+    @require_permission("culture:read")
     @handle_errors("promote to culture")
     def _handle_promote_to_culture(self: CultureHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/culture/promote - Promote knowledge to culture."""

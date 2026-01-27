@@ -123,6 +123,7 @@ async def handle_create_invoice(
         return error_response(f"Failed to create invoice: {e}", status=500)
 
 
+@require_permission("ar:read")
 async def handle_list_invoices(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -181,6 +182,7 @@ async def handle_list_invoices(
         return error_response(f"Failed to list invoices: {e}", status=500)
 
 
+@require_permission("ar:read")
 async def handle_get_invoice(
     data: Dict[str, Any],
     invoice_id: str,
@@ -240,6 +242,7 @@ async def handle_send_invoice(
         return error_response(f"Failed to send invoice: {e}", status=500)
 
 
+@require_permission("ar:read")
 async def handle_send_reminder(
     data: Dict[str, Any],
     invoice_id: str,
@@ -341,6 +344,7 @@ async def handle_record_payment(
 # =============================================================================
 
 
+@require_permission("ar:read")
 async def handle_get_aging_report(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -367,6 +371,7 @@ async def handle_get_aging_report(
         return error_response(f"Failed to generate aging report: {e}", status=500)
 
 
+@require_permission("ar:read")
 async def handle_get_collections(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -446,6 +451,7 @@ async def handle_add_customer(
         return error_response(f"Failed to add customer: {e}", status=500)
 
 
+@require_permission("ar:read")
 async def handle_get_customer_balance(
     data: Dict[str, Any],
     customer_id: str,

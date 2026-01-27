@@ -15,6 +15,7 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
 from aragora.server.metrics import track_share
 
@@ -44,6 +45,7 @@ class SharingHandlerProtocol(Protocol):
 class SharingOperationsMixin:
     """Mixin providing cross-workspace sharing operations for KnowledgeMoundHandler."""
 
+    @require_permission("sharing:create")
     @rate_limit(rpm=30, limiter_name="knowledge_share")
     @handle_errors("share item")
     def _handle_share_item(self: SharingHandlerProtocol, handler: Any) -> HandlerResult:
@@ -139,6 +141,7 @@ class SharingOperationsMixin:
             status=201,
         )
 
+    @require_permission("sharing:read")
     @handle_errors("list shared with me")
     def _handle_shared_with_me(
         self: SharingHandlerProtocol, query_params: dict, handler: Any
@@ -193,6 +196,7 @@ class SharingOperationsMixin:
             }
         )
 
+    @require_permission("sharing:create")
     @rate_limit(rpm=30, limiter_name="knowledge_share")
     @handle_errors("revoke share")
     def _handle_revoke_share(self: SharingHandlerProtocol, handler: Any) -> HandlerResult:
@@ -246,6 +250,7 @@ class SharingOperationsMixin:
             }
         )
 
+    @require_permission("sharing:read")
     @handle_errors("list my shares")
     def _handle_my_shares(
         self: SharingHandlerProtocol, query_params: dict, handler: Any
@@ -290,6 +295,7 @@ class SharingOperationsMixin:
             }
         )
 
+    @require_permission("sharing:create")
     @handle_errors("update share permissions")
     def _handle_update_share(self: SharingHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle PATCH /api/knowledge/mound/share - Update share permissions."""

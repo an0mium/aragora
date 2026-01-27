@@ -16,7 +16,10 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
-from aragora.server.handlers.base import HandlerResult, json_response
+from aragora.rbac.decorators import require_permission
+from aragora.rbac.models import AuthorizationContext
+from aragora.server.handlers.base import HandlerResult, error_response, json_response
+from aragora.server.handlers.utils.auth import UnauthorizedError, get_auth_context
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +60,8 @@ def log_intervention(
     logger.info(f"Intervention logged: {intervention_type} for debate {debate_id}")
 
 
-async def handle_pause_debate(debate_id: str) -> HandlerResult:
+@require_permission("debates:write")
+async def handle_pause_debate(debate_id: str, context: AuthorizationContext) -> HandlerResult:
     """Pause an active debate.
 
     Pausing a debate stops agent responses but preserves state.
@@ -77,7 +81,7 @@ async def handle_pause_debate(debate_id: str) -> HandlerResult:
     state["is_paused"] = True
     state["paused_at"] = datetime.now().isoformat()
 
-    log_intervention(debate_id, "pause", {"paused_at": state["paused_at"]})
+    log_intervention(debate_id, "pause", {"paused_at": state["paused_at"]}, context.user_id)
 
     return json_response(
         {
@@ -90,7 +94,8 @@ async def handle_pause_debate(debate_id: str) -> HandlerResult:
     )
 
 
-async def handle_resume_debate(debate_id: str) -> HandlerResult:
+@require_permission("debates:write")
+async def handle_resume_debate(debate_id: str, context: AuthorizationContext) -> HandlerResult:
     """Resume a paused debate.
 
     Resumes agent responses from where they left off.
@@ -121,6 +126,7 @@ async def handle_resume_debate(debate_id: str) -> HandlerResult:
         debate_id,
         "resume",
         {"resumed_at": state["resumed_at"], "pause_duration_seconds": pause_duration},
+        context.user_id,
     )
 
     return json_response(
@@ -135,8 +141,10 @@ async def handle_resume_debate(debate_id: str) -> HandlerResult:
     )
 
 
+@require_permission("debates:write")
 async def handle_inject_argument(
     debate_id: str,
+    context: AuthorizationContext,
     content: str,
     injection_type: str = "argument",
     source: str = "user",
@@ -188,7 +196,7 @@ async def handle_inject_argument(
             "full_length": len(content),
             "source": source,
         },
-        user_id,
+        user_id or context.user_id,
     )
 
     return json_response(
@@ -203,8 +211,10 @@ async def handle_inject_argument(
     )
 
 
+@require_permission("debates:write")
 async def handle_update_weights(
     debate_id: str,
+    context: AuthorizationContext,
     agent: str,
     weight: float,
     user_id: Optional[str] = None,
@@ -242,7 +252,7 @@ async def handle_update_weights(
             "old_weight": old_weight,
             "new_weight": weight,
         },
-        user_id,
+        user_id or context.user_id,
     )
 
     return json_response(
@@ -257,8 +267,10 @@ async def handle_update_weights(
     )
 
 
+@require_permission("debates:write")
 async def handle_update_threshold(
     debate_id: str,
+    context: AuthorizationContext,
     threshold: float,
     user_id: Optional[str] = None,
 ) -> HandlerResult:
@@ -293,7 +305,7 @@ async def handle_update_threshold(
             "old_threshold": old_threshold,
             "new_threshold": threshold,
         },
-        user_id,
+        user_id or context.user_id,
     )
 
     return json_response(
@@ -307,8 +319,10 @@ async def handle_update_threshold(
     )
 
 
+@require_permission("debates:read")
 async def handle_get_intervention_state(
     debate_id: str,
+    context: AuthorizationContext,
 ) -> HandlerResult:
     """Get the current intervention state for a debate.
 
@@ -333,8 +347,10 @@ async def handle_get_intervention_state(
     )
 
 
+@require_permission("debates:read")
 async def handle_get_intervention_log(
     debate_id: str,
+    context: AuthorizationContext,
     limit: int = 50,
 ) -> HandlerResult:
     """Get the intervention log for a debate.
@@ -358,20 +374,38 @@ async def handle_get_intervention_log(
 def register_intervention_routes(router: Any) -> None:
     """Register intervention routes with the server router."""
 
+    async def _require_context(
+        handler: Any,
+    ) -> tuple[AuthorizationContext | None, HandlerResult | None]:
+        try:
+            return await get_auth_context(handler, require_auth=True), None
+        except UnauthorizedError as e:
+            return None, error_response(e.message, 401)
+
     async def pause_debate(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
-        return await handle_pause_debate(debate_id)
+        context, err = await _require_context(request)
+        if err:
+            return err
+        return await handle_pause_debate(debate_id, context)
 
     async def resume_debate(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
-        return await handle_resume_debate(debate_id)
+        context, err = await _require_context(request)
+        if err:
+            return err
+        return await handle_resume_debate(debate_id, context)
 
     async def inject_argument(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         body = await request.body()
         data = json.loads(body) if body else {}
+        context, err = await _require_context(request)
+        if err:
+            return err
         return await handle_inject_argument(
             debate_id,
+            context,
             content=data.get("content", ""),
             injection_type=data.get("type", "argument"),
             source=data.get("source", "user"),
@@ -382,8 +416,12 @@ def register_intervention_routes(router: Any) -> None:
         debate_id = request.path_params.get("debate_id", "")
         body = await request.body()
         data = json.loads(body) if body else {}
+        context, err = await _require_context(request)
+        if err:
+            return err
         return await handle_update_weights(
             debate_id,
+            context,
             agent=data.get("agent", ""),
             weight=float(data.get("weight", 1.0)),
             user_id=data.get("user_id"),
@@ -393,20 +431,30 @@ def register_intervention_routes(router: Any) -> None:
         debate_id = request.path_params.get("debate_id", "")
         body = await request.body()
         data = json.loads(body) if body else {}
+        context, err = await _require_context(request)
+        if err:
+            return err
         return await handle_update_threshold(
             debate_id,
+            context,
             threshold=float(data.get("threshold", 0.75)),
             user_id=data.get("user_id"),
         )
 
     async def get_state(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
-        return await handle_get_intervention_state(debate_id)
+        context, err = await _require_context(request)
+        if err:
+            return err
+        return await handle_get_intervention_state(debate_id, context)
 
     async def get_log(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         limit = int(request.query_params.get("limit", 50))
-        return await handle_get_intervention_log(debate_id, limit)
+        context, err = await _require_context(request)
+        if err:
+            return err
+        return await handle_get_intervention_log(debate_id, context, limit)
 
     # Register routes
     router.add_route("POST", "/api/debates/{debate_id}/intervention/pause", pause_debate)

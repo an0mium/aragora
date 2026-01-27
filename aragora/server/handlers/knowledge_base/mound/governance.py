@@ -20,6 +20,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional, Set
 
+from aragora.rbac.decorators import require_permission
+
 from ...base import (
     HandlerResult,
     error_response,
@@ -43,6 +45,7 @@ class GovernanceOperationsMixin:
         """Get the knowledge mound instance."""
         raise NotImplementedError("Subclass must implement _get_mound")
 
+    @require_permission("governance:admin")
     @rate_limit(requests_per_minute=20)
     async def create_role(
         self,
@@ -117,6 +120,7 @@ class GovernanceOperationsMixin:
             logger.error(f"Error creating role: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("governance:admin")
     @rate_limit(requests_per_minute=20)
     async def assign_role(
         self,
@@ -172,6 +176,7 @@ class GovernanceOperationsMixin:
             logger.error(f"Error assigning role: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("governance:admin")
     @rate_limit(requests_per_minute=20)
     async def revoke_role(
         self,
@@ -224,6 +229,7 @@ class GovernanceOperationsMixin:
             logger.error(f"Error revoking role: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("governance:read")
     @rate_limit(requests_per_minute=60)
     async def get_user_permissions(
         self,
@@ -266,6 +272,7 @@ class GovernanceOperationsMixin:
             logger.error(f"Error getting user permissions: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("governance:read")
     @rate_limit(requests_per_minute=100)
     async def check_permission(
         self,
@@ -327,6 +334,7 @@ class GovernanceOperationsMixin:
             logger.error(f"Error checking permission: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("governance:read")
     @rate_limit(requests_per_minute=30)
     async def query_audit_trail(
         self,
@@ -387,6 +395,7 @@ class GovernanceOperationsMixin:
             logger.error(f"Error querying audit trail: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("governance:read")
     @rate_limit(requests_per_minute=30)
     async def get_user_activity(
         self,
@@ -423,6 +432,7 @@ class GovernanceOperationsMixin:
             logger.error(f"Error getting user activity: {e}")
             return error_response(safe_error_message(e), status=500)
 
+    @require_permission("governance:read")
     @rate_limit(requests_per_minute=60)
     async def get_governance_stats(self) -> HandlerResult:
         """

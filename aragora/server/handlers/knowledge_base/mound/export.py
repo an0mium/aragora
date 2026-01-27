@@ -13,6 +13,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Protocol
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
 
 from ...base import (
@@ -39,6 +40,7 @@ class ExportHandlerProtocol(Protocol):
 class ExportOperationsMixin:
     """Mixin providing export operations for KnowledgeMoundHandler."""
 
+    @require_permission("export:read")
     @handle_errors("D3 graph export")
     def _handle_export_d3(self: ExportHandlerProtocol, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/export/d3 - Export graph as D3 JSON."""
@@ -72,6 +74,7 @@ class ExportOperationsMixin:
             }
         )
 
+    @require_permission("export:read")
     @handle_errors("GraphML export")
     def _handle_export_graphml(self: ExportHandlerProtocol, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/export/graphml - Export graph as GraphML."""
@@ -101,6 +104,7 @@ class ExportOperationsMixin:
             content_type="application/xml",
         )
 
+    @require_permission("export:read")
     @handle_errors("index repository")
     def _handle_index_repository(self: ExportHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/index/repository - Index a repository."""
