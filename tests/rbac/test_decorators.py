@@ -69,7 +69,8 @@ class TestRequirePermission:
         with pytest.raises(PermissionDeniedError) as exc_info:
             delete_debate(context)
 
-        assert exc_info.value.permission_key == "debates:delete"
+        # Permission key is normalized to dot format internally
+        assert exc_info.value.permission_key == "debates.delete"
 
     def test_raises_when_no_context(self):
         """Decorator raises when no AuthorizationContext found."""
