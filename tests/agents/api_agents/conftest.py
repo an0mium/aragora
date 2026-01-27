@@ -281,6 +281,9 @@ def mock_env_with_api_keys(monkeypatch):
     monkeypatch.setenv("MISTRAL_API_KEY", "test-mistral-key")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
     monkeypatch.setenv("XAI_API_KEY", "test-xai-key")
+    monkeypatch.setenv("GROK_API_KEY", "test-grok-key")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-google-key")
 
 
 @pytest.fixture
@@ -292,6 +295,9 @@ def mock_env_no_api_keys(monkeypatch):
         "MISTRAL_API_KEY",
         "OPENROUTER_API_KEY",
         "XAI_API_KEY",
+        "GROK_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
         "KIMI_API_KEY",
     ]:
         monkeypatch.delenv(key, raising=False)
@@ -338,3 +344,126 @@ def mock_openrouter_limiter():
     limiter.record_success = MagicMock()
     limiter.release_on_error = MagicMock()
     return limiter
+
+
+# ============================================================================
+# Gemini (Google Generative AI) Mock Responses
+# ============================================================================
+
+
+@pytest.fixture
+def mock_gemini_response():
+    """Mock Gemini API response."""
+    return {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [{"text": "This is a test response from Gemini."}],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+                "index": 0,
+                "safetyRatings": [
+                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "probability": "NEGLIGIBLE"},
+                    {"category": "HARM_CATEGORY_HATE_SPEECH", "probability": "NEGLIGIBLE"},
+                    {"category": "HARM_CATEGORY_HARASSMENT", "probability": "NEGLIGIBLE"},
+                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "probability": "NEGLIGIBLE"},
+                ],
+            }
+        ],
+        "usageMetadata": {
+            "promptTokenCount": 10,
+            "candidatesTokenCount": 20,
+            "totalTokenCount": 30,
+        },
+    }
+
+
+@pytest.fixture
+def mock_gemini_stream_chunks():
+    """SSE chunks for Gemini streaming response tests."""
+    return [
+        b'data: {"candidates":[{"content":{"parts":[{"text":"Hello"}],"role":"model"},"index":0}]}\n\n',
+        b'data: {"candidates":[{"content":{"parts":[{"text":" from"}],"role":"model"},"index":0}]}\n\n',
+        b'data: {"candidates":[{"content":{"parts":[{"text":" Gemini!"}],"role":"model"},"finishReason":"STOP","index":0}]}\n\n',
+    ]
+
+
+@pytest.fixture
+def mock_gemini_grounded_response():
+    """Mock Gemini response with Google Search grounding."""
+    return {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [{"text": "Based on recent web search results..."}],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+                "index": 0,
+                "groundingMetadata": {
+                    "searchEntryPoint": {"renderedContent": "<html>...</html>"},
+                    "groundingChunks": [
+                        {"web": {"uri": "https://example.com", "title": "Example"}}
+                    ],
+                },
+            }
+        ],
+        "usageMetadata": {
+            "promptTokenCount": 15,
+            "candidatesTokenCount": 25,
+            "totalTokenCount": 40,
+        },
+    }
+
+
+# ============================================================================
+# Grok (xAI) Mock Responses
+# ============================================================================
+
+
+@pytest.fixture
+def mock_grok_response():
+    """Mock Grok (xAI) API response - OpenAI compatible format."""
+    return {
+        "id": "chatcmpl-grok-test123",
+        "object": "chat.completion",
+        "created": 1700000000,
+        "model": "grok-3",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "This is a test response from Grok.",
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+    }
+
+
+@pytest.fixture
+def mock_grok_stream_chunks():
+    """SSE chunks for Grok streaming response tests (OpenAI format)."""
+    return [
+        b'data: {"id":"chatcmpl-grok","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"}}]}\n\n',
+        b'data: {"id":"chatcmpl-grok","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":" from"}}]}\n\n',
+        b'data: {"id":"chatcmpl-grok","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":" Grok!"}}]}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+
+
+@pytest.fixture
+def mock_env_with_gemini_key(monkeypatch):
+    """Set up environment with Gemini API key."""
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-google-key")
+
+
+@pytest.fixture
+def mock_env_with_grok_key(monkeypatch):
+    """Set up environment with Grok/xAI API key."""
+    monkeypatch.setenv("XAI_API_KEY", "test-xai-key")
+    monkeypatch.setenv("GROK_API_KEY", "test-grok-key")

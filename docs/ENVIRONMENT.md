@@ -69,6 +69,7 @@ At least one AI provider key is required.
 | `MISTRAL_API_KEY` | Optional | Mistral AI API key (Large, Codestral) | - |
 | `OPENROUTER_API_KEY` | Optional | OpenRouter for multi-model access | - |
 | `DEEPSEEK_API_KEY` | Optional | DeepSeek CLI key (for `deepseek-cli`) | - |
+| `ARAGORA_OPENROUTER_FALLBACK_ENABLED` | Optional | Enable OpenRouter fallback for supported providers | `false` |
 
 **Note:** Never commit your `.env` file. It's gitignored for security.
 

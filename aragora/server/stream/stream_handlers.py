@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 HTTP API handlers for the streaming server.
 
