@@ -25,6 +25,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +115,7 @@ class DecisionHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("decisions:read")
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle GET requests."""
         if path == "/api/v1/decisions":
@@ -131,6 +133,7 @@ class DecisionHandler(BaseHandler):
 
         return None
 
+    @require_permission("decisions:create")
     def handle_post(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle POST requests."""
         if path == "/api/v1/decisions":
