@@ -45,7 +45,9 @@ from .base import (
     json_response,
     safe_error_message,
 )
-from .secure import SecureHandler, ForbiddenError, UnauthorizedError
+from .secure import SecureHandler
+from .utils.auth import ForbiddenError, UnauthorizedError
+from .utils.auth_mixins import require_permission
 from .utils.rate_limit import rate_limit
 
 from aragora.audit.unified import audit_admin, audit_security
@@ -162,23 +164,12 @@ class NomicHandler(SecureHandler):
         return path in self.ROUTES or path.startswith("/api/nomic/")
 
     @rate_limit(rpm=30)
+    @require_permission("nomic:read")
     async def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:  # type: ignore[override]
-        """Route nomic endpoint requests."""
-        # Require authentication for all nomic operations
-        try:
-            auth_context = await self.get_auth_context(handler, require_auth=True)
-        except UnauthorizedError:
-            return error_response("Authentication required", 401)
-        except ForbiddenError as e:
-            return error_response(str(e), 403)
+        """Route nomic endpoint requests.
 
-        # Check read permission for GET endpoints
-        try:
-            self.check_permission(auth_context, "nomic:read")
-        except ForbiddenError:
-            logger.warning(f"Nomic read permission denied for user {auth_context.user_id}")
-            return error_response("Permission denied: nomic:read", 403)
-
+        Requires nomic:read permission (enforced by @require_permission decorator).
+        """
         path = strip_version_prefix(path)
         handlers = {
             "/api/nomic/state": self._get_nomic_state,

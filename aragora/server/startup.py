@@ -756,7 +756,9 @@ def init_circuit_breaker_persistence(nomic_dir: Optional[Path]) -> int:
             load_circuit_breakers,
         )
 
-        data_dir = nomic_dir or Path(".data")
+        from aragora.persistence.db_config import get_nomic_dir
+
+        data_dir = nomic_dir or get_nomic_dir()
         db_path = str(data_dir / "circuit_breaker.db")
         _init_cb_persistence(db_path)
         loaded = load_circuit_breakers()
@@ -2464,8 +2466,10 @@ async def init_access_review_scheduler() -> bool:
         # Configure storage path
         storage_path = os.environ.get("ARAGORA_ACCESS_REVIEW_STORAGE")
         if not storage_path:
-            data_dir = Path("data")
-            data_dir.mkdir(exist_ok=True)
+            from aragora.persistence.db_config import get_nomic_dir
+
+            data_dir = get_nomic_dir()
+            data_dir.mkdir(parents=True, exist_ok=True)
             storage_path = str(data_dir / "access_reviews.db")
 
         config = AccessReviewConfig(storage_path=storage_path)
