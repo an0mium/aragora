@@ -1,8 +1,8 @@
 # Disaster Recovery Drill Procedures
 
 **Effective Date:** January 14, 2026
-**Last Updated:** January 14, 2026
-**Version:** 1.0.0
+**Last Updated:** January 27, 2026
+**Version:** 1.1.0
 **Owner:** DevOps Team
 
 ---
@@ -456,6 +456,88 @@ rm /tmp/backup_verify.dump
 - Verify backup integrity before restoration
 - Full security audit before returning to production
 
+### Scenario 5: GDPR Data Deletion Request
+
+**Trigger:** User exercises "Right to be Forgotten" (Article 17)
+
+**Expected Response:**
+1. Verify user identity and request legitimacy
+2. Check for legal holds (litigation, regulatory investigation)
+3. Schedule deletion with grace period (default: 30 days)
+4. Generate final data export for user (optional)
+5. Execute coordinated deletion across all systems
+6. Add user to backup exclusion list
+7. Generate deletion certificate for audit
+
+**Key Systems Involved:**
+- UnifiedDeletionCoordinator (`aragora/deletion_coordinator.py`)
+- GDPRDeletionScheduler (`aragora/privacy/deletion.py`)
+- BackupManager (`aragora/backup/manager.py`)
+- Compliance Handler (`aragora/server/handlers/compliance_handler.py`)
+
+**API Endpoints:**
+```
+POST /api/v2/compliance/gdpr/right-to-be-forgotten
+POST /api/v2/compliance/gdpr/coordinated-deletion
+POST /api/v2/compliance/gdpr/execute-pending
+GET  /api/v2/compliance/gdpr/backup-exclusions
+POST /api/v2/compliance/gdpr/backup-exclusions
+```
+
+**Coordinated Deletion Flow:**
+```
+1. Pre-deletion checks
+   └─► Verify no legal holds exist
+   └─► Log deletion initiation in audit trail
+
+2. Primary storage deletion
+   └─► Delete user data from all registered entity stores
+   └─► Delete from: user_store, debate_store, knowledge_mound, memory
+
+3. Backup coordination
+   └─► Identify all backups containing user data
+   └─► Mark backups for user data purge
+   └─► Execute backup purge or mark for retention expiry
+
+4. Post-deletion verification
+   └─► Verify data removed from all primary stores
+   └─► Verify backup purge completed or scheduled
+   └─► Add to backup exclusion list
+
+5. Certificate generation
+   └─► Generate cryptographically signed deletion certificate
+   └─► Store certificate for GDPR compliance audit
+```
+
+**CRITICAL: Backup Restoration with GDPR Compliance**
+
+When restoring from backup, the backup exclusion list MUST be checked to prevent
+restoring data of users who have exercised their right to erasure:
+
+```bash
+# Before any backup restoration
+curl -X GET /api/v2/compliance/gdpr/backup-exclusions
+
+# The restoration process should:
+# 1. Load the backup exclusion list
+# 2. Filter out excluded users from restoration dataset
+# 3. Log any exclusions applied during restoration
+# 4. Verify no excluded user data was restored
+```
+
+**Legal Hold Override:**
+Users under legal hold cannot have data deleted until hold is released:
+```
+POST /api/v2/compliance/gdpr/legal-holds      # Create hold
+DELETE /api/v2/compliance/gdpr/legal-holds/{id} # Release hold
+```
+
+**Recovery Steps:**
+- Always check backup exclusion list before restoration
+- Verify deletion certificates are preserved during recovery
+- Re-execute pending deletions if interrupted
+- Audit restored data for GDPR compliance
+
 ---
 
 ## Compliance Checklist
@@ -502,4 +584,5 @@ rm /tmp/backup_verify.dump
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1.0 | 2026-01-27 | Added GDPR deletion flow and backup exclusion procedures |
 | 1.0.0 | 2026-01-14 | Initial release |

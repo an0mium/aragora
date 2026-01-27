@@ -94,6 +94,17 @@ class CascadeStatus(str, Enum):
     PARTIAL = "partial"  # Some deleters succeeded, some failed
 
 
+class DeletionSystem(str, Enum):
+    """Systems from which data was deleted."""
+
+    USER_STORE = "user_store"
+    DEBATE_STORE = "debate_store"
+    KNOWLEDGE_MOUND = "knowledge_mound"
+    MEMORY = "memory"
+    AUDIT_TRAIL = "audit_trail"
+    BACKUP = "backup"
+
+
 @dataclass
 class CascadeResult:
     """Result of a cascade deletion operation."""
@@ -106,6 +117,9 @@ class CascadeResult:
     backup_status: dict[str, Any] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    deleted_from: list[DeletionSystem] = field(default_factory=list)
+    backup_purge_results: dict[str, Any] = field(default_factory=dict)
 
     @property
     def success(self) -> bool:
@@ -115,7 +129,7 @@ class CascadeResult:
     @property
     def total_deleted(self) -> int:
         """Total count of deleted entities."""
-        return sum(self.entities_deleted.values())
+        return sum(c for c in self.entities_deleted.values() if c > 0)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
@@ -127,9 +141,12 @@ class CascadeResult:
             "entities_deleted": self.entities_deleted,
             "total_deleted": self.total_deleted,
             "backup_status": self.backup_status,
+            "deleted_from": [s.value for s in self.deleted_from],
+            "backup_purge_results": self.backup_purge_results,
             "errors": self.errors,
             "warnings": self.warnings,
             "success": self.success,
+            "metadata": self.metadata,
         }
 
 
