@@ -276,7 +276,11 @@ class GauntletRunner:
 
             # Convert attacks to vulnerabilities
             for attack in redteam_result.critical_issues:
-                self._add_attack_as_vulnerability(attack, result)
+                # Execute evidence code in sandbox if enabled
+                sandbox_result = None
+                if self.enable_sandbox and attack.evidence:
+                    sandbox_result = await self._execute_attack_evidence(attack.evidence)
+                self._add_attack_as_vulnerability(attack, result, sandbox_result)
 
             summary.total_attacks = redteam_result.total_attacks
             summary.successful_attacks = redteam_result.successful_attacks
@@ -522,8 +526,19 @@ class GauntletRunner:
 
         return summary
 
-    def _add_attack_as_vulnerability(self, attack, result: GauntletResult) -> None:
-        """Convert red team attack to vulnerability."""
+    def _add_attack_as_vulnerability(
+        self,
+        attack,
+        result: GauntletResult,
+        sandbox_result: Optional[dict[str, Any]] = None,
+    ) -> None:
+        """Convert red team attack to vulnerability.
+
+        Args:
+            attack: Red team attack result
+            result: GauntletResult to add vulnerability to
+            sandbox_result: Optional sandbox execution result for evidence code
+        """
         self._vulnerability_counter += 1
 
         severity = SeverityLevel.MEDIUM
@@ -536,6 +551,18 @@ class GauntletRunner:
         else:
             severity = SeverityLevel.LOW
 
+        # Build evidence with optional sandbox execution results
+        evidence = attack.evidence or ""
+        if sandbox_result and sandbox_result.get("executed"):
+            evidence += "\n\n--- Sandbox Execution ---"
+            evidence += f"\nStatus: {sandbox_result.get('status', 'unknown')}"
+            if sandbox_result.get("stdout"):
+                evidence += f"\nOutput:\n{sandbox_result['stdout'][:500]}"
+            if sandbox_result.get("stderr"):
+                evidence += f"\nErrors:\n{sandbox_result['stderr'][:500]}"
+            if sandbox_result.get("policy_violations"):
+                evidence += f"\nPolicy Violations: {sandbox_result['policy_violations']}"
+
         vuln = Vulnerability(
             id=f"vuln-{self._vulnerability_counter:04d}",
             title=f"[{attack.attack_type.value}] {attack.attack_description[:60]}",
@@ -543,7 +570,7 @@ class GauntletRunner:
             severity=severity,
             category=attack.attack_type.value,
             source="red_team",
-            evidence=attack.evidence,
+            evidence=evidence,
             mitigation=attack.mitigation or "",
             exploitability=attack.exploitability,
             impact=attack.severity,
@@ -579,6 +606,91 @@ class GauntletRunner:
             agent_name=agent_name,
         )
         result.add_vulnerability(vuln)
+
+    async def _execute_attack_evidence(self, evidence: str) -> Optional[dict[str, Any]]:
+        """Execute code embedded in attack evidence.
+
+        Detects and executes code blocks from attack evidence to validate
+        attack feasibility and capture sandbox policy violations.
+
+        Args:
+            evidence: Attack evidence that may contain code
+
+        Returns:
+            Sandbox execution result or None if no executable code found
+        """
+        if not evidence or not self.enable_sandbox:
+            return None
+
+        # Detect code patterns in evidence
+        code, language = self._extract_code_from_evidence(evidence)
+        if not code:
+            return None
+
+        logger.debug(f"[gauntlet] Executing {language} code from attack evidence")
+        return await self.execute_code_sandboxed(code, language, timeout=30.0)
+
+    def _extract_code_from_evidence(self, evidence: str) -> tuple[Optional[str], str]:
+        """Extract executable code from attack evidence.
+
+        Looks for code blocks or common code patterns.
+
+        Args:
+            evidence: Attack evidence text
+
+        Returns:
+            Tuple of (code, language) or (None, "") if no code found
+        """
+        import re
+
+        # Check for markdown code blocks
+        code_block_pattern = r"```(\w+)?\n(.*?)```"
+        matches = re.findall(code_block_pattern, evidence, re.DOTALL)
+        if matches:
+            lang, code = matches[0]
+            language = (lang or "python").lower()
+            if language in ("python", "py"):
+                return code.strip(), "python"
+            elif language in ("javascript", "js", "node"):
+                return code.strip(), "javascript"
+            elif language in ("bash", "sh", "shell"):
+                return code.strip(), "bash"
+            return code.strip(), "python"
+
+        # Check for inline code patterns (Python-style)
+        python_patterns = [
+            r"import\s+\w+",
+            r"def\s+\w+\s*\(",
+            r"exec\s*\(",
+            r"eval\s*\(",
+            r"os\.\w+\s*\(",
+            r"subprocess\.\w+",
+        ]
+
+        for pattern in python_patterns:
+            if re.search(pattern, evidence):
+                lines = evidence.split("\n")
+                code_lines = []
+                in_code = False
+                for line in lines:
+                    stripped = line.strip()
+                    if re.search(pattern, stripped) and not in_code:
+                        in_code = True
+                    if in_code:
+                        if (
+                            stripped
+                            and not stripped.startswith("#")
+                            and not any(
+                                c.isalnum() or c in "()[]{}.,;:=+-*/<>!@#$%^&|~`'\" \t_"
+                                for c in stripped
+                            )
+                        ):
+                            break
+                        code_lines.append(line)
+                if code_lines:
+                    return "\n".join(code_lines), "python"
+
+        return None, ""
 
     async def execute_code_sandboxed(
         self,
